@@ -1,0 +1,125 @@
+# Claude Desktop configuration
+.claude/
+*.claude.json
+.claude-completions
+
+# Node.js dependencies and files
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.tox/
+.hypothesis/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.nova/
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+log.txt
+
+# Database files (be careful with these)
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.db-journal
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+*.temp
+*.old
+*~
+
+# Neo4j
+neo4j/data/
+neo4j/logs/
+neo4j/import/
+*.graphdb/
+
+# Writing/Novel specific (uncomment if you want to exclude)
+# drafts/
+# old_versions/
+# research/
+# notes/
+
+# Build artifacts
+build/
+dist/
+out/
+target/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output
+
+# Temporary
