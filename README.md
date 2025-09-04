@@ -84,13 +84,6 @@ npm uninstall -g scrivener-mcp
 - **Format Preservation**: Option to maintain or strip RTF formatting
 - **Custom Separators**: Configure how documents are joined
 
-## Installation
-
-```bash
-npm install
-npm run build
-```
-
 ## Usage
 
 The MCP server provides the following tools:
