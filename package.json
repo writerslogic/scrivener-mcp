@@ -1,6 +1,6 @@
 {
-  "name": "@mcp/scrivener",
-  "version": "0.1.1",
+  "name": "scrivener-mcp",
+  "version": "0.1.4",
   "description": "Model Context Protocol server for Scrivener project manipulation and analysis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
