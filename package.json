@@ -1,6 +1,6 @@
 {
   "name": "scrivener-mcp",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "MCP server for Scrivener - Read, analyze, and manipulate Scrivener writing projects. Features RTF parsing, document structure analysis, word counting, and AI-powered writing assistance for authors using Claude or other LLMs.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
