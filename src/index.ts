@@ -3,10 +3,16 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { ScrivenerProject } from './scrivener-project.js';
+import { MemoryManager } from './memory-manager.js';
+import { ContentAnalyzer } from './content-analyzer.js';
+import { ContentEnhancer } from './content-enhancer.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
 let currentProject: ScrivenerProject | null = null;
+let memoryManager: MemoryManager | null = null;
+let contentAnalyzer: ContentAnalyzer = new ContentAnalyzer();
+let contentEnhancer: ContentEnhancer = new ContentEnhancer();
 
 const server = new Server(
     {
@@ -329,6 +335,197 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {},
                 },
             },
+            {
+                name: 'deep_analyze_content',
+                description: 'Perform deep content analysis with AI insights',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        documentId: {
+                            type: 'string',
+                            description: 'UUID of the document to analyze',
+                        },
+                    },
+                    required: ['documentId'],
+                },
+            },
+            {
+                name: 'enhance_content',
+                description: 'Enhance content with AI-powered improvements',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        documentId: {
+                            type: 'string',
+                            description: 'UUID of the document to enhance',
+                        },
+                        enhancementType: {
+                            type: 'string',
+                            enum: [
+                                'eliminate-filter-words',
+                                'strengthen-verbs',
+                                'vary-sentences',
+                                'add-sensory-details',
+                                'show-dont-tell',
+                                'improve-flow',
+                                'enhance-descriptions',
+                                'strengthen-dialogue',
+                                'fix-pacing',
+                                'expand',
+                                'condense',
+                                'rewrite',
+                            ],
+                            description: 'Type of enhancement to apply',
+                        },
+                        options: {
+                            type: 'object',
+                            properties: {
+                                tone: {
+                                    type: 'string',
+                                    enum: ['maintain', 'lighter', 'darker', 'more-serious', 'more-humorous'],
+                                },
+                                length: {
+                                    type: 'string',
+                                    enum: ['maintain', 'shorter', 'longer'],
+                                },
+                                aggressiveness: {
+                                    type: 'string',
+                                    enum: ['light', 'moderate', 'heavy'],
+                                },
+                            },
+                        },
+                    },
+                    required: ['documentId', 'enhancementType'],
+                },
+            },
+            {
+                name: 'save_character_profile',
+                description: 'Save or update a character profile in project memory',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string',
+                            description: 'Character name',
+                        },
+                        role: {
+                            type: 'string',
+                            enum: ['protagonist', 'antagonist', 'supporting', 'minor'],
+                            description: 'Character role',
+                        },
+                        description: {
+                            type: 'string',
+                            description: 'Character description',
+                        },
+                        traits: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'Character traits',
+                        },
+                        arc: {
+                            type: 'string',
+                            description: 'Character arc description',
+                        },
+                    },
+                    required: ['name', 'role'],
+                },
+            },
+            {
+                name: 'get_character_profiles',
+                description: 'Get all character profiles from project memory',
+                inputSchema: {
+                    type: 'object',
+                    properties: {},
+                },
+            },
+            {
+                name: 'update_style_guide',
+                description: 'Update the project style guide',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        tone: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'Tone descriptors',
+                        },
+                        voice: {
+                            type: 'string',
+                            description: 'Narrative voice',
+                        },
+                        pov: {
+                            type: 'string',
+                            enum: ['first', 'second', 'third-limited', 'third-omniscient'],
+                            description: 'Point of view',
+                        },
+                        tense: {
+                            type: 'string',
+                            enum: ['past', 'present', 'future'],
+                            description: 'Narrative tense',
+                        },
+                    },
+                },
+            },
+            {
+                name: 'get_style_guide',
+                description: 'Get the project style guide',
+                inputSchema: {
+                    type: 'object',
+                    properties: {},
+                },
+            },
+            {
+                name: 'save_plot_thread',
+                description: 'Save or update a plot thread',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string',
+                            description: 'Thread name',
+                        },
+                        description: {
+                            type: 'string',
+                            description: 'Thread description',
+                        },
+                        status: {
+                            type: 'string',
+                            enum: ['setup', 'development', 'climax', 'resolution'],
+                            description: 'Thread status',
+                        },
+                        documents: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'Related document IDs',
+                        },
+                    },
+                    required: ['name', 'description'],
+                },
+            },
+            {
+                name: 'get_plot_threads',
+                description: 'Get all plot threads',
+                inputSchema: {
+                    type: 'object',
+                    properties: {},
+                },
+            },
+            {
+                name: 'get_writing_stats',
+                description: 'Get writing statistics for the project',
+                inputSchema: {
+                    type: 'object',
+                    properties: {},
+                },
+            },
+            {
+                name: 'export_project_memory',
+                description: 'Export the complete project memory',
+                inputSchema: {
+                    type: 'object',
+                    properties: {},
+                },
+            },
         ],
     };
 });
@@ -349,6 +546,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
                 currentProject = new ScrivenerProject(projPath);
                 await currentProject.loadProject();
+                
+                // Initialize memory manager for this project
+                memoryManager = new MemoryManager(projPath);
+                await memoryManager.initialize();
 
                 return {
                     content: [
@@ -664,8 +865,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const { documentId } = args as { documentId: string };
                 const content = await currentProject.readDocument(documentId);
 
-                // Basic analysis
-                const analysis = analyzeWriting(content);
+                // Use new ContentAnalyzer for deep analysis
+                const analysis = await contentAnalyzer.analyzeContent(content, documentId);
+                
+                // Save analysis to memory
+                if (memoryManager) {
+                    memoryManager.setDocumentContext(documentId, {
+                        summary: analysis.suggestions[0]?.suggestion || '',
+                        themes: [],
+                        sentiment: 'neutral',
+                        pacing: analysis.pacing.overall === 'variable' ? 'moderate' : analysis.pacing.overall,
+                        keyElements: analysis.quality.filterWords,
+                        suggestions: analysis.suggestions.map(s => s.suggestion),
+                        continuityNotes: []
+                    });
+                }
 
                 return {
                     content: [
@@ -688,13 +902,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
 
                 const content = await currentProject.readDocument(documentId);
-                const critique = generateCritique(content, focusAreas);
+                const analysis = await contentAnalyzer.analyzeContent(content, documentId);
+                
+                // Generate critique based on analysis
+                const critiques: string[] = [];
+                
+                if (!focusAreas.length || focusAreas.includes('structure')) {
+                    critiques.push(`**Structure:** ${analysis.structure.openingStrength} opening, ${analysis.structure.endingStrength} ending, ${analysis.structure.sceneBreaks} scene breaks`);
+                }
+                
+                if (!focusAreas.length || focusAreas.includes('style')) {
+                    critiques.push(`**Style:** ${analysis.style.sentenceVariety} sentence variety, ${analysis.style.vocabularyComplexity} vocabulary, ${analysis.style.adverbUsage} adverb usage`);
+                }
+                
+                if (!focusAreas.length || focusAreas.includes('pacing')) {
+                    critiques.push(`**Pacing:** ${analysis.pacing.overall} overall pace, action/reflection ratio: ${analysis.pacing.actionVsReflection.toFixed(2)}`);
+                }
+                
+                if (analysis.suggestions.length > 0) {
+                    critiques.push(`**Top Suggestions:**\n${analysis.suggestions.slice(0, 5).map(s => `- ${s.suggestion}`).join('\n')}`);
+                }
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: critique,
+                            text: critiques.join('\n\n'),
                         },
                     ],
                 };
@@ -717,6 +950,218 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
             }
 
+            case 'deep_analyze_content': {
+                if (!currentProject) {
+                    throw new Error('No project is currently open');
+                }
+
+                const { documentId } = args as { documentId: string };
+                const content = await currentProject.readDocument(documentId);
+                const analysis = await contentAnalyzer.analyzeContent(content, documentId);
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(analysis, null, 2),
+                        },
+                    ],
+                };
+            }
+
+            case 'enhance_content': {
+                if (!currentProject) {
+                    throw new Error('No project is currently open');
+                }
+
+                const { documentId, enhancementType, options } = args as {
+                    documentId: string;
+                    enhancementType: any;
+                    options?: any;
+                };
+
+                const content = await currentProject.readDocument(documentId);
+                const styleGuide = memoryManager?.getStyleGuide();
+                
+                const result = await contentEnhancer.enhance({
+                    content,
+                    type: enhancementType,
+                    options,
+                    styleGuide
+                });
+
+                // Save enhanced content back to document
+                await currentProject.writeDocument(documentId, result.enhanced);
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Enhanced document ${documentId}. Changes applied: ${result.changes.length}\n\nMetrics:\n${JSON.stringify(result.metrics, null, 2)}`,
+                        },
+                    ],
+                };
+            }
+
+            case 'save_character_profile': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const { name, role, description, traits, arc } = args as any;
+                const character = memoryManager.addCharacter({
+                    name,
+                    role,
+                    description: description || '',
+                    traits: traits || [],
+                    arc: arc || '',
+                    relationships: [],
+                    appearances: [],
+                    notes: ''
+                });
+
+                await memoryManager.saveMemory();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Saved character profile: ${character.name} (${character.role})`,
+                        },
+                    ],
+                };
+            }
+
+            case 'get_character_profiles': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const characters = memoryManager.getAllCharacters();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(characters, null, 2),
+                        },
+                    ],
+                };
+            }
+
+            case 'update_style_guide': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const updates = args as any;
+                memoryManager.updateStyleGuide(updates);
+                await memoryManager.saveMemory();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'Style guide updated successfully',
+                        },
+                    ],
+                };
+            }
+
+            case 'get_style_guide': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const styleGuide = memoryManager.getStyleGuide();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(styleGuide, null, 2),
+                        },
+                    ],
+                };
+            }
+
+            case 'save_plot_thread': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const { name, description, status, documents } = args as any;
+                const thread = memoryManager.addPlotThread({
+                    name,
+                    description,
+                    status: status || 'setup',
+                    documents: documents || [],
+                    keyEvents: []
+                });
+
+                await memoryManager.saveMemory();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Saved plot thread: ${thread.name}`,
+                        },
+                    ],
+                };
+            }
+
+            case 'get_plot_threads': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const threads = memoryManager.getPlotThreads();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(threads, null, 2),
+                        },
+                    ],
+                };
+            }
+
+            case 'get_writing_stats': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const stats = memoryManager.getWritingStats();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(stats, null, 2),
+                        },
+                    ],
+                };
+            }
+
+            case 'export_project_memory': {
+                if (!memoryManager) {
+                    throw new Error('Memory manager not initialized');
+                }
+
+                const memory = memoryManager.getFullMemory();
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(memory, null, 2),
+                        },
+                    ],
+                };
+            }
+
             default:
                 throw new Error(`Unknown tool: ${name}`);
         }
@@ -725,6 +1170,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 });
 
+// Old analysis functions - kept for reference but replaced by ContentAnalyzer
+/*
 interface WritingAnalysis {
     wordCount: number;
     sentenceCount: number;
@@ -966,6 +1413,7 @@ function generateCritique(content: string, focusAreas: string[]): string {
 
     return critiques.join('\n');
 }
+*/
 
 async function main() {
     const transport = new StdioServerTransport();
