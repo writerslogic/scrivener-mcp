@@ -180,39 +180,34 @@ export class ContentEnhancer {
 
     private eliminateFilterWords(content: string, changes: Change[]): string {
         let enhanced = content;
-        let offset = 0;
         
-        this.filterWords.forEach(filterWord => {
-            const regex = new RegExp(`\\b${filterWord}\\b`, 'gi');
-            let match;
+        // Sort filter words by length (longest first) to avoid partial replacements
+        const sortedFilterWords = Array.from(this.filterWords).sort((a, b) => b.length - a.length);
+        
+        sortedFilterWords.forEach(filterWord => {
+            const regex = new RegExp(`\\b${filterWord}\\b\\s*`, 'gi');
             
-            while ((match = regex.exec(content)) !== null) {
-                const start = match.index;
-                const end = start + match[0].length;
-                
+            enhanced = enhanced.replace(regex, (match, offset) => {
                 // Context-aware removal
-                const before = content.slice(Math.max(0, start - 50), start);
-                const after = content.slice(end, Math.min(content.length, end + 50));
+                const before = content.slice(Math.max(0, offset - 50), offset);
+                const after = content.slice(offset + match.length, Math.min(content.length, offset + match.length + 50));
                 
                 if (this.shouldRemoveFilterWord(filterWord, before, after)) {
                     changes.push({
                         type: 'filter-word-removal',
-                        original: match[0],
+                        original: match.trim(),
                         replacement: '',
                         reason: `Removed filter word "${filterWord}" to strengthen prose`,
-                        location: { start: start + offset, end: end + offset }
+                        location: { start: offset, end: offset + match.length }
                     });
-                    
-                    // Remove the word and adjust spacing
-                    const beforeEnhanced = enhanced.slice(0, start + offset);
-                    const afterEnhanced = enhanced.slice(end + offset);
-                    enhanced = beforeEnhanced.trim() + ' ' + afterEnhanced.trim();
-                    enhanced = enhanced.replace(/\s+/g, ' ');
-                    
-                    offset -= match[0].length;
+                    return ''; // Remove the filter word
                 }
-            }
+                return match; // Keep the word
+            });
         });
+        
+        // Clean up multiple spaces
+        enhanced = enhanced.replace(/\s+/g, ' ').trim();
         
         return enhanced;
     }
