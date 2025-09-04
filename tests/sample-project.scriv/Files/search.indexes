@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SearchIndexes Version="1.0">
+    <Documents>
+        <Document ID="57ECC98D-8199-4935-B5F1-D1F7A2D60646">
+            <Title>Front Matter</Title>
+            <Notes>Note that in the “Metadata” pane of the Inspector, under “Section Type”, the “Default Subdocument Type” is set to “Front Matter”. This setting causes all subdocuments of this folder to use the “Front Matter” section type by default (that is, when “Structure-Based” is selected as the section type).
+
+This saves us from having to manually assign the “Front Matter” section type for each document we place into this folder.
+
+During Compile, documents assigned the “Front Matter” section type will be laid out differently from documents in the main body of the manuscript.</Notes>
+        </Document>
+        <Document ID="C88ACCC3-4FDB-4952-80E1-177623CDE141">
+            <Title>Cover</Title>
+        </Document>
+        <Document ID="486D874A-7589-4C1E-BECE-40B465746BA1">
+            <Title>Title Page</Title>
+            <Text>
+
+
+
+
+
+
+
+&lt;$PROJECTTITLE&gt;
+
+
+&lt;$author&gt;</Text>
+            <Notes>These tags get replaced with the information set in the Metadata pane of Compile. Alternatively, you can simply replace this text altogether.</Notes>
+        </Document>
+        <Document ID="3E5B46A7-2D74-46C0-9C84-D3D1B9EB378E">
+            <Title>Manuscript Format</Title>
+        </Document>
+        <Document ID="F8F9FDEF-FD9F-4A8C-B33D-3434A1220ADC">
+            <Title>Novel Format</Title>
+            <Text>NOVEL FORMAT
+
+About This Template
+By default, when compiled (File &gt; Compile), this project will generate a document in the standard manuscript format for novels. Settings are also provided to make it easy to compile to a paperback-style PDF for self-publishing or an EPUB or Kindle ebook.
+
+How To Use This Template
+	•	Inside the “Manuscript” folder, create a new folder for each chapter and title each folder with the name of the chapter. If you don’t intend to use chapter names, just use something descriptive that tells you what the chapter is about. (You do not need to—and indeed shouldn’t—title the folders “Chapter One” and so on, because chapter numbering will be taken care of automatically during the Compile process.) The first chapter folder has been created for you with the placeholder title “Chapter”.
+	⁃	Note: The “Manuscript” folder is what we refer to in the documentation as the “Draft folder”. It’s just been renamed “Manuscript” in this template.
+	•	Create a new text document for each scene inside the chapter folders. (Upon export, scenes will be separated with the “#” character for standard manuscript format, or with a blank line for other formats.)
+	•	Information about characters can be placed in the “Characters” folder, and information about locations can be placed in the “Places” folder. (These are just regular folders that have had custom icons assigned to them using the Documents &gt; Change Icon feature.)
+	•	Character and setting sketch sheets have been provided which can be used for filling out information about the people and places in your novel. These are located in the “Template Sheets” folder.
+	⁃	You should not edit the documents in the “Template Sheets” folder directly unless you wish to change the templates (which you are free to do—you may wish to customise the sketch sheets or get rid of them entirely).
+	⁃	To create a new character sheet, click on the Characters folder (or wherever you want to create your new character sheet) and from the Project menu, select New From Template &gt; Character Sketch. This creates a new character sketch document for you to edit and fill in with your character details. You can create setting sketch sheets in the same way.
+	⁃	Alternatively, you can just click “Add”, or hit cmd-N, with the Characters or Places folders selected.
+	⁃	You can view character and setting sketches in the Inspector as follows:
+	1.	Select the “Bookmarks” pane in the Inspector.
+	2.	If necessary, click on “Document Bookmarks” at the top and switch to “Project Bookmarks”.
+	3.	Click on the chevron next to the “Characters” or “Places” folders in the Bookmarks list and choose the sheet you wish to view. (Note that only folders with content show chevrons.)
+	•	A “Notes” folder has been provided for project-level notes. This has been set as the default Bookmarks folder in Project &gt; Project Settings, so that when you create a new document from the Bookmarks sidebar in a Quick Reference panel, the document will be added to this folder.
+
+Compiling
+	•	Title pages and front matter are all provided in the “Front Matter” folder (between the “Places” and “Notes” folders). Different front matter is used for different formats.
+	•	Tip: You can open this document in a Quick Reference panel and have it open alongside the Compile panel if you need to refer to these instructions while compiling.
+
+	•	To compile to standard manuscript format:
+	◦	Edit the “Title Page” document inside the Front Matter/Manuscript Format folder to ensure that it contains the correct information (by default it will use information from Contacts).
+	◦	Go to File &gt; Compile…
+	◦	Next to “Compile for”, select “Print”, “PDF” or one of the rich text file formats such as RTF, Word or OpenOffice.
+	◦	Select either “Manuscript (Courier)” or “Manuscript (Times)” from the list of formats on the left (note that this list changes depending on the file format you chosen).
+	◦	Ensure that the “Add front matter” button is ticked under the contents list on the right and that the “Manuscript Format” folder is selected in the pop-up button next to it. (This has already been set up for you.)
+	◦	Click on “Compile”.
+
+	•	To compile to paperback PDF format:
+	◦	Edit the front matter pages contained inside the Front Matter/Paperback folder.
+	◦	Go to File &gt; Compile…
+	◦	Next to “Compile for”, select “PDF”.
+	◦	Select “Paperback (5.06” x 7.81”)” from the list of formats on the left.
+	◦	Ensure that the “Add front matter” button is ticked under the contents list on the right and that the “Paperback” folder is selected in the pop-up button next to it if it. (This has already been set up for you.)
+	◦	Click on “Compile”.
+
+	•	To compile to ebook format:
+	◦	Edit or remove the dedication page contained inside the Front Matter/EBook folder. Feel free to add any other front matter documents as required.
+	◦	Import a cover image (preferably in JPG or PNG format).
+	⁃	You can store this anywhere, but it makes sense to place it in the “EBook” front matter folder. A placeholder cover image is already provided—you will want to delete that once you have imported your own.
+	⁃	Be sure to check online for recommended image sizes, because the recommendations are constantly changing. The sample cover image provided is 2,500 x 1,563 pixels, based on Amazon’s recommended size and proportions for a Kindle cover at the time this template was created.
+	◦	Go to File &gt; Compile…
+	◦	From the “Compile for” menu, select one of the ebook formats.
+	⁃	To create an ePub file, choose the “ePub 3” format.
+	⁃	To create a Kindle file, choose the “Kindle KF8/Mobi” format.
+	⁃	“ePub 2” and “Kindle Mobi” are older versions of the formats. They are mainly provided for supporting projects created in older versions of Scrivener.
+	◦	Select “Ebook” from the list of formats on the left.
+	◦	If you have front matter documents other than the cover image, ensure that the “Add front matter” button is ticked under the contents list on the right and that the “Ebook” folder is selected in the pop-up button next to it. If you don’t have any front matter documents, you can un-tick “Add front matter”. (Un-ticking this does not affect the cover image.)
+	◦	Above the contents list in the rightmost header bar are six buttons. Click on each of them in turn to go through the various available settings, changing what you need. In particular:
+	⁃	Fill in the metadata such as author name and book title.
+	⁃	Ensure your cover image is selected and shown.
+	◦	Click on “Compile”.
+
+Making Changes
+There are various minor changes you can make to tweak this template so that it better suits your needs, as follows:
+	•	Project and author name: The default book title and author name used in headers and elsewhere can be edited in the metadata pane of Compile (click the tag icon in the rightmost header bar of the Compile panel).
+	•	Chapter subtitles: By default, Compile for this template is set up so that chapter numbers are added but not chapter titles. If you want to include the title of the chapter folder in Compile:
+	1.	Click on “Assign Section Layouts” at the bottom of the Compile panel.
+	2.	Select “Chapter Heading” in the list on the left.
+	3.	Select a different layout on the right, such as “Chapter Title”. (These layouts determine how each part of your manuscript looks in the compiled text.)
+	•	Font: You can override the font used throughout a compiled document:
+	1.	At the top of the “Section Layouts” pane in the centre of the Compile panel, change the “Font” setting.
+	2.	Note that fonts are not included in ebooks, however—e-readers choose their own fonts (and you would need to pay a hefty fee for a licence to embed a font in an ebook). The “Font” setting is therefore not available for ebook formats.
+	•	Page size: The “Paperback” format is set to create a PDF with a page size of 5.06” x 7.81”, which is one of the formats you can use with Amazon’s CreateSpace and is a popular size for trade paperbacks. You can create your own paperback format using a different page size as follows:
+	1.	Ctrl-click on the “Paperback (5.06” x 7.81)” format in Compile’s “Formats” list.
+	2.	Select “Duplicate &amp; Edit Format…”. The window will change size and content.
+	3.	In the “Format Name” text field at the top, change the name to something meaningful (e.g. “Paperback (6” x 9”)”).
+	4.	Select “Page Settings” in the sidebar.
+	5.	Click on the “Page Setup…” button.
+	6.	In the “Page Setup” panel that appears, select “Manage Custom Sizes…” from the “Paper Size” pop-up button.
+	7.	Click the “+” button to add a new custom size and give it a name.
+	8.	Enter the paper width and height. (Note this is Apple’s standard Page Setup panel, and the units it displays are determined in System Preferences under “Language &amp; Region” &gt; “Advanced…”.)
+	9.	Click “OK” and then click “OK” again.
+	10.	Click “Save” in the Compile panel. This will return you to the main Compile preview. You now have a variation of the paperback format using a different page size that you can use at any time with any project.
+	•	Making your own special folders: The “Characters” and “Places” folders are just regular folders that have been set up in a particular way; you can create other folders that work in a similar manner.
+	1.	To create a folder with a custom icon, add a new folder, place it where you want it, ensure it is selected, and then go to Documents &gt; Change Icon to choose a different icon.
+	2.	To create your own template sheets, create a new document inside the “Template Sheets” folder and set it up however you want (e.g. add text, change the title or icon, set default metadata and so on). Now this document will be available as the basis for creating new documents from the New From Template menu.
+	3.	To make it so that adding a new document to the folder created in (1) always results in a document based on the template set up in (2), select the folder and go to Documents &gt; Default Template for Subdocuments, then choose the template document you created.
+	•	Working with chapters instead of scenes: By default, this project is set up so that you write each scene as a separate text document. If you don’t like to break things up quite that much and would prefer to write an entire chapter in each text document, make the following changes:
+	1.	Rename the “Scene” document to use your chapter title and move it so that it is on the same level as the “Chapter” folder rather than being inside it.
+	2.	Move the “Chapter” folder to the Trash.
+	3.	Create a new text document for each chapter.
+	4.	Go to Project &gt; Project Settings and select “Section Types”.
+	5.	Select the “Default Types by Structure” tab.
+	6.	Delete “Level 1 files” and “Level 2 files and deeper”.
+	7.	In the “Section Type” column, change the setting for “Root files” to “Chapter”, then hit “OK”. This tells Scrivener that all your files contain chapter text, not scenes. Compile has already been set up to apply the right formatting to the section types defined here.
+	•	Using a custom table of contents in ebooks: When exporting to ebook format, Scrivener automatically generates a table of contents. If you would like to customise what appears in the contents, follow these instructions:
+	1.	Create a document for your table of contents inside the Front Matter/Ebook folder.
+	2.	Name the document “Contents”.
+	3.	In the binder, select the documents you would like to appear in the table of contents (hold down Command to select more than one document).
+	4.	For a simple flat list, hit Cmd-C or use Edit &gt; Copy. Alternatively, if you would like the table of contents indented to match the binder structure, go to Edit &gt; Copy Special &gt; Copy Documents as Structured Link List.
+	5.	Click into the text of the “Contents” document and hit Cmd-V or use Edit &gt; Paste. The documents you wish to appear in the table of contents will now appear as a list of links.
+	6.	If you intend to export to an older ebook format (ePub 2 or non-KF8 Mobi), select all of the text and change it to use a 12-point font.
+	7.	If you wish to centre the table of contents, select the text and centre it.
+	8.	In the Inspector, change the “Section Type” of the “Contents” document to “Table of Contents”. Now, when you Compile, your custom “Contents” document will be used instead of the automatically-generated one. The titles in the links of the “Contents” document will automatically be updated to match those of the final compiled ebook.
+
+Sample Documents
+The “Sample Output” folder inside the Research folder contains examples of documents that have been created by compiling from this template. “Standard Manuscript” shows the results when compiling to “Manuscript (Courier)”, and “Paperback Novel” shows the results when compiling to “Paperback (5.06” x 7.81”)” format.
+
+Final Note
+Scrivener project templates are flexible and are not intended to restrict you to a particular workflow. You can change, delete or move the files and folders contained in the template to suit how you work.
+
+Like all templates in Scrivener, this project was originally created from the “Blank” template. We’ve simply added a few folders and set everything up in ways that should be useful to novel writers. Everything you can do with this project, you could equally do by creating a “Blank” project and setting it up yourself.
+
+You can create your own templates by setting up a skeletal project with the files, folders and settings you would like to use for new projects and using File &gt; Save As Template.</Text>
+        </Document>
+        <Document ID="21506607-96ST-4FB1-8B5F-A1859F4DCEDE">
+            <Title>Copyright</Title>
+            <Text>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Copyright © &lt;$year&gt; &lt;$author&gt;
+All rights reserved.
+ISBN:
+ISBN-13:
+</Text>
+            <Notes>Feel free to delete this document if you don’t need it, or edit it for your needs.</Notes>
+        </Document>
+        <Document ID="EAED9F93-2779-4184-82E8-30D27307C6AC">
+            <Title>Blank Page</Title>
+            <Text>&lt;$BLANK_PAGE&gt;</Text>
+            <Notes>During Compile, Scrivener will try to remove any unnecessary blank pages. The &lt;$BLANK_PAGE&gt; tag tells Scrivener to leave this page blank (the tag itself will be removed from the compiled document).</Notes>
+        </Document>
+        <Document ID="BE948F87-BDA3-4551-8E08-AC248FE89301">
+            <Title>Character Sketch</Title>
+            <Text>Character Name
+Age • Location
+
+Role in Story
+
+
+Goal
+
+
+Physical Description
+
+
+Personality
+
+
+Occupation
+
+
+Habits/Mannerisms
+
+
+Background
+
+
+Internal Conflicts
+
+
+External Conflicts
+
+
+Notes
+
+</Text>
+        </Document>
+        <Document ID="684ADA52-4D45-48D2-B03D-5ECB784963EE">
+            <Title>Title Page</Title>
+            <Synopsis>Title page to the manuscript.</Synopsis>
+            <Text>Test Author
+123 Main Street
+Test City
+ST
+12345
+555-123-4567 
+test@example.com
+
+(Your agent’s name)
+(Your agent’s address)
+&lt;$wc100&gt; words.
+
+
+
+
+
+
+
+
+
+
+&lt;$PROJECTTITLE&gt;
+
+by &lt;$fullname&gt;</Text>
+            <Notes>This is the title page of the manuscript. Note that its “Section Type” is automatically set to “Front Matter” in the Metadata pane of the Inspector, allowing the title page to be formatted differently from body text during Compile.
+
+The &lt;$PROJECTTITLE&gt; and &lt;$fullname&gt; tags get replaced with metadata information you can set when compiling. Other information is taken from Contacts when the project is created.
+
+The &lt;$wc100&gt; words tag will be replaced with the word count rounded to the nearest 100 during Compile (this and other tags can be inserted from the Insert menu).
+
+Feel free to edit the text of the title page as required.</Notes>
+        </Document>
+        <Document ID="4C4363AD-1F58-4140-A55F-DEE1298ST1C4">
+            <Title>Ebook</Title>
+        </Document>
+        <Document ID="9A470BDE-CF2B-4872-97C6-74F19BC90197">
+            <Title>Sample Output</Title>
+        </Document>
+        <Document ID="98EA5CEF-B7B1-468C-83CD-9AB24AFAFDF3">
+            <Title>Dedication</Title>
+            <Text>
+
+
+
+
+Your dedication here.</Text>
+            <Notes>Feel free to delete this document if you don’t need it.</Notes>
+        </Document>
+        <Document ID="96044A4A-0A94-45BF-888E-01E9664985FF">
+            <Title>Paperback Novel</Title>
+            <Text>THE GREAT NOVEL
+Anton Mouse
+
+Copyright © 2021 Anton Mouse All rights reserved.
+ISBN: ISBN-13:
+
+Insert dedication here.
+
+
+CHAPTER ONE
+The Mayor of Castanets
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam euismod porta tortor, non pretium justo tristique id. Nunc dignissim, metus at fringilla congue, diam sapien aliquet quam, sed eleifend nunc odio quis mi. In blandit nec dolor ullamcorper cursus.
+Maecenas in lorem sit amet lorem tempor tincidunt sit amet non ligula. Phasellus rutrum ex quis sagittis condimentum. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Ut hendrerit ante et vehicula vulputate. Nulla venenatis pretium nisl, quis ullamcorper mi condimentum a. Nam ultrices elit arcu, tincidunt aliquet risus tempor et.
+Morbi ac rutrum urna. Pellentesque commodo mi vel congue scelerisque. Fusce a lorem sed urna dignissim pulvinar non in magna. Mauris blandit in nisl vitae scelerisque.
+Vestibulum sagittis felis et mauris euismod posuere. Curabitur in tellus sit amet lorem ornare pharetra. Vestibulum vel magna placerat, fermentum elit id, hendrerit libero.
+*** 1
+
+Anton Mouse
+Etiam mattis consectetur egestas. Etiam nec nunc ornare, blandit ex sit amet, feugiat ligula.
+Pellentesque bibendum placerat risus a semper. Pellentesque consequat faucibus pellentesque. Nullam in aliquet est. Ut imperdiet augue sed mauris molestie ultrices. Aliquam eros tellus, venenatis sit amet arcu et, placerat lacinia ex.
+Donec sollicitudin odio id urnaz semper, tempus maximus nibh sagittis. Cras lacinia orci ut vehicula molestie. Nulla facilisi. Aenean sodales ut neque sed sodales. Nulla pellentesque tincidunt ante, ut eleifend risus finibus eu. In quis luctus orci. Donec a lorem tristique, egestas dui nec, interdum augue. Aliquam imperdiet vestibulum ultricies.
+Suspendisse augue ante, tristique gravida dolor id, finibus volutpat nisl. Aenean dapibus sollicitudin est. Duis aliquam lacus nec velit lobortis, vitae pulvinar diam commodo. Suspendisse scelerisque purus nec nunc ornare rhoncus. Vivamus eu aliquet est. Maecenas cursus quis elit vel ornare. Fusce vitae nisi non purus pretium pellentesque nec imperdiet justo. Morbi dictum elementum felis non sollicitudin.
+Ut in turpis varius, suscipit magna non, cursus mi. Suspendisse sem nunc, facilisis eu scelerisque at, tincidunt id nulla. Ut condimentum orci et erat venenatis varius. Vestibulum dapibus, mauris eu rhoncus elementum, ante purus ultrices est, id ultricies metus tellus vel tortor. Nam euismod pharetra faucibus.
+Praesent scelerisque fermentum tortor, bibendum ornare turpis posuere nec. Curabitur in odio eu massa condimentum tincidunt. Pellentesque dapibus metus tellus, quis porta lectus feugiat in. In ac imperdiet elit. In risus est, rhoncus eget vehicula id, feugiat at ipsum. Morbi pulvinar dolor quis nisi tincidunt vulputate ut id felis.
+2
+
+The Great Novel
+***
+Maecenas sed nisi laoreet purus consectetur semper at eget nulla. Donec faucibus velit tortor, eget venenatis eros laoreet vel. Duis non lacus metus. Donec suscipit sodales velit nec
+lobortis.
+Aliquam erat volutpat. Sed semper vel purus ac feugiat.
+Praesent arcu nulla, porttitor vitae leo id, convallis molestie sem. Proin molestie, tellus eget volutpat egestas, diam lorem dictum massa, lobortis egestas leo massa convallis enim. Morbi feugiat quam non ornare bibendum. Praesent mollis vitae leo a sodales. Nullam mollis dolor quis nisi congue, at maximus enim tempor. Vestibulum ut leo ac dui ornare malesuada.
+3
+
+CHAPTER TWO
+A Tomb with a View
+Aliquam euismod porta tortor, non pretium justo tristique id. Nunc dignissim, metus at fringilla congue, diam sapien aliquet quam, sed eleifend nunc odio quis mi. In blandit nec dolor ullamcorper cursus.
+Maecenas in lorem sit amet lorem tempor tincidunt sit amet non ligula. Phasellus rutrum ex quis sagittis condimentum. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Ut hendrerit ante et vehicula vulputate. Nulla venenatis pretium nisl, quis ullamcorper mi condimentum a. Nam ultrices elit arcu, tincidunt aliquet risus tempor et.
+Morbi ac rutrum urna. Pellentesque commodo mi vel congue scelerisque. Fusce a lorem sed urna dignissim pulvinar non in magna. Mauris blandit in nisl vitae scelerisque. Vestibulum sagittis felis et mauris euismod posuere. Curabitur in tellus sit amet lorem ornare pharetra. Vestibulum vel magna placerat, fermentum elit id, hendrerit libero. Etiam mattis consectetur egestas. Etiam nec nunc ornare, blandit ex sit amet, feugiat ligula.
+Pellentesque bibendum placerat risus a semper. Pellentesque consequat faucibus pellentesque. Nullam in
+4
+
+The Great Novel
+aliquet est. Ut imperdiet augue sed mauris molestie ultrices. Aliquam eros tellus, venenatis sit amet arcu et, placerat lacinia ex.
+Donec sollicitudin odio id urna semper, tempus maximus nibh sagittis. Cras lacinia orci ut vehicula molestie. Nulla facilisi. Aenean sodales ut neque sed sodales. Nulla pellentesque tincidunt ante, ut eleifend risus finibus eu. In quis luctus orci. Donec a lorem tristique, egestas dui nec, interdum augue. Aliquam imperdiet vestibulum ultricies.
+Suspendisse augue ante, tristique gravida dolor id, finibus volutpat nisl. Aenean dapibus sollicitudin est. Duis aliquam lacus nec velit lobortis, vitae pulvinar diam commodo. Suspendisse scelerisque purus nec nunc ornare rhoncus. Vivamus eu aliquet est. Maecenas cursus quis elit vel ornare. Fusce vitae nisi non purus pretium pellentesque nec imperdiet justo. Morbi dictum elementum felis non sollicitudin.
+Ut in turpis varius, suscipit magna non, cursus mi. Suspendisse sem nunc, facilisis eu scelerisque at, tincidunt id nulla. Ut condimentum orci et erat venenatis varius. Vestibulum dapibus, mauris eu rhoncus elementum, ante purus ultrices est, id ultricies metus tellus vel tortor. Nam euismod pharetra faucibus.
+Praesent scelerisque fermentum tortor, bibendum ornare turpis posuere nec. Curabitur in odio eu massa condimentum tincidunt. Pellentesque dapibus metus tellus, quis porta lectus feugiat in. In ac imperdiet elit. In risus est, rhoncus eget vehicula id, feugiat at ipsum.
+Morbi pulvinar dolor quis nisi tincidunt vulputate ut id felis. Maecenas sed nisi laoreet purus consectetur semper at eget nulla. Donec faucibus velit tortor, eget venenatis eros laoreet vel. Duis non lacus metus. Donec suscipit sodales velit
+5
+
+Anton Mouse
+nec lobortis.
+Aliquam erat volutpat. Sed semper vel purus ac feugiat.
+Praesent arcu nulla, porttitor vitae leo id, convallis molestie sem. Proin molestie, tellus eget volutpat egestas, diam lorem dictum massa, lobortis egestas leo massa convallis enim. Morbi feugiat quam non ornare bibendum. Praesent mollis vitae leo a sodales. Nullam mollis dolor quis nisi congue, at maximus enim tempor. Vestibulum ut leo ac dui ornare malesuada.
+6
+
+CHAPTER THREE
+Madame Topiary
+Phasellus rutrum ex quis sagittis condimentum. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Ut hendrerit ante et vehicula vulputate. Nulla venenatis pretium nisl, quis ullamcorper mi condimentum a. Nam ultrices elit arcu, tincidunt aliquet risus tempor et.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam euismod porta tortor, non pretium justo tristique id. Nunc dignissim, metus at fringilla congue, diam sapien aliquet quam, sed eleifend nunc odio quis mi. In blandit nec dolor ullamcorper cursus. Maecenas in lorem sit amet lorem tempor tincidunt sit amet non ligula.
+Morbi ac rutrum urna. Pellentesque commodo mi vel congue scelerisque. Fusce a lorem sed urna dignissim pulvinar non in magna. Mauris blandit in nisl vitae scelerisque. Vestibulum sagittis felis et mauris euismod posuere. Curabitur in tellus sit amet lorem ornare pharetra. Vestibulum vel magna placerat, fermentum elit id, hendrerit libero.
+Etiam mattis consectetur egestas. Etiam nec nunc ornare, 7
+
+Anton Mouse
+blandit ex sit amet, feugiat ligula. Pellentesque bibendum placerat risus a semper. Pellentesque consequat faucibus pellentesque. Nullam in aliquet est. Ut imperdiet augue sed mauris molestie ultrices. Aliquam eros tellus, venenatis sit amet arcu et, placerat lacinia ex.
+Donec sollicitudin odio id urna semper, tempus maximus nibh sagittis. Cras lacinia orci ut vehicula molestie. Nulla facilisi. Aenean sodales ut neque sed sodales. Nulla pellentesque tincidunt ante, ut eleifend risus finibus eu. In quis luctus orci. Donec a lorem tristique, egestas dui nec, interdum augue. Aliquam imperdiet vestibulum ultricies.
+Suspendisse augue ante, tristique gravida dolor id, finibus volutpat nisl. Aenean dapibus sollicitudin est. Duis aliquam lacus nec velit lobortis, vitae pulvinar diam commodo. Suspendisse scelerisque purus nec nunc ornare rhoncus. Vivamus eu aliquet est. Maecenas cursus quis elit vel ornare. Fusce vitae nisi non purus pretium pellentesque nec imperdiet justo. Morbi dictum elementum felis non sollicitudin.
+Ut in turpis varius, suscipit magna non, cursus mi. Suspendisse sem nunc, facilisis eu scelerisque at, tincidunt id nulla. Ut condimentum orci et erat venenatis varius. Vestibulum dapibus, mauris eu rhoncus elementum, ante purus ultrices est, id ultricies metus tellus vel tortor. Nam euismod pharetra faucibus.
+Praesent scelerisque fermentum tortor, bibendum ornare turpis posuere nec. Curabitur in odio eu massa condimentum tincidunt. Pellentesque dapibus metus tellus, quis porta lectus feugiat in. In ac imperdiet elit. In risus est, rhoncus eget vehicula id, feugiat at ipsum. Morbi pulvinar dolor quis nisi tincidunt vulputate ut id felis. Maecenas sed nisi laoreet purus consectetur semper at eget nulla. Donec faucibus velit tortor, eget venenatis eros laoreet vel. Duis non lacus metus.
+8
+
+The Great Novel
+Donec suscipit sodales velit nec lobortis.
+Aliquam erat volutpat. Sed semper vel purus ac feugiat.
+Praesent arcu nulla, porttitor vitae leo id, convallis molestie sem. Proin molestie, tellus eget volutpat egestas, diam lorem dictum massa, lobortis egestas leo massa convallis enim. Morbi feugiat quam non ornare bibendum. Praesent mollis vitae leo a sodales. Nullam mollis dolor quis nisi congue, at maximus enim tempor. Vestibulum ut leo ac dui ornare malesuada.
+9
+
+CHAPTER FOUR
+Muddlemarch
+Morbi ac rutrum urna. Pellentesque commodo mi vel congue scelerisque.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam euismod porta tortor, non pretium justo tristique id. Nunc dignissim, metus at fringilla congue, diam sapien aliquet quam, sed eleifend nunc odio quis mi. In blandit nec dolor ullamcorper cursus.
+Maecenas in lorem sit amet lorem tempor tincidunt sit amet non ligula. Phasellus rutrum ex quis sagittis condimentum. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Ut hendrerit ante et vehicula vulputate. Nulla venenatis pretium nisl, quis ullamcorper mi condimentum a. Nam ultrices elit arcu, tincidunt aliquet risus tempor et.
+Fusce a lorem sed urna dignissim pulvinar non in magna. Mauris blandit in nisl vitae scelerisque. Vestibulum sagittis felis et mauris euismod posuere. Curabitur in tellus sit amet lorem ornare pharetra. Vestibulum vel magna placerat, fermentum elit id, hendrerit libero. Etiam mattis consectetur egestas. Etiam nec nunc ornare, blandit ex sit amet, feugiat
+10
+
+The Great Novel
+ligula.
+Pellentesque bibendum placerat risus a semper.
+Pellentesque consequat faucibus pellentesque. Nullam in aliquet est. Ut imperdiet augue sed mauris molestie ultrices. Aliquam eros tellus, venenatis sit amet arcu et, placerat lacinia ex.
+Donec sollicitudin odio id urna semper, tempus maximus nibh sagittis. Cras lacinia orci ut vehicula molestie. Nulla facilisi. Aenean sodales ut neque sed sodales.
+Nulla pellentesque tincidunt ante, ut eleifend risus finibus eu. In quis luctus orci. Donec a lorem tristique, egestas dui nec, interdum augue. Aliquam imperdiet vestibulum ultricies. Suspendisse augue ante, tristique gravida dolor id, finibus volutpat nisl.
+Aenean dapibus sollicitudin est. Duis aliquam lacus nec velit lobortis, vitae pulvinar diam commodo. Suspendisse scelerisque purus nec nunc ornare rhoncus. Vivamus eu aliquet est. Maecenas cursus quis elit vel ornare. Fusce vitae nisi non purus pretium pellentesque nec imperdiet justo. Morbi dictum elementum felis non sollicitudin.
+Ut in turpis varius, suscipit magna non, cursus mi. Suspendisse sem nunc, facilisis eu scelerisque at, tincidunt id nulla. Ut condimentum orci et erat venenatis varius.
+Vestibulum dapibus, mauris eu rhoncus elementum, ante purus ultrices est, id ultricies metus tellus vel tortor. Nam euismod pharetra faucibus. Praesent scelerisque fermentum tortor, bibendum ornare turpis posuere nec.
+Curabitur in odio eu massa condimentum tincidunt. Pellentesque dapibus metus tellus, quis porta lectus feugiat in. In ac imperdiet elit. In risus est, rhoncus eget vehicula id, feugiat at ipsum. Morbi pulvinar dolor quis nisi tincidunt vulputate ut id felis. Maecenas sed nisi laoreet purus
+11
+
+Anton Mouse
+consectetur semper at eget nulla. Donec faucibus velit tortor, eget venenatis eros laoreet vel. Duis non lacus metus. Donec suscipit sodales velit nec lobortis.
+Aliquam erat volutpat. Sed semper vel purus ac feugiat. Praesent arcu nulla, porttitor vitae leo id, convallis molestie sem. Proin molestie, tellus eget volutpat egestas, diam lorem dictum massa, lobortis egestas leo massa convallis enim. Morbi feugiat quam non ornare bibendum. Praesent mollis vitae leo a sodales. Nullam mollis dolor quis nisi congue, at maximus enim tempor. Vestibulum ut leo ac dui ornare malesuada.
+12
+
+CHAPTER FIVE
+Do Sheep Dream of Woolly Androids?
+Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Ut hendrerit ante et vehicula vulputate. Nulla venenatis pretium nisl, quis ullamcorper mi condimentum a. Nam ultrices elit arcu, tincidunt aliquet risus tempor et.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam euismod porta tortor, non pretium justo tristique id. Nunc dignissim, metus at fringilla congue, diam sapien aliquet quam, sed eleifend nunc odio quis mi. In blandit nec dolor ullamcorper cursus.
+Maecenas in lorem sit amet lorem tempor tincidunt sit amet non ligula. Phasellus rutrum ex quis sagittis condimentum.
+Morbi ac rutrum urna. Pellentesque commodo mi vel congue scelerisque. Fusce a lorem sed urna dignissim pulvinar non in magna.
+Mauris blandit in nisl vitae scelerisque. Vestibulum sagittis felis et mauris euismod posuere. Curabitur in tellus sit amet lorem ornare pharetra. Vestibulum vel magna placerat, fermentum elit id, hendrerit libero. Etiam mattis consectetur
+13
+
+Anton Mouse
+egestas.
+Etiam nec nunc ornare, blandit ex sit amet, feugiat ligula.
+Pellentesque bibendum placerat risus a semper. Pellentesque consequat faucibus pellentesque. Nullam in aliquet est. Ut imperdiet augue sed mauris molestie ultrices. Aliquam eros tellus, venenatis sit amet arcu et, placerat lacinia ex.
+Donec sollicitudin odio id urna semper, tempus maximus nibh sagittis. Cras lacinia orci ut vehicula molestie. Nulla facilisi. Aenean sodales ut neque sed sodales.
+Nulla pellentesque tincidunt ante, ut eleifend risus finibus eu. In quis luctus orci. Donec a lorem tristique, egestas dui nec, interdum augue. Aliquam imperdiet vestibulum ultricies. Suspendisse augue ante, tristique gravida dolor id, finibus volutpat nisl.
+Aenean dapibus sollicitudin est. Duis aliquam lacus nec velit lobortis, vitae pulvinar diam commodo. Suspendisse scelerisque purus nec nunc ornare rhoncus. Vivamus eu aliquet est. Maecenas cursus quis elit vel ornare. Fusce vitae nisi non purus pretium pellentesque nec imperdiet justo. Morbi dictum elementum felis non sollicitudin.
+Ut in turpis varius, suscipit magna non, cursus mi. Suspendisse sem nunc, facilisis eu scelerisque at, tincidunt id nulla.
+Ut condimentum orci et erat venenatis varius. Vestibulum dapibus, mauris eu rhoncus elementum, ante purus ultrices est, id ultricies metus tellus vel tortor. Nam euismod pharetra faucibus. Praesent scelerisque fermentum tortor, bibendum ornare turpis posuere nec. Curabitur in odio eu massa condimentum tincidunt.
+Pellentesque dapibus metus tellus, quis porta lectus feugiat in. In ac imperdiet elit. In risus est, rhoncus eget vehicula id, feugiat at ipsum. Morbi pulvinar dolor quis nisi tincidunt
+14
+
+The Great Novel
+vulputate ut id felis. Maecenas sed nisi laoreet purus consectetur semper at eget nulla. Donec faucibus velit tortor, eget venenatis eros laoreet vel. Duis non lacus metus. Donec suscipit sodales velit nec lobortis.
+Aliquam erat volutpat. Sed semper vel purus ac feugiat. Praesent arcu nulla, porttitor vitae leo id, convallis molestie sem. Proin molestie, tellus eget volutpat egestas, diam lorem dictum massa, lobortis egestas leo massa convallis enim. Morbi feugiat quam non ornare bibendum. Praesent mollis vitae leo a sodales. Nullam mollis dolor quis nisi congue, at maximus enim tempor. Vestibulum ut leo ac dui ornare malesuada.
+15
+
+CHAPTER SIX
+The Unbearable Lightness of Punning
+Ut in turpis varius, suscipit magna non, cursus mi. Suspendisse sem nunc, facilisis eu scelerisque at, tincidunt id nulla. Ut condimentum orci et erat venenatis varius. Vestibulum dapibus, mauris eu rhoncus elementum, ante purus ultrices est, id ultricies metus tellus vel tortor.
+Morbi ac rutrum urna. Pellentesque commodo mi vel congue scelerisque. Fusce a lorem sed urna dignissim pulvinar non in magna. Mauris blandit in nisl vitae scelerisque. Vestibulum sagittis felis et mauris euismod posuere.
+Curabitur in tellus sit amet lorem ornare pharetra. Vestibulum vel magna placerat, fermentum elit id, hendrerit libero. Etiam mattis consectetur egestas. Etiam nec nunc ornare, blandit ex sit amet, feugiat ligula. Pellentesque bibendum placerat risus a semper.
+Pellentesque consequat faucibus pellentesque. Nullam in aliquet est. Ut imperdiet augue sed mauris molestie ultrices. Aliquam eros tellus, venenatis sit amet arcu et, placerat lacinia ex.
+Donec sollicitudin odio id urna semper, tempus maximus 16
+
+The Great Novel
+nibh sagittis. Cras lacinia orci ut vehicula molestie. Nulla facilisi. Aenean sodales ut neque sed sodales. Nulla pellentesque tincidunt ante, ut eleifend risus finibus eu. In quis luctus orci.
+Donec a lorem tristique, egestas dui nec, interdum augue. Aliquam imperdiet vestibulum ultricies. Suspendisse augue ante, tristique gravida dolor id, finibus volutpat nisl. Aenean dapibus sollicitudin est.
+Duis aliquam lacus nec velit lobortis, vitae pulvinar diam commodo. Suspendisse scelerisque purus nec nunc ornare rhoncus. Vivamus eu aliquet est. Maecenas cursus quis elit vel ornare. Fusce vitae nisi non purus pretium pellentesque nec imperdiet justo. Morbi dictum elementum felis non sollicitudin.
+Nam euismod pharetra faucibus. Praesent scelerisque fermentum tortor, bibendum ornare turpis posuere nec. Curabitur in odio eu massa condimentum tincidunt. Pellentesque dapibus metus tellus, quis porta lectus feugiat in.
+In ac imperdiet elit. In risus est, rhoncus eget vehicula id, feugiat at ipsum. Morbi pulvinar dolor quis nisi tincidunt vulputate ut id felis. Maecenas sed nisi laoreet purus consectetur semper at eget nulla. Donec faucibus velit tortor, eget venenatis eros laoreet vel. Duis non lacus metus. Donec suscipit sodales velit nec lobortis.
+Aliquam erat volutpat. Sed semper vel purus ac feugiat. Praesent arcu nulla, porttitor vitae leo id, convallis molestie sem. Proin molestie, tellus eget volutpat egestas, diam lorem dictum massa, lobortis egestas leo massa convallis enim.
+Morbi feugiat quam non ornare bibendum. Praesent mollis vitae leo a sodales. Nullam mollis dolor quis nisi congue, at maximus enim tempor. Vestibulum ut leo ac dui ornare malesuada.
+17
+</Text>
+        </Document>
+        <Document ID="5C03DE09-C285-48ED-827F-78E62B7D0F72">
+            <Title>Template Sheets</Title>
+        </Document>
+        <Document ID="874592F5-2256-46A1-8434-432743846FB8">
+            <Title>Dedication</Title>
+            <Text>
+
+
+
+
+
+
+
+
+
+
+Insert dedication here.</Text>
+            <Notes>Feel free to delete this document if you don’t need it.</Notes>
+        </Document>
+        <Document ID="6830B6AC-686B-4370-A979-2FD1D7288BDA">
+            <Title>Places</Title>
+        </Document>
+        <Document ID="87D59B4E-F1D6-4025-9FBA-33F60ED8F985">
+            <Title>Setting Sketch</Title>
+            <Text>Name of Setting
+Location
+
+Role in Story
+
+
+Related Characters
+
+
+Season
+
+
+Unique Features
+
+
+Description
+
+
+Sights
+
+
+Sounds
+
+
+Smell
+
+
+Notes
+
+</Text>
+        </Document>
+        <Document ID="FD75AC3C-F304-4EA6-ADCC-2C32D6589969">
+            <Title>Chapter</Title>
+        </Document>
+        <Document ID="A01D76FD-6D6D-4A05-B3D7-72013BF9A630">
+            <Text>Andrew Nonymous
+Your manuscript should
+have your address
+and contact details
+on the title page only.
+If you have an agent, your
+agent's address can be
+included beneath.
+700 words.
+NOVEL STANDARD MANUSCRIPT FORMAT
+       by Forename Surname
+Chapter One
+     Standard manuscript format is often required for novels
+so that work can easily be read by editors. It allows editors
+to estimate word count and determine roughly how many pages
+will be required to produce a book using the page size, style
+and font used by their house. This PDF file was generated
+using Scrivener's Compile feature and was created using the
+"Novel" project template.
+     Manuscripts for full-length novels require a separate
+title page. The author's name, address, telephone number and
+e-mail address should be shown in the upper-left corner of the
+title page, single-spaced. The title of the story should
+appear in all-caps about half-way down the page. The author's
+name follows the title on the by-line as the author wants it
+to appear when published. A real name or pseudonym may be used
+and may include initials, actual given name or professional
+Surname / TITLE / 1
+designation.
+     All text should be double-spaced and left-justified with
+a ragged right margin. Paragraphs should be indented by about
+five spaces (half an inch) and not separated by an additional
+blank line. (It used to be traditional to separate each
+sentence with two spaces, but in these days of word processors
+this is now less common.) A 12-point font such as Courier,
+Times New Roman or Arial should be used throughout. In
+Scrivener, however, you can write using any font and
+formatting you choose--the options in Compile can be used to
+change the formatting in the compiled document. In the "Novel"
+project template, the Compile settings will deal with changing
+the font and formatting to those required for standard
+manuscript format.
+     Top, bottom, left and right margins should all be
+approximately one inch, not allowing for the page header. Each
+page except for the title page should include a header
+comprising the author's real surname, the title of the work
+(or a key word from the title) in capitals, and the page
+number. In Scrivener, all of this is handled for you by the
+"Manuscript" Compile formats.
+                               #
+     Scene breaks are indicated with the hash character. Do
+not simply add an extra line space as this can be missed by
+Surname / TITLE / 2
+the typesetter. The "Separators" pane of Scrivener's Compile
+sheet can handle this for you if you are writing each scene as
+a separate text document. In general, this will be handled by
+Compile in Scrivener, however, so that you can either leave
+empty lines in the text (and Scrivener will insert the hash
+character during Compile) or use different documents for
+different sections (and Scrivener will add the hash between
+them).
+     Some editors and publishers prefer emphasis to be
+indicated by underlining rather than italics. In Scrivener,
+this conversion can be handled by Compile. The "Manuscript
+(Courier)" Compile format will convert italics to underlines,
+whereas the "Manuscript (Times)" format will not.
+Surname / TITLE / 3
+Chapter Two
+     Begin each new chapter on a new page like this with the
+chapter number about a third of the way down the page. In
+Scrivener, this can all be dealt with in the Compile settings.
+In Scrivener, all of this is handled automatically by the
+"Manuscript" compile formats.
+     Although it is often said that writers should not use the
+word-count features of their computers to determine the number
+of words in a manuscript, most publishers and editors will
+happily accept a word processor word count these days. In
+Scrivener, you can insert a word count of your manuscript by
+using Edit &gt; Insert &gt; Draft Word Count (for a manuscript, you
+may wish to have the word count rounded to the nearest 100, in
+which case select Edit &gt; Insert &gt; Draft Word Count &gt; Rounded
+To Nearest 100--this feature is used on the title page of this
+manuscript, in fact).
+Surname / TITLE / 4
+     Note that the actual word count will not be inserted, but
+a tag that will be substituted for the word count upon export.
+In reality, the formatting of a manuscript is often only
+really crucial when submitting directly to a publisher--first
+time novelists will usually submit to an agent first, and
+agents are often less picky about format and will point you in
+the right direction before submitting your work to a
+publisher.
+                               #
+     Much of the information contained in this document is
+based on a description of novel manuscript format by Matt
+Carless for the BBC Writers' Room website: http://
+www.bbc.co.uk/writersroom
+#####
+Surname / TITLE / 5
+</Text>
+        </Document>
+        <Document ID="69822417-D015-4BDD-90BD-18AAA6198D15">
+            <Title>Notes</Title>
+        </Document>
+        <Document ID="0A7EDD9F-9DE0-4CC9-9AC1-EE0E3769B6A8">
+            <Title>Scene</Title>
+        </Document>
+        <Document ID="06C0455C-36DD-4F38-BB7B-F7DD2453A8A5">
+            <Title>Characters</Title>
+        </Document>
+    </Documents>
+</SearchIndexes>

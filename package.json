@@ -1,32 +1,82 @@
 {
-  "name": "scrivener-mcp",
+  "name": "@mcp/scrivener",
   "version": "0.1.0",
-  "description": "MCP server for Scrivener integration",
+  "description": "Model Context Protocol server for Scrivener project manipulation and analysis",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
+  "bin": {
+    "scrivener-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcondrey/scrivener-mcp.git"
+  },
+  "homepage": "https://github.com/dcondrey/scrivener-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/dcondrey/scrivener-mcp/issues"
+  },
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf dist",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "test": "npm run build && node tests/test-rtf.js && node tests/test-scrivener.js && node tests/test-edge-cases.js",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run clean && npm run build && npm run test",
+    "prepare": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@types/xml2js": "^0.4.14",
+    "rtf-parser": "^1.3.3",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.6.2",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.42.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "scrivener",
-    "claude"
+    "claude",
+    "writing",
+    "rtf",
+    "document-analysis",
+    "manuscript",
+    "novel",
+    "book",
+    "author",
+    "ai",
+    "gpt",
+    "llm",
+    "interface"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "David Condrey <davidcondrey@me.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

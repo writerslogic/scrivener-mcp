@@ -1,0 +1,7 @@
+platform=mac
+host=test-device
+user=Test User
+uuid=FA29AEEE-044A-471A-94AD-21BAA2AA70A1
+app=Scrivener
+project_path=/Users/test/sample-project.scriv
+app_path=/Applications/Scrivener.app

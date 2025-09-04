@@ -1,0 +1,13 @@
+dist/
+node_modules/
+coverage/
+*.min.js
+*.bundle.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.git/
+.github/
+*.log
+*.pid
+.DS_Store

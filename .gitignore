@@ -111,6 +111,7 @@ build/
 dist/
 out/
 target/
+*.map
 
 # Cache directories
 .cache/
