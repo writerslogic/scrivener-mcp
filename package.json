@@ -10,6 +10,7 @@
   },
   "files": [
     "dist",
+    "scripts",
     "README.md",
     "LICENSE"
   ],
@@ -33,7 +34,10 @@
     "format:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run clean && npm run build && npm run test",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "postinstall": "node scripts/setup.js || true",
+    "setup": "node scripts/setup.js",
+    "uninstall": "node scripts/uninstall.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

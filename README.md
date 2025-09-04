@@ -8,13 +8,18 @@ A Model Context Protocol (MCP) server for Scrivener integration that allows Clau
 npm install -g scrivener-mcp
 ```
 
-### Configuration for Claude Desktop
+The installation will **automatically configure Claude Desktop** for you! Just restart Claude Desktop after installation.
 
-After installation, add the server to your Claude Desktop configuration:
+### Manual Configuration (if needed)
 
-1. Open Claude Desktop settings
-2. Navigate to Developer > Edit Config
-3. Add the following to your `claude_desktop_config.json`:
+If automatic setup didn't work, you can manually configure:
+
+```bash
+# Run the setup script
+npx scrivener-mcp setup
+
+# Or manually add to claude_desktop_config.json:
+```
 
 ```json
 {
@@ -27,17 +32,11 @@ After installation, add the server to your Claude Desktop configuration:
 }
 ```
 
-4. Restart Claude Desktop
-
-### Configuration for Terminal
-
-For terminal usage with the Claude CLI:
+### Uninstalling
 
 ```bash
-# Run the server directly
-npx scrivener-mcp
-
-# Or add to your MCP configuration file
+# Remove the package and configuration
+npm uninstall -g scrivener-mcp
 ```
 
 ## Features
