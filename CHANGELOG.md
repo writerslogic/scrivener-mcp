@@ -1,5 +1,71 @@
 # Changelog
 
+## [0.3.0] - 2024-01-04
+
+### Added
+- **Memory Management System**
+  - Persistent project memory stored in `.ai-memory` folder within each project
+  - Character profiles with relationships and arc tracking
+  - Plot thread management with status tracking
+  - Style guide for maintaining consistent voice and tone
+  - Writing statistics and progress tracking
+  - Automatic backups with 7-day history
+
+- **Advanced Content Analysis**
+  - Deep writing metrics (Flesch scores, readability grades)
+  - Style analysis (sentence variety, vocabulary complexity)
+  - Structure analysis (scene breaks, chapters, pacing)
+  - Quality indicators (clichés, filter words, repetitiveness)
+  - Emotional analysis and tension tracking
+  - Actionable writing suggestions
+
+- **Content Enhancement Engine**
+  - 12+ enhancement types for prose improvement
+  - Filter word elimination
+  - Verb strengthening
+  - Sentence variation
+  - Sensory detail enhancement
+  - Show don't tell conversions
+  - Pacing adjustments
+  - Content expansion/condensing
+
+- **New MCP Tools**
+  - `deep_analyze_content` - Comprehensive content analysis
+  - `enhance_content` - Apply writing improvements
+  - `save_character_profile` - Store character data
+  - `get_character_profiles` - Retrieve characters
+  - `update_style_guide` - Set writing preferences
+  - `get_style_guide` - Get style settings
+  - `save_plot_thread` - Track plot lines
+  - `get_plot_threads` - View plot threads
+  - `get_writing_stats` - Project statistics
+  - `export_project_memory` - Export all memory
+
+### Changed
+- `analyze_document` now uses the new ContentAnalyzer for deeper insights
+- `critique_document` provides more detailed, actionable feedback
+
+### Technical
+- Added TypeScript modules: `memory-manager.ts`, `content-analyzer.ts`, `content-enhancer.ts`
+- Memory data persists within Scrivener projects for portability
+- Automatic 5-minute save intervals for memory updates
+
+## [0.2.0] - 2024-01-04
+
+### Added
+- Automated Claude Desktop setup on installation
+- Postinstall script for automatic configuration
+- Setup and uninstall scripts for easy management
+
+## [0.1.x] - 2024-01-03
+
+### Initial Release
+- Core Scrivener project operations
+- RTF parsing and generation
+- Basic content analysis
+- Document CRUD operations
+- Project structure navigation
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
