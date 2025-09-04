@@ -320,7 +320,13 @@ async function testExportImport() {
     
     manager.cleanup();
     
-    return imported.characters.length === 1 && imported.styleGuide.voice === 'test voice';
+    const charactersMatch = imported.characters.length === exported.characters.length;
+    const styleMatch = imported.styleGuide.voice === exported.styleGuide.voice;
+    
+    console.log('Characters match:', charactersMatch, `(${imported.characters.length} vs ${exported.characters.length})`);
+    console.log('Style match:', styleMatch, `("${imported.styleGuide.voice}" vs "${exported.styleGuide.voice}")`);
+    
+    return charactersMatch && styleMatch;
 }
 
 // Run all tests

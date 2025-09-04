@@ -3,6 +3,19 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
+import process from 'process';
+
+// Ensure console is available
+if (typeof console === 'undefined') {
+  // Running in an environment without console
+  const noop = () => {};
+  global.console = {
+    log: noop,
+    error: noop,
+    warn: noop,
+    info: noop
+  };
+}
 
 console.log('\n🚀 Setting up Scrivener MCP for Claude Desktop...\n');
 

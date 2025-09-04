@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrivener MCP Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .step {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .step h2 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .copy-btn:hover {
+            background: #5a67d8;
+        }
+        .copy-btn.copied {
+            background: #48bb78;
+        }
+        .path-selector {
+            margin: 20px 0;
+        }
+        .path-selector label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .path-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        .button:hover {
+            background: #5a67d8;
+        }
+        .button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Scrivener MCP Setup</h1>
+        
+        <div class="step">
+            <h2>Step 1: Select Your Operating System</h2>
+            <div class="path-selector">
+                <label for="os-select">Choose your operating system:</label>
+                <select id="os-select" onchange="updatePath()">
+                    <option value="">-- Select OS --</option>
+                    <option value="macos">macOS</option>
+                    <option value="windows">Windows</option>
+                    <option value="linux">Linux</option>
+                </select>
+            </div>
+            <div id="config-path" style="display: none;">
+                <p><strong>Your configuration file location:</strong></p>
+                <div class="code-block">
+                    <span id="path-display"></span>
+                    <button class="copy-btn" onclick="copyText('path-display', this)">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <h2>Step 2: Copy Configuration</h2>
+            <p>Copy this configuration to add to your Claude Desktop config file:</p>
+            <div class="code-block">
+                <pre id="config-json">{
+  "mcpServers": {
+    "scrivener": {
+      "command": "npx",
+      "args": ["scrivener-mcp"]
+    }
+  }
+}</pre>
+                <button class="copy-btn" onclick="copyText('config-json', this)">Copy</button>
+            </div>
+            <p><small>Note: If you already have other MCP servers, just add the "scrivener" entry to your existing "mcpServers" object.</small></p>
+        </div>
+
+        <div class="step">
+            <h2>Step 3: Generate Complete Config</h2>
+            <p>Alternatively, generate a complete configuration file:</p>
+            <button class="button" onclick="generateConfig()">Generate Config File</button>
+            <div id="generated-config" style="display: none; margin-top: 20px;">
+                <p><strong>Complete configuration file content:</strong></p>
+                <div class="code-block">
+                    <pre id="full-config"></pre>
+                    <button class="copy-btn" onclick="copyText('full-config', this)">Copy All</button>
+                </div>
+                <button class="button" onclick="downloadConfig()" style="margin-top: 10px;">Download as JSON</button>
+            </div>
+        </div>
+
+        <div class="step">
+            <h2>Step 4: Apply Configuration</h2>
+            <ol>
+                <li>Open the configuration file in a text editor</li>
+                <li>Paste or merge the configuration</li>
+                <li>Save the file</li>
+                <li>Restart Claude Desktop</li>
+            </ol>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="step" style="background: #edf2f7;">
+            <h2>Verification</h2>
+            <p>After restarting Claude Desktop, you can verify the installation by asking Claude:</p>
+            <ul>
+                <li>"What Scrivener tools do you have available?"</li>
+                <li>"Can you help me with my Scrivener project?"</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const paths = {
+            macos: '~/Library/Application Support/Claude/claude_desktop_config.json',
+            windows: '%AppData%\\Claude\\claude_desktop_config.json',
+            linux: '~/.config/claude/claude_desktop_config.json'
+        };
+
+        function updatePath() {
+            const select = document.getElementById('os-select');
+            const pathDiv = document.getElementById('config-path');
+            const pathDisplay = document.getElementById('path-display');
+            
+            if (select.value) {
+                pathDiv.style.display = 'block';
+                pathDisplay.textContent = paths[select.value];
+            } else {
+                pathDiv.style.display = 'none';
+            }
+        }
+
+        function copyText(elementId, button) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        function generateConfig() {
+            const config = {
+                mcpServers: {
+                    scrivener: {
+                        command: "npx",
+                        args: ["scrivener-mcp"]
+                    }
+                }
+            };
+            
+            const configDiv = document.getElementById('generated-config');
+            const fullConfig = document.getElementById('full-config');
+            
+            fullConfig.textContent = JSON.stringify(config, null, 2);
+            configDiv.style.display = 'block';
+            
+            showStatus('Configuration generated successfully!', 'success');
+        }
+
+        function downloadConfig() {
+            const config = {
+                mcpServers: {
+                    scrivener: {
+                        command: "npx",
+                        args: ["scrivener-mcp"]
+                    }
+                }
+            };
+            
+            const dataStr = JSON.stringify(config, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            
+            const link = document.createElement('a');
+            link.setAttribute('href', dataUri);
+            link.setAttribute('download', 'claude_desktop_config.json');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showStatus('Configuration file downloaded!', 'success');
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        // Auto-detect OS
+        window.onload = function() {
+            const platform = navigator.platform.toLowerCase();
+            const select = document.getElementById('os-select');
+            
+            if (platform.includes('mac')) {
+                select.value = 'macos';
+            } else if (platform.includes('win')) {
+                select.value = 'windows';
+            } else if (platform.includes('linux')) {
+                select.value = 'linux';
+            }
+            
+            updatePath();
+        };
+    </script>
+</body>
+</html>

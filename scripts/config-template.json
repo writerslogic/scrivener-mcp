@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "scrivener": {
+      "command": "npx",
+      "args": ["scrivener-mcp"]
+    }
+  }
+}

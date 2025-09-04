@@ -2,6 +2,7 @@
 .claude/
 *.claude.json
 .claude-completions
+.aider/
 
 # Node.js dependencies and files
 node_modules/
@@ -84,6 +85,7 @@ log.txt
 *.sqlite-shm
 *.sqlite-wal
 *.db-journal
+canon.sqlite
 
 # Backup files
 *.bak
@@ -98,12 +100,6 @@ neo4j/data/
 neo4j/logs/
 neo4j/import/
 *.graphdb/
-
-# Writing/Novel specific (uncomment if you want to exclude)
-# drafts/
-# old_versions/
-# research/
-# notes/
 
 # Build artifacts
 build/
@@ -121,5 +117,3 @@ target/
 coverage/
 *.lcov
 .nyc_output
-
-# Temporary

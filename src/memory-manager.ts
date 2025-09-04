@@ -1,337 +1,347 @@
+import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { existsSync } from 'fs';
 
 export interface ProjectMemory {
-    version: string;
-    lastUpdated: string;
-    characters: CharacterProfile[];
-    worldBuilding: WorldElement[];
-    plotThreads: PlotThread[];
-    styleGuide: StyleGuide;
-    writingStats: WritingStatistics;
-    documentContexts: Map<string, DocumentContext>;
-    customContext: Record<string, any>;
+	version: string;
+	lastUpdated: string;
+	characters: CharacterProfile[];
+	worldBuilding: WorldElement[];
+	plotThreads: PlotThread[];
+	styleGuide: StyleGuide;
+	writingStats: WritingStatistics;
+	documentContexts: Map<string, DocumentContext>;
+	customContext: Record<string, unknown>;
 }
 
 export interface CharacterProfile {
-    id: string;
-    name: string;
-    role: 'protagonist' | 'antagonist' | 'supporting' | 'minor';
-    description: string;
-    traits: string[];
-    arc: string;
-    relationships: { characterId: string; relationship: string }[];
-    appearances: { documentId: string; context: string }[];
-    notes: string;
+	id: string;
+	name: string;
+	role: 'protagonist' | 'antagonist' | 'supporting' | 'minor';
+	description: string;
+	traits: string[];
+	arc: string;
+	relationships: { characterId: string; relationship: string }[];
+	appearances: { documentId: string; context: string }[];
+	notes: string;
 }
 
 export interface WorldElement {
-    id: string;
-    name: string;
-    type: 'location' | 'object' | 'concept' | 'organization';
-    description: string;
-    significance: string;
-    appearances: { documentId: string; context: string }[];
+	id: string;
+	name: string;
+	type: 'location' | 'object' | 'concept' | 'organization';
+	description: string;
+	significance: string;
+	appearances: { documentId: string; context: string }[];
 }
 
 export interface PlotThread {
-    id: string;
-    name: string;
-    description: string;
-    status: 'setup' | 'development' | 'climax' | 'resolution';
-    documents: string[];
-    keyEvents: { documentId: string; event: string }[];
+	id: string;
+	name: string;
+	description: string;
+	status: 'setup' | 'development' | 'climax' | 'resolution';
+	documents: string[];
+	keyEvents: { documentId: string; event: string }[];
 }
 
 export interface StyleGuide {
-    tone: string[];
-    voice: string;
-    pov: 'first' | 'second' | 'third-limited' | 'third-omniscient';
-    tense: 'past' | 'present' | 'future';
-    vocabularyLevel: 'simple' | 'moderate' | 'advanced' | 'literary';
-    sentenceComplexity: 'simple' | 'varied' | 'complex';
-    paragraphLength: 'short' | 'medium' | 'long' | 'varied';
-    customGuidelines: string[];
+	tone: string[];
+	voice: string;
+	pov: 'first' | 'second' | 'third-limited' | 'third-omniscient';
+	tense: 'past' | 'present' | 'future';
+	vocabularyLevel: 'simple' | 'moderate' | 'advanced' | 'literary';
+	sentenceComplexity: 'simple' | 'varied' | 'complex';
+	paragraphLength: 'short' | 'medium' | 'long' | 'varied';
+	customGuidelines: string[];
 }
 
 export interface WritingStatistics {
-    totalWords: number;
-    averageChapterLength: number;
-    sessionsCount: number;
-    lastSession: string;
-    dailyWordCounts: { date: string; count: number }[];
-    completionPercentage: number;
-    estimatedCompletionDate?: string;
+	totalWords: number;
+	averageChapterLength: number;
+	sessionsCount: number;
+	lastSession: string;
+	dailyWordCounts: { date: string; count: number }[];
+	completionPercentage: number;
+	estimatedCompletionDate?: string;
 }
 
 export interface DocumentContext {
-    documentId: string;
-    lastAnalyzed: string;
-    summary: string;
-    themes: string[];
-    sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
-    pacing: 'slow' | 'moderate' | 'fast';
-    keyElements: string[];
-    suggestions: string[];
-    continuityNotes: string[];
+	documentId: string;
+	lastAnalyzed: string;
+	summary: string;
+	themes: string[];
+	sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
+	pacing: 'slow' | 'moderate' | 'fast';
+	keyElements: string[];
+	suggestions: string[];
+	continuityNotes: string[];
 }
 
 export class MemoryManager {
-    // private projectPath: string;
-    private memoryPath: string;
-    private memory: ProjectMemory;
-    private autoSaveInterval?: NodeJS.Timeout;
+	// private projectPath: string;
+	private memoryPath: string;
+	private memory: ProjectMemory;
+	private autoSaveInterval?: NodeJS.Timeout;
 
-    constructor(projectPath: string) {
-        // this.projectPath = projectPath;
-        // Store memory in a hidden folder within the Scrivener project
-        this.memoryPath = path.join(projectPath, '.ai-memory');
-        this.memory = this.createEmptyMemory();
-    }
+	constructor(projectPath: string) {
+		// this.projectPath = projectPath;
+		// Store memory in a hidden folder within the Scrivener project
+		this.memoryPath = path.join(projectPath, '.ai-memory');
+		this.memory = this.createEmptyMemory();
+	}
 
-    private createEmptyMemory(): ProjectMemory {
-        return {
-            version: '1.0.0',
-            lastUpdated: new Date().toISOString(),
-            characters: [],
-            worldBuilding: [],
-            plotThreads: [],
-            styleGuide: {
-                tone: [],
-                voice: '',
-                pov: 'third-limited',
-                tense: 'past',
-                vocabularyLevel: 'moderate',
-                sentenceComplexity: 'varied',
-                paragraphLength: 'varied',
-                customGuidelines: []
-            },
-            writingStats: {
-                totalWords: 0,
-                averageChapterLength: 0,
-                sessionsCount: 0,
-                lastSession: new Date().toISOString(),
-                dailyWordCounts: [],
-                completionPercentage: 0
-            },
-            documentContexts: new Map(),
-            customContext: {}
-        };
-    }
+	private createEmptyMemory(): ProjectMemory {
+		return {
+			version: '1.0.0',
+			lastUpdated: new Date().toISOString(),
+			characters: [],
+			worldBuilding: [],
+			plotThreads: [],
+			styleGuide: {
+				tone: [],
+				voice: '',
+				pov: 'third-limited',
+				tense: 'past',
+				vocabularyLevel: 'moderate',
+				sentenceComplexity: 'varied',
+				paragraphLength: 'varied',
+				customGuidelines: [],
+			},
+			writingStats: {
+				totalWords: 0,
+				averageChapterLength: 0,
+				sessionsCount: 0,
+				lastSession: new Date().toISOString(),
+				dailyWordCounts: [],
+				completionPercentage: 0,
+			},
+			documentContexts: new Map(),
+			customContext: {},
+		};
+	}
 
-    async initialize(): Promise<void> {
-        // Create memory directory if it doesn't exist
-        if (!existsSync(this.memoryPath)) {
-            await fs.mkdir(this.memoryPath, { recursive: true });
-        }
+	async initialize(): Promise<void> {
+		// Create memory directory if it doesn't exist
+		if (!existsSync(this.memoryPath)) {
+			await fs.mkdir(this.memoryPath, { recursive: true });
+		}
 
-        // Load existing memory or create new
-        const memoryFile = path.join(this.memoryPath, 'project-memory.json');
-        if (existsSync(memoryFile)) {
-            await this.loadMemory();
-        } else {
-            await this.saveMemory();
-        }
+		// Load existing memory or create new
+		const memoryFile = path.join(this.memoryPath, 'project-memory.json');
+		if (existsSync(memoryFile)) {
+			await this.loadMemory();
+		} else {
+			await this.saveMemory();
+		}
 
-        // Set up auto-save every 5 minutes
-        this.autoSaveInterval = setInterval(() => {
-            this.saveMemory().catch(console.error);
-        }, 5 * 60 * 1000);
-    }
+		// Set up auto-save every 5 minutes
+		this.autoSaveInterval = setInterval(
+			() => {
+				this.saveMemory().catch(console.error);
+			},
+			5 * 60 * 1000
+		);
+	}
 
-    async loadMemory(): Promise<void> {
-        try {
-            const memoryFile = path.join(this.memoryPath, 'project-memory.json');
-            const data = await fs.readFile(memoryFile, 'utf-8');
-            const loaded = JSON.parse(data);
-            
-            // Convert documentContexts back to Map
-            if (loaded.documentContexts && Array.isArray(loaded.documentContexts)) {
-                loaded.documentContexts = new Map(loaded.documentContexts);
-            } else {
-                loaded.documentContexts = new Map();
-            }
-            
-            this.memory = loaded;
-        } catch (error) {
-            console.error('Failed to load memory:', error);
-            this.memory = this.createEmptyMemory();
-        }
-    }
+	async loadMemory(): Promise<void> {
+		try {
+			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
+			const data = await fs.readFile(memoryFile, 'utf-8');
+			const loaded = JSON.parse(data);
 
-    async saveMemory(): Promise<void> {
-        try {
-            const memoryFile = path.join(this.memoryPath, 'project-memory.json');
-            
-            // Convert Map to array for JSON serialization
-            const toSave = {
-                ...this.memory,
-                documentContexts: Array.from(this.memory.documentContexts.entries()),
-                lastUpdated: new Date().toISOString()
-            };
-            
-            await fs.writeFile(
-                memoryFile,
-                JSON.stringify(toSave, null, 2),
-                'utf-8'
-            );
+			// Convert documentContexts back to Map
+			if (loaded.documentContexts && Array.isArray(loaded.documentContexts)) {
+				loaded.documentContexts = new Map(loaded.documentContexts);
+			} else {
+				loaded.documentContexts = new Map();
+			}
 
-            // Also save a backup
-            const backupFile = path.join(
-                this.memoryPath,
-                `backup-${new Date().toISOString().split('T')[0]}.json`
-            );
-            await fs.writeFile(
-                backupFile,
-                JSON.stringify(toSave, null, 2),
-                'utf-8'
-            );
+			this.memory = loaded;
+		} catch (error) {
+			console.error('Failed to load memory:', error);
+			this.memory = this.createEmptyMemory();
+		}
+	}
 
-            // Clean up old backups (keep last 7)
-            await this.cleanupOldBackups();
-        } catch (error) {
-            console.error('Failed to save memory:', error);
-            throw error;
-        }
-    }
+	async saveMemory(): Promise<void> {
+		try {
+			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
 
-    private async cleanupOldBackups(): Promise<void> {
-        try {
-            const files = await fs.readdir(this.memoryPath);
-            const backups = files
-                .filter(f => f.startsWith('backup-'))
-                .sort()
-                .reverse();
-            
-            if (backups.length > 7) {
-                for (const backup of backups.slice(7)) {
-                    await fs.unlink(path.join(this.memoryPath, backup));
-                }
-            }
-        } catch (error) {
-            console.error('Failed to cleanup backups:', error);
-        }
-    }
+			// Convert Map to array for JSON serialization
+			const toSave = {
+				...this.memory,
+				documentContexts: Array.from(this.memory.documentContexts.entries()),
+				lastUpdated: new Date().toISOString(),
+			};
 
-    // Character management
-    addCharacter(character: Omit<CharacterProfile, 'id'>): CharacterProfile {
-        const newCharacter: CharacterProfile = {
-            id: this.generateId(),
-            ...character
-        };
-        this.memory.characters.push(newCharacter);
-        return newCharacter;
-    }
+			await fs.writeFile(memoryFile, JSON.stringify(toSave, null, 2), 'utf-8');
 
-    updateCharacter(id: string, updates: Partial<CharacterProfile>): void {
-        const index = this.memory.characters.findIndex(c => c.id === id);
-        if (index !== -1) {
-            this.memory.characters[index] = {
-                ...this.memory.characters[index],
-                ...updates
-            };
-        }
-    }
+			// Also save a backup
+			try {
+				const backupFile = path.join(
+					this.memoryPath,
+					`backup-${new Date().toISOString().split('T')[0]}.json`
+				);
+				// Ensure directory still exists before writing backup
+				if (!existsSync(this.memoryPath)) {
+					await fs.mkdir(this.memoryPath, { recursive: true });
+				}
+				await fs.writeFile(backupFile, JSON.stringify(toSave, null, 2), 'utf-8');
+			} catch (backupError) {
+				console.warn('Failed to save backup file:', backupError);
+				// Don't throw - backup failure shouldn't break the main save
+			}
 
-    getCharacter(id: string): CharacterProfile | undefined {
-        return this.memory.characters.find(c => c.id === id);
-    }
+			// Clean up old backups (keep last 7)
+			await this.cleanupOldBackups();
+		} catch (error) {
+			console.error('Failed to save memory:', error);
+			throw error;
+		}
+	}
 
-    getAllCharacters(): CharacterProfile[] {
-        return this.memory.characters;
-    }
+	private async cleanupOldBackups(): Promise<void> {
+		try {
+			if (!existsSync(this.memoryPath)) {
+				return; // Directory doesn't exist, nothing to clean up
+			}
+			const files = await fs.readdir(this.memoryPath);
+			const backups = files
+				.filter((f) => f.startsWith('backup-'))
+				.sort()
+				.reverse();
 
-    // Document context management
-    setDocumentContext(documentId: string, context: Omit<DocumentContext, 'documentId' | 'lastAnalyzed'>): void {
-        this.memory.documentContexts.set(documentId, {
-            documentId,
-            lastAnalyzed: new Date().toISOString(),
-            ...context
-        });
-    }
+			if (backups.length > 7) {
+				for (const backup of backups.slice(7)) {
+					await fs.unlink(path.join(this.memoryPath, backup));
+				}
+			}
+		} catch (error) {
+			console.error('Failed to cleanup backups:', error);
+		}
+	}
 
-    getDocumentContext(documentId: string): DocumentContext | undefined {
-        return this.memory.documentContexts.get(documentId);
-    }
+	// Character management
+	addCharacter(character: Omit<CharacterProfile, 'id'>): CharacterProfile {
+		const newCharacter: CharacterProfile = {
+			id: this.generateId(),
+			...character,
+		};
+		this.memory.characters.push(newCharacter);
+		return newCharacter;
+	}
 
-    // Style guide management
-    updateStyleGuide(updates: Partial<StyleGuide>): void {
-        this.memory.styleGuide = {
-            ...this.memory.styleGuide,
-            ...updates
-        };
-    }
+	updateCharacter(id: string, updates: Partial<CharacterProfile>): void {
+		const index = this.memory.characters.findIndex((c) => c.id === id);
+		if (index !== -1) {
+			this.memory.characters[index] = {
+				...this.memory.characters[index],
+				...updates,
+			};
+		}
+	}
 
-    getStyleGuide(): StyleGuide {
-        return this.memory.styleGuide;
-    }
+	getCharacter(id: string): CharacterProfile | undefined {
+		return this.memory.characters.find((c) => c.id === id);
+	}
 
-    // Plot thread management
-    addPlotThread(thread: Omit<PlotThread, 'id'>): PlotThread {
-        const newThread: PlotThread = {
-            id: this.generateId(),
-            ...thread
-        };
-        this.memory.plotThreads.push(newThread);
-        return newThread;
-    }
+	getAllCharacters(): CharacterProfile[] {
+		return this.memory.characters;
+	}
 
-    updatePlotThread(id: string, updates: Partial<PlotThread>): void {
-        const index = this.memory.plotThreads.findIndex(t => t.id === id);
-        if (index !== -1) {
-            this.memory.plotThreads[index] = {
-                ...this.memory.plotThreads[index],
-                ...updates
-            };
-        }
-    }
+	// Document context management
+	setDocumentContext(
+		documentId: string,
+		context: Omit<DocumentContext, 'documentId' | 'lastAnalyzed'>
+	): void {
+		this.memory.documentContexts.set(documentId, {
+			documentId,
+			lastAnalyzed: new Date().toISOString(),
+			...context,
+		});
+	}
 
-    getPlotThreads(): PlotThread[] {
-        return this.memory.plotThreads;
-    }
+	getDocumentContext(documentId: string): DocumentContext | undefined {
+		return this.memory.documentContexts.get(documentId);
+	}
 
-    // Writing statistics
-    updateWritingStats(updates: Partial<WritingStatistics>): void {
-        this.memory.writingStats = {
-            ...this.memory.writingStats,
-            ...updates
-        };
-    }
+	// Style guide management
+	updateStyleGuide(updates: Partial<StyleGuide>): void {
+		this.memory.styleGuide = {
+			...this.memory.styleGuide,
+			...updates,
+		};
+	}
 
-    getWritingStats(): WritingStatistics {
-        return this.memory.writingStats;
-    }
+	getStyleGuide(): StyleGuide {
+		return this.memory.styleGuide;
+	}
 
-    // Custom context for flexibility
-    setCustomContext(key: string, value: any): void {
-        this.memory.customContext[key] = value;
-    }
+	// Plot thread management
+	addPlotThread(thread: Omit<PlotThread, 'id'>): PlotThread {
+		const newThread: PlotThread = {
+			id: this.generateId(),
+			...thread,
+		};
+		this.memory.plotThreads.push(newThread);
+		return newThread;
+	}
 
-    getCustomContext(key: string): any {
-        return this.memory.customContext[key];
-    }
+	updatePlotThread(id: string, updates: Partial<PlotThread>): void {
+		const index = this.memory.plotThreads.findIndex((t) => t.id === id);
+		if (index !== -1) {
+			this.memory.plotThreads[index] = {
+				...this.memory.plotThreads[index],
+				...updates,
+			};
+		}
+	}
 
-    // Get full memory for export or analysis
-    getFullMemory(): ProjectMemory {
-        return this.memory;
-    }
+	getPlotThreads(): PlotThread[] {
+		return this.memory.plotThreads;
+	}
 
-    // Import memory from another source
-    async importMemory(memory: ProjectMemory): Promise<void> {
-        this.memory = memory;
-        await this.saveMemory();
-    }
+	// Writing statistics
+	updateWritingStats(updates: Partial<WritingStatistics>): void {
+		this.memory.writingStats = {
+			...this.memory.writingStats,
+			...updates,
+		};
+	}
 
-    // Cleanup when done
-    cleanup(): void {
-        if (this.autoSaveInterval) {
-            clearInterval(this.autoSaveInterval);
-        }
-        this.saveMemory().catch(console.error);
-    }
+	getWritingStats(): WritingStatistics {
+		return this.memory.writingStats;
+	}
 
-    private generateId(): string {
-        return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    }
+	// Custom context for flexibility
+	setCustomContext(key: string, value: unknown): void {
+		this.memory.customContext[key] = value;
+	}
+
+	getCustomContext(key: string): unknown {
+		return this.memory.customContext[key];
+	}
+
+	// Get full memory for export or analysis
+	getFullMemory(): ProjectMemory {
+		return this.memory;
+	}
+
+	// Import memory from another source
+	async importMemory(memory: ProjectMemory): Promise<void> {
+		this.memory = memory;
+		await this.saveMemory();
+	}
+
+	// Cleanup when done
+	cleanup(): void {
+		if (this.autoSaveInterval) {
+			clearInterval(this.autoSaveInterval);
+		}
+		this.saveMemory().catch(console.error);
+	}
+
+	private generateId(): string {
+		return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	}
 }
