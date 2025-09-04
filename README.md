@@ -2,6 +2,44 @@
 
 A Model Context Protocol (MCP) server for Scrivener integration that allows Claude to manipulate Scrivener projects, including file and folder operations, metadata management, and content analysis.
 
+## Installation
+
+```bash
+npm install -g scrivener-mcp
+```
+
+### Configuration for Claude Desktop
+
+After installation, add the server to your Claude Desktop configuration:
+
+1. Open Claude Desktop settings
+2. Navigate to Developer > Edit Config
+3. Add the following to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "scrivener": {
+      "command": "npx",
+      "args": ["scrivener-mcp"]
+    }
+  }
+}
+```
+
+4. Restart Claude Desktop
+
+### Configuration for Terminal
+
+For terminal usage with the Claude CLI:
+
+```bash
+# Run the server directly
+npx scrivener-mcp
+
+# Or add to your MCP configuration file
+```
+
 ## Features
 
 ### Core Scrivener Operations
