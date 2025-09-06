@@ -1,5 +1,6 @@
 import type { Driver, Result } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
+import { AppError, ErrorCode } from '../utils/common.js';
 
 export class Neo4jManager {
 	private driver: Driver | null = null;
@@ -119,7 +120,10 @@ export class Neo4jManager {
 	 */
 	async query(cypher: string, parameters: any = {}): Promise<Result> {
 		if (!this.driver) {
-			throw new Error('Neo4j not connected. Initialize first or check connection.');
+			throw new AppError(
+				'Neo4j not connected. Initialize first or check connection.',
+				ErrorCode.DATABASE_ERROR
+			);
 		}
 
 		const session = this.driver.session({ database: this.database });
@@ -135,7 +139,7 @@ export class Neo4jManager {
 	 */
 	async readTransaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
 		if (!this.driver) {
-			throw new Error('Neo4j not connected');
+			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
 		}
 
 		const session = this.driver.session({ database: this.database });
@@ -151,7 +155,7 @@ export class Neo4jManager {
 	 */
 	async writeTransaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
 		if (!this.driver) {
-			throw new Error('Neo4j not connected');
+			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
 		}
 
 		const session = this.driver.session({ database: this.database });

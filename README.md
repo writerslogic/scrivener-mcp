@@ -150,6 +150,17 @@ The MCP server provides the following tools:
 - `update_document_synopsis_notes(documentId, synopsis?, notes?)` - Update synopsis and/or notes for a document
 - `batch_update_synopsis_notes(updates)` - Update synopsis and/or notes for multiple documents at once
 
+### Database Tools (v0.4.0+)
+- `get_database_status()` - Get status of SQLite and Neo4j databases
+- `query_database(query, params?)` - Execute SELECT queries on SQLite database
+- `get_writing_statistics(days?)` - Get writing statistics for specified period
+- `record_writing_session(wordsWritten, durationMinutes?, documentsWorkedOn?, notes?)` - Record a writing session
+- `analyze_story_structure()` - Analyze document flow, character arcs, and themes using Neo4j
+- `find_character_relationships(characterId)` - Find all relationships for a character
+- `create_relationship(fromId, fromType, toId, toType, relationshipType, properties?)` - Create relationships between entities
+- `get_content_analysis_history(documentId, analysisType?)` - Get historical analysis data
+- `backup_databases(backupPath?)` - Create backup of project databases
+
 ## RTF Format Support
 
 This MCP server includes comprehensive RTF (Rich Text Format) support specifically designed for Scrivener's document format:
@@ -165,14 +176,21 @@ This MCP server includes comprehensive RTF (Rich Text Format) support specifical
 ### Core Components
 - `ScrivenerProject` - Main class for project operations
 - `RTFHandler` - Comprehensive RTF parsing and generation
+- `DatabaseService` - Manages SQLite and Neo4j database operations
 - `MemoryManager` - Persistent project memory and context storage
 - `ContentAnalyzer` - Deep writing analysis and metrics
 - `ContentEnhancer` - AI-powered content improvement engine
 - MCP Server - Tool definitions and request handling
 
 ### Data Storage
-- Project memories are stored in `.ai-memory` folders within each Scrivener project
-- Automatic backups maintain the last 7 days of memory history
+- **SQLite Database** - Stored in `.scrivener-databases/scrivener.db` within each project
+  - Documents, characters, plot threads, themes, writing sessions
+  - Content analysis history and relationships
+- **Neo4j Graph Database** - Optional graph database for relationship analysis
+  - Document flow, character networks, theme progression
+  - Falls back gracefully if not available
+- **Memory Files** - Stored in `.ai-memory` folders for quick access
+- Automatic backups maintain history and data integrity
 - All data persists between sessions and travels with the project
 
 ## Usage Examples
@@ -216,6 +234,39 @@ batch_update_synopsis_notes([
     notes: "Major social event - introduces Bingley and Darcy"
   }
 ])
+```
+
+### Database Operations
+```javascript
+// Check database status
+get_database_status()
+
+// Query documents with custom SQL
+query_database("SELECT title, word_count FROM documents WHERE word_count > 1000")
+
+// Record a writing session
+record_writing_session({
+  wordsWritten: 1250,
+  durationMinutes: 45,
+  documentsWorkedOn: ["UUID-1", "UUID-2"],
+  notes: "Productive morning session"
+})
+
+// Get writing statistics
+get_writing_statistics(30) // Last 30 days
+
+// Analyze story structure (requires Neo4j)
+analyze_story_structure()
+
+// Find character relationships in graph
+find_character_relationships("CHARACTER-UUID")
+
+// Create document relationship
+create_relationship(
+  "CHAPTER-1-UUID", "document",
+  "CHAPTER-2-UUID", "document", 
+  "FOLLOWS"
+)
 ```
 
 ### Character Management

@@ -1,5 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+	AppError,
+	ErrorCode,
+	safeReadFile,
+	safeWriteFile,
+	ensureDir,
+	pathExists,
+} from '../utils/common.js';
 import { SQLiteManager } from './sqlite-manager.js';
 import { Neo4jManager } from './neo4j-manager.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
@@ -34,9 +42,7 @@ export class DatabaseService {
 	 */
 	async initialize(): Promise<void> {
 		// Ensure database directory exists
-		if (!fs.existsSync(this.paths.databaseDir)) {
-			fs.mkdirSync(this.paths.databaseDir, { recursive: true });
-		}
+		await ensureDir(this.paths.databaseDir);
 
 		// Save config
 		await this.saveConfig();
@@ -72,7 +78,7 @@ export class DatabaseService {
 			lastUpdated: new Date().toISOString(),
 		};
 
-		fs.writeFileSync(this.paths.configFile, JSON.stringify(configData, null, 2), 'utf-8');
+		await safeWriteFile(this.paths.configFile, JSON.stringify(configData, null, 2));
 	}
 
 	/**
@@ -81,12 +87,12 @@ export class DatabaseService {
 	static async loadConfig(projectPath: string): Promise<DatabaseConfig | null> {
 		const paths = generateDatabasePaths(projectPath);
 
-		if (!fs.existsSync(paths.configFile)) {
+		if (!(await pathExists(paths.configFile))) {
 			return null;
 		}
 
 		try {
-			const configData = JSON.parse(fs.readFileSync(paths.configFile, 'utf-8'));
+			const configData = JSON.parse(await safeReadFile(paths.configFile));
 
 			// Convert relative path back to absolute
 			if (configData.sqlite?.path && !path.isAbsolute(configData.sqlite.path)) {
@@ -105,7 +111,10 @@ export class DatabaseService {
 	 */
 	getSQLite(): SQLiteManager {
 		if (!this.sqliteManager) {
-			throw new Error('SQLite not initialized. Call initialize() first.');
+			throw new AppError(
+				'SQLite not initialized. Call initialize() first.',
+				ErrorCode.DATABASE_ERROR
+			);
 		}
 		return this.sqliteManager;
 	}

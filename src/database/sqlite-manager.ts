@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AppError, ErrorCode, ensureDir } from '../utils/common.js';
 
 export class SQLiteManager {
 	private db: Database.Database | null = null;
@@ -16,9 +17,7 @@ export class SQLiteManager {
 	async initialize(): Promise<void> {
 		// Ensure directory exists
 		const dir = path.dirname(this.dbPath);
-		if (!fs.existsSync(dir)) {
-			fs.mkdirSync(dir, { recursive: true });
-		}
+		await ensureDir(dir);
 
 		// Open database connection
 		this.db = new Database(this.dbPath);
@@ -37,7 +36,9 @@ export class SQLiteManager {
 	 * Create all necessary tables
 	 */
 	private async createTables(): Promise<void> {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 
 		// Documents table
 		this.db.exec(`
@@ -163,7 +164,10 @@ export class SQLiteManager {
 	 */
 	getDatabase(): Database.Database {
 		if (!this.db) {
-			throw new Error('Database not initialized. Call initialize() first.');
+			throw new AppError(
+				'Database not initialized. Call initialize() first.',
+				ErrorCode.DATABASE_ERROR
+			);
 		}
 		return this.db;
 	}
@@ -172,7 +176,9 @@ export class SQLiteManager {
 	 * Execute a query
 	 */
 	query(sql: string, params: unknown[] = []): unknown[] {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 		return this.db.prepare(sql).all(params);
 	}
 
@@ -180,7 +186,9 @@ export class SQLiteManager {
 	 * Execute a single row query
 	 */
 	queryOne(sql: string, params: unknown[] = []): unknown {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 		return this.db.prepare(sql).get(params);
 	}
 
@@ -188,7 +196,9 @@ export class SQLiteManager {
 	 * Execute an insert/update/delete statement
 	 */
 	execute(sql: string, params: unknown[] = []): Database.RunResult {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 		return this.db.prepare(sql).run(params);
 	}
 
@@ -196,7 +206,9 @@ export class SQLiteManager {
 	 * Execute multiple statements in a transaction
 	 */
 	transaction<T>(fn: () => T): T {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 		return this.db.transaction(fn)();
 	}
 
@@ -214,7 +226,9 @@ export class SQLiteManager {
 	 * Get database file size
 	 */
 	getDatabaseStats(): { size: number; pageCount: number; pageSize: number } {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 
 		const stats = fs.statSync(this.dbPath);
 		const pragma = this.db.pragma('page_count') as { page_count: number };
@@ -231,7 +245,9 @@ export class SQLiteManager {
 	 * Vacuum the database to reclaim space
 	 */
 	vacuum(): void {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 		this.db.exec('VACUUM;');
 	}
 
@@ -239,7 +255,9 @@ export class SQLiteManager {
 	 * Backup database to a file
 	 */
 	backup(backupPath: string): void {
-		if (!this.db) throw new Error('Database not initialized');
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
 		this.db.backup(backupPath);
 	}
 }

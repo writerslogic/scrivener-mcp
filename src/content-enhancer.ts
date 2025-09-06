@@ -1,6 +1,7 @@
 import nlp from 'compromise';
 import type { StyleGuide } from './memory-manager.js';
 import { MLWordClassifierPro } from './ml-word-classifier-pro.js';
+import { AppError, ErrorCode } from './utils/common.js';
 
 export type EnhancementType =
 	| 'rewrite'
@@ -137,7 +138,7 @@ export class ContentEnhancer {
 				enhanced = this.matchStyle(content, changes, styleGuide);
 				break;
 			default:
-				throw new Error(
+				throw new AppError(
 					`Unknown enhancement type: ${type}. Valid types are: ${[
 						'rewrite',
 						'expand',
@@ -153,7 +154,8 @@ export class ContentEnhancer {
 						'strengthen-verbs',
 						'fix-continuity',
 						'match-style',
-					].join(', ')}`
+					].join(', ')}`,
+					ErrorCode.VALIDATION_ERROR
 				);
 		}
 

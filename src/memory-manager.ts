@@ -1,6 +1,7 @@
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { safeReadFile, safeWriteFile, ensureDir, pathExists } from './utils/common.js';
 
 export interface ProjectMemory {
 	version: string;
@@ -122,13 +123,11 @@ export class MemoryManager {
 
 	async initialize(): Promise<void> {
 		// Create memory directory if it doesn't exist
-		if (!existsSync(this.memoryPath)) {
-			await fs.mkdir(this.memoryPath, { recursive: true });
-		}
+		await ensureDir(this.memoryPath);
 
 		// Load existing memory or create new
 		const memoryFile = path.join(this.memoryPath, 'project-memory.json');
-		if (existsSync(memoryFile)) {
+		if (await pathExists(memoryFile)) {
 			await this.loadMemory();
 		} else {
 			await this.saveMemory();
@@ -146,7 +145,7 @@ export class MemoryManager {
 	async loadMemory(): Promise<void> {
 		try {
 			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
-			const data = await fs.readFile(memoryFile, 'utf-8');
+			const data = await safeReadFile(memoryFile);
 			const loaded = JSON.parse(data);
 
 			// Convert documentContexts back to Map
@@ -174,7 +173,7 @@ export class MemoryManager {
 				lastUpdated: new Date().toISOString(),
 			};
 
-			await fs.writeFile(memoryFile, JSON.stringify(toSave, null, 2), 'utf-8');
+			await safeWriteFile(memoryFile, JSON.stringify(toSave, null, 2));
 
 			// Also save a backup
 			try {
@@ -183,10 +182,8 @@ export class MemoryManager {
 					`backup-${new Date().toISOString().split('T')[0]}.json`
 				);
 				// Ensure directory still exists before writing backup
-				if (!existsSync(this.memoryPath)) {
-					await fs.mkdir(this.memoryPath, { recursive: true });
-				}
-				await fs.writeFile(backupFile, JSON.stringify(toSave, null, 2), 'utf-8');
+				await ensureDir(this.memoryPath);
+				await safeWriteFile(backupFile, JSON.stringify(toSave, null, 2));
 			} catch (backupError) {
 				console.warn('Failed to save backup file:', backupError);
 				// Don't throw - backup failure shouldn't break the main save

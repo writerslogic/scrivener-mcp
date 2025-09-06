@@ -8,6 +8,7 @@ import { MemoryManager } from './memory-manager.js';
 import { ContentAnalyzer } from './content-analyzer.js';
 import { ContentEnhancer, type EnhancementType } from './content-enhancer.js';
 import { webContentParser } from './web-content-parser.js';
+import { AppError, ErrorCode } from './utils/common.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -1045,6 +1046,238 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 					required: ['updates'],
 				},
 			},
+			{
+				name: 'get_database_status',
+				description: 'Get status and information about the project databases',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'query_database',
+				description: 'Execute a query on the SQLite database',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						query: {
+							type: 'string',
+							description: 'SQL query to execute (SELECT only for safety)',
+						},
+						params: {
+							type: 'array',
+							items: { type: ['string', 'number', 'boolean', 'null'] },
+							description: 'Query parameters',
+						},
+					},
+					required: ['query'],
+				},
+			},
+			{
+				name: 'get_writing_statistics',
+				description: 'Get writing statistics from the database',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						days: {
+							type: 'number',
+							description: 'Number of days to include (default: 30)',
+						},
+					},
+				},
+			},
+			{
+				name: 'record_writing_session',
+				description: 'Record a writing session in the database',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						wordsWritten: {
+							type: 'number',
+							description: 'Number of words written',
+						},
+						durationMinutes: {
+							type: 'number',
+							description: 'Session duration in minutes',
+						},
+						documentsWorkedOn: {
+							type: 'array',
+							items: { type: 'string' },
+							description: 'Document IDs worked on',
+						},
+						notes: {
+							type: 'string',
+							description: 'Session notes',
+						},
+					},
+					required: ['wordsWritten'],
+				},
+			},
+			{
+				name: 'analyze_story_structure',
+				description: 'Analyze story structure using the graph database',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'find_character_relationships',
+				description: 'Find all relationships for a character',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						characterId: {
+							type: 'string',
+							description: 'Character ID to analyze',
+						},
+					},
+					required: ['characterId'],
+				},
+			},
+			{
+				name: 'create_relationship',
+				description: 'Create a relationship between entities in the database',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						fromId: {
+							type: 'string',
+							description: 'Source entity ID',
+						},
+						fromType: {
+							type: 'string',
+							description: 'Source entity type (document, character, theme, plot)',
+						},
+						toId: {
+							type: 'string',
+							description: 'Target entity ID',
+						},
+						toType: {
+							type: 'string',
+							description: 'Target entity type (document, character, theme, plot)',
+						},
+						relationshipType: {
+							type: 'string',
+							description:
+								'Type of relationship (follows, references, appears_in, etc.)',
+						},
+						properties: {
+							type: 'object',
+							description: 'Additional relationship properties',
+						},
+					},
+					required: ['fromId', 'fromType', 'toId', 'toType', 'relationshipType'],
+				},
+			},
+			{
+				name: 'get_content_analysis_history',
+				description: 'Get analysis history for a document',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'Document ID',
+						},
+						analysisType: {
+							type: 'string',
+							description: 'Type of analysis (readability, sentiment, style, etc.)',
+						},
+					},
+					required: ['documentId'],
+				},
+			},
+			{
+				name: 'backup_databases',
+				description: 'Create a backup of the project databases',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						backupPath: {
+							type: 'string',
+							description:
+								'Path to backup directory (optional, uses default if not provided)',
+						},
+					},
+				},
+			},
+			{
+				name: 'analyze_chapter_enhanced',
+				description: 'Perform enhanced analysis of a chapter with context generation',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'Document ID to analyze',
+						},
+					},
+					required: ['documentId'],
+				},
+			},
+			{
+				name: 'build_story_context',
+				description:
+					'Build complete story context with character arcs, themes, and plot threads',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'get_sync_status',
+				description: 'Get the status of context synchronization',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'perform_sync',
+				description: 'Manually trigger context synchronization',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'export_context_files',
+				description: 'Export all context files to a specified directory',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						exportPath: {
+							type: 'string',
+							description: 'Path to export context files to',
+						},
+					},
+					required: ['exportPath'],
+				},
+			},
+			{
+				name: 'get_chapter_context',
+				description: 'Get the analyzed context for a specific chapter',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'Document ID to get context for',
+						},
+					},
+					required: ['documentId'],
+				},
+			},
+			{
+				name: 'get_story_analysis',
+				description:
+					'Get complete story analysis including pacing, character arcs, and themes',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
 		],
 	};
 });
@@ -1060,7 +1293,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				// Verify the path exists and is a .scriv folder
 				const stats = await fs.stat(projPath);
 				if (!stats.isDirectory() || !projPath.endsWith('.scriv')) {
-					throw new Error('Invalid Scrivener project path');
+					throw new AppError('Invalid Scrivener project path', ErrorCode.PROJECT_ERROR);
 				}
 
 				currentProject = new ScrivenerProject(projPath);
@@ -1082,7 +1315,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_structure': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { maxDepth, folderId, includeTrash, summaryOnly } = args as {
@@ -1111,7 +1344,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_document_info': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1129,7 +1362,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'read_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1147,7 +1380,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'write_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, content } = args as { documentId: string; content: string };
@@ -1165,7 +1398,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'create_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const {
@@ -1192,7 +1425,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'delete_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1210,7 +1443,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'rename_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, newTitle } = args as { documentId: string; newTitle: string };
@@ -1228,7 +1461,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'refresh_project': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				await currentProject.refreshProject();
@@ -1245,7 +1478,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'move_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, newParentId } = args as {
@@ -1267,7 +1500,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'update_metadata': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, metadata } = args as {
@@ -1289,7 +1522,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'search_content': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const {
@@ -1316,7 +1549,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'list_trash': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const trashDocs = await currentProject.getTrashDocuments();
@@ -1333,7 +1566,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'search_trash': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const {
@@ -1360,7 +1593,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'recover_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, targetParentId } = args as {
@@ -1382,7 +1615,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'compile_documents': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const {
@@ -1416,7 +1649,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'read_document_formatted': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1434,7 +1667,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_document_annotations': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1457,7 +1690,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_word_count': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId?: string };
@@ -1475,7 +1708,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'analyze_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1500,6 +1733,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					});
 				}
 
+				// Store analysis in database
+				await currentProject
+					.getDatabaseService()
+					.storeContentAnalysis(documentId, 'comprehensive', analysis);
+
 				return {
 					content: [
 						{
@@ -1512,7 +1750,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'critique_document': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, focusAreas = [] } = args as {
@@ -1565,7 +1803,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_project_metadata': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const metadata = await currentProject.getProjectMetadata();
@@ -1582,7 +1820,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'deep_analyze_content': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -1601,7 +1839,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'enhance_content': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, enhancementType, options } = args as {
@@ -1635,7 +1873,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'save_character_profile': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { name, role, description, traits, arc } = args as {
@@ -1670,7 +1911,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_character_profiles': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const characters = memoryManager.getAllCharacters();
@@ -1687,7 +1931,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'update_style_guide': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const updates = args as Partial<StyleGuide>;
@@ -1706,7 +1953,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_style_guide': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const styleGuide = memoryManager.getStyleGuide();
@@ -1723,7 +1973,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'save_plot_thread': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { name, description, status, documents } = args as {
@@ -1754,7 +2007,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_plot_threads': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const threads = memoryManager.getPlotThreads();
@@ -1771,7 +2027,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_writing_stats': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const stats = memoryManager.getWritingStats();
@@ -1788,7 +2047,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'export_project_memory': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const memory = memoryManager.getFullMemory();
@@ -1874,7 +2136,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				};
 
 				if (!contentAnalyzer.isOpenAIConfigured()) {
-					throw new Error('OpenAI API not configured. Use configure_openai tool first.');
+					throw new AppError(
+						'OpenAI API not configured. Use configure_openai tool first.',
+						ErrorCode.CONFIGURATION_ERROR
+					);
 				}
 
 				const suggestions = await contentAnalyzer.getAISuggestions(content, {
@@ -1897,7 +2162,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				const { content } = args as { content: string };
 
 				if (!contentAnalyzer.isOpenAIConfigured()) {
-					throw new Error('OpenAI API not configured. Use configure_openai tool first.');
+					throw new AppError(
+						'OpenAI API not configured. Use configure_openai tool first.',
+						ErrorCode.CONFIGURATION_ERROR
+					);
 				}
 
 				const styleAnalysis = await contentAnalyzer.analyzeStyleWithAI(content);
@@ -1919,7 +2187,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				};
 
 				if (!contentAnalyzer.isOpenAIConfigured()) {
-					throw new Error('OpenAI API not configured. Use configure_openai tool first.');
+					throw new AppError(
+						'OpenAI API not configured. Use configure_openai tool first.',
+						ErrorCode.CONFIGURATION_ERROR
+					);
 				}
 
 				const characterAnalysis = await contentAnalyzer.analyzeCharactersWithAI(
@@ -1941,7 +2212,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				const { content } = args as { content: string };
 
 				if (!contentAnalyzer.isOpenAIConfigured()) {
-					throw new Error('OpenAI API not configured. Use configure_openai tool first.');
+					throw new AppError(
+						'OpenAI API not configured. Use configure_openai tool first.',
+						ErrorCode.CONFIGURATION_ERROR
+					);
 				}
 
 				const plotAnalysis = await contentAnalyzer.analyzePlotWithAI(content);
@@ -2017,7 +2291,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				};
 
 				if (!contentAnalyzer.isOpenAIConfigured()) {
-					throw new Error('OpenAI API not configured. Use configure_openai tool first.');
+					throw new AppError(
+						'OpenAI API not configured. Use configure_openai tool first.',
+						ErrorCode.CONFIGURATION_ERROR
+					);
 				}
 
 				const prompts = await contentAnalyzer.generateWritingPrompts(genre, theme, count);
@@ -2034,7 +2311,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_all_documents': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { includeTrash = false } = args as { includeTrash?: boolean };
@@ -2052,7 +2329,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'save_project': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				await currentProject.saveProject();
@@ -2069,7 +2346,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'is_project_modified': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const modified = await currentProject.isProjectModified();
@@ -2086,7 +2363,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'update_document_context': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { documentId, summary, themes, pacing } = args as {
@@ -2126,7 +2406,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'add_custom_context': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { key, value } = args as { key: string; value: string };
@@ -2146,7 +2429,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'get_custom_context': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { key } = args as { key?: string };
@@ -2164,7 +2450,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'update_writing_session': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { wordsWritten } = args as {
@@ -2204,7 +2493,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'read_document_rtf': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId } = args as { documentId: string };
@@ -2245,7 +2534,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'import_memory': {
 				if (!memoryManager) {
-					throw new Error('Memory manager not initialized');
+					throw new AppError(
+						'Memory manager not initialized',
+						ErrorCode.INITIALIZATION_ERROR
+					);
 				}
 
 				const { memoryData } = args as { memoryData: string };
@@ -2266,7 +2558,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'update_document_synopsis_notes': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { documentId, synopsis, notes } = args as {
@@ -2293,7 +2585,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'batch_update_synopsis_notes': {
 				if (!currentProject) {
-					throw new Error('No project is currently open');
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
 				}
 
 				const { updates } = args as {
@@ -2326,11 +2618,269 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				};
 			}
 
+			case 'get_database_status': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const status = currentProject.getDatabaseService().getStatus();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(status, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'query_database': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const { query, params = [] } = args as {
+					query: string;
+					params?: any[];
+				};
+
+				// Only allow SELECT queries for safety
+				if (!query.trim().toUpperCase().startsWith('SELECT')) {
+					throw new AppError(
+						'Only SELECT queries are allowed for safety',
+						ErrorCode.VALIDATION_ERROR
+					);
+				}
+
+				const dbService = currentProject.getDatabaseService();
+				const results = dbService.getSQLite().query(query, params);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(results, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'get_writing_statistics': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const { days = 30 } = args as { days?: number };
+				const stats = await currentProject.getDatabaseService().getWritingStatistics(days);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(stats, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'record_writing_session': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const {
+					wordsWritten,
+					durationMinutes = 0,
+					documentsWorkedOn = [],
+					notes,
+				} = args as {
+					wordsWritten: number;
+					durationMinutes?: number;
+					documentsWorkedOn?: string[];
+					notes?: string;
+				};
+
+				const date = new Date().toISOString().split('T')[0];
+				await currentProject.getDatabaseService().recordWritingSession({
+					date,
+					wordsWritten,
+					durationMinutes,
+					documentsWorkedOn,
+					notes,
+				});
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Writing session recorded: ${wordsWritten} words in ${durationMinutes} minutes`,
+						},
+					],
+				};
+			}
+
+			case 'analyze_story_structure': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const dbService = currentProject.getDatabaseService();
+				const neo4j = dbService.getNeo4j();
+
+				if (!neo4j || !neo4j.isAvailable()) {
+					return {
+						content: [
+							{
+								type: 'text',
+								text: 'Neo4j graph database is not available. Story structure analysis requires Neo4j.',
+							},
+						],
+					};
+				}
+
+				const structure = await neo4j.analyzeStoryStructure();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(structure, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'find_character_relationships': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const { characterId } = args as { characterId: string };
+				const dbService = currentProject.getDatabaseService();
+				const neo4j = dbService.getNeo4j();
+
+				if (!neo4j || !neo4j.isAvailable()) {
+					return {
+						content: [
+							{
+								type: 'text',
+								text: 'Neo4j graph database is not available. Character relationship analysis requires Neo4j.',
+							},
+						],
+					};
+				}
+
+				const relationships = await neo4j.findCharacterRelationships(characterId);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(relationships, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'create_relationship': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const {
+					fromId,
+					fromType,
+					toId,
+					toType,
+					relationshipType,
+					properties = {},
+				} = args as {
+					fromId: string;
+					fromType: string;
+					toId: string;
+					toType: string;
+					relationshipType: string;
+					properties?: any;
+				};
+
+				await currentProject
+					.getDatabaseService()
+					.createRelationship(
+						fromId,
+						fromType,
+						toId,
+						toType,
+						relationshipType,
+						properties
+					);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Relationship created: ${fromType}:${fromId} -[${relationshipType}]-> ${toType}:${toId}`,
+						},
+					],
+				};
+			}
+
+			case 'get_content_analysis_history': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const { documentId, analysisType } = args as {
+					documentId: string;
+					analysisType?: string;
+				};
+
+				const history = await currentProject
+					.getDatabaseService()
+					.getContentAnalysisHistory(documentId, analysisType);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(history, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'backup_databases': {
+				if (!currentProject) {
+					throw new AppError('No project is currently open', ErrorCode.PROJECT_ERROR);
+				}
+
+				const { backupPath } = args as { backupPath?: string };
+				const defaultPath = path.join(
+					path.dirname(currentProject.getDatabaseService().getStatus().paths.databaseDir),
+					'database-backups'
+				);
+
+				const finalPath = backupPath || defaultPath;
+				await currentProject.getDatabaseService().backup(finalPath);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Databases backed up to: ${finalPath}`,
+						},
+					],
+				};
+			}
+
 			default:
-				throw new Error(`Unknown tool: ${name}`);
+				throw new AppError(`Unknown tool: ${name}`, ErrorCode.VALIDATION_ERROR);
 		}
 	} catch (error) {
-		throw new Error(`Tool execution failed: ${error}`);
+		if (error instanceof AppError) {
+			throw error;
+		}
+		throw new AppError(`Tool execution failed: ${error}`, ErrorCode.RUNTIME_ERROR);
 	}
 });
 

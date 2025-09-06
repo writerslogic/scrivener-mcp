@@ -1,10 +1,36 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { parseStringPromise, Builder } from 'xml2js';
-import * as crypto from 'crypto';
 import type { RTFContent } from './rtf-handler.js';
 import { RTFHandler } from './rtf-handler.js';
 import { DatabaseService } from './database/index.js';
+import { ContentAnalyzer } from './content-analyzer.js';
+import { EnhancedAnalyzer } from './analysis/enhanced-analyzer.js';
+import { ContextSyncService } from './sync/context-sync.js';
+import {
+	AppError,
+	ErrorCode,
+	Cache,
+	validateInput,
+	isValidDocumentId,
+	safeReadFile,
+	safeWriteFile,
+	ensureDir,
+	CleanupManager,
+} from './utils/common.js';
+import {
+	getDocumentPath,
+	generateScrivenerUUID,
+	findBinderItem,
+	traverseBinder,
+	getBinderPath,
+	parseMetadata,
+	buildMetadataItems,
+	getDocumentType,
+	isInTrash,
+	searchBinder,
+	findDocumentsByType,
+} from './utils/scrivener-utils.js';
 import type {
 	ProjectStructure,
 	BinderItem,
@@ -46,9 +72,12 @@ export class ScrivenerProject {
 	private scrivxPath: string;
 	private projectStructure?: ProjectStructure;
 	private rtfHandler: RTFHandler;
-	private documentCache: Map<string, RTFContent>;
-	private cacheTimestamps: Map<string, number>;
+	private documentCache: Cache<RTFContent>;
 	private databaseService: DatabaseService;
+	private contentAnalyzer: ContentAnalyzer;
+	private enhancedAnalyzer?: EnhancedAnalyzer;
+	private contextSync?: ContextSyncService;
+	private cleanupManager: CleanupManager;
 
 	/**
 	 * Constructs a new ScrivenerProject instance.
@@ -59,9 +88,21 @@ export class ScrivenerProject {
 		const projectName = path.basename(projectPath, path.extname(projectPath));
 		this.scrivxPath = path.join(this.projectPath, `${projectName}.scrivx`);
 		this.rtfHandler = new RTFHandler();
-		this.documentCache = new Map();
-		this.cacheTimestamps = new Map();
+		this.documentCache = new Cache<RTFContent>({
+			ttl: 5 * 60 * 1000, // 5 minutes
+			maxSize: 50,
+			onEvict: (key, value) => {
+				console.log(`Evicted document ${key} from cache`);
+			},
+		});
 		this.databaseService = new DatabaseService(this.projectPath);
+		this.contentAnalyzer = new ContentAnalyzer();
+		this.cleanupManager = new CleanupManager();
+
+		// Register cleanup tasks
+		this.cleanupManager.register(async () => {
+			await this.close();
+		});
 	}
 
 	/**
@@ -70,14 +111,15 @@ export class ScrivenerProject {
 	 */
 	async loadProject(): Promise<void> {
 		try {
-			const scrivxContent = await fs.readFile(this.scrivxPath, 'utf-8');
+			const scrivxContent = await safeReadFile(this.scrivxPath);
 			this.projectStructure = await parseStringPromise(scrivxContent, {
 				explicitArray: false,
 				mergeAttrs: true,
 			});
 			if (!this.projectStructure?.ScrivenerProject) {
-				throw new Error(
-					'Invalid Scrivener project structure: Missing ScrivenerProject element.'
+				throw new AppError(
+					'Invalid Scrivener project structure: Missing ScrivenerProject element.',
+					ErrorCode.PROJECT_ERROR
 				);
 			}
 
@@ -89,27 +131,56 @@ export class ScrivenerProject {
 			// Initialize database service
 			await this.databaseService.initialize();
 
+			// Initialize enhanced analyzer and context sync
+			this.enhancedAnalyzer = new EnhancedAnalyzer(
+				this.databaseService,
+				this.contentAnalyzer
+			);
+			this.contextSync = new ContextSyncService(
+				this.projectPath,
+				this.databaseService,
+				this.enhancedAnalyzer,
+				{
+					autoSync: true,
+					syncInterval: 30000,
+					contextFileFormat: 'both',
+					includeAnalysis: true,
+					includeRelationships: true,
+				}
+			);
+
 			if (!this.projectStructure.ScrivenerProject.Binder) {
 				this.projectStructure.ScrivenerProject.Binder = {};
 			}
 
 			// Track when the project was loaded for modification detection
 			this.projectStructure._loadTime = Date.now();
+
+			// Perform initial sync after project load
+			await this.performInitialSync();
 		} catch (error) {
+			if (error instanceof AppError) {
+				throw error;
+			}
 			const err = error as ErrorWithCode;
 			if (err.code === 'ENOENT') {
-				throw new Error(
-					`Scrivener project file not found at "${this.scrivxPath}". Ensure the path is correct.`
+				throw new AppError(
+					`Scrivener project file not found at "${this.scrivxPath}". Ensure the path is correct.`,
+					ErrorCode.NOT_FOUND,
+					{ path: this.scrivxPath }
 				);
 			} else if (err.code === 'EACCES') {
-				throw new Error(`Permission denied reading project file at "${this.scrivxPath}".`);
-			} else if (err.message?.includes('Invalid')) {
-				throw err; // Re-throw validation errors as-is
-			} else {
-				throw new Error(
-					`Failed to load Scrivener project from "${this.scrivxPath}": ${err.message || String(error)}`
+				throw new AppError(
+					`Permission denied reading project file at "${this.scrivxPath}".`,
+					ErrorCode.PERMISSION_DENIED,
+					{ path: this.scrivxPath }
 				);
 			}
+			throw new AppError(
+				`Failed to load Scrivener project from "${this.scrivxPath}": ${err.message || String(error)}`,
+				ErrorCode.PROJECT_ERROR,
+				{ path: this.scrivxPath, originalError: err.message }
+			);
 		}
 	}
 
@@ -136,7 +207,7 @@ export class ScrivenerProject {
 			renderOpts: { pretty: true, indent: '    ' },
 		});
 		const xml = builder.buildObject(saveStructure);
-		await fs.writeFile(this.scrivxPath, xml);
+		await safeWriteFile(this.scrivxPath, xml);
 	}
 
 	/**
@@ -160,26 +231,15 @@ export class ScrivenerProject {
 	 * @throws {Error} If the document file cannot be read.
 	 */
 	async readDocument(documentId: string): Promise<string> {
-		const docPath = this.getDocumentPath(documentId);
-		try {
-			const rtfContent = await fs.readFile(docPath, 'utf-8');
-			return rtfContent;
-		} catch (error) {
-			const err = error as ErrorWithCode;
-			if (err.code === 'ENOENT') {
-				throw new Error(
-					`[ENOENT] Document file not found for ${documentId} at "${docPath}". The document may have been deleted or moved.`
-				);
-			} else if (err.code === 'EACCES') {
-				throw new Error(
-					`[EACCES] Permission denied reading document ${documentId} at "${docPath}".`
-				);
-			} else {
-				throw new Error(
-					`Failed to read document ${documentId}: ${err.message || String(error)}`
-				);
-			}
+		// Validate document ID
+		if (!isValidDocumentId(documentId)) {
+			throw new AppError(`Invalid document ID: ${documentId}`, ErrorCode.INVALID_INPUT, {
+				documentId,
+			});
 		}
+
+		const docPath = this.getDocumentPath(documentId);
+		return await safeReadFile(docPath);
 	}
 
 	/**
@@ -191,24 +251,24 @@ export class ScrivenerProject {
 	 * @throws {Error} If the document file cannot be read.
 	 */
 	async readDocumentFormatted(documentId: string): Promise<RTFContent> {
+		// Validate document ID
+		if (!isValidDocumentId(documentId)) {
+			throw new AppError(`Invalid document ID: ${documentId}`, ErrorCode.INVALID_INPUT);
+		}
+
 		// Check cache first
 		const cached = this.documentCache.get(documentId);
-		const cacheTimestamp = this.cacheTimestamps.get(documentId);
-		const now = Date.now();
-		const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
-
-		if (cached && cacheTimestamp && now - cacheTimestamp < CACHE_EXPIRY_MS) {
+		if (cached) {
 			return cached;
 		}
 
-		// Read from disk if not cached or expired
+		// Read from disk if not cached
 		const docPath = this.getDocumentPath(documentId);
 		try {
 			const rtfContent = await this.rtfHandler.readRTF(docPath);
 
 			// Update cache
 			this.documentCache.set(documentId, rtfContent);
-			this.cacheTimestamps.set(documentId, now);
 
 			return rtfContent;
 		} catch (error) {
@@ -242,16 +302,29 @@ export class ScrivenerProject {
 	 * @throws {Error} If the document file cannot be written.
 	 */
 	async writeDocument(documentId: string, content: string | RTFContent): Promise<void> {
-		if (!documentId || documentId.trim() === '') {
-			throw new Error(`[EINVAL] Invalid document ID: cannot be empty`);
-		}
+		// Validate input
+		validateInput(
+			{ documentId, content },
+			{
+				documentId: {
+					type: 'string',
+					required: true,
+					custom: (id) => isValidDocumentId(id) || 'Invalid document ID format',
+				},
+				content: {
+					required: true,
+				},
+			}
+		);
 		const docPath = this.getDocumentPath(documentId);
 		try {
 			await this.rtfHandler.writeRTF(docPath, content);
 
 			// Invalidate cache for this document
 			this.documentCache.delete(documentId);
-			this.cacheTimestamps.delete(documentId);
+
+			// Mark document as changed for sync
+			this.markDocumentChanged(documentId);
 		} catch (error) {
 			const err = error as ErrorWithCode;
 			if (err.code === 'ENOENT') {
@@ -289,7 +362,7 @@ export class ScrivenerProject {
 	): Promise<string> {
 		if (!this.projectStructure) await this.loadProject();
 
-		const uuid = crypto.randomUUID().toUpperCase();
+		const uuid = generateScrivenerUUID();
 		const newItem = {
 			UUID: uuid,
 			Type: type,
@@ -305,7 +378,7 @@ export class ScrivenerProject {
 		if (type === 'Text') {
 			const docPath = this.getDocumentPath(uuid);
 			// Create directory structure for the document
-			await fs.mkdir(path.dirname(docPath), { recursive: true });
+			await ensureDir(path.dirname(docPath));
 			await this.rtfHandler.writeRTF(docPath, '');
 		}
 
@@ -440,7 +513,6 @@ export class ScrivenerProject {
 
 		// Clear all caches
 		this.documentCache.clear();
-		this.cacheTimestamps.clear();
 
 		// Reload project structure
 		await this.loadProject();
@@ -474,10 +546,8 @@ export class ScrivenerProject {
 	clearCache(documentId?: string): void {
 		if (documentId) {
 			this.documentCache.delete(documentId);
-			this.cacheTimestamps.delete(documentId);
 		} else {
 			this.documentCache.clear();
-			this.cacheTimestamps.clear();
 		}
 	}
 
@@ -552,10 +622,6 @@ export class ScrivenerProject {
 	/**
 	 * Close database connections
 	 */
-	async close(): Promise<void> {
-		await this.databaseService.close();
-	}
-
 	/**
 	 * Sync a document to the database
 	 */
@@ -955,7 +1021,7 @@ export class ScrivenerProject {
 	}
 
 	private getDocumentPath(uuid: string): string {
-		return path.join(this.projectPath, 'Files', 'Data', uuid, 'content.rtf');
+		return getDocumentPath(this.projectPath, uuid);
 	}
 
 	/**
@@ -1454,5 +1520,140 @@ export class ScrivenerProject {
 		}
 
 		return metadata;
+	}
+
+	/**
+	 * Perform initial sync after project load
+	 */
+	private async performInitialSync(): Promise<void> {
+		try {
+			console.log('Performing initial database sync...');
+
+			// Sync all documents to database
+			const allDocs = await this.getAllDocuments();
+			for (const doc of allDocs) {
+				await this.syncDocumentToDatabase(doc);
+			}
+
+			// Trigger initial context generation
+			if (this.contextSync) {
+				await this.contextSync.performSync();
+			}
+
+			console.log('Initial sync completed');
+		} catch (error) {
+			console.error('Initial sync failed:', error);
+			// Don't throw - allow project to continue even if sync fails
+		}
+	}
+
+	/**
+	 * Get enhanced analyzer
+	 */
+	getEnhancedAnalyzer(): EnhancedAnalyzer | undefined {
+		return this.enhancedAnalyzer;
+	}
+
+	/**
+	 * Get context sync service
+	 */
+	getContextSync(): ContextSyncService | undefined {
+		return this.contextSync;
+	}
+
+	/**
+	 * Analyze chapter with enhanced analysis
+	 */
+	async analyzeChapterEnhanced(documentId: string): Promise<any> {
+		if (!this.enhancedAnalyzer) {
+			throw new Error('Enhanced analyzer not initialized');
+		}
+
+		const document = await this.getDocumentInfo(documentId);
+		if (!document) {
+			throw new Error(`Document ${documentId} not found`);
+		}
+
+		const content = await this.readDocument(documentId);
+		const allDocuments = await this.getAllDocuments();
+
+		return await this.enhancedAnalyzer.analyzeChapter(
+			document as any,
+			content,
+			allDocuments as any[]
+		);
+	}
+
+	/**
+	 * Build complete story context
+	 */
+	async buildStoryContext(): Promise<any> {
+		if (!this.enhancedAnalyzer) {
+			throw new Error('Enhanced analyzer not initialized');
+		}
+
+		const documents = await this.getAllDocuments();
+		const contexts = [];
+
+		for (const doc of documents) {
+			if (doc.type === 'Text') {
+				const context = await this.enhancedAnalyzer.getChapterContext(doc.id);
+				if (context) {
+					contexts.push(context);
+				}
+			}
+		}
+
+		return await this.enhancedAnalyzer.buildStoryContext(documents as any[], contexts);
+	}
+
+	/**
+	 * Get sync status
+	 */
+	getSyncStatus(): any {
+		if (!this.contextSync) {
+			return {
+				enabled: false,
+				message: 'Context sync not initialized',
+			};
+		}
+
+		return this.contextSync.getSyncStatus();
+	}
+
+	/**
+	 * Mark document as changed for sync
+	 */
+	markDocumentChanged(documentId: string): void {
+		if (this.contextSync) {
+			this.contextSync.markDocumentChanged(documentId);
+		}
+	}
+
+	/**
+	 * Export context files
+	 */
+	async exportContextFiles(exportPath: string): Promise<void> {
+		if (!this.contextSync) {
+			throw new Error('Context sync not initialized');
+		}
+
+		await this.contextSync.exportContextFiles(exportPath);
+	}
+
+	/**
+	 * Close project and cleanup
+	 */
+	async close(): Promise<void> {
+		// Stop context sync
+		if (this.contextSync) {
+			this.contextSync.close();
+		}
+
+		// Close database connections
+		await this.databaseService.close();
+
+		// Clear cache
+		this.documentCache.clear();
 	}
 }

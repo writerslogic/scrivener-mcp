@@ -4,6 +4,7 @@
  */
 
 import OpenAI from 'openai';
+import { AppError, ErrorCode } from './utils/common.js';
 
 export interface OpenAIConfig {
 	apiKey?: string;
@@ -92,7 +93,10 @@ export class OpenAIService {
 		context?: { genre?: string; targetAudience?: string; style?: string }
 	): Promise<WritingSuggestion[]> {
 		if (!this.client) {
-			throw new Error('OpenAI service not configured. Please provide an API key.');
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
 		}
 
 		const prompt = this.buildSuggestionsPrompt(text, context);
@@ -132,7 +136,10 @@ export class OpenAIService {
 	 */
 	async analyzeStyle(text: string): Promise<StyleAnalysis> {
 		if (!this.client) {
-			throw new Error('OpenAI service not configured. Please provide an API key.');
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
 		}
 
 		const prompt = `Analyze the writing style of the following text and provide a detailed assessment:
@@ -200,7 +207,10 @@ Return your analysis in this JSON format:
 	 */
 	async analyzeCharacters(text: string, characterNames?: string[]): Promise<CharacterAnalysis[]> {
 		if (!this.client) {
-			throw new Error('OpenAI service not configured. Please provide an API key.');
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
 		}
 
 		const charactersPrompt =
@@ -269,7 +279,10 @@ Return analysis in this JSON format:
 	 */
 	async analyzePlot(text: string): Promise<PlotAnalysis> {
 		if (!this.client) {
-			throw new Error('OpenAI service not configured. Please provide an API key.');
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
 		}
 
 		const prompt = `Analyze the plot structure and pacing of the following text:
@@ -332,7 +345,10 @@ Return analysis in this JSON format:
 		count: number = 5
 	): Promise<string[]> {
 		if (!this.client) {
-			throw new Error('OpenAI service not configured. Please provide an API key.');
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
 		}
 
 		const genreText = genre ? `in the ${genre} genre` : '';

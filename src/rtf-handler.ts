@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import parseRTF from 'rtf-parser';
 import { promisify } from 'util';
+import { safeReadFile, safeWriteFile } from './utils/common.js';
 import type {
 	RTFParserDocument,
 	RTFParserContent,
@@ -69,7 +70,7 @@ export class RTFHandler {
 	 * Read and parse an RTF file
 	 */
 	async readRTF(filePath: string): Promise<RTFContent> {
-		const rtfContent = await fs.readFile(filePath, 'utf-8');
+		const rtfContent = await safeReadFile(filePath);
 		return this.parseRTF(rtfContent);
 	}
 
@@ -92,7 +93,7 @@ export class RTFHandler {
 	 */
 	async writeRTF(filePath: string, content: RTFContent | string): Promise<void> {
 		const rtfString = this.unifiedConvertToRTF(content);
-		await fs.writeFile(filePath, rtfString, 'utf-8');
+		await safeWriteFile(filePath, rtfString);
 	}
 
 	/**
