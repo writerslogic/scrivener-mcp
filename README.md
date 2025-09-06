@@ -90,7 +90,9 @@ The MCP server provides the following tools:
 
 ### Project Operations
 - `open_project(path)` - Open a Scrivener project
-- `get_structure()` - Get the project's hierarchical structure
+- `get_structure(options?)` - Get the project's hierarchical structure
+  - Options: `maxDepth` (limit tree depth), `folderId` (get specific folder), `includeTrash` (include trash), `summaryOnly` (return counts only)
+- `get_document_info(documentId)` - Get document metadata with full parent hierarchy and location
 - `get_project_metadata()` - Get project-level metadata
 
 ### Document Operations
@@ -106,8 +108,13 @@ The MCP server provides the following tools:
 
 ### Metadata & Search
 - `update_metadata(documentId, metadata)` - Update document metadata
-- `search_content(query, options?)` - Search across all documents
+- `search_content(query, options?)` - Search across all documents (excludes trash)
 - `get_word_count(documentId?)` - Get word/character counts
+
+### Trash Management (v0.3.2+)
+- `list_trash()` - List all documents in the trash folder
+- `search_trash(query, options?)` - Search only within trashed documents
+- `recover_document(documentId, targetParentId?)` - Recover document from trash
 
 ### Analysis & Compilation
 - `analyze_document(documentId)` - Deep AI-powered content analysis
@@ -128,6 +135,20 @@ The MCP server provides the following tools:
 - `get_plot_threads()` - View all plot threads
 - `get_writing_stats()` - Get project statistics
 - `export_project_memory()` - Export complete memory data
+
+### Additional Tools (v0.3.2+)
+- `get_all_documents(includeTrash?)` - Get flat list of all documents
+- `save_project()` - Save any pending changes to the project
+- `is_project_modified()` - Check if project has unsaved changes
+- `read_document_rtf(documentId)` - Read document with RTF formatting preserved
+- `update_document_context(documentId, summary?, themes?, pacing?)` - Update document memory context
+- `add_custom_context(key, value)` - Add custom context to project memory
+- `get_custom_context(key?)` - Get custom context from project memory
+- `update_writing_session(wordsWritten, duration?)` - Update writing session statistics
+- `extract_research_data(html, keywords?)` - Extract research data from web content
+- `import_memory(memoryData)` - Import project memory from exported data
+- `update_document_synopsis_notes(documentId, synopsis?, notes?)` - Update synopsis and/or notes for a document
+- `batch_update_synopsis_notes(updates)` - Update synopsis and/or notes for multiple documents at once
 
 ## RTF Format Support
 
@@ -172,6 +193,29 @@ deep_analyze_content("UUID-OF-DOCUMENT")
 
 // Apply enhancements
 enhance_content("UUID-OF-DOCUMENT", "strengthen-verbs")
+```
+
+### Synopsis and Notes Management
+```javascript
+// Update synopsis for a single document
+update_document_synopsis_notes("UUID-OF-CHAPTER", {
+  synopsis: "Elizabeth meets Mr. Darcy at the assembly ball and takes an instant dislike to him.",
+  notes: "Important first impression scene - sets up central conflict"
+})
+
+// Batch update multiple documents
+batch_update_synopsis_notes([
+  {
+    documentId: "UUID-OF-CHAPTER-1",
+    synopsis: "Introduction to Elizabeth and her family",
+    notes: "Character establishment chapter"
+  },
+  {
+    documentId: "UUID-OF-CHAPTER-2", 
+    synopsis: "The Netherfield ball",
+    notes: "Major social event - introduces Bingley and Darcy"
+  }
+])
 ```
 
 ### Character Management

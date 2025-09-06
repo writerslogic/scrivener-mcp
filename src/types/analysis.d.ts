@@ -18,7 +18,12 @@ export interface ReadabilityMetrics {
 	sentenceCount: number;
 	syllableCount: number;
 	difficultWords: number;
-	[key: string]: number | string | undefined | { grade: number; description: string; ageRange: string } | any[];
+	[key: string]:
+		| number
+		| string
+		| undefined
+		| { grade: number; description: string; ageRange: string }
+		| unknown[];
 }
 
 export interface ReadabilityComparison {

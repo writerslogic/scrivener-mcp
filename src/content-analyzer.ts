@@ -1,6 +1,11 @@
 // import type { ScrivenerDocument } from './scrivener-project.js';
 import { classifier as wordClassifier } from './ml-word-classifier-pro.js';
 import { openaiService } from './openai-service.js';
+import type {
+	StyleAnalysis as OpenAIStyleAnalysis,
+	CharacterAnalysis as OpenAICharacterAnalysis,
+	PlotAnalysis as OpenAIPlotAnalysis,
+} from './openai-service.js';
 import { webContentParser } from './web-content-parser.js';
 import { advancedReadabilityService } from './advanced-readability.js';
 import type {
@@ -946,7 +951,7 @@ export class ContentAnalyzer {
 	/**
 	 * Analyze writing style using AI
 	 */
-	async analyzeStyleWithAI(content: string): Promise<any> {
+	async analyzeStyleWithAI(content: string): Promise<OpenAIStyleAnalysis | null> {
 		if (!openaiService.isConfigured()) {
 			return null;
 		}
@@ -962,7 +967,10 @@ export class ContentAnalyzer {
 	/**
 	 * Analyze characters using AI
 	 */
-	async analyzeCharactersWithAI(content: string, characterNames?: string[]): Promise<any[]> {
+	async analyzeCharactersWithAI(
+		content: string,
+		characterNames?: string[]
+	): Promise<OpenAICharacterAnalysis[]> {
 		if (!openaiService.isConfigured()) {
 			return [];
 		}
@@ -978,7 +986,7 @@ export class ContentAnalyzer {
 	/**
 	 * Analyze plot structure using AI
 	 */
-	async analyzePlotWithAI(content: string): Promise<any> {
+	async analyzePlotWithAI(content: string): Promise<OpenAIPlotAnalysis | null> {
 		if (!openaiService.isConfigured()) {
 			return null;
 		}

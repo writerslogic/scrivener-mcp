@@ -4,6 +4,7 @@ import { parseStringPromise, Builder } from 'xml2js';
 import * as crypto from 'crypto';
 import type { RTFContent } from './rtf-handler.js';
 import { RTFHandler } from './rtf-handler.js';
+import { DatabaseService } from './database/index.js';
 import type {
 	ProjectStructure,
 	BinderItem,
@@ -47,6 +48,7 @@ export class ScrivenerProject {
 	private rtfHandler: RTFHandler;
 	private documentCache: Map<string, RTFContent>;
 	private cacheTimestamps: Map<string, number>;
+	private databaseService: DatabaseService;
 
 	/**
 	 * Constructs a new ScrivenerProject instance.
@@ -59,6 +61,7 @@ export class ScrivenerProject {
 		this.rtfHandler = new RTFHandler();
 		this.documentCache = new Map();
 		this.cacheTimestamps = new Map();
+		this.databaseService = new DatabaseService(this.projectPath);
 	}
 
 	/**
@@ -82,6 +85,9 @@ export class ScrivenerProject {
 			if ((this.projectStructure.ScrivenerProject.Binder as unknown) === '') {
 				this.projectStructure.ScrivenerProject.Binder = {};
 			}
+
+			// Initialize database service
+			await this.databaseService.initialize();
 
 			if (!this.projectStructure.ScrivenerProject.Binder) {
 				this.projectStructure.ScrivenerProject.Binder = {};
@@ -137,13 +143,13 @@ export class ScrivenerProject {
 	 * Retrieves the hierarchical structure of the entire project binder.
 	 * @returns A promise that resolves to an array of ScrivenerDocument objects.
 	 */
-	async getProjectStructure(): Promise<ScrivenerDocument[]> {
+	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
 		if (!this.projectStructure) await this.loadProject();
 
 		const binder = this.projectStructure?.ScrivenerProject?.Binder;
 		if (!binder) return [];
 
-		return this.parseBinderItems(binder.BinderItem || []);
+		return this.parseBinderItems(binder.BinderItem || [], includeTrash);
 	}
 
 	/**
@@ -537,6 +543,130 @@ export class ScrivenerProject {
 	}
 
 	/**
+	 * Get the database service instance
+	 */
+	getDatabaseService(): DatabaseService {
+		return this.databaseService;
+	}
+
+	/**
+	 * Close database connections
+	 */
+	async close(): Promise<void> {
+		await this.databaseService.close();
+	}
+
+	/**
+	 * Sync a document to the database
+	 */
+	private async syncDocumentToDatabase(doc: ScrivenerDocument): Promise<void> {
+		try {
+			// Get word count for the document
+			let wordCount = 0;
+			let characterCount = 0;
+
+			try {
+				const content = await this.readDocument(doc.id);
+				const words = content
+					.trim()
+					.split(/\s+/)
+					.filter((word) => word.length > 0);
+				wordCount = words.length;
+				characterCount = content.length;
+			} catch {
+				// Document might not have content yet, that's okay
+			}
+
+			await this.databaseService.syncDocumentData({
+				id: doc.id,
+				title: doc.title,
+				type: doc.type,
+				synopsis: doc.synopsis,
+				notes: doc.notes,
+				wordCount,
+				characterCount,
+			});
+		} catch (error) {
+			// Log error but don't throw to avoid breaking project loading
+			console.warn(`Failed to sync document ${doc.id}:`, error);
+		}
+	}
+
+	/**
+	 * Updates the synopsis and/or notes for a specific document.
+	 * @param documentId The UUID of the document.
+	 * @param synopsis The new synopsis text (optional).
+	 * @param notes The new notes text (optional).
+	 * @throws {Error} If the document is not found.
+	 */
+	async updateSynopsisAndNotes(
+		documentId: string,
+		synopsis?: string,
+		notes?: string
+	): Promise<void> {
+		if (!this.projectStructure) await this.loadProject();
+
+		const binder = this.projectStructure?.ScrivenerProject?.Binder;
+		if (!binder) {
+			throw new Error('Project structure is invalid.');
+		}
+
+		const item = this.findBinderItem(binder, documentId);
+		if (!item) {
+			throw new Error(`Document ${documentId} not found.`);
+		}
+
+		if (!item.MetaData) {
+			item.MetaData = {};
+		}
+
+		// Update synopsis
+		if (synopsis !== undefined) {
+			item.MetaData.Synopsis = synopsis;
+		}
+
+		// Update notes
+		if (notes !== undefined) {
+			item.MetaData.Notes = notes;
+		}
+
+		this.updateModifiedDate(item);
+		await this.saveProject();
+	}
+
+	/**
+	 * Batch update synopsis and notes for multiple documents.
+	 * @param updates Array of update objects with documentId, synopsis, and/or notes.
+	 * @returns Array of results indicating success/failure for each document.
+	 */
+	async batchUpdateSynopsisAndNotes(
+		updates: Array<{
+			documentId: string;
+			synopsis?: string;
+			notes?: string;
+		}>
+	): Promise<Array<{ documentId: string; success: boolean; error?: string }>> {
+		if (!this.projectStructure) await this.loadProject();
+
+		const results: Array<{ documentId: string; success: boolean; error?: string }> = [];
+
+		for (const update of updates) {
+			try {
+				await this.updateSynopsisAndNotes(update.documentId, update.synopsis, update.notes);
+				results.push({ documentId: update.documentId, success: true });
+			} catch (error) {
+				results.push({
+					documentId: update.documentId,
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+
+		return results;
+	}
+
+	/**
 	 * Retrieves the combined word and character count for a specific document or the entire project.
 	 * @param documentId The UUID of the document. If not provided, the entire project is counted.
 	 * @returns An object with `words` and `characters` counts.
@@ -736,14 +866,23 @@ export class ScrivenerProject {
 		return matches;
 	}
 
-	private parseBinderItems(items: BinderItem | BinderItem[]): ScrivenerDocument[] {
+	private parseBinderItems(
+		items: BinderItem | BinderItem[],
+		includeTrash = false
+	): ScrivenerDocument[] {
 		if (!items) return [];
 		if (Array.isArray(items) && items.length === 0) return [];
 		const itemArray = Array.isArray(items) ? items : [items];
-		return itemArray.map((item) => this.parseBinderItem(item));
+
+		// Filter out Trash folder and its contents unless explicitly requested
+		const filteredItems = includeTrash
+			? itemArray
+			: itemArray.filter((item) => item.Type !== 'TrashFolder');
+
+		return filteredItems.map((item) => this.parseBinderItem(item, includeTrash));
 	}
 
-	private parseBinderItem(item: BinderItem): ScrivenerDocument {
+	private parseBinderItem(item: BinderItem, includeTrash = false): ScrivenerDocument {
 		// With mergeAttrs: true, attributes are directly on the item
 		const uuid = item?.UUID || item?.ID || '';
 
@@ -804,8 +943,13 @@ export class ScrivenerProject {
 
 		if (item.Children?.BinderItem) {
 			// parseBinderItems handles both single items and arrays
-			doc.children = this.parseBinderItems(item.Children.BinderItem);
+			doc.children = this.parseBinderItems(item.Children.BinderItem, includeTrash);
 		}
+
+		// Sync document with database (async, don't await to avoid blocking)
+		this.syncDocumentToDatabase(doc).catch((error) =>
+			console.warn(`Failed to sync document ${doc.id} to database:`, error)
+		);
 
 		return doc;
 	}
@@ -932,8 +1076,8 @@ export class ScrivenerProject {
 	/**
 	 * Helper function to get a flat list of all documents in the project.
 	 */
-	async getAllDocuments(): Promise<ScrivenerDocument[]> {
-		const structure = await this.getProjectStructure();
+	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
+		const structure = await this.getProjectStructure(includeTrash);
 		const allDocs: ScrivenerDocument[] = [];
 
 		const traverse = (docs: ScrivenerDocument[]) => {
@@ -945,6 +1089,309 @@ export class ScrivenerProject {
 
 		traverse(structure);
 		return allDocs;
+	}
+
+	/**
+	 * Get only documents that are in the Trash folder
+	 */
+	async getTrashDocuments(): Promise<ScrivenerDocument[]> {
+		if (!this.projectStructure) await this.loadProject();
+
+		const binder = this.projectStructure?.ScrivenerProject?.Binder;
+		if (!binder) return [];
+
+		// Find the trash folder
+		const binderItems = Array.isArray(binder.BinderItem)
+			? binder.BinderItem
+			: [binder.BinderItem];
+		const trashFolder = binderItems.find((item) => item?.Type === 'TrashFolder');
+
+		if (!trashFolder || !trashFolder.Children?.BinderItem) {
+			return [];
+		}
+
+		// Parse all items in trash, including nested folders
+		const trashDocs = this.parseBinderItems(trashFolder.Children.BinderItem, true);
+		const allTrashDocs: ScrivenerDocument[] = [];
+
+		const traverse = (docs: ScrivenerDocument[]) => {
+			for (const doc of docs) {
+				allTrashDocs.push(doc);
+				if (doc.children) traverse(doc.children);
+			}
+		};
+
+		traverse(trashDocs);
+		return allTrashDocs;
+	}
+
+	/**
+	 * Search only within trash documents
+	 */
+	async searchTrash(
+		query: string,
+		options?: { caseSensitive?: boolean; regex?: boolean }
+	): Promise<Array<{ documentId: string; title: string; matches: string[] }>> {
+		const results: Array<{ documentId: string; title: string; matches: string[] }> = [];
+		const trashDocs = await this.getTrashDocuments();
+
+		for (const doc of trashDocs) {
+			if (doc.type === 'Text') {
+				const matches: string[] = [];
+				try {
+					const content = await this.readDocument(doc.id);
+					matches.push(...this.findMatches(content, query, options));
+
+					if (matches.length > 0) {
+						results.push({
+							documentId: doc.id,
+							title: `[TRASH] ${doc.title}`,
+							matches,
+						});
+					}
+				} catch {
+					// Skip documents that can't be read
+				}
+			}
+		}
+
+		return results;
+	}
+
+	/**
+	 * Recover a document from trash by moving it to a specific location
+	 */
+	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
+		if (!this.projectStructure) await this.loadProject();
+
+		const binder = this.projectStructure?.ScrivenerProject?.Binder;
+		if (!binder) throw new Error('Project structure not loaded');
+
+		// Find the document in trash
+		const binderItems = Array.isArray(binder.BinderItem)
+			? binder.BinderItem
+			: [binder.BinderItem];
+		const trashFolder = binderItems.find((item) => item?.Type === 'TrashFolder');
+
+		if (!trashFolder) {
+			throw new Error('Trash folder not found');
+		}
+
+		// Find and remove the document from trash
+		const removedItem = this.removeBinderItem(trashFolder, documentId);
+		if (!removedItem) {
+			throw new Error(`Document ${documentId} not found in trash`);
+		}
+
+		// Add to target location (root binder if no parent specified)
+		if (targetParentId) {
+			const parent = this.findBinderItem(binder, targetParentId);
+			if (!parent || parent.Type !== 'Folder') {
+				throw new Error(`Target parent ${targetParentId} not found or is not a folder`);
+			}
+			if (!parent.Children) parent.Children = { BinderItem: [] };
+			if (!parent.Children.BinderItem) parent.Children.BinderItem = [];
+
+			const children = Array.isArray(parent.Children.BinderItem)
+				? parent.Children.BinderItem
+				: [parent.Children.BinderItem];
+			children.push(removedItem);
+			parent.Children.BinderItem = children.length === 1 ? children[0] : children;
+		} else {
+			// Add to root
+			const rootItems = Array.isArray(binder.BinderItem)
+				? binder.BinderItem
+				: [binder.BinderItem];
+			const validItems = rootItems.filter((item): item is BinderItem => item !== undefined);
+			validItems.splice(validItems.length - 1, 0, removedItem); // Insert before trash folder
+			binder.BinderItem = validItems.length === 1 ? validItems[0] : validItems;
+		}
+
+		await this.saveProject();
+	}
+
+	/**
+	 * Helper function to remove a binder item from a container
+	 */
+	private removeBinderItem(container: BinderItem, targetId: string): BinderItem | null {
+		if (!container.Children?.BinderItem) return null;
+
+		const items = Array.isArray(container.Children.BinderItem)
+			? container.Children.BinderItem
+			: [container.Children.BinderItem];
+
+		const index = items.findIndex((item) => item.UUID === targetId || item.ID === targetId);
+		if (index !== -1) {
+			const removed = items.splice(index, 1)[0];
+			container.Children.BinderItem =
+				items.length === 0 ? [] : items.length === 1 ? items[0] : items;
+			return removed;
+		}
+
+		// Search recursively in children
+		for (const item of items) {
+			if (item.Children?.BinderItem) {
+				const found = this.removeBinderItem(item, targetId);
+				if (found) return found;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get detailed information about a document including its parent hierarchy
+	 */
+	async getDocumentInfo(documentId: string): Promise<{
+		document: ScrivenerDocument | null;
+		path: Array<{ id: string; title: string; type: string }>;
+		metadata: Record<string, unknown>;
+		location: 'active' | 'trash' | 'unknown';
+	}> {
+		if (!this.projectStructure) await this.loadProject();
+
+		// Check in active documents
+		const structure = await this.getProjectStructure(false);
+		let foundDoc: ScrivenerDocument | null = null;
+		let path: Array<{ id: string; title: string; type: string }> = [];
+		let location: 'active' | 'trash' | 'unknown' = 'unknown';
+
+		// Helper to search and build path
+		const searchInDocs = (
+			docs: ScrivenerDocument[],
+			currentPath: Array<{ id: string; title: string; type: string }>
+		): boolean => {
+			for (const doc of docs) {
+				const newPath = [...currentPath, { id: doc.id, title: doc.title, type: doc.type }];
+
+				if (doc.id === documentId) {
+					foundDoc = doc;
+					path = newPath;
+					return true;
+				}
+
+				if (doc.children && searchInDocs(doc.children, newPath)) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		if (searchInDocs(structure, [])) {
+			location = 'active';
+		} else {
+			// Check in trash
+			const trashDocs = await this.getTrashDocuments();
+			if (searchInDocs(trashDocs, [{ id: 'TRASH', title: 'Trash', type: 'TrashFolder' }])) {
+				location = 'trash';
+			}
+		}
+
+		const metadata: Record<string, unknown> = {};
+		if (foundDoc !== null) {
+			const doc = foundDoc as ScrivenerDocument;
+			metadata.label = doc.label;
+			metadata.status = doc.status;
+			metadata.synopsis = doc.synopsis;
+			metadata.notes = doc.notes;
+			metadata.includeInCompile = doc.includeInCompile;
+			if (doc.customMetadata) {
+				Object.assign(metadata, doc.customMetadata);
+			}
+		}
+
+		return {
+			document: foundDoc,
+			path,
+			metadata,
+			location,
+		};
+	}
+
+	/**
+	 * Get structure with options for limiting response size
+	 */
+	async getProjectStructureLimited(options?: {
+		maxDepth?: number;
+		folderId?: string;
+		includeTrash?: boolean;
+		summaryOnly?: boolean;
+	}): Promise<
+		| ScrivenerDocument[]
+		| { totalDocuments: number; folders: number; texts: number; tree: ScrivenerDocument[] }
+	> {
+		const {
+			maxDepth = Infinity,
+			folderId,
+			includeTrash = false,
+			summaryOnly = false,
+		} = options || {};
+
+		let structure = await this.getProjectStructure(includeTrash);
+
+		// If specific folder requested, find and return only that branch
+		if (folderId) {
+			const findFolder = (docs: ScrivenerDocument[]): ScrivenerDocument | null => {
+				for (const doc of docs) {
+					if (doc.id === folderId) return doc;
+					if (doc.children) {
+						const found = findFolder(doc.children);
+						if (found) return found;
+					}
+				}
+				return null;
+			};
+
+			const folder = findFolder(structure);
+			structure = folder ? [folder] : [];
+		}
+
+		// Apply depth limit
+		if (maxDepth < Infinity) {
+			const limitDepth = (
+				docs: ScrivenerDocument[],
+				currentDepth: number
+			): ScrivenerDocument[] => {
+				return docs.map((doc) => ({
+					...doc,
+					children:
+						currentDepth < maxDepth && doc.children
+							? limitDepth(doc.children, currentDepth + 1)
+							: undefined,
+				}));
+			};
+			structure = limitDepth(structure, 1);
+		}
+
+		// Return summary if requested
+		if (summaryOnly) {
+			let totalDocuments = 0;
+			let folders = 0;
+			let texts = 0;
+
+			const count = (docs: ScrivenerDocument[]) => {
+				for (const doc of docs) {
+					totalDocuments++;
+					if (doc.type === 'Folder') folders++;
+					if (doc.type === 'Text') texts++;
+					if (doc.children) count(doc.children);
+				}
+			};
+
+			count(structure);
+
+			return {
+				totalDocuments,
+				folders,
+				texts,
+				tree: structure.map((doc) => ({
+					...doc,
+					children: doc.children ? [] : undefined, // Empty children for summary
+				})),
+			};
+		}
+
+		return structure;
 	}
 
 	/**

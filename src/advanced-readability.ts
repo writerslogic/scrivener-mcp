@@ -746,7 +746,17 @@ export class AdvancedReadabilityService {
 		minFlesch?: number;
 		maxFlesch?: number;
 	} {
-		const ranges: any = {
+		const ranges: Record<
+			string,
+			{
+				minFlesch: number;
+				maxFlesch: number;
+				minSentenceLength: number;
+				maxSentenceLength: number;
+				minSyllables: number;
+				maxSyllables: number;
+			}
+		> = {
 			academic: {
 				minFlesch: 30,
 				maxFlesch: 60,
@@ -797,7 +807,26 @@ export class AdvancedReadabilityService {
 			},
 		};
 
-		return ranges[context as keyof typeof ranges] || ranges.business;
+		const selected = ranges[context as keyof typeof ranges] || ranges.business;
+
+		return {
+			fleschReadingEase: {
+				min: selected.minFlesch,
+				max: selected.maxFlesch,
+				target: (selected.minFlesch + selected.maxFlesch) / 2,
+			},
+			fleschKincaidGrade: {
+				min: 5,
+				max: 12,
+				target: 8,
+			},
+			minSentenceLength: selected.minSentenceLength,
+			maxSentenceLength: selected.maxSentenceLength,
+			minSyllables: selected.minSyllables,
+			maxSyllables: selected.maxSyllables,
+			minFlesch: selected.minFlesch,
+			maxFlesch: selected.maxFlesch,
+		};
 	}
 
 	/**

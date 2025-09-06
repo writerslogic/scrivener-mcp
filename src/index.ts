@@ -7,6 +7,7 @@ import type { StyleGuide } from './memory-manager.js';
 import { MemoryManager } from './memory-manager.js';
 import { ContentAnalyzer } from './content-analyzer.js';
 import { ContentEnhancer, type EnhancementType } from './content-enhancer.js';
+import { webContentParser } from './web-content-parser.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -49,7 +50,38 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 				description: 'Get the hierarchical structure of the project',
 				inputSchema: {
 					type: 'object',
-					properties: {},
+					properties: {
+						maxDepth: {
+							type: 'number',
+							description: 'Maximum depth to traverse (default: unlimited)',
+						},
+						folderId: {
+							type: 'string',
+							description: 'Get structure for specific folder only',
+						},
+						includeTrash: {
+							type: 'boolean',
+							description: 'Include trash folder (default: false)',
+						},
+						summaryOnly: {
+							type: 'boolean',
+							description: 'Return summary with counts instead of full structure',
+						},
+					},
+				},
+			},
+			{
+				name: 'get_document_info',
+				description: 'Get detailed information about a document including parent hierarchy',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'UUID of the document',
+						},
+					},
+					required: ['documentId'],
 				},
 			},
 			{
@@ -197,7 +229,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 			},
 			{
 				name: 'search_content',
-				description: 'Search for content across all documents',
+				description: 'Search for content across all documents (excludes trash)',
 				inputSchema: {
 					type: 'object',
 					properties: {
@@ -215,6 +247,56 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 						},
 					},
 					required: ['query'],
+				},
+			},
+			{
+				name: 'list_trash',
+				description: 'List all documents in the trash folder',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'search_trash',
+				description: 'Search for content only in trashed documents',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						query: {
+							type: 'string',
+							description: 'Search query',
+						},
+						caseSensitive: {
+							type: 'boolean',
+							default: false,
+						},
+						regex: {
+							type: 'boolean',
+							default: false,
+						},
+					},
+					required: ['query'],
+				},
+			},
+			{
+				name: 'recover_document',
+				description: 'Recover a document from trash',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'UUID of the document to recover',
+						},
+						targetParentId: {
+							type: 'string',
+							description:
+								'UUID of target parent folder (optional, defaults to root)',
+							nullable: true,
+						},
+					},
+					required: ['documentId'],
 				},
 			},
 			{
@@ -757,6 +839,212 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 					},
 				},
 			},
+			{
+				name: 'get_all_documents',
+				description: 'Get a flat list of all documents in the project',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						includeTrash: {
+							type: 'boolean',
+							description: 'Include documents in trash (default: false)',
+						},
+					},
+				},
+			},
+			{
+				name: 'save_project',
+				description: 'Save any pending changes to the project',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'is_project_modified',
+				description: 'Check if the project has unsaved changes',
+				inputSchema: {
+					type: 'object',
+					properties: {},
+				},
+			},
+			{
+				name: 'update_document_context',
+				description: 'Update memory context for a specific document',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'UUID of the document',
+						},
+						summary: {
+							type: 'string',
+							description: 'Brief summary of the document',
+						},
+						themes: {
+							type: 'array',
+							items: { type: 'string' },
+							description: 'Themes present in the document',
+						},
+						pacing: {
+							type: 'string',
+							description: 'Pacing of the document (slow/moderate/fast)',
+						},
+					},
+					required: ['documentId'],
+				},
+			},
+			{
+				name: 'add_custom_context',
+				description: 'Add custom context information to project memory',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						key: {
+							type: 'string',
+							description: 'Context key (e.g., world_setting, magic_system)',
+						},
+						value: {
+							type: 'string',
+							description: 'Context value or description',
+						},
+					},
+					required: ['key', 'value'],
+				},
+			},
+			{
+				name: 'get_custom_context',
+				description: 'Get custom context information from project memory',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						key: {
+							type: 'string',
+							description: 'Context key to retrieve',
+						},
+					},
+				},
+			},
+			{
+				name: 'update_writing_session',
+				description: 'Update writing session statistics',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						wordsWritten: {
+							type: 'number',
+							description: 'Words written in this session',
+						},
+						duration: {
+							type: 'number',
+							description: 'Session duration in minutes',
+						},
+					},
+					required: ['wordsWritten'],
+				},
+			},
+			{
+				name: 'read_document_rtf',
+				description: 'Read document with RTF formatting preserved',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'UUID of the document',
+						},
+					},
+					required: ['documentId'],
+				},
+			},
+			{
+				name: 'extract_research_data',
+				description: 'Extract research data from web content',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						html: {
+							type: 'string',
+							description: 'HTML content to extract from',
+						},
+						keywords: {
+							type: 'array',
+							items: { type: 'string' },
+							description: 'Keywords to focus on',
+						},
+					},
+					required: ['html'],
+				},
+			},
+			{
+				name: 'import_memory',
+				description: 'Import project memory from exported data',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						memoryData: {
+							type: 'string',
+							description: 'JSON string of exported memory data',
+						},
+					},
+					required: ['memoryData'],
+				},
+			},
+			{
+				name: 'update_document_synopsis_notes',
+				description: 'Update synopsis and/or notes for a specific document',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						documentId: {
+							type: 'string',
+							description: 'UUID of the document',
+						},
+						synopsis: {
+							type: 'string',
+							description: 'New synopsis text for the document',
+						},
+						notes: {
+							type: 'string',
+							description: 'New notes text for the document',
+						},
+					},
+					required: ['documentId'],
+				},
+			},
+			{
+				name: 'batch_update_synopsis_notes',
+				description: 'Update synopsis and/or notes for multiple documents at once',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						updates: {
+							type: 'array',
+							items: {
+								type: 'object',
+								properties: {
+									documentId: {
+										type: 'string',
+										description: 'UUID of the document',
+									},
+									synopsis: {
+										type: 'string',
+										description: 'New synopsis text',
+									},
+									notes: {
+										type: 'string',
+										description: 'New notes text',
+									},
+								},
+								required: ['documentId'],
+							},
+							description: 'Array of document updates',
+						},
+					},
+					required: ['updates'],
+				},
+			},
 		],
 	};
 });
@@ -797,12 +1085,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					throw new Error('No project is currently open');
 				}
 
-				const structure = await currentProject.getProjectStructure();
+				const { maxDepth, folderId, includeTrash, summaryOnly } = args as {
+					maxDepth?: number;
+					folderId?: string;
+					includeTrash?: boolean;
+					summaryOnly?: boolean;
+				};
+
+				const structure = await currentProject.getProjectStructureLimited({
+					maxDepth,
+					folderId,
+					includeTrash,
+					summaryOnly,
+				});
+
 				return {
 					content: [
 						{
 							type: 'text',
 							text: JSON.stringify(structure, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'get_document_info': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const { documentId } = args as { documentId: string };
+				const info = await currentProject.getDocumentInfo(documentId);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(info, null, 2),
 						},
 					],
 				};
@@ -990,6 +1309,72 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 						{
 							type: 'text',
 							text: JSON.stringify(results, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'list_trash': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const trashDocs = await currentProject.getTrashDocuments();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(trashDocs, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'search_trash': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const {
+					query,
+					caseSensitive = false,
+					regex = false,
+				} = args as {
+					query: string;
+					caseSensitive?: boolean;
+					regex?: boolean;
+				};
+
+				const results = await currentProject.searchTrash(query, { caseSensitive, regex });
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(results, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'recover_document': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const { documentId, targetParentId } = args as {
+					documentId: string;
+					targetParentId?: string;
+				};
+
+				await currentProject.recoverFromTrash(documentId, targetParentId);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Document ${documentId} recovered from trash`,
 						},
 					],
 				};
@@ -1642,6 +2027,300 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 						{
 							type: 'text',
 							text: JSON.stringify(prompts, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'get_all_documents': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const { includeTrash = false } = args as { includeTrash?: boolean };
+				const documents = await currentProject.getAllDocuments(includeTrash);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(documents, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'save_project': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				await currentProject.saveProject();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: 'Project saved successfully',
+						},
+					],
+				};
+			}
+
+			case 'is_project_modified': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const modified = await currentProject.isProjectModified();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify({ modified }, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'update_document_context': {
+				if (!memoryManager) {
+					throw new Error('Memory manager not initialized');
+				}
+
+				const { documentId, summary, themes, pacing } = args as {
+					documentId: string;
+					summary?: string;
+					themes?: string[];
+					pacing?: string;
+				};
+
+				// Get existing context or create new one
+				const existingContext = memoryManager.getDocumentContext(documentId);
+
+				memoryManager.setDocumentContext(documentId, {
+					summary: summary || existingContext?.summary || '',
+					themes: themes || existingContext?.themes || [],
+					pacing:
+						(pacing as 'slow' | 'moderate' | 'fast') ||
+						existingContext?.pacing ||
+						'moderate',
+					sentiment: existingContext?.sentiment || 'neutral',
+					keyElements: existingContext?.keyElements || [],
+					suggestions: existingContext?.suggestions || [],
+					continuityNotes: existingContext?.continuityNotes || [],
+				});
+
+				await memoryManager.saveMemory();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Document context updated for ${documentId}`,
+						},
+					],
+				};
+			}
+
+			case 'add_custom_context': {
+				if (!memoryManager) {
+					throw new Error('Memory manager not initialized');
+				}
+
+				const { key, value } = args as { key: string; value: string };
+
+				memoryManager.setCustomContext(key, value);
+				await memoryManager.saveMemory();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Custom context added: ${key}`,
+						},
+					],
+				};
+			}
+
+			case 'get_custom_context': {
+				if (!memoryManager) {
+					throw new Error('Memory manager not initialized');
+				}
+
+				const { key } = args as { key?: string };
+				const context = key ? memoryManager.getCustomContext(key) : {}; // Return empty object if no key specified
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(context, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'update_writing_session': {
+				if (!memoryManager) {
+					throw new Error('Memory manager not initialized');
+				}
+
+				const { wordsWritten } = args as {
+					wordsWritten: number;
+					duration?: number;
+				};
+
+				const currentStats = memoryManager.getWritingStats();
+				const today = new Date().toISOString().split('T')[0];
+
+				// Update daily word counts
+				const dailyWordCounts = [...currentStats.dailyWordCounts];
+				const todayIndex = dailyWordCounts.findIndex((d) => d.date === today);
+				if (todayIndex >= 0) {
+					dailyWordCounts[todayIndex].count += wordsWritten;
+				} else {
+					dailyWordCounts.push({ date: today, count: wordsWritten });
+				}
+
+				memoryManager.updateWritingStats({
+					totalWords: currentStats.totalWords + wordsWritten,
+					sessionsCount: currentStats.sessionsCount + 1,
+					lastSession: today,
+					dailyWordCounts,
+				});
+				await memoryManager.saveMemory();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: 'Writing session updated',
+						},
+					],
+				};
+			}
+
+			case 'read_document_rtf': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const { documentId } = args as { documentId: string };
+				const content = await currentProject.readDocumentFormatted(documentId);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(content, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'extract_research_data': {
+				const { html, keywords = [] } = args as {
+					html: string;
+					keywords?: string[];
+				};
+
+				const parsed = webContentParser.parseHtmlContent(html, 'unknown', {
+					convertToMarkdown: true,
+					extractResearchData: true,
+				});
+
+				const researchData = contentAnalyzer.extractResearchData(parsed, keywords);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(researchData, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'import_memory': {
+				if (!memoryManager) {
+					throw new Error('Memory manager not initialized');
+				}
+
+				const { memoryData } = args as { memoryData: string };
+				const memory = JSON.parse(memoryData);
+
+				await memoryManager.importMemory(memory);
+				await memoryManager.saveMemory();
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: 'Memory imported successfully',
+						},
+					],
+				};
+			}
+
+			case 'update_document_synopsis_notes': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const { documentId, synopsis, notes } = args as {
+					documentId: string;
+					synopsis?: string;
+					notes?: string;
+				};
+
+				await currentProject.updateSynopsisAndNotes(documentId, synopsis, notes);
+
+				const updatedFields: string[] = [];
+				if (synopsis !== undefined) updatedFields.push('synopsis');
+				if (notes !== undefined) updatedFields.push('notes');
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Successfully updated ${updatedFields.join(' and ')} for document ${documentId}`,
+						},
+					],
+				};
+			}
+
+			case 'batch_update_synopsis_notes': {
+				if (!currentProject) {
+					throw new Error('No project is currently open');
+				}
+
+				const { updates } = args as {
+					updates: Array<{
+						documentId: string;
+						synopsis?: string;
+						notes?: string;
+					}>;
+				};
+
+				const results = await currentProject.batchUpdateSynopsisAndNotes(updates);
+
+				const successful = results.filter((r) => r.success).length;
+				const failed = results.filter((r) => !r.success).length;
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(
+								{
+									summary: `Updated ${successful} documents successfully, ${failed} failed`,
+									results,
+								},
+								null,
+								2
+							),
 						},
 					],
 				};

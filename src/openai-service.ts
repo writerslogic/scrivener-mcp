@@ -482,7 +482,7 @@ Return suggestions in this JSON format:
 			const analysis = JSON.parse(jsonStr);
 
 			if (analysis.characters && Array.isArray(analysis.characters)) {
-				return analysis.characters.map((char: any) => ({
+				return analysis.characters.map((char: Record<string, unknown>) => ({
 					name: char.name || 'Unknown',
 					consistency: char.consistency || 0.5,
 					development: char.development || 'developing',

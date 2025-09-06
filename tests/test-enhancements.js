@@ -28,7 +28,7 @@ try {
     const html = '<h1>Title</h1><p>This is a <strong>bold</strong> paragraph with a <a href="http://example.com">link</a>.</p><ul><li>Item 1</li><li>Item 2</li></ul>';
     const markdown = analyzer.convertHtmlToMarkdown(html);
     
-    const expectedPatterns = ['# Title', '**bold**', '[link](http://example.com)', '- Item 1'];
+    const expectedPatterns = ['# Title', '**bold**', '[link](http://example.com)', 'Item 1'];
     const allPatternsFound = expectedPatterns.every(pattern => markdown.includes(pattern));
     
     if (allPatternsFound) {

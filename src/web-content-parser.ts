@@ -181,7 +181,11 @@ export class WebContentParser {
 	/**
 	 * Extract article or blog post content from common CMS structures
 	 */
-	extractArticleContent(html: string): { title: string; content: string; metadata: any } {
+	extractArticleContent(html: string): {
+		title: string;
+		content: string;
+		metadata: Record<string, unknown>;
+	} {
 		const $ = cheerio.load(html);
 
 		// Try common article selectors
@@ -440,7 +444,10 @@ export class WebContentParser {
 
 		$('h1, h2, h3, h4, h5, h6').each((_, element) => {
 			const $el = $(element);
-			const tagName = (element as any).tagName || (element as any).name || 'h1';
+			const tagName =
+				(element as unknown as { tagName?: string }).tagName ||
+				(element as unknown as { name?: string }).name ||
+				'h1';
 			const level = parseInt(tagName.charAt(1)) || 1;
 			const text = $el.text().trim();
 			const id = $el.attr('id');
@@ -643,8 +650,8 @@ export class WebContentParser {
 	/**
 	 * Extract article-specific metadata
 	 */
-	private extractArticleMetadata($: cheerio.Root): any {
-		const metadata: any = {};
+	private extractArticleMetadata($: cheerio.Root): Record<string, unknown> {
+		const metadata: Record<string, unknown> = {};
 
 		// Extract Open Graph and Twitter Card metadata
 		$('meta[property^="og:"], meta[name^="twitter:"]').each((_, element) => {
