@@ -337,13 +337,116 @@ Return analysis in this JSON format:
 	}
 
 	/**
-	 * Generate creative writing prompts
+	 * Analyze project context to generate more relevant prompts
+	 */
+	async analyzeProjectForPrompts(projectData: {
+		characters: Array<{ name: string; role?: string; traits?: string[] }>;
+		plotThreads: Array<{ name: string; status?: string }>;
+		themes: string[];
+		genre?: string;
+		recentScenes?: string[];
+		wordCount?: number;
+	}): Promise<{
+		suggestedPromptTypes: string[];
+		contextualThemes: string[];
+		characterDevelopmentNeeds: string[];
+		plotGaps: string[];
+		recommendedExercises: string[];
+	}> {
+		if (!this.client) {
+			// Return sensible defaults if not configured
+			return {
+				suggestedPromptTypes: ['character', 'dialogue', 'scene'],
+				contextualThemes: projectData.themes || [],
+				characterDevelopmentNeeds: [],
+				plotGaps: [],
+				recommendedExercises: ['character voice practice', 'scene setting', 'dialogue dynamics']
+			};
+		}
+
+		try {
+			const prompt = `Analyze this writing project data and suggest areas for development:
+			
+Characters: ${JSON.stringify(projectData.characters.slice(0, 10))}
+Plot Threads: ${JSON.stringify(projectData.plotThreads.slice(0, 10))}
+Themes: ${projectData.themes.join(', ')}
+Genre: ${projectData.genre || 'fiction'}
+Current Word Count: ${projectData.wordCount || 0}
+
+Provide a JSON response with:
+{
+	"suggestedPromptTypes": ["types of prompts that would benefit this project"],
+	"contextualThemes": ["themes to explore based on existing content"],
+	"characterDevelopmentNeeds": ["specific character aspects needing development"],
+	"plotGaps": ["plot areas that could be expanded"],
+	"recommendedExercises": ["specific writing exercises for this project"]
+}`;
+
+			const response = await this.client.chat.completions.create({
+				model: this.config.model || 'gpt-4o-mini',
+				messages: [
+					{
+						role: 'system',
+						content: 'You are a writing coach analyzing a project to suggest targeted exercises.'
+					},
+					{ role: 'user', content: prompt }
+				],
+				max_tokens: 500,
+				temperature: 0.5,
+			});
+
+			const content = response.choices[0]?.message?.content || '{}';
+			const analysis = JSON.parse(content);
+			
+			return {
+				suggestedPromptTypes: analysis.suggestedPromptTypes || ['character', 'scene'],
+				contextualThemes: analysis.contextualThemes || projectData.themes,
+				characterDevelopmentNeeds: analysis.characterDevelopmentNeeds || [],
+				plotGaps: analysis.plotGaps || [],
+				recommendedExercises: analysis.recommendedExercises || []
+			};
+		} catch (error) {
+			// Return defaults on error
+			return {
+				suggestedPromptTypes: ['character', 'dialogue', 'scene'],
+				contextualThemes: projectData.themes || [],
+				characterDevelopmentNeeds: [],
+				plotGaps: [],
+				recommendedExercises: ['character development', 'plot advancement']
+			};
+		}
+	}
+
+	/**
+	 * Generate intelligent, context-aware writing prompts
 	 */
 	async generateWritingPrompts(
-		genre?: string,
-		theme?: string,
-		count: number = 5
-	): Promise<string[]> {
+		options: {
+			genre?: string;
+			theme?: string;
+			count?: number;
+			complexity?: 'simple' | 'moderate' | 'complex';
+			promptType?: 'scene' | 'character' | 'dialogue' | 'description' | 'conflict' | 'mixed';
+			existingCharacters?: string[];
+			currentPlotPoints?: string[];
+			storyContext?: string;
+			targetWordCount?: number;
+			writingStyle?: string;
+			mood?: string;
+		} = {}
+	): Promise<{
+		prompts: Array<{
+			prompt: string;
+			type: string;
+			difficulty: string;
+			estimatedWords: number;
+			tips: string[];
+			relatedCharacters?: string[];
+			suggestedTechniques?: string[];
+		}>;
+		overallTheme: string;
+		writingGoals: string[];
+	}> {
 		if (!this.client) {
 			throw new AppError(
 				'OpenAI service not configured. Please provide an API key.',
@@ -351,14 +454,73 @@ Return analysis in this JSON format:
 			);
 		}
 
-		const genreText = genre ? `in the ${genre} genre` : '';
-		const themeText = theme ? `exploring the theme of ${theme}` : '';
+		const {
+			genre = 'general fiction',
+			theme = 'human experience',
+			count = 5,
+			complexity = 'moderate',
+			promptType = 'mixed',
+			existingCharacters = [],
+			currentPlotPoints = [],
+			storyContext = '',
+			targetWordCount = 500,
+			writingStyle = 'balanced',
+			mood = 'varied'
+		} = options;
 
-		const prompt = `Generate ${count} creative writing prompts ${genreText} ${themeText}. 
-        Make them specific, engaging, and designed to spark creativity.
-        
-        Return as a JSON array of strings:
-        ["prompt1", "prompt2", "prompt3", ...]`;
+		// Build intelligent context
+		const contextElements = [];
+		
+		if (genre) contextElements.push(`Genre: ${genre}`);
+		if (theme) contextElements.push(`Theme: ${theme}`);
+		if (existingCharacters.length > 0) {
+			contextElements.push(`Existing Characters: ${existingCharacters.slice(0, 5).join(', ')}`);
+		}
+		if (currentPlotPoints.length > 0) {
+			contextElements.push(`Current Plot Elements: ${currentPlotPoints.slice(0, 3).join('; ')}`);
+		}
+		if (storyContext) {
+			contextElements.push(`Story Context: ${storyContext.substring(0, 200)}...`);
+		}
+		contextElements.push(`Target Word Count: ${targetWordCount}`);
+		contextElements.push(`Writing Style: ${writingStyle}`);
+		contextElements.push(`Mood: ${mood}`);
+
+		const promptInstructions = `Generate ${count} intelligent, contextual writing prompts with the following requirements:
+
+CONTEXT:
+${contextElements.join('\n')}
+
+REQUIREMENTS:
+- Complexity Level: ${complexity}
+- Prompt Type Focus: ${promptType}
+- Each prompt should build on or relate to the existing story elements when provided
+- Prompts should encourage ${complexity === 'simple' ? 'straightforward narrative development' : complexity === 'complex' ? 'layered, nuanced storytelling with multiple elements' : 'balanced storytelling with moderate depth'}
+- Consider the target word count for appropriate scope
+
+Generate prompts that:
+1. Are specific and actionable
+2. Include clear conflict or tension
+3. Suggest a beginning, middle, or end point
+4. Can integrate with existing characters/plot if provided
+5. Match the requested mood and style
+
+Return in this JSON format:
+{
+    "prompts": [
+        {
+            "prompt": "The actual writing prompt",
+            "type": "scene|character|dialogue|description|conflict",
+            "difficulty": "beginner|intermediate|advanced",
+            "estimatedWords": 500,
+            "tips": ["tip1", "tip2"],
+            "relatedCharacters": ["character1"],
+            "suggestedTechniques": ["show don't tell", "unreliable narrator", etc]
+        }
+    ],
+    "overallTheme": "The connecting theme across all prompts",
+    "writingGoals": ["goal1", "goal2", "goal3"]
+}`;
 
 		try {
 			const response = await this.client.chat.completions.create({
@@ -366,33 +528,193 @@ Return analysis in this JSON format:
 				messages: [
 					{
 						role: 'system',
-						content:
-							'You are a creative writing instructor. Generate inspiring writing prompts in JSON format.',
+						content: `You are an expert creative writing instructor and story consultant. Generate intelligent, contextual writing prompts that consider the writer's existing work, style, and goals. Always return valid JSON that can be parsed.`,
 					},
 					{
 						role: 'user',
-						content: prompt,
+						content: promptInstructions,
 					},
 				],
-				max_tokens: this.config.maxTokens,
-				temperature: 0.8, // Higher creativity for prompts
+				max_tokens: Math.min(this.config.maxTokens || 2000, 3000),
+				temperature: complexity === 'simple' ? 0.6 : complexity === 'complex' ? 0.9 : 0.75,
 			});
 
 			const content = response.choices[0]?.message?.content;
 			if (!content) {
-				return [];
+				return this.getDefaultPromptResponse(count, genre, theme);
 			}
 
 			try {
-				const prompts = JSON.parse(content);
-				return Array.isArray(prompts) ? prompts : [];
-			} catch {
-				return [];
+				// Clean the response to ensure valid JSON
+				const cleanedContent = content
+					.replace(/```json\n?/g, '')
+					.replace(/```\n?/g, '')
+					.trim();
+				
+				const result = JSON.parse(cleanedContent);
+				
+				// Validate and enhance the response
+				if (result.prompts && Array.isArray(result.prompts)) {
+					// Ensure all prompts have required fields
+					result.prompts = result.prompts.map((p: any, index: number) => ({
+						prompt: p.prompt || `Writing prompt ${index + 1}`,
+						type: p.type || promptType,
+						difficulty: p.difficulty || this.mapComplexityToDifficulty(complexity),
+						estimatedWords: p.estimatedWords || targetWordCount,
+						tips: Array.isArray(p.tips) ? p.tips : this.getDefaultTips(p.type || promptType),
+						relatedCharacters: Array.isArray(p.relatedCharacters) ? p.relatedCharacters : [],
+						suggestedTechniques: Array.isArray(p.suggestedTechniques) ? 
+							p.suggestedTechniques : this.getDefaultTechniques(complexity)
+					}));
+				} else {
+					return this.getDefaultPromptResponse(count, genre, theme);
+				}
+				
+				// Ensure other fields exist
+				result.overallTheme = result.overallTheme || `${theme} in ${genre}`;
+				result.writingGoals = Array.isArray(result.writingGoals) ? 
+					result.writingGoals : this.getDefaultWritingGoals(complexity);
+				
+				return result;
+			} catch (parseError) {
+				console.error('Failed to parse prompt response:', parseError);
+				return this.getDefaultPromptResponse(count, genre, theme);
 			}
 		} catch (error) {
 			console.error('OpenAI API error:', error);
-			return [];
+			return this.getDefaultPromptResponse(count, genre, theme);
 		}
+	}
+
+	/**
+	 * Get default prompt response when API fails
+	 */
+	private getDefaultPromptResponse(count: number, genre: string, theme: string): any {
+		const prompts = [];
+		const types = ['scene', 'character', 'dialogue', 'description', 'conflict'];
+		
+		for (let i = 0; i < count; i++) {
+			const type = types[i % types.length];
+			prompts.push({
+				prompt: this.getDefaultPromptByType(type, genre, theme),
+				type: type,
+				difficulty: 'intermediate',
+				estimatedWords: 500,
+				tips: this.getDefaultTips(type),
+				relatedCharacters: [],
+				suggestedTechniques: this.getDefaultTechniques('moderate')
+			});
+		}
+		
+		return {
+			prompts,
+			overallTheme: `Exploring ${theme} through ${genre}`,
+			writingGoals: this.getDefaultWritingGoals('moderate')
+		};
+	}
+
+	/**
+	 * Get default prompt by type
+	 */
+	private getDefaultPromptByType(type: string, genre: string, theme: string): string {
+		const prompts: Record<string, string> = {
+			scene: `Write a pivotal scene in a ${genre} story where the ${theme} becomes undeniable. Include sensory details and emotional stakes.`,
+			character: `Create a character in a ${genre} setting whose internal conflict embodies ${theme}. Show their struggle through action and dialogue.`,
+			dialogue: `Write a dialogue-heavy scene in the ${genre} genre where two characters debate opposing views on ${theme}. Let their personalities shine through their speech patterns.`,
+			description: `Describe a location in a ${genre} story that symbolically represents ${theme}. Use atmospheric details to create mood.`,
+			conflict: `Develop a conflict in a ${genre} narrative where ${theme} creates an impossible choice for your protagonist.`
+		};
+		
+		return prompts[type] || prompts.scene;
+	}
+
+	/**
+	 * Get default tips by prompt type
+	 */
+	private getDefaultTips(type: string): string[] {
+		const tips: Record<string, string[]> = {
+			scene: [
+				'Start in medias res - in the middle of action',
+				'Use all five senses to ground the reader',
+				'End with a hook or revelation'
+			],
+			character: [
+				'Show character through action, not just description',
+				'Give them a clear want and a hidden need',
+				'Create contradictions to add depth'
+			],
+			dialogue: [
+				'Each character should have a distinct voice',
+				'Use subtext - what\'s not said is often more important',
+				'Avoid on-the-nose dialogue'
+			],
+			description: [
+				'Use specific, concrete details over general descriptions',
+				'Integrate description with action',
+				'Consider the POV character\'s emotional state'
+			],
+			conflict: [
+				'Make both choices have merit',
+				'Raise the stakes progressively',
+				'Connect the external conflict to internal struggle'
+			]
+		};
+		
+		return tips[type] || tips.scene;
+	}
+
+	/**
+	 * Get default techniques based on complexity
+	 */
+	private getDefaultTechniques(complexity: string): string[] {
+		const techniques: Record<string, string[]> = {
+			simple: ['Show don\'t tell', 'Active voice', 'Clear structure'],
+			moderate: ['Symbolism', 'Foreshadowing', 'Parallel action', 'Metaphor'],
+			complex: ['Unreliable narrator', 'Non-linear timeline', 'Multiple POVs', 'Metafiction', 'Stream of consciousness']
+		};
+		
+		return techniques[complexity] || techniques.moderate;
+	}
+
+	/**
+	 * Get default writing goals
+	 */
+	private getDefaultWritingGoals(complexity: string): string[] {
+		const goals: Record<string, string[]> = {
+			simple: [
+				'Establish clear narrative progression',
+				'Develop one main character',
+				'Resolve the primary conflict'
+			],
+			moderate: [
+				'Balance multiple story elements',
+				'Develop character relationships',
+				'Create thematic resonance',
+				'Build narrative tension'
+			],
+			complex: [
+				'Layer multiple meanings and interpretations',
+				'Subvert genre expectations',
+				'Explore philosophical questions',
+				'Create structural innovation',
+				'Develop complex character psychology'
+			]
+		};
+		
+		return goals[complexity] || goals.moderate;
+	}
+
+	/**
+	 * Map complexity to difficulty
+	 */
+	private mapComplexityToDifficulty(complexity: string): string {
+		const mapping: Record<string, string> = {
+			simple: 'beginner',
+			moderate: 'intermediate',
+			complex: 'advanced'
+		};
+		
+		return mapping[complexity] || 'intermediate';
 	}
 
 	/**

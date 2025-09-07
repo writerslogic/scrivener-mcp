@@ -1,4 +1,3 @@
-import * as fs from 'fs/promises';
 import parseRTF from 'rtf-parser';
 import { promisify } from 'util';
 import { safeReadFile, safeWriteFile } from './utils/common.js';

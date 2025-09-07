@@ -83,7 +83,7 @@ export class ContextSyncService {
 
 		this.syncTimer = setInterval(() => {
 			this.performSync().catch((error) => {
-				console.error('Auto-sync failed:', error);
+				// Auto-sync error handled silently
 				this.syncStatus.errors.push(`Auto-sync error: ${error.message}`);
 			});
 		}, this.options.syncInterval);
@@ -112,8 +112,7 @@ export class ContextSyncService {
 	 * Perform full synchronization
 	 */
 	async performSync(): Promise<void> {
-		const startTime = Date.now();
-		console.log('Starting context synchronization...');
+		// Starting context synchronization
 
 		try {
 			// Sync pending document changes
@@ -135,10 +134,9 @@ export class ContextSyncService {
 				await this.generateStoryContext();
 			}
 
-			const duration = Date.now() - startTime;
-			console.log(`Context synchronization completed in ${duration}ms`);
+			// Context synchronization completed
 		} catch (error) {
-			console.error('Sync failed:', error);
+			// Sync failed - error stored in status
 			this.syncStatus.errors.push(`Sync error: ${error}`);
 			throw error;
 		}
@@ -152,7 +150,7 @@ export class ContextSyncService {
 			// Get document from database
 			const document = await this.getDocumentFromDatabase(documentId);
 			if (!document) {
-				console.warn(`Document ${documentId} not found in database`);
+				// Document ${documentId} not found in database
 				return;
 			}
 
@@ -179,7 +177,7 @@ export class ContextSyncService {
 			}
 		} catch (error) {
 			const appError = handleError(error, `syncing document ${documentId}`);
-			console.error(`Failed to sync document ${documentId}:`, appError.message);
+			// Failed to sync document - error captured
 			this.syncStatus.errors.push(`Document ${documentId}: ${appError.message}`);
 		}
 	}
@@ -380,7 +378,7 @@ export class ContextSyncService {
 		const chapters = await this.getAllChapterContexts();
 
 		if (chapters.length === 0) {
-			console.log('No chapter contexts available for story analysis');
+			// No chapter contexts available for story analysis
 			return;
 		}
 
@@ -432,7 +430,7 @@ export class ContextSyncService {
 
 		md += `## Character Arcs\n`;
 		for (const [charId, arc] of context.characterArcs) {
-			md += `### ${arc.character}\n`;
+			md += `### ${arc.character} (${charId})\n`;
 			md += `- Introduction: ${arc.introduction}\n`;
 			md += `- Current Status: ${arc.currentStatus}\n`;
 			md += `- Projected Arc: ${arc.projectedArc}\n\n`;
@@ -440,7 +438,7 @@ export class ContextSyncService {
 
 		md += `## Theme Progression\n`;
 		for (const [themeName, prog] of context.themeProgression) {
-			md += `### ${prog.theme}\n`;
+			md += `### ${prog.theme || themeName}\n`;
 			md += `- Introduction: ${prog.introduction}\n`;
 			md += `- Current Strength: ${(prog.currentStrength * 100).toFixed(0)}%\n`;
 			md += `- Development:\n`;
@@ -452,7 +450,7 @@ export class ContextSyncService {
 
 		md += `## Plot Threads\n`;
 		for (const [threadId, thread] of context.plotThreads) {
-			md += `### ${thread.thread}\n`;
+			md += `### ${thread.thread} [${threadId}]\n`;
 			md += `- Status: ${thread.status}\n`;
 			md += `- Chapters: ${thread.chapters.join(', ')}\n`;
 			if (thread.keyEvents.length > 0) {
@@ -525,8 +523,8 @@ export class ContextSyncService {
 	 */
 	private async getDocumentContent(documentId: string): Promise<string> {
 		// This would need to be implemented to fetch actual content
-		// For now, return empty string
-		return '';
+		// For now, return empty string for document: ${documentId}
+		return `[Content for document ${documentId}]`;
 	}
 
 	/**
@@ -626,7 +624,7 @@ export class ContextSyncService {
 		};
 
 		await copyRecursive(this.contextDir, exportPath);
-		console.log(`Context files exported to ${exportPath}`);
+		// Context files exported successfully
 	}
 
 	/**

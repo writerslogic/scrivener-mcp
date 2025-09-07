@@ -821,7 +821,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 			},
 			{
 				name: 'generate_writing_prompts',
-				description: 'Generate creative writing prompts using AI',
+				description: 'Generate intelligent, context-aware creative writing prompts using AI',
 				inputSchema: {
 					type: 'object',
 					properties: {
@@ -836,6 +836,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 						count: {
 							type: 'number',
 							description: 'Number of prompts to generate (default: 5)',
+						},
+						complexity: {
+							type: 'string',
+							enum: ['simple', 'moderate', 'complex'],
+							description: 'Complexity level of prompts (default: moderate)',
+						},
+						promptType: {
+							type: 'string',
+							enum: ['scene', 'character', 'dialogue', 'description', 'conflict', 'mixed'],
+							description: 'Type of prompts to generate (default: mixed)',
+						},
+						useProjectContext: {
+							type: 'boolean',
+							description: 'Use existing project characters, plot threads, and story context (default: false)',
+						},
+						targetWordCount: {
+							type: 'number',
+							description: 'Target word count for prompt exercises',
+						},
+						writingStyle: {
+							type: 'string',
+							description: 'Specific writing style to practice (e.g., "minimalist", "descriptive", "action-packed")',
+						},
+						mood: {
+							type: 'string',
+							description: 'Mood or tone for the prompts (e.g., "dark", "humorous", "romantic")',
 						},
 					},
 				},
@@ -2284,10 +2310,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			}
 
 			case 'generate_writing_prompts': {
-				const { genre, theme, count } = args as {
+				const {
+					genre,
+					theme,
+					count,
+					complexity,
+					promptType,
+					useProjectContext,
+					targetWordCount,
+					writingStyle,
+					mood
+				} = args as {
 					genre?: string;
 					theme?: string;
 					count?: number;
+					complexity?: 'simple' | 'moderate' | 'complex';
+					promptType?: 'scene' | 'character' | 'dialogue' | 'description' | 'conflict' | 'mixed';
+					useProjectContext?: boolean;
+					targetWordCount?: number;
+					writingStyle?: string;
+					mood?: string;
 				};
 
 				if (!contentAnalyzer.isOpenAIConfigured()) {
@@ -2297,13 +2339,156 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					);
 				}
 
-				const prompts = await contentAnalyzer.generateWritingPrompts(genre, theme, count);
+				// Gather project context if requested
+				let existingCharacters: string[] = [];
+				let currentPlotPoints: string[] = [];
+				let storyContext = '';
+				let enhancedPromptType = promptType;
+				let enhancedTheme = theme;
+				
+				if (useProjectContext && currentProject) {
+					// Get character names from memory manager
+					if (memoryManager) {
+						const characters = memoryManager.getAllCharacters();
+						existingCharacters = characters.map(c => c.name);
+						
+						// Get plot threads
+						const plotThreads = memoryManager.getPlotThreads();
+						currentPlotPoints = plotThreads.map(p => p.name);
+						
+						// Get story context from project memory
+						const projectContext = memoryManager.getCustomContext('story_summary');
+						if (projectContext) {
+							storyContext = projectContext as string;
+						}
+						
+						// Analyze project for intelligent prompt suggestions
+						const memory = memoryManager.getFullMemory();
+						const themes: string[] = [];
+						// Extract themes from worldBuilding or customContext
+						if (memory.worldBuilding) {
+							memory.worldBuilding.forEach((w: any) => {
+								if (w.type === 'theme' && w.name) {
+									themes.push(w.name);
+								}
+							});
+						}
+						const projectGenre = memoryManager.getCustomContext('genre') as string || genre;
+						const wordCountData = await currentProject.getWordCount();
+						const wordCount = wordCountData.words;
+						
+						const projectAnalysis = await contentAnalyzer.getOpenAIService()!.analyzeProjectForPrompts({
+							characters: characters.map(c => ({
+								name: c.name,
+								role: c.role,
+								traits: c.traits
+							})),
+							plotThreads: plotThreads.map(p => ({
+								name: p.name,
+								status: p.status
+							})),
+							themes,
+							genre: projectGenre,
+							wordCount
+						});
+						
+						// Enhance the prompt generation with project analysis insights
+						if (projectAnalysis) {
+							// Use suggested prompt type if not specified
+							if (!enhancedPromptType && projectAnalysis.suggestedPromptTypes.length > 0) {
+								enhancedPromptType = projectAnalysis.suggestedPromptTypes[0] as any;
+							}
+							
+							// Add contextual themes to the main theme
+							if (!enhancedTheme && projectAnalysis.contextualThemes.length > 0) {
+								enhancedTheme = projectAnalysis.contextualThemes[0];
+							}
+							
+							// Append development needs to story context
+							if (projectAnalysis.characterDevelopmentNeeds.length > 0) {
+								storyContext += `\n\nCharacter Development Focus: ${projectAnalysis.characterDevelopmentNeeds.join(', ')}`;
+							}
+							
+							if (projectAnalysis.plotGaps.length > 0) {
+								storyContext += `\n\nPlot Areas to Explore: ${projectAnalysis.plotGaps.join(', ')}`;
+							}
+							
+							// Add recommended exercises to story context
+							if (projectAnalysis.recommendedExercises.length > 0) {
+								storyContext += `\n\nRecommended Writing Exercises: ${projectAnalysis.recommendedExercises.join(', ')}`;
+							}
+						}
+					}
+				}
+
+				const result = await contentAnalyzer.getOpenAIService()!.generateWritingPrompts({
+					genre,
+					theme: enhancedTheme,
+					count,
+					complexity,
+					promptType: enhancedPromptType,
+					existingCharacters,
+					currentPlotPoints,
+					storyContext,
+					targetWordCount,
+					writingStyle,
+					mood
+				});
+
+				// Format the response nicely
+				let formattedText = '## Writing Prompts\n\n';
+				
+				// Add project context information if available
+				if (useProjectContext && existingCharacters.length > 0) {
+					formattedText += '**Project Context Used:**\n';
+					formattedText += `- ${existingCharacters.length} existing characters\n`;
+					formattedText += `- ${currentPlotPoints.length} plot threads\n`;
+					if (storyContext) {
+						formattedText += `- Story context integrated\n`;
+					}
+					formattedText += '\n';
+				}
+				
+				formattedText += `**Theme:** ${result.overallTheme}\n\n`;
+				formattedText += '**Writing Goals:**\n';
+				result.writingGoals.forEach((goal: string) => {
+					formattedText += `- ${goal}\n`;
+				});
+				formattedText += '\n---\n\n';
+				
+				result.prompts.forEach((p: any, index: number) => {
+					formattedText += `### Prompt ${index + 1}: ${p.type.toUpperCase()}\n`;
+					formattedText += `**Difficulty:** ${p.difficulty} | **Est. Words:** ${p.estimatedWords}\n\n`;
+					formattedText += `**Prompt:**\n${p.prompt}\n\n`;
+					
+					if (p.tips && p.tips.length > 0) {
+						formattedText += '**Tips:**\n';
+						p.tips.forEach((tip: string) => {
+							formattedText += `- ${tip}\n`;
+						});
+						formattedText += '\n';
+					}
+					
+					if (p.suggestedTechniques && p.suggestedTechniques.length > 0) {
+						formattedText += '**Techniques to Try:**\n';
+						p.suggestedTechniques.forEach((tech: string) => {
+							formattedText += `- ${tech}\n`;
+						});
+						formattedText += '\n';
+					}
+					
+					if (p.relatedCharacters && p.relatedCharacters.length > 0) {
+						formattedText += `**Related Characters:** ${p.relatedCharacters.join(', ')}\n\n`;
+					}
+					
+					formattedText += '---\n\n';
+				});
 
 				return {
 					content: [
 						{
 							type: 'text',
-							text: JSON.stringify(prompts, null, 2),
+							text: formattedText,
 						},
 					],
 				};

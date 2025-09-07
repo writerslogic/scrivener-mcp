@@ -18,19 +18,7 @@ import {
 	ensureDir,
 	CleanupManager,
 } from './utils/common.js';
-import {
-	getDocumentPath,
-	generateScrivenerUUID,
-	findBinderItem,
-	traverseBinder,
-	getBinderPath,
-	parseMetadata,
-	buildMetadataItems,
-	getDocumentType,
-	isInTrash,
-	searchBinder,
-	findDocumentsByType,
-} from './utils/scrivener-utils.js';
+import { getDocumentPath, generateScrivenerUUID } from './utils/scrivener-utils.js';
 import type {
 	ProjectStructure,
 	BinderItem,
@@ -91,8 +79,8 @@ export class ScrivenerProject {
 		this.documentCache = new Cache<RTFContent>({
 			ttl: 5 * 60 * 1000, // 5 minutes
 			maxSize: 50,
-			onEvict: (key, value) => {
-				console.log(`Evicted document ${key} from cache`);
+			onEvict: (key, _value) => {
+				// Document evicted from cache
 			},
 		});
 		this.databaseService = new DatabaseService(this.projectPath);

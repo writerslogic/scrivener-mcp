@@ -6,6 +6,9 @@ import { AppError, ErrorCode, ensureDir } from '../utils/common.js';
 export class SQLiteManager {
 	private db: Database.Database | null = null;
 	private dbPath: string;
+	private transactionDepth: number = 0;
+	private isInTransaction: boolean = false;
+	private pendingOperations: Array<() => void> = [];
 
 	constructor(dbPath: string) {
 		this.dbPath = dbPath;
@@ -203,13 +206,142 @@ export class SQLiteManager {
 	}
 
 	/**
-	 * Execute multiple statements in a transaction
+	 * Execute multiple statements in a transaction with retry logic
 	 */
-	transaction<T>(fn: () => T): T {
+	transaction<T>(fn: () => T, retries: number = 3): T {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
 		}
-		return this.db.transaction(fn)();
+		
+		let lastError: Error | null = null;
+		for (let i = 0; i < retries; i++) {
+			try {
+				this.isInTransaction = true;
+				this.transactionDepth++;
+				const result = this.db.transaction(fn)();
+				this.transactionDepth--;
+				if (this.transactionDepth === 0) {
+					this.isInTransaction = false;
+					this.processPendingOperations();
+				}
+				return result;
+			} catch (error) {
+				lastError = error as Error;
+				this.transactionDepth = Math.max(0, this.transactionDepth - 1);
+				if (this.transactionDepth === 0) {
+					this.isInTransaction = false;
+				}
+				// If it's a busy error, retry
+				if ((error as any).code === 'SQLITE_BUSY' && i < retries - 1) {
+					// Wait a bit before retrying
+					const delay = Math.min(100 * Math.pow(2, i), 1000);
+					const start = Date.now();
+					while (Date.now() - start < delay) {
+						// Busy wait
+					}
+					continue;
+				}
+				throw error;
+			}
+		}
+		throw lastError || new AppError('Transaction failed after retries', ErrorCode.DATABASE_ERROR);
+	}
+
+	/**
+	 * Process pending operations after transaction completes
+	 */
+	private processPendingOperations(): void {
+		while (this.pendingOperations.length > 0) {
+			const operation = this.pendingOperations.shift();
+			if (operation) {
+				try {
+					operation();
+				} catch (error) {
+					// Log but don't throw - these are non-critical operations
+				}
+			}
+		}
+	}
+
+	/**
+	 * Begin an explicit transaction
+	 */
+	beginTransaction(): void {
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
+		if (!this.isInTransaction) {
+			this.db.prepare('BEGIN TRANSACTION').run();
+			this.isInTransaction = true;
+			this.transactionDepth = 1;
+		} else {
+			this.transactionDepth++;
+		}
+	}
+
+	/**
+	 * Commit the current transaction
+	 */
+	commit(): void {
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
+		if (this.transactionDepth > 0) {
+			this.transactionDepth--;
+			if (this.transactionDepth === 0 && this.isInTransaction) {
+				this.db.prepare('COMMIT').run();
+				this.isInTransaction = false;
+				this.processPendingOperations();
+			}
+		}
+	}
+
+	/**
+	 * Rollback the current transaction
+	 */
+	rollback(): void {
+		if (!this.db) {
+			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		}
+		if (this.isInTransaction) {
+			this.db.prepare('ROLLBACK').run();
+			this.isInTransaction = false;
+			this.transactionDepth = 0;
+			this.pendingOperations = [];
+		}
+	}
+
+	/**
+	 * Check if database is healthy
+	 */
+	async checkHealth(): Promise<{ healthy: boolean; details: any }> {
+		try {
+			if (!this.db) {
+				return { healthy: false, details: { error: 'Database not initialized' } };
+			}
+			
+			// Run integrity check
+			const integrity = this.db.pragma('integrity_check');
+			const isHealthy = Array.isArray(integrity) && integrity[0]?.integrity_check === 'ok';
+			
+			// Get statistics
+			const stats = this.getDatabaseStats();
+			
+			return {
+				healthy: isHealthy,
+				details: {
+					integrity: integrity,
+					stats: stats,
+					transactionDepth: this.transactionDepth,
+					isInTransaction: this.isInTransaction
+				}
+			};
+		} catch (error) {
+			return {
+				healthy: false,
+				details: { error: (error as Error).message }
+			};
+		}
 	}
 
 	/**

@@ -8,6 +8,11 @@ export class Neo4jManager {
 	private user: string;
 	private password: string;
 	private database: string;
+	private connectionRetries: number = 3;
+	private retryDelay: number = 1000;
+	private isConnected: boolean = false;
+	private lastHealthCheck: Date | null = null;
+	private healthCheckInterval: number = 60000; // 1 minute
 
 	constructor(uri: string, user: string, password: string, database = 'scrivener') {
 		this.uri = uri;
@@ -17,24 +22,53 @@ export class Neo4jManager {
 	}
 
 	/**
-	 * Initialize the Neo4j connection
+	 * Initialize the Neo4j connection with retry logic
 	 */
 	async initialize(): Promise<void> {
-		try {
-			// Create driver
-			this.driver = neo4j.driver(this.uri, neo4j.auth.basic(this.user, this.password));
+		for (let attempt = 1; attempt <= this.connectionRetries; attempt++) {
+			try {
+				// Create driver with connection pool settings
+				this.driver = neo4j.driver(
+					this.uri, 
+					neo4j.auth.basic(this.user, this.password),
+					{
+						maxConnectionPoolSize: 50,
+						connectionAcquisitionTimeout: 10000,
+						connectionTimeout: 30000,
+						maxTransactionRetryTime: 30000,
+					}
+				);
 
-			// Verify connectivity
-			await this.driver.verifyConnectivity();
+				// Verify connectivity
+				await this.driver.verifyConnectivity();
+				this.isConnected = true;
+				this.lastHealthCheck = new Date();
 
-			// Initialize schema
-			await this.createConstraints();
-			await this.createIndexes();
-		} catch (error) {
-			console.warn('Neo4j connection failed, continuing without graph database:', error);
-			// Don't throw - allow the app to continue with just SQLite
-			this.driver = null;
+				// Initialize schema
+				await this.createConstraints();
+				await this.createIndexes();
+				
+				return; // Success
+			} catch (error) {
+				const isLastAttempt = attempt === this.connectionRetries;
+				if (!isLastAttempt) {
+					// Wait before retrying
+					await this.delay(this.retryDelay * attempt);
+				} else {
+					console.warn('Neo4j connection failed after retries, continuing without graph database:', error);
+					// Don't throw - allow the app to continue with just SQLite
+					this.driver = null;
+					this.isConnected = false;
+				}
+			}
 		}
+	}
+
+	/**
+	 * Delay helper for retries
+	 */
+	private delay(ms: number): Promise<void> {
+		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
 	/**
@@ -339,7 +373,140 @@ export class Neo4jManager {
 	 * Check if Neo4j is available
 	 */
 	isAvailable(): boolean {
-		return this.driver !== null;
+		return this.driver !== null && this.isConnected;
+	}
+
+	/**
+	 * Check database health
+	 */
+	async checkHealth(): Promise<{ healthy: boolean; details: any }> {
+		try {
+			// Check if we need a health check
+			const now = new Date();
+			if (this.lastHealthCheck && 
+				(now.getTime() - this.lastHealthCheck.getTime()) < this.healthCheckInterval) {
+				return { 
+					healthy: this.isConnected, 
+					details: { 
+						lastCheck: this.lastHealthCheck,
+						cached: true 
+					} 
+				};
+			}
+
+			if (!this.driver) {
+				return { 
+					healthy: false, 
+					details: { error: 'Driver not initialized' } 
+				};
+			}
+
+			// Try to run a simple query
+			const session = this.driver.session({ database: this.database });
+			try {
+				await session.run('RETURN 1');
+				this.isConnected = true;
+				this.lastHealthCheck = now;
+				
+				// Get database statistics
+				const stats = await session.run('CALL dbms.queryJmx("org.neo4j:*") YIELD attributes');
+				
+				return {
+					healthy: true,
+					details: {
+						connected: true,
+						lastCheck: now,
+						stats: stats.records.length > 0 ? stats.records[0].get('attributes') : {}
+					}
+				};
+			} finally {
+				await session.close();
+			}
+		} catch (error) {
+			this.isConnected = false;
+			return {
+				healthy: false,
+				details: { 
+					error: (error as Error).message,
+					lastCheck: this.lastHealthCheck
+				}
+			};
+		}
+	}
+
+	/**
+	 * Execute query with retry logic
+	 */
+	async queryWithRetry(cypher: string, params: any = {}, retries: number = 3): Promise<Result> {
+		if (!this.driver) {
+			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
+		}
+
+		let lastError: Error | null = null;
+		
+		for (let attempt = 1; attempt <= retries; attempt++) {
+			const session = this.driver.session({ database: this.database });
+			try {
+				const result = await session.run(cypher, params);
+				return result;
+			} catch (error) {
+				lastError = error as Error;
+				
+				// Check if it's a transient error that should be retried
+				const errorCode = (error as any).code;
+				if (this.isTransientError(errorCode) && attempt < retries) {
+					await this.delay(this.retryDelay * attempt);
+					continue;
+				}
+				
+				// Check if connection is lost and try to reconnect
+				if (this.isConnectionError(errorCode) && attempt < retries) {
+					this.isConnected = false;
+					await this.reconnect();
+					continue;
+				}
+				
+				throw error;
+			} finally {
+				await session.close();
+			}
+		}
+		
+		throw lastError || new AppError('Query failed after retries', ErrorCode.DATABASE_ERROR);
+	}
+
+	/**
+	 * Check if error is transient and should be retried
+	 */
+	private isTransientError(code: string): boolean {
+		const transientCodes = [
+			'Neo.TransientError.Transaction.DeadlockDetected',
+			'Neo.TransientError.Transaction.LockClientStopped',
+			'Neo.TransientError.General.DatabaseUnavailable'
+		];
+		return transientCodes.some(c => code?.includes(c));
+	}
+
+	/**
+	 * Check if error is connection-related
+	 */
+	private isConnectionError(code: string): boolean {
+		const connectionCodes = [
+			'ServiceUnavailable',
+			'SessionExpired',
+			'Neo.ClientError.Security.AuthenticationRateLimit'
+		];
+		return connectionCodes.some(c => code?.includes(c));
+	}
+
+	/**
+	 * Try to reconnect to Neo4j
+	 */
+	private async reconnect(): Promise<void> {
+		if (this.driver) {
+			await this.driver.close();
+		}
+		await this.initialize();
 	}
 
 	/**

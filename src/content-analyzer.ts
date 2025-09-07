@@ -1049,20 +1049,31 @@ export class ContentAnalyzer {
 	/**
 	 * Generate writing prompts using AI
 	 */
-	async generateWritingPrompts(
-		genre?: string,
-		theme?: string,
-		count: number = 5
-	): Promise<string[]> {
+	async generateWritingPrompts(options: any = {}): Promise<any> {
 		if (!openaiService.isConfigured()) {
-			return [];
+			return {
+				prompts: [],
+				overallTheme: 'Creative Writing',
+				writingGoals: []
+			};
 		}
 
 		try {
-			return await openaiService.generateWritingPrompts(genre, theme, count);
+			return await openaiService.generateWritingPrompts(options);
 		} catch (error) {
 			console.error('AI prompt generation error:', error);
-			return [];
+			return {
+				prompts: [],
+				overallTheme: 'Creative Writing',
+				writingGoals: []
+			};
 		}
+	}
+	
+	/**
+	 * Get the OpenAI service instance
+	 */
+	getOpenAIService() {
+		return openaiService;
 	}
 }

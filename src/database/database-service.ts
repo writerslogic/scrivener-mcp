@@ -13,11 +13,26 @@ import { Neo4jManager } from './neo4j-manager.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { generateDatabasePaths, DEFAULT_DATABASE_CONFIG } from './config.js';
 
+interface TransactionLog {
+	id: string;
+	timestamp: Date;
+	operations: Array<{
+		type: 'sqlite' | 'neo4j';
+		operation: string;
+		data: any;
+		status: 'pending' | 'prepared' | 'committed' | 'rolled_back';
+	}>;
+	status: 'in_progress' | 'prepared' | 'committed' | 'rolled_back';
+}
+
 export class DatabaseService {
 	private sqliteManager: SQLiteManager | null = null;
 	private neo4jManager: Neo4jManager | null = null;
 	private config: DatabaseConfig;
 	private paths: ProjectDatabasePaths;
+	private transactionLog: Map<string, TransactionLog> = new Map();
+	private syncQueue: Array<() => Promise<void>> = [];
+	private isSyncing: boolean = false;
 
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
@@ -127,7 +142,97 @@ export class DatabaseService {
 	}
 
 	/**
-	 * Sync document data between SQLite and Neo4j
+	 * Begin a two-phase commit transaction
+	 */
+	async beginTransaction(): Promise<string> {
+		const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		
+		this.transactionLog.set(transactionId, {
+			id: transactionId,
+			timestamp: new Date(),
+			operations: [],
+			status: 'in_progress'
+		});
+		
+		// Begin transactions in both databases
+		if (this.sqliteManager) {
+			this.sqliteManager.beginTransaction();
+		}
+		
+		return transactionId;
+	}
+
+	/**
+	 * Prepare phase of two-phase commit
+	 */
+	async prepareTransaction(transactionId: string): Promise<boolean> {
+		const txn = this.transactionLog.get(transactionId);
+		if (!txn) {
+			throw new AppError('Transaction not found', ErrorCode.DATABASE_ERROR);
+		}
+		
+		try {
+			// Mark all operations as prepared
+			txn.operations.forEach(op => {
+				if (op.status === 'pending') {
+					op.status = 'prepared';
+				}
+			});
+			
+			txn.status = 'prepared';
+			return true;
+		} catch (error) {
+			await this.rollbackTransaction(transactionId);
+			return false;
+		}
+	}
+
+	/**
+	 * Commit phase of two-phase commit
+	 */
+	async commitTransaction(transactionId: string): Promise<void> {
+		const txn = this.transactionLog.get(transactionId);
+		if (!txn || txn.status !== 'prepared') {
+			throw new AppError('Transaction not prepared', ErrorCode.DATABASE_ERROR);
+		}
+		
+		try {
+			// Commit SQLite transaction
+			if (this.sqliteManager) {
+				this.sqliteManager.commit();
+			}
+			
+			// Mark transaction as committed
+			txn.status = 'committed';
+			txn.operations.forEach(op => op.status = 'committed');
+			
+			// Clean up old transaction logs
+			this.cleanupTransactionLogs();
+		} catch (error) {
+			await this.rollbackTransaction(transactionId);
+			throw error;
+		}
+	}
+
+	/**
+	 * Rollback a transaction
+	 */
+	async rollbackTransaction(transactionId: string): Promise<void> {
+		const txn = this.transactionLog.get(transactionId);
+		if (!txn) return;
+		
+		// Rollback SQLite
+		if (this.sqliteManager) {
+			this.sqliteManager.rollback();
+		}
+		
+		// Mark transaction as rolled back
+		txn.status = 'rolled_back';
+		txn.operations.forEach(op => op.status = 'rolled_back');
+	}
+
+	/**
+	 * Sync document data with two-phase commit
 	 */
 	async syncDocumentData(documentData: {
 		id: string;
@@ -138,28 +243,63 @@ export class DatabaseService {
 		wordCount?: number;
 		characterCount?: number;
 	}): Promise<void> {
-		// Always update SQLite
-		if (this.sqliteManager) {
-			const stmt = this.sqliteManager.getDatabase().prepare(`
-				INSERT OR REPLACE INTO documents 
-				(id, title, type, synopsis, notes, word_count, character_count, modified_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-			`);
+		const transactionId = await this.beginTransaction();
+		const txn = this.transactionLog.get(transactionId)!;
+		
+		try {
+			// Phase 1: Prepare SQLite operation
+			if (this.sqliteManager) {
+				const sqliteOp = {
+					type: 'sqlite' as const,
+					operation: 'upsert_document',
+					data: documentData,
+					status: 'pending' as const
+				};
+				txn.operations.push(sqliteOp);
+				
+				const stmt = this.sqliteManager.getDatabase().prepare(`
+					INSERT OR REPLACE INTO documents 
+					(id, title, type, synopsis, notes, word_count, character_count, modified_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+				`);
 
-			stmt.run([
-				documentData.id,
-				documentData.title,
-				documentData.type,
-				documentData.synopsis || null,
-				documentData.notes || null,
-				documentData.wordCount || 0,
-				documentData.characterCount || 0,
-			]);
-		}
+				stmt.run([
+					documentData.id,
+					documentData.title,
+					documentData.type,
+					documentData.synopsis || null,
+					documentData.notes || null,
+					documentData.wordCount || 0,
+					documentData.characterCount || 0,
+				]);
+				
+				sqliteOp.status = 'prepared' as any;
+			}
 
-		// Update Neo4j if available
-		if (this.neo4jManager) {
-			await this.neo4jManager.upsertDocument(documentData);
+			// Phase 1: Prepare Neo4j operation
+			if (this.neo4jManager && this.neo4jManager.isAvailable()) {
+				const neo4jOp = {
+					type: 'neo4j' as const,
+					operation: 'upsert_document',
+					data: documentData,
+					status: 'pending' as const
+				};
+				txn.operations.push(neo4jOp);
+				
+				await this.neo4jManager.upsertDocument(documentData);
+				neo4jOp.status = 'prepared' as any;
+			}
+			
+			// Phase 2: Prepare and commit
+			const prepared = await this.prepareTransaction(transactionId);
+			if (prepared) {
+				await this.commitTransaction(transactionId);
+			} else {
+				throw new AppError('Failed to prepare transaction', ErrorCode.DATABASE_ERROR);
+			}
+		} catch (error) {
+			await this.rollbackTransaction(transactionId);
+			throw error;
 		}
 	}
 
@@ -482,5 +622,24 @@ export class DatabaseService {
 			const configBackupPath = path.join(backupDir, `neo4j-config-${timestamp}.json`);
 			fs.writeFileSync(configBackupPath, JSON.stringify(this.config.neo4j, null, 2), 'utf-8');
 		}
+	}
+
+	/**
+	 * Clean up old transaction logs
+	 */
+	private cleanupTransactionLogs(): void {
+		const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+		const now = Date.now();
+		
+		// Clean up old transaction logs from the Map
+		const toDelete: string[] = [];
+		this.transactionLog.forEach((log, id) => {
+			const age = now - log.timestamp.getTime();
+			if (age >= maxAge && log.status !== 'in_progress' && log.status !== 'prepared') {
+				toDelete.push(id);
+			}
+		});
+		
+		toDelete.forEach(id => this.transactionLog.delete(id));
 	}
 }
