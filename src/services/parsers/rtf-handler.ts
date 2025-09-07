@@ -1,11 +1,11 @@
 import parseRTF from 'rtf-parser';
 import { promisify } from 'util';
-import { safeReadFile, safeWriteFile } from './utils/common.js';
+import { safeReadFile, safeWriteFile } from '../../utils/common.js';
 import type {
 	RTFParserDocument,
 	RTFParserContent,
 	RTFParserContentNode,
-} from './types/internal.js';
+} from '../../types/internal.js';
 
 const parseRTFAsync = promisify(parseRTF.string);
 

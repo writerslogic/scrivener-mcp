@@ -1,6 +1,11 @@
-import type { Driver, Result } from 'neo4j-driver';
+import type { Driver, ManagedTransaction, QueryResult } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
+import { getLogger } from '../core/logger.js';
+import type { QueryParameters } from '../types/database.js';
 import { AppError, ErrorCode } from '../utils/common.js';
+import { extractValues, nodeToObject } from '../utils/database.js';
+
+const logger = getLogger('neo4j');
 
 export class Neo4jManager {
 	private driver: Driver | null = null;
@@ -28,16 +33,12 @@ export class Neo4jManager {
 		for (let attempt = 1; attempt <= this.connectionRetries; attempt++) {
 			try {
 				// Create driver with connection pool settings
-				this.driver = neo4j.driver(
-					this.uri, 
-					neo4j.auth.basic(this.user, this.password),
-					{
-						maxConnectionPoolSize: 50,
-						connectionAcquisitionTimeout: 10000,
-						connectionTimeout: 30000,
-						maxTransactionRetryTime: 30000,
-					}
-				);
+				this.driver = neo4j.driver(this.uri, neo4j.auth.basic(this.user, this.password), {
+					maxConnectionPoolSize: 50,
+					connectionAcquisitionTimeout: 10000,
+					connectionTimeout: 30000,
+					maxTransactionRetryTime: 30000,
+				});
 
 				// Verify connectivity
 				await this.driver.verifyConnectivity();
@@ -47,28 +48,24 @@ export class Neo4jManager {
 				// Initialize schema
 				await this.createConstraints();
 				await this.createIndexes();
-				
+
 				return; // Success
 			} catch (error) {
 				const isLastAttempt = attempt === this.connectionRetries;
 				if (!isLastAttempt) {
 					// Wait before retrying
-					await this.delay(this.retryDelay * attempt);
+					await new Promise((resolve) => setTimeout(resolve, this.retryDelay * attempt));
 				} else {
-					console.warn('Neo4j connection failed after retries, continuing without graph database:', error);
+					logger.warn(
+						'Neo4j connection failed after retries, continuing without graph database',
+						{ error }
+					);
 					// Don't throw - allow the app to continue with just SQLite
 					this.driver = null;
 					this.isConnected = false;
 				}
 			}
 		}
-	}
-
-	/**
-	 * Delay helper for retries
-	 */
-	private delay(ms: number): Promise<void> {
-		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
 	/**
@@ -82,30 +79,30 @@ export class Neo4jManager {
 		try {
 			// Document constraints
 			await session.run(`
-				CREATE CONSTRAINT document_id IF NOT EXISTS 
+				CREATE CONSTRAINT document_id IF NOT EXISTS
 				FOR (d:Document) REQUIRE d.id IS UNIQUE
 			`);
 
 			// Character constraints
 			await session.run(`
-				CREATE CONSTRAINT character_id IF NOT EXISTS 
+				CREATE CONSTRAINT character_id IF NOT EXISTS
 				FOR (c:Character) REQUIRE c.id IS UNIQUE
 			`);
 
 			await session.run(`
-				CREATE CONSTRAINT character_name IF NOT EXISTS 
+				CREATE CONSTRAINT character_name IF NOT EXISTS
 				FOR (c:Character) REQUIRE c.name IS UNIQUE
 			`);
 
 			// Theme constraints
 			await session.run(`
-				CREATE CONSTRAINT theme_id IF NOT EXISTS 
+				CREATE CONSTRAINT theme_id IF NOT EXISTS
 				FOR (t:Theme) REQUIRE t.id IS UNIQUE
 			`);
 
 			// Plot thread constraints
 			await session.run(`
-				CREATE CONSTRAINT plot_thread_id IF NOT EXISTS 
+				CREATE CONSTRAINT plot_thread_id IF NOT EXISTS
 				FOR (p:PlotThread) REQUIRE p.id IS UNIQUE
 			`);
 		} finally {
@@ -124,24 +121,24 @@ export class Neo4jManager {
 		try {
 			// Document indexes
 			await session.run(`
-				CREATE INDEX document_title IF NOT EXISTS 
+				CREATE INDEX document_title IF NOT EXISTS
 				FOR (d:Document) ON (d.title)
 			`);
 
 			await session.run(`
-				CREATE INDEX document_type IF NOT EXISTS 
+				CREATE INDEX document_type IF NOT EXISTS
 				FOR (d:Document) ON (d.type)
 			`);
 
 			// Character indexes
 			await session.run(`
-				CREATE INDEX character_role IF NOT EXISTS 
+				CREATE INDEX character_role IF NOT EXISTS
 				FOR (c:Character) ON (c.role)
 			`);
 
 			// Theme indexes
 			await session.run(`
-				CREATE INDEX theme_name IF NOT EXISTS 
+				CREATE INDEX theme_name IF NOT EXISTS
 				FOR (t:Theme) ON (t.name)
 			`);
 		} finally {
@@ -152,7 +149,7 @@ export class Neo4jManager {
 	/**
 	 * Execute a Cypher query
 	 */
-	async query(cypher: string, parameters: any = {}): Promise<Result> {
+	async query(cypher: string, parameters: QueryParameters = {}): Promise<QueryResult> {
 		if (!this.driver) {
 			throw new AppError(
 				'Neo4j not connected. Initialize first or check connection.',
@@ -171,7 +168,7 @@ export class Neo4jManager {
 	/**
 	 * Execute a read transaction
 	 */
-	async readTransaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
+	async readTransaction<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		if (!this.driver) {
 			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
 		}
@@ -187,7 +184,7 @@ export class Neo4jManager {
 	/**
 	 * Execute a write transaction
 	 */
-	async writeTransaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
+	async writeTransaction<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		if (!this.driver) {
 			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
 		}
@@ -291,12 +288,12 @@ export class Neo4jManager {
 
 		const result = await this.query(cypher, { characterId });
 		return result.records.map((record: any) => ({
-			character: record.get('c').properties,
+			character: nodeToObject(record.get('c')),
 			relationship: {
 				type: record.get('r').type,
-				properties: record.get('r').properties,
+				properties: nodeToObject(record.get('r')),
 			},
-			other: record.get('other').properties,
+			other: nodeToObject(record.get('other')),
 			otherLabels: record.get('otherLabels'),
 		}));
 	}
@@ -314,7 +311,7 @@ export class Neo4jManager {
 		`;
 
 		const result = await this.query(cypher, { characterId });
-		return result.records.map((record: any) => record.get('d').properties);
+		return extractValues(result, 'd').map(nodeToObject);
 	}
 
 	/**
@@ -335,9 +332,9 @@ export class Neo4jManager {
 		`);
 
 		const documentFlow = flowResult.records.map((record: any) => ({
-			from: record.get('d').properties,
-			to: record.get('next').properties,
-			relationship: record.get('r').properties,
+			from: nodeToObject(record.get('d')),
+			to: nodeToObject(record.get('next')),
+			relationship: nodeToObject(record.get('r')),
 		}));
 
 		// Character arc analysis
@@ -349,8 +346,8 @@ export class Neo4jManager {
 		`);
 
 		const characterArcs = arcResult.records.map((record: any) => ({
-			character: record.get('c').properties,
-			documents: record.get('documents').map((d: any) => d.properties),
+			character: nodeToObject(record.get('c')),
+			documents: record.get('documents').map((d: any) => nodeToObject(d)),
 		}));
 
 		// Theme progression
@@ -362,8 +359,8 @@ export class Neo4jManager {
 		`);
 
 		const themeProgression = themeResult.records.map((record: any) => ({
-			theme: record.get('t').properties,
-			documents: record.get('documents').map((d: any) => d.properties),
+			theme: nodeToObject(record.get('t')),
+			documents: record.get('documents').map((d: any) => nodeToObject(d)),
 		}));
 
 		return { documentFlow, characterArcs, themeProgression };
@@ -379,25 +376,27 @@ export class Neo4jManager {
 	/**
 	 * Check database health
 	 */
-	async checkHealth(): Promise<{ healthy: boolean; details: any }> {
+	async checkHealth(): Promise<{ healthy: boolean; details: Record<string, unknown> }> {
 		try {
 			// Check if we need a health check
 			const now = new Date();
-			if (this.lastHealthCheck && 
-				(now.getTime() - this.lastHealthCheck.getTime()) < this.healthCheckInterval) {
-				return { 
-					healthy: this.isConnected, 
-					details: { 
+			if (
+				this.lastHealthCheck &&
+				now.getTime() - this.lastHealthCheck.getTime() < this.healthCheckInterval
+			) {
+				return {
+					healthy: this.isConnected,
+					details: {
 						lastCheck: this.lastHealthCheck,
-						cached: true 
-					} 
+						cached: true,
+					},
 				};
 			}
 
 			if (!this.driver) {
-				return { 
-					healthy: false, 
-					details: { error: 'Driver not initialized' } 
+				return {
+					healthy: false,
+					details: { error: 'Driver not initialized' },
 				};
 			}
 
@@ -407,17 +406,19 @@ export class Neo4jManager {
 				await session.run('RETURN 1');
 				this.isConnected = true;
 				this.lastHealthCheck = now;
-				
+
 				// Get database statistics
-				const stats = await session.run('CALL dbms.queryJmx("org.neo4j:*") YIELD attributes');
-				
+				const stats = await session.run(
+					'CALL dbms.queryJmx("org.neo4j:*") YIELD attributes'
+				);
+
 				return {
 					healthy: true,
 					details: {
 						connected: true,
 						lastCheck: now,
-						stats: stats.records.length > 0 ? stats.records[0].get('attributes') : {}
-					}
+						stats: stats.records.length > 0 ? stats.records[0].get('attributes') : {},
+					},
 				};
 			} finally {
 				await session.close();
@@ -426,10 +427,10 @@ export class Neo4jManager {
 			this.isConnected = false;
 			return {
 				healthy: false,
-				details: { 
+				details: {
 					error: (error as Error).message,
-					lastCheck: this.lastHealthCheck
-				}
+					lastCheck: this.lastHealthCheck,
+				},
 			};
 		}
 	}
@@ -437,13 +438,17 @@ export class Neo4jManager {
 	/**
 	 * Execute query with retry logic
 	 */
-	async queryWithRetry(cypher: string, params: any = {}, retries: number = 3): Promise<Result> {
+	async queryWithRetry(
+		cypher: string,
+		params: QueryParameters = {},
+		retries: number = 3
+	): Promise<QueryResult> {
 		if (!this.driver) {
 			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
 		}
 
 		let lastError: Error | null = null;
-		
+
 		for (let attempt = 1; attempt <= retries; attempt++) {
 			const session = this.driver.session({ database: this.database });
 			try {
@@ -451,27 +456,27 @@ export class Neo4jManager {
 				return result;
 			} catch (error) {
 				lastError = error as Error;
-				
+
 				// Check if it's a transient error that should be retried
-				const errorCode = (error as any).code;
-				if (this.isTransientError(errorCode) && attempt < retries) {
-					await this.delay(this.retryDelay * attempt);
+				const errorCode = (error as Error & { code?: string }).code;
+				if (errorCode && this.isTransientError(errorCode) && attempt < retries) {
+					await new Promise((resolve) => setTimeout(resolve, this.retryDelay * attempt));
 					continue;
 				}
-				
+
 				// Check if connection is lost and try to reconnect
-				if (this.isConnectionError(errorCode) && attempt < retries) {
+				if (errorCode && this.isConnectionError(errorCode) && attempt < retries) {
 					this.isConnected = false;
 					await this.reconnect();
 					continue;
 				}
-				
+
 				throw error;
 			} finally {
 				await session.close();
 			}
 		}
-		
+
 		throw lastError || new AppError('Query failed after retries', ErrorCode.DATABASE_ERROR);
 	}
 
@@ -482,9 +487,9 @@ export class Neo4jManager {
 		const transientCodes = [
 			'Neo.TransientError.Transaction.DeadlockDetected',
 			'Neo.TransientError.Transaction.LockClientStopped',
-			'Neo.TransientError.General.DatabaseUnavailable'
+			'Neo.TransientError.General.DatabaseUnavailable',
 		];
-		return transientCodes.some(c => code?.includes(c));
+		return transientCodes.some((c) => code?.includes(c));
 	}
 
 	/**
@@ -494,9 +499,9 @@ export class Neo4jManager {
 		const connectionCodes = [
 			'ServiceUnavailable',
 			'SessionExpired',
-			'Neo.ClientError.Security.AuthenticationRateLimit'
+			'Neo.ClientError.Security.AuthenticationRateLimit',
 		];
-		return connectionCodes.some(c => code?.includes(c));
+		return connectionCodes.some((c) => code?.includes(c));
 	}
 
 	/**

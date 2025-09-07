@@ -1,4 +1,4 @@
-import { ContentAnalyzer } from '../dist/content-analyzer.js';
+import { ContentAnalyzer } from '../dist/analysis/base-analyzer.js';
 
 console.log('Testing Content Analyzer...\n');
 

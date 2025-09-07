@@ -1,4 +1,4 @@
-import { ContentEnhancer } from '../dist/content-enhancer.js';
+import { ContentEnhancer } from '../dist/services/enhancements/content-enhancer.js';
 
 console.log('Testing Content Enhancer...\n');
 

@@ -1,5 +1,5 @@
 import { ScrivenerProject } from '../dist/scrivener-project.js';
-import { RTFHandler } from '../dist/rtf-handler.js';
+import { RTFHandler } from '../dist/services/parsers/rtf-handler.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';

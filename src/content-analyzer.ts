@@ -1,22 +1,28 @@
 // import type { ScrivenerDocument } from './scrivener-project.js';
-import { classifier as wordClassifier } from './ml-word-classifier-pro.js';
-import { openaiService } from './openai-service.js';
+import { advancedReadabilityService } from './analysis/advanced-readability.js';
+import { cached, caches } from './core/cache.js';
+import { getLogger } from './core/logger.js';
+import { classifier as wordClassifier } from './analysis/ml-word-classifier-pro.js';
 import type {
-	StyleAnalysis as OpenAIStyleAnalysis,
 	CharacterAnalysis as OpenAICharacterAnalysis,
 	PlotAnalysis as OpenAIPlotAnalysis,
-} from './openai-service.js';
-import { webContentParser } from './web-content-parser.js';
-import { advancedReadabilityService } from './advanced-readability.js';
+	StyleAnalysis as OpenAIStyleAnalysis,
+} from './services/openai-service.js';
+import { OpenAIService } from './services/openai-service.js';
+
+const openaiService = new OpenAIService();
 import type {
-	ReadabilityMetrics,
-	ReadabilityComparison,
-	ReadabilityTrends,
-	WritingSuggestion,
-	ParsedWebContent,
-	ResearchData,
 	ContentExtractionOptions,
+	ParsedWebContent,
+	ReadabilityComparison,
+	ReadabilityMetrics,
+	ReadabilityTrends,
+	ResearchData,
+	WritingSuggestion,
 } from './types/analysis.js';
+import { webContentParser } from './services/web-content-parser.js';
+
+const logger = getLogger('content-analyzer');
 
 export interface ContentAnalysis {
 	documentId: string;
@@ -155,7 +161,13 @@ export class ContentAnalyzer {
 		'every cloud has a silver lining',
 	];
 
+	@cached(
+		(content: string, documentId: string) => `analysis:${documentId}:${content.length}`,
+		caches.analysis,
+		300_000 // Cache for 5 minutes
+	)
 	async analyzeContent(content: string, documentId: string): Promise<ContentAnalysis> {
+		logger.debug(`Analyzing content for document ${documentId}`);
 		const metrics = this.calculateMetrics(content);
 		const style = this.analyzeStyle(content);
 		const structure = this.analyzeStructure(content);
@@ -943,7 +955,7 @@ export class ContentAnalyzer {
 		try {
 			return await openaiService.getWritingSuggestions(content, context);
 		} catch (error) {
-			console.error('AI suggestions error:', error);
+			logger.error('AI suggestions error', { error });
 			return [];
 		}
 	}
@@ -951,6 +963,11 @@ export class ContentAnalyzer {
 	/**
 	 * Analyze writing style using AI
 	 */
+	@cached(
+		(content: string) => `ai-style:${content.substring(0, 100)}:${content.length}`,
+		caches.analysis,
+		600_000 // Cache for 10 minutes
+	)
 	async analyzeStyleWithAI(content: string): Promise<OpenAIStyleAnalysis | null> {
 		if (!openaiService.isConfigured()) {
 			return null;
@@ -959,7 +976,7 @@ export class ContentAnalyzer {
 		try {
 			return await openaiService.analyzeStyle(content);
 		} catch (error) {
-			console.error('AI style analysis error:', error);
+			logger.error('AI style analysis error', { error });
 			return null;
 		}
 	}
@@ -978,7 +995,7 @@ export class ContentAnalyzer {
 		try {
 			return await openaiService.analyzeCharacters(content, characterNames);
 		} catch (error) {
-			console.error('AI character analysis error:', error);
+			logger.error('AI character analysis error', { error });
 			return [];
 		}
 	}
@@ -986,6 +1003,11 @@ export class ContentAnalyzer {
 	/**
 	 * Analyze plot structure using AI
 	 */
+	@cached(
+		(content: string) => `ai-plot:${content.substring(0, 100)}:${content.length}`,
+		caches.analysis,
+		600_000 // Cache for 10 minutes
+	)
 	async analyzePlotWithAI(content: string): Promise<OpenAIPlotAnalysis | null> {
 		if (!openaiService.isConfigured()) {
 			return null;
@@ -994,7 +1016,7 @@ export class ContentAnalyzer {
 		try {
 			return await openaiService.analyzePlot(content);
 		} catch (error) {
-			console.error('AI plot analysis error:', error);
+			logger.error('AI plot analysis error', { error });
 			return null;
 		}
 	}
@@ -1054,22 +1076,22 @@ export class ContentAnalyzer {
 			return {
 				prompts: [],
 				overallTheme: 'Creative Writing',
-				writingGoals: []
+				writingGoals: [],
 			};
 		}
 
 		try {
 			return await openaiService.generateWritingPrompts(options);
 		} catch (error) {
-			console.error('AI prompt generation error:', error);
+			logger.error('AI prompt generation error', { error });
 			return {
 				prompts: [],
 				overallTheme: 'Creative Writing',
-				writingGoals: []
+				writingGoals: [],
 			};
 		}
 	}
-	
+
 	/**
 	 * Get the OpenAI service instance
 	 */

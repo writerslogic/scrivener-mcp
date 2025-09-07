@@ -9,6 +9,7 @@ export interface DatabaseConfig {
 		password: string;
 		enabled: boolean;
 		database?: string;
+		autoInstall?: boolean;
 	};
 }
 

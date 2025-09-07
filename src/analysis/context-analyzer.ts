@@ -1,5 +1,5 @@
 import type { DatabaseService } from '../database/database-service.js';
-import type { ContentAnalyzer } from '../content-analyzer.js';
+import type { ContentAnalyzer } from './base-analyzer.js';
 
 export interface ScrivenerDocument {
 	id: string;
@@ -101,7 +101,7 @@ export interface StoryContext {
 	};
 }
 
-export class EnhancedAnalyzer {
+export class ContextAnalyzer {
 	constructor(
 		private databaseService: DatabaseService,
 		private contentAnalyzer: ContentAnalyzer
@@ -200,7 +200,7 @@ export class EnhancedAnalyzer {
 	 * Build complete story context
 	 */
 	async buildStoryContext(
-		documents: ScrivenerDocument[],
+		_documents: ScrivenerDocument[],
 		chapterContexts: ChapterContext[]
 	): Promise<StoryContext> {
 		const characterArcs = await this.buildCharacterArcs(chapterContexts);
@@ -347,8 +347,8 @@ export class EnhancedAnalyzer {
 
 		if (this.databaseService.getSQLite()) {
 			const plotThreads = this.databaseService.getSQLite().query(
-				`SELECT id, name, status, developments 
-				 FROM plot_threads 
+				`SELECT id, name, status, developments
+				 FROM plot_threads
 				 WHERE json_extract(documents_involved, '$') LIKE '%${documentId}%'`
 			) as Array<{ id: string; name: string; status: string; developments: string }>;
 
@@ -747,8 +747,8 @@ export class EnhancedAnalyzer {
 		// Update document with enhanced metadata
 		if (this.databaseService.getSQLite()) {
 			const stmt = this.databaseService.getSQLite().getDatabase().prepare(`
-				UPDATE documents 
-				SET context_data = ?, 
+				UPDATE documents
+				SET context_data = ?,
 				    last_analyzed = CURRENT_TIMESTAMP
 				WHERE id = ?
 			`);
@@ -771,7 +771,7 @@ export class EnhancedAnalyzer {
 			};
 
 			const stmt = this.databaseService.getSQLite().getDatabase().prepare(`
-				INSERT OR REPLACE INTO project_metadata 
+				INSERT OR REPLACE INTO project_metadata
 				(key, value, updated_at)
 				VALUES ('story_context', ?, CURRENT_TIMESTAMP)
 			`);

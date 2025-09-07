@@ -4,8 +4,8 @@
  */
 
 import nlp from 'compromise';
-import Sentiment from 'sentiment';
 import * as pos from 'pos';
+import Sentiment from 'sentiment';
 // Natural import removed - using compromise instead
 
 // Initialize advanced NLP tools
@@ -455,7 +455,7 @@ export class MLWordClassifierPro {
 	/**
 	 * Helper methods
 	 */
-	private findWordIndex(words: string[], targetWord: string, position: number): number {
+	private findWordIndex(words: string[], _targetWord: string, position: number): number {
 		// Find the word index based on position in original text
 		let currentPos = 0;
 		for (let i = 0; i < words.length; i++) {

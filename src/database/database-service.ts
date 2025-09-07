@@ -1,17 +1,21 @@
-import * as fs from 'fs';
 import * as path from 'path';
-import {
-	AppError,
-	ErrorCode,
-	safeReadFile,
-	safeWriteFile,
-	ensureDir,
-	pathExists,
-} from '../utils/common.js';
-import { SQLiteManager } from './sqlite-manager.js';
-import { Neo4jManager } from './neo4j-manager.js';
+import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
+import { getLogger } from '../core/logger.js';
+import { ensureDir, pathExists, safeReadFile, safeWriteFile } from '../utils/common.js';
+import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
-import { generateDatabasePaths, DEFAULT_DATABASE_CONFIG } from './config.js';
+import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';
+import { DatabaseSetup } from './database-setup.js';
+import { GraphAnalytics } from './graph-analytics.js';
+import { MigrationManager } from './migrations.js';
+import { Neo4jManager } from './neo4j-manager.js';
+import { SQLQueryBuilder } from './query-builder.js';
+import { SearchService } from './search-service.js';
+import { SQLiteManager } from './sqlite-manager.js';
+import { StoryIntelligence } from './story-intelligence.js';
+import { WritingAnalytics } from './writing-analytics.js';
+
+const logger = getLogger('database');
 
 interface TransactionLog {
 	id: string;
@@ -19,7 +23,7 @@ interface TransactionLog {
 	operations: Array<{
 		type: 'sqlite' | 'neo4j';
 		operation: string;
-		data: any;
+		data: unknown;
 		status: 'pending' | 'prepared' | 'committed' | 'rolled_back';
 	}>;
 	status: 'in_progress' | 'prepared' | 'committed' | 'rolled_back';
@@ -31,9 +35,12 @@ export class DatabaseService {
 	private config: DatabaseConfig;
 	private paths: ProjectDatabasePaths;
 	private transactionLog: Map<string, TransactionLog> = new Map();
-	private syncQueue: Array<() => Promise<void>> = [];
-	private isSyncing: boolean = false;
 	private initialized: boolean = false;
+	private graphAnalytics: GraphAnalytics | null = null;
+	private migrationManager: MigrationManager | null = null;
+	private searchService: SearchService | null = null;
+	private writingAnalytics: WritingAnalytics | null = null;
+	private storyIntelligence: StoryIntelligence | null = null;
 
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
@@ -60,9 +67,65 @@ export class DatabaseService {
 		if (this.initialized) {
 			return;
 		}
-		
+
 		// Ensure database directory exists
 		await ensureDir(this.paths.databaseDir);
+
+		// Get credentials from environment or config
+		const projectPath = path.dirname(this.paths.databaseDir);
+		const credentials = await DatabaseSetup.getCredentials({ projectPath });
+
+		// Override Neo4j config with credentials if available
+		if (credentials.neo4j.password) {
+			this.config.neo4j = {
+				...this.config.neo4j,
+				...credentials.neo4j,
+			};
+		}
+
+		// Check Neo4j availability and offer auto-installation
+		const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
+		if (this.config.neo4j.enabled && !neo4jStatus.running) {
+			logger.warn('Neo4j is not running');
+
+			// Check if we should auto-install
+			const autoInstall =
+				process.env.NEO4J_AUTO_INSTALL === 'true' || this.config.neo4j.autoInstall === true;
+
+			if (autoInstall) {
+				logger.info('Attempting automatic Neo4j installation...');
+				const installResult = await Neo4jAutoInstaller.install({
+					method: 'auto',
+					interactive: process.env.NEO4J_INTERACTIVE !== 'false',
+					projectPath,
+					autoStart: true,
+				});
+
+				if (installResult.success && installResult.credentials) {
+					// Update config with new credentials
+					this.config.neo4j = {
+						...this.config.neo4j,
+						...installResult.credentials,
+					};
+					logger.info('Neo4j installed successfully');
+				} else {
+					logger.warn('Auto-installation failed. Continuing with SQLite only');
+					logger.info('For manual installation:', {
+						instructions: DatabaseSetup.getSetupInstructions(),
+					});
+					this.config.neo4j.enabled = false;
+				}
+			} else {
+				logger.warn('The application will continue with SQLite only');
+				logger.info(
+					'To enable automatic Neo4j installation: Set NEO4J_AUTO_INSTALL=true in your .env file or run: NEO4J_AUTO_INSTALL=true npm start'
+				);
+				logger.info('For manual installation:', {
+					instructions: DatabaseSetup.getSetupInstructions(),
+				});
+				this.config.neo4j.enabled = false;
+			}
+		}
 
 		// Save config
 		await this.saveConfig();
@@ -82,11 +145,29 @@ export class DatabaseService {
 				this.config.neo4j.database
 			);
 			await this.neo4jManager.initialize();
+
+			// Initialize graph analytics
+			this.graphAnalytics = new GraphAnalytics(this.neo4jManager);
 		}
-		
+
+		// Initialize migration manager and run migrations
+		this.migrationManager = new MigrationManager(this.sqliteManager, this.neo4jManager);
+		await this.migrationManager.migrate();
+
+		// Initialize search service
+		this.searchService = new SearchService(this.sqliteManager, this.neo4jManager);
+
+		// Initialize analytics services
+		this.writingAnalytics = new WritingAnalytics(this.sqliteManager, this.neo4jManager);
+		this.storyIntelligence = new StoryIntelligence(
+			this.sqliteManager,
+			this.neo4jManager,
+			this.graphAnalytics
+		);
+
 		this.initialized = true;
 	}
-	
+
 	/**
 	 * Check if database service is initialized
 	 */
@@ -160,19 +241,19 @@ export class DatabaseService {
 	 */
 	async beginTransaction(): Promise<string> {
 		const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-		
+
 		this.transactionLog.set(transactionId, {
 			id: transactionId,
 			timestamp: new Date(),
 			operations: [],
-			status: 'in_progress'
+			status: 'in_progress',
 		});
-		
+
 		// Begin transactions in both databases
 		if (this.sqliteManager) {
 			this.sqliteManager.beginTransaction();
 		}
-		
+
 		return transactionId;
 	}
 
@@ -184,15 +265,15 @@ export class DatabaseService {
 		if (!txn) {
 			throw new AppError('Transaction not found', ErrorCode.DATABASE_ERROR);
 		}
-		
+
 		try {
 			// Mark all operations as prepared
-			txn.operations.forEach(op => {
+			txn.operations.forEach((op) => {
 				if (op.status === 'pending') {
 					op.status = 'prepared';
 				}
 			});
-			
+
 			txn.status = 'prepared';
 			return true;
 		} catch (error) {
@@ -209,17 +290,17 @@ export class DatabaseService {
 		if (!txn || txn.status !== 'prepared') {
 			throw new AppError('Transaction not prepared', ErrorCode.DATABASE_ERROR);
 		}
-		
+
 		try {
 			// Commit SQLite transaction
 			if (this.sqliteManager) {
 				this.sqliteManager.commit();
 			}
-			
+
 			// Mark transaction as committed
 			txn.status = 'committed';
-			txn.operations.forEach(op => op.status = 'committed');
-			
+			txn.operations.forEach((op) => (op.status = 'committed'));
+
 			// Clean up old transaction logs
 			this.cleanupTransactionLogs();
 		} catch (error) {
@@ -234,15 +315,15 @@ export class DatabaseService {
 	async rollbackTransaction(transactionId: string): Promise<void> {
 		const txn = this.transactionLog.get(transactionId);
 		if (!txn) return;
-		
+
 		// Rollback SQLite
 		if (this.sqliteManager) {
 			this.sqliteManager.rollback();
 		}
-		
+
 		// Mark transaction as rolled back
 		txn.status = 'rolled_back';
-		txn.operations.forEach(op => op.status = 'rolled_back');
+		txn.operations.forEach((op) => (op.status = 'rolled_back'));
 	}
 
 	/**
@@ -259,51 +340,51 @@ export class DatabaseService {
 	}): Promise<void> {
 		const transactionId = await this.beginTransaction();
 		const txn = this.transactionLog.get(transactionId)!;
-		
+
 		try {
 			// Phase 1: Prepare SQLite operation
 			if (this.sqliteManager) {
-				const sqliteOp = {
-					type: 'sqlite' as const,
+				const sqliteOp: (typeof txn.operations)[0] = {
+					type: 'sqlite',
 					operation: 'upsert_document',
 					data: documentData,
-					status: 'pending' as const
+					status: 'pending',
 				};
 				txn.operations.push(sqliteOp);
-				
-				const stmt = this.sqliteManager.getDatabase().prepare(`
-					INSERT OR REPLACE INTO documents 
-					(id, title, type, synopsis, notes, word_count, character_count, modified_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-				`);
 
-				stmt.run([
-					documentData.id,
-					documentData.title,
-					documentData.type,
-					documentData.synopsis || null,
-					documentData.notes || null,
-					documentData.wordCount || 0,
-					documentData.characterCount || 0,
-				]);
-				
-				sqliteOp.status = 'prepared' as any;
+				const { sql, params } = SQLQueryBuilder.insert('documents', {
+					id: documentData.id,
+					title: documentData.title,
+					type: documentData.type,
+					synopsis: documentData.synopsis || null,
+					notes: documentData.notes || null,
+					word_count: documentData.wordCount || 0,
+					character_count: documentData.characterCount || 0,
+					modified_at: new Date().toISOString(),
+				});
+
+				const stmt = this.sqliteManager
+					.getDatabase()
+					.prepare(sql.replace('INSERT', 'INSERT OR REPLACE'));
+				stmt.run(params);
+
+				sqliteOp.status = 'prepared';
 			}
 
 			// Phase 1: Prepare Neo4j operation
 			if (this.neo4jManager && this.neo4jManager.isAvailable()) {
-				const neo4jOp = {
-					type: 'neo4j' as const,
+				const neo4jOp: (typeof txn.operations)[0] = {
+					type: 'neo4j',
 					operation: 'upsert_document',
 					data: documentData,
-					status: 'pending' as const
+					status: 'pending',
 				};
 				txn.operations.push(neo4jOp);
-				
+
 				await this.neo4jManager.upsertDocument(documentData);
-				neo4jOp.status = 'prepared' as any;
+				neo4jOp.status = 'prepared';
 			}
-			
+
 			// Phase 2: Prepare and commit
 			const prepared = await this.prepareTransaction(transactionId);
 			if (prepared) {
@@ -330,20 +411,20 @@ export class DatabaseService {
 	}): Promise<void> {
 		// Update SQLite
 		if (this.sqliteManager) {
-			const stmt = this.sqliteManager.getDatabase().prepare(`
-				INSERT OR REPLACE INTO characters 
-				(id, name, role, description, traits, notes, modified_at)
-				VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-			`);
+			const { sql, params } = SQLQueryBuilder.insert('characters', {
+				id: characterData.id,
+				name: characterData.name,
+				role: characterData.role || null,
+				description: characterData.description || null,
+				traits: JSON.stringify(characterData.traits || []),
+				notes: characterData.notes || null,
+				modified_at: new Date().toISOString(),
+			});
 
-			stmt.run([
-				characterData.id,
-				characterData.name,
-				characterData.role || null,
-				characterData.description || null,
-				JSON.stringify(characterData.traits || []),
-				characterData.notes || null,
-			]);
+			const stmt = this.sqliteManager
+				.getDatabase()
+				.prepare(sql.replace('INSERT', 'INSERT OR REPLACE'));
+			stmt.run(params);
 		}
 
 		// Update Neo4j if available
@@ -361,13 +442,13 @@ export class DatabaseService {
 		toId: string,
 		toType: string,
 		relationshipType: string,
-		properties: any = {}
+		properties: Record<string, unknown> = {}
 	): Promise<void> {
 		// Store in SQLite relationships table
 		if (this.sqliteManager) {
 			if (fromType === 'document' && toType === 'document') {
 				const stmt = this.sqliteManager.getDatabase().prepare(`
-					INSERT OR REPLACE INTO document_relationships 
+					INSERT OR REPLACE INTO document_relationships
 					(source_document_id, target_document_id, relationship_type, notes)
 					VALUES (?, ?, ?, ?)
 				`);
@@ -420,15 +501,15 @@ export class DatabaseService {
 		Array<{
 			id: number;
 			analysisType: string;
-			analysisData: any;
+			analysisData: unknown;
 			analyzedAt: string;
 		}>
 	> {
 		if (!this.sqliteManager) return [];
 
 		let sql = `
-			SELECT id, analysis_type, analysis_data, analyzed_at 
-			FROM content_analysis 
+			SELECT id, analysis_type, analysis_data, analyzed_at
+			FROM content_analysis
 			WHERE document_id = ?
 		`;
 		const params = [documentId];
@@ -468,7 +549,7 @@ export class DatabaseService {
 		if (!this.sqliteManager) return;
 
 		const stmt = this.sqliteManager.getDatabase().prepare(`
-			INSERT INTO writing_sessions 
+			INSERT INTO writing_sessions
 			(date, words_written, duration_minutes, documents_worked_on, notes)
 			VALUES (?, ?, ?, ?, ?)
 		`);
@@ -507,23 +588,23 @@ export class DatabaseService {
 
 		// Get total stats
 		const totalResult = this.sqliteManager.queryOne(`
-			SELECT 
+			SELECT
 				SUM(words_written) as total_words,
 				COUNT(*) as total_sessions
-			FROM writing_sessions 
+			FROM writing_sessions
 			WHERE date >= date('now', '-${days} days')
-		`) as { total_words: number; total_sessions: number };
+		`) as { total_words: number; total_sessions: number } | undefined;
 
 		// Get daily stats
 		const dailyResults = this.sqliteManager.query(`
-			SELECT 
+			SELECT
 				date,
 				SUM(words_written) as words,
 				COUNT(*) as sessions,
 				SUM(duration_minutes) as duration
-			FROM writing_sessions 
+			FROM writing_sessions
 			WHERE date >= date('now', '-${days} days')
-			GROUP BY date 
+			GROUP BY date
 			ORDER BY date DESC
 		`) as Array<{
 			date: string;
@@ -533,9 +614,9 @@ export class DatabaseService {
 		}>;
 
 		return {
-			totalWords: totalResult.total_words || 0,
-			totalSessions: totalResult.total_sessions || 0,
-			averageWordsPerSession: totalResult.total_sessions
+			totalWords: totalResult?.total_words || 0,
+			totalSessions: totalResult?.total_sessions || 0,
+			averageWordsPerSession: totalResult?.total_sessions
 				? Math.round((totalResult.total_words || 0) / totalResult.total_sessions)
 				: 0,
 			dailyStats: dailyResults,
@@ -619,9 +700,7 @@ export class DatabaseService {
 	 * Backup databases
 	 */
 	async backup(backupDir: string): Promise<void> {
-		if (!fs.existsSync(backupDir)) {
-			fs.mkdirSync(backupDir, { recursive: true });
-		}
+		await ensureDir(backupDir);
 
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
@@ -634,8 +713,184 @@ export class DatabaseService {
 		// Backup Neo4j config
 		if (this.neo4jManager) {
 			const configBackupPath = path.join(backupDir, `neo4j-config-${timestamp}.json`);
-			fs.writeFileSync(configBackupPath, JSON.stringify(this.config.neo4j, null, 2), 'utf-8');
+			await safeWriteFile(configBackupPath, JSON.stringify(this.config.neo4j, null, 2));
 		}
+	}
+
+	/**
+	 * Get graph analytics service
+	 */
+	getGraphAnalytics(): GraphAnalytics | null {
+		return this.graphAnalytics;
+	}
+
+	/**
+	 * Get search service
+	 */
+	getSearchService(): SearchService | null {
+		return this.searchService;
+	}
+
+	/**
+	 * Get migration manager
+	 */
+	getMigrationManager(): MigrationManager | null {
+		return this.migrationManager;
+	}
+
+	/**
+	 * Run relationship auto-discovery
+	 */
+	async discoverRelationships(): Promise<unknown> {
+		if (!this.graphAnalytics) {
+			throw new AppError('Graph analytics not available', ErrorCode.DATABASE_ERROR);
+		}
+		return this.graphAnalytics.discoverRelationships();
+	}
+
+	/**
+	 * Analyze story structure
+	 */
+	async analyzeStoryStructure(): Promise<{
+		characterNetwork: unknown;
+		plotComplexity: unknown;
+		storyFlow: unknown;
+		narrative: unknown;
+	}> {
+		if (!this.graphAnalytics) {
+			throw new AppError('Graph analytics not available', ErrorCode.DATABASE_ERROR);
+		}
+
+		const [characterNetwork, plotComplexity, storyFlow, narrative] = await Promise.all([
+			this.graphAnalytics.analyzeCharacterNetwork(),
+			this.graphAnalytics.analyzePlotComplexity(),
+			this.graphAnalytics.analyzeStoryFlow(),
+			this.graphAnalytics.analyzeNarrativeStructure(),
+		]);
+
+		return {
+			characterNetwork,
+			plotComplexity,
+			storyFlow,
+			narrative,
+		};
+	}
+
+	/**
+	 * Perform full-text search
+	 */
+	async search(query: string, options?: Record<string, unknown>): Promise<unknown> {
+		if (!this.searchService) {
+			throw new AppError('Search service not available', ErrorCode.DATABASE_ERROR);
+		}
+		return this.searchService.search(query, options);
+	}
+
+	/**
+	 * Get writing analytics
+	 */
+	getWritingAnalytics(): WritingAnalytics | null {
+		return this.writingAnalytics;
+	}
+
+	/**
+	 * Get story intelligence
+	 */
+	getStoryIntelligence(): StoryIntelligence | null {
+		return this.storyIntelligence;
+	}
+
+	/**
+	 * Get comprehensive writing insights
+	 */
+	async getWritingInsights(): Promise<{
+		patterns: any;
+		productivity: any;
+		recommendations: any;
+		completion: any;
+	}> {
+		if (!this.writingAnalytics) {
+			throw new AppError('Writing analytics not available', ErrorCode.DATABASE_ERROR);
+		}
+
+		const [patterns, productivity, recommendations, completion] = await Promise.all([
+			this.writingAnalytics.analyzeWritingPatterns(),
+			this.writingAnalytics.getProductivityTrends(),
+			this.writingAnalytics.getWritingRecommendations(),
+			this.writingAnalytics.predictProjectCompletion(80000), // Default novel length
+		]);
+
+		return { patterns, productivity, recommendations, completion };
+	}
+
+	/**
+	 * Get story analysis and recommendations
+	 */
+	async getStoryAnalysis(): Promise<{
+		plotHoles: any;
+		characterArcs: any;
+		pacing: any;
+		recommendations: any;
+		timeline: any;
+	}> {
+		if (!this.storyIntelligence) {
+			throw new AppError('Story intelligence not available', ErrorCode.DATABASE_ERROR);
+		}
+
+		const [plotHoles, characterArcs, pacing, recommendations, timeline] = await Promise.all([
+			this.storyIntelligence.detectPlotHoles(),
+			this.storyIntelligence.analyzeCharacterArcs(),
+			this.storyIntelligence.analyzePacing(),
+			this.storyIntelligence.generateRecommendations(),
+			this.storyIntelligence.buildTimeline(),
+		]);
+
+		return { plotHoles, characterArcs, pacing, recommendations, timeline };
+	}
+
+	/**
+	 * Track writing session
+	 */
+	async trackWritingSession(wordsWritten: number, duration: number): Promise<void> {
+		if (!this.sqliteManager) return;
+
+		this.sqliteManager.execute(
+			`
+			INSERT INTO writing_sessions (date, words_written, duration_minutes)
+			VALUES (datetime('now'), ?, ?)
+		`,
+			[wordsWritten, duration]
+		);
+	}
+
+	/**
+	 * Create document version/snapshot
+	 */
+	async createDocumentVersion(
+		documentId: string,
+		content: string,
+		summary?: string
+	): Promise<void> {
+		if (!this.sqliteManager) return;
+
+		const wordCount = content.split(/\s+/).length;
+		const charCount = content.length;
+
+		this.sqliteManager.execute(
+			`
+			INSERT INTO document_revisions
+			(id, document_id, content, word_count, character_count, change_summary)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`,
+			[
+				`rev-${documentId}-${Date.now()}`,
+				documentId,
+				content,
+				wordCount,
+				charCount,
+				summary || 'Auto-saved version',
+			]
+		);
 	}
 
 	/**
@@ -644,7 +899,7 @@ export class DatabaseService {
 	private cleanupTransactionLogs(): void {
 		const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 		const now = Date.now();
-		
+
 		// Clean up old transaction logs from the Map
 		const toDelete: string[] = [];
 		this.transactionLog.forEach((log, id) => {
@@ -653,7 +908,7 @@ export class DatabaseService {
 				toDelete.push(id);
 			}
 		});
-		
-		toDelete.forEach(id => this.transactionLog.delete(id));
+
+		toDelete.forEach((id) => this.transactionLog.delete(id));
 	}
 }

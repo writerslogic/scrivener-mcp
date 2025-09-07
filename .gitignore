@@ -75,6 +75,9 @@ desktop.ini
 .env.test.local
 .env.production.local
 
+# Scrivener MCP specific
+.scrivener-databases/credentials.json
+
 # Logs
 logs/
 *.log

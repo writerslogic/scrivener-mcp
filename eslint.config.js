@@ -56,6 +56,12 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'node_modules/', 'tests/', '*.config.js'],
+    files: ['**/auto-installer.ts', '**/database-setup.ts', '**/setup-wizard.ts', 'scripts/**/*'],
+    rules: {
+      'no-console': 'off', // These are CLI/setup files that need console output
+    },
+  },
+  {
+    ignores: ['dist/', 'node_modules/', 'tests/', '*.config.js', 'scripts/**/*'],
   }
 );

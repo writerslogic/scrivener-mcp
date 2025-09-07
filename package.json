@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "bin": {
-    "scrivener-mcp": "dist/index.js"
+    "scrivener-mcp": "dist/index.js",
+    "scrivener-setup": "dist/cli/setup-wizard.js"
   },
   "files": [
     "dist",
@@ -24,16 +25,17 @@
   },
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "test": "npm run build && npm run test:legacy && npm run test:new && npm run test:enhancements",
+    "clean": "rm -rf dist coverage",
+    "dev": "tsx watch src/index-refactored.ts",
+    "start": "node dist/index-refactored.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration",
     "test:legacy": "node tests/test-rtf.js && node tests/test-scrivener.js && node tests/test-edge-cases.js",
-    "test:new": "node tests/test-memory-manager.js && node tests/test-content-analyzer.js && node tests/test-content-enhancer.js",
-    "test:enhancements": "node tests/test-enhancements.js",
-    "test:memory": "npm run build && node tests/test-memory-manager.js",
-    "test:analyzer": "npm run build && node tests/test-content-analyzer.js",
-    "test:enhancer": "npm run build && node tests/test-content-enhancer.js",
+    "setup": "node dist/cli/setup-wizard.js",
+    "setup:neo4j": "NEO4J_AUTO_INSTALL=true node dist/index.js",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write 'src/**/*.ts'",
@@ -64,7 +66,9 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/cheerio": "^0.22.35",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.0.0",
     "@types/turndown": "^5.0.5",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
@@ -72,7 +76,9 @@
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^29.7.0",
     "prettier": "^3.6.2",
+    "ts-jest": "^29.4.1",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.42.0"

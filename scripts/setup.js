@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/* eslint-env node */
+/* eslint-disable no-console */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
@@ -9,7 +11,7 @@ import process from 'process';
 if (typeof console === 'undefined') {
   // Running in an environment without console
   const noop = () => {};
-  global.console = {
+  globalThis.console = {
     log: noop,
     error: noop,
     warn: noop,

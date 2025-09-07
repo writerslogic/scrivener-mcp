@@ -1,11 +1,41 @@
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { validateInput, isValidUUID } from './common.js';
+import { validateInput, isValidUUID, AppError, ErrorCode, formatBytes } from './common.js';
+import { DOCUMENT_TYPES } from '../core/constants.js';
 import type { BinderItem, BinderContainer, MetaDataItem } from '../types/internal.js';
 
 /**
  * Scrivener-specific utility functions
+ * Enhanced with better type safety, error handling, and organization
  */
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Scrivener file extensions */
+export const SCRIVENER_EXTENSIONS = {
+	PROJECT: '.scriv',
+	RTF: '.rtf',
+	TEXT: '.txt',
+	XML: '.scrivx',
+} as const;
+
+/** Scrivener special folder types */
+export const SCRIVENER_FOLDERS = {
+	DRAFT: 'DraftFolder',
+	RESEARCH: 'ResearchFolder',
+	TRASH: 'TrashFolder',
+	FOLDER: 'Folder',
+} as const;
+
+/** Maximum limits for Scrivener */
+export const SCRIVENER_LIMITS = {
+	MAX_TITLE_LENGTH: 255,
+	MAX_CONTENT_SIZE: 10 * 1024 * 1024, // 10MB
+	MAX_SYNOPSIS_LENGTH: 5000,
+	MAX_NOTES_LENGTH: 100000,
+} as const;
 
 // ============================================================================
 // Document Path Utilities
@@ -21,7 +51,10 @@ export function getDocumentPath(projectPath: string, documentId: string): string
 			documentId: {
 				type: 'string',
 				required: true,
-				custom: (id) => isValidScrivenerDocumentId(id) || 'Invalid document ID',
+				custom: (id: unknown) => {
+					if (typeof id !== 'string') return 'Document ID must be a string';
+					return isValidScrivenerDocumentId(id) || 'Invalid document ID';
+				},
 			},
 		}
 	);
@@ -54,7 +87,13 @@ export function getDocumentPaths(
 	synopsis: string;
 	notes: string;
 	directory: string;
+	comments: string;
+	snapshots: string;
 } {
+	if (!projectPath) {
+		throw new AppError('Project path is required', ErrorCode.INVALID_INPUT);
+	}
+
 	const directory = path.join(projectPath, 'Files', 'Data', documentId);
 
 	return {
@@ -62,6 +101,8 @@ export function getDocumentPaths(
 		synopsis: path.join(directory, 'synopsis.txt'),
 		notes: path.join(directory, 'notes.rtf'),
 		directory,
+		comments: path.join(directory, 'comments.xml'),
+		snapshots: path.join(directory, 'snapshots'),
 	};
 }
 
@@ -77,14 +118,24 @@ export function generateScrivenerUUID(): string {
 }
 
 /**
+ * Check if string is a valid Scrivener UUID (uppercase)
+ */
+export function isScrivenerUUID(id: string): boolean {
+	return /^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i.test(id);
+}
+
+/**
+ * Check if string is a valid Scrivener numeric ID
+ */
+export function isScrivenerNumericId(id: string): boolean {
+	return /^\d+$/.test(id);
+}
+
+/**
  * Validate Scrivener document ID (UUID or numeric)
  */
 export function isValidScrivenerDocumentId(id: string): boolean {
-	// Scrivener uses uppercase UUIDs or simple numeric IDs
-	const uppercaseUUID = /^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i;
-	const numericId = /^\d+$/;
-
-	return uppercaseUUID.test(id) || numericId.test(id) || isValidUUID(id);
+	return isScrivenerUUID(id) || isScrivenerNumericId(id) || isValidUUID(id);
 }
 
 // ============================================================================
@@ -92,12 +143,20 @@ export function isValidScrivenerDocumentId(id: string): boolean {
 // ============================================================================
 
 /**
- * Find a binder item recursively
+ * Find a binder item recursively with caching
  */
+const binderCache = new Map<string, BinderItem>();
+
 export function findBinderItem(
 	container: BinderContainer | undefined,
-	documentId: string
+	documentId: string,
+	useCache = true
 ): BinderItem | null {
+	// Check cache first
+	if (useCache && binderCache.has(documentId)) {
+		return binderCache.get(documentId)!;
+	}
+
 	if (!container || !container.BinderItem) {
 		return null;
 	}
@@ -108,12 +167,13 @@ export function findBinderItem(
 
 	for (const item of items) {
 		if (item.UUID === documentId) {
+			if (useCache) binderCache.set(documentId, item);
 			return item;
 		}
 
 		// Recursively search children
 		if (item.Children) {
-			const found = findBinderItem(item.Children, documentId);
+			const found = findBinderItem(item.Children, documentId, useCache);
 			if (found) {
 				return found;
 			}
@@ -121,6 +181,13 @@ export function findBinderItem(
 	}
 
 	return null;
+}
+
+/**
+ * Clear binder cache
+ */
+export function clearBinderCache(): void {
+	binderCache.clear();
 }
 
 /**
@@ -282,25 +349,33 @@ export function buildMetadataItems(metadata: Record<string, string | undefined>)
  */
 export function getDocumentType(typeCode?: string): 'Text' | 'Folder' | 'Other' {
 	switch (typeCode) {
-		case 'Text':
+		case DOCUMENT_TYPES.TEXT:
 		case 'Document':
-			return 'Text';
-		case 'Folder':
+			return DOCUMENT_TYPES.TEXT;
+		case DOCUMENT_TYPES.FOLDER:
 		case 'DraftFolder':
 		case 'ResearchFolder':
 		case 'TrashFolder':
-			return 'Folder';
+			return DOCUMENT_TYPES.FOLDER;
 		default:
-			return 'Other';
+			return DOCUMENT_TYPES.OTHER;
 	}
+}
+
+/**
+ * Check if folder type
+ */
+export function isFolderType(type?: string): boolean {
+	return type !== undefined && Object.values(SCRIVENER_FOLDERS).includes(type as any);
 }
 
 /**
  * Check if item is in trash
  */
 export function isInTrash(item: BinderItem): boolean {
+	if (!item) return false;
 	// Check if item or any of its parents is trash
-	return item.Type === 'TrashFolder' || item.Title === 'Trash' || item.UUID === 'Trash';
+	return item.Type === SCRIVENER_FOLDERS.TRASH || item.Title === 'Trash' || item.UUID === 'Trash';
 }
 
 /**
@@ -384,18 +459,26 @@ export const documentValidationSchema = {
 	documentId: {
 		type: 'string' as const,
 		required: true,
-		custom: (id: string) => isValidScrivenerDocumentId(id) || 'Invalid document ID format',
+		custom: (id: unknown) => {
+			if (typeof id !== 'string') return 'Document ID must be a string';
+			return isValidScrivenerDocumentId(id) || 'Invalid document ID format';
+		},
 	},
 	title: {
 		type: 'string' as const,
 		required: true,
 		minLength: 1,
-		maxLength: 255,
+		maxLength: SCRIVENER_LIMITS.MAX_TITLE_LENGTH,
 	},
 	content: {
 		type: 'string' as const,
 		required: false,
-		maxLength: 10000000, // 10MB limit
+		custom: (value: unknown) => {
+			if (typeof value === 'string' && value.length > SCRIVENER_LIMITS.MAX_CONTENT_SIZE) {
+				return `Content exceeds maximum size of ${formatBytes(SCRIVENER_LIMITS.MAX_CONTENT_SIZE)}`;
+			}
+			return true;
+		},
 	},
 };
 
@@ -407,10 +490,93 @@ export function validateDocumentInput(input: any): void {
 }
 
 // ============================================================================
+// Additional Helper Functions
+// ============================================================================
+
+/**
+ * Get binder statistics
+ */
+export function getBinderStatistics(container: BinderContainer | undefined): {
+	totalItems: number;
+	folders: number;
+	documents: number;
+	inTrash: number;
+	totalWords: number;
+} {
+	let totalItems = 0;
+	let folders = 0;
+	let documents = 0;
+	let inTrash = 0;
+	let totalWords = 0;
+
+	traverseBinder(container, (item) => {
+		totalItems++;
+
+		if (isFolderType(item.Type)) {
+			folders++;
+		} else if (item.Type === DOCUMENT_TYPES.TEXT || item.Type === 'Document') {
+			documents++;
+		}
+
+		if (isInTrash(item)) {
+			inTrash++;
+		}
+
+		// Add word count if available from custom metadata
+		const metadata = parseMetadata(item.MetaData?.CustomMetaData?.MetaDataItem);
+		const wordCount = parseInt(metadata.WordCount || '0');
+		if (!isNaN(wordCount)) {
+			totalWords += wordCount;
+		}
+	});
+
+	return { totalItems, folders, documents, inTrash, totalWords };
+}
+
+/**
+ * Get text statistics from metadata
+ */
+export function getTextStatistics(item: BinderItem): {
+	words: number;
+	characters: number;
+	paragraphs: number;
+} {
+	// Text stats are typically in custom metadata
+	const metadata = parseMetadata(item.MetaData?.CustomMetaData?.MetaDataItem);
+	return {
+		words: parseInt(metadata.WordCount || metadata.words || '0'),
+		characters: parseInt(metadata.CharCount || metadata.characters || '0'),
+		paragraphs: parseInt(metadata.ParagraphCount || metadata.paragraphs || '0'),
+	};
+}
+
+/**
+ * Generate deterministic UUID from seed (useful for testing)
+ */
+export function generateSeededUUID(seed: string): string {
+	const hash = crypto.createHash('md5').update(seed).digest('hex');
+	// Format as UUID v4
+	return [
+		hash.substring(0, 8),
+		hash.substring(8, 12),
+		`4${hash.substring(13, 16)}`,
+		((parseInt(hash.substring(16, 17), 16) & 0x3) | 0x8).toString(16) + hash.substring(17, 20),
+		hash.substring(20, 32),
+	]
+		.join('-')
+		.toUpperCase();
+}
+
+// ============================================================================
 // Export all utilities
 // ============================================================================
 
 export default {
+	// Constants
+	SCRIVENER_EXTENSIONS,
+	SCRIVENER_FOLDERS,
+	SCRIVENER_LIMITS,
+
 	// Path utilities
 	getDocumentPath,
 	getSynopsisPath,
@@ -419,23 +585,30 @@ export default {
 
 	// UUID utilities
 	generateScrivenerUUID,
+	generateSeededUUID,
+	isScrivenerUUID,
+	isScrivenerNumericId,
 	isValidScrivenerDocumentId,
 
 	// Binder utilities
 	findBinderItem,
+	clearBinderCache,
 	traverseBinder,
 	flattenBinder,
 	findBinderParent,
 	getBinderPath,
+	getBinderStatistics,
 
 	// Metadata utilities
 	findMetadataField,
 	getMetadataValue,
 	parseMetadata,
 	buildMetadataItems,
+	getTextStatistics,
 
 	// Document type utilities
 	getDocumentType,
+	isFolderType,
 	isInTrash,
 	shouldIncludeInCompile,
 

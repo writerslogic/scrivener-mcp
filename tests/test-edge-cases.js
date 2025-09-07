@@ -1,4 +1,4 @@
-import { RTFHandler } from '../dist/rtf-handler.js';
+import { RTFHandler } from '../dist/services/parsers/rtf-handler.js';
 import { ScrivenerProject } from '../dist/scrivener-project.js';
 import * as commonUtils from '../dist/utils/common.js';
 import * as scrivenerUtils from '../dist/utils/scrivener-utils.js';

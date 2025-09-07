@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/* eslint-env node */
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const { existsSync, readFileSync, writeFileSync, mkdirSync } = require('fs');
 const { homedir } = require('os');

@@ -1,4 +1,4 @@
-import { RTFHandler } from '../dist/rtf-handler.js';
+import { RTFHandler } from '../dist/services/parsers/rtf-handler.js';
 
 async function test() {
   const handler = new RTFHandler();

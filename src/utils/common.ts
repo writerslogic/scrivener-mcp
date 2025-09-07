@@ -1,118 +1,126 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
-
-/**
- * Common utility functions for the Scrivener MCP server
- */
 
 // ============================================================================
-// Error Handling Utilities
+// Error Handling
 // ============================================================================
 
+/** Error codes for standardized error handling */
 export enum ErrorCode {
+	// File & Resource Errors
 	NOT_FOUND = 'NOT_FOUND',
-	INVALID_INPUT = 'INVALID_INPUT',
 	PERMISSION_DENIED = 'PERMISSION_DENIED',
-	PROJECT_ERROR = 'PROJECT_ERROR',
-	DATABASE_ERROR = 'DATABASE_ERROR',
-	SYNC_ERROR = 'SYNC_ERROR',
 	IO_ERROR = 'IO_ERROR',
+
+	// Validation & Input Errors
+	INVALID_INPUT = 'INVALID_INPUT',
 	VALIDATION_ERROR = 'VALIDATION_ERROR',
-	API_ERROR = 'API_ERROR',
-	CACHE_ERROR = 'CACHE_ERROR',
+
+	// System & Runtime Errors
+	PROJECT_ERROR = 'PROJECT_ERROR',
 	INITIALIZATION_ERROR = 'INITIALIZATION_ERROR',
 	CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
 	RUNTIME_ERROR = 'RUNTIME_ERROR',
+
+	// Database & Sync Errors
+	DATABASE_ERROR = 'DATABASE_ERROR',
+	SYNC_ERROR = 'SYNC_ERROR',
+	CONNECTION_ERROR = 'CONNECTION_ERROR',
+	TRANSACTION_ERROR = 'TRANSACTION_ERROR',
+
+	// API & Network Errors
+	API_ERROR = 'API_ERROR',
+	NETWORK_ERROR = 'NETWORK_ERROR',
+	TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+	RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
+
+	// Cache & Memory Errors
+	CACHE_ERROR = 'CACHE_ERROR',
+	MEMORY_ERROR = 'MEMORY_ERROR',
+
+	// Authentication & Authorization
+	AUTH_ERROR = 'AUTH_ERROR',
+	UNAUTHORIZED = 'UNAUTHORIZED',
+	FORBIDDEN = 'FORBIDDEN',
 }
 
+/** Standard application error */
 export class AppError extends Error {
 	constructor(
 		message: string,
 		public code: ErrorCode,
-		public details?: any,
+		public details?: unknown,
 		public statusCode: number = 500
 	) {
 		super(message);
 		this.name = 'AppError';
+		Error.captureStackTrace?.(this, this.constructor);
 	}
 }
 
-/**
- * Standardized error handler
- */
+/** Wrap unknown errors into AppError */
 export function handleError(error: unknown, context?: string): AppError {
-	if (error instanceof AppError) {
-		return error;
-	}
+	if (error instanceof AppError) return error;
 
 	if (error instanceof Error) {
-		// Handle Node.js system errors
-		const nodeError = error as any;
-
-		if (nodeError.code === 'ENOENT') {
-			return new AppError(
-				`File or directory not found${context ? ` in ${context}` : ''}`,
-				ErrorCode.NOT_FOUND,
-				{ originalError: error.message },
-				404
-			);
+		const { code, message, stack } = error as NodeJS.ErrnoException;
+		switch (code) {
+			case 'ENOENT':
+				return new AppError(
+					`Not found${context ? ` in ${context}` : ''}`,
+					ErrorCode.NOT_FOUND,
+					{ originalError: message },
+					404
+				);
+			case 'EACCES':
+			case 'EPERM':
+				return new AppError(
+					`Permission denied${context ? ` for ${context}` : ''}`,
+					ErrorCode.PERMISSION_DENIED,
+					{ originalError: message },
+					403
+				);
+			case 'EEXIST':
+				return new AppError(
+					`Already exists${context ? ` in ${context}` : ''}`,
+					ErrorCode.IO_ERROR,
+					{ originalError: message },
+					409
+				);
+			default:
+				return new AppError(
+					message || 'Unknown error',
+					ErrorCode.PROJECT_ERROR,
+					{ context, stack },
+					500
+				);
 		}
-
-		if (nodeError.code === 'EACCES' || nodeError.code === 'EPERM') {
-			return new AppError(
-				`Permission denied${context ? ` for ${context}` : ''}`,
-				ErrorCode.PERMISSION_DENIED,
-				{ originalError: error.message },
-				403
-			);
-		}
-
-		if (nodeError.code === 'EEXIST') {
-			return new AppError(
-				`File already exists${context ? ` in ${context}` : ''}`,
-				ErrorCode.IO_ERROR,
-				{ originalError: error.message },
-				409
-			);
-		}
-
-		return new AppError(
-			error.message || 'An unknown error occurred',
-			ErrorCode.PROJECT_ERROR,
-			{ context, stack: error.stack },
-			500
-		);
 	}
 
 	return new AppError(
-		'An unexpected error occurred',
+		'Unexpected error',
 		ErrorCode.PROJECT_ERROR,
 		{ error: String(error), context },
 		500
 	);
 }
 
-/**
- * Wrap async functions with error handling
- */
-export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
+/** Higher-order async error wrapper */
+export function withErrorHandling<T extends (...args: any[]) => Promise<unknown>>(
 	fn: T,
 	context?: string
 ): T {
 	return (async (...args: Parameters<T>) => {
 		try {
 			return await fn(...args);
-		} catch (error) {
-			throw handleError(error, context);
+		} catch (e) {
+			throw handleError(e, context);
 		}
 	}) as T;
 }
 
-// ============================================================================
-// Input Validation Utilities
-// ============================================================================
-
+/** Validation rule schema */
 export interface ValidationRule {
 	type?: 'string' | 'number' | 'boolean' | 'array' | 'object';
 	required?: boolean;
@@ -121,19 +129,14 @@ export interface ValidationRule {
 	min?: number;
 	max?: number;
 	pattern?: RegExp;
-	enum?: any[];
-	custom?: (value: any) => boolean | string;
+	enum?: ReadonlyArray<unknown>;
+	custom?: (value: unknown) => boolean | string;
 }
+export type ValidationSchema = Record<string, ValidationRule>;
 
-export interface ValidationSchema {
-	[key: string]: ValidationRule;
-}
-
-/**
- * Validate input against a schema
- */
+/** Validate input against schema */
 export function validateInput(
-	input: any,
+	input: Record<string, unknown>,
 	schema: ValidationSchema,
 	throwOnError = true
 ): { valid: boolean; errors: string[] } {
@@ -142,381 +145,140 @@ export function validateInput(
 	for (const [field, rules] of Object.entries(schema)) {
 		const value = input[field];
 
-		// Check required
 		if (rules.required && (value === undefined || value === null || value === '')) {
 			errors.push(`${field} is required`);
 			continue;
 		}
 
-		// Skip validation if not required and not provided
-		if (!rules.required && (value === undefined || value === null)) {
+		if (value === undefined || value === null) continue;
+
+		const type = Array.isArray(value) ? 'array' : typeof value;
+		if (rules.type && type !== rules.type) {
+			errors.push(`${field} must be ${rules.type}, got ${type}`);
 			continue;
 		}
 
-		// Type validation
-		if (rules.type) {
-			const actualType = Array.isArray(value) ? 'array' : typeof value;
-			if (actualType !== rules.type) {
-				errors.push(`${field} must be of type ${rules.type}, got ${actualType}`);
-				continue;
-			}
-		}
-
-		// String validations
 		if (typeof value === 'string') {
-			if (rules.minLength && value.length < rules.minLength) {
-				errors.push(`${field} must be at least ${rules.minLength} characters`);
-			}
-			if (rules.maxLength && value.length > rules.maxLength) {
-				errors.push(`${field} must be at most ${rules.maxLength} characters`);
-			}
-			if (rules.pattern && !rules.pattern.test(value)) {
-				errors.push(`${field} does not match the required pattern`);
-			}
+			if (rules.minLength && value.length < rules.minLength)
+				errors.push(`${field} min length ${rules.minLength}`);
+			if (rules.maxLength && value.length > rules.maxLength)
+				errors.push(`${field} max length ${rules.maxLength}`);
+			if (rules.pattern && !rules.pattern.test(value))
+				errors.push(`${field} pattern mismatch`);
 		}
 
-		// Number validations
 		if (typeof value === 'number') {
-			if (rules.min !== undefined && value < rules.min) {
-				errors.push(`${field} must be at least ${rules.min}`);
-			}
-			if (rules.max !== undefined && value > rules.max) {
-				errors.push(`${field} must be at most ${rules.max}`);
-			}
+			if (rules.min !== undefined && value < rules.min)
+				errors.push(`${field} >= ${rules.min}`);
+			if (rules.max !== undefined && value > rules.max)
+				errors.push(`${field} <= ${rules.max}`);
 		}
 
-		// Array validations
 		if (Array.isArray(value)) {
-			if (rules.minLength && value.length < rules.minLength) {
-				errors.push(`${field} must have at least ${rules.minLength} items`);
-			}
-			if (rules.maxLength && value.length > rules.maxLength) {
-				errors.push(`${field} must have at most ${rules.maxLength} items`);
-			}
+			if (rules.minLength && value.length < rules.minLength)
+				errors.push(`${field} requires ${rules.minLength}+ items`);
+			if (rules.maxLength && value.length > rules.maxLength)
+				errors.push(`${field} max ${rules.maxLength} items`);
 		}
 
-		// Enum validation
-		if (rules.enum && !rules.enum.includes(value)) {
+		if (rules.enum && !rules.enum.includes(value))
 			errors.push(`${field} must be one of: ${rules.enum.join(', ')}`);
-		}
 
-		// Custom validation
 		if (rules.custom) {
 			const result = rules.custom(value);
-			if (result !== true) {
-				errors.push(typeof result === 'string' ? result : `${field} is invalid`);
-			}
+			if (result !== true)
+				errors.push(typeof result === 'string' ? result : `${field} invalid`);
 		}
 	}
 
-	if (throwOnError && errors.length > 0) {
+	if (throwOnError && errors.length)
 		throw new AppError('Validation failed', ErrorCode.VALIDATION_ERROR, { errors }, 400);
-	}
 
 	return { valid: errors.length === 0, errors };
 }
 
-/**
- * Sanitize file paths
- */
+/** Sanitize and normalize a filesystem path */
 export function sanitizePath(inputPath: string): string {
-	// Remove any null bytes
-	let sanitized = inputPath.replace(/\0/g, '');
-
-	// Normalize the path
-	sanitized = path.normalize(sanitized);
-
-	// Prevent directory traversal
-	const parts = sanitized.split(path.sep);
-	const filtered = parts.filter((part) => part !== '..' && part !== '.');
-
-	return filtered.join(path.sep);
+	return path
+		.normalize(inputPath.replace(/\0/g, ''))
+		.split(path.sep)
+		.filter((p) => p && p !== '.' && p !== '..')
+		.join(path.sep);
 }
 
-/**
- * Validate UUID format
- */
-export function isValidUUID(uuid: string): boolean {
-	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-	return uuidRegex.test(uuid);
-}
-
-/**
- * Validate Scrivener document ID
- */
-export function isValidDocumentId(id: string): boolean {
-	// Scrivener uses UUIDs or simple numeric IDs
-	return isValidUUID(id) || /^\d+$/.test(id);
-}
-
-// ============================================================================
-// Cache Management Utilities
-// ============================================================================
-
-export interface CacheOptions {
-	ttl?: number; // Time to live in milliseconds
-	maxSize?: number; // Maximum number of items
-	onEvict?: (key: string, value: any) => void;
-}
-
-export class Cache<T> {
-	private cache: Map<string, { value: T; timestamp: number }> = new Map();
-	private accessOrder: string[] = [];
-
-	constructor(private options: CacheOptions = {}) {
-		this.options.ttl = options.ttl || 5 * 60 * 1000; // 5 minutes default
-		this.options.maxSize = options.maxSize || 100;
-	}
-
-	/**
-	 * Get item from cache
-	 */
-	get(key: string): T | undefined {
-		const item = this.cache.get(key);
-
-		if (!item) {
-			return undefined;
-		}
-
-		// Check if expired
-		if (this.options.ttl && Date.now() - item.timestamp > this.options.ttl) {
-			this.delete(key);
-			return undefined;
-		}
-
-		// Update access order for LRU
-		this.updateAccessOrder(key);
-
-		return item.value;
-	}
-
-	/**
-	 * Set item in cache
-	 */
-	set(key: string, value: T): void {
-		// Check size limit
-		if (
-			this.options.maxSize &&
-			this.cache.size >= this.options.maxSize &&
-			!this.cache.has(key)
-		) {
-			// Evict least recently used
-			const lru = this.accessOrder[0];
-			if (lru) {
-				this.delete(lru);
-			}
-		}
-
-		this.cache.set(key, {
-			value,
-			timestamp: Date.now(),
-		});
-
-		this.updateAccessOrder(key);
-	}
-
-	/**
-	 * Delete item from cache
-	 */
-	delete(key: string): boolean {
-		const item = this.cache.get(key);
-		const deleted = this.cache.delete(key);
-
-		if (deleted) {
-			// Remove from access order
-			const index = this.accessOrder.indexOf(key);
-			if (index > -1) {
-				this.accessOrder.splice(index, 1);
-			}
-
-			// Call eviction callback
-			if (this.options.onEvict && item) {
-				this.options.onEvict(key, item.value);
-			}
-		}
-
-		return deleted;
-	}
-
-	/**
-	 * Clear entire cache
-	 */
-	clear(): void {
-		if (this.options.onEvict) {
-			for (const [key, item] of this.cache.entries()) {
-				this.options.onEvict(key, item.value);
-			}
-		}
-
-		this.cache.clear();
-		this.accessOrder = [];
-	}
-
-	/**
-	 * Get cache size
-	 */
-	size(): number {
-		return this.cache.size;
-	}
-
-	/**
-	 * Clean expired items
-	 */
-	cleanExpired(): number {
-		if (!this.options.ttl) return 0;
-
-		const now = Date.now();
-		let cleaned = 0;
-
-		for (const [key, item] of this.cache.entries()) {
-			if (now - item.timestamp > this.options.ttl) {
-				this.delete(key);
-				cleaned++;
-			}
-		}
-
-		return cleaned;
-	}
-
-	/**
-	 * Update access order for LRU
-	 */
-	private updateAccessOrder(key: string): void {
-		const index = this.accessOrder.indexOf(key);
-		if (index > -1) {
-			this.accessOrder.splice(index, 1);
-		}
-		this.accessOrder.push(key);
-	}
-}
+/** Validate UUID v4 */
+export const isValidUUID = (uuid: string): boolean =>
+	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
 
 // ============================================================================
 // API Response Utilities
 // ============================================================================
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
 	success: boolean;
 	data?: T;
-	error?: {
-		code: string;
-		message: string;
-		details?: any;
-	};
-	metadata?: {
-		timestamp: number;
-		duration?: number;
-		[key: string]: any;
-	};
+	error?: { code: string; message: string; details?: unknown };
+	metadata?: { timestamp: number; duration?: number; [k: string]: unknown };
 }
 
-/**
- * Create standardized API response
- */
-export function createApiResponse<T>(data?: T, metadata?: Record<string, any>): ApiResponse<T> {
-	return {
-		success: true,
-		data,
-		metadata: {
-			timestamp: Date.now(),
-			...metadata,
-		},
-	};
+export function createApiResponse<T>(data?: T, metadata?: Record<string, unknown>): ApiResponse<T> {
+	return { success: true, data, metadata: { timestamp: Date.now(), ...metadata } };
 }
 
-/**
- * Create error API response
- */
 export function createErrorResponse(
 	error: Error | AppError,
-	metadata?: Record<string, any>
+	metadata?: Record<string, unknown>
 ): ApiResponse {
 	const appError = error instanceof AppError ? error : handleError(error);
-
 	return {
 		success: false,
-		error: {
-			code: appError.code,
-			message: appError.message,
-			details: appError.details,
-		},
-		metadata: {
-			timestamp: Date.now(),
-			...metadata,
-		},
+		error: { code: appError.code, message: appError.message, details: appError.details },
+		metadata: { timestamp: Date.now(), ...metadata },
 	};
 }
 
-/**
- * Validate API response format
- */
-export function validateApiResponse(response: any): response is ApiResponse {
-	if (!response || typeof response !== 'object') {
-		return false;
-	}
-
-	if (typeof response.success !== 'boolean') {
-		return false;
-	}
-
-	if (!response.success && (!response.error || typeof response.error !== 'object')) {
-		return false;
-	}
-
-	return true;
+export function validateApiResponse(resp: unknown): resp is ApiResponse {
+	if (!resp || typeof resp !== 'object') return false;
+	const r = resp as ApiResponse;
+	return typeof r.success === 'boolean' && (r.success || !!r.error);
 }
 
 // ============================================================================
 // File System Utilities
 // ============================================================================
 
-/**
- * Ensure directory exists
- */
 export async function ensureDir(dirPath: string): Promise<void> {
 	try {
 		await fs.promises.mkdir(dirPath, { recursive: true });
-	} catch (error) {
-		throw handleError(error, `ensuring directory ${dirPath}`);
+	} catch (e) {
+		throw handleError(e, `ensureDir ${dirPath}`);
 	}
 }
 
-/**
- * Safe file read with error handling
- */
 export async function safeReadFile(
 	filePath: string,
 	encoding: BufferEncoding = 'utf-8'
 ): Promise<string> {
 	try {
 		return await fs.promises.readFile(filePath, encoding);
-	} catch (error) {
-		throw handleError(error, `reading file ${filePath}`);
+	} catch (e) {
+		throw handleError(e, `readFile ${filePath}`);
 	}
 }
 
-/**
- * Safe file write with error handling
- */
 export async function safeWriteFile(
 	filePath: string,
 	data: string | Buffer,
 	options?: fs.WriteFileOptions
 ): Promise<void> {
 	try {
-		// Ensure directory exists
-		const dir = path.dirname(filePath);
-		await ensureDir(dir);
-
-		// Write file
+		await ensureDir(path.dirname(filePath));
 		await fs.promises.writeFile(filePath, data, options);
-	} catch (error) {
-		throw handleError(error, `writing file ${filePath}`);
+	} catch (e) {
+		throw handleError(e, `writeFile ${filePath}`);
 	}
 }
 
-/**
- * Check if path exists
- */
 export async function pathExists(filePath: string): Promise<boolean> {
 	try {
 		await fs.promises.access(filePath);
@@ -534,29 +296,23 @@ export class CleanupManager {
 	private cleanupTasks: Array<() => Promise<void>> = [];
 	private isCleaningUp = false;
 
-	/**
-	 * Register a cleanup task
-	 */
+	/** Register a cleanup task */
 	register(task: () => Promise<void>): void {
 		this.cleanupTasks.push(task);
 	}
 
-	/**
-	 * Execute all cleanup tasks
-	 */
+	/** Execute all registered cleanup tasks */
 	async cleanup(): Promise<void> {
-		if (this.isCleaningUp) {
-			return;
-		}
-
+		if (this.isCleaningUp) return;
 		this.isCleaningUp = true;
+
 		const errors: Error[] = [];
 
 		for (const task of this.cleanupTasks) {
 			try {
 				await task();
-			} catch (error) {
-				errors.push(error as Error);
+			} catch (err) {
+				errors.push(err as Error);
 			}
 		}
 
@@ -570,12 +326,9 @@ export class CleanupManager {
 		}
 	}
 
-	/**
-	 * Setup process cleanup handlers
-	 */
+	/** Setup process signal handlers */
 	setupProcessHandlers(): void {
 		const handler = async () => {
-			console.log('Cleaning up...');
 			await this.cleanup();
 			process.exit(0);
 		};
@@ -590,117 +343,73 @@ export class CleanupManager {
 // String Utilities
 // ============================================================================
 
-/**
- * Truncate string with ellipsis
- */
-export function truncate(str: string, maxLength: number): string {
-	if (str.length <= maxLength) {
-		return str;
-	}
-	return `${str.substring(0, maxLength - 3)}...`;
-}
+export const truncate = (s: string, max: number): string =>
+	s.length <= max ? s : `${s.slice(0, max - 3)}...`;
 
-/**
- * Generate hash for content
- */
-export function generateHash(content: string): string {
-	return crypto.createHash('sha256').update(content).digest('hex');
-}
+export const generateHash = (s: string): string =>
+	crypto.createHash('sha256').update(s).digest('hex');
 
-/**
- * Convert to slug format
- */
-export function toSlug(str: string): string {
-	return str
+export const toSlug = (s: string): string =>
+	s
 		.toLowerCase()
 		.trim()
 		.replace(/[^\w\s-]/g, '')
 		.replace(/[\s_-]+/g, '-')
 		.replace(/^-+|-+$/g, '');
-}
 
 // ============================================================================
 // Async Utilities
 // ============================================================================
 
-/**
- * Retry async operation with exponential backoff
- */
 export async function retry<T>(
 	fn: () => Promise<T>,
-	options: {
+	{
+		maxAttempts = 3,
+		initialDelay = 1000,
+		maxDelay = 10000,
+		factor = 2,
+		onRetry,
+	}: {
 		maxAttempts?: number;
 		initialDelay?: number;
 		maxDelay?: number;
 		factor?: number;
-		onRetry?: (attempt: number, error: Error) => void;
+		onRetry?: (attempt: number, e: Error) => void;
 	} = {}
 ): Promise<T> {
-	const { maxAttempts = 3, initialDelay = 1000, maxDelay = 10000, factor = 2, onRetry } = options;
-
-	let lastError: Error;
+	let last: Error;
 	let delay = initialDelay;
-
-	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+	for (let i = 1; i <= maxAttempts; i++) {
 		try {
 			return await fn();
-		} catch (error) {
-			lastError = error as Error;
-
-			if (attempt === maxAttempts) {
-				break;
-			}
-
-			if (onRetry) {
-				onRetry(attempt, lastError);
-			}
-
+		} catch (e) {
+			last = e as Error;
+			if (i === maxAttempts) break;
+			onRetry?.(i, last);
 			await sleep(delay);
 			delay = Math.min(delay * factor, maxDelay);
 		}
 	}
-
-	throw lastError!;
+	throw last!;
 }
 
-/**
- * Sleep for specified milliseconds
- */
-export function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
+export const sleep = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
-/**
- * Debounce function calls
- */
-export function debounce<T extends (...args: any[]) => any>(
-	fn: T,
-	delay: number
-): (...args: Parameters<T>) => void {
-	let timeoutId: NodeJS.Timeout;
-
+export function debounce<T extends (...a: any[]) => void>(fn: T, delay: number) {
+	let id: NodeJS.Timeout;
 	return (...args: Parameters<T>) => {
-		clearTimeout(timeoutId);
-		timeoutId = setTimeout(() => fn(...args), delay);
+		clearTimeout(id);
+		id = setTimeout(() => fn(...args), delay);
 	};
 }
 
-/**
- * Throttle function calls
- */
-export function throttle<T extends (...args: any[]) => any>(
-	fn: T,
-	limit: number
-): (...args: Parameters<T>) => void {
+export function throttle<T extends (...a: any[]) => void>(fn: T, limit: number) {
 	let inThrottle = false;
-
 	return (...args: Parameters<T>) => {
 		if (!inThrottle) {
 			fn(...args);
 			inThrottle = true;
-			setTimeout(() => {
-				inThrottle = false;
-			}, limit);
+			setTimeout(() => (inThrottle = false), limit);
 		}
 	};
 }
@@ -709,28 +418,18 @@ export function throttle<T extends (...args: any[]) => any>(
 // Batch Processing Utilities
 // ============================================================================
 
-/**
- * Process items in batches
- */
 export async function processBatch<T, R>(
 	items: T[],
 	processor: (batch: T[]) => Promise<R[]>,
-	batchSize = 10
+	size = 10
 ): Promise<R[]> {
 	const results: R[] = [];
-
-	for (let i = 0; i < items.length; i += batchSize) {
-		const batch = items.slice(i, i + batchSize);
-		const batchResults = await processor(batch);
-		results.push(...batchResults);
+	for (let i = 0; i < items.length; i += size) {
+		results.push(...(await processor(items.slice(i, i + size))));
 	}
-
 	return results;
 }
 
-/**
- * Process items in parallel with concurrency limit
- */
 export async function processParallel<T, R>(
 	items: T[],
 	processor: (item: T) => Promise<R>,
@@ -738,26 +437,194 @@ export async function processParallel<T, R>(
 ): Promise<R[]> {
 	const results: R[] = [];
 	const executing: Promise<void>[] = [];
-
 	for (const item of items) {
-		const promise = processor(item).then((result) => {
-			results.push(result);
+		const p = processor(item).then((r) => {
+			results.push(r);
 		});
-
-		executing.push(promise);
-
+		executing.push(p);
 		if (executing.length >= concurrency) {
 			await Promise.race(executing);
-			executing.splice(
-				executing.findIndex((p) => p === promise),
-				1
-			);
+			executing.splice(0, executing.length - concurrency + 1);
 		}
 	}
-
 	await Promise.all(executing);
 	return results;
 }
+
+// ============================================================================
+// JSON & Object Utilities
+// ============================================================================
+
+/** Safe JSON parse */
+export const safeParse = <T>(s: string, fallback: T): T => {
+	try {
+		return JSON.parse(s) as T;
+	} catch {
+		return fallback;
+	}
+};
+
+/** Safe JSON stringify */
+export const safeStringify = (v: unknown): string => {
+	try {
+		return JSON.stringify(v);
+	} catch {
+		return '';
+	}
+};
+
+/** Deep clone object */
+export const deepClone = <T>(obj: T): T => structuredClone(obj);
+
+/** Deep merge objects */
+export function deepMerge<T extends object, U extends object>(a: T, b: U): T & U {
+	const out: any = { ...a };
+	for (const [k, v] of Object.entries(b)) {
+		out[k] =
+			v && typeof v === 'object' && !Array.isArray(v) ? deepMerge((a as any)[k] ?? {}, v) : v;
+	}
+	return out;
+}
+
+/** Get nested property safely */
+export function getNested(obj: any, path: string, def?: unknown): unknown {
+	return path.split('.').reduce((o, k) => (o && k in o ? o[k] : def), obj);
+}
+
+/** Set nested property safely */
+export function setNested(obj: any, path: string, value: unknown): void {
+	const keys = path.split('.');
+	let cur = obj;
+	for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]] ??= {};
+	cur[keys.at(-1)!] = value;
+}
+
+/** Check if object is empty */
+export const isEmpty = (obj: any): boolean => {
+	if (obj == null) return true;
+	if (Array.isArray(obj) || typeof obj === 'string') return obj.length === 0;
+	if (obj instanceof Map || obj instanceof Set) return obj.size === 0;
+	return Object.keys(obj).length === 0;
+};
+
+/** Pick specific keys from object */
+export const pick = <T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> => {
+	const result = {} as Pick<T, K>;
+	for (const key of keys) {
+		if (key in obj) result[key] = obj[key];
+	}
+	return result;
+};
+
+/** Omit specific keys from object */
+export const omit = <T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> => {
+	const result = { ...obj };
+	for (const key of keys) {
+		delete result[key];
+	}
+	return result as Omit<T, K>;
+};
+
+// ============================================================================
+// Array Utilities
+// ============================================================================
+
+/** Remove duplicates from array */
+export const unique = <T>(arr: T[]): T[] => [...new Set(arr)];
+
+/** Chunk array into smaller arrays */
+export const chunk = <T>(arr: T[], size: number): T[][] => {
+	const chunks: T[][] = [];
+	for (let i = 0; i < arr.length; i += size) {
+		chunks.push(arr.slice(i, i + size));
+	}
+	return chunks;
+};
+
+/** Group array by key */
+export const groupBy = <T>(arr: T[], key: keyof T): Record<string, T[]> => {
+	return arr.reduce(
+		(acc, item) => {
+			const group = String(item[key]);
+			(acc[group] = acc[group] || []).push(item);
+			return acc;
+		},
+		{} as Record<string, T[]>
+	);
+};
+
+// ============================================================================
+// Performance & Environment Utilities
+// ============================================================================
+
+/** Measure execution time */
+export async function measureExecution<T>(
+	fn: () => Promise<T>
+): Promise<{ result: T; ms: number }> {
+	const start = Date.now();
+	const result = await fn();
+	return { result, ms: Date.now() - start };
+}
+
+/** Simple token-bucket rate limiter */
+export class RateLimiter {
+	private tokens: number;
+	private last = Date.now();
+	constructor(
+		private rate: number,
+		private perMs: number
+	) {
+		this.tokens = rate;
+	}
+	tryRemove(): boolean {
+		const now = Date.now();
+		const delta = ((now - this.last) / this.perMs) * this.rate;
+		this.tokens = Math.min(this.rate, this.tokens + delta);
+		this.last = now;
+		if (this.tokens >= 1) {
+			this.tokens--;
+			return true;
+		}
+		return false;
+	}
+}
+
+/** Require environment variable */
+export const requireEnv = (key: string): string => {
+	const val = process.env[key];
+	if (!val) throw new AppError(`Missing env ${key}`, ErrorCode.CONFIGURATION_ERROR);
+	return val;
+};
+
+/** Is production env */
+export const isProduction = (): boolean => process.env.NODE_ENV === 'production';
+
+// ============================================================================
+// Date & Time Utilities
+// ============================================================================
+
+/** Format duration in ms to human-readable string */
+export const formatDuration = (ms: number): string => {
+	const seconds = Math.floor(ms / 1000);
+	const minutes = Math.floor(seconds / 60);
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours / 24);
+
+	if (days > 0) return `${days}d ${hours % 24}h`;
+	if (hours > 0) return `${hours}h ${minutes % 60}m`;
+	if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+	return `${seconds}s`;
+};
+
+/** Format bytes to human-readable size */
+export const formatBytes = (bytes: number, decimals = 2): string => {
+	if (bytes === 0) return '0 Bytes';
+	const k = 1024;
+	const dm = decimals < 0 ? 0 : decimals;
+	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+};
 
 // ============================================================================
 // Export all utilities
@@ -774,10 +641,6 @@ export default {
 	validateInput,
 	sanitizePath,
 	isValidUUID,
-	isValidDocumentId,
-
-	// Cache
-	Cache,
 
 	// API
 	createApiResponse,
@@ -807,4 +670,30 @@ export default {
 	// Batch
 	processBatch,
 	processParallel,
+
+	// JSON & Objects
+	safeParse,
+	safeStringify,
+	deepClone,
+	deepMerge,
+	getNested,
+	setNested,
+	isEmpty,
+	pick,
+	omit,
+
+	// Arrays
+	unique,
+	chunk,
+	groupBy,
+
+	// Performance & Environment
+	measureExecution,
+	RateLimiter,
+	requireEnv,
+	isProduction,
+
+	// Date & Time
+	formatDuration,
+	formatBytes,
 };

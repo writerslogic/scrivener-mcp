@@ -5,7 +5,7 @@
 
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
-import type { ContentExtractionOptions } from './types/analysis.js';
+import type { ContentExtractionOptions } from '../types/analysis.js';
 
 export interface ParsedWebContent {
 	title?: string;

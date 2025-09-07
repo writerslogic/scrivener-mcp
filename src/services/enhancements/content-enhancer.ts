@@ -1,7 +1,7 @@
 import nlp from 'compromise';
-import type { StyleGuide } from './memory-manager.js';
-import { MLWordClassifierPro } from './ml-word-classifier-pro.js';
-import { AppError, ErrorCode } from './utils/common.js';
+import type { StyleGuide } from '../../memory-manager.js';
+import { MLWordClassifierPro } from '../../analysis/ml-word-classifier-pro.js';
+import { ApplicationError as AppError, ErrorCode } from '../../core/errors.js';
 
 export type EnhancementType =
 	| 'rewrite'

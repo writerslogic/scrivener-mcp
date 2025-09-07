@@ -4,7 +4,10 @@
  */
 
 import OpenAI from 'openai';
-import { AppError, ErrorCode } from './utils/common.js';
+import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
+import { getLogger } from '../core/logger.js';
+
+const logger = getLogger('openai-service');
 
 export interface OpenAIConfig {
 	apiKey?: string;
@@ -126,7 +129,7 @@ export class OpenAIService {
 
 			return this.parseWritingSuggestions(content);
 		} catch (error) {
-			console.error('OpenAI API error:', error);
+			logger.error('OpenAI API error', { error });
 			return [];
 		}
 	}
@@ -197,7 +200,7 @@ Return your analysis in this JSON format:
 
 			return this.parseStyleAnalysis(content);
 		} catch (error) {
-			console.error('OpenAI API error:', error);
+			logger.error('OpenAI API error', { error });
 			return this.getDefaultStyleAnalysis();
 		}
 	}
@@ -269,7 +272,7 @@ Return analysis in this JSON format:
 
 			return this.parseCharacterAnalysis(content);
 		} catch (error) {
-			console.error('OpenAI API error:', error);
+			logger.error('OpenAI API error', { error });
 			return [];
 		}
 	}
@@ -331,7 +334,7 @@ Return analysis in this JSON format:
 
 			return this.parsePlotAnalysis(content);
 		} catch (error) {
-			console.error('OpenAI API error:', error);
+			logger.error('OpenAI API error', { error });
 			return this.getDefaultPlotAnalysis();
 		}
 	}
@@ -360,7 +363,11 @@ Return analysis in this JSON format:
 				contextualThemes: projectData.themes || [],
 				characterDevelopmentNeeds: [],
 				plotGaps: [],
-				recommendedExercises: ['character voice practice', 'scene setting', 'dialogue dynamics']
+				recommendedExercises: [
+					'character voice practice',
+					'scene setting',
+					'dialogue dynamics',
+				],
 			};
 		}
 
@@ -387,9 +394,10 @@ Provide a JSON response with:
 				messages: [
 					{
 						role: 'system',
-						content: 'You are a writing coach analyzing a project to suggest targeted exercises.'
+						content:
+							'You are a writing coach analyzing a project to suggest targeted exercises.',
 					},
-					{ role: 'user', content: prompt }
+					{ role: 'user', content: prompt },
 				],
 				max_tokens: 500,
 				temperature: 0.5,
@@ -397,22 +405,22 @@ Provide a JSON response with:
 
 			const content = response.choices[0]?.message?.content || '{}';
 			const analysis = JSON.parse(content);
-			
+
 			return {
 				suggestedPromptTypes: analysis.suggestedPromptTypes || ['character', 'scene'],
 				contextualThemes: analysis.contextualThemes || projectData.themes,
 				characterDevelopmentNeeds: analysis.characterDevelopmentNeeds || [],
 				plotGaps: analysis.plotGaps || [],
-				recommendedExercises: analysis.recommendedExercises || []
+				recommendedExercises: analysis.recommendedExercises || [],
 			};
-		} catch (error) {
+		} catch (_error) {
 			// Return defaults on error
 			return {
 				suggestedPromptTypes: ['character', 'dialogue', 'scene'],
 				contextualThemes: projectData.themes || [],
 				characterDevelopmentNeeds: [],
 				plotGaps: [],
-				recommendedExercises: ['character development', 'plot advancement']
+				recommendedExercises: ['character development', 'plot advancement'],
 			};
 		}
 	}
@@ -465,19 +473,23 @@ Provide a JSON response with:
 			storyContext = '',
 			targetWordCount = 500,
 			writingStyle = 'balanced',
-			mood = 'varied'
+			mood = 'varied',
 		} = options;
 
 		// Build intelligent context
 		const contextElements = [];
-		
+
 		if (genre) contextElements.push(`Genre: ${genre}`);
 		if (theme) contextElements.push(`Theme: ${theme}`);
 		if (existingCharacters.length > 0) {
-			contextElements.push(`Existing Characters: ${existingCharacters.slice(0, 5).join(', ')}`);
+			contextElements.push(
+				`Existing Characters: ${existingCharacters.slice(0, 5).join(', ')}`
+			);
 		}
 		if (currentPlotPoints.length > 0) {
-			contextElements.push(`Current Plot Elements: ${currentPlotPoints.slice(0, 3).join('; ')}`);
+			contextElements.push(
+				`Current Plot Elements: ${currentPlotPoints.slice(0, 3).join('; ')}`
+			);
 		}
 		if (storyContext) {
 			contextElements.push(`Story Context: ${storyContext.substring(0, 200)}...`);
@@ -550,9 +562,9 @@ Return in this JSON format:
 					.replace(/```json\n?/g, '')
 					.replace(/```\n?/g, '')
 					.trim();
-				
+
 				const result = JSON.parse(cleanedContent);
-				
+
 				// Validate and enhance the response
 				if (result.prompts && Array.isArray(result.prompts)) {
 					// Ensure all prompts have required fields
@@ -561,29 +573,159 @@ Return in this JSON format:
 						type: p.type || promptType,
 						difficulty: p.difficulty || this.mapComplexityToDifficulty(complexity),
 						estimatedWords: p.estimatedWords || targetWordCount,
-						tips: Array.isArray(p.tips) ? p.tips : this.getDefaultTips(p.type || promptType),
-						relatedCharacters: Array.isArray(p.relatedCharacters) ? p.relatedCharacters : [],
-						suggestedTechniques: Array.isArray(p.suggestedTechniques) ? 
-							p.suggestedTechniques : this.getDefaultTechniques(complexity)
+						tips: Array.isArray(p.tips)
+							? p.tips
+							: this.getDefaultTips(p.type || promptType),
+						relatedCharacters: Array.isArray(p.relatedCharacters)
+							? p.relatedCharacters
+							: [],
+						suggestedTechniques: Array.isArray(p.suggestedTechniques)
+							? p.suggestedTechniques
+							: this.getDefaultTechniques(complexity),
 					}));
 				} else {
 					return this.getDefaultPromptResponse(count, genre, theme);
 				}
-				
+
 				// Ensure other fields exist
 				result.overallTheme = result.overallTheme || `${theme} in ${genre}`;
-				result.writingGoals = Array.isArray(result.writingGoals) ? 
-					result.writingGoals : this.getDefaultWritingGoals(complexity);
-				
+				result.writingGoals = Array.isArray(result.writingGoals)
+					? result.writingGoals
+					: this.getDefaultWritingGoals(complexity);
+
 				return result;
 			} catch (parseError) {
-				console.error('Failed to parse prompt response:', parseError);
+				logger.error('Failed to parse prompt response', { error: parseError });
 				return this.getDefaultPromptResponse(count, genre, theme);
 			}
 		} catch (error) {
-			console.error('OpenAI API error:', error);
+			logger.error('OpenAI API error', { error });
 			return this.getDefaultPromptResponse(count, genre, theme);
 		}
+	}
+
+	/**
+	 * Generate actual content based on a writing prompt
+	 */
+	async generateContent(
+		prompt: string,
+		options: {
+			length?: number;
+			style?: 'narrative' | 'dialogue' | 'descriptive' | 'academic' | 'creative';
+			tone?: string;
+			perspective?: '1st' | '2nd' | '3rd';
+			genre?: string;
+			context?: string;
+		} = {}
+	): Promise<{
+		content: string;
+		wordCount: number;
+		type: string;
+		suggestions: string[];
+		alternativeVersions: string[];
+	}> {
+		if (!this.client) {
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
+		}
+
+		const {
+			length = 500,
+			style = 'creative',
+			tone = 'engaging',
+			perspective = '3rd',
+			genre = 'general fiction',
+			context = '',
+		} = options;
+
+		const systemPrompt = `You are a skilled creative writer. Generate high-quality content based on the given prompt.
+
+Style: ${style}
+Tone: ${tone}  
+Perspective: ${perspective} person
+Genre: ${genre}
+Target length: ${length} words
+${context ? `Context: ${context}` : ''}
+
+Requirements:
+1. Create engaging, well-written content that matches the specified parameters
+2. Maintain consistent voice and style throughout
+3. Include vivid details and sensory elements where appropriate
+4. Ensure proper pacing and structure
+5. Return response in JSON format with content, suggestions, and alternatives`;
+
+		const userPrompt = `Writing prompt: "${prompt}"
+
+Please generate content based on this prompt and return in this exact JSON format:
+{
+  "content": "The generated content here",
+  "suggestions": ["Writing tip 1", "Writing tip 2", "Writing tip 3"],
+  "alternativeVersions": ["Brief alternative approach 1", "Brief alternative approach 2"]
+}`;
+
+		try {
+			const response = await this.client.chat.completions.create({
+				model: this.config.model || 'gpt-3.5-turbo',
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content: userPrompt },
+				],
+				max_tokens: Math.min(length * 2 + 500, this.config.maxTokens || 2000),
+				temperature: this.config.temperature || 0.7,
+			});
+
+			const content = response.choices[0]?.message?.content?.trim();
+			if (!content) {
+				return this.getDefaultContentResponse(prompt, length, style);
+			}
+
+			try {
+				const result = JSON.parse(content);
+
+				return {
+					content: result.content || `Generated content for: ${prompt}`,
+					wordCount: result.content ? result.content.split(' ').length : length,
+					type: style,
+					suggestions: Array.isArray(result.suggestions)
+						? result.suggestions
+						: [
+								'Consider expanding on character motivations',
+								'Add more sensory details',
+							],
+					alternativeVersions: Array.isArray(result.alternativeVersions)
+						? result.alternativeVersions
+						: [],
+				};
+			} catch (parseError) {
+				logger.error('Failed to parse content response', { error: parseError });
+				return this.getDefaultContentResponse(prompt, length, style);
+			}
+		} catch (error) {
+			logger.error('OpenAI API error during content generation', { error });
+			return this.getDefaultContentResponse(prompt, length, style);
+		}
+	}
+
+	/**
+	 * Get default content response when API fails
+	 */
+	private getDefaultContentResponse(prompt: string, length: number, style: string) {
+		return {
+			content: `Generated ${style} content based on the prompt: "${prompt}"\n\nThis is placeholder content that would be replaced by AI-generated text. The actual implementation would create engaging, contextually appropriate content matching your specified parameters.`,
+			wordCount: Math.max(50, Math.floor(length * 0.3)),
+			type: style,
+			suggestions: [
+				'Consider expanding on character motivations',
+				'Add more sensory details to enhance immersion',
+				'Vary sentence structure for better flow',
+			],
+			alternativeVersions: [
+				'Try a different narrative perspective',
+				"Explore the scene from another character's viewpoint",
+			],
+		};
 	}
 
 	/**
@@ -592,24 +734,24 @@ Return in this JSON format:
 	private getDefaultPromptResponse(count: number, genre: string, theme: string): any {
 		const prompts = [];
 		const types = ['scene', 'character', 'dialogue', 'description', 'conflict'];
-		
+
 		for (let i = 0; i < count; i++) {
 			const type = types[i % types.length];
 			prompts.push({
 				prompt: this.getDefaultPromptByType(type, genre, theme),
-				type: type,
+				type,
 				difficulty: 'intermediate',
 				estimatedWords: 500,
 				tips: this.getDefaultTips(type),
 				relatedCharacters: [],
-				suggestedTechniques: this.getDefaultTechniques('moderate')
+				suggestedTechniques: this.getDefaultTechniques('moderate'),
 			});
 		}
-		
+
 		return {
 			prompts,
 			overallTheme: `Exploring ${theme} through ${genre}`,
-			writingGoals: this.getDefaultWritingGoals('moderate')
+			writingGoals: this.getDefaultWritingGoals('moderate'),
 		};
 	}
 
@@ -622,9 +764,9 @@ Return in this JSON format:
 			character: `Create a character in a ${genre} setting whose internal conflict embodies ${theme}. Show their struggle through action and dialogue.`,
 			dialogue: `Write a dialogue-heavy scene in the ${genre} genre where two characters debate opposing views on ${theme}. Let their personalities shine through their speech patterns.`,
 			description: `Describe a location in a ${genre} story that symbolically represents ${theme}. Use atmospheric details to create mood.`,
-			conflict: `Develop a conflict in a ${genre} narrative where ${theme} creates an impossible choice for your protagonist.`
+			conflict: `Develop a conflict in a ${genre} narrative where ${theme} creates an impossible choice for your protagonist.`,
 		};
-		
+
 		return prompts[type] || prompts.scene;
 	}
 
@@ -636,30 +778,30 @@ Return in this JSON format:
 			scene: [
 				'Start in medias res - in the middle of action',
 				'Use all five senses to ground the reader',
-				'End with a hook or revelation'
+				'End with a hook or revelation',
 			],
 			character: [
 				'Show character through action, not just description',
 				'Give them a clear want and a hidden need',
-				'Create contradictions to add depth'
+				'Create contradictions to add depth',
 			],
 			dialogue: [
 				'Each character should have a distinct voice',
-				'Use subtext - what\'s not said is often more important',
-				'Avoid on-the-nose dialogue'
+				"Use subtext - what's not said is often more important",
+				'Avoid on-the-nose dialogue',
 			],
 			description: [
 				'Use specific, concrete details over general descriptions',
 				'Integrate description with action',
-				'Consider the POV character\'s emotional state'
+				"Consider the POV character's emotional state",
 			],
 			conflict: [
 				'Make both choices have merit',
 				'Raise the stakes progressively',
-				'Connect the external conflict to internal struggle'
-			]
+				'Connect the external conflict to internal struggle',
+			],
 		};
-		
+
 		return tips[type] || tips.scene;
 	}
 
@@ -668,11 +810,17 @@ Return in this JSON format:
 	 */
 	private getDefaultTechniques(complexity: string): string[] {
 		const techniques: Record<string, string[]> = {
-			simple: ['Show don\'t tell', 'Active voice', 'Clear structure'],
+			simple: ["Show don't tell", 'Active voice', 'Clear structure'],
 			moderate: ['Symbolism', 'Foreshadowing', 'Parallel action', 'Metaphor'],
-			complex: ['Unreliable narrator', 'Non-linear timeline', 'Multiple POVs', 'Metafiction', 'Stream of consciousness']
+			complex: [
+				'Unreliable narrator',
+				'Non-linear timeline',
+				'Multiple POVs',
+				'Metafiction',
+				'Stream of consciousness',
+			],
 		};
-		
+
 		return techniques[complexity] || techniques.moderate;
 	}
 
@@ -684,23 +832,23 @@ Return in this JSON format:
 			simple: [
 				'Establish clear narrative progression',
 				'Develop one main character',
-				'Resolve the primary conflict'
+				'Resolve the primary conflict',
 			],
 			moderate: [
 				'Balance multiple story elements',
 				'Develop character relationships',
 				'Create thematic resonance',
-				'Build narrative tension'
+				'Build narrative tension',
 			],
 			complex: [
 				'Layer multiple meanings and interpretations',
 				'Subvert genre expectations',
 				'Explore philosophical questions',
 				'Create structural innovation',
-				'Develop complex character psychology'
-			]
+				'Develop complex character psychology',
+			],
 		};
-		
+
 		return goals[complexity] || goals.moderate;
 	}
 
@@ -711,9 +859,9 @@ Return in this JSON format:
 		const mapping: Record<string, string> = {
 			simple: 'beginner',
 			moderate: 'intermediate',
-			complex: 'advanced'
+			complex: 'advanced',
 		};
-		
+
 		return mapping[complexity] || 'intermediate';
 	}
 
@@ -781,7 +929,7 @@ Return suggestions in this JSON format:
 
 			return [];
 		} catch (error) {
-			console.error('Failed to parse writing suggestions:', error);
+			logger.error('Failed to parse writing suggestions', { error });
 			return [];
 		}
 	}
@@ -804,7 +952,7 @@ Return suggestions in this JSON format:
 				suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
 			};
 		} catch (error) {
-			console.error('Failed to parse style analysis:', error);
+			logger.error('Failed to parse style analysis', { error });
 			return this.getDefaultStyleAnalysis();
 		}
 	}
@@ -831,7 +979,7 @@ Return suggestions in this JSON format:
 
 			return [];
 		} catch (error) {
-			console.error('Failed to parse character analysis:', error);
+			logger.error('Failed to parse character analysis', { error });
 			return [];
 		}
 	}
@@ -856,7 +1004,7 @@ Return suggestions in this JSON format:
 				suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
 			};
 		} catch (error) {
-			console.error('Failed to parse plot analysis:', error);
+			logger.error('Failed to parse plot analysis', { error });
 			return this.getDefaultPlotAnalysis();
 		}
 	}

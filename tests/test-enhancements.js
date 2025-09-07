@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { ContentAnalyzer } from '../dist/content-analyzer.js';
-import { EnhancedAnalyzer } from '../dist/analysis/enhanced-analyzer.js';
+import { ContentAnalyzer } from '../dist/analysis/base-analyzer.js';
+import { ContextAnalyzer } from '../dist/analysis/context-analyzer.js';
 import { ContextSyncService } from '../dist/sync/context-sync.js';
 import { DatabaseService } from '../dist/database/database-service.js';
 import * as fs from 'fs/promises';
@@ -145,7 +145,7 @@ try {
 
 // Test 7: Enhanced Analyzer
 console.log('\nTest 7: Enhanced Analyzer');
-await testEnhancedAnalyzer();
+await testContextAnalyzer();
 
 // Test 8: Context Sync Service
 console.log('\nTest 8: Context Sync Service');
@@ -155,7 +155,7 @@ console.log('\n' + '='.repeat(50));
 console.log('ENHANCEMENT FEATURES TEST COMPLETE');
 console.log('='.repeat(50));
 
-async function testEnhancedAnalyzer() {
+async function testContextAnalyzer() {
     const testProjectPath = path.join(__dirname, 'test-enhanced-project.scriv');
     
     try {
@@ -165,7 +165,7 @@ async function testEnhancedAnalyzer() {
         await dbService.initialize();
         
         const contentAnalyzer = new ContentAnalyzer();
-        const enhancedAnalyzer = new EnhancedAnalyzer(dbService, contentAnalyzer);
+        const contextAnalyzer = new ContextAnalyzer(dbService, contentAnalyzer);
         
         // Test document
         const testDoc = {
@@ -189,7 +189,7 @@ async function testEnhancedAnalyzer() {
         
         // Test chapter analysis with try-catch to handle missing methods
         try {
-            const chapterContext = await enhancedAnalyzer.analyzeChapter(
+            const chapterContext = await contextAnalyzer.analyzeChapter(
                 testDoc,
                 testContent,
                 [testDoc]
@@ -223,7 +223,7 @@ async function testEnhancedAnalyzer() {
                 pacing: { overall: 'moderate', actionVsReflection: 0.5, description: 'Balanced' }
             };
             
-            const storyContext = await enhancedAnalyzer.buildStoryContext(
+            const storyContext = await contextAnalyzer.buildStoryContext(
                 [testDoc],
                 [mockChapterContext]
             );
@@ -258,7 +258,7 @@ async function testContextSync() {
         await dbService.initialize();
         
         const contentAnalyzer = new ContentAnalyzer();
-        const enhancedAnalyzer = new EnhancedAnalyzer(dbService, contentAnalyzer);
+        const contextAnalyzer = new ContextAnalyzer(dbService, contentAnalyzer);
         
         // Mock project methods
         const mockProject = {

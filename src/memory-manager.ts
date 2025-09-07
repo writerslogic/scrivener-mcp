@@ -2,7 +2,11 @@ import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { safeReadFile, safeWriteFile, ensureDir, pathExists } from './utils/common.js';
-import { DatabaseService } from './database/database-service.js';
+import type { DatabaseService } from './database/database-service.js';
+import { buildInsertQuery, buildSelectQuery } from './utils/database.js';
+import { getLogger } from './core/logger.js';
+
+const logger = getLogger('memory-manager');
 
 export interface ProjectMemory {
 	version: string;
@@ -129,12 +133,12 @@ export class MemoryManager {
 		if (this.databaseService && !this.databaseService.isInitialized()) {
 			await this.databaseService.initialize();
 		}
-		
+
 		// Try to load from database first if available
 		if (this.databaseService) {
 			await this.loadFromDatabase();
 		}
-		
+
 		// Create memory directory if it doesn't exist
 		await ensureDir(this.memoryPath);
 
@@ -149,7 +153,7 @@ export class MemoryManager {
 		// Set up auto-save every 5 minutes
 		this.autoSaveInterval = setInterval(
 			() => {
-				this.saveMemory().catch(console.error);
+				this.saveMemory().catch((err) => logger.error('Auto-save failed', { error: err }));
 			},
 			5 * 60 * 1000
 		);
@@ -170,7 +174,7 @@ export class MemoryManager {
 
 			this.memory = loaded;
 		} catch (error) {
-			console.error('Failed to load memory:', error);
+			logger.error('Failed to load memory', { error });
 			this.memory = this.createEmptyMemory();
 		}
 	}
@@ -181,7 +185,7 @@ export class MemoryManager {
 			if (this.databaseService) {
 				await this.saveToDatabase();
 			}
-			
+
 			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
 
 			// Convert Map to array for JSON serialization
@@ -203,14 +207,14 @@ export class MemoryManager {
 				await ensureDir(this.memoryPath);
 				await safeWriteFile(backupFile, JSON.stringify(toSave, null, 2));
 			} catch (backupError) {
-				console.warn('Failed to save backup file:', backupError);
+				logger.warn('Failed to save backup file', { error: backupError });
 				// Don't throw - backup failure shouldn't break the main save
 			}
 
 			// Clean up old backups (keep last 7)
 			await this.cleanupOldBackups();
 		} catch (error) {
-			console.error('Failed to save memory:', error);
+			logger.error('Failed to save memory', { error });
 			throw error;
 		}
 	}
@@ -232,7 +236,7 @@ export class MemoryManager {
 				}
 			}
 		} catch (error) {
-			console.error('Failed to cleanup backups:', error);
+			logger.error('Failed to cleanup backups', { error });
 		}
 	}
 
@@ -348,12 +352,22 @@ export class MemoryManager {
 		await this.saveMemory();
 	}
 
+	// Stop auto-save interval
+	async stopAutoSave(): Promise<void> {
+		if (this.autoSaveInterval) {
+			clearInterval(this.autoSaveInterval);
+			this.autoSaveInterval = undefined;
+		}
+		// Save one final time
+		await this.saveMemory();
+	}
+
 	// Cleanup when done
 	cleanup(): void {
 		if (this.autoSaveInterval) {
 			clearInterval(this.autoSaveInterval);
 		}
-		this.saveMemory().catch(console.error);
+		this.saveMemory().catch((err) => logger.error('Cleanup save failed', { error: err }));
 	}
 
 	private generateId(): string {
@@ -370,10 +384,11 @@ export class MemoryManager {
 
 		try {
 			const db = this.databaseService.getSQLite()!.getDatabase();
-			
+
 			// Load characters from database
-			const characters = db.prepare('SELECT * FROM characters').all() as any[];
-			this.memory.characters = characters.map(c => ({
+			const { sql: charSql } = buildSelectQuery('characters');
+			const characters = db.prepare(charSql).all() as any[];
+			this.memory.characters = characters.map((c) => ({
 				id: c.id,
 				name: c.name,
 				role: c.role || 'supporting',
@@ -382,26 +397,30 @@ export class MemoryManager {
 				arc: c.arc || '',
 				relationships: c.relationships ? JSON.parse(c.relationships) : [],
 				appearances: c.appearances ? JSON.parse(c.appearances) : [],
-				notes: c.notes || ''
+				notes: c.notes || '',
 			}));
 
 			// Load plot threads
-			const plotThreads = db.prepare('SELECT * FROM plot_threads').all() as any[];
-			this.memory.plotThreads = plotThreads.map(p => ({
+			const { sql: plotSql } = buildSelectQuery('plot_threads');
+			const plotThreads = db.prepare(plotSql).all() as any[];
+			this.memory.plotThreads = plotThreads.map((p) => ({
 				id: p.id,
 				name: p.name,
 				status: p.status || 'development',
 				description: p.description || '',
 				documents: p.related_documents ? JSON.parse(p.related_documents) : [],
-				keyEvents: p.developments ? JSON.parse(p.developments).map((d: any) => ({
-					documentId: d.documentId || '',
-					event: d.event || d
-				})) : []
+				keyEvents: p.developments
+					? JSON.parse(p.developments).map((d: any) => ({
+							documentId: d.documentId || '',
+							event: d.event || d,
+						}))
+					: [],
 			}));
 
 			// Load project metadata for style guide and custom context
-			const metadata = db.prepare('SELECT * FROM project_metadata').all() as any[];
-			metadata.forEach(m => {
+			const { sql: metaSql } = buildSelectQuery('project_metadata');
+			const metadata = db.prepare(metaSql).all() as any[];
+			metadata.forEach((m) => {
 				if (m.key === 'style_guide' && m.value) {
 					this.memory.styleGuide = JSON.parse(m.value);
 				} else if (m.key === 'writing_stats' && m.value) {
@@ -413,24 +432,27 @@ export class MemoryManager {
 			});
 
 			// Load world building elements
-			const worldElements = db.prepare(`
+			const worldElements = db
+				.prepare(
+					`
 				SELECT * FROM themes 
 				UNION ALL 
 				SELECT id, name, 'location' as type, description FROM locations
-			`).all() as any[];
-			
-			this.memory.worldBuilding = worldElements.map(w => ({
+			`
+				)
+				.all() as any[];
+
+			this.memory.worldBuilding = worldElements.map((w) => ({
 				id: w.id,
 				type: w.type || 'theme',
 				name: w.name,
 				description: w.description || '',
 				details: w.details ? JSON.parse(w.details) : {},
 				significance: w.significance || 'minor',
-				appearances: w.appearances ? JSON.parse(w.appearances) : []
+				appearances: w.appearances ? JSON.parse(w.appearances) : [],
 			}));
-
 		} catch (error) {
-			console.error('Failed to load from database:', error);
+			logger.error('Failed to load from database', { error });
 		}
 	}
 
@@ -444,66 +466,75 @@ export class MemoryManager {
 
 		try {
 			const db = this.databaseService.getSQLite()!.getDatabase();
-			
+
 			// Save characters
-			const charStmt = db.prepare(`
-				INSERT OR REPLACE INTO characters (id, name, role, description, traits, arc, relationships, appearances, notes)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`);
-			
 			for (const char of this.memory.characters) {
-				charStmt.run(
-					char.id,
-					char.name,
-					char.role,
-					char.description,
-					JSON.stringify(char.traits),
-					char.arc,
-					JSON.stringify(char.relationships),
-					JSON.stringify(char.appearances),
-					char.notes || ''
+				const { sql, params } = buildInsertQuery(
+					'characters',
+					{
+						id: char.id,
+						name: char.name,
+						role: char.role,
+						description: char.description,
+						traits: JSON.stringify(char.traits),
+						arc: char.arc,
+						relationships: JSON.stringify(char.relationships),
+						appearances: JSON.stringify(char.appearances),
+						notes: char.notes || '',
+					},
+					'REPLACE'
 				);
+				db.prepare(sql).run(...params);
 			}
 
 			// Save plot threads
-			const plotStmt = db.prepare(`
-				INSERT OR REPLACE INTO plot_threads 
-				(id, name, status, description, developments, related_documents)
-				VALUES (?, ?, ?, ?, ?, ?)
-			`);
-			
 			for (const plot of this.memory.plotThreads) {
-				plotStmt.run(
-					plot.id,
-					plot.name,
-					plot.status,
-					plot.description,
-					JSON.stringify(plot.keyEvents),
-					JSON.stringify(plot.documents)
+				const { sql, params } = buildInsertQuery(
+					'plot_threads',
+					{
+						id: plot.id,
+						name: plot.name,
+						status: plot.status,
+						description: plot.description,
+						developments: JSON.stringify(plot.keyEvents),
+						related_documents: JSON.stringify(plot.documents),
+					},
+					'REPLACE'
 				);
+				db.prepare(sql).run(...params);
 			}
 
 			// Save project metadata
-			const metaStmt = db.prepare(`
-				INSERT OR REPLACE INTO project_metadata (key, value, updated_at)
-				VALUES (?, ?, ?)
-			`);
-			
-			metaStmt.run('style_guide', JSON.stringify(this.memory.styleGuide), new Date().toISOString());
-			metaStmt.run('writing_stats', JSON.stringify(this.memory.writingStats), new Date().toISOString());
-			
-			// Save custom context
+			const metadataItems = [
+				{ key: 'style_guide', value: JSON.stringify(this.memory.styleGuide) },
+				{ key: 'writing_stats', value: JSON.stringify(this.memory.writingStats) },
+			];
+
+			// Add custom context items
 			for (const [key, value] of Object.entries(this.memory.customContext)) {
-				metaStmt.run(`custom_${key}`, JSON.stringify(value), new Date().toISOString());
+				metadataItems.push({ key: `custom_${key}`, value: JSON.stringify(value) });
+			}
+
+			// Save all metadata
+			for (const item of metadataItems) {
+				const { sql, params } = buildInsertQuery(
+					'project_metadata',
+					{
+						key: item.key,
+						value: item.value,
+						updated_at: new Date().toISOString(),
+					},
+					'REPLACE'
+				);
+				db.prepare(sql).run(...params);
 			}
 
 			// Sync to Neo4j if available
 			if (this.databaseService.getNeo4j()?.isAvailable()) {
 				await this.syncToNeo4j();
 			}
-
 		} catch (error) {
-			console.error('Failed to save to database:', error);
+			logger.error('Failed to save to database', { error });
 		}
 	}
 
@@ -519,53 +550,65 @@ export class MemoryManager {
 
 		// Sync characters and their relationships
 		for (const char of this.memory.characters) {
-			await neo4j.query(`
+			await neo4j.query(
+				`
 				MERGE (c:Character {id: $id})
 				SET c.name = $name, c.role = $role, c.description = $description
-			`, {
-				id: char.id,
-				name: char.name,
-				role: char.role,
-				description: char.description
-			});
+			`,
+				{
+					id: char.id,
+					name: char.name,
+					role: char.role,
+					description: char.description,
+				}
+			);
 
 			// Create character relationships
 			for (const rel of char.relationships) {
-				await neo4j.query(`
+				await neo4j.query(
+					`
 					MATCH (c1:Character {id: $id1})
 					MATCH (c2:Character {id: $id2})
 					MERGE (c1)-[r:RELATES_TO]->(c2)
 					SET r.relationship = $relationship
-				`, {
-					id1: char.id,
-					id2: rel.characterId,
-					relationship: rel.relationship
-				});
+				`,
+					{
+						id1: char.id,
+						id2: rel.characterId,
+						relationship: rel.relationship,
+					}
+				);
 			}
 		}
 
 		// Sync plot threads
 		for (const plot of this.memory.plotThreads) {
-			await neo4j.query(`
+			await neo4j.query(
+				`
 				MERGE (p:PlotThread {id: $id})
 				SET p.name = $name, p.status = $status, p.description = $description
-			`, {
-				id: plot.id,
-				name: plot.name,
-				status: plot.status,
-				description: plot.description
-			});
+			`,
+				{
+					id: plot.id,
+					name: plot.name,
+					status: plot.status,
+					description: plot.description,
+				}
+			);
 
 			// Connect plot threads to documents
 			for (const docId of plot.documents) {
-				await neo4j.query(`
+				await neo4j.query(
+					`
 					MATCH (p:PlotThread {id: $plotId})
 					MATCH (d:Document {id: $docId})
 					MERGE (p)-[:OCCURS_IN]->(d)
-				`, {
-					plotId: plot.id,
-					docId: docId
-				});
+				`,
+					{
+						plotId: plot.id,
+						docId,
+					}
+				);
 			}
 		}
 	}

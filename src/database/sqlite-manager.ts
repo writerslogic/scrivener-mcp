@@ -212,7 +212,7 @@ export class SQLiteManager {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
 		}
-		
+
 		let lastError: Error | null = null;
 		for (let i = 0; i < retries; i++) {
 			try {
@@ -244,7 +244,9 @@ export class SQLiteManager {
 				throw error;
 			}
 		}
-		throw lastError || new AppError('Transaction failed after retries', ErrorCode.DATABASE_ERROR);
+		throw (
+			lastError || new AppError('Transaction failed after retries', ErrorCode.DATABASE_ERROR)
+		);
 	}
 
 	/**
@@ -319,27 +321,27 @@ export class SQLiteManager {
 			if (!this.db) {
 				return { healthy: false, details: { error: 'Database not initialized' } };
 			}
-			
+
 			// Run integrity check
 			const integrity = this.db.pragma('integrity_check');
 			const isHealthy = Array.isArray(integrity) && integrity[0]?.integrity_check === 'ok';
-			
+
 			// Get statistics
 			const stats = this.getDatabaseStats();
-			
+
 			return {
 				healthy: isHealthy,
 				details: {
-					integrity: integrity,
-					stats: stats,
+					integrity,
+					stats,
 					transactionDepth: this.transactionDepth,
-					isInTransaction: this.isInTransaction
-				}
+					isInTransaction: this.isInTransaction,
+				},
 			};
 		} catch (error) {
 			return {
 				healthy: false,
-				details: { error: (error as Error).message }
+				details: { error: (error as Error).message },
 			};
 		}
 	}

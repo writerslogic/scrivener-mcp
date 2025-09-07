@@ -1,13 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { safeWriteFile, ensureDir, pathExists, handleError } from '../utils/common.js';
+import { safeWriteFile, ensureDir, pathExists } from '../utils/common.js';
+import { createError, ErrorCode } from '../core/errors.js';
 import type { DatabaseService } from '../database/database-service.js';
 import type {
-	EnhancedAnalyzer,
+	ContextAnalyzer,
 	ChapterContext,
 	StoryContext,
 	ScrivenerDocument,
-} from '../analysis/enhanced-analyzer.js';
+} from '../analysis/context-analyzer.js';
 
 export interface SyncOptions {
 	autoSync: boolean;
@@ -34,7 +35,7 @@ export class ContextSyncService {
 	constructor(
 		private projectPath: string,
 		private databaseService: DatabaseService,
-		private enhancedAnalyzer: EnhancedAnalyzer,
+		private contextAnalyzer: ContextAnalyzer,
 		private options: SyncOptions = {
 			autoSync: true,
 			syncInterval: 30000, // 30 seconds
@@ -155,13 +156,13 @@ export class ContextSyncService {
 			}
 
 			// Get or generate chapter context
-			let context = await this.enhancedAnalyzer.getChapterContext(documentId);
+			let context = await this.contextAnalyzer.getChapterContext(documentId);
 
 			if (!context || this.isContextOutdated(document, context)) {
 				// Need to regenerate context
 				const content = await this.getDocumentContent(documentId);
 				const allDocuments = await this.getAllDocuments();
-				context = await this.enhancedAnalyzer.analyzeChapter(
+				context = await this.contextAnalyzer.analyzeChapter(
 					document,
 					content,
 					allDocuments
@@ -176,7 +177,10 @@ export class ContextSyncService {
 				await this.syncDocumentRelationships(documentId, context);
 			}
 		} catch (error) {
-			const appError = handleError(error, `syncing document ${documentId}`);
+			const appError = createError(
+				ErrorCode.SYNC_ERROR,
+				`Failed syncing document ${documentId}: ${error}`
+			);
 			// Failed to sync document - error captured
 			this.syncStatus.errors.push(`Document ${documentId}: ${appError.message}`);
 		}
@@ -384,7 +388,7 @@ export class ContextSyncService {
 
 		// Build story context
 		const documents = await this.getAllDocuments();
-		const storyContext = await this.enhancedAnalyzer.buildStoryContext(documents, chapters);
+		const storyContext = await this.contextAnalyzer.buildStoryContext(documents, chapters);
 
 		// Write story context files
 		const storyPath = path.join(this.contextDir, 'story-context');
@@ -559,7 +563,7 @@ export class ContextSyncService {
 		const documents = await this.getAllDocuments();
 
 		for (const doc of documents) {
-			const context = await this.enhancedAnalyzer.getChapterContext(doc.id);
+			const context = await this.contextAnalyzer.getChapterContext(doc.id);
 			if (context) {
 				contexts.push(context);
 			}
