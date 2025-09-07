@@ -33,6 +33,7 @@ export class DatabaseService {
 	private transactionLog: Map<string, TransactionLog> = new Map();
 	private syncQueue: Array<() => Promise<void>> = [];
 	private isSyncing: boolean = false;
+	private initialized: boolean = false;
 
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
@@ -56,6 +57,10 @@ export class DatabaseService {
 	 * Initialize both databases
 	 */
 	async initialize(): Promise<void> {
+		if (this.initialized) {
+			return;
+		}
+		
 		// Ensure database directory exists
 		await ensureDir(this.paths.databaseDir);
 
@@ -78,6 +83,15 @@ export class DatabaseService {
 			);
 			await this.neo4jManager.initialize();
 		}
+		
+		this.initialized = true;
+	}
+	
+	/**
+	 * Check if database service is initialized
+	 */
+	isInitialized(): boolean {
+		return this.initialized;
 	}
 
 	/**

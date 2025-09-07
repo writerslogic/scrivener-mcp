@@ -849,7 +849,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 						},
 						useProjectContext: {
 							type: 'boolean',
-							description: 'Use existing project characters, plot threads, and story context (default: false)',
+							description: 'Use existing project characters, plot threads, and story context (default: true)',
 						},
 						targetWordCount: {
 							type: 'number',
@@ -1325,8 +1325,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 				currentProject = new ScrivenerProject(projPath);
 				await currentProject.loadProject();
 
-				// Initialize memory manager for this project
-				memoryManager = new MemoryManager(projPath);
+				// Initialize memory manager for this project with database
+				const databaseService = currentProject.getDatabaseService();
+				memoryManager = new MemoryManager(projPath, databaseService);
 				await memoryManager.initialize();
 
 				return {
@@ -2316,7 +2317,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 					count,
 					complexity,
 					promptType,
-					useProjectContext,
+					useProjectContext = true, // Default to true
 					targetWordCount,
 					writingStyle,
 					mood

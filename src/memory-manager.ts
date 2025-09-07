@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { safeReadFile, safeWriteFile, ensureDir, pathExists } from './utils/common.js';
+import { DatabaseService } from './database/database-service.js';
 
 export interface ProjectMemory {
 	version: string;
@@ -79,16 +80,18 @@ export interface DocumentContext {
 }
 
 export class MemoryManager {
-	// private projectPath: string;
+	private projectPath: string;
 	private memoryPath: string;
 	private memory: ProjectMemory;
 	private autoSaveInterval?: NodeJS.Timeout;
+	private databaseService?: DatabaseService;
 
-	constructor(projectPath: string) {
-		// this.projectPath = projectPath;
+	constructor(projectPath: string, databaseService?: DatabaseService) {
+		this.projectPath = projectPath;
 		// Store memory in a hidden folder within the Scrivener project
 		this.memoryPath = path.join(projectPath, '.ai-memory');
 		this.memory = this.createEmptyMemory();
+		this.databaseService = databaseService;
 	}
 
 	private createEmptyMemory(): ProjectMemory {
@@ -122,10 +125,20 @@ export class MemoryManager {
 	}
 
 	async initialize(): Promise<void> {
+		// Initialize database if provided
+		if (this.databaseService && !this.databaseService.isInitialized()) {
+			await this.databaseService.initialize();
+		}
+		
+		// Try to load from database first if available
+		if (this.databaseService) {
+			await this.loadFromDatabase();
+		}
+		
 		// Create memory directory if it doesn't exist
 		await ensureDir(this.memoryPath);
 
-		// Load existing memory or create new
+		// Load existing memory or create new from file as fallback
 		const memoryFile = path.join(this.memoryPath, 'project-memory.json');
 		if (await pathExists(memoryFile)) {
 			await this.loadMemory();
@@ -164,6 +177,11 @@ export class MemoryManager {
 
 	async saveMemory(): Promise<void> {
 		try {
+			// Save to database if available
+			if (this.databaseService) {
+				await this.saveToDatabase();
+			}
+			
 			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
 
 			// Convert Map to array for JSON serialization
@@ -340,5 +358,215 @@ export class MemoryManager {
 
 	private generateId(): string {
 		return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	/**
+	 * Load memory data from database
+	 */
+	private async loadFromDatabase(): Promise<void> {
+		if (!this.databaseService || !this.databaseService.getSQLite()) {
+			return;
+		}
+
+		try {
+			const db = this.databaseService.getSQLite()!.getDatabase();
+			
+			// Load characters from database
+			const characters = db.prepare('SELECT * FROM characters').all() as any[];
+			this.memory.characters = characters.map(c => ({
+				id: c.id,
+				name: c.name,
+				role: c.role || 'supporting',
+				description: c.description || '',
+				traits: c.traits ? JSON.parse(c.traits) : [],
+				arc: c.arc || '',
+				relationships: c.relationships ? JSON.parse(c.relationships) : [],
+				appearances: c.appearances ? JSON.parse(c.appearances) : [],
+				notes: c.notes || ''
+			}));
+
+			// Load plot threads
+			const plotThreads = db.prepare('SELECT * FROM plot_threads').all() as any[];
+			this.memory.plotThreads = plotThreads.map(p => ({
+				id: p.id,
+				name: p.name,
+				status: p.status || 'development',
+				description: p.description || '',
+				documents: p.related_documents ? JSON.parse(p.related_documents) : [],
+				keyEvents: p.developments ? JSON.parse(p.developments).map((d: any) => ({
+					documentId: d.documentId || '',
+					event: d.event || d
+				})) : []
+			}));
+
+			// Load project metadata for style guide and custom context
+			const metadata = db.prepare('SELECT * FROM project_metadata').all() as any[];
+			metadata.forEach(m => {
+				if (m.key === 'style_guide' && m.value) {
+					this.memory.styleGuide = JSON.parse(m.value);
+				} else if (m.key === 'writing_stats' && m.value) {
+					this.memory.writingStats = JSON.parse(m.value);
+				} else if (m.key.startsWith('custom_')) {
+					const customKey = m.key.replace('custom_', '');
+					this.memory.customContext[customKey] = JSON.parse(m.value);
+				}
+			});
+
+			// Load world building elements
+			const worldElements = db.prepare(`
+				SELECT * FROM themes 
+				UNION ALL 
+				SELECT id, name, 'location' as type, description FROM locations
+			`).all() as any[];
+			
+			this.memory.worldBuilding = worldElements.map(w => ({
+				id: w.id,
+				type: w.type || 'theme',
+				name: w.name,
+				description: w.description || '',
+				details: w.details ? JSON.parse(w.details) : {},
+				significance: w.significance || 'minor',
+				appearances: w.appearances ? JSON.parse(w.appearances) : []
+			}));
+
+		} catch (error) {
+			console.error('Failed to load from database:', error);
+		}
+	}
+
+	/**
+	 * Save memory data to database
+	 */
+	private async saveToDatabase(): Promise<void> {
+		if (!this.databaseService || !this.databaseService.getSQLite()) {
+			return;
+		}
+
+		try {
+			const db = this.databaseService.getSQLite()!.getDatabase();
+			
+			// Save characters
+			const charStmt = db.prepare(`
+				INSERT OR REPLACE INTO characters (id, name, role, description, traits, arc, relationships, appearances, notes)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`);
+			
+			for (const char of this.memory.characters) {
+				charStmt.run(
+					char.id,
+					char.name,
+					char.role,
+					char.description,
+					JSON.stringify(char.traits),
+					char.arc,
+					JSON.stringify(char.relationships),
+					JSON.stringify(char.appearances),
+					char.notes || ''
+				);
+			}
+
+			// Save plot threads
+			const plotStmt = db.prepare(`
+				INSERT OR REPLACE INTO plot_threads 
+				(id, name, status, description, developments, related_documents)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`);
+			
+			for (const plot of this.memory.plotThreads) {
+				plotStmt.run(
+					plot.id,
+					plot.name,
+					plot.status,
+					plot.description,
+					JSON.stringify(plot.keyEvents),
+					JSON.stringify(plot.documents)
+				);
+			}
+
+			// Save project metadata
+			const metaStmt = db.prepare(`
+				INSERT OR REPLACE INTO project_metadata (key, value, updated_at)
+				VALUES (?, ?, ?)
+			`);
+			
+			metaStmt.run('style_guide', JSON.stringify(this.memory.styleGuide), new Date().toISOString());
+			metaStmt.run('writing_stats', JSON.stringify(this.memory.writingStats), new Date().toISOString());
+			
+			// Save custom context
+			for (const [key, value] of Object.entries(this.memory.customContext)) {
+				metaStmt.run(`custom_${key}`, JSON.stringify(value), new Date().toISOString());
+			}
+
+			// Sync to Neo4j if available
+			if (this.databaseService.getNeo4j()?.isAvailable()) {
+				await this.syncToNeo4j();
+			}
+
+		} catch (error) {
+			console.error('Failed to save to database:', error);
+		}
+	}
+
+	/**
+	 * Sync memory data to Neo4j for relationship analysis
+	 */
+	private async syncToNeo4j(): Promise<void> {
+		if (!this.databaseService || !this.databaseService.getNeo4j()?.isAvailable()) {
+			return;
+		}
+
+		const neo4j = this.databaseService.getNeo4j()!;
+
+		// Sync characters and their relationships
+		for (const char of this.memory.characters) {
+			await neo4j.query(`
+				MERGE (c:Character {id: $id})
+				SET c.name = $name, c.role = $role, c.description = $description
+			`, {
+				id: char.id,
+				name: char.name,
+				role: char.role,
+				description: char.description
+			});
+
+			// Create character relationships
+			for (const rel of char.relationships) {
+				await neo4j.query(`
+					MATCH (c1:Character {id: $id1})
+					MATCH (c2:Character {id: $id2})
+					MERGE (c1)-[r:RELATES_TO]->(c2)
+					SET r.relationship = $relationship
+				`, {
+					id1: char.id,
+					id2: rel.characterId,
+					relationship: rel.relationship
+				});
+			}
+		}
+
+		// Sync plot threads
+		for (const plot of this.memory.plotThreads) {
+			await neo4j.query(`
+				MERGE (p:PlotThread {id: $id})
+				SET p.name = $name, p.status = $status, p.description = $description
+			`, {
+				id: plot.id,
+				name: plot.name,
+				status: plot.status,
+				description: plot.description
+			});
+
+			// Connect plot threads to documents
+			for (const docId of plot.documents) {
+				await neo4j.query(`
+					MATCH (p:PlotThread {id: $plotId})
+					MATCH (d:Document {id: $docId})
+					MERGE (p)-[:OCCURS_IN]->(d)
+				`, {
+					plotId: plot.id,
+					docId: docId
+				});
+			}
+		}
 	}
 }
