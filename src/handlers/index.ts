@@ -7,6 +7,7 @@ import { compilationHandlers } from './compilation-handlers.js';
 import { documentHandlers } from './document-handlers.js';
 import { projectHandlers } from './project-handlers.js';
 import { searchHandlers } from './search-handlers.js';
+import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -17,6 +18,7 @@ const allHandlers: ToolDefinition[] = [
 	...searchHandlers,
 	...compilationHandlers,
 	...analysisHandlers,
+	...asyncHandlerDefinitions,
 ];
 
 // Create handler map for fast lookup

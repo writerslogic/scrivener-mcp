@@ -4,10 +4,11 @@
  * Guides users through database installation and configuration
  */
 
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import * as readline from 'readline/promises';
 import { Neo4jAutoInstaller } from '../database/auto-installer.js';
 import { DatabaseSetup } from '../database/database-setup.js';
+import { AutoSetup } from '../services/auto-setup/auto-setup.js';
 
 export class SetupWizard {
 	private rl: readline.Interface;
@@ -26,13 +27,45 @@ export class SetupWizard {
 		console.clear();
 		this.printBanner();
 
+		// Offer setup options
+		console.log(chalk.yellow('\nChoose setup type:'));
+		console.log(chalk.cyan('  1. Basic Setup (Neo4j database only)'));
+		console.log(chalk.cyan('  2. Advanced Setup (Neo4j + Redis + AI services)'));
+		console.log(chalk.cyan('  3. Check system health'));
+		console.log(chalk.cyan('  4. Exit'));
+
+		const choice = await this.askQuestion('\nSelect option (1-4): ');
+
+		switch (choice) {
+			case '1':
+				await this.runBasicSetup();
+				break;
+			case '2':
+				await this.runAdvancedSetup();
+				break;
+			case '3':
+				await this.checkHealth();
+				break;
+			case '4':
+			default:
+				console.log(chalk.gray('\nSetup cancelled.'));
+				this.rl.close();
+				return;
+		}
+
+		this.rl.close();
+	}
+
+	/**
+	 * Run basic Neo4j setup
+	 */
+	private async runBasicSetup(): Promise<void> {
 		// Check current status
 		const status = await DatabaseSetup.checkNeo4jAvailability();
 
 		if (status.running) {
 			console.log(chalk.green('\n✅ Neo4j is already installed and running!'));
 			console.log(chalk.gray('You can start using Scrivener MCP with full features.\n'));
-			this.rl.close();
 			return;
 		}
 
@@ -150,6 +183,82 @@ export class SetupWizard {
 		}
 
 		return 'auto';
+	}
+
+	/**
+	 * Run advanced setup with Redis and AI
+	 */
+	private async runAdvancedSetup(): Promise<void> {
+		console.log(chalk.bold.cyan('\n🚀 Advanced Setup - BullMQ + LangChain Integration\n'));
+		
+		console.log('This will set up:');
+		console.log(chalk.cyan('  • Redis for job queuing (BullMQ)'));
+		console.log(chalk.cyan('  • AI services configuration (LangChain)'));
+		console.log(chalk.cyan('  • Neo4j graph database'));
+		console.log(chalk.cyan('  • All required dependencies\n'));
+
+		const confirm = await this.askYesNo('Continue with advanced setup?');
+		if (!confirm) {
+			console.log(chalk.gray('\nSetup cancelled.'));
+			return;
+		}
+
+		// Run the auto-setup
+		const autoSetup = new AutoSetup();
+		const result = await autoSetup.run({
+			interactive: true,
+			quickSetup: false,
+			force: false,
+		});
+
+		if (result.success) {
+			console.log(chalk.green('\n✅ Advanced setup completed successfully!'));
+			console.log(chalk.gray('All features are now available.\n'));
+		} else {
+			console.log(chalk.red('\n⚠️  Setup completed with some issues.'));
+			if (result.warnings && result.warnings.length > 0) {
+				console.log(chalk.yellow('\nWarnings:'));
+				result.warnings.forEach(w => console.log(chalk.yellow(`  • ${w}`)));
+			}
+			if (result.errors && result.errors.length > 0) {
+				console.log(chalk.red('\nErrors:'));
+				result.errors.forEach(e => console.log(chalk.red(`  • ${e}`)));
+			}
+		}
+	}
+
+	/**
+	 * Check system health
+	 */
+	private async checkHealth(): Promise<void> {
+		console.log(chalk.bold.cyan('\n🔍 System Health Check\n'));
+
+		// Check Neo4j
+		const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
+		if (neo4jStatus.running) {
+			console.log(chalk.green('✅ Neo4j: Running'));
+		} else {
+			console.log(chalk.red('❌ Neo4j: Not running'));
+		}
+
+		// Check Redis and AI services
+		const autoSetup = new AutoSetup();
+		const health = await autoSetup.runHealthChecks();
+		
+		console.log(health.redis ? chalk.green('✅ Redis: Running') : chalk.red('❌ Redis: Not running'));
+		console.log(health.ai ? chalk.green('✅ AI Services: Configured') : chalk.yellow('⚠️  AI Services: Not configured'));
+
+		// Overall status
+		console.log(chalk.cyan('\n━━━ Overall Status ━━━'));
+		if (neo4jStatus.running && health.overall) {
+			console.log(chalk.green('All systems operational! 🎉'));
+		} else if (neo4jStatus.running || health.redis) {
+			console.log(chalk.yellow('Some services are running. Run setup to configure missing services.'));
+		} else {
+			console.log(chalk.red('No services are running. Run setup to get started.'));
+		}
+
+		console.log(chalk.gray('\nRun setup option 1 or 2 to configure missing services.'));
 	}
 
 	/**

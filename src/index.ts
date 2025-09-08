@@ -15,6 +15,7 @@ import {
 	validateHandlerArgs,
 	type HandlerContext,
 } from './handlers/index.js';
+import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 import { getLogger } from './core/logger.js';
 
 const logger = getLogger('main');
@@ -88,6 +89,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start server
 async function main() {
+	// Check for first run
+	try {
+		const { FirstRunManager } = await import('./services/auto-setup/first-run.js');
+		const firstRunManager = new FirstRunManager();
+		
+		// Initialize on first run (will prompt for setup if interactive)
+		await firstRunManager.initialize({
+			quietMode: process.env.SCRIVENER_QUIET === 'true',
+			skipSetup: process.env.SCRIVENER_SKIP_SETUP === 'true',
+		});
+	} catch (error) {
+		logger.warn('First-run check failed', { error });
+		// Continue anyway
+	}
+
+	// Initialize async services
+	try {
+		await initializeAsyncServices({
+			redisUrl: process.env.REDIS_URL,
+			openaiApiKey: process.env.OPENAI_API_KEY,
+			databasePath: process.env.DATABASE_PATH,
+			neo4jUri: process.env.NEO4J_URI,
+		});
+		logger.info('Async services initialized');
+	} catch (error) {
+		logger.warn('Failed to initialize async services', { error });
+		// Continue without async features
+	}
+
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	logger.info('Scrivener MCP Server started');
@@ -98,6 +128,7 @@ process.on('SIGINT', async () => {
 	logger.info('Shutting down...');
 
 	// Clean up resources
+	await shutdownAsyncServices();
 	if (context.project) {
 		await context.project.close();
 	}
