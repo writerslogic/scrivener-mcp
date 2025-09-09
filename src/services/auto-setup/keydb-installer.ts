@@ -3,11 +3,9 @@
  * Automatically detects and installs KeyDB based on the operating system
  */
 
-import { exec, spawn } from 'child_process';
+import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as os from 'os';
-import * as fs from 'fs/promises';
-import * as path from 'path';
 import { getLogger } from '../../core/logger.js';
 import { detectConnection } from '../queue/keydb-detector.js';
 import {
@@ -15,7 +13,6 @@ import {
 	ErrorCode,
 	handleError,
 	withErrorHandling,
-	ensureDir,
 	retry,
 } from '../../utils/common.js';
 import { detectPlatform, type PlatformInfo } from '../../utils/env-config.js';

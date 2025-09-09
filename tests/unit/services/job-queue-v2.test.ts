@@ -19,8 +19,8 @@ jest.mock('../../../src/services/queue/keydb-detector', () => ({
 // Mock MemoryRedis
 jest.mock('../../../src/services/queue/memory-redis', () => ({
 	MemoryRedis: jest.fn().mockImplementation(() => ({
-		connect: jest.fn().mockResolvedValue(undefined),
-		disconnect: jest.fn().mockResolvedValue(undefined),
+		connect: jest.fn().mockResolvedValue(undefined as any),
+		disconnect: jest.fn().mockResolvedValue(undefined as any),
 		on: jest.fn(),
 		once: jest.fn(),
 	})),

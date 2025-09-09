@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Database Migration System
  * Manages schema versions and migrations for SQLite and Neo4j

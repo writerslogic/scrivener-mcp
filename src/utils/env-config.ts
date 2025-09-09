@@ -64,7 +64,7 @@ export function validateUrl(url: string | undefined, name: string): string | und
 			return undefined;
 		}
 		return url;
-	} catch (error) {
+	} catch {
 		logger.warn(`Invalid URL for ${name}: "${url}"`);
 		return undefined;
 	}

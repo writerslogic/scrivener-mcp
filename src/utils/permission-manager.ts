@@ -77,7 +77,7 @@ export class PermissionManager {
 					needsSudo: true,
 					method: 'sudo',
 				};
-			} catch (sudoError) {
+			} catch {
 				// sudo failed, likely requires password
 				return {
 					hasPermission: false,
@@ -86,7 +86,7 @@ export class PermissionManager {
 					error: 'Sudo requires password (non-interactive mode)',
 				};
 			}
-		} catch (error) {
+		} catch {
 			return {
 				hasPermission: false,
 				needsSudo: false,
