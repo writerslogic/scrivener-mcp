@@ -18,8 +18,8 @@ describe('KeyDBInstaller', () => {
 	let mockExec: any;
 	let detectConnectionMock: any;
 
-	beforeEach(() => {
-		installer = KeyDBInstaller.getInstance();
+	beforeEach(async () => {
+		installer = await KeyDBInstaller.getInstance();
 		mockExec = child_process.exec as any;
 		
 		// Import the mocked module
@@ -35,9 +35,9 @@ describe('KeyDBInstaller', () => {
 	});
 
 	describe('getInstance', () => {
-		it('should return singleton instance', () => {
-			const instance1 = KeyDBInstaller.getInstance();
-			const instance2 = KeyDBInstaller.getInstance();
+		it('should return singleton instance', async () => {
+			const instance1 = await KeyDBInstaller.getInstance();
+			const instance2 = await KeyDBInstaller.getInstance();
 			expect(instance1).toBe(instance2);
 		});
 	});
