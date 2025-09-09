@@ -3,7 +3,7 @@
  */
 
 import Database from 'better-sqlite3';
-import type { Driver, Session } from 'neo4j-driver';
+import type { Driver, ManagedTransaction, Session } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
 import { createError, ErrorCode, withRetry } from '../../core/errors.js';
 import { waitForCondition } from '../../utils/condition-waiter.js';
@@ -228,11 +228,11 @@ export class Neo4jSessionPool {
 		}
 	}
 
-	async readTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+	async readTransaction<T>(fn: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		return this.execute((session) => session.executeRead(fn));
 	}
 
-	async writeTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+	async writeTransaction<T>(fn: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		return this.execute((session) => session.executeWrite(fn));
 	}
 
@@ -306,10 +306,12 @@ export class QueryOptimizer {
 		params: unknown[] = []
 	): unknown[] {
 		// Analyze query plan
-		const plan = db.prepare(`EXPLAIN QUERY PLAN ${query}`).all(...params);
+		const plan = db.prepare(`EXPLAIN QUERY PLAN ${query}`).all(...params) as Array<{
+			detail?: string;
+		}>;
 
 		// Check if indexes are being used
-		const usesIndex = plan.some((step: any) => step.detail?.includes('USING INDEX'));
+		const usesIndex = plan.some((step) => step.detail?.includes('USING INDEX'));
 
 		if (!usesIndex && process.env.NODE_ENV === 'development') {
 			console.warn('Query may benefit from indexing:', query);

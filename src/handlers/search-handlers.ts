@@ -1,6 +1,12 @@
 import { validateInput } from '../utils/common.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
-import { requireProject } from './types.js';
+import {
+	requireProject,
+	getStringArg,
+	getOptionalBooleanArg,
+	getOptionalObjectArg,
+	getOptionalStringArg,
+} from './types.js';
 import {
 	documentDetailsSchema,
 	moveDocumentSchema,
@@ -42,10 +48,13 @@ export const searchContentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, searchContentSchema);
 
-		const results = await project.searchContent(args.query, {
-			caseSensitive: args.caseSensitive || false,
-			regex: args.regex || false,
-			searchMetadata: args.searchIn?.includes('synopsis') || args.searchIn?.includes('notes'),
+		const query = getStringArg(args, 'query');
+		const results = await project.searchContent(query, {
+			caseSensitive: getOptionalBooleanArg(args, 'caseSensitive') || false,
+			regex: getOptionalBooleanArg(args, 'regex') || false,
+			searchMetadata:
+				(getOptionalObjectArg(args, 'searchIn') as string[])?.includes('synopsis') ||
+				(getOptionalObjectArg(args, 'searchIn') as string[])?.includes('notes'),
 		});
 
 		return {
@@ -67,7 +76,7 @@ export const listTrashHandler: ToolDefinition = {
 		type: 'object',
 		properties: {},
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		const trashItems = await project.getTrashDocuments();
 
@@ -105,7 +114,13 @@ export const searchTrashHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, searchTrashSchema);
 
-		const results = await project.searchTrash(args.query, args.searchType || 'both');
+		const query = getStringArg(args, 'query');
+		const caseSensitive = getOptionalBooleanArg(args, 'caseSensitive') || false;
+		const regex = getOptionalBooleanArg(args, 'regex') || false;
+		const results = await project.searchTrash(query, {
+			caseSensitive,
+			regex,
+		});
 
 		return {
 			content: [
@@ -140,7 +155,9 @@ export const recoverDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, moveDocumentSchema);
 
-		await project.recoverFromTrash(args.documentId, args.targetFolderId);
+		const documentId = getStringArg(args, 'documentId');
+		const targetFolderId = getOptionalStringArg(args, 'targetFolderId');
+		await project.recoverFromTrash(documentId, targetFolderId);
 
 		return {
 			content: [
@@ -178,7 +195,8 @@ export const getAnnotationsHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentDetailsSchema);
 
-		const annotations = await project.getDocumentAnnotations(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		const annotations = await project.getDocumentAnnotations(documentId);
 		const formattedAnnotations = {
 			comments: Array.from(annotations.entries()).filter(([k]) => k.startsWith('comment')),
 			footnotes: Array.from(annotations.entries()).filter(([k]) => k.startsWith('footnote')),

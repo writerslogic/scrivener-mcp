@@ -2,9 +2,9 @@
  * Document metadata management service
  */
 
-import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
-import type { BinderItem, MetaDataItem } from '../types/internal.js';
+import { getLogger } from '../core/logger.js';
+import type { BinderItem, MetaDataItem, ProjectStructure } from '../types/internal.js';
 
 const logger = getLogger('metadata-manager');
 
@@ -196,7 +196,7 @@ export class MetadataManager {
 	/**
 	 * Update project-level metadata
 	 */
-	updateProjectMetadata(projectStructure: any, metadata: ProjectMetadata): void {
+	updateProjectMetadata(projectStructure: ProjectStructure, metadata: ProjectMetadata): void {
 		if (!projectStructure?.ScrivenerProject) {
 			throw createError(ErrorCode.INVALID_STATE, 'Invalid project structure');
 		}
@@ -244,11 +244,15 @@ export class MetadataManager {
 
 		// Update custom fields
 		if (metadata.customFields) {
-			if (!settings.CustomFields) {
-				settings.CustomFields = {};
+			const settingsAny = settings as Record<string, unknown>;
+			if (!settingsAny.CustomFields) {
+				settingsAny.CustomFields = {};
 			}
 
-			Object.assign(settings.CustomFields, metadata.customFields);
+			Object.assign(
+				settingsAny.CustomFields as Record<string, unknown>,
+				metadata.customFields
+			);
 		}
 
 		logger.info('Updated project metadata');
@@ -257,7 +261,7 @@ export class MetadataManager {
 	/**
 	 * Get project-level metadata
 	 */
-	getProjectMetadata(projectStructure: any): ProjectMetadata {
+	getProjectMetadata(projectStructure: ProjectStructure): ProjectMetadata {
 		if (!projectStructure?.ScrivenerProject) {
 			return {};
 		}
@@ -270,8 +274,9 @@ export class MetadataManager {
 			metadata.title = settings.ProjectTitle;
 			metadata.author = settings.FullName || settings.Author;
 
-			if (settings.CustomFields) {
-				metadata.customFields = { ...settings.CustomFields };
+			const settingsAny = settings as Record<string, unknown>;
+			if (settingsAny.CustomFields) {
+				metadata.customFields = { ...(settingsAny.CustomFields as Record<string, string>) };
 			}
 		}
 
@@ -394,7 +399,7 @@ export class MetadataManager {
 	/**
 	 * Get statistics about metadata usage
 	 */
-	getMetadataStatistics(items: BinderItem[]): Record<string, any> {
+	getMetadataStatistics(items: BinderItem[]): Record<string, unknown> {
 		const stats = {
 			totalDocuments: 0,
 			withSynopsis: 0,
@@ -472,7 +477,14 @@ export class MetadataManager {
 	}
 
 	// Private helper methods
-	private updateCustomMetadata(metaData: any, customFields: Record<string, string>): void {
+	private updateCustomMetadata(
+		metaData: BinderItem['MetaData'],
+		customFields: Record<string, string>
+	): void {
+		if (!metaData) {
+			return;
+		}
+
 		if (!metaData.CustomMetaData) {
 			metaData.CustomMetaData = { MetaDataItem: [] };
 		}

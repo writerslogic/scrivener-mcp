@@ -26,23 +26,12 @@ interface SceneData {
 	avg_length: number;
 }
 
-interface DialogueRatioData {
-	dialogue_ratio: number;
-}
-
 interface TrendData {
 	date: string;
 	total_words: number;
 	session_count: number;
 	efficiency: number;
 	revisions: number;
-}
-
-interface CharacterDialogueData {
-	character_id: string;
-	name: string;
-	dialogue_samples: string;
-	avg_sentence_length: number;
 }
 
 interface VocabularyData {
@@ -239,19 +228,42 @@ export class WritingAnalytics {
 			RETURN c.id as id, c.name as name, dialogues
 		`);
 
+		// Get vocabulary statistics from SQLite if available
+		const vocabularyStats = this.sqliteManager.query(`
+			SELECT
+				character_id,
+				COUNT(DISTINCT word) as unique_words,
+				COUNT(word) as total_words
+			FROM character_dialogue_words
+			GROUP BY character_id
+		`) as VocabularyData[];
+
+		// Create a map for quick lookup
+		const vocabMap = new Map<string, VocabularyData>();
+		for (const vocab of vocabularyStats) {
+			vocabMap.set(vocab.character_id, vocab);
+		}
+
 		const analyses: CharacterVoiceAnalysis[] = [];
 
 		for (const record of result.records) {
+			const characterId = record.get('id');
 			const dialogues = record.get('dialogues') || [];
 			const allDialogue = dialogues.join(' ');
 
 			// Analyze dialogue patterns
 			const analysis = this.analyzeDialogue(allDialogue);
 
+			// Use vocabulary data if available, otherwise use analysis
+			const vocab = vocabMap.get(characterId);
+			const vocabularyComplexity = vocab
+				? (vocab.unique_words / vocab.total_words) * 100
+				: analysis.complexity;
+
 			analyses.push({
-				characterId: record.get('id'),
+				characterId,
 				name: record.get('name'),
-				vocabularyComplexity: analysis.complexity,
+				vocabularyComplexity,
 				sentenceLength: analysis.avgSentenceLength,
 				distinctPhrases: analysis.phrases,
 				emotionalTone: analysis.tone,
@@ -520,8 +532,9 @@ export class WritingAnalytics {
 		if (scene.beat_type) {
 			// Ensure beat_type is one of the valid values
 			const validTypes = ['action', 'dialogue', 'exposition', 'transition'] as const;
-			if (validTypes.includes(scene.beat_type as any)) {
-				return scene.beat_type as 'action' | 'dialogue' | 'exposition' | 'transition';
+			type ValidType = (typeof validTypes)[number];
+			if (validTypes.includes(scene.beat_type as ValidType)) {
+				return scene.beat_type as ValidType;
 			}
 		}
 		if (dialogueRatio > 0.6) return 'dialogue';

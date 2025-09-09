@@ -2,9 +2,11 @@
  * Async handler definitions for job queue operations
  */
 
-import type { ToolDefinition } from './types.js';
-import * as asyncHandlers from './async-handlers.js';
+import type { JobType } from '../services/queue/job-queue.js';
+import type { ScrivenerDocument } from '../types/index.js';
 import { safeStringify } from '../utils/common.js';
+import * as asyncHandlers from './async-handlers.js';
+import type { ToolDefinition } from './types.js';
 
 export const asyncHandlerDefinitions: ToolDefinition[] = [
 	{
@@ -28,7 +30,18 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['documentId', 'content'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.queueDocumentAnalysis(args);
+			const result = await asyncHandlers.queueDocumentAnalysis(
+				args as {
+					documentId: string;
+					content: string;
+					options?: {
+						includeReadability?: boolean;
+						includeEntities?: boolean;
+						includeSentiment?: boolean;
+						priority?: number;
+					};
+				}
+			);
 			return {
 				content: [
 					{
@@ -59,7 +72,17 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['projectId', 'documents'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.queueProjectAnalysis(args);
+			const result = await asyncHandlers.queueProjectAnalysis(
+				args as {
+					projectId: string;
+					documents: ScrivenerDocument[];
+					options?: {
+						parallel?: boolean;
+						batchSize?: number;
+						priority?: number;
+					};
+				}
+			);
 			return {
 				content: [
 					{
@@ -82,7 +105,12 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['documents'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.buildVectorStore(args);
+			const result = await asyncHandlers.buildVectorStore(
+				args as {
+					documents: ScrivenerDocument[];
+					rebuild?: boolean;
+				}
+			);
 			return {
 				content: [
 					{
@@ -105,7 +133,12 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['query'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.semanticSearch(args);
+			const result = await asyncHandlers.semanticSearch(
+				args as {
+					query: string;
+					topK?: number;
+				}
+			);
 			return {
 				content: [
 					{
@@ -130,7 +163,14 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['prompt'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.generateSuggestions(args);
+			const result = await asyncHandlers.generateSuggestions(
+				args as {
+					prompt: string;
+					documentId?: string;
+					useContext?: boolean;
+					async?: boolean;
+				}
+			);
 			return {
 				content: [
 					{
@@ -155,7 +195,11 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['samples'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.analyzeWritingStyle(args);
+			const result = await asyncHandlers.analyzeWritingStyle(
+				args as {
+					samples: string[];
+				}
+			);
 			return {
 				content: [
 					{
@@ -178,7 +222,12 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['documents'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.checkPlotConsistency(args);
+			const result = await asyncHandlers.checkPlotConsistency(
+				args as {
+					documents: ScrivenerDocument[];
+					async?: boolean;
+				}
+			);
 			return {
 				content: [
 					{
@@ -213,7 +262,12 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['jobType', 'jobId'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.getJobStatus(args);
+			const result = await asyncHandlers.getJobStatus(
+				args as {
+					jobType: JobType;
+					jobId: string;
+				}
+			);
 			return {
 				content: [
 					{
@@ -236,7 +290,12 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['jobType', 'jobId'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.cancelJob(args);
+			const result = await asyncHandlers.cancelJob(
+				args as {
+					jobType: JobType;
+					jobId: string;
+				}
+			);
 			return {
 				content: [
 					{

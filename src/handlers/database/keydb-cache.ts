@@ -7,14 +7,15 @@ import type { Redis } from 'ioredis';
 import { getLogger } from '../../core/logger.js';
 import { createBullMQConnection, detectConnection } from '../../services/queue/keydb-detector.js';
 import { retry, withErrorHandling } from '../../utils/common.js';
+import type { SQLiteManager } from './sqlite-manager.js';
 
 const logger = getLogger('keydb-cache');
 
 export interface CacheOptions {
 	ttl?: number; // Time to live in seconds
 	prefix?: string; // Cache key prefix
-	serialize?: (data: any) => string;
-	deserialize?: (data: string) => any;
+	serialize?: (data: unknown) => string;
+	deserialize?: (data: string) => unknown;
 }
 
 export interface CacheStats {
@@ -100,7 +101,7 @@ export class KeyDBCache {
 	/**
 	 * Set cached value
 	 */
-	async set(key: string, value: any, ttl?: number): Promise<boolean> {
+	async set(key: string, value: unknown, ttl?: number): Promise<boolean> {
 		if (!this.isConnected || !this.client) {
 			return false;
 		}
@@ -268,9 +269,9 @@ export class KeyDBCache {
  */
 export class CachedSQLiteManager {
 	private cache: KeyDBCache;
-	private sqliteManager: any; // Will be injected
+	private sqliteManager: SQLiteManager;
 
-	constructor(sqliteManager: any, cacheOptions?: CacheOptions) {
+	constructor(sqliteManager: SQLiteManager, cacheOptions?: CacheOptions) {
 		this.sqliteManager = sqliteManager;
 		this.cache = new KeyDBCache(cacheOptions);
 	}
@@ -293,7 +294,11 @@ export class CachedSQLiteManager {
 		// Create cache key from SQL and params
 		const cacheKey = `query:${this.hashQuery(sql, params)}`;
 
-		return this.cache.getOrSet(cacheKey, () => this.sqliteManager.query(sql, params), ttl);
+		return this.cache.getOrSet(
+			cacheKey,
+			async () => this.sqliteManager.query(sql, params),
+			ttl
+		);
 	}
 
 	/**
@@ -306,13 +311,17 @@ export class CachedSQLiteManager {
 
 		const cacheKey = `queryOne:${this.hashQuery(sql, params)}`;
 
-		return this.cache.getOrSet(cacheKey, () => this.sqliteManager.queryOne(sql, params), ttl);
+		return this.cache.getOrSet(
+			cacheKey,
+			async () => this.sqliteManager.queryOne(sql, params),
+			ttl
+		);
 	}
 
 	/**
 	 * Execute write operation and invalidate related cache
 	 */
-	async execute(sql: string, params: unknown[] = []): Promise<any> {
+	async execute(sql: string, params: unknown[] = []): Promise<unknown> {
 		const result = this.sqliteManager.execute(sql, params);
 
 		// Invalidate cache based on table being modified

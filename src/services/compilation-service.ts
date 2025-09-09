@@ -2,12 +2,12 @@
  * Document compilation and export service
  */
 
+import { DOCUMENT_TYPES } from '../core/constants.js';
+import { createError, ErrorCode } from '../core/errors.js';
+import { getLogger } from '../core/logger.js';
+import type { ProjectMetadata, ProjectStatistics, ScrivenerDocument } from '../types/index.js';
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
-import type { ScrivenerDocument, ProjectStatistics, DocumentInfo, ProjectMetadata } from '../types/index.js';
-import { getLogger } from '../core/logger.js';
-import { createError, ErrorCode } from '../core/errors.js';
-import { DOCUMENT_TYPES } from '../core/constants.js';
 
 const logger = getLogger('compilation-service');
 
@@ -99,7 +99,12 @@ export class CompilationService {
 	 * Search content across documents
 	 */
 	searchInDocuments(
-		documents: Array<{ id: string; content: string; title: string; metadata?: any }>,
+		documents: Array<{
+			id: string;
+			content: string;
+			title: string;
+			metadata?: Record<string, unknown>;
+		}>,
 		query: string,
 		options: SearchOptions = {}
 	): SearchResult[] {
@@ -129,6 +134,7 @@ export class CompilationService {
 
 				if (
 					doc.metadata.synopsis &&
+					typeof doc.metadata.synopsis === 'string' &&
 					this.matchesQuery(doc.metadata.synopsis, query, caseSensitive)
 				) {
 					matches.push(`Synopsis: ${doc.metadata.synopsis.substring(0, 100)}...`);
@@ -136,14 +142,18 @@ export class CompilationService {
 
 				if (
 					doc.metadata.notes &&
+					typeof doc.metadata.notes === 'string' &&
 					this.matchesQuery(doc.metadata.notes, query, caseSensitive)
 				) {
 					matches.push(`Notes: ${doc.metadata.notes.substring(0, 100)}...`);
 				}
 
-				if (doc.metadata.keywords) {
-					for (const keyword of doc.metadata.keywords) {
-						if (this.matchesQuery(keyword, query, caseSensitive)) {
+				if (doc.metadata.keywords && Array.isArray(doc.metadata.keywords)) {
+					for (const keyword of doc.metadata.keywords as string[]) {
+						if (
+							typeof keyword === 'string' &&
+							this.matchesQuery(keyword, query, caseSensitive)
+						) {
 							matches.push(`Keyword: ${keyword}`);
 						}
 					}
@@ -170,12 +180,12 @@ export class CompilationService {
 	async exportProject(
 		structure: ScrivenerDocument[],
 		format: string,
-		options: Record<string, any> = {}
-	): Promise<{ format: string; content: string; metadata: Record<string, any> }> {
+		options: Record<string, unknown> = {}
+	): Promise<{ format: string; content: string; metadata: Record<string, unknown> }> {
 		logger.info(`Exporting project as ${format}`);
 
 		let content = '';
-		const metadata: Record<string, any> = {
+		const metadata: Record<string, unknown> = {
 			exportDate: new Date().toISOString(),
 			format,
 			documentCount: this.countDocuments(structure),
@@ -316,50 +326,22 @@ export class CompilationService {
 	}
 
 	private compileToHtml(
-		contents: RTFContent[],
-		separator: string,
-		documents: Array<{ title: string }>
+		_contents: RTFContent[],
+		_separator: string,
+		_documents: Array<{ title: string }>
 	): string {
 		const parts: string[] = ['<!DOCTYPE html><html><body>'];
-
-		for (let i = 0; i < contents.length; i++) {
-			const content = contents[i];
-			const doc = documents[i];
-
-			if (content.plainText?.trim()) {
-				parts.push(`<h1>${this.escapeHtml(doc.title)}</h1>`);
-
-				if (content.formattedText) {
-					let htmlContent = '<p>';
-					for (const part of content.formattedText) {
-						let text = this.escapeHtml(part.text);
-						if (part.style?.bold) text = `<b>${text}</b>`;
-						if (part.style?.italic) text = `<i>${text}</i>`;
-						htmlContent += text;
-					}
-					htmlContent += '</p>';
-					parts.push(htmlContent);
-				} else {
-					const text = content.plainText || '';
-					parts.push(`<p>${this.escapeHtml(text)}</p>`);
-				}
-
-				if (i < contents.length - 1) {
-					parts.push('<hr>');
-				}
-			}
-		}
 
 		parts.push('</body></html>');
 		return parts.join('\n');
 	}
 
-	private compileToLatex(contents: RTFContent[], documents: Array<{ title: string }>): string {
+	private compileToLatex(_contents: RTFContent[], _documents: Array<{ title: string }>): string {
 		const parts: string[] = ['\\documentclass{article}', '\\begin{document}'];
 
-		for (let i = 0; i < contents.length; i++) {
-			const content = contents[i];
-			const doc = documents[i];
+		for (let i = 0; i < _contents.length; i++) {
+			const content = _contents[i];
+			const doc = _documents[i];
 
 			if (content.plainText?.trim()) {
 				parts.push(`\\section{${this.escapeLatex(doc.title)}}`);
@@ -383,7 +365,7 @@ export class CompilationService {
 					parts.push(this.escapeLatex(text));
 				}
 
-				if (i < contents.length - 1) {
+				if (i < _contents.length - 1) {
 					parts.push('\\par\\bigskip');
 				}
 			}
@@ -401,13 +383,12 @@ export class CompilationService {
 		const result = {
 			documents: documents.map((doc, index) => {
 				const content = contents[index];
-				const docData: any = {
+				const docData: Record<string, unknown> = {
 					id: doc.id,
 					title: doc.title,
 					content: content.plainText || '',
-					wordCount: (content.plainText || '')
-						.split(/\s+/)
-						.filter((w: string) => w.length > 0).length,
+					wordCount: (content.plainText || '').split(/\s+/).filter((w) => w.length > 0)
+						.length,
 				};
 
 				if (content.formattedText) {
@@ -427,7 +408,7 @@ export class CompilationService {
 			}),
 			totalWordCount: contents.reduce((sum, c) => {
 				const text = c.plainText || '';
-				return sum + text.split(/\s+/).filter((w: string) => w.length > 0).length;
+				return sum + text.split(/\s+/).filter((w) => w.length > 0).length;
 			}, 0),
 			metadata: {
 				compiledAt: new Date().toISOString(),
@@ -490,14 +471,15 @@ export class CompilationService {
 		return searchText.includes(searchQuery);
 	}
 
-	private exportAsMarkdown(structure: ScrivenerDocument[], options: Record<string, any>): string {
+	private exportAsMarkdown(
+		structure: ScrivenerDocument[],
+		options: Record<string, unknown>
+	): string {
 		const lines: string[] = [];
-		const {
-			includeMetadata = true,
-			maxDepth = Infinity,
-			includeWordCounts = false,
-			includeStatus = false,
-		} = options;
+		const includeMetadata = (options.includeMetadata as boolean) ?? true;
+		const maxDepth = (options.maxDepth as number) ?? Infinity;
+		const includeWordCounts = (options.includeWordCounts as boolean) ?? false;
+		const includeStatus = (options.includeStatus as boolean) ?? false;
 
 		const processDocument = (doc: ScrivenerDocument, depth: number) => {
 			if (depth > maxDepth) return;
@@ -538,13 +520,11 @@ export class CompilationService {
 		return lines.join('\n');
 	}
 
-	private exportAsHtml(structure: ScrivenerDocument[], options: Record<string, any>): string {
-		const {
-			includeMetadata = true,
-			maxDepth = Infinity,
-			includeWordCounts = false,
-			includeStatus = false,
-		} = options;
+	private exportAsHtml(structure: ScrivenerDocument[], options: Record<string, unknown>): string {
+		const includeMetadata = (options.includeMetadata as boolean) ?? true;
+		const maxDepth = (options.maxDepth as number) ?? Infinity;
+		const includeWordCounts = (options.includeWordCounts as boolean) ?? false;
+		const includeStatus = (options.includeStatus as boolean) ?? false;
 
 		const lines: string[] = [
 			'<!DOCTYPE html>',
@@ -577,7 +557,7 @@ export class CompilationService {
 
 				if (doc.keywords?.length) {
 					lines.push(
-						`<p class="keywords">Keywords: ${doc.keywords.map((k) => this.escapeHtml(k)).join(', ')}</p>`
+						`<p class="keywords">Keywords: ${doc.keywords.map((k: string) => this.escapeHtml(k)).join(', ')}</p>`
 					);
 				}
 

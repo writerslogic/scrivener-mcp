@@ -50,6 +50,22 @@ export interface PlotAnalysis {
 	suggestions: string[];
 }
 
+export interface WritingPrompt {
+	prompt: string;
+	type: string;
+	difficulty: string;
+	estimatedWords: number;
+	tips: string[];
+	relatedCharacters: string[];
+	suggestedTechniques: string[];
+}
+
+export interface WritingPromptsResponse {
+	prompts: WritingPrompt[];
+	overallTheme: string;
+	writingGoals: string[];
+}
+
 export class OpenAIService {
 	private client: OpenAI | null = null;
 	private config: OpenAIConfig;
@@ -374,7 +390,7 @@ Return analysis in this JSON format:
 
 		try {
 			const prompt = `Analyze this writing project data and suggest areas for development:
-			
+
 Characters: ${JSON.stringify(projectData.characters.slice(0, 10))}
 Plot Threads: ${JSON.stringify(projectData.plotThreads.slice(0, 10))}
 Themes: ${projectData.themes.join(', ')}
@@ -572,7 +588,7 @@ Return in this JSON format:
 					.trim();
 
 				const result = safeParse(cleanedContent, {}) as {
-					prompts?: any[];
+					prompts?: unknown[];
 					overallTheme?: string;
 					writingGoals?: string[];
 				};
@@ -580,21 +596,26 @@ Return in this JSON format:
 				// Validate and enhance the response
 				if (result.prompts && Array.isArray(result.prompts)) {
 					// Ensure all prompts have required fields
-					result.prompts = result.prompts.map((p: any, index: number) => ({
-						prompt: p.prompt || `Writing prompt ${index + 1}`,
-						type: p.type || promptType,
-						difficulty: p.difficulty || this.mapComplexityToDifficulty(complexity),
-						estimatedWords: p.estimatedWords || targetWordCount,
-						tips: Array.isArray(p.tips)
-							? p.tips
-							: this.getDefaultTips(p.type || promptType),
-						relatedCharacters: Array.isArray(p.relatedCharacters)
-							? p.relatedCharacters
-							: [],
-						suggestedTechniques: Array.isArray(p.suggestedTechniques)
-							? p.suggestedTechniques
-							: this.getDefaultTechniques(complexity),
-					}));
+					result.prompts = result.prompts.map((p: unknown, index: number) => {
+						const prompt = p as Record<string, unknown>;
+						return {
+							prompt: String(prompt.prompt || `Writing prompt ${index + 1}`),
+							type: String(prompt.type || promptType),
+							difficulty: String(
+								prompt.difficulty || this.mapComplexityToDifficulty(complexity)
+							),
+							estimatedWords: Number(prompt.estimatedWords || targetWordCount),
+							tips: Array.isArray(prompt.tips)
+								? prompt.tips.map(String)
+								: this.getDefaultTips(String(prompt.type || promptType)),
+							relatedCharacters: Array.isArray(prompt.relatedCharacters)
+								? prompt.relatedCharacters.map(String)
+								: [],
+							suggestedTechniques: Array.isArray(prompt.suggestedTechniques)
+								? prompt.suggestedTechniques.map(String)
+								: this.getDefaultTechniques(complexity),
+						};
+					});
 				} else {
 					return this.getDefaultPromptResponse(count, genre, theme);
 				}
@@ -667,7 +688,7 @@ Return in this JSON format:
 		const systemPrompt = `You are a skilled creative writer. Generate high-quality content based on the given prompt.
 
 Style: ${style}
-Tone: ${tone}  
+Tone: ${tone}
 Perspective: ${perspective} person
 Genre: ${genre}
 Target length: ${length} words
@@ -759,7 +780,11 @@ Please generate content based on this prompt and return in this exact JSON forma
 	/**
 	 * Get default prompt response when API fails
 	 */
-	private getDefaultPromptResponse(count: number, genre: string, theme: string): any {
+	private getDefaultPromptResponse(
+		count: number,
+		genre: string,
+		theme: string
+	): WritingPromptsResponse {
 		const prompts = [];
 		const types = ['scene', 'character', 'dialogue', 'description', 'conflict'];
 
@@ -945,14 +970,19 @@ Return suggestions in this JSON format:
 			const suggestions = safeParse(jsonStr, []);
 
 			if (Array.isArray(suggestions)) {
-				return suggestions.map((s: any) => ({
-					type: s.type || 'style',
-					severity: s.severity || 'medium',
-					original: s.original || '',
-					suggestion: s.suggestion || '',
-					explanation: s.explanation || '',
-					confidence: s.confidence || 0.5,
-				}));
+				return suggestions.map((s: unknown) => {
+					const suggestion = s as Record<string, unknown>;
+					return {
+						type: String(suggestion.type || 'style') as WritingSuggestion['type'],
+						severity: String(
+							suggestion.severity || 'medium'
+						) as WritingSuggestion['severity'],
+						original: String(suggestion.original || ''),
+						suggestion: String(suggestion.suggestion || ''),
+						explanation: String(suggestion.explanation || ''),
+						confidence: Number(suggestion.confidence || 0.5),
+					};
+				});
 			}
 
 			return [];
@@ -970,14 +1000,44 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\{[\s\S]*\}/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const analysis: any = safeParse(jsonStr, {});
+			const analysis = safeParse(jsonStr, {}) as Record<string, unknown>;
 
 			return {
-				tone: analysis.tone || 'neutral',
-				voice: analysis.voice || 'third person',
-				strengths: Array.isArray(analysis.strengths) ? analysis.strengths : [],
-				weaknesses: Array.isArray(analysis.weaknesses) ? analysis.weaknesses : [],
-				suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
+				tone: String(analysis.tone || 'neutral'),
+				voice: String(analysis.voice || 'third person'),
+				strengths: Array.isArray(analysis.strengths) ? analysis.strengths.map(String) : [],
+				weaknesses: Array.isArray(analysis.weaknesses)
+					? analysis.weaknesses.map(String)
+					: [],
+				suggestions: Array.isArray(analysis.suggestions)
+					? (analysis.suggestions as unknown[]).map((s: unknown) => {
+							if (typeof s === 'object' && s !== null) {
+								const suggestion = s as Record<string, unknown>;
+								return {
+									type: String(
+										suggestion.type || 'style'
+									) as WritingSuggestion['type'],
+									severity: String(
+										suggestion.severity || 'medium'
+									) as WritingSuggestion['severity'],
+									original: String(suggestion.original || ''),
+									suggestion: String(suggestion.suggestion || ''),
+									explanation: String(suggestion.explanation || ''),
+									confidence: Number(suggestion.confidence || 0.5),
+								};
+							} else {
+								// Fallback for simple string suggestions
+								return {
+									type: 'style' as WritingSuggestion['type'],
+									severity: 'medium' as WritingSuggestion['severity'],
+									original: '',
+									suggestion: String(s),
+									explanation: '',
+									confidence: 0.5,
+								};
+							}
+						})
+					: [],
 			};
 		} catch (error) {
 			logger.error('Failed to parse style analysis', { error });
@@ -993,16 +1053,21 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\{[\s\S]*\}/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const analysis = safeParse(jsonStr, {}) as Record<string, any>;
+			const analysis = safeParse(jsonStr, {}) as Record<string, unknown>;
 
 			if (analysis.characters && Array.isArray(analysis.characters)) {
-				return analysis.characters.map((char: Record<string, any>) => ({
-					name: String(char.name || 'Unknown'),
-					consistency: Number(char.consistency || 0.5),
-					development: String(char.development || 'developing'),
-					dialogue_quality: Number(char.dialogue_quality || 0.5),
-					suggestions: Array.isArray(char.suggestions) ? char.suggestions : [],
-				}));
+				return analysis.characters.map((char: unknown) => {
+					const character = char as Record<string, unknown>;
+					return {
+						name: String(character.name || 'Unknown'),
+						consistency: Number(character.consistency || 0.5),
+						development: String(character.development || 'developing'),
+						dialogue_quality: Number(character.dialogue_quality || 0.5),
+						suggestions: Array.isArray(character.suggestions)
+							? character.suggestions.map(String)
+							: [],
+					};
+				});
 			}
 
 			return [];
@@ -1020,16 +1085,20 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\{[\s\S]*\}/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const analysis = safeParse(jsonStr, {}) as Record<string, any>;
+			const analysis = safeParse(jsonStr, {}) as Record<string, unknown>;
 
 			return {
-				pacing: analysis.pacing || 'moderate',
-				tension: analysis.tension || 0.5,
+				pacing: String(analysis.pacing || 'moderate') as PlotAnalysis['pacing'],
+				tension: Number(analysis.tension || 0.5),
 				structure_issues: Array.isArray(analysis.structure_issues)
-					? analysis.structure_issues
+					? analysis.structure_issues.map(String)
 					: [],
-				plot_holes: Array.isArray(analysis.plot_holes) ? analysis.plot_holes : [],
-				suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
+				plot_holes: Array.isArray(analysis.plot_holes)
+					? analysis.plot_holes.map(String)
+					: [],
+				suggestions: Array.isArray(analysis.suggestions)
+					? analysis.suggestions.map(String)
+					: [],
 			};
 		} catch (error) {
 			logger.error('Failed to parse plot analysis', { error });

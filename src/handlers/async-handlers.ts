@@ -3,12 +3,13 @@
  * Provides MCP handlers for async processing with BullMQ
  */
 
-import { JobQueueService, JobType } from '../services/queue/job-queue-v2.js';
-import { LangChainService } from '../services/ai/langchain-service.js';
+import type { Job } from 'bullmq';
 import { createError, ErrorCode } from '../core/errors.js';
-import { validateInput } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
+import { LangChainService } from '../services/ai/langchain-service.js';
+import { JobQueueService, JobType } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
+import { validateInput } from '../utils/common.js';
 
 let jobQueueService: JobQueueService | null = null;
 let langchainService: LangChainService | null = null;
@@ -309,7 +310,31 @@ export async function getJobStatus(params: { jobType: JobType; jobId: string }):
 		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 	}
 
-	return await jobQueueService.getJobStatus(params.jobType, params.jobId);
+	const jobStatus = await jobQueueService.getJobStatus(params.jobType, params.jobId);
+
+	// Handle null response (job not found)
+	if (!jobStatus) {
+		return {
+			state: 'not_found',
+			progress: 0,
+			error: `Job ${params.jobId} not found`,
+		};
+	}
+
+	// Handle Job object from v2 API
+	if ('attemptsMade' in jobStatus) {
+		// This is a Job object from BullMQ
+		const job = jobStatus as Job<unknown, unknown, string>;
+		return {
+			state: await job.getState(),
+			progress: typeof job.progress === 'number' ? job.progress : 0,
+			result: job.returnvalue,
+			error: job.failedReason,
+		};
+	}
+
+	// Already in the correct format from v1 API
+	return jobStatus;
 }
 
 /**
@@ -328,6 +353,26 @@ export async function cancelJob(params: {
 	await jobQueueService.cancelJob(params.jobType, params.jobId);
 
 	return { message: `Job ${params.jobId} cancelled` };
+}
+
+/**
+ * Helper function to normalize queue stats from different API versions
+ */
+function normalizeQueueStats(rawStats: Record<string, unknown>): {
+	waiting: number;
+	active: number;
+	completed: number;
+	failed: number;
+	delayed: number;
+} {
+	// Handle both v1 (direct object) and v2 (Record<string, unknown>) formats
+	return {
+		waiting: Number(rawStats.waiting || 0),
+		active: Number(rawStats.active || 0),
+		completed: Number(rawStats.completed || 0),
+		failed: Number(rawStats.failed || 0),
+		delayed: Number(rawStats.delayed || 0),
+	};
 }
 
 /**
@@ -362,12 +407,14 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 
 	if (params.jobType) {
 		// Get stats for specific queue
-		const stats = await jobQueueService.getQueueStats(params.jobType);
+		const rawStats = await jobQueueService.getQueueStats(params.jobType);
+		const stats = normalizeQueueStats(rawStats);
 		queues.push({ type: params.jobType, stats });
 	} else {
 		// Get stats for all queues
 		for (const jobType of Object.values(JobType)) {
-			const stats = await jobQueueService.getQueueStats(jobType);
+			const rawStats = await jobQueueService.getQueueStats(jobType);
+			const stats = normalizeQueueStats(rawStats);
 			queues.push({ type: jobType, stats });
 		}
 	}

@@ -16,16 +16,12 @@ import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
+	getObjectArg,
+	getOptionalNumberArg,
+	getOptionalObjectArg,
+	getStringArg,
 	requireMemoryManager,
 	requireProject,
-	getStringArg,
-	getOptionalStringArg,
-	getOptionalNumberArg,
-	getOptionalBooleanArg,
-	getObjectArg,
-	getOptionalObjectArg,
-	getArrayArg,
-	getNumberArg,
 } from './types.js';
 import {
 	analysisSchema,
@@ -107,7 +103,7 @@ export const enhanceContentHandler: ToolDefinition = {
 		const documentId = getStringArg(args, 'documentId');
 		const enhancementType = getStringArg(args, 'enhancementType') as EnhancementType;
 		const options = getOptionalObjectArg(args, 'options');
-		
+
 		const content = await project.readDocument(documentId);
 		if (!content) {
 			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
@@ -116,7 +112,7 @@ export const enhanceContentHandler: ToolDefinition = {
 		const enhanced = await context.contentEnhancer.enhance({
 			content,
 			type: enhancementType,
-			options: options as any,
+			options: options || {},
 		});
 
 		return {
@@ -166,14 +162,19 @@ export const generateContentHandler: ToolDefinition = {
 		validateInput(args, promptSchema);
 
 		try {
+			// Extract prompt first
+			const prompt = getStringArg(args, 'prompt');
+
 			// Get OpenAI API key from environment
 			const apiKey = process.env.OPENAI_API_KEY;
 
 			if (!apiKey) {
 				// Return enhanced placeholder when no API key is available
+				const length = getOptionalNumberArg(args, 'length') || 500;
+				const context = getOptionalObjectArg(args, 'context');
 				const generated = {
-					content: `AI-Generated Content for: "${args.prompt}"\n\nThis is placeholder content. To enable actual AI content generation, please configure your OpenAI API key in the environment variables.\n\nThe generated content would be tailored to your specifications:\n- Length: ${args.length || 500} words\n- Context: ${args.context ? JSON.stringify(args.context, null, 2) : 'None provided'}`,
-					wordCount: Math.max(50, Math.floor((args.length || 500) * 0.3)),
+					content: `AI-Generated Content for: "${prompt}"\n\nThis is placeholder content. To enable actual AI content generation, please configure your OpenAI API key in the environment variables.\n\nThe generated content would be tailored to your specifications:\n- Length: ${length} words\n- Context: ${context ? JSON.stringify(context, null, 2) : 'None provided'}`,
+					wordCount: Math.max(50, Math.floor(length * 0.3)),
 					type: 'creative',
 					suggestions: [
 						'Configure OpenAI API key to enable AI content generation',
@@ -201,9 +202,12 @@ export const generateContentHandler: ToolDefinition = {
 			const openaiService = new OpenAIService({ apiKey });
 
 			// Extract context information
-			const prompt = getStringArg(args, 'prompt');
 			const length = getOptionalNumberArg(args, 'length');
-			const contextData = getOptionalObjectArg(args, 'context') || {} as any;
+			const contextData = (getOptionalObjectArg(args, 'context') || {}) as {
+				style?: string;
+				documentId?: string;
+				characterIds?: string[];
+			};
 			const style = contextData.style || 'creative';
 			const contextInfo = contextData.documentId
 				? `Document context: ${contextData.documentId}\nCharacters: ${(contextData.characterIds || []).join(', ')}`
@@ -276,8 +280,8 @@ export const updateMemoryHandler: ToolDefinition = {
 
 		// Update memory based on type
 		const memoryType = getStringArg(args, 'memoryType');
-		const data = getObjectArg(args, 'data') as any;
-		
+		const data = getObjectArg(args, 'data') as Record<string, unknown>;
+
 		switch (memoryType) {
 			case 'characters':
 				if (data.id) {
@@ -303,10 +307,7 @@ export const updateMemoryHandler: ToolDefinition = {
 				}
 				break;
 			default:
-				throw createError(
-					ErrorCode.INVALID_INPUT,
-					`Unknown memory type: ${memoryType}`
-				);
+				throw createError(ErrorCode.INVALID_INPUT, `Unknown memory type: ${memoryType}`);
 		}
 
 		return {
@@ -525,10 +526,58 @@ async function checkCharacterConsistency(
 		const orderedMentions = mentions.sort((a, b) => a.docId.localeCompare(b.docId));
 
 		if (orderedMentions.length > 2) {
-			// Check if character disappears for more than 3 chapters
-			// TODO: This is a simplified check - in practice you'd want more sophisticated logic
+			// Check if character disappears for extended periods
+			// Create a map of all documents for easier lookup
+			const docMap = new Map(documents.map((d) => [d.id, d]));
+
+			// Get document indices for proper ordering
+			const docIndices = new Map<string, number>();
+			documents.forEach((doc, index) => {
+				if (doc.id) docIndices.set(doc.id, index);
+			});
+
+			// Analyze gaps between character appearances
 			for (let i = 0; i < orderedMentions.length - 1; i++) {
-				// Implementation would go here for gap analysis
+				const currentMention = orderedMentions[i];
+				const nextMention = orderedMentions[i + 1];
+
+				const currentIndex = docIndices.get(currentMention.docId) ?? 0;
+				const nextIndex = docIndices.get(nextMention.docId) ?? 0;
+				const gap = nextIndex - currentIndex;
+
+				// Flag if character disappears for more than 3 consecutive chapters
+				if (gap > 3) {
+					const currentDoc = docMap.get(currentMention.docId);
+					const nextDoc = docMap.get(nextMention.docId);
+
+					issues.push({
+						type: 'character',
+						description: `${character.name} disappears for ${gap - 1} chapter(s) between "${currentDoc?.title}" and "${nextDoc?.title}"`,
+						severity: gap > 5 ? 'error' : 'warning',
+						documentId: currentMention.docId,
+						suggestion:
+							gap > 5
+								? "Consider adding mentions or explaining the character's absence"
+								: 'Verify if character absence is intentional',
+					});
+				}
+			}
+
+			// Check for abrupt final disappearance
+			const lastMention = orderedMentions[orderedMentions.length - 1];
+			const lastMentionIndex = docIndices.get(lastMention.docId) ?? 0;
+			const remainingChapters = documents.length - lastMentionIndex - 1;
+
+			if (remainingChapters > 3) {
+				const lastDoc = docMap.get(lastMention.docId);
+				issues.push({
+					type: 'character',
+					description: `${character.name} disappears after "${lastDoc?.title}" with ${remainingChapters} chapters remaining`,
+					severity: remainingChapters > 5 ? 'error' : 'warning',
+					documentId: lastMention.docId,
+					suggestion:
+						"Consider resolving the character's storyline or explaining their absence",
+				});
 			}
 		}
 	}

@@ -278,6 +278,14 @@ export class ContentAnalyzer {
 			.slice(0, 10)
 			.map(([word, count]) => ({ word, count }));
 
+		// Calculate style consistency based on various metrics
+		const styleConsistency = this.calculateStyleConsistency({
+			sentences,
+			paragraphs: content.split(/\n\n+/),
+			sentenceVariety: parseFloat(sentenceVariety),
+			vocabularyComplexity: parseFloat(vocabularyComplexity),
+		});
+
 		return {
 			sentenceVariety,
 			vocabularyComplexity,
@@ -286,8 +294,56 @@ export class ContentAnalyzer {
 			dialoguePercentage,
 			descriptionPercentage,
 			mostFrequentWords,
-			styleConsistency: 85, // TODO: Simplified for now
+			styleConsistency,
 		};
+	}
+
+	private calculateStyleConsistency(data: {
+		sentences: string[];
+		paragraphs: string[];
+		sentenceVariety: number;
+		vocabularyComplexity: number;
+	}): number {
+		// Calculate sentence length consistency
+		const sentenceLengths = data.sentences.map((s) => s.split(/\s+/).length);
+		const avgSentenceLength =
+			sentenceLengths.reduce((a, b) => a + b, 0) / sentenceLengths.length;
+		const sentenceLengthStdDev = Math.sqrt(
+			sentenceLengths.reduce((sum, len) => sum + Math.pow(len - avgSentenceLength, 2), 0) /
+				sentenceLengths.length
+		);
+		const sentenceLengthCV = (sentenceLengthStdDev / avgSentenceLength) * 100;
+
+		// Calculate paragraph length consistency
+		const paragraphLengths = data.paragraphs.map((p) => p.split(/\s+/).length);
+		const avgParagraphLength =
+			paragraphLengths.reduce((a, b) => a + b, 0) / paragraphLengths.length;
+		const paragraphLengthStdDev = Math.sqrt(
+			paragraphLengths.reduce((sum, len) => sum + Math.pow(len - avgParagraphLength, 2), 0) /
+				paragraphLengths.length
+		);
+		const paragraphLengthCV = (paragraphLengthStdDev / avgParagraphLength) * 100;
+
+		// Calculate overall consistency score
+		// Lower coefficient of variation means more consistency
+		const sentenceConsistencyScore = Math.max(0, 100 - sentenceLengthCV);
+		const paragraphConsistencyScore = Math.max(0, 100 - paragraphLengthCV);
+
+		// Weight different aspects of consistency
+		const weights = {
+			sentenceLength: 0.3,
+			paragraphLength: 0.2,
+			sentenceVariety: 0.25,
+			vocabularyComplexity: 0.25,
+		};
+
+		const weightedScore =
+			sentenceConsistencyScore * weights.sentenceLength +
+			paragraphConsistencyScore * weights.paragraphLength +
+			data.sentenceVariety * weights.sentenceVariety +
+			data.vocabularyComplexity * weights.vocabularyComplexity;
+
+		return Math.round(Math.min(100, Math.max(0, weightedScore)));
 	}
 
 	private analyzeStructure(content: string): StructureAnalysis {
@@ -552,28 +608,100 @@ export class ContentAnalyzer {
 		const dominantEmotion =
 			Array.from(emotionCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
-		// TODO: Simplified emotional arc
-		const segments = this.splitIntoSegments(content, 5);
-		const emotionalArc = segments.map((segment, index) => {
+		// Sophisticated emotional arc analysis
+		const segments = this.splitIntoSegments(content, 10); // More granular segments
+		const emotionalArc: Array<{
+			position: number;
+			emotion: string;
+			intensity: number;
+			transition?: boolean;
+		}> = [];
+
+		for (let index = 0; index < segments.length; index++) {
+			const segment = segments[index];
 			const segmentEmotions = this.detectSegmentEmotion(segment);
-			return {
+			const segmentWords = segment.toLowerCase().split(/\s+/);
+
+			// Calculate emotional intensity based on density of emotional words
+			const emotionalWordCount = segmentWords.filter((w) => this.isEmotionalWord(w)).length;
+			const intensity = Math.min(100, (emotionalWordCount / segmentWords.length) * 500);
+
+			// Detect emotional transitions
+			const prevEmotion = index > 0 ? emotionalArc[index - 1]?.emotion : null;
+			const emotionShift = prevEmotion && prevEmotion !== segmentEmotions.emotion;
+
+			emotionalArc.push({
 				position: (index + 1) / segments.length,
 				emotion: segmentEmotions.emotion,
-				intensity: segmentEmotions.intensity,
-			};
-		});
+				intensity: Math.round(intensity),
+				transition: emotionShift || undefined,
+			});
+		}
 
 		// Tension level using semantic pattern detection
 		const tensionCount = words.filter((w) => this.isConflictWord(w)).length;
 		const sentenceCount = splitIntoSentences(content).length;
 		const tensionLevel = Math.min((tensionCount / sentenceCount) * 100, 100);
 
+		// Calculate mood consistency based on emotional transitions
+		const moodConsistency = this.calculateMoodConsistency(emotionalArc);
+
 		return {
 			dominantEmotion,
 			emotionalArc,
 			tensionLevel,
-			moodConsistency: 75, // TODO: Simplified
+			moodConsistency,
 		};
+	}
+
+	private isEmotionalWord(word: string): boolean {
+		const emotionalWords = [
+			'love',
+			'hate',
+			'fear',
+			'joy',
+			'sad',
+			'happy',
+			'angry',
+			'excited',
+			'nervous',
+			'anxious',
+			'hopeful',
+			'desperate',
+			'passionate',
+			'lonely',
+			'devastated',
+			'thrilled',
+			'terrified',
+			'elated',
+			'miserable',
+			'furious',
+		];
+		return emotionalWords.includes(word.toLowerCase());
+	}
+
+	private calculateMoodConsistency(
+		emotionalArc: Array<{ emotion: string; intensity: number; transition?: boolean }>
+	): number {
+		if (emotionalArc.length < 2) return 100;
+
+		// Count emotional transitions
+		const transitionCount = emotionalArc.filter((arc) => arc.transition).length;
+		const transitionRate = transitionCount / (emotionalArc.length - 1);
+
+		// Calculate intensity variance
+		const intensities = emotionalArc.map((arc) => arc.intensity);
+		const avgIntensity = intensities.reduce((a, b) => a + b, 0) / intensities.length;
+		const intensityVariance = Math.sqrt(
+			intensities.reduce((sum, int) => sum + Math.pow(int - avgIntensity, 2), 0) /
+				intensities.length
+		);
+
+		// Lower transition rate and lower intensity variance = higher consistency
+		const transitionScore = Math.max(0, 100 - transitionRate * 100);
+		const intensityScore = Math.max(0, 100 - intensityVariance);
+
+		return Math.round(transitionScore * 0.6 + intensityScore * 0.4);
 	}
 
 	private analyzePacing(content: string): PacingAnalysis {

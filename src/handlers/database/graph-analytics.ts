@@ -358,7 +358,15 @@ export class GraphAnalytics {
 		return 'occasional interaction';
 	}
 
-	private generateFlowSuggestions(_chapters: any[], tensionCurve: number[]): string[] {
+	private generateFlowSuggestions(
+		_chapters: Array<{
+			id: string;
+			intensity: number;
+			charactersPresent: number;
+			plotThreadsActive: number;
+		}>,
+		tensionCurve: number[]
+	): string[] {
 		const suggestions: string[] = [];
 
 		// Check for flat sections
@@ -395,7 +403,14 @@ export class GraphAnalytics {
 		return flat;
 	}
 
-	private generateStructureSuggestions(structure: string, milestones: any[]): string[] {
+	private generateStructureSuggestions(
+		structure: string,
+		milestones: Array<{
+			chapter: string;
+			event: string;
+			impact: number;
+		}>
+	): string[] {
 		const suggestions: string[] = [];
 
 		switch (structure) {

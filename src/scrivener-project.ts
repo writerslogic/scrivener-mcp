@@ -336,6 +336,9 @@ export class ScrivenerProject {
 
 	async getProjectMetadata(): Promise<ScrivenerMetadata> {
 		const structure = this.projectLoader.getProjectStructure();
+		if (!structure) {
+			return {};
+		}
 		return this.metadataManager.getProjectMetadata(structure);
 	}
 

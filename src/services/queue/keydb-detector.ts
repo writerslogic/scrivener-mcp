@@ -149,7 +149,7 @@ export function createBullMQConnection(url: string): Redis {
 		logger.debug('Connected to KeyDB/Redis for job queue');
 	});
 
-	client.on('error', (error: any) => {
+	client.on('error', (error: Error) => {
 		logger.error('KeyDB/Redis connection error', { error });
 	});
 

@@ -2,23 +2,23 @@
  * Document management service for Scrivener projects
  */
 
-import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as path from 'path';
+import { LRUCache } from '../core/cache.js';
+import { DOCUMENT_TYPES } from '../core/constants.js';
+import { createError, ErrorCode } from '../core/errors.js';
+import { getLogger } from '../core/logger.js';
+import type { ScrivenerDocument } from '../types/index.js';
+import type {
+	BinderContainer,
+	BinderItem,
+	MetaDataItem,
+	ProjectStructure,
+} from '../types/internal.js';
+import { ensureDir } from '../utils/common.js';
+import { generateScrivenerUUID, getDocumentPath } from '../utils/scrivener-utils.js';
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
-import { LRUCache } from '../core/cache.js';
-import { getLogger } from '../core/logger.js';
-import { getDocumentPath, generateScrivenerUUID } from '../utils/scrivener-utils.js';
-import type {
-	ProjectStructure,
-	BinderItem,
-	BinderContainer,
-	MetaDataItem,
-} from '../types/internal.js';
-import type { ScrivenerDocument } from '../types/index.js';
-import { createError, ErrorCode } from '../core/errors.js';
-import { DOCUMENT_TYPES } from '../core/constants.js';
-import { ensureDir } from '../utils/common.js';
 
 const logger = getLogger('document-manager');
 
@@ -61,8 +61,8 @@ export class DocumentManager {
 
 		try {
 			return await fs.readFile(filePath, 'utf-8');
-		} catch (error: any) {
-			if (error.code === 'ENOENT') {
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				logger.warn(`Document ${documentId} not found at ${filePath}`);
 				return '';
 			}
@@ -90,8 +90,8 @@ export class DocumentManager {
 			const rtfContent = await this.rtfHandler.parseRTF(rtfString);
 			this.documentCache.set(cacheKey, rtfContent);
 			return rtfContent;
-		} catch (error: any) {
-			if (error.code === 'ENOENT') {
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				logger.warn(`Document ${documentId} not found at ${filePath}`);
 				return {
 					plainText: '',
@@ -128,11 +128,6 @@ export class DocumentManager {
 
 		await this.rtfHandler.writeRTF(filePath, rtfContent);
 		return; // writeRTF handles the file writing
-		// File writing handled by writeRTF
-
-		// Invalidate cache
-		this.documentCache.delete(`doc:${documentId}`);
-		logger.debug(`Document ${documentId} written successfully`);
 	}
 
 	/**
@@ -148,7 +143,7 @@ export class DocumentManager {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 		const id = generateScrivenerUUID();
 
 		// Create the document file if it's a text document
@@ -180,7 +175,12 @@ export class DocumentManager {
 			}
 			targetContainer = parent.Children;
 		} else {
-			targetContainer = binder.BinderItem?.[0]?.Children;
+			const binderItems = Array.isArray(binder.BinderItem)
+				? binder.BinderItem
+				: binder.BinderItem
+					? [binder.BinderItem]
+					: [];
+			targetContainer = binderItems[0]?.Children;
 		}
 
 		if (!targetContainer) {
@@ -212,31 +212,35 @@ export class DocumentManager {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 		const removed = this.removeBinderItem(documentId, binder);
 
 		if (!removed) {
 			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
 		}
 
-		// Move to trash
-		if (!binder.SearchResults?.[0]?.Children) {
-			if (!binder.SearchResults) {
-				binder.SearchResults = [{ Children: { BinderItem: [] } }];
-			} else if (!binder.SearchResults[0].Children) {
-				binder.SearchResults[0].Children = { BinderItem: [] };
-			}
+		// Move to trash - ensure SearchResults is an array
+		const searchResults = Array.isArray(binder.SearchResults)
+			? binder.SearchResults
+			: binder.SearchResults
+				? [binder.SearchResults]
+				: [];
+
+		if (searchResults.length === 0) {
+			searchResults.push({ Children: { BinderItem: [] } });
+			binder.SearchResults = searchResults;
+		} else if (!searchResults[0].Children) {
+			searchResults[0].Children = { BinderItem: [] };
 		}
 
-		if (!binder.SearchResults[0].Children.BinderItem) {
-			binder.SearchResults[0].Children.BinderItem = [];
-		} else if (!Array.isArray(binder.SearchResults[0].Children.BinderItem)) {
-			binder.SearchResults[0].Children.BinderItem = [
-				binder.SearchResults[0].Children.BinderItem,
-			];
+		const trashContainer = searchResults[0].Children!;
+		if (!trashContainer.BinderItem) {
+			trashContainer.BinderItem = [];
+		} else if (!Array.isArray(trashContainer.BinderItem)) {
+			trashContainer.BinderItem = [trashContainer.BinderItem];
 		}
 
-		(binder.SearchResults[0].Children.BinderItem as BinderItem[]).push(removed);
+		(trashContainer.BinderItem as BinderItem[]).push(removed);
 		logger.info(`Document ${documentId} moved to trash`);
 	}
 
@@ -248,7 +252,7 @@ export class DocumentManager {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 		const item = this.findBinderItem(documentId, binder);
 
 		if (!item) {
@@ -267,7 +271,7 @@ export class DocumentManager {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 
 		if (documentId === newParentId) {
 			throw createError(ErrorCode.INVALID_INPUT, undefined, 'Cannot move document to itself');
@@ -300,16 +304,20 @@ export class DocumentManager {
 			}
 		} else {
 			// Move to root
-			if (!binder.BinderItem?.[0]?.Children?.BinderItem) {
+			const binderItems = Array.isArray(binder.BinderItem)
+				? binder.BinderItem
+				: binder.BinderItem
+					? [binder.BinderItem]
+					: [];
+
+			if (!binderItems[0]?.Children?.BinderItem) {
 				throw createError(ErrorCode.INVALID_STATE, undefined, 'Root container not found');
 			}
 			// Ensure BinderItem is an array
-			if (!Array.isArray(binder.BinderItem[0].Children.BinderItem)) {
-				binder.BinderItem[0].Children.BinderItem = [
-					binder.BinderItem[0].Children.BinderItem,
-				];
+			if (!Array.isArray(binderItems[0].Children.BinderItem)) {
+				binderItems[0].Children.BinderItem = [binderItems[0].Children.BinderItem];
 			}
-			(binder.BinderItem[0].Children.BinderItem as BinderItem[]).push(extractedItem);
+			(binderItems[0].Children.BinderItem as BinderItem[]).push(extractedItem);
 		}
 
 		logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
@@ -323,14 +331,20 @@ export class DocumentManager {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 
 		// Find and remove from trash
-		if (!binder.SearchResults?.[0]?.Children?.BinderItem) {
+		const searchResults = Array.isArray(binder.SearchResults)
+			? binder.SearchResults
+			: binder.SearchResults
+				? [binder.SearchResults]
+				: [];
+
+		if (!searchResults[0]?.Children?.BinderItem) {
 			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
 		}
 
-		const trashItems = binder.SearchResults[0].Children.BinderItem;
+		const trashItems = searchResults[0].Children.BinderItem;
 		// Ensure trashItems is an array
 		const trashArray = Array.isArray(trashItems) ? trashItems : [trashItems];
 
@@ -340,7 +354,8 @@ export class DocumentManager {
 		}
 
 		const itemIndex = trashArray.findIndex(
-			(item: any) => item.UUID === documentId || item.ID === documentId
+			(item) =>
+				(item as BinderItem).UUID === documentId || (item as BinderItem).ID === documentId
 		);
 
 		if (itemIndex === -1) {
@@ -353,7 +368,7 @@ export class DocumentManager {
 
 		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
 		// Update the trash with the modified array
-		binder.SearchResults[0].Children.BinderItem = trashArray;
+		searchResults[0].Children!.BinderItem = trashArray;
 
 		// Place in target location or root
 		if (targetParentId) {
@@ -377,16 +392,20 @@ export class DocumentManager {
 			(targetParent.Children.BinderItem as BinderItem[]).push(recoveredItem);
 		} else {
 			// Restore to root level
-			if (!binder.BinderItem?.[0]?.Children?.BinderItem) {
+			const binderItems = Array.isArray(binder.BinderItem)
+				? binder.BinderItem
+				: binder.BinderItem
+					? [binder.BinderItem]
+					: [];
+
+			if (!binderItems[0]?.Children?.BinderItem) {
 				throw createError(ErrorCode.INVALID_STATE, undefined, 'Root container not found');
 			}
 			// Ensure BinderItem is an array
-			if (!Array.isArray(binder.BinderItem[0].Children.BinderItem)) {
-				binder.BinderItem[0].Children.BinderItem = [
-					binder.BinderItem[0].Children.BinderItem,
-				];
+			if (!Array.isArray(binderItems[0].Children.BinderItem)) {
+				binderItems[0].Children.BinderItem = [binderItems[0].Children.BinderItem];
 			}
-			(binder.BinderItem[0].Children.BinderItem as BinderItem[]).push(recoveredItem);
+			(binderItems[0].Children.BinderItem as BinderItem[]).push(recoveredItem);
 		}
 
 		logger.info(
@@ -456,15 +475,29 @@ export class DocumentManager {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 		const documents: ScrivenerDocument[] = [];
 
-		if (binder.BinderItem?.[0]?.Children?.BinderItem) {
-			this.buildDocumentTree(binder.BinderItem[0].Children, documents, '');
+		const binderItems = Array.isArray(binder.BinderItem)
+			? binder.BinderItem
+			: binder.BinderItem
+				? [binder.BinderItem]
+				: [];
+
+		if (binderItems[0]?.Children?.BinderItem) {
+			this.buildDocumentTree(binderItems[0].Children, documents, '');
 		}
 
-		if (includeTrash && binder.SearchResults?.[0]?.Children?.BinderItem) {
-			this.buildDocumentTree(binder.SearchResults[0].Children, documents, 'Trash/');
+		if (includeTrash) {
+			const searchResults = Array.isArray(binder.SearchResults)
+				? binder.SearchResults
+				: binder.SearchResults
+					? [binder.SearchResults]
+					: [];
+
+			if (searchResults[0]?.Children?.BinderItem) {
+				this.buildDocumentTree(searchResults[0].Children, documents, 'Trash/');
+			}
 		}
 
 		return documents;
@@ -559,10 +592,19 @@ export class DocumentManager {
 		return doc;
 	}
 
-	private findBinderItem(id: string, container: any): BinderItem | undefined {
+	private findBinderItem(
+		id: string,
+		container: {
+			BinderItem?: BinderItem | BinderItem[];
+			Children?: { BinderItem?: BinderItem | BinderItem[] };
+		}
+	): BinderItem | undefined {
 		if (!container) return undefined;
 
-		const searchContainer = (cont: any): BinderItem | undefined => {
+		const searchContainer = (cont: {
+			BinderItem?: BinderItem | BinderItem[];
+			Children?: { BinderItem?: BinderItem | BinderItem[] };
+		}): BinderItem | undefined => {
 			const items = cont.BinderItem || cont.Children?.BinderItem;
 			if (!items) return undefined;
 
@@ -587,10 +629,22 @@ export class DocumentManager {
 		return undefined;
 	}
 
-	private removeBinderItem(id: string, container: any): BinderItem | undefined {
+	private removeBinderItem(
+		id: string,
+		container: {
+			BinderItem?: BinderItem | BinderItem[];
+			Children?: { BinderItem?: BinderItem | BinderItem[] };
+		}
+	): BinderItem | undefined {
 		if (!container) return undefined;
 
-		const removeFromContainer = (cont: any, isRoot = false): BinderItem | undefined => {
+		const removeFromContainer = (
+			cont: {
+				BinderItem?: BinderItem | BinderItem[];
+				Children?: { BinderItem?: BinderItem | BinderItem[] };
+			},
+			isRoot = false
+		): BinderItem | undefined => {
 			const items = cont.BinderItem || cont.Children?.BinderItem;
 			if (!items) return undefined;
 

@@ -1,3 +1,4 @@
+import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -106,9 +107,13 @@ export const exportProjectHandler: ToolDefinition = {
 		// Export project
 		const format = getStringArg(args, 'format');
 		const outputPath = getOptionalStringArg(args, 'outputPath');
-		const options = getOptionalObjectArg(args, 'options');
+		const options = getOptionalObjectArg(args, 'options') as Partial<ExportOptions> | undefined;
 
-		const result = await project.exportProject(format, outputPath, options);
+		const result = await project.exportProject(
+			format,
+			outputPath,
+			options as Partial<ExportOptions> | undefined
+		);
 
 		return {
 			content: [

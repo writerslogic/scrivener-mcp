@@ -271,7 +271,7 @@ export class Neo4jManager {
 		toId: string,
 		toLabel: string,
 		relationshipType: string,
-		properties: any = {}
+		properties: Record<string, unknown> = {}
 	): Promise<void> {
 		if (!this.driver) return;
 
@@ -285,13 +285,23 @@ export class Neo4jManager {
 			RETURN r
 		`;
 
-		await this.query(cypher, { fromId, toId, properties });
+		await this.query(cypher, { fromId, toId, ...properties } as QueryParameters);
 	}
 
 	/**
 	 * Find character relationships
 	 */
-	async findCharacterRelationships(characterId: string): Promise<any[]> {
+	async findCharacterRelationships(characterId: string): Promise<
+		Array<{
+			character: Record<string, unknown>;
+			relationship: {
+				type: string;
+				properties: Record<string, unknown>;
+			};
+			other: Record<string, unknown>;
+			otherLabels: string[];
+		}>
+	> {
 		if (!this.driver) return [];
 
 		const cypher = `
@@ -300,7 +310,7 @@ export class Neo4jManager {
 		`;
 
 		const result = await this.query(cypher, { characterId });
-		return result.records.map((record: any) => ({
+		return result.records.map((record) => ({
 			character: nodeToObject(record.get('c')),
 			relationship: {
 				type: record.get('r').type,
@@ -314,7 +324,7 @@ export class Neo4jManager {
 	/**
 	 * Find documents connected to a character
 	 */
-	async findDocumentsForCharacter(characterId: string): Promise<any[]> {
+	async findDocumentsForCharacter(characterId: string): Promise<Array<Record<string, unknown>>> {
 		if (!this.driver) return [];
 
 		const cypher = `
@@ -331,9 +341,19 @@ export class Neo4jManager {
 	 * Find story structure and relationships
 	 */
 	async analyzeStoryStructure(): Promise<{
-		documentFlow: any[];
-		characterArcs: any[];
-		themeProgression: any[];
+		documentFlow: Array<{
+			from: Record<string, unknown>;
+			to: Record<string, unknown>;
+			relationship: Record<string, unknown>;
+		}>;
+		characterArcs: Array<{
+			character: Record<string, unknown>;
+			documents: Array<Record<string, unknown>>;
+		}>;
+		themeProgression: Array<{
+			theme: Record<string, unknown>;
+			documents: Array<Record<string, unknown>>;
+		}>;
 	}> {
 		if (!this.driver) return { documentFlow: [], characterArcs: [], themeProgression: [] };
 
@@ -344,7 +364,7 @@ export class Neo4jManager {
 			ORDER BY d.title
 		`);
 
-		const documentFlow = flowResult.records.map((record: any) => ({
+		const documentFlow = flowResult.records.map((record) => ({
 			from: nodeToObject(record.get('d')),
 			to: nodeToObject(record.get('next')),
 			relationship: nodeToObject(record.get('r')),
@@ -358,9 +378,9 @@ export class Neo4jManager {
 			ORDER BY c.name
 		`);
 
-		const characterArcs = arcResult.records.map((record: any) => ({
+		const characterArcs = arcResult.records.map((record) => ({
 			character: nodeToObject(record.get('c')),
-			documents: record.get('documents').map((d: any) => nodeToObject(d)),
+			documents: record.get('documents').map((d: unknown) => nodeToObject(d)),
 		}));
 
 		// Theme progression
@@ -371,9 +391,9 @@ export class Neo4jManager {
 			ORDER BY t.name
 		`);
 
-		const themeProgression = themeResult.records.map((record: any) => ({
+		const themeProgression = themeResult.records.map((record) => ({
 			theme: nodeToObject(record.get('t')),
-			documents: record.get('documents').map((d: any) => nodeToObject(d)),
+			documents: record.get('documents').map((d: unknown) => nodeToObject(d)),
 		}));
 
 		return { documentFlow, characterArcs, themeProgression };

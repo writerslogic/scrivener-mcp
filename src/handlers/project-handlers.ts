@@ -7,7 +7,12 @@ import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
 import { DatabaseService } from './database/database-service.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
-import { requireProject } from './types.js';
+import {
+	requireProject,
+	getOptionalNumberArg,
+	getOptionalStringArg,
+	getOptionalBooleanArg,
+} from './types.js';
 
 export const openProjectHandler: ToolDefinition = {
 	name: 'open_project',
@@ -106,9 +111,9 @@ export const getStructureHandler: ToolDefinition = {
 		}
 
 		const structure = await project.getProjectStructureLimited({
-			maxDepth: args.maxDepth,
-			folderId: args.folderId,
-			includeTrash: args.includeTrash || false,
+			maxDepth: getOptionalNumberArg(args, 'maxDepth'),
+			folderId: getOptionalStringArg(args, 'folderId'),
+			includeTrash: getOptionalBooleanArg(args, 'includeTrash') || false,
 		});
 
 		return {

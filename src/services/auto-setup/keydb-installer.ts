@@ -454,7 +454,7 @@ export class KeyDBInstaller {
 					{
 						alternatives: PermissionManager.getAlternatives(
 							'KeyDB installation',
-							this.platformInfo
+							this.platformInfo || { platform: process.platform }
 						),
 						suggestion: 'Use Docker installation instead',
 					}
@@ -547,7 +547,7 @@ export class KeyDBInstaller {
 					{
 						alternatives: PermissionManager.getAlternatives(
 							'Redis installation',
-							this.platformInfo
+							this.platformInfo || { platform: process.platform }
 						),
 						suggestion: 'Use Docker installation instead',
 					}

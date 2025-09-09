@@ -255,7 +255,7 @@ export class SQLiteManager {
 					this.isInTransaction = false;
 				}
 				// If it's a busy error, retry
-				if ((error as any).code === 'SQLITE_BUSY' && i < retries - 1) {
+				if ((error as { code?: string }).code === 'SQLITE_BUSY' && i < retries - 1) {
 					// Wait a bit before retrying
 					const delay = Math.min(100 * Math.pow(2, i), 1000);
 					const start = Date.now();
@@ -340,7 +340,7 @@ export class SQLiteManager {
 	/**
 	 * Check if database is healthy
 	 */
-	async checkHealth(): Promise<{ healthy: boolean; details: any }> {
+	async checkHealth(): Promise<{ healthy: boolean; details: Record<string, unknown> }> {
 		try {
 			if (!this.db) {
 				return { healthy: false, details: { error: 'Database not initialized' } };

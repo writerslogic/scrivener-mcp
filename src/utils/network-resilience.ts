@@ -3,8 +3,8 @@
  * Provides intelligent connection handling, retries, and fallbacks
  */
 
-import { getLogger } from '../core/logger.js';
 import { ApplicationError, ErrorCode } from '../core/errors.js';
+import { getLogger } from '../core/logger.js';
 import { retry } from './common.js';
 
 const logger = getLogger('network-resilience');
@@ -193,9 +193,16 @@ export class NetworkResilience {
 		);
 
 		// Find the best successful connection
+		type ConnectionWithResult = {
+			result: ConnectionResult;
+			host: string;
+			port: number;
+			priority?: number;
+		};
 		const successful = results
 			.filter(
-				(result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled'
+				(result): result is PromiseFulfilledResult<ConnectionWithResult> =>
+					result.status === 'fulfilled'
 			)
 			.map((result) => result.value)
 			.filter((conn) => conn.result.success)

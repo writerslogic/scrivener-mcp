@@ -20,7 +20,15 @@ import { Neo4jManager } from './neo4j-manager.js';
 import { SQLQueryBuilder } from './query-builder.js';
 import { SearchService } from './search-service.js';
 import { SQLiteManager } from './sqlite-manager.js';
+import type {
+	CharacterArcIssue,
+	PacingIssue,
+	PlotHole,
+	StoryRecommendation,
+	TimelineEvent,
+} from './story-intelligence.js';
 import { StoryIntelligence } from './story-intelligence.js';
+import type { ProductivityTrend, WritingPattern } from './writing-analytics.js';
 import { WritingAnalytics } from './writing-analytics.js';
 
 const logger = getLogger('database');
@@ -495,7 +503,7 @@ export class DatabaseService {
 	async storeContentAnalysis(
 		documentId: string,
 		analysisType: string,
-		analysisData: any
+		analysisData: unknown
 	): Promise<void> {
 		if (!this.sqliteManager) return;
 
@@ -823,10 +831,22 @@ export class DatabaseService {
 	 * Get comprehensive writing insights
 	 */
 	async getWritingInsights(): Promise<{
-		patterns: any;
-		productivity: any;
-		recommendations: any;
-		completion: any;
+		patterns: WritingPattern;
+		productivity: ProductivityTrend[];
+		recommendations: {
+			immediate: string[];
+			shortTerm: string[];
+			longTerm: string[];
+			exercises: Array<{ title: string; description: string; benefit: string }>;
+		};
+		completion: {
+			currentWords: number;
+			targetWords: number;
+			percentComplete: number;
+			estimatedCompletionDate: string;
+			recommendedDailyWords: number;
+			onTrack: boolean;
+		};
 	}> {
 		if (!this.writingAnalytics) {
 			throw new AppError('Writing analytics not available', ErrorCode.DATABASE_ERROR);
@@ -846,11 +866,11 @@ export class DatabaseService {
 	 * Get story analysis and recommendations
 	 */
 	async getStoryAnalysis(): Promise<{
-		plotHoles: any;
-		characterArcs: any;
-		pacing: any;
-		recommendations: any;
-		timeline: any;
+		plotHoles: PlotHole[];
+		characterArcs: CharacterArcIssue[];
+		pacing: PacingIssue[];
+		recommendations: StoryRecommendation[];
+		timeline: TimelineEvent[];
 	}> {
 		if (!this.storyIntelligence) {
 			throw new AppError('Story intelligence not available', ErrorCode.DATABASE_ERROR);

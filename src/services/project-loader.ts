@@ -72,21 +72,21 @@ export class ProjectLoader {
 
 			logger.info('Project loaded successfully');
 			return this.projectStructure;
-		} catch (error: any) {
-			if (error.code === 'ENOENT') {
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 				throw createError(
 					ErrorCode.NOT_FOUND,
 					`Scrivener project file not found at "${this.scrivxPath}"`
 				);
-			} else if (error.code === 'EACCES') {
+			} else if ((error as NodeJS.ErrnoException).code === 'EACCES') {
 				throw createError(
 					ErrorCode.PERMISSION_DENIED,
 					`Permission denied reading project file at "${this.scrivxPath}"`
 				);
-			} else if (error.message?.includes('XML')) {
+			} else if ((error as Error).message?.includes('XML')) {
 				throw createError(
 					ErrorCode.INVALID_FORMAT,
-					`Invalid XML in project file: ${error.message}`
+					`Invalid XML in project file: ${(error as Error).message}`
 				);
 			}
 			throw error;
@@ -122,16 +122,16 @@ export class ProjectLoader {
 			const xml = builder.buildObject(cleanStructure);
 			await fs.writeFile(this.scrivxPath, xml, 'utf-8');
 			logger.info('Project saved successfully');
-		} catch (error: any) {
-			if (error.code === 'EACCES') {
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'EACCES') {
 				throw createError(
 					ErrorCode.PERMISSION_DENIED,
 					`Permission denied writing to ${this.scrivxPath}`
 				);
-			} else if (error.code === 'ENOSPC') {
+			} else if ((error as NodeJS.ErrnoException).code === 'ENOSPC') {
 				throw createError(ErrorCode.IO_ERROR, 'No space left on device');
 			}
-			throw createError(ErrorCode.IO_ERROR, `Failed to save project: ${error.message}`);
+			throw createError(ErrorCode.IO_ERROR, `Failed to save project: ${(error as Error).message}`);
 		}
 	}
 
@@ -194,9 +194,9 @@ export class ProjectLoader {
 			await this.cleanupOldBackups(backupDir);
 
 			return backupPath;
-		} catch (error: any) {
-			logger.warn(`Failed to create backup: ${error.message}`);
-			throw createError(ErrorCode.IO_ERROR, `Backup failed: ${error.message}`);
+		} catch (error) {
+			logger.warn(`Failed to create backup: ${(error as Error).message}`);
+			throw createError(ErrorCode.IO_ERROR, `Backup failed: ${(error as Error).message}`);
 		}
 	}
 
@@ -218,10 +218,10 @@ export class ProjectLoader {
 			await this.reloadProject();
 
 			logger.info('Project restored successfully');
-		} catch (error: any) {
+		} catch (error) {
 			throw createError(
 				ErrorCode.IO_ERROR,
-				`Failed to restore from backup: ${error.message}`
+				`Failed to restore from backup: ${(error as Error).message}`
 			);
 		}
 	}
@@ -268,7 +268,8 @@ export class ProjectLoader {
 		const project = structure.ScrivenerProject;
 
 		// Check for required elements
-		if (!project.Binder && !(project as any).Collections && !(project as any).Research) {
+		const projectAny = project as Record<string, unknown>;
+		if (!project.Binder && !projectAny.Collections && !projectAny.Research) {
 			logger.warn('Project has no content (no Binder, Collections, or Research)');
 		}
 
@@ -283,8 +284,8 @@ export class ProjectLoader {
 	}
 
 	// Private helper methods
-	private cleanForSaving(structure: ProjectStructure): any {
-		const clean: any = safeParse(safeStringify(structure), {});
+	private cleanForSaving(structure: ProjectStructure): Record<string, unknown> {
+		const clean = safeParse(safeStringify(structure), {}) as Record<string, unknown>;
 
 		// Remove internal tracking properties
 		delete clean._loadTime;
@@ -316,18 +317,19 @@ export class ProjectLoader {
 				}
 			}
 		} catch (error) {
-			logger.warn('Failed to cleanup old backups:', error as any);
+			logger.warn('Failed to cleanup old backups:', { error });
 		}
 	}
 
-	private validateBinder(binder: any): boolean {
+	private validateBinder(binder: unknown): boolean {
 		if (!binder) return true;
 
+		const binderObj = binder as { BinderItem?: unknown };
 		// Handle both object and array forms
-		const items = Array.isArray(binder.BinderItem)
-			? binder.BinderItem
-			: binder.BinderItem
-				? [binder.BinderItem]
+		const items = Array.isArray(binderObj.BinderItem)
+			? binderObj.BinderItem
+			: binderObj.BinderItem
+				? [binderObj.BinderItem]
 				: [];
 
 		for (const item of items) {
@@ -394,7 +396,7 @@ export class ProjectLoader {
 
 			this.projectStructure = structure;
 			await this.saveProject();
-		} catch (error: any) {
+		} catch (error) {
 			if (error instanceof SyntaxError) {
 				throw createError(ErrorCode.INVALID_FORMAT, 'Invalid JSON format');
 			}
@@ -405,7 +407,7 @@ export class ProjectLoader {
 	/**
 	 * Get project metadata
 	 */
-	getProjectMetadata(): Record<string, any> {
+	getProjectMetadata(): Record<string, unknown> {
 		if (!this.projectStructure?.ScrivenerProject) {
 			return {};
 		}
@@ -414,10 +416,10 @@ export class ProjectLoader {
 		return {
 			title: project.ProjectSettings?.ProjectTitle,
 			author: project.ProjectSettings?.FullName || project.ProjectSettings?.Author,
-			created: (project.ProjectSettings as any)?.Created,
-			modified: (project.ProjectSettings as any)?.Modified,
-			version: (project as any).Version,
-			identifier: (project as any).Identifier,
+			created: (project.ProjectSettings as Record<string, unknown>)?.Created,
+			modified: (project.ProjectSettings as Record<string, unknown>)?.Modified,
+			version: (project as Record<string, unknown>).Version,
+			identifier: (project as Record<string, unknown>).Identifier,
 		};
 	}
 }

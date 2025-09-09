@@ -582,14 +582,39 @@ export class StoryIntelligence {
 	}
 
 	private parseRelativeDate(current: string, relative: string): string {
-		// TODO: Simplified date parsing
-		if (relative.includes('next day')) {
-			const dayNum = parseInt(current.match(/\d+/)?.[0] || '1');
-			return `Day ${dayNum + 1}`;
+		// Improved date parsing logic
+		const relativeLower = relative.toLowerCase();
+		const currentDayMatch = current.match(/Day\s+(\d+)/i);
+		const currentDay = currentDayMatch ? parseInt(currentDayMatch[1]) : 1;
+
+		// Handle various relative date expressions
+		if (relativeLower.includes('next day') || relativeLower.includes('following day')) {
+			return `Day ${currentDay + 1}`;
 		}
-		if (relative.includes('week later')) {
-			const dayNum = parseInt(current.match(/\d+/)?.[0] || '1');
-			return `Day ${dayNum + 7}`;
+		if (relativeLower.includes('previous day') || relativeLower.includes('day before')) {
+			return `Day ${Math.max(1, currentDay - 1)}`;
+		}
+		if (relativeLower.includes('week later')) {
+			return `Day ${currentDay + 7}`;
+		}
+		if (relativeLower.includes('month later')) {
+			return `Day ${currentDay + 30}`;
+		}
+		if (relativeLower.includes('year later')) {
+			return `Day ${currentDay + 365}`;
+		}
+
+		// Handle specific time expressions
+		const daysMatch = relativeLower.match(/(\d+)\s+days?\s+(later|after|hence)/);
+		if (daysMatch) {
+			const days = parseInt(daysMatch[1]);
+			return `Day ${currentDay + days}`;
+		}
+
+		const daysAgoMatch = relativeLower.match(/(\d+)\s+days?\s+(ago|before|earlier)/);
+		if (daysAgoMatch) {
+			const days = parseInt(daysAgoMatch[1]);
+			return `Day ${Math.max(1, currentDay - days)}`;
 		}
 		return current;
 	}

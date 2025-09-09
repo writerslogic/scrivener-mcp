@@ -128,7 +128,7 @@ export class DatabaseSetup {
 		);
 		try {
 			const configContent = await safeReadFile(configPath);
-			const config = safeParse(configContent, {}) as Record<string, any>;
+			const config = safeParse(configContent, {}) as Record<string, unknown>;
 			if (config.neo4j) {
 				Object.assign(credentials.neo4j, config.neo4j);
 			}
@@ -299,7 +299,7 @@ but you'll miss out on advanced features like:
 		await ensureDir(configDir);
 
 		// Load existing config
-		let existing: any = {};
+		let existing: Record<string, unknown> = {};
 		try {
 			const content = await safeReadFile(configPath);
 			existing = safeParse(content, {});

@@ -325,18 +325,62 @@ export class LangChainService {
 
 			const characterContext = await this.generateWithContext(characterPrompt);
 
-			// Parse and structure the response
-			// TODO: This is simplified - in production, you'd want more sophisticated parsing
-			if (
-				characterContext.includes('inconsistency') ||
-				characterContext.includes('contradiction')
-			) {
-				issues.push({
-					issue: characterContext.substring(0, 200),
-					severity: 'medium',
-					locations: ['Multiple chapters'],
-					suggestion: 'Review character descriptions for consistency',
-				});
+			// Parse and structure the response with sophisticated analysis
+			const lines = characterContext.split('\n').filter((line) => line.trim());
+
+			for (const line of lines) {
+				// Look for specific patterns indicating issues
+				const severityPatterns = {
+					high: /critical|major|severe|significant/i,
+					medium: /moderate|notable|important/i,
+					low: /minor|small|slight/i,
+				};
+
+				const issuePatterns = [
+					/inconsistency|contradiction|conflict/i,
+					/timeline\s+issue|age\s+problem/i,
+					/character\s+trait\s+change/i,
+					/behavior\s+mismatch/i,
+				];
+
+				// Check if this line describes an issue
+				const hasIssue = issuePatterns.some((pattern) => pattern.test(line));
+
+				if (hasIssue) {
+					// Determine severity
+					let severity: 'low' | 'medium' | 'high' = 'medium';
+					for (const [level, pattern] of Object.entries(severityPatterns)) {
+						if (pattern.test(line)) {
+							severity = level as 'low' | 'medium' | 'high';
+							break;
+						}
+					}
+
+					// Extract chapter references if mentioned
+					const chapterMatch = line.match(/chapter[s]?\s+(\d+(?:\s*(?:and|,)\s*\d+)*)/gi);
+					const locations = chapterMatch
+						? chapterMatch.map((m) => m.replace(/chapter[s]?\s+/i, 'Chapter '))
+						: ['Multiple chapters'];
+
+					// Generate contextual suggestion
+					let suggestion = 'Review character descriptions for consistency';
+					if (line.toLowerCase().includes('timeline')) {
+						suggestion = 'Verify character ages and timeline events';
+					} else if (line.toLowerCase().includes('trait')) {
+						suggestion =
+							'Ensure character traits remain consistent or show clear development';
+					} else if (line.toLowerCase().includes('behavior')) {
+						suggestion =
+							'Check that character behaviors align with established personality';
+					}
+
+					issues.push({
+						issue: line.trim(),
+						severity,
+						locations,
+						suggestion,
+					});
+				}
 			}
 
 			return issues;

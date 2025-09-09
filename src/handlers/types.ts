@@ -23,7 +23,10 @@ export interface HandlerResult {
 	isError?: boolean;
 }
 
-export type ToolHandler = (args: Record<string, unknown>, context: HandlerContext) => Promise<HandlerResult>;
+export type ToolHandler = (
+	args: Record<string, unknown>,
+	context: HandlerContext
+) => Promise<HandlerResult>;
 
 export interface ToolDefinition {
 	name: string;

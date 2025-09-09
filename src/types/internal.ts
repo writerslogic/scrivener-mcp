@@ -25,6 +25,7 @@ export interface ProjectTargets {
 
 export interface BinderContainer {
 	BinderItem?: BinderItem | BinderItem[];
+	SearchResults?: BinderItem | BinderItem[];
 }
 
 export interface BinderItem {

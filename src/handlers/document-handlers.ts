@@ -1,6 +1,12 @@
 import { validateInput } from '../utils/common.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
-import { requireProject } from './types.js';
+import {
+	getOptionalBooleanArg,
+	getOptionalNumberArg,
+	getOptionalStringArg,
+	getStringArg,
+	requireProject,
+} from './types.js';
 import {
 	documentContentSchema,
 	documentIdSchema,
@@ -25,7 +31,8 @@ export const getDocumentInfoHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentIdSchema);
 
-		const info = await project.getDocumentInfo(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		const info = await project.getDocumentInfo(documentId);
 		return {
 			content: [
 				{
@@ -55,7 +62,8 @@ export const readDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentIdSchema);
 
-		const content = await project.readDocument(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		const content = await project.readDocument(documentId);
 		return {
 			content: [
 				{
@@ -88,7 +96,9 @@ export const writeDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentContentSchema);
 
-		await project.writeDocument(args.documentId, args.content);
+		const documentId = getStringArg(args, 'documentId');
+		const content = getStringArg(args, 'content');
+		await project.writeDocument(documentId, content);
 		return {
 			content: [
 				{
@@ -135,12 +145,14 @@ export const createDocumentHandler: ToolDefinition = {
 			documentType: { type: 'string' as const, required: false },
 		});
 
-		const id = await project.createDocument(
-			args.title,
-			args.content || '',
-			args.parentId,
-			args.documentType || 'Text'
-		);
+		const title = getStringArg(args, 'title');
+		const content = getOptionalStringArg(args, 'content') || '';
+		const parentId = getOptionalStringArg(args, 'parentId');
+		const documentType = (getOptionalStringArg(args, 'documentType') || 'Text') as
+			| 'Text'
+			| 'Folder';
+
+		const id = await project.createDocument(title, content, parentId, documentType);
 
 		return {
 			content: [
@@ -171,7 +183,8 @@ export const deleteDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentIdSchema);
 
-		await project.deleteDocument(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		await project.deleteDocument(documentId);
 		return {
 			content: [
 				{
@@ -204,7 +217,9 @@ export const renameDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentTitleSchema);
 
-		await project.renameDocument(args.documentId, args.newTitle);
+		const documentId = getStringArg(args, 'documentId');
+		const newTitle = getStringArg(args, 'newTitle');
+		await project.renameDocument(documentId, newTitle);
 		return {
 			content: [
 				{
@@ -241,7 +256,10 @@ export const moveDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentMoveSchema);
 
-		await project.moveDocument(args.documentId, args.targetFolderId, args.position);
+		const documentId = getStringArg(args, 'documentId');
+		const targetFolderId = getStringArg(args, 'targetFolderId');
+		const position = getOptionalNumberArg(args, 'position');
+		await project.moveDocument(documentId, targetFolderId, position);
 		return {
 			content: [
 				{
@@ -286,11 +304,17 @@ export const updateMetadataHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentIdSchema);
 
-		await project.updateDocumentMetadata(args.documentId, {
-			synopsis: args.synopsis,
-			notes: args.notes,
-			label: args.label,
-			status: args.status,
+		const documentId = getStringArg(args, 'documentId');
+		const synopsis = getOptionalStringArg(args, 'synopsis');
+		const notes = getOptionalStringArg(args, 'notes');
+		const label = getOptionalStringArg(args, 'label');
+		const status = getOptionalStringArg(args, 'status');
+
+		await project.updateDocumentMetadata(documentId, {
+			synopsis,
+			notes,
+			label,
+			status,
 		});
 
 		return {
@@ -323,10 +347,32 @@ export const getWordCountHandler: ToolDefinition = {
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 
-		const countResult = args.documentId
-			? await project.getWordCount(args.documentId)
-			: { words: await project.getTotalWordCount(), characters: 0 };
-		const count = countResult.words;
+		const documentId = getOptionalStringArg(args, 'documentId');
+		const includeChildren = getOptionalBooleanArg(args, 'includeChildren') ?? false;
+
+		let count = 0;
+
+		if (documentId) {
+			// Get word count for the specific document
+			const docCount = await project.getWordCount(documentId);
+			count = docCount.words;
+
+			// If includeChildren is true, also count all child documents
+			if (includeChildren) {
+				const allDocs = await project.getAllDocuments();
+				// Find all documents that are children of this document
+				for (const doc of allDocs) {
+					// Check if this document is a child by checking if its path starts with the parent's ID
+					if (doc.path && doc.path.includes(documentId) && doc.id !== documentId) {
+						const childCount = await project.getWordCount(doc.id);
+						count += childCount.words;
+					}
+				}
+			}
+		} else {
+			// No documentId provided, count all documents
+			count = await project.getTotalWordCount();
+		}
 
 		return {
 			content: [
@@ -357,7 +403,8 @@ export const readFormattedHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, documentIdSchema);
 
-		const formatted = await project.readDocumentFormatted(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		const formatted = await project.readDocumentFormatted(documentId);
 		return {
 			content: [
 				{

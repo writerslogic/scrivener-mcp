@@ -5,8 +5,8 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getLogger } from '../core/logger.js';
 import { ApplicationError, ErrorCode } from '../core/errors.js';
+import { getLogger } from '../core/logger.js';
 
 const execAsync = promisify(exec);
 const logger = getLogger('permission-manager');
@@ -199,7 +199,7 @@ export class PermissionManager {
 
 			return result;
 		} catch (error) {
-			const execError = error as any;
+			const execError = error as { code?: number; stderr?: string };
 			if (
 				execError.code === 1 &&
 				execError.stderr?.includes('sudo: a password is required')
@@ -220,7 +220,10 @@ export class PermissionManager {
 	/**
 	 * Get installation alternatives when permissions are insufficient
 	 */
-	static getAlternatives(operation: string, platformInfo: any): string[] {
+	static getAlternatives(
+		_operation: string,
+		platformInfo: { platform?: string; packageManagers?: string[] }
+	): string[] {
 		const alternatives: string[] = [];
 
 		// Always suggest Docker as a permission-free alternative
@@ -252,7 +255,7 @@ export class PermissionManager {
 /**
  * Higher-order function to wrap installation methods with permission handling
  */
-export function withPermissionHandling<T extends any[], R>(
+export function withPermissionHandling<T extends unknown[], R>(
 	fn: (...args: T) => Promise<R>,
 	operation: string
 ) {
