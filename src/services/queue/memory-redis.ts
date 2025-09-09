@@ -21,7 +21,6 @@ export class MemoryRedis extends EventEmitter {
 	private cleanupInterval: NodeJS.Timeout | null = null;
 	private connected = false;
 	private persistPromise: Promise<void> | null = null;
-	private isShuttingDown = false;
 
 	constructor(options: { persistPath?: string } = {}) {
 		super();
@@ -99,10 +98,9 @@ export class MemoryRedis extends EventEmitter {
 		if (this.persistPromise) {
 			await this.persistPromise;
 		}
-		
+
 		// Set shutting down flag AFTER final persist
 		await this.persist();
-		this.isShuttingDown = true;
 
 		this.connected = false;
 		this.emit('close');
