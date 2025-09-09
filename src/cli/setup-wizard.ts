@@ -195,7 +195,7 @@ export class SetupWizard {
 
 		switch (method) {
 			case '1':
-			case '':
+			case '': {
 				console.log(chalk.blue('\n📦 Installing KeyDB automatically...\n'));
 				const result = await keydbInstaller.autoInstall({ startService: true });
 
@@ -210,8 +210,9 @@ export class SetupWizard {
 					console.log(chalk.yellow('\nTry manual installation or use embedded queue.'));
 				}
 				break;
+			}
 
-			case '2':
+			case '2': {
 				console.log(chalk.blue('\n📦 Installing via Homebrew...\n'));
 				const homebrewResult = await keydbInstaller.autoInstall({
 					method: 'homebrew',
@@ -223,8 +224,9 @@ export class SetupWizard {
 						: chalk.red(`❌ ${homebrewResult.message}`)
 				);
 				break;
+			}
 
-			case '3':
+			case '3': {
 				console.log(chalk.blue('\n📦 Installing via Docker...\n'));
 				const dockerResult = await keydbInstaller.autoInstall({
 					method: 'docker',
@@ -236,6 +238,7 @@ export class SetupWizard {
 						: chalk.red(`❌ ${dockerResult.message}`)
 				);
 				break;
+			}
 
 			case '4':
 				console.log(chalk.blue('\n📋 Manual Installation Instructions:'));

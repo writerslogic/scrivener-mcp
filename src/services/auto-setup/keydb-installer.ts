@@ -8,13 +8,7 @@ import { promisify } from 'util';
 import * as os from 'os';
 import { getLogger } from '../../core/logger.js';
 import { detectConnection } from '../queue/keydb-detector.js';
-import {
-	AppError,
-	ErrorCode,
-	handleError,
-	withErrorHandling,
-	retry,
-} from '../../utils/common.js';
+import { AppError, ErrorCode, handleError, withErrorHandling, retry } from '../../utils/common.js';
 import { detectPlatform, type PlatformInfo } from '../../utils/env-config.js';
 import { PermissionManager, withPermissionHandling } from '../../utils/permission-manager.js';
 import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
@@ -227,29 +221,6 @@ export class KeyDBInstaller {
 					});
 
 					// Wait and test connection with intelligent monitoring
-					const timeout = new AdaptiveTimeout({
-						operation: `KeyDB service startup (${cmd})`,
-						baseTimeout: 15000, // 15 seconds base
-						maxTimeout: 60000, // 1 minute max
-						stallTimeout: 10000, // 10 seconds without progress
-						progressIndicators: [
-							ProgressIndicators.networkProgress('localhost', 6379),
-							ProgressIndicators.processHeartbeat('keydb-server'),
-							{
-								type: 'completion_check',
-								description: 'KeyDB availability check',
-								check: async () => {
-									const status = await this.checkAvailability();
-									return status.running;
-								},
-							},
-						],
-						completionCheck: async () => {
-							const status = await this.checkAvailability();
-							return status.running;
-						},
-					});
-
 					// Wait for service to actually be ready instead of fixed delay
 					await waitForServiceReady('localhost', 6379, 15000);
 
@@ -441,42 +412,6 @@ export class KeyDBInstaller {
 
 			await execAsync(dockerCmd, { timeout: 120000 });
 
-			// Wait for container to be ready with intelligent monitoring
-			const timeout = new AdaptiveTimeout({
-				operation: 'KeyDB Docker container startup',
-				baseTimeout: 10000, // 10 seconds base
-				maxTimeout: 60000, // 1 minute max
-				stallTimeout: 5000, // 5 seconds without progress
-				progressIndicators: [
-					ProgressIndicators.networkProgress('localhost', 6379),
-					{
-						type: 'completion_check',
-						description: 'Container health check',
-						check: async () => {
-							try {
-								const { stdout } = await execAsync(
-									'docker ps --filter name=scrivener-keydb --format "{{.Status}}"',
-									{ timeout: 2000 }
-								);
-								return stdout.includes('Up') && !stdout.includes('starting');
-							} catch {
-								return false;
-							}
-						},
-					},
-				],
-				completionCheck: async () => {
-					try {
-						// Try to connect to Redis
-						const { detectConnection } = await import('../queue/keydb-detector.js');
-						const connectionInfo = await detectConnection();
-						return connectionInfo.isAvailable;
-					} catch {
-						return false;
-					}
-				},
-			});
-
 			// Wait for container to actually be healthy instead of fixed delay
 			await waitForDockerContainer('scrivener-keydb', 30000);
 
@@ -658,11 +593,11 @@ export class KeyDBInstaller {
 		try {
 			await execAsync('which keydb-server');
 			return true;
-		} catch (error) {
+		} catch {
 			try {
 				await execAsync('which redis-server');
 				return true;
-			} catch (error2) {
+			} catch {
 				return false;
 			}
 		}
@@ -676,12 +611,12 @@ export class KeyDBInstaller {
 			const { stdout } = await execAsync('keydb-server --version');
 			const match = stdout.match(/KeyDB server v=([^\s]+)/);
 			return match ? match[1] : undefined;
-		} catch (error) {
+		} catch {
 			try {
 				const { stdout } = await execAsync('redis-server --version');
 				const match = stdout.match(/Redis server v=([^\s]+)/);
 				return match ? match[1] : undefined;
-			} catch (error2) {
+			} catch {
 				return undefined;
 			}
 		}
@@ -749,7 +684,7 @@ export class KeyDBInstaller {
 		try {
 			await execAsync(`which ${command}`);
 			return true;
-		} catch (error) {
+		} catch {
 			return false;
 		}
 	}
