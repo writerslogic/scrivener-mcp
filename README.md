@@ -1,16 +1,69 @@
-# Scrivener MCP Server
+<p align="center">
+  <img src="https://raw.githubusercontent.com/dcondrey/scrivener-mcp/main/assets/logo.svg" alt="Scrivener MCP Logo" width="200"/>
+</p>
 
-A Model Context Protocol (MCP) server for Scrivener integration that allows Claude to manipulate Scrivener projects, including file and folder operations, metadata management, and content analysis.
+<h1 align="center">Scrivener MCP Server</h1>
 
-## Installation
+<p align="center">
+  <strong>A Model Context Protocol (MCP) server for seamless Scrivener integration with Claude AI</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/scrivener-mcp">
+    <img src="https://img.shields.io/npm/v/scrivener-mcp.svg" alt="npm version"/>
+  </a>
+  <img src="https://img.shields.io/npm/dt/scrivener-mcp.svg" alt="npm total downloads"/>
+  <img src="https://img.shields.io/npm/dm/scrivener-mcp.svg" alt="npm monthly downloads"/>
+  <a href="https://github.com/dcondrey/scrivener-mcp/actions">
+    <img src="https://github.com/dcondrey/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build status"/>
+  </a>
+  <a href="https://coveralls.io/github/dcondrey/scrivener-mcp">
+    <img src="https://coveralls.io/repos/github/dcondrey/scrivener-mcp/badge.svg" alt="coverage"/>
+  </a>
+  <img src="https://img.shields.io/github/license/dcondrey/scrivener-mcp" alt="license"/>
+  <img src="https://img.shields.io/node/v/scrivener-mcp" alt="node version"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.3-blue" alt="typescript"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/dcondrey/scrivener-mcp/stargazers">
+    <img src="https://img.shields.io/github/stars/dcondrey/scrivener-mcp?style=social" alt="GitHub stars"/>
+  </a>
+  <a href="https://github.com/dcondrey/scrivener-mcp/network/members">
+    <img src="https://img.shields.io/github/forks/dcondrey/scrivener-mcp?style=social" alt="GitHub forks"/>
+  </a>
+  <a href="https://buymeacoffee.com/davidcondrey">
+    <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow?logo=buy-me-a-coffee" alt="Buy Me A Coffee"/>
+  </a>
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#api-reference">API</a> •
+  <a href="#contributing">Contributing</a>
+</p>
+
+---
+
+A powerful Model Context Protocol (MCP) server that enables Claude AI to seamlessly interact with Scrivener projects. This server provides comprehensive document management, AI-powered content analysis, and advanced writing assistance capabilities - all without requiring external services like Redis.
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 npm install -g scrivener-mcp
 ```
 
-The installation will **automatically configure Claude Desktop** for you! Just restart Claude Desktop after installation.
+✨ **Features:**
+- **Automatic Claude Desktop configuration** - Just restart Claude Desktop after installation
+- **No Redis or external services required** - Built-in embedded queue system
+- **Zero configuration** - Works out of the box
+- **AI providers optional** - Core features work without API keys
 
-### Manual Configuration (if needed)
+### Manual Configuration (Optional)
 
 If automatic setup didn't work, you can manually configure:
 
@@ -39,21 +92,21 @@ npx scrivener-mcp setup
 npm uninstall -g scrivener-mcp
 ```
 
-## Features
+## ✨ Features
 
-### Core Scrivener Operations
+### 📚 Core Scrivener Operations
 - **Project Management**: Open and manage Scrivener `.scriv` projects
 - **Document CRUD**: Read, write, create, delete, and move documents and folders
 - **Metadata Management**: Update document titles, keywords, and custom metadata
 - **Project Structure**: Navigate and manipulate the hierarchical binder structure
 
-### RTF Support
+### 📝 Advanced RTF Support
 - **Full RTF Parsing**: Complete support for Scrivener's RTF document format
 - **Formatted Content**: Preserve and manipulate bold, italic, underline, and other formatting
 - **Scrivener Annotations**: Extract and preserve Scrivener-specific annotations and comments
 - **Unicode Support**: Handle international characters and special symbols
 
-### AI-Powered Content Analysis (v0.3.0+)
+### 🤖 AI-Powered Content Analysis
 - **Deep Writing Analysis**: Comprehensive metrics including Flesch scores, readability, pacing
 - **Style Assessment**: Sentence variety, vocabulary complexity, adverb usage analysis
 - **Quality Indicators**: Detection of clichés, filter words, repetitiveness
@@ -61,7 +114,7 @@ npm uninstall -g scrivener-mcp
 - **Smart Suggestions**: Actionable recommendations for improvement
 - **Legacy Analysis**: Basic readability metrics and passive voice detection
 
-### Memory Management (v0.3.0+)
+### 🧠 Intelligent Memory Management
 - **Project Memory**: Persistent storage within each Scrivener project
 - **Character Profiles**: Track character details, relationships, and arcs
 - **Plot Threads**: Manage multiple storylines and their progression
@@ -69,7 +122,7 @@ npm uninstall -g scrivener-mcp
 - **Writing Statistics**: Track progress, word counts, and productivity
 - **Auto-save**: Automatic backups with version history
 
-### Content Enhancement (v0.3.0+)
+### ✍️ Smart Content Enhancement
 - **Smart Editing**: 12+ enhancement types for improving prose
 - **Filter Word Elimination**: Remove unnecessary qualifiers
 - **Verb Strengthening**: Replace weak verbs with powerful alternatives
@@ -79,54 +132,54 @@ npm uninstall -g scrivener-mcp
 - **Pacing Control**: Adjust story tempo
 - **Content Expansion/Condensing**: Meet word count targets
 
-### Document Compilation
+### 📖 Document Compilation & Export
 - **Multi-document Compilation**: Combine multiple documents into single output
 - **Format Preservation**: Option to maintain or strip RTF formatting
 - **Custom Separators**: Configure how documents are joined
 
-## Usage
+## 🛠️ Available Tools
 
-The MCP server provides the following tools:
+The MCP server provides 60+ powerful tools for comprehensive Scrivener integration:
 
-### Project Operations
+### 📁 Project Operations
 - `open_project(path)` - Open a Scrivener project
 - `get_structure(options?)` - Get the project's hierarchical structure
   - Options: `maxDepth` (limit tree depth), `folderId` (get specific folder), `includeTrash` (include trash), `summaryOnly` (return counts only)
 - `get_document_info(documentId)` - Get document metadata with full parent hierarchy and location
 - `get_project_metadata()` - Get project-level metadata
 
-### Document Operations
+### 📄 Document Operations
 - `read_document(documentId)` - Read plain text content
 - `read_document_formatted(documentId)` - Read with RTF formatting preserved
 - `write_document(documentId, content)` - Write content to document
 - `get_document_annotations(documentId)` - Get Scrivener annotations
 
-### File Management
+### 🗂️ File Management
 - `create_document(parentId?, title, type?)` - Create new document or folder
 - `delete_document(documentId)` - Delete document or folder
 - `move_document(documentId, newParentId?)` - Move document to new location
 
-### Metadata & Search
+### 🔍 Metadata & Search
 - `update_metadata(documentId, metadata)` - Update document metadata
 - `search_content(query, options?)` - Search across all documents (excludes trash)
 - `get_word_count(documentId?)` - Get word/character counts
 
-### Trash Management (v0.3.2+)
+### 🗑️ Trash Management
 - `list_trash()` - List all documents in the trash folder
 - `search_trash(query, options?)` - Search only within trashed documents
 - `recover_document(documentId, targetParentId?)` - Recover document from trash
 
-### Analysis & Compilation
+### 📊 Analysis & Compilation
 - `analyze_document(documentId)` - Deep AI-powered content analysis
 - `deep_analyze_content(documentId)` - Comprehensive writing metrics and suggestions
 - `critique_document(documentId, focusAreas?)` - Get constructive feedback
 - `compile_documents(documentIds, separator?, preserveFormatting?)` - Compile multiple documents
 
-### Content Enhancement (v0.3.0+)
+### ✨ Content Enhancement
 - `enhance_content(documentId, enhancementType, options?)` - Apply AI improvements
   - Enhancement types: `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
 
-### Memory Management (v0.3.0+)
+### 💾 Memory Management
 - `save_character_profile(name, role, description?, traits?, arc?)` - Store character data
 - `get_character_profiles()` - Retrieve all character profiles
 - `update_style_guide(tone?, voice?, pov?, tense?)` - Set writing preferences
@@ -136,7 +189,7 @@ The MCP server provides the following tools:
 - `get_writing_stats()` - Get project statistics
 - `export_project_memory()` - Export complete memory data
 
-### Additional Tools (v0.3.2+)
+### 🔧 Additional Tools
 - `get_all_documents(includeTrash?)` - Get flat list of all documents
 - `save_project()` - Save any pending changes to the project
 - `is_project_modified()` - Check if project has unsaved changes
@@ -150,7 +203,7 @@ The MCP server provides the following tools:
 - `update_document_synopsis_notes(documentId, synopsis?, notes?)` - Update synopsis and/or notes for a document
 - `batch_update_synopsis_notes(updates)` - Update synopsis and/or notes for multiple documents at once
 
-### Database Tools (v0.4.0+)
+### 🗄️ Database Tools (Advanced)
 - `get_database_status()` - Get status of SQLite and Neo4j databases
 - `query_database(query, params?)` - Execute SELECT queries on SQLite database
 - `get_writing_statistics(days?)` - Get writing statistics for specified period
@@ -161,7 +214,7 @@ The MCP server provides the following tools:
 - `get_content_analysis_history(documentId, analysisType?)` - Get historical analysis data
 - `backup_databases(backupPath?)` - Create backup of project databases
 
-## RTF Format Support
+## 📄 RTF Format Support
 
 This MCP server includes comprehensive RTF (Rich Text Format) support specifically designed for Scrivener's document format:
 
@@ -171,7 +224,7 @@ This MCP server includes comprehensive RTF (Rich Text Format) support specifical
 - **Character Encoding**: Properly handles Unicode and special characters
 - **Metadata Extraction**: Extracts document metadata from RTF info groups
 
-## Architecture
+## 🏗️ Architecture
 
 ### Core Components
 - `ScrivenerProject` - Main class for project operations
@@ -193,7 +246,7 @@ This MCP server includes comprehensive RTF (Rich Text Format) support specifical
 - Automatic backups maintain history and data integrity
 - All data persists between sessions and travels with the project
 
-## Usage Examples
+## 💻 Usage Examples
 
 ### Basic Workflow
 ```javascript
@@ -308,7 +361,7 @@ const analysis = deep_analyze_content("UUID")
 critique_document("UUID", ["pacing", "dialogue"])
 ```
 
-## Error Handling
+## 🛡️ Error Handling
 
 The server includes robust error handling for:
 - Invalid project paths
@@ -318,7 +371,7 @@ The server includes robust error handling for:
 - Malformed project structures
 - Memory corruption recovery
 
-## Development
+## 👨‍💻 Development
 
 ```bash
 npm run dev       # Development mode with hot reload
@@ -327,12 +380,31 @@ npm run lint      # ESLint
 npm run typecheck # TypeScript checking
 ```
 
-## Requirements
+## 📋 Requirements
 
 - Node.js 18+
 - TypeScript 5.0+
 - Valid Scrivener 3 project files
 
-## License
+## 📜 License
 
-MIT
+MIT © [David Condrey](https://github.com/dcondrey)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 💖 Support
+
+If you find this project helpful, consider:
+- ⭐ Starring the repository
+- 🐛 Reporting bugs or requesting features
+- ☕ [Buying me a coffee](https://buymeacoffee.com/davidcondrey)
+- 📣 Sharing with other Scrivener users
+
+## 🔗 Links
+
+- [GitHub Repository](https://github.com/dcondrey/scrivener-mcp)
+- [NPM Package](https://www.npmjs.com/package/scrivener-mcp)
+- [Issue Tracker](https://github.com/dcondrey/scrivener-mcp/issues)
+- [Changelog](https://github.com/dcondrey/scrivener-mcp/releases)

@@ -3,11 +3,12 @@
  * Automatically prompts for setup on first use if not configured
  */
 
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, writeFileSync, unlinkSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getLogger } from '../../core/logger.js';
 import { AutoSetup } from './auto-setup.js';
+import { readJSON } from '../../utils/common.js';
 
 const logger = getLogger('first-run');
 
@@ -32,13 +33,13 @@ export class FirstRunManager {
 	/**
 	 * Check if setup has been completed
 	 */
-	isSetupComplete(): boolean {
+	async isSetupComplete(): Promise<boolean> {
 		if (!existsSync(this.setupPath)) {
 			return false;
 		}
 
 		try {
-			const setup = JSON.parse(readFileSync(this.setupPath, 'utf-8'));
+			const setup = (await readJSON(this.setupPath, {})) as any;
 			return setup.completed === true && setup.features;
 		} catch {
 			return false;
@@ -92,10 +93,10 @@ export class FirstRunManager {
 		if (!this.isFirstRun()) {
 			// Not first run, but check if features are missing
 			const status = this.getFeatureStatus();
-			
+
 			if (!status.redis && !status.ai) {
 				logger.info('Advanced features not configured');
-				
+
 				if (!config.quietMode) {
 					console.log('\n💡 Tip: Run "npm run setup" to enable advanced features:');
 					console.log('   • Redis job queuing for async processing');
@@ -191,6 +192,7 @@ export class FirstRunManager {
 					ai: false,
 				},
 			};
+			// Using sync version for compatibility
 			writeFileSync(this.setupPath, JSON.stringify(minimalSetup, null, 2));
 		}
 
@@ -201,7 +203,6 @@ export class FirstRunManager {
 	 * Mark first run as complete
 	 */
 	private markFirstRunComplete(): void {
-		const { writeFileSync } = require('fs');
 		writeFileSync(this.firstRunPath, new Date().toISOString());
 		logger.info('First run complete');
 	}
@@ -210,12 +211,10 @@ export class FirstRunManager {
 	 * Reset first run status (for testing)
 	 */
 	resetFirstRun(): void {
-		const { unlinkSync } = require('fs');
-		
 		if (existsSync(this.firstRunPath)) {
 			unlinkSync(this.firstRunPath);
 		}
-		
+
 		logger.info('First run status reset');
 	}
 }

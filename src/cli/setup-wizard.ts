@@ -9,6 +9,7 @@ import * as readline from 'readline/promises';
 import { Neo4jAutoInstaller } from '../database/auto-installer.js';
 import { DatabaseSetup } from '../database/database-setup.js';
 import { AutoSetup } from '../services/auto-setup/auto-setup.js';
+import { KeyDBInstaller } from '../services/auto-setup/keydb-installer.js';
 
 export class SetupWizard {
 	private rl: readline.Interface;
@@ -29,24 +30,32 @@ export class SetupWizard {
 
 		// Offer setup options
 		console.log(chalk.yellow('\nChoose setup type:'));
-		console.log(chalk.cyan('  1. Basic Setup (Neo4j database only)'));
-		console.log(chalk.cyan('  2. Advanced Setup (Neo4j + Redis + AI services)'));
-		console.log(chalk.cyan('  3. Check system health'));
-		console.log(chalk.cyan('  4. Exit'));
+		console.log(chalk.cyan('  1. Quick Setup (All features with auto-detection)'));
+		console.log(chalk.cyan('  2. Basic Setup (Neo4j database only)'));
+		console.log(chalk.cyan('  3. KeyDB Setup (High-performance queues)'));
+		console.log(chalk.cyan('  4. Advanced Setup (Custom configuration)'));
+		console.log(chalk.cyan('  5. Check system health'));
+		console.log(chalk.cyan('  6. Exit'));
 
-		const choice = await this.askQuestion('\nSelect option (1-4): ');
+		const choice = await this.askQuestion('\nSelect option (1-6): ');
 
 		switch (choice) {
 			case '1':
-				await this.runBasicSetup();
+				await this.runQuickSetup();
 				break;
 			case '2':
-				await this.runAdvancedSetup();
+				await this.runBasicSetup();
 				break;
 			case '3':
-				await this.checkHealth();
+				await this.runKeyDBSetup();
 				break;
 			case '4':
+				await this.runAdvancedSetup();
+				break;
+			case '5':
+				await this.checkHealth();
+				break;
+			case '6':
 			default:
 				console.log(chalk.gray('\nSetup cancelled.'));
 				this.rl.close();
@@ -54,6 +63,188 @@ export class SetupWizard {
 		}
 
 		this.rl.close();
+	}
+
+	/**
+	 * Run quick setup with all features
+	 */
+	private async runQuickSetup(): Promise<void> {
+		console.log(chalk.bold.cyan('\n🚀 Quick Setup - All Features\n'));
+
+		console.log('This will automatically install and configure:');
+		console.log(chalk.cyan('  • KeyDB (high-performance job queues)'));
+		console.log(chalk.cyan('  • Neo4j (graph database for relationships)'));
+		console.log(chalk.cyan('  • All required dependencies'));
+		console.log(chalk.cyan('  • Optimal configuration settings\n'));
+
+		const proceed = await this.askYesNo('Continue with automatic setup?');
+		if (!proceed) {
+			console.log(chalk.gray('\nSetup cancelled.'));
+			return;
+		}
+
+		// Install KeyDB first
+		console.log(chalk.blue('\n📦 Installing KeyDB...\n'));
+		const keydbInstaller = await KeyDBInstaller.getInstance();
+		const keydbResult = await keydbInstaller.autoInstall({ startService: true });
+
+		if (keydbResult.success) {
+			console.log(chalk.green(`✅ ${keydbResult.message}`));
+		} else {
+			console.log(chalk.yellow(`⚠️ KeyDB installation: ${keydbResult.message}`));
+			console.log(chalk.gray('   Scrivener MCP will use embedded queue as fallback'));
+		}
+
+		// Install Neo4j
+		console.log(chalk.blue('\n📦 Installing Neo4j...\n'));
+		const neo4jResult = await Neo4jAutoInstaller.install({
+			method: 'auto',
+			interactive: false,
+			projectPath: './data',
+			autoStart: true,
+		});
+
+		if (neo4jResult.success) {
+			console.log(chalk.green(`✅ ${neo4jResult.message}`));
+		} else {
+			console.log(chalk.yellow(`⚠️ Neo4j installation: ${neo4jResult.message}`));
+			console.log(chalk.gray('   Scrivener MCP will use SQLite-only mode'));
+		}
+
+		// Summary
+		console.log(chalk.bold.green('\n🎉 Quick Setup Complete!\n'));
+		console.log('Your Scrivener MCP installation includes:');
+		if (keydbResult.success) {
+			console.log(chalk.green('  ✅ KeyDB - High-performance job processing'));
+		} else {
+			console.log(chalk.yellow('  ⚪ Embedded queue - Basic job processing'));
+		}
+		if (neo4jResult.success) {
+			console.log(chalk.green('  ✅ Neo4j - Advanced graph analytics'));
+		} else {
+			console.log(chalk.yellow('  ⚪ SQLite - Basic data storage'));
+		}
+		console.log(chalk.green('  ✅ All core features ready\n'));
+
+		console.log(chalk.cyan('Start using Scrivener MCP with: npm start'));
+	}
+
+	/**
+	 * Run KeyDB-specific setup
+	 */
+	private async runKeyDBSetup(): Promise<void> {
+		console.log(chalk.bold.cyan('\n🚀 KeyDB Setup - High-Performance Queues\n'));
+
+		console.log('KeyDB provides:');
+		console.log(chalk.cyan('  • Multi-threaded Redis-compatible server (2-5x faster)'));
+		console.log(chalk.cyan('  • Advanced job queue processing with BullMQ'));
+		console.log(chalk.cyan('  • Intelligent query caching for SQLite'));
+		console.log(chalk.cyan('  • Seamless fallback if unavailable\n'));
+
+		const keydbInstaller = await KeyDBInstaller.getInstance();
+
+		// Check current status
+		const status = await keydbInstaller.checkAvailability();
+
+		if (status.running) {
+			console.log(chalk.green('✅ KeyDB is already running!'));
+			console.log(
+				chalk.gray(`   Version: ${status.version}, Port: ${status.port || 6379}\n`)
+			);
+			console.log(chalk.cyan('Your Scrivener MCP is ready for high-performance operations.'));
+			return;
+		}
+
+		if (status.installed) {
+			console.log(chalk.yellow('⚪ KeyDB is installed but not running.'));
+			const start = await this.askYesNo('Would you like to start KeyDB now?');
+
+			if (start) {
+				console.log(chalk.blue('Starting KeyDB service...\n'));
+				const started = await keydbInstaller.startKeyDB();
+
+				if (started) {
+					console.log(chalk.green('✅ KeyDB started successfully!'));
+				} else {
+					console.log(chalk.red('❌ Failed to start KeyDB automatically.'));
+					console.log(chalk.gray('Try running manually: keydb-server --daemonize yes'));
+				}
+				return;
+			}
+		}
+
+		// Installation needed
+		console.log(chalk.yellow('⚠️ KeyDB is not installed.\n'));
+
+		const install = await this.askYesNo('Would you like to install KeyDB now?');
+
+		if (!install) {
+			console.log(chalk.gray('\nKeyDB setup cancelled.'));
+			console.log(chalk.gray('Scrivener MCP will use embedded queue as fallback.'));
+			return;
+		}
+
+		// Choose installation method
+		console.log(chalk.yellow('\nChoose installation method:'));
+		console.log(chalk.cyan('  1. Automatic (recommended)'));
+		console.log(chalk.cyan('  2. Homebrew (macOS)'));
+		console.log(chalk.cyan('  3. Docker (cross-platform)'));
+		console.log(chalk.cyan('  4. Show manual instructions'));
+
+		const method = await this.askQuestion('Select method (1-4): ');
+
+		switch (method) {
+			case '1':
+			case '':
+				console.log(chalk.blue('\n📦 Installing KeyDB automatically...\n'));
+				const result = await keydbInstaller.autoInstall({ startService: true });
+
+				if (result.success) {
+					console.log(chalk.green(`✅ ${result.message}`));
+					console.log(chalk.green(`   Method: ${result.method}`));
+					if (result.version) {
+						console.log(chalk.green(`   Version: ${result.version}`));
+					}
+				} else {
+					console.log(chalk.red(`❌ Installation failed: ${result.message}`));
+					console.log(chalk.yellow('\nTry manual installation or use embedded queue.'));
+				}
+				break;
+
+			case '2':
+				console.log(chalk.blue('\n📦 Installing via Homebrew...\n'));
+				const homebrewResult = await keydbInstaller.autoInstall({
+					method: 'homebrew',
+					startService: true,
+				});
+				console.log(
+					homebrewResult.success
+						? chalk.green(`✅ ${homebrewResult.message}`)
+						: chalk.red(`❌ ${homebrewResult.message}`)
+				);
+				break;
+
+			case '3':
+				console.log(chalk.blue('\n📦 Installing via Docker...\n'));
+				const dockerResult = await keydbInstaller.autoInstall({
+					method: 'docker',
+					startService: true,
+				});
+				console.log(
+					dockerResult.success
+						? chalk.green(`✅ ${dockerResult.message}`)
+						: chalk.red(`❌ ${dockerResult.message}`)
+				);
+				break;
+
+			case '4':
+				console.log(chalk.blue('\n📋 Manual Installation Instructions:'));
+				console.log(chalk.gray(keydbInstaller.getManualInstructions()));
+				break;
+
+			default:
+				console.log(chalk.gray('\nInvalid selection. Setup cancelled.'));
+		}
 	}
 
 	/**
@@ -186,13 +377,13 @@ export class SetupWizard {
 	}
 
 	/**
-	 * Run advanced setup with Redis and AI
+	 * Run advanced setup with AI services
 	 */
 	private async runAdvancedSetup(): Promise<void> {
-		console.log(chalk.bold.cyan('\n🚀 Advanced Setup - BullMQ + LangChain Integration\n'));
-		
+		console.log(chalk.bold.cyan('\n🚀 Advanced Setup - AI Integration\n'));
+
 		console.log('This will set up:');
-		console.log(chalk.cyan('  • Redis for job queuing (BullMQ)'));
+		console.log(chalk.cyan('  • Embedded queue system (automatic)'));
 		console.log(chalk.cyan('  • AI services configuration (LangChain)'));
 		console.log(chalk.cyan('  • Neo4j graph database'));
 		console.log(chalk.cyan('  • All required dependencies\n'));
@@ -218,11 +409,11 @@ export class SetupWizard {
 			console.log(chalk.red('\n⚠️  Setup completed with some issues.'));
 			if (result.warnings && result.warnings.length > 0) {
 				console.log(chalk.yellow('\nWarnings:'));
-				result.warnings.forEach(w => console.log(chalk.yellow(`  • ${w}`)));
+				result.warnings.forEach((w) => console.log(chalk.yellow(`  • ${w}`)));
 			}
 			if (result.errors && result.errors.length > 0) {
 				console.log(chalk.red('\nErrors:'));
-				result.errors.forEach(e => console.log(chalk.red(`  • ${e}`)));
+				result.errors.forEach((e) => console.log(chalk.red(`  • ${e}`)));
 			}
 		}
 	}
@@ -241,19 +432,29 @@ export class SetupWizard {
 			console.log(chalk.red('❌ Neo4j: Not running'));
 		}
 
-		// Check Redis and AI services
+		// Check queue and AI services
 		const autoSetup = new AutoSetup();
 		const health = await autoSetup.runHealthChecks();
-		
-		console.log(health.redis ? chalk.green('✅ Redis: Running') : chalk.red('❌ Redis: Not running'));
-		console.log(health.ai ? chalk.green('✅ AI Services: Configured') : chalk.yellow('⚠️  AI Services: Not configured'));
+
+		console.log(
+			health.queue
+				? chalk.green('✅ Queue: Ready (embedded)')
+				: chalk.red('❌ Queue: Not ready')
+		);
+		console.log(
+			health.ai
+				? chalk.green('✅ AI Services: Configured')
+				: chalk.yellow('⚠️  AI Services: Not configured')
+		);
 
 		// Overall status
 		console.log(chalk.cyan('\n━━━ Overall Status ━━━'));
 		if (neo4jStatus.running && health.overall) {
 			console.log(chalk.green('All systems operational! 🎉'));
-		} else if (neo4jStatus.running || health.redis) {
-			console.log(chalk.yellow('Some services are running. Run setup to configure missing services.'));
+		} else if (neo4jStatus.running || health.queue) {
+			console.log(
+				chalk.yellow('Some services are running. Run setup to configure missing services.')
+			);
 		} else {
 			console.log(chalk.red('No services are running. Run setup to get started.'));
 		}

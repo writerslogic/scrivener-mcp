@@ -7,9 +7,11 @@ import { DatabaseService } from './database/index.js';
 import { ContentAnalyzer, ContextAnalyzer } from './analysis/index.js';
 import { ContextSyncService } from './sync/context-sync.js';
 import { CleanupManager } from './utils/common.js';
+import { ensureProjectDataDirectory } from './utils/project-utils.js';
 import { getLogger } from './core/logger.js';
 import { createError, ErrorCode } from './core/errors.js';
 import { DOCUMENT_TYPES } from './core/constants.js';
+import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 
 // Import service modules
 import { DocumentManager } from './services/document-manager.js';
@@ -75,12 +77,22 @@ export class ScrivenerProject {
 	async loadProject(): Promise<void> {
 		logger.info('Loading Scrivener project');
 
+		// Create .scrivener-mcp directory for project-specific data
+		await ensureProjectDataDirectory(this.projectPath);
+
 		// Load project structure
 		const structure = await this.projectLoader.loadProject();
 		this.documentManager.setProjectStructure(structure);
 
 		// Initialize database
 		await this.databaseService.initialize();
+
+		// Initialize async services (job queue, AI services)
+		await initializeAsyncServices({
+			projectPath: this.projectPath,
+			databasePath: path.join(this.projectPath, 'scrivener.db'),
+			openaiApiKey: process.env.OPENAI_API_KEY,
+		});
 
 		// Initialize enhanced services
 		this.contextAnalyzer = new ContextAnalyzer(this.databaseService, this.contentAnalyzer);
@@ -494,12 +506,8 @@ export class ScrivenerProject {
 	}
 
 	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
-		// This would need special handling in DocumentManager
-		// TODO: Implement actual trash recovery using documentId and targetParentId
-		throw createError(
-			ErrorCode.NOT_IMPLEMENTED,
-			`Trash recovery not yet implemented in modular version (document: ${documentId}, target: ${targetParentId})`
-		);
+		await this.documentManager.recoverFromTrash(documentId, targetParentId);
+		await this.saveProject();
 	}
 
 	async getProjectStructureLimited(options?: {
@@ -522,14 +530,16 @@ export class ScrivenerProject {
 	}
 
 	async getDocumentAnnotations(documentId: string): Promise<Map<string, string>> {
-		// Would need RTF handler access
-		// TODO: Implement actual annotation retrieval for documentId
-		const annotations = new Map<string, string>();
-		// Placeholder - would fetch annotations for specific document
-		if (documentId) {
-			// Implementation would go here
+		try {
+			// Get the raw RTF content for the document
+			const rtfContent = await this.documentManager.readDocumentRaw(documentId);
+
+			// Extract annotations using the RTF handler
+			return this.compilationService.extractAnnotations(rtfContent);
+		} catch (error) {
+			logger.warn(`Failed to extract annotations for document ${documentId}`, { error });
+			return new Map<string, string>();
 		}
-		return annotations;
 	}
 
 	// Private helpers
@@ -618,6 +628,9 @@ export class ScrivenerProject {
 		if (this.contextSync) {
 			this.contextSync.close();
 		}
+
+		// Shutdown async services (job queue, AI services)
+		await shutdownAsyncServices();
 
 		await this.databaseService.close();
 		await this.documentManager.close();

@@ -6,6 +6,7 @@
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
 import type { ContentExtractionOptions } from '../types/analysis.js';
+import { splitIntoSentences } from '../utils/common.js';
 
 export interface ParsedWebContent {
 	title?: string;
@@ -486,7 +487,7 @@ export class WebContentParser {
 	 */
 	private extractFacts(text: string): string[] {
 		const facts: string[] = [];
-		const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(text);
 
 		// Look for sentences with factual patterns
 		const factPatterns = [
@@ -538,7 +539,7 @@ export class WebContentParser {
 	 */
 	private extractStatistics(text: string): string[] {
 		const statistics: string[] = [];
-		const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(text);
 
 		// Look for sentences with statistical patterns
 		const statPatterns = [

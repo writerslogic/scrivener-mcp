@@ -93,7 +93,7 @@ async function main() {
 	try {
 		const { FirstRunManager } = await import('./services/auto-setup/first-run.js');
 		const firstRunManager = new FirstRunManager();
-		
+
 		// Initialize on first run (will prompt for setup if interactive)
 		await firstRunManager.initialize({
 			quietMode: process.env.SCRIVENER_QUIET === 'true',

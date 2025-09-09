@@ -1,7 +1,15 @@
 import * as path from 'path';
 import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
-import { ensureDir, pathExists, safeReadFile, safeWriteFile } from '../utils/common.js';
+import {
+	ensureDir,
+	pathExists,
+	safeReadFile,
+	safeWriteFile,
+	safeParse,
+	safeStringify,
+	buildPath,
+} from '../utils/common.js';
 import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';
@@ -188,7 +196,10 @@ export class DatabaseService {
 			lastUpdated: new Date().toISOString(),
 		};
 
-		await safeWriteFile(this.paths.configFile, JSON.stringify(configData, null, 2));
+		await safeWriteFile(
+			this.paths.configFile,
+			safeStringify(configData) || JSON.stringify(configData, null, 2)
+		);
 	}
 
 	/**
@@ -202,14 +213,18 @@ export class DatabaseService {
 		}
 
 		try {
-			const configData = JSON.parse(await safeReadFile(paths.configFile));
-
-			// Convert relative path back to absolute
-			if (configData.sqlite?.path && !path.isAbsolute(configData.sqlite.path)) {
-				configData.sqlite.path = path.join(paths.databaseDir, configData.sqlite.path);
+			const configData = safeParse(await safeReadFile(paths.configFile), null);
+			if (!configData || typeof configData !== 'object') {
+				return null;
 			}
 
-			return configData;
+			// Convert relative path back to absolute
+			const config = configData as DatabaseConfig;
+			if (config.sqlite?.path && !path.isAbsolute(config.sqlite.path)) {
+				config.sqlite.path = buildPath(paths.databaseDir, config.sqlite.path);
+			}
+
+			return config;
 		} catch {
 			console.error('Failed to load database config');
 			return null;
@@ -276,7 +291,8 @@ export class DatabaseService {
 
 			txn.status = 'prepared';
 			return true;
-		} catch (error) {
+		} catch (_error) {
+			logger.error('Transaction preparation failed', { transactionId, error: _error });
 			await this.rollbackTransaction(transactionId);
 			return false;
 		}
@@ -416,7 +432,7 @@ export class DatabaseService {
 				name: characterData.name,
 				role: characterData.role || null,
 				description: characterData.description || null,
-				traits: JSON.stringify(characterData.traits || []),
+				traits: safeStringify(characterData.traits || []),
 				notes: characterData.notes || null,
 				modified_at: new Date().toISOString(),
 			});
@@ -453,7 +469,7 @@ export class DatabaseService {
 					VALUES (?, ?, ?, ?)
 				`);
 
-				stmt.run([fromId, toId, relationshipType, JSON.stringify(properties)]);
+				stmt.run([fromId, toId, relationshipType, safeStringify(properties)]);
 			}
 		}
 
@@ -488,7 +504,7 @@ export class DatabaseService {
 			VALUES (?, ?, ?)
 		`);
 
-		stmt.run([documentId, analysisType, JSON.stringify(analysisData)]);
+		stmt.run([documentId, analysisType, safeStringify(analysisData)]);
 	}
 
 	/**
@@ -531,7 +547,7 @@ export class DatabaseService {
 		return results.map((row) => ({
 			id: row.id,
 			analysisType: row.analysis_type,
-			analysisData: JSON.parse(row.analysis_data),
+			analysisData: safeParse(row.analysis_data, {}),
 			analyzedAt: row.analyzed_at,
 		}));
 	}
@@ -558,7 +574,7 @@ export class DatabaseService {
 			sessionData.date,
 			sessionData.wordsWritten,
 			sessionData.durationMinutes,
-			JSON.stringify(sessionData.documentsWorkedOn),
+			safeStringify(sessionData.documentsWorkedOn),
 			sessionData.notes || null,
 		]);
 	}
@@ -706,14 +722,17 @@ export class DatabaseService {
 
 		// Backup SQLite
 		if (this.sqliteManager) {
-			const sqliteBackupPath = path.join(backupDir, `scrivener-${timestamp}.db`);
+			const sqliteBackupPath = buildPath(backupDir, `scrivener-${timestamp}.db`);
 			this.sqliteManager.backup(sqliteBackupPath);
 		}
 
 		// Backup Neo4j config
 		if (this.neo4jManager) {
-			const configBackupPath = path.join(backupDir, `neo4j-config-${timestamp}.json`);
-			await safeWriteFile(configBackupPath, JSON.stringify(this.config.neo4j, null, 2));
+			const configBackupPath = buildPath(backupDir, `neo4j-config-${timestamp}.json`);
+			await safeWriteFile(
+				configBackupPath,
+				safeStringify(this.config.neo4j) || JSON.stringify(this.config.neo4j, null, 2)
+			);
 		}
 	}
 

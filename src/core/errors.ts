@@ -57,9 +57,13 @@ export enum ErrorCode {
 	// General errors
 	UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 	TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+	TIMEOUT = 'TIMEOUT',
 	NETWORK_ERROR = 'NETWORK_ERROR',
 	PERMISSION_DENIED = 'PERMISSION_DENIED',
 	CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+	OPERATION_CANCELLED = 'OPERATION_CANCELLED',
+	DEPENDENCY_ERROR = 'DEPENDENCY_ERROR',
+	UNSUPPORTED_OPERATION = 'UNSUPPORTED_OPERATION',
 }
 
 export class ApplicationError extends Error {
@@ -141,9 +145,13 @@ export const ErrorMessages = {
 	// General messages
 	[ErrorCode.UNKNOWN_ERROR]: 'An unknown error occurred',
 	[ErrorCode.TIMEOUT_ERROR]: 'Operation timed out',
+	[ErrorCode.TIMEOUT]: 'Operation timed out',
 	[ErrorCode.NETWORK_ERROR]: 'Network error',
 	[ErrorCode.PERMISSION_DENIED]: 'Permission denied',
 	[ErrorCode.CONFIGURATION_ERROR]: 'Configuration error',
+	[ErrorCode.OPERATION_CANCELLED]: 'Operation was cancelled',
+	[ErrorCode.DEPENDENCY_ERROR]: 'Dependency error',
+	[ErrorCode.UNSUPPORTED_OPERATION]: 'Unsupported operation',
 } as const;
 
 /**
@@ -217,7 +225,10 @@ export async function withRetry<T>(
 				throw lastError;
 			}
 
-			await new Promise((resolve) => setTimeout(resolve, delayMs * (i + 1)));
+			// Use enhanced retry mechanism with jitter and validation
+			const delay = delayMs * (i + 1);
+			const jitteredDelay = Math.floor(delay * (0.5 + Math.random() * 0.5));
+			await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
 		}
 	}
 

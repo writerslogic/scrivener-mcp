@@ -61,9 +61,11 @@ function showFeatures() {
 	console.log(colorize('  ✓', 'green') + ' SQLite database support\n');
 
 	console.log(colorize('Optional Advanced Features:', 'yellow'));
-	console.log(colorize('  ○', 'yellow') + ' Neo4j graph database for relationships');
-	console.log(colorize('  ○', 'yellow') + ' Redis + BullMQ for async job processing');
+	console.log(colorize('  ○', 'yellow') + ' KeyDB high-performance queues (2-5x faster than Redis)');
+	console.log(colorize('  ○', 'yellow') + ' Neo4j graph database for character relationships');
+	console.log(colorize('  ○', 'yellow') + ' BullMQ distributed job processing');
 	console.log(colorize('  ○', 'yellow') + ' LangChain AI integration (GPT-4, Claude, etc.)');
+	console.log(colorize('  ○', 'yellow') + ' Intelligent query caching and optimization');
 	console.log(colorize('  ○', 'yellow') + ' Semantic search and RAG capabilities\n');
 }
 

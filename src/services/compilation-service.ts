@@ -89,6 +89,7 @@ export class CompilationService {
 			default:
 				throw createError(
 					ErrorCode.INVALID_INPUT,
+					undefined,
 					`Unsupported output format: ${outputFormat}`
 				);
 		}
@@ -195,13 +196,28 @@ export class CompilationService {
 
 			case 'epub':
 				// Placeholder for EPUB export
-				throw createError(ErrorCode.NOT_IMPLEMENTED, 'EPUB export not yet implemented');
+				throw createError(
+					ErrorCode.NOT_IMPLEMENTED,
+					undefined,
+					'EPUB export not yet implemented'
+				);
 
 			default:
-				throw createError(ErrorCode.INVALID_INPUT, `Unsupported export format: ${format}`);
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					undefined,
+					`Unsupported export format: ${format}`
+				);
 		}
 
 		return { format, content, metadata };
+	}
+
+	/**
+	 * Extract annotations from RTF content
+	 */
+	extractAnnotations(rtfContent: string): Map<string, string> {
+		return this.rtfHandler.preserveScrivenerAnnotations(rtfContent);
 	}
 
 	/**
@@ -391,6 +407,15 @@ export class CompilationService {
 					docData.formattedText = content.formattedText;
 				}
 
+				// Include optional metadata based on options
+				if (options.includeSynopsis && content.metadata?.synopsis) {
+					docData.synopsis = content.metadata.synopsis;
+				}
+
+				if (options.includeNotes && content.metadata?.notes) {
+					docData.notes = content.metadata.notes;
+				}
+
 				return docData;
 			}),
 			totalWordCount: contents.reduce((sum, c) => {
@@ -460,7 +485,12 @@ export class CompilationService {
 
 	private exportAsMarkdown(structure: ScrivenerDocument[], options: Record<string, any>): string {
 		const lines: string[] = [];
-		const { includeMetadata = true, maxDepth = Infinity } = options;
+		const {
+			includeMetadata = true,
+			maxDepth = Infinity,
+			includeWordCounts = false,
+			includeStatus = false,
+		} = options;
 
 		const processDocument = (doc: ScrivenerDocument, depth: number) => {
 			if (depth > maxDepth) return;
@@ -474,6 +504,12 @@ export class CompilationService {
 				}
 				if (doc.keywords?.length) {
 					lines.push(`**Keywords:** ${doc.keywords.join(', ')}\n`);
+				}
+				if (includeStatus && doc.status) {
+					lines.push(`**Status:** ${doc.status}\n`);
+				}
+				if (includeWordCounts && doc.wordCount) {
+					lines.push(`**Word Count:** ${doc.wordCount}\n`);
 				}
 			}
 
@@ -496,6 +532,13 @@ export class CompilationService {
 	}
 
 	private exportAsHtml(structure: ScrivenerDocument[], options: Record<string, any>): string {
+		const {
+			includeMetadata = true,
+			maxDepth = Infinity,
+			includeWordCounts = false,
+			includeStatus = false,
+		} = options;
+
 		const lines: string[] = [
 			'<!DOCTYPE html>',
 			'<html>',
@@ -507,23 +550,37 @@ export class CompilationService {
 			'h1, h2, h3, h4, h5, h6 { font-family: Arial, sans-serif; }',
 			'.synopsis { font-style: italic; color: #666; }',
 			'.keywords { color: #999; font-size: 0.9em; }',
+			'.status { color: #007acc; font-weight: bold; }',
+			'.word-count { color: #888; font-size: 0.8em; }',
 			'</style>',
 			'</head>',
 			'<body>',
 		];
 
 		const processDocument = (doc: ScrivenerDocument, depth: number) => {
+			if (depth > maxDepth) return;
+
 			const tag = `h${Math.min(depth + 1, 6)}`;
 			lines.push(`<${tag}>${this.escapeHtml(doc.title)}</${tag}>`);
 
-			if (doc.synopsis) {
-				lines.push(`<p class="synopsis">${this.escapeHtml(doc.synopsis)}</p>`);
-			}
+			if (includeMetadata) {
+				if (doc.synopsis) {
+					lines.push(`<p class="synopsis">${this.escapeHtml(doc.synopsis)}</p>`);
+				}
 
-			if (doc.keywords?.length) {
-				lines.push(
-					`<p class="keywords">Keywords: ${doc.keywords.map((k) => this.escapeHtml(k)).join(', ')}</p>`
-				);
+				if (doc.keywords?.length) {
+					lines.push(
+						`<p class="keywords">Keywords: ${doc.keywords.map((k) => this.escapeHtml(k)).join(', ')}</p>`
+					);
+				}
+
+				if (includeStatus && doc.status) {
+					lines.push(`<p class="status">Status: ${this.escapeHtml(doc.status)}</p>`);
+				}
+
+				if (includeWordCounts && doc.wordCount) {
+					lines.push(`<p class="word-count">Word Count: ${doc.wordCount}</p>`);
+				}
 			}
 
 			if (doc.content) {

@@ -2,6 +2,10 @@ import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppError, ErrorCode, ensureDir } from '../utils/common.js';
+import { getLogger } from '../core/logger.js';
+import { CachedSQLiteManager } from './keydb-cache.js';
+
+const logger = getLogger('sqlite-manager');
 
 export class SQLiteManager {
 	private db: Database.Database | null = null;
@@ -9,6 +13,7 @@ export class SQLiteManager {
 	private transactionDepth: number = 0;
 	private isInTransaction: boolean = false;
 	private pendingOperations: Array<() => void> = [];
+	private cachedManager: CachedSQLiteManager | null = null;
 
 	constructor(dbPath: string) {
 		this.dbPath = dbPath;
@@ -33,6 +38,10 @@ export class SQLiteManager {
 
 		// Initialize database schema
 		await this.createTables();
+
+		// Initialize cached manager if KeyDB is available
+		this.cachedManager = new CachedSQLiteManager(this);
+		await this.cachedManager.initialize();
 	}
 
 	/**
@@ -176,6 +185,20 @@ export class SQLiteManager {
 	}
 
 	/**
+	 * Get cached database manager (if available)
+	 */
+	getCachedManager(): CachedSQLiteManager | null {
+		return this.cachedManager;
+	}
+
+	/**
+	 * Check if caching is available
+	 */
+	isCachingAvailable(): boolean {
+		return this.cachedManager?.getCacheStats().size !== undefined;
+	}
+
+	/**
 	 * Execute a query
 	 */
 	query(sql: string, params: unknown[] = []): unknown[] {
@@ -258,8 +281,9 @@ export class SQLiteManager {
 			if (operation) {
 				try {
 					operation();
-				} catch (error) {
+				} catch (_error) {
 					// Log but don't throw - these are non-critical operations
+					logger.debug('Non-critical operation failed', { error: _error });
 				}
 			}
 		}
@@ -349,7 +373,12 @@ export class SQLiteManager {
 	/**
 	 * Close the database connection
 	 */
-	close(): void {
+	async close(): Promise<void> {
+		if (this.cachedManager) {
+			await this.cachedManager.close();
+			this.cachedManager = null;
+		}
+
 		if (this.db) {
 			this.db.close();
 			this.db = null;

@@ -12,6 +12,7 @@
   "files": [
     "dist",
     "scripts",
+    "assets",
     "README.md",
     "LICENSE"
   ],
@@ -65,6 +66,7 @@
     "compromise-dates": "^3.7.1",
     "compromise-numbers": "^1.4.0",
     "ioredis": "^5.7.0",
+    "keydb": "^0.1.10",
     "langchain": "^0.3.33",
     "natural": "^8.1.0",
     "neo4j-driver": "^5.28.1",

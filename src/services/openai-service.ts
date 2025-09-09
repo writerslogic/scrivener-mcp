@@ -6,6 +6,7 @@
 import OpenAI from 'openai';
 import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
+import { safeParse } from '../utils/common.js';
 
 const logger = getLogger('openai-service');
 
@@ -404,7 +405,13 @@ Provide a JSON response with:
 			});
 
 			const content = response.choices[0]?.message?.content || '{}';
-			const analysis = JSON.parse(content);
+			const analysis = safeParse(content, {}) as {
+				suggestedPromptTypes?: string[];
+				contextualThemes?: string[];
+				characterDevelopmentNeeds?: string[];
+				plotGaps?: string[];
+				recommendedExercises?: string[];
+			};
 
 			return {
 				suggestedPromptTypes: analysis.suggestedPromptTypes || ['character', 'scene'],
@@ -415,6 +422,7 @@ Provide a JSON response with:
 			};
 		} catch (_error) {
 			// Return defaults on error
+			logger.warn('Failed to generate suggestions, returning defaults', { error: _error });
 			return {
 				suggestedPromptTypes: ['character', 'dialogue', 'scene'],
 				contextualThemes: projectData.themes || [],
@@ -563,7 +571,11 @@ Return in this JSON format:
 					.replace(/```\n?/g, '')
 					.trim();
 
-				const result = JSON.parse(cleanedContent);
+				const result = safeParse(cleanedContent, {}) as {
+					prompts?: any[];
+					overallTheme?: string;
+					writingGoals?: string[];
+				};
 
 				// Validate and enhance the response
 				if (result.prompts && Array.isArray(result.prompts)) {
@@ -593,7 +605,19 @@ Return in this JSON format:
 					? result.writingGoals
 					: this.getDefaultWritingGoals(complexity);
 
-				return result;
+				return result as {
+					prompts: Array<{
+						prompt: string;
+						type: string;
+						difficulty: string;
+						estimatedWords: number;
+						tips: string[];
+						relatedCharacters?: string[];
+						suggestedTechniques?: string[];
+					}>;
+					overallTheme: string;
+					writingGoals: string[];
+				};
 			} catch (parseError) {
 				logger.error('Failed to parse prompt response', { error: parseError });
 				return this.getDefaultPromptResponse(count, genre, theme);
@@ -682,7 +706,11 @@ Please generate content based on this prompt and return in this exact JSON forma
 			}
 
 			try {
-				const result = JSON.parse(content);
+				const result = safeParse(content, {}) as {
+					content?: string;
+					suggestions?: string[];
+					alternativeVersions?: string[];
+				};
 
 				return {
 					content: result.content || `Generated content for: ${prompt}`,
@@ -914,10 +942,10 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\[[\s\S]*\]/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const suggestions = JSON.parse(jsonStr);
+			const suggestions = safeParse(jsonStr, []);
 
 			if (Array.isArray(suggestions)) {
-				return suggestions.map((s) => ({
+				return suggestions.map((s: any) => ({
 					type: s.type || 'style',
 					severity: s.severity || 'medium',
 					original: s.original || '',
@@ -942,7 +970,7 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\{[\s\S]*\}/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const analysis = JSON.parse(jsonStr);
+			const analysis: any = safeParse(jsonStr, {});
 
 			return {
 				tone: analysis.tone || 'neutral',
@@ -965,14 +993,14 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\{[\s\S]*\}/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const analysis = JSON.parse(jsonStr);
+			const analysis = safeParse(jsonStr, {}) as Record<string, any>;
 
 			if (analysis.characters && Array.isArray(analysis.characters)) {
-				return analysis.characters.map((char: Record<string, unknown>) => ({
-					name: char.name || 'Unknown',
-					consistency: char.consistency || 0.5,
-					development: char.development || 'developing',
-					dialogue_quality: char.dialogue_quality || 0.5,
+				return analysis.characters.map((char: Record<string, any>) => ({
+					name: String(char.name || 'Unknown'),
+					consistency: Number(char.consistency || 0.5),
+					development: String(char.development || 'developing'),
+					dialogue_quality: Number(char.dialogue_quality || 0.5),
 					suggestions: Array.isArray(char.suggestions) ? char.suggestions : [],
 				}));
 			}
@@ -992,7 +1020,7 @@ Return suggestions in this JSON format:
 			const jsonMatch = content.match(/\{[\s\S]*\}/);
 			const jsonStr = jsonMatch ? jsonMatch[0] : content;
 
-			const analysis = JSON.parse(jsonStr);
+			const analysis = safeParse(jsonStr, {}) as Record<string, any>;
 
 			return {
 				pacing: analysis.pacing || 'moderate',

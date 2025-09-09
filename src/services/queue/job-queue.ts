@@ -3,13 +3,16 @@
  * Handles long-running analysis tasks and AI operations
  */
 
-import { Queue, Worker, Job, QueueEvents, ConnectionOptions } from 'bullmq';
+import { Queue, Worker, QueueEvents } from 'bullmq';
+import type { Job, ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
+import * as path from 'path';
 import { getLogger } from '../../core/logger.js';
 import { createError, ErrorCode } from '../../core/errors.js';
+import { MemoryRedis } from './memory-redis.js';
+import { detectConnection, createBullMQConnection } from './keydb-detector.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
-import { ContextAnalyzer } from '../../analysis/context-analyzer.js';
 import { LangChainService } from '../ai/langchain-service.js';
 import { DatabaseService } from '../../database/database-service.js';
 
@@ -68,49 +71,87 @@ export class JobQueueService {
 	private databaseService: DatabaseService | null = null;
 	private isInitialized = false;
 
-	constructor(redisUrl?: string) {
-		this.logger = getLogger('job-queue');
-		
-		// Setup Redis connection
-		const redisConfig: ConnectionOptions = redisUrl 
-			? { url: redisUrl }
-			: {
-				host: process.env.REDIS_HOST || 'localhost',
-				port: parseInt(process.env.REDIS_PORT || '6379'),
-				maxRetriesPerRequest: null,
-			};
+	private memoryRedis: MemoryRedis | null = null;
+	private useEmbedded: boolean;
+	private projectPath: string | null = null;
 
-		if (typeof redisConfig.url === 'string') {
-			this.connection = new (IORedis as any)(redisConfig.url);
+	constructor(redisUrl?: string, projectPath?: string) {
+		this.logger = getLogger('job-queue');
+		this.projectPath = projectPath || null;
+
+		// Determine if we should use embedded KeyDB
+		this.useEmbedded = !redisUrl && !process.env.REDIS_URL;
+
+		if (this.useEmbedded) {
+			// Embedded KeyDB will be initialized in initialize()
+			this.logger.info('Will use embedded KeyDB for job queue');
 		} else {
-			this.connection = new (IORedis as any)({
-				host: (redisConfig as any).host || 'localhost',
-				port: (redisConfig as any).port || 6379,
+			// Use external Redis
+			const redisConfig: ConnectionOptions = redisUrl
+				? { url: redisUrl }
+				: {
+						host: process.env.REDIS_HOST || 'localhost',
+						port: parseInt(process.env.REDIS_PORT || '6379'),
+						maxRetriesPerRequest: null,
+					};
+
+			if (typeof redisConfig.url === 'string') {
+				this.connection = new (IORedis as any)(redisConfig.url);
+			} else {
+				this.connection = new (IORedis as any)({
+					host: (redisConfig as any).host || 'localhost',
+					port: (redisConfig as any).port || 6379,
+				});
+			}
+
+			this.connection.on('error', (error: any) => {
+				this.logger.error('Redis connection error', { error });
+			});
+
+			this.connection.on('connect', () => {
+				this.logger.info('Connected to external Redis');
 			});
 		}
-
-		this.connection.on('error', (error: any) => {
-			this.logger.error('Redis connection error', { error });
-		});
-
-		this.connection.on('connect', () => {
-			this.logger.info('Connected to Redis');
-		});
 	}
 
 	/**
 	 * Initialize queues and workers
 	 */
-	async initialize(options: {
-		langchainApiKey?: string;
-		databasePath?: string;
-		neo4jUri?: string;
-	} = {}): Promise<void> {
+	async initialize(
+		options: {
+			langchainApiKey?: string;
+			databasePath?: string;
+			neo4jUri?: string;
+		} = {}
+	): Promise<void> {
 		if (this.isInitialized) {
 			return;
 		}
 
 		try {
+			// Initialize in-memory Redis if needed
+			if (this.useEmbedded) {
+				this.logger.info('Starting in-memory Redis...');
+
+				// Determine persist path - use project directory if available
+				let persistPath: string;
+				if (this.projectPath) {
+					// Store in .scrivener-mcp directory within the project
+					persistPath = path.join(this.projectPath, '.scrivener-mcp', 'queue-state.json');
+				} else if (options.databasePath) {
+					// Use database path as fallback
+					persistPath = path.join(path.dirname(options.databasePath), 'queue-state.json');
+				} else {
+					// Default to local data directory
+					persistPath = './data/queue-state.json';
+				}
+
+				this.memoryRedis = new MemoryRedis({ persistPath });
+				await this.memoryRedis.connect();
+				this.connection = this.memoryRedis as any;
+				this.logger.info('Connected to in-memory Redis', { persistPath });
+			}
+
 			// Initialize services
 			if (options.langchainApiKey || process.env.OPENAI_API_KEY) {
 				this.langchainService = new LangChainService(options.langchainApiKey);
@@ -250,24 +291,30 @@ export class JobQueueService {
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
 				return this.processAnalyzeDocument(job.data as AnalyzeDocumentJob);
-			
+
 			case JobType.ANALYZE_PROJECT:
 				return this.processAnalyzeProject(job.data as AnalyzeProjectJob);
-			
+
 			case JobType.GENERATE_SUGGESTIONS:
 				return this.processGenerateSuggestions(job.data as GenerateSuggestionsJob);
-			
+
 			case JobType.BUILD_VECTOR_STORE:
 				return this.processBuildVectorStore(job.data);
-			
+
 			case JobType.CHECK_CONSISTENCY:
 				return this.processCheckConsistency(job.data);
-			
+
 			case JobType.SYNC_DATABASE:
 				return this.processSyncDatabase(job.data);
-			
+
 			default:
-				throw new Error(`Unknown job type: ${jobType}`);
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{
+						jobType,
+					},
+					`Unknown job type: ${jobType}`
+				);
 		}
 	}
 
@@ -355,11 +402,10 @@ export class JobQueueService {
 		}
 
 		await this.updateProgress(JobType.GENERATE_SUGGESTIONS, 20, 'Generating suggestions');
-		
-		const suggestions = await this.langchainService.generateWithContext(
-			data.prompt,
-			{ topK: 5 }
-		);
+
+		const suggestions = await this.langchainService.generateWithContext(data.prompt, {
+			topK: 5,
+		});
 
 		await this.updateProgress(JobType.GENERATE_SUGGESTIONS, 100, 'Suggestions generated');
 		return suggestions;
@@ -368,7 +414,9 @@ export class JobQueueService {
 	/**
 	 * Process build vector store job
 	 */
-	private async processBuildVectorStore(data: { documents: ScrivenerDocument[] }): Promise<unknown> {
+	private async processBuildVectorStore(data: {
+		documents: ScrivenerDocument[];
+	}): Promise<unknown> {
 		if (!this.langchainService) {
 			throw createError(
 				ErrorCode.AI_SERVICE_ERROR,
@@ -378,7 +426,7 @@ export class JobQueueService {
 		}
 
 		await this.updateProgress(JobType.BUILD_VECTOR_STORE, 10, 'Starting vector store build');
-		
+
 		await this.langchainService.buildVectorStore(data.documents);
 
 		await this.updateProgress(JobType.BUILD_VECTOR_STORE, 100, 'Vector store built');
@@ -388,7 +436,9 @@ export class JobQueueService {
 	/**
 	 * Process check consistency job
 	 */
-	private async processCheckConsistency(data: { documents: ScrivenerDocument[] }): Promise<unknown> {
+	private async processCheckConsistency(data: {
+		documents: ScrivenerDocument[];
+	}): Promise<unknown> {
 		if (!this.langchainService) {
 			throw createError(
 				ErrorCode.AI_SERVICE_ERROR,
@@ -398,7 +448,7 @@ export class JobQueueService {
 		}
 
 		await this.updateProgress(JobType.CHECK_CONSISTENCY, 20, 'Checking consistency');
-		
+
 		const issues = await this.langchainService.checkPlotConsistency(data.documents);
 
 		await this.updateProgress(JobType.CHECK_CONSISTENCY, 100, 'Consistency check complete');
@@ -410,18 +460,14 @@ export class JobQueueService {
 	 */
 	private async processSyncDatabase(data: { documents: ScrivenerDocument[] }): Promise<unknown> {
 		if (!this.databaseService) {
-			throw createError(
-				ErrorCode.AI_SERVICE_ERROR,
-				null,
-				'Database service not initialized'
-			);
+			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Database service not initialized');
 		}
 
 		await this.updateProgress(JobType.SYNC_DATABASE, 10, 'Starting database sync');
 
 		for (let i = 0; i < data.documents.length; i++) {
 			await this.databaseService.syncDocumentData(data.documents[i]);
-			
+
 			const progress = Math.round(((i + 1) / data.documents.length) * 100);
 			await this.updateProgress(
 				JobType.SYNC_DATABASE,
@@ -477,7 +523,10 @@ export class JobQueueService {
 	/**
 	 * Get job status
 	 */
-	async getJobStatus(jobType: JobType, jobId: string): Promise<{
+	async getJobStatus(
+		jobType: JobType,
+		jobId: string
+	): Promise<{
 		state: string;
 		progress: number;
 		result?: JobResult;
@@ -494,15 +543,11 @@ export class JobQueueService {
 
 		const job = await queue.getJob(jobId);
 		if (!job) {
-			throw createError(
-				ErrorCode.NOT_FOUND,
-				null,
-				`Job ${jobId} not found`
-			);
+			throw createError(ErrorCode.NOT_FOUND, null, `Job ${jobId} not found`);
 		}
 
 		const state = await job.getState();
-		const progress = job.progress as number || 0;
+		const progress = (job.progress as number) || 0;
 
 		return {
 			state,
@@ -527,11 +572,7 @@ export class JobQueueService {
 
 		const job = await queue.getJob(jobId);
 		if (!job) {
-			throw createError(
-				ErrorCode.NOT_FOUND,
-				null,
-				`Job ${jobId} not found`
-			);
+			throw createError(ErrorCode.NOT_FOUND, null, `Job ${jobId} not found`);
 		}
 
 		await job.remove();
@@ -590,7 +631,15 @@ export class JobQueueService {
 		}
 
 		// Close Redis connection
-		this.connection.disconnect();
+		if (this.connection) {
+			this.connection.disconnect();
+		}
+
+		// Stop in-memory Redis if running
+		if (this.memoryRedis) {
+			await this.memoryRedis.disconnect();
+			this.memoryRedis = null;
+		}
 
 		this.isInitialized = false;
 		this.logger.info('Job queue service shutdown complete');

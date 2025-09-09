@@ -7,7 +7,16 @@ import { exec } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
-import { AppError, ErrorCode } from '../utils/common.js';
+import {
+	AppError,
+	ErrorCode,
+	writeJSON,
+	ensureDir,
+	safeParse,
+	getEnv,
+	safeReadFile,
+} from '../utils/common.js';
+import { waitForServiceReady } from '../utils/condition-waiter.js';
 
 const execAsync = promisify(exec);
 
@@ -90,17 +99,17 @@ export class DatabaseSetup {
 	static async getCredentials(options: DatabaseSetupOptions): Promise<DatabaseCredentials> {
 		const credentials: DatabaseCredentials = {
 			neo4j: {
-				uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
-				user: process.env.NEO4J_USER || 'neo4j',
-				password: process.env.NEO4J_PASSWORD || '',
-				database: process.env.NEO4J_DATABASE || 'scrivener',
+				uri: getEnv('NEO4J_URI', 'bolt://localhost:7687') || 'bolt://localhost:7687',
+				user: getEnv('NEO4J_USER', 'neo4j') || 'neo4j',
+				password: getEnv('NEO4J_PASSWORD', '') || '',
+				database: getEnv('NEO4J_DATABASE', 'scrivener') || 'scrivener',
 			},
 		};
 
 		// Check for .env file in project
 		const envPath = path.join(options.projectPath, '.env');
 		try {
-			const envContent = await fs.readFile(envPath, 'utf-8');
+			const envContent = await safeReadFile(envPath);
 			const envVars = this.parseEnvFile(envContent);
 
 			if (envVars.NEO4J_URI) credentials.neo4j.uri = envVars.NEO4J_URI;
@@ -118,8 +127,8 @@ export class DatabaseSetup {
 			'credentials.json'
 		);
 		try {
-			const configContent = await fs.readFile(configPath, 'utf-8');
-			const config = JSON.parse(configContent);
+			const configContent = await safeReadFile(configPath);
+			const config = safeParse(configContent, {}) as Record<string, any>;
 			if (config.neo4j) {
 				Object.assign(credentials.neo4j, config.neo4j);
 			}
@@ -172,21 +181,24 @@ export class DatabaseSetup {
 	private static async waitForNeo4j(maxAttempts = 30): Promise<void> {
 		const neo4j = await import('neo4j-driver');
 
-		for (let i = 0; i < maxAttempts; i++) {
-			try {
-				const driver = neo4j.default.driver(
-					'bolt://localhost:7687',
-					neo4j.default.auth.basic('neo4j', 'scrivener-mcp')
-				);
-				await driver.verifyConnectivity();
-				await driver.close();
-				return;
-			} catch {
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-			}
-		}
+		// Use condition-based waiting instead of loop with fixed delays
+		await waitForServiceReady('localhost', 7687, maxAttempts * 1000);
 
-		throw new AppError('Neo4j failed to start', ErrorCode.INITIALIZATION_ERROR);
+		// Final connectivity verification
+		try {
+			const driver = neo4j.default.driver(
+				'bolt://localhost:7687',
+				neo4j.default.auth.basic('neo4j', 'scrivener-mcp')
+			);
+			await driver.verifyConnectivity();
+			await driver.close();
+		} catch (error) {
+			throw new AppError(
+				'Neo4j service is running but authentication failed',
+				ErrorCode.INITIALIZATION_ERROR,
+				{ originalError: (error as Error).message }
+			);
+		}
 	}
 
 	/**
@@ -284,13 +296,13 @@ but you'll miss out on advanced features like:
 		const configPath = path.join(projectPath, '.scrivener-databases', 'credentials.json');
 		const configDir = path.dirname(configPath);
 
-		await fs.mkdir(configDir, { recursive: true });
+		await ensureDir(configDir);
 
 		// Load existing config
 		let existing: any = {};
 		try {
-			const content = await fs.readFile(configPath, 'utf-8');
-			existing = JSON.parse(content);
+			const content = await safeReadFile(configPath);
+			existing = safeParse(content, {});
 		} catch {
 			// File doesn't exist yet
 		}
@@ -303,8 +315,8 @@ but you'll miss out on advanced features like:
 		};
 
 		// Save with restricted permissions
-		await fs.writeFile(configPath, JSON.stringify(updated, null, 2), {
-			mode: 0o600, // Read/write for owner only
-		});
+		await writeJSON(configPath, updated);
+		// Set restricted permissions after writing
+		await fs.chmod(configPath, 0o600); // Read/write for owner only
 	}
 }

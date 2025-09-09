@@ -1,6 +1,7 @@
 import type { Driver, ManagedTransaction, QueryResult } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
 import { getLogger } from '../core/logger.js';
+import { waitForServiceReady } from '../utils/condition-waiter.js';
 import type { QueryParameters } from '../types/database.js';
 import { AppError, ErrorCode } from '../utils/common.js';
 import { extractValues, nodeToObject } from '../utils/database.js';
@@ -53,8 +54,20 @@ export class Neo4jManager {
 			} catch (error) {
 				const isLastAttempt = attempt === this.connectionRetries;
 				if (!isLastAttempt) {
-					// Wait before retrying
-					await new Promise((resolve) => setTimeout(resolve, this.retryDelay * attempt));
+					// Wait for service to be ready instead of fixed delay
+					try {
+						const parsedUrl = new URL(this.uri);
+						await waitForServiceReady(
+							parsedUrl.hostname,
+							parseInt(parsedUrl.port) || 7687,
+							this.retryDelay * attempt
+						);
+					} catch {
+						// If condition wait fails (invalid URL or service check), fall back to basic exponential backoff
+						await new Promise((resolve) =>
+							setTimeout(resolve, this.retryDelay * attempt)
+						);
+					}
 				} else {
 					logger.warn(
 						'Neo4j connection failed after retries, continuing without graph database',
@@ -460,7 +473,20 @@ export class Neo4jManager {
 				// Check if it's a transient error that should be retried
 				const errorCode = (error as Error & { code?: string }).code;
 				if (errorCode && this.isTransientError(errorCode) && attempt < retries) {
-					await new Promise((resolve) => setTimeout(resolve, this.retryDelay * attempt));
+					// Wait for service to recover instead of fixed delay
+					try {
+						const parsedUrl = new URL(this.uri);
+						await waitForServiceReady(
+							parsedUrl.hostname,
+							parseInt(parsedUrl.port) || 7687,
+							this.retryDelay * attempt
+						);
+					} catch {
+						// If condition wait fails (invalid URL or service check), fall back to basic exponential backoff
+						await new Promise((resolve) =>
+							setTimeout(resolve, this.retryDelay * attempt)
+						);
+					}
 					continue;
 				}
 

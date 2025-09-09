@@ -4,6 +4,7 @@
 
 import type { ToolDefinition } from './types.js';
 import * as asyncHandlers from './async-handlers.js';
+import { safeStringify } from '../utils/common.js';
 
 export const asyncHandlerDefinitions: ToolDefinition[] = [
 	{
@@ -32,7 +33,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -63,7 +64,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -86,7 +87,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -109,7 +110,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -134,7 +135,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -159,7 +160,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -182,7 +183,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -217,7 +218,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -240,7 +241,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};
@@ -262,7 +263,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(result, null, 2),
+						text: safeStringify(result) || JSON.stringify(result, null, 2),
 					},
 				],
 			};

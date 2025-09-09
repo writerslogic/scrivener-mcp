@@ -10,7 +10,15 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { createWriteStream } from 'fs';
 import * as readline from 'readline/promises';
-import { AppError, ErrorCode } from '../utils/common.js';
+import {
+	AppError,
+	ErrorCode,
+	ensureDir,
+	safeStringify,
+	safeReadFile,
+	safeWriteFile,
+} from '../utils/common.js';
+import { AdaptiveTimeout, ProgressIndicators } from '../utils/adaptive-timeout.js';
 
 const execAsync = promisify(exec);
 
@@ -393,7 +401,7 @@ export class Neo4jAutoInstaller {
 
 			// Create installation directory
 			const installDir = path.join(os.homedir(), '.scrivener-mcp', 'neo4j');
-			await fs.mkdir(installDir, { recursive: true });
+			await ensureDir(installDir);
 
 			// Download Neo4j
 			console.log('📥 Downloading Neo4j...');
@@ -585,14 +593,14 @@ export class Neo4jAutoInstaller {
 		await execAsync(`"${adminCmd}" set-initial-password ${password}`);
 
 		// Update configuration
-		let config = await fs.readFile(configPath, 'utf-8');
+		let config = await safeReadFile(configPath);
 
 		// Enable APOC procedures
 		config += '\n# Scrivener MCP Configuration\n';
 		config += 'dbms.security.procedures.unrestricted=apoc.*\n';
 		config += 'dbms.security.procedures.allowlist=apoc.*\n';
 
-		await fs.writeFile(configPath, config);
+		await safeWriteFile(configPath, config);
 	}
 
 	/**
@@ -605,7 +613,7 @@ export class Neo4jAutoInstaller {
 "${neo4jHome}/bin/neo4j" console
 `;
 
-		await fs.writeFile(scriptPath, script);
+		await safeWriteFile(scriptPath, script);
 		await fs.chmod(scriptPath, 0o755);
 	}
 
@@ -622,42 +630,104 @@ export class Neo4jAutoInstaller {
 	}
 
 	/**
-	 * Wait for Docker to be ready
+	 * Wait for Docker to be ready with adaptive timeout
 	 */
 	private static async waitForDocker(maxSeconds: number = 30): Promise<void> {
-		for (let i = 0; i < maxSeconds; i++) {
-			try {
-				await execAsync('docker ps');
-				return;
-			} catch {
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-			}
-		}
-		throw new AppError('Docker failed to start', ErrorCode.INITIALIZATION_ERROR);
+		const timeout = new AdaptiveTimeout({
+			operation: 'Docker startup',
+			baseTimeout: maxSeconds * 1000,
+			maxTimeout: maxSeconds * 1000,
+			stallTimeout: 10000,
+			progressIndicators: [
+				{
+					type: 'completion_check',
+					description: 'Docker availability',
+					check: async () => {
+						try {
+							await execAsync('docker ps', { timeout: 5000 });
+							return true;
+						} catch {
+							return false;
+						}
+					},
+				},
+			],
+		});
+
+		await timeout.wait(
+			new Promise<void>((resolve, _reject) => {
+				const checkDocker = async () => {
+					try {
+						await execAsync('docker ps', { timeout: 5000 });
+						resolve();
+					} catch {
+						// Let adaptive timeout handle the completion check
+						setTimeout(checkDocker, 100);
+					}
+				};
+				checkDocker();
+			})
+		);
 	}
 
 	/**
-	 * Wait for Neo4j to be ready
+	 * Wait for Neo4j to be ready with adaptive timeout
 	 */
 	private static async waitForNeo4j(password: string, maxAttempts: number = 30): Promise<void> {
 		const neo4j = await import('neo4j-driver');
 
-		for (let i = 0; i < maxAttempts; i++) {
-			try {
-				const driver = neo4j.default.driver(
-					'bolt://localhost:7687',
-					neo4j.default.auth.basic('neo4j', password)
-				);
-				await driver.verifyConnectivity();
-				await driver.close();
-				return;
-			} catch {
-				process.stdout.write('.');
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-			}
-		}
+		const timeout = new AdaptiveTimeout({
+			operation: 'Neo4j startup',
+			baseTimeout: maxAttempts * 1000,
+			maxTimeout: maxAttempts * 1500, // Allow some extra time
+			stallTimeout: 15000, // Neo4j can take longer to start
+			progressIndicators: [
+				ProgressIndicators.networkProgress('localhost', 7687),
+				{
+					type: 'completion_check',
+					description: 'Neo4j connectivity',
+					check: async () => {
+						try {
+							const driver = neo4j.default.driver(
+								'bolt://localhost:7687',
+								neo4j.default.auth.basic('neo4j', password)
+							);
+							await driver.verifyConnectivity();
+							await driver.close();
+							return true;
+						} catch {
+							return false;
+						}
+					},
+				},
+			],
+			onProgress: (progress) => {
+				if (progress.message?.includes('connectivity')) {
+					process.stdout.write('.');
+				}
+			},
+		});
 
-		throw new AppError('Neo4j failed to start', ErrorCode.INITIALIZATION_ERROR);
+		await timeout.wait(
+			new Promise<void>((resolve, _reject) => {
+				const checkNeo4j = async () => {
+					try {
+						const driver = neo4j.default.driver(
+							'bolt://localhost:7687',
+							neo4j.default.auth.basic('neo4j', password)
+						);
+						await driver.verifyConnectivity();
+						await driver.close();
+						resolve();
+					} catch {
+						// Let adaptive timeout handle the completion check
+						setTimeout(checkNeo4j, 200);
+					}
+				};
+				checkNeo4j();
+			})
+		);
+		// Note: If timeout.wait() rejects due to timeout, it will throw an appropriate error
 	}
 
 	/**
@@ -665,12 +735,12 @@ export class Neo4jAutoInstaller {
 	 */
 	private static async saveCredentials(projectPath: string, credentials: any): Promise<void> {
 		const configDir = path.join(projectPath, '.scrivener-databases');
-		await fs.mkdir(configDir, { recursive: true });
+		await ensureDir(configDir);
 
 		const configPath = path.join(configDir, 'credentials.json');
-		await fs.writeFile(
+		await safeWriteFile(
 			configPath,
-			JSON.stringify({ neo4j: credentials, createdAt: new Date().toISOString() }, null, 2),
+			safeStringify({ neo4j: credentials, createdAt: new Date().toISOString() }),
 			{ mode: 0o600 }
 		);
 
@@ -685,7 +755,7 @@ NEO4J_USER=${credentials.user}
 NEO4J_PASSWORD=${credentials.password}
 NEO4J_DATABASE=${credentials.database}
 `;
-			await fs.writeFile(envPath, envContent);
+			await safeWriteFile(envPath, envContent);
 		}
 	}
 }

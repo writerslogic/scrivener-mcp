@@ -21,6 +21,7 @@ import type {
 	WritingSuggestion,
 } from './types/analysis.js';
 import { webContentParser } from './services/web-content-parser.js';
+import { splitIntoSentences, getWordPairs } from './utils/common.js';
 
 const logger = getLogger('content-analyzer');
 
@@ -191,7 +192,7 @@ export class ContentAnalyzer {
 
 	private calculateMetrics(content: string): WritingMetrics {
 		const words = content.split(/\s+/).filter((w) => w.length > 0);
-		const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(content);
 		const paragraphs = content.split(/\n\n+/).filter((p) => p.trim().length > 0);
 
 		const wordCount = words.length;
@@ -221,7 +222,7 @@ export class ContentAnalyzer {
 	}
 
 	private analyzeStyle(content: string): StyleAnalysis {
-		const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(content);
 		const words = content
 			.toLowerCase()
 			.split(/\s+/)
@@ -329,12 +330,13 @@ export class ContentAnalyzer {
 
 	private assessQuality(content: string): QualityIndicators {
 		const words = content.toLowerCase().split(/\s+/);
-		const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(content);
 
 		// Repetitiveness
 		const wordPairs = new Map<string, number>();
-		for (let i = 0; i < words.length - 1; i++) {
-			const pair = `${words[i]} ${words[i + 1]}`;
+		const pairs = getWordPairs(words);
+		for (const [word1, word2] of pairs) {
+			const pair = `${word1} ${word2}`;
 			wordPairs.set(pair, (wordPairs.get(pair) || 0) + 1);
 		}
 		const repetitivePairs = Array.from(wordPairs.values()).filter((count) => count > 2).length;
@@ -563,7 +565,7 @@ export class ContentAnalyzer {
 
 		// Tension level using semantic pattern detection
 		const tensionCount = words.filter((w) => this.isConflictWord(w)).length;
-		const sentenceCount = content.split(/[.!?]+/).filter((s) => s.trim().length > 0).length;
+		const sentenceCount = splitIntoSentences(content).length;
 		const tensionLevel = Math.min((tensionCount / sentenceCount) * 100, 100);
 
 		return {

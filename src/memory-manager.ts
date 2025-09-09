@@ -1,7 +1,14 @@
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
-import * as path from 'path';
-import { safeReadFile, safeWriteFile, ensureDir, pathExists } from './utils/common.js';
+import {
+	safeReadFile,
+	safeWriteFile,
+	ensureDir,
+	pathExists,
+	safeParse,
+	safeStringify,
+	buildPath,
+} from './utils/common.js';
 import type { DatabaseService } from './database/database-service.js';
 import { buildInsertQuery, buildSelectQuery } from './utils/database.js';
 import { getLogger } from './core/logger.js';
@@ -93,7 +100,7 @@ export class MemoryManager {
 	constructor(projectPath: string, databaseService?: DatabaseService) {
 		this.projectPath = projectPath;
 		// Store memory in a hidden folder within the Scrivener project
-		this.memoryPath = path.join(projectPath, '.ai-memory');
+		this.memoryPath = buildPath(projectPath, '.ai-memory');
 		this.memory = this.createEmptyMemory();
 		this.databaseService = databaseService;
 	}
@@ -143,7 +150,7 @@ export class MemoryManager {
 		await ensureDir(this.memoryPath);
 
 		// Load existing memory or create new from file as fallback
-		const memoryFile = path.join(this.memoryPath, 'project-memory.json');
+		const memoryFile = buildPath(this.memoryPath, 'project-memory.json');
 		if (await pathExists(memoryFile)) {
 			await this.loadMemory();
 		} else {
@@ -161,18 +168,45 @@ export class MemoryManager {
 
 	async loadMemory(): Promise<void> {
 		try {
-			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
+			const memoryFile = buildPath(this.memoryPath, 'project-memory.json');
 			const data = await safeReadFile(memoryFile);
-			const loaded = JSON.parse(data);
+			const loaded = safeParse(data, {}) as Partial<ProjectMemory> & Record<string, unknown>;
+
+			// Initialize with proper ProjectMemory structure
+			const memory: ProjectMemory = {
+				version: loaded.version || '1.0.0',
+				lastUpdated: loaded.lastUpdated || new Date().toISOString(),
+				characters: loaded.characters || [],
+				worldBuilding: loaded.worldBuilding || [],
+				plotThreads: loaded.plotThreads || [],
+				styleGuide: loaded.styleGuide || {
+					tone: [],
+					voice: '',
+					pov: 'third-limited',
+					tense: 'past',
+					vocabularyLevel: 'moderate',
+					sentenceComplexity: 'varied',
+					paragraphLength: 'medium',
+					customGuidelines: [],
+				},
+				writingStats: loaded.writingStats || {
+					totalWords: 0,
+					averageChapterLength: 0,
+					sessionsCount: 0,
+					lastSession: new Date().toISOString(),
+					dailyWordCounts: [],
+					completionPercentage: 0,
+				},
+				documentContexts: new Map(),
+				customContext: loaded.customContext || {},
+			};
 
 			// Convert documentContexts back to Map
 			if (loaded.documentContexts && Array.isArray(loaded.documentContexts)) {
-				loaded.documentContexts = new Map(loaded.documentContexts);
-			} else {
-				loaded.documentContexts = new Map();
+				memory.documentContexts = new Map(loaded.documentContexts);
 			}
 
-			this.memory = loaded;
+			this.memory = memory;
 		} catch (error) {
 			logger.error('Failed to load memory', { error });
 			this.memory = this.createEmptyMemory();
@@ -186,7 +220,7 @@ export class MemoryManager {
 				await this.saveToDatabase();
 			}
 
-			const memoryFile = path.join(this.memoryPath, 'project-memory.json');
+			const memoryFile = buildPath(this.memoryPath, 'project-memory.json');
 
 			// Convert Map to array for JSON serialization
 			const toSave = {
@@ -195,17 +229,17 @@ export class MemoryManager {
 				lastUpdated: new Date().toISOString(),
 			};
 
-			await safeWriteFile(memoryFile, JSON.stringify(toSave, null, 2));
+			await safeWriteFile(memoryFile, safeStringify(toSave));
 
 			// Also save a backup
 			try {
-				const backupFile = path.join(
+				const backupFile = buildPath(
 					this.memoryPath,
 					`backup-${new Date().toISOString().split('T')[0]}.json`
 				);
 				// Ensure directory still exists before writing backup
 				await ensureDir(this.memoryPath);
-				await safeWriteFile(backupFile, JSON.stringify(toSave, null, 2));
+				await safeWriteFile(backupFile, safeStringify(toSave));
 			} catch (backupError) {
 				logger.warn('Failed to save backup file', { error: backupError });
 				// Don't throw - backup failure shouldn't break the main save
@@ -232,7 +266,7 @@ export class MemoryManager {
 
 			if (backups.length > 7) {
 				for (const backup of backups.slice(7)) {
-					await fs.unlink(path.join(this.memoryPath, backup));
+					await fs.unlink(buildPath(this.memoryPath, backup));
 				}
 			}
 		} catch (error) {
@@ -371,7 +405,7 @@ export class MemoryManager {
 	}
 
 	private generateId(): string {
-		return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+		return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 	}
 
 	/**
@@ -393,10 +427,10 @@ export class MemoryManager {
 				name: c.name,
 				role: c.role || 'supporting',
 				description: c.description || '',
-				traits: c.traits ? JSON.parse(c.traits) : [],
+				traits: c.traits ? safeParse(c.traits, []) : [],
 				arc: c.arc || '',
-				relationships: c.relationships ? JSON.parse(c.relationships) : [],
-				appearances: c.appearances ? JSON.parse(c.appearances) : [],
+				relationships: c.relationships ? safeParse(c.relationships, []) : [],
+				appearances: c.appearances ? safeParse(c.appearances, []) : [],
 				notes: c.notes || '',
 			}));
 
@@ -408,9 +442,9 @@ export class MemoryManager {
 				name: p.name,
 				status: p.status || 'development',
 				description: p.description || '',
-				documents: p.related_documents ? JSON.parse(p.related_documents) : [],
+				documents: p.related_documents ? safeParse(p.related_documents, []) : [],
 				keyEvents: p.developments
-					? JSON.parse(p.developments).map((d: any) => ({
+					? safeParse(p.developments, []).map((d: any) => ({
 							documentId: d.documentId || '',
 							event: d.event || d,
 						}))
@@ -422,12 +456,12 @@ export class MemoryManager {
 			const metadata = db.prepare(metaSql).all() as any[];
 			metadata.forEach((m) => {
 				if (m.key === 'style_guide' && m.value) {
-					this.memory.styleGuide = JSON.parse(m.value);
+					this.memory.styleGuide = safeParse(m.value, {} as StyleGuide);
 				} else if (m.key === 'writing_stats' && m.value) {
-					this.memory.writingStats = JSON.parse(m.value);
+					this.memory.writingStats = safeParse(m.value, {} as WritingStatistics);
 				} else if (m.key.startsWith('custom_')) {
 					const customKey = m.key.replace('custom_', '');
-					this.memory.customContext[customKey] = JSON.parse(m.value);
+					this.memory.customContext[customKey] = safeParse(m.value, {});
 				}
 			});
 
@@ -447,9 +481,9 @@ export class MemoryManager {
 				type: w.type || 'theme',
 				name: w.name,
 				description: w.description || '',
-				details: w.details ? JSON.parse(w.details) : {},
+				details: w.details ? safeParse(w.details, {}) : {},
 				significance: w.significance || 'minor',
-				appearances: w.appearances ? JSON.parse(w.appearances) : [],
+				appearances: w.appearances ? safeParse(w.appearances, []) : [],
 			}));
 		} catch (error) {
 			logger.error('Failed to load from database', { error });
@@ -476,10 +510,10 @@ export class MemoryManager {
 						name: char.name,
 						role: char.role,
 						description: char.description,
-						traits: JSON.stringify(char.traits),
+						traits: safeStringify(char.traits),
 						arc: char.arc,
-						relationships: JSON.stringify(char.relationships),
-						appearances: JSON.stringify(char.appearances),
+						relationships: safeStringify(char.relationships),
+						appearances: safeStringify(char.appearances),
 						notes: char.notes || '',
 					},
 					'REPLACE'
@@ -496,8 +530,8 @@ export class MemoryManager {
 						name: plot.name,
 						status: plot.status,
 						description: plot.description,
-						developments: JSON.stringify(plot.keyEvents),
-						related_documents: JSON.stringify(plot.documents),
+						developments: safeStringify(plot.keyEvents),
+						related_documents: safeStringify(plot.documents),
 					},
 					'REPLACE'
 				);
@@ -506,13 +540,13 @@ export class MemoryManager {
 
 			// Save project metadata
 			const metadataItems = [
-				{ key: 'style_guide', value: JSON.stringify(this.memory.styleGuide) },
-				{ key: 'writing_stats', value: JSON.stringify(this.memory.writingStats) },
+				{ key: 'style_guide', value: safeStringify(this.memory.styleGuide) },
+				{ key: 'writing_stats', value: safeStringify(this.memory.writingStats) },
 			];
 
 			// Add custom context items
 			for (const [key, value] of Object.entries(this.memory.customContext)) {
-				metadataItems.push({ key: `custom_${key}`, value: JSON.stringify(value) });
+				metadataItems.push({ key: `custom_${key}`, value: safeStringify(value) });
 			}
 
 			// Save all metadata

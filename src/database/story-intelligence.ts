@@ -6,6 +6,7 @@
 import type { GraphAnalytics } from './graph-analytics.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { SQLiteManager } from './sqlite-manager.js';
+import { unique } from '../utils/common.js';
 
 export interface PlotHole {
 	type: 'continuity' | 'logic' | 'character' | 'timeline';
@@ -535,7 +536,7 @@ export class StoryIntelligence {
 	private extractCharacterNames(text: string): string[] {
 		// Simplified - would need entity recognition
 		const properNouns = text.match(/[A-Z][a-z]+/g) || [];
-		return [...new Set(properNouns)];
+		return unique(properNouns);
 	}
 
 	private parseRelativeDate(current: string, relative: string): string {

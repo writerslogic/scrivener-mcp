@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import type { Driver, Session } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
 import { createError, ErrorCode, withRetry } from '../core/errors.js';
+import { waitForCondition } from '../utils/condition-waiter.js';
 
 interface PoolConfig {
 	maxConnections?: number;
@@ -65,23 +66,36 @@ export class SQLitePool {
 	}
 
 	async acquire(): Promise<Database.Database> {
-		const startTime = Date.now();
+		// Use condition-based waiting instead of polling with fixed delays
+		await waitForCondition({
+			condition: async () => {
+				// Return available connection
+				if (this.available.length > 0) {
+					return true;
+				}
 
-		while (Date.now() - startTime < this.config.acquireTimeout) {
-			// Return available connection
-			if (this.available.length > 0) {
-				return this.available.pop()!;
-			}
+				// Create new connection if under limit
+				if (this.connections.length < this.config.maxConnections) {
+					return true;
+				}
 
-			// Create new connection if under limit
-			if (this.connections.length < this.config.maxConnections) {
-				const conn = this.createConnection();
-				this.connections.push(conn);
-				return conn;
-			}
+				return false; // No connection available, keep waiting
+			},
+			description: 'Database connection acquisition',
+			timeout: this.config.acquireTimeout || 5000,
+			pollInterval: 10, // Very short interval for connection pools
+		});
 
-			// Wait briefly before retrying
-			await new Promise((resolve) => setTimeout(resolve, 10));
+		// After condition is met, actually acquire the connection
+		if (this.available.length > 0) {
+			return this.available.pop()!;
+		}
+
+		// Create new connection if under limit
+		if (this.connections.length < this.config.maxConnections) {
+			const conn = this.createConnection();
+			this.connections.push(conn);
+			return conn;
 		}
 
 		throw createError(ErrorCode.TIMEOUT_ERROR, null, 'Failed to acquire database connection');

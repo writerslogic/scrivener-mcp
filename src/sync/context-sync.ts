@@ -1,6 +1,5 @@
 import * as fs from 'fs';
-import * as path from 'path';
-import { safeWriteFile, ensureDir, pathExists } from '../utils/common.js';
+import { safeWriteFile, ensureDir, pathExists, buildPath, safeStringify } from '../utils/common.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type { DatabaseService } from '../database/database-service.js';
 import type {
@@ -44,7 +43,7 @@ export class ContextSyncService {
 			includeRelationships: true,
 		}
 	) {
-		this.contextDir = path.join(projectPath, '.scrivener-context');
+		this.contextDir = buildPath(projectPath, '.scrivener-context');
 		this.syncStatus = {
 			lastSync: new Date(),
 			documentsInSync: 0,
@@ -69,7 +68,7 @@ export class ContextSyncService {
 		// Create subdirectories
 		const subdirs = ['chapters', 'characters', 'themes', 'plots', 'analysis'];
 		for (const subdir of subdirs) {
-			const dirPath = path.join(this.contextDir, subdir);
+			const dirPath = buildPath(this.contextDir, subdir);
 			await ensureDir(dirPath);
 		}
 	}
@@ -190,7 +189,7 @@ export class ContextSyncService {
 	 * Write chapter context files
 	 */
 	private async writeChapterContextFiles(context: ChapterContext): Promise<void> {
-		const chapterDir = path.join(this.contextDir, 'chapters');
+		const chapterDir = buildPath(this.contextDir, 'chapters');
 		const baseFileName = `${this.sanitizeFileName(context.title)}-${context.documentId.substring(0, 8)}`;
 
 		// Write JSON format
@@ -198,8 +197,11 @@ export class ContextSyncService {
 			this.options.contextFileFormat === 'json' ||
 			this.options.contextFileFormat === 'both'
 		) {
-			const jsonPath = path.join(chapterDir, `${baseFileName}.json`);
-			await safeWriteFile(jsonPath, JSON.stringify(context, null, 2));
+			const jsonPath = buildPath(chapterDir, `${baseFileName}.json`);
+			await safeWriteFile(
+				jsonPath,
+				safeStringify(context) || JSON.stringify(context, null, 2)
+			);
 		}
 
 		// Write Markdown format
@@ -207,7 +209,7 @@ export class ContextSyncService {
 			this.options.contextFileFormat === 'markdown' ||
 			this.options.contextFileFormat === 'both'
 		) {
-			const mdPath = path.join(chapterDir, `${baseFileName}.md`);
+			const mdPath = buildPath(chapterDir, `${baseFileName}.md`);
 			const markdown = this.contextToMarkdown(context);
 			await safeWriteFile(mdPath, markdown);
 		}
@@ -391,14 +393,14 @@ export class ContextSyncService {
 		const storyContext = await this.contextAnalyzer.buildStoryContext(documents, chapters);
 
 		// Write story context files
-		const storyPath = path.join(this.contextDir, 'story-context');
+		const storyPath = buildPath(this.contextDir, 'story-context');
 
 		if (
 			this.options.contextFileFormat === 'json' ||
 			this.options.contextFileFormat === 'both'
 		) {
 			await safeWriteFile(
-				path.join(`${storyPath}.json`),
+				buildPath(`${storyPath}.json`),
 				JSON.stringify(
 					storyContext,
 					(key, value) => {
@@ -417,7 +419,7 @@ export class ContextSyncService {
 			this.options.contextFileFormat === 'both'
 		) {
 			const markdown = this.storyContextToMarkdown(storyContext);
-			await safeWriteFile(path.join(`${storyPath}.md`), markdown);
+			await safeWriteFile(buildPath(`${storyPath}.md`), markdown);
 		}
 	}
 
@@ -576,7 +578,7 @@ export class ContextSyncService {
 	 * Count synced documents
 	 */
 	private async countSyncedDocuments(): Promise<number> {
-		const chapterDir = path.join(this.contextDir, 'chapters');
+		const chapterDir = buildPath(this.contextDir, 'chapters');
 
 		if (!(await pathExists(chapterDir))) {
 			return 0;
@@ -616,8 +618,8 @@ export class ContextSyncService {
 			const entries = await fs.promises.readdir(src, { withFileTypes: true });
 
 			for (const entry of entries) {
-				const srcPath = path.join(src, entry.name);
-				const destPath = path.join(dest, entry.name);
+				const srcPath = buildPath(src, entry.name);
+				const destPath = buildPath(dest, entry.name);
 
 				if (entry.isDirectory()) {
 					await copyRecursive(srcPath, destPath);

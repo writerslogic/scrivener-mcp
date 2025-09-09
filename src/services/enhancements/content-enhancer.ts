@@ -2,6 +2,7 @@ import nlp from 'compromise';
 import type { StyleGuide } from '../../memory-manager.js';
 import { MLWordClassifierPro } from '../../analysis/ml-word-classifier-pro.js';
 import { ApplicationError as AppError, ErrorCode } from '../../core/errors.js';
+import { splitIntoSentences } from '../../utils/common.js';
 
 export type EnhancementType =
 	| 'rewrite'
@@ -1754,7 +1755,7 @@ export class ContentEnhancer {
 		const cleanText = text.replace(/[^\w\s.!?]/g, '');
 
 		// Count sentences (handle multiple punctuation)
-		const sentences = cleanText.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(cleanText);
 		const totalSentences = Math.max(1, sentences.length);
 
 		// Count words and analyze

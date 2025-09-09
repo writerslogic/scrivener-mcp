@@ -3,7 +3,7 @@
  * Provides MCP handlers for async processing with BullMQ
  */
 
-import { JobQueueService, JobType } from '../services/queue/job-queue.js';
+import { JobQueueService, JobType } from '../services/queue/job-queue-v2.js';
 import { LangChainService } from '../services/ai/langchain-service.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { validateInput } from '../utils/common.js';
@@ -17,23 +17,26 @@ const logger = getLogger('async-handlers');
 /**
  * Initialize async services
  */
-export async function initializeAsyncServices(options: {
-	redisUrl?: string;
-	openaiApiKey?: string;
-	databasePath?: string;
-	neo4jUri?: string;
-} = {}): Promise<void> {
+export async function initializeAsyncServices(
+	options: {
+		redisUrl?: string;
+		openaiApiKey?: string;
+		databasePath?: string;
+		neo4jUri?: string;
+		projectPath?: string;
+	} = {}
+): Promise<void> {
 	try {
-		// Initialize job queue if Redis is available
-		if (options.redisUrl || process.env.REDIS_URL) {
-			jobQueueService = new JobQueueService(options.redisUrl || process.env.REDIS_URL);
-			await jobQueueService.initialize({
-				langchainApiKey: options.openaiApiKey,
-				databasePath: options.databasePath,
-				neo4jUri: options.neo4jUri,
-			});
-			logger.info('Job queue service initialized');
-		}
+		// Initialize job queue with automatic KeyDB/Redis detection
+		// Will use KeyDB/Redis if available, otherwise falls back to embedded queue
+		jobQueueService = new JobQueueService(options.projectPath);
+		await jobQueueService.initialize({
+			langchainApiKey: options.openaiApiKey,
+			databasePath: options.databasePath,
+			neo4jUri: options.neo4jUri,
+		});
+		const connectionInfo = jobQueueService.getConnectionInfo();
+		logger.info(`Job queue service initialized with ${connectionInfo.type} connection`);
 
 		// Initialize LangChain service if API key is available
 		if (options.openaiApiKey || process.env.OPENAI_API_KEY) {
@@ -102,11 +105,7 @@ export async function queueProjectAnalysis(params: {
 	validateInput(params, { projectId: { required: true }, documents: { required: true } });
 
 	if (!jobQueueService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'Job queue service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 	}
 
 	const jobId = await jobQueueService.addJob(
@@ -156,11 +155,7 @@ export async function buildVectorStore(params: {
 
 	// Otherwise, process synchronously with LangChain
 	if (!langchainService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'LangChain service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
 	}
 
 	if (params.rebuild) {
@@ -177,10 +172,7 @@ export async function buildVectorStore(params: {
 /**
  * Perform semantic search
  */
-export async function semanticSearch(params: {
-	query: string;
-	topK?: number;
-}): Promise<{
+export async function semanticSearch(params: { query: string; topK?: number }): Promise<{
 	results: Array<{
 		content: string;
 		metadata: Record<string, unknown>;
@@ -190,20 +182,13 @@ export async function semanticSearch(params: {
 	validateInput(params, { query: { required: true } });
 
 	if (!langchainService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'LangChain service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
 	}
 
-	const results = await langchainService.semanticSearch(
-		params.query,
-		params.topK || 5
-	);
+	const results = await langchainService.semanticSearch(params.query, params.topK || 5);
 
 	return {
-		results: results.map(doc => ({
+		results: results.map((doc) => ({
 			content: doc.pageContent,
 			metadata: doc.metadata,
 		})),
@@ -240,11 +225,7 @@ export async function generateSuggestions(params: {
 
 	// Otherwise, process synchronously
 	if (!langchainService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'LangChain service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
 	}
 
 	const suggestions = params.useContext
@@ -263,11 +244,7 @@ export async function analyzeWritingStyle(params: {
 	validateInput(params, { samples: { required: true } });
 
 	if (!langchainService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'LangChain service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
 	}
 
 	const analysis = await langchainService.analyzeWritingStyle(params.samples);
@@ -309,11 +286,7 @@ export async function checkPlotConsistency(params: {
 
 	// Otherwise, process synchronously
 	if (!langchainService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'LangChain service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
 	}
 
 	const issues = await langchainService.checkPlotConsistency(params.documents);
@@ -324,10 +297,7 @@ export async function checkPlotConsistency(params: {
 /**
  * Get job status
  */
-export async function getJobStatus(params: {
-	jobType: JobType;
-	jobId: string;
-}): Promise<{
+export async function getJobStatus(params: { jobType: JobType; jobId: string }): Promise<{
 	state: string;
 	progress: number;
 	result?: unknown;
@@ -336,11 +306,7 @@ export async function getJobStatus(params: {
 	validateInput(params, { jobType: { required: true }, jobId: { required: true } });
 
 	if (!jobQueueService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'Job queue service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 	}
 
 	return await jobQueueService.getJobStatus(params.jobType, params.jobId);
@@ -356,11 +322,7 @@ export async function cancelJob(params: {
 	validateInput(params, { jobType: { required: true }, jobId: { required: true } });
 
 	if (!jobQueueService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'Job queue service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 	}
 
 	await jobQueueService.cancelJob(params.jobType, params.jobId);
@@ -371,9 +333,7 @@ export async function cancelJob(params: {
 /**
  * Get queue statistics
  */
-export async function getQueueStats(params: {
-	jobType?: JobType;
-}): Promise<{
+export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 	queues: Array<{
 		type: JobType;
 		stats: {
@@ -386,11 +346,7 @@ export async function getQueueStats(params: {
 	}>;
 }> {
 	if (!jobQueueService) {
-		throw createError(
-			ErrorCode.AI_SERVICE_ERROR,
-			null,
-			'Job queue service not available'
-		);
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 	}
 
 	const queues: Array<{

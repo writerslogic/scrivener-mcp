@@ -1,5 +1,6 @@
 import type { DatabaseService } from '../database/database-service.js';
 import type { ContentAnalyzer } from './base-analyzer.js';
+import { safeParse } from '../utils/common.js';
 
 export interface ScrivenerDocument {
 	id: string;
@@ -357,7 +358,7 @@ export class ContextAnalyzer {
 					id: thread.id,
 					name: thread.name,
 					status: thread.status,
-					developments: thread.developments ? JSON.parse(thread.developments) : [],
+					developments: thread.developments ? safeParse(thread.developments, []) : [],
 				});
 			}
 		}
@@ -808,7 +809,19 @@ export class ContextAnalyzer {
 				| undefined;
 
 			if (result) {
-				const data = JSON.parse(result.value);
+				const data = safeParse(result.value, {
+					projectTitle: '',
+					totalWordCount: 0,
+					chapterCount: 0,
+					overallPacing: {
+						trend: 'steady' as const,
+						intensityPoints: [],
+						suggestions: [],
+					},
+					characterArcs: {},
+					themeProgression: {},
+					plotThreads: {},
+				});
 				// Convert objects back to Maps
 				return {
 					...data,

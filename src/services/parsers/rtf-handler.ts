@@ -31,6 +31,8 @@ export interface RTFContent {
 		author?: string;
 		subject?: string;
 		keywords?: string;
+		synopsis?: string;
+		notes?: string;
 		creationDate?: Date;
 		modificationDate?: Date;
 	};

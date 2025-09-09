@@ -5,6 +5,7 @@
  */
 
 // Type definitions are now in types/analysis.d.ts
+import { splitIntoSentences } from '../utils/common.js';
 
 export interface ReadabilityMetrics {
 	[key: string]: number | string | ReadingLevel | ReadabilityRecommendation[] | undefined;
@@ -632,7 +633,7 @@ export class AdvancedReadabilityService {
 	 * Split text into segments for trend analysis
 	 */
 	private splitTextIntoSegments(text: string, segmentCount: number): string[] {
-		const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		const sentences = splitIntoSentences(text);
 		const sentencesPerSegment = Math.ceil(sentences.length / segmentCount);
 		const segments: string[] = [];
 
@@ -833,7 +834,7 @@ export class AdvancedReadabilityService {
 	 * Manual text analysis methods
 	 */
 	private countSentences(text: string): string[] {
-		return text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+		return splitIntoSentences(text);
 	}
 
 	private countWords(text: string): string[] {

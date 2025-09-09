@@ -3,12 +3,11 @@
  * Provides document chunking, vector storage, and RAG capabilities
  */
 
-import { OpenAI } from '@langchain/openai';
+import { ChatOpenAI } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { Document as LangchainDocument } from 'langchain/document';
+import type { Document as LangchainDocument } from 'langchain/document';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { OpenAIEmbeddings } from '@langchain/openai';
-import { RetrievalQAChain } from 'langchain/chains';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
@@ -36,7 +35,7 @@ interface WritingContext {
 }
 
 export class LangChainService {
-	private llm: OpenAI;
+	private llm: ChatOpenAI;
 	private embeddings: OpenAIEmbeddings;
 	private vectorStore: MemoryVectorStore | null = null;
 	private textSplitter: RecursiveCharacterTextSplitter;
@@ -45,7 +44,7 @@ export class LangChainService {
 
 	constructor(apiKey?: string) {
 		this.logger = getLogger('langchain-service');
-		
+
 		if (!apiKey && !process.env.OPENAI_API_KEY) {
 			throw createError(
 				ErrorCode.CONFIGURATION_ERROR,
@@ -54,8 +53,8 @@ export class LangChainService {
 			);
 		}
 
-		// Initialize OpenAI LLM
-		this.llm = new OpenAI({
+		// Initialize OpenAI Chat LLM
+		this.llm = new ChatOpenAI({
 			openAIApiKey: apiKey || process.env.OPENAI_API_KEY,
 			temperature: 0.7,
 			modelName: 'gpt-4-turbo-preview',
@@ -90,12 +89,14 @@ export class LangChainService {
 
 			const chunks = await splitter.createDocuments(
 				[document.content || ''],
-				[{
-					documentId: document.id,
-					title: document.title || '',
-					type: document.type,
-					path: document.path || '',
-				}]
+				[
+					{
+						documentId: document.id,
+						title: document.title || '',
+						type: document.type,
+						path: document.path || '',
+					},
+				]
 			);
 
 			this.logger.debug(`Chunked document ${document.id} into ${chunks.length} pieces`);
@@ -132,7 +133,9 @@ export class LangChainService {
 				);
 			}
 
-			this.logger.info(`Vector store updated with ${allChunks.length} chunks from ${documents.length} documents`);
+			this.logger.info(
+				`Vector store updated with ${allChunks.length} chunks from ${documents.length} documents`
+			);
 		} catch (error) {
 			throw createError(
 				ErrorCode.ANALYSIS_ERROR,
@@ -156,40 +159,29 @@ export class LangChainService {
 
 		try {
 			const results = await this.vectorStore.similaritySearch(query, topK);
-			this.logger.debug(`Found ${results.length} similar documents for query: ${query.substring(0, 50)}...`);
+			this.logger.debug(
+				`Found ${results.length} similar documents for query: ${query.substring(0, 50)}...`
+			);
 			return results;
 		} catch (error) {
-			throw createError(
-				ErrorCode.ANALYSIS_ERROR,
-				error as Error,
-				'Semantic search failed'
-			);
+			throw createError(ErrorCode.ANALYSIS_ERROR, error as Error, 'Semantic search failed');
 		}
 	}
 
 	/**
 	 * Generate writing suggestions using RAG
 	 */
-	async generateWithContext(
-		prompt: string,
-		options: RAGOptions = {}
-	): Promise<string> {
+	async generateWithContext(prompt: string, options: RAGOptions = {}): Promise<string> {
 		if (!this.vectorStore) {
-			throw createError(
-				ErrorCode.INVALID_STATE,
-				null,
-				'Vector store not initialized'
-			);
+			throw createError(ErrorCode.INVALID_STATE, null, 'Vector store not initialized');
 		}
 
 		try {
 			// Find relevant context
 			const relevantDocs = await this.semanticSearch(prompt, options.topK || 3);
-			
+
 			// Build context string
-			const context = relevantDocs
-				.map(doc => doc.pageContent)
-				.join('\n\n---\n\n');
+			const context = relevantDocs.map((doc) => doc.pageContent).join('\n\n---\n\n');
 
 			// Create prompt template
 			const promptTemplate = PromptTemplate.fromTemplate(`
@@ -262,11 +254,7 @@ export class LangChainService {
 
 			return JSON.parse(response);
 		} catch (error) {
-			throw createError(
-				ErrorCode.AI_SERVICE_ERROR,
-				error as Error,
-				'Style analysis failed'
-			);
+			throw createError(ErrorCode.AI_SERVICE_ERROR, error as Error, 'Style analysis failed');
 		}
 	}
 
@@ -307,12 +295,14 @@ export class LangChainService {
 	/**
 	 * Check plot consistency across documents
 	 */
-	async checkPlotConsistency(documents: ScrivenerDocument[]): Promise<Array<{
-		issue: string;
-		severity: 'low' | 'medium' | 'high';
-		locations: string[];
-		suggestion: string;
-	}>> {
+	async checkPlotConsistency(documents: ScrivenerDocument[]): Promise<
+		Array<{
+			issue: string;
+			severity: 'low' | 'medium' | 'high';
+			locations: string[];
+			suggestion: string;
+		}>
+	> {
 		if (!this.vectorStore) {
 			await this.buildVectorStore(documents);
 		}
@@ -334,10 +324,13 @@ export class LangChainService {
 			`;
 
 			const characterContext = await this.generateWithContext(characterPrompt);
-			
+
 			// Parse and structure the response
 			// This is simplified - in production, you'd want more sophisticated parsing
-			if (characterContext.includes('inconsistency') || characterContext.includes('contradiction')) {
+			if (
+				characterContext.includes('inconsistency') ||
+				characterContext.includes('contradiction')
+			) {
 				issues.push({
 					issue: characterContext.substring(0, 200),
 					severity: 'medium',

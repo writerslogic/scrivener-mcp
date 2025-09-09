@@ -68,15 +68,24 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# Environment variables
+# Environment variables and secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+secrets/
+credentials/
+*.key
+*.pem
+*.cert
+*.crt
 
 # Scrivener MCP specific
 .scrivener-databases/credentials.json
+.scrivener-mcp/
+scrivener-cache.db
+scrivener.db
+*.scriv/Settings/compile.xml
+*.scriv/Settings/recents.txt
 
 # Logs
 logs/
@@ -120,3 +129,26 @@ target/
 coverage/
 *.lcov
 .nyc_output
+
+# Test artifacts
+test-*.db
+test-*.db-*
+test-*.json
+test-project/
+test-queue-manual/
+test-temp/
+test.db/
+
+# Redis/KeyDB artifacts
+dump.rdb
+appendonly.aof
+redis.log
+keydb.log
+
+# Documentation archives
+docs/archive/
+
+# Local development files
+*.local
+.tmp/
+scratch/

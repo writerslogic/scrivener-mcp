@@ -18,6 +18,7 @@ import type {
 import type { ScrivenerDocument } from '../types/index.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
+import { ensureDir } from '../utils/common.js';
 
 const logger = getLogger('document-manager');
 
@@ -49,6 +50,24 @@ export class DocumentManager {
 	async readDocument(documentId: string): Promise<string> {
 		const rtfContent = await this.readDocumentFormatted(documentId);
 		return rtfContent.plainText || '';
+	}
+
+	/**
+	 * Read raw RTF document content (for annotation extraction)
+	 */
+	async readDocumentRaw(documentId: string): Promise<string> {
+		const filePath = getDocumentPath(this.projectPath, documentId);
+		logger.debug(`Reading raw document from ${filePath}`);
+
+		try {
+			return await fs.readFile(filePath, 'utf-8');
+		} catch (error: any) {
+			if (error.code === 'ENOENT') {
+				logger.warn(`Document ${documentId} not found at ${filePath}`);
+				return '';
+			}
+			throw error;
+		}
 	}
 
 	/**
@@ -93,7 +112,7 @@ export class DocumentManager {
 
 		// Ensure the directory exists
 		const dir = path.dirname(filePath);
-		await fs.mkdir(dir, { recursive: true });
+		await ensureDir(dir);
 
 		// Convert to RTF if needed
 		let rtfContent: RTFContent;
@@ -126,7 +145,7 @@ export class DocumentManager {
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
+			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as any;
@@ -150,7 +169,11 @@ export class DocumentManager {
 		if (parentId) {
 			const parent = this.findBinderItem(parentId, binder);
 			if (!parent || parent?.Type !== DOCUMENT_TYPES.FOLDER) {
-				throw createError(ErrorCode.NOT_FOUND, `Parent folder ${parentId} not found`);
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					undefined,
+					`Parent folder ${parentId} not found`
+				);
 			}
 			if (!parent.Children) {
 				parent.Children = { BinderItem: [] };
@@ -161,7 +184,11 @@ export class DocumentManager {
 		}
 
 		if (!targetContainer) {
-			throw createError(ErrorCode.INVALID_STATE, 'Could not find target container');
+			throw createError(
+				ErrorCode.INVALID_STATE,
+				undefined,
+				'Could not find target container'
+			);
 		}
 
 		if (!targetContainer.BinderItem) {
@@ -182,14 +209,14 @@ export class DocumentManager {
 	 */
 	async deleteDocument(documentId: string): Promise<void> {
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
+			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as any;
 		const removed = this.removeBinderItem(documentId, binder);
 
 		if (!removed) {
-			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
+			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
 		}
 
 		// Move to trash
@@ -203,9 +230,13 @@ export class DocumentManager {
 
 		if (!binder.SearchResults[0].Children.BinderItem) {
 			binder.SearchResults[0].Children.BinderItem = [];
+		} else if (!Array.isArray(binder.SearchResults[0].Children.BinderItem)) {
+			binder.SearchResults[0].Children.BinderItem = [
+				binder.SearchResults[0].Children.BinderItem,
+			];
 		}
 
-		binder.SearchResults[0].Children.BinderItem.push(removed);
+		(binder.SearchResults[0].Children.BinderItem as BinderItem[]).push(removed);
 		logger.info(`Document ${documentId} moved to trash`);
 	}
 
@@ -214,14 +245,14 @@ export class DocumentManager {
 	 */
 	async renameDocument(documentId: string, newTitle: string): Promise<void> {
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
+			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as any;
 		const item = this.findBinderItem(documentId, binder);
 
 		if (!item) {
-			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
+			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
 		}
 
 		item.Title = newTitle;
@@ -233,24 +264,28 @@ export class DocumentManager {
 	 */
 	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
+			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as any;
 
 		if (documentId === newParentId) {
-			throw createError(ErrorCode.INVALID_INPUT, 'Cannot move document to itself');
+			throw createError(ErrorCode.INVALID_INPUT, undefined, 'Cannot move document to itself');
 		}
 
 		const extractedItem = this.removeBinderItem(documentId, binder);
 		if (!extractedItem) {
-			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
+			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
 		}
 
 		if (newParentId) {
 			const newParent = this.findBinderItem(newParentId, binder);
 			if (!newParent || newParent?.Type !== DOCUMENT_TYPES.FOLDER) {
-				throw createError(ErrorCode.NOT_FOUND, `Parent folder ${newParentId} not found`);
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					undefined,
+					`Parent folder ${newParentId} not found`
+				);
 			}
 			if (!newParent.Children) {
 				newParent.Children = { BinderItem: [] };
@@ -266,12 +301,97 @@ export class DocumentManager {
 		} else {
 			// Move to root
 			if (!binder.BinderItem?.[0]?.Children?.BinderItem) {
-				throw createError(ErrorCode.INVALID_STATE, 'Root container not found');
+				throw createError(ErrorCode.INVALID_STATE, undefined, 'Root container not found');
 			}
-			binder.BinderItem[0].Children.BinderItem.push(extractedItem);
+			// Ensure BinderItem is an array
+			if (!Array.isArray(binder.BinderItem[0].Children.BinderItem)) {
+				binder.BinderItem[0].Children.BinderItem = [
+					binder.BinderItem[0].Children.BinderItem,
+				];
+			}
+			(binder.BinderItem[0].Children.BinderItem as BinderItem[]).push(extractedItem);
 		}
 
 		logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
+	}
+
+	/**
+	 * Recover a document from trash
+	 */
+	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
+		if (!this.projectStructure?.ScrivenerProject?.Binder) {
+			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
+		}
+
+		const binder = this.projectStructure.ScrivenerProject.Binder as any;
+
+		// Find and remove from trash
+		if (!binder.SearchResults?.[0]?.Children?.BinderItem) {
+			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
+		}
+
+		const trashItems = binder.SearchResults[0].Children.BinderItem;
+		// Ensure trashItems is an array
+		const trashArray = Array.isArray(trashItems) ? trashItems : [trashItems];
+
+		// Check if trash is empty
+		if (trashArray.length === 0) {
+			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
+		}
+
+		const itemIndex = trashArray.findIndex(
+			(item: any) => item.UUID === documentId || item.ID === documentId
+		);
+
+		if (itemIndex === -1) {
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				`Document ${documentId} not found in trash`
+			);
+		}
+
+		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
+		// Update the trash with the modified array
+		binder.SearchResults[0].Children.BinderItem = trashArray;
+
+		// Place in target location or root
+		if (targetParentId) {
+			const targetParent = this.findBinderItem(targetParentId, binder);
+			if (!targetParent || targetParent.Type !== DOCUMENT_TYPES.FOLDER) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					undefined,
+					`Target parent folder ${targetParentId} not found`
+				);
+			}
+			if (!targetParent.Children) {
+				targetParent.Children = { BinderItem: [] };
+			}
+			if (!targetParent.Children.BinderItem) {
+				targetParent.Children.BinderItem = [];
+			} else if (!Array.isArray(targetParent.Children.BinderItem)) {
+				// Convert single item to array
+				targetParent.Children.BinderItem = [targetParent.Children.BinderItem];
+			}
+			(targetParent.Children.BinderItem as BinderItem[]).push(recoveredItem);
+		} else {
+			// Restore to root level
+			if (!binder.BinderItem?.[0]?.Children?.BinderItem) {
+				throw createError(ErrorCode.INVALID_STATE, undefined, 'Root container not found');
+			}
+			// Ensure BinderItem is an array
+			if (!Array.isArray(binder.BinderItem[0].Children.BinderItem)) {
+				binder.BinderItem[0].Children.BinderItem = [
+					binder.BinderItem[0].Children.BinderItem,
+				];
+			}
+			(binder.BinderItem[0].Children.BinderItem as BinderItem[]).push(recoveredItem);
+		}
+
+		logger.info(
+			`Document ${documentId} recovered from trash to parent ${targetParentId || 'root'}`
+		);
 	}
 
 	/**
@@ -333,7 +453,7 @@ export class DocumentManager {
 	 */
 	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
+			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as any;
@@ -448,7 +568,8 @@ export class DocumentManager {
 
 			const itemArray = Array.isArray(items) ? items : [items];
 			for (const item of itemArray) {
-				if (item.UUID === id) return item;
+				// Check both UUID and ID fields (tests use ID)
+				if (item.UUID === id || item.ID === id) return item;
 				if (item.Children?.BinderItem) {
 					const found = searchContainer(item.Children);
 					if (found) return found;
@@ -473,16 +594,28 @@ export class DocumentManager {
 			const items = cont.BinderItem || cont.Children?.BinderItem;
 			if (!items) return undefined;
 
-			const index = items.findIndex((item: BinderItem) => item.UUID === id);
+			// Ensure items is an array for operations
+			const itemArray = Array.isArray(items) ? items : [items];
+
+			// Check both UUID and ID fields (tests use ID)
+			const index = itemArray.findIndex(
+				(item: BinderItem) => item.UUID === id || item.ID === id
+			);
 			if (index !== -1) {
-				const removed = items.splice(index, 1)[0];
-				if (items.length === 0 && !isRoot) {
-					delete cont.BinderItem;
+				const removed = itemArray.splice(index, 1)[0];
+				// Update the container with the modified array
+				if (cont.BinderItem !== undefined) {
+					cont.BinderItem = itemArray.length > 0 ? itemArray : [];
+				} else if (cont.Children?.BinderItem !== undefined) {
+					cont.Children.BinderItem = itemArray.length > 0 ? itemArray : [];
+				}
+				if (itemArray.length === 0 && !isRoot) {
+					if (cont.BinderItem !== undefined) delete cont.BinderItem;
+					else if (cont.Children?.BinderItem !== undefined)
+						delete cont.Children.BinderItem;
 				}
 				return removed;
 			}
-
-			const itemArray = Array.isArray(items) ? items : [items];
 			for (const item of itemArray) {
 				if (item.Children?.BinderItem) {
 					const removed = removeFromContainer(item.Children);

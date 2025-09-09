@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import * as readline from 'readline';
 import { execSync } from 'child_process';
 import { getLogger } from '../../core/logger.js';
-import { createError, ErrorCode } from '../../core/errors.js';
+import { writeJSON, getEnv } from '../../utils/common.js';
 
 const logger = getLogger('ai-config-wizard');
 
@@ -62,8 +62,8 @@ export class AIConfigWizard {
 	/**
 	 * Save configuration
 	 */
-	saveConfig(config: AIConfig): void {
-		writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+	async saveConfig(config: AIConfig): Promise<void> {
+		await writeJSON(this.configPath, config);
 		this.updateEnvFile(config);
 		logger.info('Configuration saved');
 	}
@@ -81,7 +81,7 @@ export class AIConfigWizard {
 		// Update or add environment variables
 		const updateEnvVar = (key: string, value: string | undefined) => {
 			if (!value) return;
-			
+
 			const regex = new RegExp(`^${key}=.*$`, 'm');
 			if (regex.test(envContent)) {
 				envContent = envContent.replace(regex, `${key}=${value}`);
@@ -100,7 +100,7 @@ export class AIConfigWizard {
 		updateEnvVar('AI_MAX_TOKENS', config.maxTokens?.toString());
 		updateEnvVar('OLLAMA_URL', config.ollamaUrl);
 
-		writeFileSync(this.envPath, envContent.trim() + '\n');
+		writeFileSync(this.envPath, `${envContent.trim()}\n`);
 	}
 
 	/**
@@ -121,7 +121,7 @@ export class AIConfigWizard {
 		try {
 			const response = await fetch('https://api.openai.com/v1/models', {
 				headers: {
-					'Authorization': `Bearer ${apiKey}`,
+					Authorization: `Bearer ${apiKey}`,
 				},
 			});
 			return response.ok;
@@ -181,7 +181,9 @@ export class AIConfigWizard {
 			if (platform === 'darwin' || platform === 'linux') {
 				execSync('curl -fsSL https://ollama.ai/install.sh | sh', { stdio: 'inherit' });
 			} else if (platform === 'win32') {
-				console.log('\nPlease download and install Ollama from: https://ollama.ai/download/windows\n');
+				console.log(
+					'\nPlease download and install Ollama from: https://ollama.ai/download/windows\n'
+				);
 				await this.prompt('Press Enter after installation is complete...');
 			}
 
@@ -192,11 +194,11 @@ export class AIConfigWizard {
 				stdio: 'ignore',
 			});
 			ollama.unref();
-			
+
 			// Pull a default model
 			logger.info('Downloading default model (llama2)...');
 			execSync('ollama pull llama2', { stdio: 'inherit' });
-			
+
 			logger.info('Ollama installed successfully');
 		} catch (error) {
 			logger.error('Failed to install Ollama', { error });
@@ -216,19 +218,23 @@ export class AIConfigWizard {
 		// OpenAI Configuration
 		console.log('━━━ OpenAI Configuration ━━━');
 		const useOpenAI = await this.prompt('Do you want to use OpenAI? (y/n): ');
-		
+
 		if (useOpenAI.toLowerCase() === 'y') {
 			const currentKey = config.openaiApiKey ? '(configured)' : '(not set)';
 			console.log(`Current OpenAI API key: ${currentKey}`);
-			
-			const updateKey = await this.prompt('Enter new OpenAI API key (or press Enter to skip): ');
+
+			const updateKey = await this.prompt(
+				'Enter new OpenAI API key (or press Enter to skip): '
+			);
 			if (updateKey) {
 				console.log('Validating API key...');
 				if (await this.validateOpenAIKey(updateKey)) {
 					config.openaiApiKey = updateKey;
 					console.log('✅ API key validated successfully');
 				} else {
-					console.log('⚠️  Warning: Could not validate API key. It will be saved but may not work.');
+					console.log(
+						'⚠️  Warning: Could not validate API key. It will be saved but may not work.'
+					);
 					config.openaiApiKey = updateKey;
 				}
 			}
@@ -237,7 +243,7 @@ export class AIConfigWizard {
 			const models = ['gpt-4-turbo-preview', 'gpt-4', 'gpt-3.5-turbo'];
 			console.log('\nAvailable models:');
 			models.forEach((m, i) => console.log(`  ${i + 1}. ${m}`));
-			
+
 			const modelChoice = await this.prompt('Select default model (1-3): ');
 			const modelIndex = parseInt(modelChoice) - 1;
 			if (modelIndex >= 0 && modelIndex < models.length) {
@@ -248,19 +254,23 @@ export class AIConfigWizard {
 		// Anthropic Configuration
 		console.log('\n━━━ Anthropic Configuration ━━━');
 		const useAnthropic = await this.prompt('Do you want to use Anthropic Claude? (y/n): ');
-		
+
 		if (useAnthropic.toLowerCase() === 'y') {
 			const currentKey = config.anthropicApiKey ? '(configured)' : '(not set)';
 			console.log(`Current Anthropic API key: ${currentKey}`);
-			
-			const updateKey = await this.prompt('Enter new Anthropic API key (or press Enter to skip): ');
+
+			const updateKey = await this.prompt(
+				'Enter new Anthropic API key (or press Enter to skip): '
+			);
 			if (updateKey) {
 				console.log('Validating API key...');
 				if (await this.validateAnthropicKey(updateKey)) {
 					config.anthropicApiKey = updateKey;
 					console.log('✅ API key validated successfully');
 				} else {
-					console.log('⚠️  Warning: Could not validate API key. It will be saved but may not work.');
+					console.log(
+						'⚠️  Warning: Could not validate API key. It will be saved but may not work.'
+					);
 					config.anthropicApiKey = updateKey;
 				}
 			}
@@ -269,10 +279,10 @@ export class AIConfigWizard {
 		// Local Models Configuration
 		console.log('\n━━━ Local Models Configuration ━━━');
 		const useLocal = await this.prompt('Do you want to use local models (Ollama)? (y/n): ');
-		
+
 		if (useLocal.toLowerCase() === 'y') {
 			config.enableLocalModels = true;
-			
+
 			if (await this.checkOllama()) {
 				console.log('✅ Ollama is already installed and running');
 				config.ollamaUrl = 'http://localhost:11434';
@@ -288,10 +298,12 @@ export class AIConfigWizard {
 		// Advanced Settings
 		console.log('\n━━━ Advanced Settings ━━━');
 		const configureAdvanced = await this.prompt('Configure advanced settings? (y/n): ');
-		
+
 		if (configureAdvanced.toLowerCase() === 'y') {
 			// Temperature
-			const temp = await this.prompt(`Temperature (0.0-1.0, current: ${config.temperature || 0.7}): `);
+			const temp = await this.prompt(
+				`Temperature (0.0-1.0, current: ${config.temperature || 0.7}): `
+			);
 			if (temp) {
 				const tempValue = parseFloat(temp);
 				if (tempValue >= 0 && tempValue <= 1) {
@@ -309,10 +321,14 @@ export class AIConfigWizard {
 			}
 
 			// Embedding model
-			const embeddingModels = ['text-embedding-ada-002', 'text-embedding-3-small', 'text-embedding-3-large'];
+			const embeddingModels = [
+				'text-embedding-ada-002',
+				'text-embedding-3-small',
+				'text-embedding-3-large',
+			];
 			console.log('\nAvailable embedding models:');
 			embeddingModels.forEach((m, i) => console.log(`  ${i + 1}. ${m}`));
-			
+
 			const embChoice = await this.prompt('Select embedding model (1-3): ');
 			const embIndex = parseInt(embChoice) - 1;
 			if (embIndex >= 0 && embIndex < embeddingModels.length) {
@@ -321,7 +337,7 @@ export class AIConfigWizard {
 		}
 
 		// Save configuration
-		this.saveConfig(config);
+		await this.saveConfig(config);
 		this.rl.close();
 
 		console.log('\n✅ Configuration complete!');
@@ -336,7 +352,7 @@ export class AIConfigWizard {
 	 */
 	async quickSetup(apiKey?: string): Promise<AIConfig> {
 		const config: AIConfig = {
-			openaiApiKey: apiKey || process.env.OPENAI_API_KEY,
+			openaiApiKey: apiKey || getEnv('OPENAI_API_KEY'),
 			defaultModel: 'gpt-4-turbo-preview',
 			defaultEmbeddingModel: 'text-embedding-ada-002',
 			temperature: 0.7,
@@ -353,7 +369,7 @@ export class AIConfigWizard {
 			}
 		}
 
-		this.saveConfig(config);
+		await this.saveConfig(config);
 		return config;
 	}
 
@@ -364,19 +380,22 @@ export class AIConfigWizard {
 		const config = this.loadConfig();
 
 		// Override with environment variables if present
-		config.openaiApiKey = process.env.OPENAI_API_KEY || config.openaiApiKey;
-		config.anthropicApiKey = process.env.ANTHROPIC_API_KEY || config.anthropicApiKey;
-		config.cohereApiKey = process.env.COHERE_API_KEY || config.cohereApiKey;
-		config.huggingfaceApiKey = process.env.HUGGINGFACE_API_KEY || config.huggingfaceApiKey;
-		config.defaultModel = process.env.DEFAULT_AI_MODEL || config.defaultModel;
-		config.defaultEmbeddingModel = process.env.DEFAULT_EMBEDDING_MODEL || config.defaultEmbeddingModel;
-		config.ollamaUrl = process.env.OLLAMA_URL || config.ollamaUrl;
+		config.openaiApiKey = getEnv('OPENAI_API_KEY') || config.openaiApiKey;
+		config.anthropicApiKey = getEnv('ANTHROPIC_API_KEY') || config.anthropicApiKey;
+		config.cohereApiKey = getEnv('COHERE_API_KEY') || config.cohereApiKey;
+		config.huggingfaceApiKey = getEnv('HUGGINGFACE_API_KEY') || config.huggingfaceApiKey;
+		config.defaultModel = getEnv('DEFAULT_AI_MODEL') || config.defaultModel;
+		config.defaultEmbeddingModel =
+			getEnv('DEFAULT_EMBEDDING_MODEL') || config.defaultEmbeddingModel;
+		config.ollamaUrl = getEnv('OLLAMA_URL') || config.ollamaUrl;
 
-		if (process.env.AI_TEMPERATURE) {
-			config.temperature = parseFloat(process.env.AI_TEMPERATURE);
+		const aiTemp = getEnv('AI_TEMPERATURE');
+		if (aiTemp) {
+			config.temperature = parseFloat(aiTemp);
 		}
-		if (process.env.AI_MAX_TOKENS) {
-			config.maxTokens = parseInt(process.env.AI_MAX_TOKENS);
+		const maxTokens = getEnv('AI_MAX_TOKENS');
+		if (maxTokens) {
+			config.maxTokens = parseInt(maxTokens);
 		}
 
 		return config;

@@ -32,7 +32,9 @@ export enum ErrorCode {
 	// API & Network Errors
 	API_ERROR = 'API_ERROR',
 	NETWORK_ERROR = 'NETWORK_ERROR',
+	TIMEOUT = 'TIMEOUT',
 	TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+	OPERATION_CANCELLED = 'OPERATION_CANCELLED',
 	RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
 
 	// Cache & Memory Errors
@@ -43,6 +45,10 @@ export enum ErrorCode {
 	AUTH_ERROR = 'AUTH_ERROR',
 	UNAUTHORIZED = 'UNAUTHORIZED',
 	FORBIDDEN = 'FORBIDDEN',
+
+	// Additional Errors
+	DEPENDENCY_ERROR = 'DEPENDENCY_ERROR',
+	UNSUPPORTED_OPERATION = 'UNSUPPORTED_OPERATION',
 }
 
 /** Standard application error */
@@ -206,9 +212,30 @@ export function sanitizePath(inputPath: string): string {
 		.join(path.sep);
 }
 
-/** Validate UUID v4 */
-export const isValidUUID = (uuid: string): boolean =>
-	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+/** Build a path from base and segments */
+export function buildPath(base: string, ...segments: string[]): string {
+	return path.join(base, ...segments);
+}
+
+/**
+ * Validate UUID v4 with options for case sensitivity and numeric IDs
+ */
+export function isValidUUID(
+	uuid: string,
+	options?: { caseSensitive?: boolean; allowNumeric?: boolean }
+): boolean {
+	const opts = { caseSensitive: false, allowNumeric: false, ...options };
+
+	// Handle numeric IDs if allowed (Scrivener sometimes uses numeric IDs)
+	if (opts.allowNumeric && /^\d+$/.test(uuid)) return true;
+
+	// UUID v4 pattern with case handling
+	const pattern = opts.caseSensitive
+		? /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+		: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+	return pattern.test(uuid);
+}
 
 // ============================================================================
 // API Response Utilities
@@ -285,6 +312,44 @@ export async function pathExists(filePath: string): Promise<boolean> {
 		return true;
 	} catch {
 		return false;
+	}
+}
+
+/**
+ * Read and parse a JSON file using existing utilities
+ */
+export async function readJSON<T>(filePath: string, fallback?: T): Promise<T> {
+	try {
+		const content = await safeReadFile(filePath, 'utf-8');
+		return safeParse<T>(content, fallback as T);
+	} catch (e) {
+		if (fallback !== undefined) {
+			return fallback;
+		}
+		throw handleError(e, `readJSON ${filePath}`);
+	}
+}
+
+/**
+ * Write data as JSON to a file using existing utilities
+ */
+export async function writeJSON(filePath: string, data: unknown, pretty = true): Promise<void> {
+	try {
+		// For pretty printing, try native JSON.stringify first, fall back to safeStringify
+		let output: string;
+		if (pretty) {
+			try {
+				output = JSON.stringify(data, null, 2);
+			} catch {
+				// Handle circular references or other JSON.stringify errors
+				output = safeStringify(data);
+			}
+		} else {
+			output = safeStringify(data);
+		}
+		await safeWriteFile(filePath, output);
+	} catch (e) {
+		throw handleError(e, `writeJSON ${filePath}`);
 	}
 }
 
@@ -368,26 +433,67 @@ export async function retry<T>(
 		initialDelay = 1000,
 		maxDelay = 10000,
 		factor = 2,
+		jitter = false,
+		attemptTimeout,
 		onRetry,
+		shouldRetry,
 	}: {
 		maxAttempts?: number;
 		initialDelay?: number;
 		maxDelay?: number;
 		factor?: number;
+		jitter?: boolean;
+		attemptTimeout?: number;
 		onRetry?: (attempt: number, e: Error) => void;
+		shouldRetry?: (error: Error) => boolean;
 	} = {}
 ): Promise<T> {
+	// Validate parameters
+	if (maxAttempts <= 0) {
+		throw new Error('maxAttempts must be positive');
+	}
+	if (initialDelay < 0 || maxDelay < 0) {
+		throw new Error('Delays must be non-negative');
+	}
+	if (factor <= 0) {
+		throw new Error('factor must be positive');
+	}
+
 	let last: Error;
-	let delay = initialDelay;
+
 	for (let i = 1; i <= maxAttempts; i++) {
 		try {
-			return await fn();
+			if (attemptTimeout) {
+				// Add timeout per attempt
+				const timeoutPromise = new Promise<never>((_, reject) => {
+					setTimeout(
+						() => reject(new Error(`Attempt ${i} timed out after ${attemptTimeout}ms`)),
+						attemptTimeout
+					);
+				});
+				return await Promise.race([fn(), timeoutPromise]);
+			} else {
+				return await fn();
+			}
 		} catch (e) {
 			last = e as Error;
+
+			// Check if error is retryable
+			if (shouldRetry && !shouldRetry(last)) {
+				throw last; // Don't retry unrecoverable errors
+			}
+
 			if (i === maxAttempts) break;
+
 			onRetry?.(i, last);
-			await sleep(delay);
-			delay = Math.min(delay * factor, maxDelay);
+
+			// Calculate delay with optional jitter
+			let currentDelay = Math.min(initialDelay * Math.pow(factor, i - 1), maxDelay);
+			if (jitter) {
+				currentDelay = currentDelay * (0.5 + Math.random() * 0.5); // 50-100% of calculated delay
+			}
+
+			await sleep(Math.floor(currentDelay));
 		}
 	}
 	throw last!;
@@ -468,7 +574,24 @@ export const safeParse = <T>(s: string, fallback: T): T => {
 export const safeStringify = (v: unknown): string => {
 	try {
 		return JSON.stringify(v);
-	} catch {
+	} catch (error) {
+		// Handle circular references by using a replacer function
+		if (error instanceof TypeError && error.message.includes('circular')) {
+			try {
+				const seen = new WeakSet();
+				return JSON.stringify(v, (_key, value) => {
+					if (typeof value === 'object' && value !== null) {
+						if (seen.has(value)) {
+							return '[Circular]';
+						}
+						seen.add(value);
+					}
+					return value;
+				});
+			} catch {
+				return '{}'; // Fallback to empty object
+			}
+		}
 		return '';
 	}
 };
@@ -596,8 +719,39 @@ export const requireEnv = (key: string): string => {
 	return val;
 };
 
+/** Get environment variable with fallback */
+export const getEnv = (key: string, defaultValue?: string): string | undefined => {
+	return process.env[key] || defaultValue;
+};
+
 /** Is production env */
 export const isProduction = (): boolean => process.env.NODE_ENV === 'production';
+
+/** Is development env */
+export const isDevelopment = (): boolean => process.env.NODE_ENV === 'development';
+
+// ============================================================================
+// Text Processing Utilities
+// ============================================================================
+
+/** Split text into sentences */
+export const splitIntoSentences = (text: string): string[] => {
+	return text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+};
+
+/** Split text into words */
+export const splitIntoWords = (text: string): string[] => {
+	return text.match(/\b\w+\b/g) || [];
+};
+
+/** Get word pairs (bigrams) from word array */
+export const getWordPairs = (words: string[]): Array<[string, string]> => {
+	const pairs: Array<[string, string]> = [];
+	for (let i = 0; i < words.length - 1; i++) {
+		pairs.push([words[i], words[i + 1]]);
+	}
+	return pairs;
+};
 
 // ============================================================================
 // Date & Time Utilities
@@ -640,6 +794,7 @@ export default {
 	// Validation
 	validateInput,
 	sanitizePath,
+	buildPath,
 	isValidUUID,
 
 	// API
@@ -691,7 +846,14 @@ export default {
 	measureExecution,
 	RateLimiter,
 	requireEnv,
+	getEnv,
 	isProduction,
+	isDevelopment,
+
+	// Text Processing
+	splitIntoSentences,
+	splitIntoWords,
+	getWordPairs,
 
 	// Date & Time
 	formatDuration,

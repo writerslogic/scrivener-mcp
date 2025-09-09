@@ -30,6 +30,7 @@ export interface ScrivenerDocument {
 	notes?: string;
 	label?: string;
 	status?: string;
+	wordCount?: number;
 	includeInCompile?: boolean;
 	children?: ScrivenerDocument[];
 	customMetadata?: Record<string, string>;

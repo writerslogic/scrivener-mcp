@@ -1,0 +1,1 @@
+{"sqlite":{"enabled":true,"path":"scrivener.db"},"neo4j":{"user":"neo4j","password":"scrivener-mcp","enabled":false,"database":"scrivener","uri":"bolt://localhost:7687"},"lastUpdated":"2025-09-08T18:52:54.721Z"}

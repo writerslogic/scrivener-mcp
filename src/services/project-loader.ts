@@ -8,6 +8,7 @@ import { parseStringPromise, Builder } from 'xml2js';
 import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type { ProjectStructure, BinderItem } from '../types/internal.js';
+import { ensureDir, safeParse, safeStringify, safeReadFile, buildPath } from '../utils/common.js';
 
 const logger = getLogger('project-loader');
 
@@ -27,7 +28,7 @@ export class ProjectLoader {
 	constructor(projectPath: string, options: ProjectLoaderOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
 		const projectName = path.basename(projectPath, path.extname(projectPath));
-		this.scrivxPath = path.join(this.projectPath, `${projectName}.scrivx`);
+		this.scrivxPath = buildPath(this.projectPath, `${projectName}.scrivx`);
 		this.options = {
 			autoBackup: false,
 			backupInterval: 3600000, // 1 hour
@@ -43,7 +44,7 @@ export class ProjectLoader {
 		logger.info(`Loading project from ${this.scrivxPath}`);
 
 		try {
-			const scrivxContent = await fs.readFile(this.scrivxPath, 'utf-8');
+			const scrivxContent = await safeReadFile(this.scrivxPath, 'utf-8');
 			this.projectStructure = await parseStringPromise(scrivxContent, {
 				explicitArray: false,
 				mergeAttrs: true,
@@ -177,15 +178,15 @@ export class ProjectLoader {
 	 * Create a backup of the project file
 	 */
 	async createBackup(): Promise<string> {
-		const backupDir = path.join(this.projectPath, '.backups');
-		await fs.mkdir(backupDir, { recursive: true });
+		const backupDir = buildPath(this.projectPath, '.backups');
+		await ensureDir(backupDir);
 
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 		const backupName = `backup-${timestamp}.scrivx`;
-		const backupPath = path.join(backupDir, backupName);
+		const backupPath = buildPath(backupDir, backupName);
 
 		try {
-			const content = await fs.readFile(this.scrivxPath, 'utf-8');
+			const content = await safeReadFile(this.scrivxPath, 'utf-8');
 			await fs.writeFile(backupPath, content, 'utf-8');
 			logger.info(`Backup created at ${backupPath}`);
 
@@ -210,7 +211,7 @@ export class ProjectLoader {
 			const _safetyBackup = await this.createBackup();
 
 			// Restore from backup
-			const backupContent = await fs.readFile(backupPath, 'utf-8');
+			const backupContent = await safeReadFile(backupPath, 'utf-8');
 			await fs.writeFile(this.scrivxPath, backupContent, 'utf-8');
 
 			// Reload the project
@@ -283,7 +284,7 @@ export class ProjectLoader {
 
 	// Private helper methods
 	private cleanForSaving(structure: ProjectStructure): any {
-		const clean = JSON.parse(JSON.stringify(structure));
+		const clean: any = safeParse(safeStringify(structure), {});
 
 		// Remove internal tracking properties
 		delete clean._loadTime;
@@ -377,7 +378,7 @@ export class ProjectLoader {
 		}
 
 		const clean = this.cleanForSaving(this.projectStructure);
-		return JSON.stringify(clean, null, prettyPrint ? 2 : 0);
+		return prettyPrint ? JSON.stringify(clean, null, 2) : safeStringify(clean);
 	}
 
 	/**
@@ -385,7 +386,7 @@ export class ProjectLoader {
 	 */
 	async importFromJson(jsonString: string): Promise<void> {
 		try {
-			const structure = JSON.parse(jsonString);
+			const structure = safeParse(jsonString, {});
 
 			if (!this.validateProjectStructure(structure)) {
 				throw createError(ErrorCode.INVALID_FORMAT, 'Invalid project structure in JSON');
