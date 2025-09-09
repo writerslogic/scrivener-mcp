@@ -3,7 +3,7 @@
  * Provides advanced graph analysis capabilities for story structure
  */
 
-import { AppError, ErrorCode } from '../utils/common.js';
+import { AppError, ErrorCode } from '../../utils/common.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 
 export interface CharacterNetwork {

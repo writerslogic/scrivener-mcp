@@ -251,12 +251,13 @@ export const CacheKeys = {
 /**
  * Cache decorator for async functions
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cached<T extends (...args: any[]) => Promise<any>>(
 	keyBuilder: (...args: Parameters<T>) => string,
-	cache: LRUCache<any> = caches.queries,
+	cache: LRUCache<unknown> = caches.queries,
 	ttl?: number
 ) {
-	return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+	return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
 		const originalMethod = descriptor.value;
 
 		descriptor.value = async function (...args: Parameters<T>): Promise<ReturnType<T>> {

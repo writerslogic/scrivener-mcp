@@ -6,8 +6,8 @@
 
 import chalk from 'chalk';
 import * as readline from 'readline/promises';
-import { Neo4jAutoInstaller } from '../database/auto-installer.js';
-import { DatabaseSetup } from '../database/database-setup.js';
+import { Neo4jAutoInstaller } from '../handlers/database/auto-installer.js';
+import { DatabaseSetup } from '../handlers/database/database-setup.js';
 import { AutoSetup } from '../services/auto-setup/auto-setup.js';
 import { KeyDBInstaller } from '../services/auto-setup/keydb-installer.js';
 
@@ -349,9 +349,13 @@ export class SetupWizard {
 	/**
 	 * Choose installation method
 	 */
-	private async chooseInstallMethod(
-		status: any
-	): Promise<'docker' | 'homebrew' | 'native' | 'auto'> {
+	private async chooseInstallMethod(status: {
+		installed: boolean;
+		running: boolean;
+		version?: string;
+		dockerAvailable?: boolean;
+		homebrewAvailable?: boolean;
+	}): Promise<'docker' | 'homebrew' | 'native' | 'auto'> {
 		const options: string[] = ['auto (recommended)'];
 
 		if (status.dockerAvailable) {
@@ -373,7 +377,7 @@ export class SetupWizard {
 		if (index >= 0 && index < options.length) {
 			const selected = options[index];
 			if (selected.startsWith('auto')) return 'auto';
-			return selected as any;
+			return selected as 'docker' | 'homebrew' | 'native' | 'auto';
 		}
 
 		return 'auto';
@@ -468,7 +472,11 @@ export class SetupWizard {
 	/**
 	 * Test Neo4j connection
 	 */
-	private async testConnection(credentials: any): Promise<void> {
+	private async testConnection(credentials: {
+		uri: string;
+		user: string;
+		password: string;
+	}): Promise<void> {
 		try {
 			console.log(chalk.blue('\n🔌 Testing connection...'));
 

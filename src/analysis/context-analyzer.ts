@@ -1,6 +1,6 @@
-import type { DatabaseService } from '../database/database-service.js';
-import type { ContentAnalyzer } from './base-analyzer.js';
+import type { DatabaseService } from '../handlers/database/database-service.js';
 import { safeParse } from '../utils/common.js';
+import type { ContentAnalyzer, ContentAnalysis } from './base-analyzer.js';
 
 export interface ScrivenerDocument {
 	id: string;
@@ -182,8 +182,8 @@ export class ContextAnalyzer {
 							: 0.5
 				),
 				suggestions: basicAnalysis.suggestions
-					.filter((s: any) => s.suggestion?.includes('pacing'))
-					.map((s: any) => s.suggestion),
+					.filter((s) => s.suggestion?.includes('pacing'))
+					.map((s) => s.suggestion),
 			},
 			keyEvents,
 			cliffhangers,
@@ -286,7 +286,7 @@ export class ContextAnalyzer {
 	 */
 	private async extractThemes(
 		content: string,
-		_analysis: any
+		_analysis: ContentAnalysis
 	): Promise<ChapterContext['themes']> {
 		const themes: ChapterContext['themes'] = [];
 
@@ -369,7 +369,10 @@ export class ContextAnalyzer {
 	/**
 	 * Analyze emotional arc of content
 	 */
-	private analyzeEmotionalArc(content: string, _analysis: any): ChapterContext['emotionalArc'] {
+	private analyzeEmotionalArc(
+		content: string,
+		_analysis: ContentAnalysis
+	): ChapterContext['emotionalArc'] {
 		// Split content into thirds
 		const third = Math.floor(content.length / 3);
 		const start = content.substring(0, third);
@@ -563,10 +566,26 @@ export class ContextAnalyzer {
 	private async buildCharacterArcs(
 		contexts: ChapterContext[]
 	): Promise<StoryContext['characterArcs']> {
-		const arcs = new Map<string, any>();
+		const arcs = new Map<
+			string,
+			{
+				character: string;
+				introduction: string;
+				development: string[];
+				currentStatus: string;
+				projectedArc: string;
+			}
+		>();
 
 		// Track each character's journey
-		const characterMap = new Map<string, any[]>();
+		const characterMap = new Map<
+			string,
+			Array<{
+				chapter: string;
+				appearances: number;
+				lastMention?: string;
+			}>
+		>();
 
 		for (const context of contexts) {
 			for (const char of context.characters) {
@@ -604,10 +623,25 @@ export class ContextAnalyzer {
 	private async buildThemeProgression(
 		contexts: ChapterContext[]
 	): Promise<StoryContext['themeProgression']> {
-		const progression = new Map<string, any>();
+		const progression = new Map<
+			string,
+			{
+				theme: string;
+				introduction: string;
+				developments: string[];
+				currentStrength: number;
+			}
+		>();
 
 		// Track themes across chapters
-		const themeMap = new Map<string, any[]>();
+		const themeMap = new Map<
+			string,
+			Array<{
+				chapter: string;
+				prominence: number;
+				examples: string[];
+			}>
+		>();
 
 		for (const context of contexts) {
 			for (const theme of context.themes) {
@@ -647,17 +681,36 @@ export class ContextAnalyzer {
 	private async buildPlotThreadMap(
 		contexts: ChapterContext[]
 	): Promise<StoryContext['plotThreads']> {
-		const threads = new Map<string, any>();
+		const threads = new Map<
+			string,
+			{
+				thread: string;
+				status: 'setup' | 'developing' | 'climax' | 'resolved';
+				chapters: string[];
+				keyEvents: string[];
+			}
+		>();
 
 		// Aggregate plot threads
-		const threadMap = new Map<string, any>();
+		const threadMap = new Map<
+			string,
+			{
+				name: string;
+				status: 'setup' | 'developing' | 'climax' | 'resolved';
+				chapters: string[];
+				keyEvents: string[];
+				developments: string[];
+			}
+		>();
 
 		for (const context of contexts) {
 			for (const thread of context.plotThreads) {
 				if (!threadMap.has(thread.id)) {
 					threadMap.set(thread.id, {
 						name: thread.name,
+						status: 'setup',
 						chapters: [],
+						keyEvents: [],
 						developments: [],
 					});
 				}
@@ -665,6 +718,7 @@ export class ContextAnalyzer {
 				const data = threadMap.get(thread.id)!;
 				data.chapters.push(context.title);
 				data.developments.push(...thread.developments);
+				data.keyEvents.push(...thread.developments.slice(0, 2));
 			}
 		}
 

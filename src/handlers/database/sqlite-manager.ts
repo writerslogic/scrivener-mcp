@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppError, ErrorCode, ensureDir } from '../utils/common.js';
-import { getLogger } from '../core/logger.js';
+import { getLogger } from '../../core/logger.js';
+import { AppError, ErrorCode, ensureDir } from '../../utils/common.js';
 import { CachedSQLiteManager } from './keydb-cache.js';
 
 const logger = getLogger('sqlite-manager');

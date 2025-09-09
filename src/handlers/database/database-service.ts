@@ -1,15 +1,15 @@
 import * as path from 'path';
-import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
-import { getLogger } from '../core/logger.js';
+import { ApplicationError as AppError, ErrorCode } from '../../core/errors.js';
+import { getLogger } from '../../core/logger.js';
 import {
+	buildPath,
 	ensureDir,
 	pathExists,
-	safeReadFile,
-	safeWriteFile,
 	safeParse,
+	safeReadFile,
 	safeStringify,
-	buildPath,
-} from '../utils/common.js';
+	safeWriteFile,
+} from '../../utils/common.js';
 import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';

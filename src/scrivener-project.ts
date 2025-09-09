@@ -3,24 +3,33 @@
  */
 
 import * as path from 'path';
-import { DatabaseService } from './database/index.js';
 import { ContentAnalyzer, ContextAnalyzer } from './analysis/index.js';
-import { ContextSyncService } from './sync/context-sync.js';
+import { DOCUMENT_TYPES } from './core/constants.js';
+import { createError, ErrorCode } from './core/errors.js';
+import { getLogger } from './core/logger.js';
+import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
+import { DatabaseService } from './handlers/database/index.js';
+import { ContextSyncService, type SyncStatus } from './sync/context-sync.js';
 import { CleanupManager } from './utils/common.js';
 import { ensureProjectDataDirectory } from './utils/project-utils.js';
-import { getLogger } from './core/logger.js';
-import { createError, ErrorCode } from './core/errors.js';
-import { DOCUMENT_TYPES } from './core/constants.js';
-import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 
 // Import service modules
-import { DocumentManager } from './services/document-manager.js';
-import { ProjectLoader } from './services/project-loader.js';
 import { CompilationService } from './services/compilation-service.js';
+import { DocumentManager } from './services/document-manager.js';
 import { MetadataManager } from './services/metadata-manager.js';
+import { ProjectLoader } from './services/project-loader.js';
 
+import type {
+	ScrivenerDocument as AnalyzerDocument,
+	ChapterContext,
+} from './analysis/context-analyzer.js';
 import type { RTFContent } from './services/parsers/rtf-handler.js';
-import type { ScrivenerDocument, ScrivenerMetadata } from './types/index.js';
+import type {
+	ExportOptions,
+	ProjectStatistics,
+	ScrivenerDocument,
+	ScrivenerMetadata,
+} from './types/index.js';
 
 const logger = getLogger('scrivener-project');
 
@@ -207,7 +216,9 @@ export class ScrivenerProject {
 					title: doc.document?.title || 'Untitled',
 				});
 			} catch (error) {
-				logger.warn(`Failed to read document ${id}:`, error as any);
+				logger.warn(`Failed to read document ${id}:`, {
+					error: error instanceof Error ? error.message : String(error),
+				});
 			}
 		}
 
@@ -247,24 +258,31 @@ export class ScrivenerProject {
 		return this.compilationService.searchInDocuments(docsWithContent, query, options);
 	}
 
-	async exportProject(format: string, outputPath?: string, options?: any): Promise<any> {
+	async exportProject(
+		format: string,
+		_outputPath?: string,
+		options?: Partial<ExportOptions>
+	): Promise<unknown> {
 		const structure = await this.getProjectStructure();
 		return await this.compilationService.exportProject(structure, format, options);
 	}
 
-	async getStatistics(): Promise<any> {
+	async getStatistics(): Promise<ProjectStatistics> {
 		const documents = await this.getAllDocuments();
 		return this.compilationService.getStatistics(documents);
 	}
 
 	// Metadata operations
-	async updateMetadata(documentId: string, metadata: any): Promise<void> {
+	async updateMetadata(documentId: string, metadata: Record<string, unknown>): Promise<void> {
 		const structure = this.projectLoader.getProjectStructure();
 		if (!structure) {
 			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
 		}
 
-		const item = this.findBinderItem(structure, documentId);
+		const item = this.findBinderItem(
+			structure as unknown as Record<string, unknown>,
+			documentId
+		);
 		if (!item) {
 			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
 		}
@@ -290,7 +308,7 @@ export class ScrivenerProject {
 		synopsis?: string,
 		notes?: string
 	): Promise<void> {
-		await this.updateMetadata(documentId, { synopsis, notes } as any);
+		await this.updateMetadata(documentId, { synopsis, notes });
 	}
 
 	async batchUpdateSynopsisAndNotes(
@@ -349,7 +367,7 @@ export class ScrivenerProject {
 		return this.contextSync;
 	}
 
-	async analyzeChapterEnhanced(documentId: string): Promise<any> {
+	async analyzeChapterEnhanced(documentId: string): Promise<ChapterContext> {
 		if (!this.contextAnalyzer) {
 			throw createError(ErrorCode.INVALID_STATE, 'Context analyzer not initialized');
 		}
@@ -362,14 +380,26 @@ export class ScrivenerProject {
 		const content = await this.readDocument(documentId);
 		const allDocuments = await this.getAllDocuments();
 
+		const addCharCount = (doc: ScrivenerDocument): AnalyzerDocument => ({
+			id: doc.id,
+			title: doc.title,
+			type: doc.type,
+			synopsis: doc.synopsis,
+			notes: doc.notes,
+			characterCount: doc.content?.length || 0,
+			wordCount: doc.wordCount || 0,
+			children: doc.children?.map(addCharCount),
+		});
+		const documentsWithCharCount = allDocuments.map(addCharCount);
+		const documentWithCharCount = addCharCount(document.document);
 		return await this.contextAnalyzer.analyzeChapter(
-			document.document as any,
+			documentWithCharCount,
 			content,
-			allDocuments as any[]
+			documentsWithCharCount
 		);
 	}
 
-	async buildStoryContext(): Promise<any> {
+	async buildStoryContext(): Promise<unknown> {
 		if (!this.contextAnalyzer) {
 			throw createError(ErrorCode.INVALID_STATE, 'Context analyzer not initialized');
 		}
@@ -386,10 +416,21 @@ export class ScrivenerProject {
 			}
 		}
 
-		return await this.contextAnalyzer.buildStoryContext(documents as any[], contexts);
+		const addCharCount = (doc: ScrivenerDocument): AnalyzerDocument => ({
+			id: doc.id,
+			title: doc.title,
+			type: doc.type,
+			synopsis: doc.synopsis,
+			notes: doc.notes,
+			characterCount: doc.content?.length || 0,
+			wordCount: doc.wordCount || 0,
+			children: doc.children?.map(addCharCount),
+		});
+		const documentsWithCharCount = documents.map(addCharCount);
+		return await this.contextAnalyzer.buildStoryContext(documentsWithCharCount, contexts);
 	}
 
-	getSyncStatus(): any {
+	getSyncStatus(): SyncStatus | { enabled: false; message: string } {
 		if (!this.contextSync) {
 			return {
 				enabled: false,
@@ -515,7 +556,7 @@ export class ScrivenerProject {
 		folderId?: string;
 		includeTrash?: boolean;
 		summaryOnly?: boolean;
-	}): Promise<any> {
+	}): Promise<unknown> {
 		const structure = await this.getProjectStructure(options?.includeTrash);
 
 		if (options?.summaryOnly) {
@@ -558,7 +599,9 @@ export class ScrivenerProject {
 
 			logger.info('Initial sync completed');
 		} catch (error) {
-			logger.error('Initial sync failed:', error as any);
+			logger.error('Initial sync failed:', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 
@@ -591,17 +634,26 @@ export class ScrivenerProject {
 				characterCount,
 			});
 		} catch (error) {
-			logger.warn(`Failed to sync document ${doc.id}:`, error as any);
+			logger.warn(`Failed to sync document ${doc.id}:`, {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 
-	private findBinderItem(structure: any, documentId: string): any {
-		if (!structure?.ScrivenerProject?.Binder) return null;
+	private findBinderItem(
+		structure: Record<string, unknown>,
+		documentId: string
+	): Record<string, unknown> | null {
+		const scrivenerProject = structure.ScrivenerProject as Record<string, unknown> | undefined;
+		if (!scrivenerProject?.Binder) return null;
 
-		const searchInBinder = (container: any): any => {
+		const searchInBinder = (
+			container: Record<string, unknown>
+		): Record<string, unknown> | null => {
 			if (!container) return null;
 
-			const items = container.BinderItem || container.Children?.BinderItem;
+			const children = container.Children as Record<string, unknown> | undefined;
+			const items = container.BinderItem || children?.BinderItem;
 			if (!items) return null;
 
 			const itemArray = Array.isArray(items) ? items : [items];
@@ -609,8 +661,11 @@ export class ScrivenerProject {
 			for (const item of itemArray) {
 				if (item.UUID === documentId) return item;
 
-				if (item.Children?.BinderItem) {
-					const found = searchInBinder(item.Children);
+				const itemChildren = (item as Record<string, unknown>).Children as
+					| Record<string, unknown>
+					| undefined;
+				if (itemChildren?.BinderItem) {
+					const found = searchInBinder(itemChildren);
 					if (found) return found;
 				}
 			}
@@ -618,7 +673,8 @@ export class ScrivenerProject {
 			return null;
 		};
 
-		return searchInBinder(structure.ScrivenerProject.Binder);
+		const binder = scrivenerProject.Binder as Record<string, unknown>;
+		return searchInBinder(binder);
 	}
 
 	// Cleanup

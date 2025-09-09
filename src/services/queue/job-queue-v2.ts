@@ -2,17 +2,18 @@
  * Optimized BullMQ job queue with automatic KeyDB/Redis detection
  */
 
-import { Queue, Worker, QueueEvents } from 'bullmq';
 import type { Job } from 'bullmq';
+import { Queue, QueueEvents, Worker } from 'bullmq';
 import * as path from 'path';
-import { getLogger } from '../../core/logger.js';
-import { createError, ErrorCode } from '../../core/errors.js';
-import { detectConnection, createBullMQConnection } from './keydb-detector.js';
-import { MemoryRedis } from './memory-redis.js';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
+import { createError, ErrorCode } from '../../core/errors.js';
+import { getLogger } from '../../core/logger.js';
+import { DatabaseService } from '../../handlers/database/database-service.js';
 import { getEnvConfig } from '../../utils/env-config.js';
 import { LangChainService } from '../ai/langchain-service.js';
-import { DatabaseService } from '../../database/database-service.js';
+import { createBullMQConnection, detectConnection } from './keydb-detector.js';
+import { MemoryRedis } from './memory-redis.js';
+import type { Redis } from 'ioredis';
 
 // Job types
 export enum JobType {
@@ -45,11 +46,11 @@ export interface AnalyzeProjectJob {
 export interface GenerateSuggestionsJob {
 	documentId: string;
 	content: string;
-	analysisResults: any;
+	analysisResults: Record<string, unknown>;
 }
 
 export interface BuildVectorStoreJob {
-	documents: Array<{ id: string; content: string; metadata?: any }>;
+	documents: Array<{ id: string; content: string; metadata?: Record<string, unknown> }>;
 	rebuild?: boolean;
 }
 
@@ -59,7 +60,7 @@ export interface CheckConsistencyJob {
 }
 
 export interface SyncDatabaseJob {
-	documents: Array<{ id: string; content: string; metadata?: any }>;
+	documents: Array<{ id: string; content: string; metadata?: Record<string, unknown> }>;
 }
 
 export interface ExportProjectJob {
@@ -70,7 +71,7 @@ export interface ExportProjectJob {
 
 export interface BatchAnalysisJob {
 	documents: Array<{ id: string; content: string }>;
-	options?: any;
+	options?: Record<string, unknown>;
 }
 
 /**
@@ -80,7 +81,7 @@ export class JobQueueService {
 	private queues: Map<JobType, Queue> = new Map();
 	private workers: Map<JobType, Worker> = new Map();
 	private events: Map<JobType, QueueEvents> = new Map();
-	private connection: any = null;
+	private connection: Redis | MemoryRedis | undefined = undefined;
 	private logger: ReturnType<typeof getLogger>;
 
 	// Services
@@ -138,7 +139,7 @@ export class JobQueueService {
 
 				this.memoryRedis = new MemoryRedis({ persistPath });
 				await this.memoryRedis.connect();
-				this.connection = this.memoryRedis as any;
+				this.connection = this.memoryRedis;
 				this.connectionType = 'embedded';
 			}
 
@@ -188,6 +189,9 @@ export class JobQueueService {
 	 * Create a queue for a job type
 	 */
 	private createQueue(jobType: JobType): void {
+		if (!this.connection) {
+			throw new Error('Connection not initialized');
+		}
 		const queue = new Queue(jobType, {
 			connection: this.connection,
 			defaultJobOptions: {
@@ -303,13 +307,13 @@ export class JobQueueService {
 		}
 	}
 
-	// Job processors (simplified versions)
-	private async processAnalyzeDocument(data: AnalyzeDocumentJob): Promise<any> {
+	// TODO: Job processors (simplified versions)
+	private async processAnalyzeDocument(data: AnalyzeDocumentJob): Promise<Record<string, unknown>> {
 		if (!this.contentAnalyzer) {
 			throw new Error('Content analyzer not initialized');
 		}
 
-		const results: any = {
+		const results: Record<string, unknown> = {
 			documentId: data.documentId,
 			timestamp: new Date().toISOString(),
 		};
@@ -327,7 +331,7 @@ export class JobQueueService {
 			};
 		}
 
-		// Store results in database if available (would need to implement this method)
+		// TODO: Store results in database if available (would need to implement this method)
 		// For now, just log the results
 		if (this.databaseService) {
 			this.logger.debug('Analysis results ready for storage', {
@@ -339,7 +343,7 @@ export class JobQueueService {
 		return results;
 	}
 
-	private async processAnalyzeProject(data: AnalyzeProjectJob): Promise<any> {
+	private async processAnalyzeProject(data: AnalyzeProjectJob): Promise<Record<string, unknown>> {
 		const results = [];
 		for (const doc of data.documents) {
 			const result = await this.processAnalyzeDocument({
@@ -352,32 +356,32 @@ export class JobQueueService {
 		return { projectId: data.projectId, documents: results };
 	}
 
-	private async processGenerateSuggestions(data: GenerateSuggestionsJob): Promise<any> {
+	private async processGenerateSuggestions(data: GenerateSuggestionsJob): Promise<Record<string, unknown>> {
 		if (!this.langchainService) {
 			throw new Error('LangChain service not initialized');
 		}
-		// Simplified - would call LangChain here
+		// TODO: Simplified - would call LangChain here
 		return { documentId: data.documentId, suggestions: [] };
 	}
 
-	private async processBuildVectorStore(data: BuildVectorStoreJob): Promise<any> {
+	private async processBuildVectorStore(data: BuildVectorStoreJob): Promise<Record<string, unknown>> {
 		if (!this.langchainService) {
 			throw new Error('LangChain service not initialized');
 		}
-		// Simplified - would build vector store here
+		// TODO: Simplified - would build vector store here
 		return { documentsProcessed: data.documents.length };
 	}
 
-	private async processCheckConsistency(data: CheckConsistencyJob): Promise<any> {
-		// Simplified consistency check
+	private async processCheckConsistency(data: CheckConsistencyJob): Promise<Record<string, unknown>> {
+		// TODO: Simplified consistency check
 		return { documents: data.documents.length, issues: [] };
 	}
 
-	private async processSyncDatabase(data: SyncDatabaseJob): Promise<any> {
+	private async processSyncDatabase(data: SyncDatabaseJob): Promise<Record<string, unknown>> {
 		if (!this.databaseService) {
 			throw new Error('Database service not initialized');
 		}
-		// Simplified - would sync to database here
+		// TODO: Simplified - would sync to database here
 		return { synced: data.documents.length };
 	}
 
@@ -386,7 +390,7 @@ export class JobQueueService {
 	 */
 	async addJob(
 		jobType: JobType,
-		data: any,
+		data: Record<string, unknown>,
 		options?: { priority?: number; delay?: number }
 	): Promise<string> {
 		const queue = this.queues.get(jobType);
@@ -406,7 +410,7 @@ export class JobQueueService {
 	/**
 	 * Get job status
 	 */
-	async getJobStatus(jobType: JobType, jobId: string): Promise<any> {
+	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | null> {
 		const queue = this.queues.get(jobType);
 		if (!queue) {
 			throw createError(
@@ -460,7 +464,7 @@ export class JobQueueService {
 	/**
 	 * Get queue statistics
 	 */
-	async getQueueStats(jobType: JobType): Promise<any> {
+	async getQueueStats(jobType: JobType): Promise<Record<string, unknown>> {
 		const queue = this.queues.get(jobType);
 		if (!queue) {
 			throw createError(

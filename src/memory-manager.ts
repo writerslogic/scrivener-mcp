@@ -1,17 +1,17 @@
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
+import { getLogger } from './core/logger.js';
+import type { DatabaseService } from './handlers/database/database-service.js';
 import {
-	safeReadFile,
-	safeWriteFile,
+	buildPath,
 	ensureDir,
 	pathExists,
 	safeParse,
+	safeReadFile,
 	safeStringify,
-	buildPath,
+	safeWriteFile,
 } from './utils/common.js';
-import type { DatabaseService } from './database/database-service.js';
 import { buildInsertQuery, buildSelectQuery } from './utils/database.js';
-import { getLogger } from './core/logger.js';
 
 const logger = getLogger('memory-manager');
 
@@ -91,14 +91,12 @@ export interface DocumentContext {
 }
 
 export class MemoryManager {
-	private projectPath: string;
 	private memoryPath: string;
 	private memory: ProjectMemory;
 	private autoSaveInterval?: NodeJS.Timeout;
 	private databaseService?: DatabaseService;
 
 	constructor(projectPath: string, databaseService?: DatabaseService) {
-		this.projectPath = projectPath;
 		// Store memory in a hidden folder within the Scrivener project
 		this.memoryPath = buildPath(projectPath, '.ai-memory');
 		this.memory = this.createEmptyMemory();
@@ -421,47 +419,57 @@ export class MemoryManager {
 
 			// Load characters from database
 			const { sql: charSql } = buildSelectQuery('characters');
-			const characters = db.prepare(charSql).all() as any[];
+			const characters = db.prepare(charSql).all() as Record<string, unknown>[];
 			this.memory.characters = characters.map((c) => ({
-				id: c.id,
-				name: c.name,
-				role: c.role || 'supporting',
-				description: c.description || '',
-				traits: c.traits ? safeParse(c.traits, []) : [],
-				arc: c.arc || '',
-				relationships: c.relationships ? safeParse(c.relationships, []) : [],
-				appearances: c.appearances ? safeParse(c.appearances, []) : [],
-				notes: c.notes || '',
+				id: String(c.id),
+				name: String(c.name),
+				role: String(c.role || 'supporting') as
+					| 'protagonist'
+					| 'antagonist'
+					| 'supporting'
+					| 'minor',
+				description: String(c.description || ''),
+				traits: c.traits ? safeParse(String(c.traits), []) : [],
+				arc: String(c.arc || ''),
+				relationships: c.relationships ? safeParse(String(c.relationships), []) : [],
+				appearances: c.appearances ? safeParse(String(c.appearances), []) : [],
+				notes: String(c.notes || ''),
 			}));
 
 			// Load plot threads
 			const { sql: plotSql } = buildSelectQuery('plot_threads');
-			const plotThreads = db.prepare(plotSql).all() as any[];
+			const plotThreads = db.prepare(plotSql).all() as Record<string, unknown>[];
 			this.memory.plotThreads = plotThreads.map((p) => ({
-				id: p.id,
-				name: p.name,
-				status: p.status || 'development',
-				description: p.description || '',
-				documents: p.related_documents ? safeParse(p.related_documents, []) : [],
+				id: String(p.id),
+				name: String(p.name),
+				status: String(p.status || 'development') as
+					| 'setup'
+					| 'development'
+					| 'climax'
+					| 'resolution',
+				description: String(p.description || ''),
+				documents: p.related_documents ? safeParse(String(p.related_documents), []) : [],
 				keyEvents: p.developments
-					? safeParse(p.developments, []).map((d: any) => ({
-							documentId: d.documentId || '',
-							event: d.event || d,
+					? safeParse(String(p.developments), []).map((d: Record<string, unknown>) => ({
+							documentId: String(d.documentId || ''),
+							event: String(d.event || d),
 						}))
 					: [],
 			}));
 
 			// Load project metadata for style guide and custom context
 			const { sql: metaSql } = buildSelectQuery('project_metadata');
-			const metadata = db.prepare(metaSql).all() as any[];
+			const metadata = db.prepare(metaSql).all() as Record<string, unknown>[];
 			metadata.forEach((m) => {
-				if (m.key === 'style_guide' && m.value) {
-					this.memory.styleGuide = safeParse(m.value, {} as StyleGuide);
-				} else if (m.key === 'writing_stats' && m.value) {
-					this.memory.writingStats = safeParse(m.value, {} as WritingStatistics);
-				} else if (m.key.startsWith('custom_')) {
-					const customKey = m.key.replace('custom_', '');
-					this.memory.customContext[customKey] = safeParse(m.value, {});
+				const key = String(m.key);
+				const value = m.value ? String(m.value) : null;
+				if (key === 'style_guide' && value) {
+					this.memory.styleGuide = safeParse(value, {} as StyleGuide);
+				} else if (key === 'writing_stats' && value) {
+					this.memory.writingStats = safeParse(value, {} as WritingStatistics);
+				} else if (key.startsWith('custom_')) {
+					const customKey = key.replace('custom_', '');
+					this.memory.customContext[customKey] = safeParse(value || '{}', {});
 				}
 			});
 
@@ -469,21 +477,25 @@ export class MemoryManager {
 			const worldElements = db
 				.prepare(
 					`
-				SELECT * FROM themes 
-				UNION ALL 
+				SELECT * FROM themes
+				UNION ALL
 				SELECT id, name, 'location' as type, description FROM locations
 			`
 				)
-				.all() as any[];
+				.all() as Record<string, unknown>[];
 
 			this.memory.worldBuilding = worldElements.map((w) => ({
-				id: w.id,
-				type: w.type || 'theme',
-				name: w.name,
-				description: w.description || '',
-				details: w.details ? safeParse(w.details, {}) : {},
-				significance: w.significance || 'minor',
-				appearances: w.appearances ? safeParse(w.appearances, []) : [],
+				id: String(w.id),
+				type: String(w.type || 'location') as
+					| 'object'
+					| 'location'
+					| 'concept'
+					| 'organization',
+				name: String(w.name),
+				description: String(w.description || ''),
+				details: w.details ? safeParse(String(w.details), {}) : {},
+				significance: String(w.significance || 'minor'),
+				appearances: w.appearances ? safeParse(String(w.appearances), []) : [],
 			}));
 		} catch (error) {
 			logger.error('Failed to load from database', { error });

@@ -23,14 +23,14 @@ export interface HandlerResult {
 	isError?: boolean;
 }
 
-export type ToolHandler = (args: any, context: HandlerContext) => Promise<HandlerResult>;
+export type ToolHandler = (args: Record<string, unknown>, context: HandlerContext) => Promise<HandlerResult>;
 
 export interface ToolDefinition {
 	name: string;
 	description: string;
 	inputSchema: {
 		type: 'object';
-		properties: Record<string, any>;
+		properties: Record<string, unknown>;
 		required?: string[];
 	};
 	handler: ToolHandler;
@@ -59,4 +59,116 @@ export function requireMemoryManager(context: HandlerContext): MemoryManager {
 		throw new HandlerError('Memory manager not initialized', 'NO_MEMORY');
 	}
 	return context.memoryManager;
+}
+
+export function getStringArg(args: Record<string, unknown>, key: string): string {
+	const value = args[key];
+	if (typeof value !== 'string') {
+		throw new HandlerError(
+			`Expected string for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value;
+}
+
+export function getOptionalStringArg(
+	args: Record<string, unknown>,
+	key: string
+): string | undefined {
+	const value = args[key];
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== 'string') {
+		throw new HandlerError(
+			`Expected string for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value;
+}
+
+export function getNumberArg(args: Record<string, unknown>, key: string): number {
+	const value = args[key];
+	if (typeof value !== 'number') {
+		throw new HandlerError(
+			`Expected number for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value;
+}
+
+export function getOptionalNumberArg(
+	args: Record<string, unknown>,
+	key: string
+): number | undefined {
+	const value = args[key];
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== 'number') {
+		throw new HandlerError(
+			`Expected number for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value;
+}
+
+export function getBooleanArg(args: Record<string, unknown>, key: string): boolean {
+	const value = args[key];
+	if (typeof value !== 'boolean') {
+		throw new HandlerError(
+			`Expected boolean for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value;
+}
+
+export function getOptionalBooleanArg(
+	args: Record<string, unknown>,
+	key: string
+): boolean | undefined {
+	const value = args[key];
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== 'boolean') {
+		throw new HandlerError(
+			`Expected boolean for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value;
+}
+
+export function getArrayArg<T>(args: Record<string, unknown>, key: string): T[] {
+	const value = args[key];
+	if (!Array.isArray(value)) {
+		throw new HandlerError(
+			`Expected array for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value as T[];
+}
+
+export function getObjectArg<T>(args: Record<string, unknown>, key: string): T {
+	const value = args[key];
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		throw new HandlerError(
+			`Expected object for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value as T;
+}
+
+export function getOptionalObjectArg<T>(args: Record<string, unknown>, key: string): T | undefined {
+	const value = args[key];
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== 'object' || Array.isArray(value)) {
+		throw new HandlerError(
+			`Expected object for ${key}, got ${typeof value}`,
+			'INVALID_ARGUMENT'
+		);
+	}
+	return value as T;
 }

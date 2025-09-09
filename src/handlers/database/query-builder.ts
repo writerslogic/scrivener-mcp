@@ -2,8 +2,8 @@
  * SQL and Cypher query builders
  */
 
-import { createError, ErrorCode } from '../core/errors.js';
-import type { PaginationParams, QueryParameters } from '../types/database.js';
+import { createError, ErrorCode } from '../../core/errors.js';
+import type { PaginationParams, QueryParameters } from '../../types/database.js';
 
 /**
  * SQL Query Builder

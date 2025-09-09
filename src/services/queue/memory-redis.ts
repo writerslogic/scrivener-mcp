@@ -9,12 +9,51 @@ import { readJSON, writeJSON } from '../../utils/common.js';
 
 const logger = getLogger('memory-redis');
 
+// Type definitions for stored data structures
+interface StoredSet {
+	_type: 'set';
+	items: unknown[];
+}
+
+interface StoredList {
+	_type: 'list';
+	items: unknown[];
+}
+
+interface StoredHash {
+	_type: 'hash';
+	data: Record<string, unknown>;
+}
+
+interface ZSetData {
+	_scores: Map<string, number>;
+	_members: Map<number, string>;
+}
+
+interface LegacySet {
+	_isSet: true;
+	items: unknown[];
+}
+
+type StoredValue =
+	| string
+	| number
+	| boolean
+	| Set<unknown>
+	| unknown[]
+	| Record<string, unknown>
+	| ZSetData
+	| StoredSet
+	| StoredList
+	| StoredHash
+	| LegacySet;
+
 /**
  * Simple in-memory Redis-like store with persistence
  * Implements only the Redis commands used by BullMQ
  */
 export class MemoryRedis extends EventEmitter {
-	private data: Map<string, any> = new Map();
+	private data: Map<string, StoredValue> = new Map();
 	private expiry: Map<string, number> = new Map();
 	private persistPath: string | null = null;
 	private persistInterval: NodeJS.Timeout | null = null;
@@ -40,22 +79,43 @@ export class MemoryRedis extends EventEmitter {
 			// Restore data with proper types
 			this.data = new Map();
 			for (const [key, value] of parsed.data) {
-				if (value && typeof value === 'object' && (value as any)._type) {
-					const type = (value as any)._type;
-					if (type === 'set') {
-						this.data.set(key, new Set((value as any).items));
-					} else if (type === 'list') {
-						this.data.set(key, (value as any).items);
-					} else if (type === 'hash') {
-						this.data.set(key, (value as any).data);
+				if (value && typeof value === 'object') {
+					const typedValue = value as Record<string, unknown>;
+					if ('_type' in typedValue) {
+						const type = typedValue._type;
+						if (
+							type === 'set' &&
+							'items' in typedValue &&
+							Array.isArray(typedValue.items)
+						) {
+							this.data.set(key, new Set(typedValue.items));
+						} else if (
+							type === 'list' &&
+							'items' in typedValue &&
+							Array.isArray(typedValue.items)
+						) {
+							this.data.set(key, typedValue.items);
+						} else if (
+							type === 'hash' &&
+							'data' in typedValue &&
+							typeof typedValue.data === 'object'
+						) {
+							this.data.set(key, typedValue.data as Record<string, unknown>);
+						} else {
+							this.data.set(key, value as StoredValue);
+						}
+					} else if (
+						'_isSet' in typedValue &&
+						'items' in typedValue &&
+						Array.isArray(typedValue.items)
+					) {
+						// Legacy format compatibility
+						this.data.set(key, new Set(typedValue.items));
 					} else {
-						this.data.set(key, value);
+						this.data.set(key, value as StoredValue);
 					}
-				} else if (value && typeof value === 'object' && (value as any)._isSet) {
-					// Legacy format compatibility
-					this.data.set(key, new Set((value as any).items));
 				} else {
-					this.data.set(key, value);
+					this.data.set(key, value as StoredValue);
 				}
 			}
 
@@ -114,16 +174,17 @@ export class MemoryRedis extends EventEmitter {
 	// Redis String Commands
 	async get(key: string): Promise<string | null> {
 		this.checkExpiry(key);
-		return this.data.get(key) || null;
+		const value = this.data.get(key);
+		return typeof value === 'string' ? value : null;
 	}
 
-	async set(key: string, value: string, ...args: any[]): Promise<'OK'> {
+	async set(key: string, value: string, ...args: (string | number)[]): Promise<'OK'> {
 		this.data.set(key, value);
 
 		// Handle expiry
-		if (args[0] === 'EX') {
+		if (args[0] === 'EX' && typeof args[1] === 'number') {
 			this.expiry.set(key, Date.now() + args[1] * 1000);
-		} else if (args[0] === 'PX') {
+		} else if (args[0] === 'PX' && typeof args[1] === 'number') {
 			this.expiry.set(key, Date.now() + args[1]);
 		}
 
@@ -187,7 +248,7 @@ export class MemoryRedis extends EventEmitter {
 		if (list.length === 0) {
 			this.data.delete(key);
 		}
-		return value || null;
+		return typeof value === 'string' ? value : null;
 	}
 
 	async rpop(key: string): Promise<string | null> {
@@ -197,7 +258,7 @@ export class MemoryRedis extends EventEmitter {
 		if (list.length === 0) {
 			this.data.delete(key);
 		}
-		return value || null;
+		return typeof value === 'string' ? value : null;
 	}
 
 	async lrange(key: string, start: number, stop: number): Promise<string[]> {
@@ -208,7 +269,9 @@ export class MemoryRedis extends EventEmitter {
 		if (start < 0) start = list.length + start;
 		if (stop < 0) stop = list.length + stop;
 
-		return list.slice(start, stop + 1);
+		return list
+			.slice(start, stop + 1)
+			.filter((item): item is string => typeof item === 'string');
 	}
 
 	async llen(key: string): Promise<number> {
@@ -222,7 +285,7 @@ export class MemoryRedis extends EventEmitter {
 		if (!Array.isArray(list)) return 0;
 
 		let removed = 0;
-		const newList: string[] = [];
+		const newList: unknown[] = [];
 
 		if (count > 0) {
 			// Remove from head
@@ -370,7 +433,7 @@ export class MemoryRedis extends EventEmitter {
 	async smembers(key: string): Promise<string[]> {
 		const set = this.data.get(key);
 		if (!set || !(set instanceof Set)) return [];
-		return Array.from(set);
+		return Array.from(set).filter((item): item is string => typeof item === 'string');
 	}
 
 	async scard(key: string): Promise<number> {
@@ -380,7 +443,7 @@ export class MemoryRedis extends EventEmitter {
 	}
 
 	// Redis Sorted Set Commands (for BullMQ delayed jobs)
-	async zadd(key: string, ...args: any[]): Promise<number> {
+	async zadd(key: string, ...args: (number | string)[]): Promise<number> {
 		let zset = this.data.get(key);
 		if (!zset || typeof zset !== 'object' || !('_scores' in zset) || !('_members' in zset)) {
 			zset = { _scores: new Map(), _members: new Map() };
@@ -390,7 +453,7 @@ export class MemoryRedis extends EventEmitter {
 		for (let i = 0; i < args.length; i += 2) {
 			if (i + 1 >= args.length) break; // Ensure we have both score and member
 
-			const score = parseFloat(args[i]);
+			const score = parseFloat(String(args[i]));
 			const member = args[i + 1];
 
 			// Validate score and member
@@ -402,25 +465,27 @@ export class MemoryRedis extends EventEmitter {
 				continue; // Skip invalid members
 			}
 
-			if (!(zset as any)._scores.has(member)) {
+			const typedZset = zset as ZSetData;
+			if (!typedZset._scores.has(String(member))) {
 				added++;
 			}
 
-			(zset as any)._scores.set(member, score);
-			(zset as any)._members.set(score, member);
+			typedZset._scores.set(String(member), score);
+			typedZset._members.set(score, String(member));
 		}
 
 		this.data.set(key, zset);
 		return added;
 	}
 
-	async zrange(key: string, start: number, stop: number, ...args: any[]): Promise<string[]> {
+	async zrange(key: string, start: number, stop: number, ...args: string[]): Promise<string[]> {
 		const zset = this.data.get(key);
 		if (!zset || typeof zset !== 'object' || !('_scores' in zset)) {
 			return [];
 		}
 
-		const scores = (zset as any)._scores;
+		const typedZset = zset as ZSetData;
+		const scores = typedZset._scores;
 		if (!(scores instanceof Map)) {
 			return [];
 		}
@@ -452,7 +517,8 @@ export class MemoryRedis extends EventEmitter {
 			return 0;
 		}
 
-		const scores = (zset as any)._scores;
+		const typedZset = zset as ZSetData;
+		const scores = typedZset._scores;
 		if (!(scores instanceof Map)) {
 			return 0;
 		}
@@ -520,7 +586,7 @@ export class MemoryRedis extends EventEmitter {
 			const expirySnapshot = new Map(this.expiry);
 
 			// Convert data to serializable format
-			const serializableData: Array<[string, any]> = [];
+			const serializableData: Array<[string, unknown]> = [];
 			for (const [key, value] of dataSnapshot.entries()) {
 				if (value instanceof Set) {
 					serializableData.push([key, { _type: 'set', items: Array.from(value) }]);
@@ -567,12 +633,12 @@ export class MemoryRedis extends EventEmitter {
 	}
 
 	// Make it compatible with IORedis
-	on(event: string, listener: (...args: any[]) => void): this {
+	on(event: string, listener: (...args: unknown[]) => void): this {
 		super.on(event, listener);
 		return this;
 	}
 
-	once(event: string, listener: (...args: any[]) => void): this {
+	once(event: string, listener: (...args: unknown[]) => void): this {
 		super.once(event, listener);
 		return this;
 	}

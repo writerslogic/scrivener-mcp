@@ -326,7 +326,7 @@ export class LangChainService {
 			const characterContext = await this.generateWithContext(characterPrompt);
 
 			// Parse and structure the response
-			// This is simplified - in production, you'd want more sophisticated parsing
+			// TODO: This is simplified - in production, you'd want more sophisticated parsing
 			if (
 				characterContext.includes('inconsistency') ||
 				characterContext.includes('contradiction')

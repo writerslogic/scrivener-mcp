@@ -113,7 +113,7 @@ export function handleError(error: unknown, context?: string): AppError {
 }
 
 /** Higher-order async error wrapper */
-export function withErrorHandling<T extends (...args: any[]) => Promise<unknown>>(
+export function withErrorHandling<T extends (...args: unknown[]) => Promise<unknown>>(
 	fn: T,
 	context?: string
 ): T {
@@ -501,7 +501,7 @@ export async function retry<T>(
 
 export const sleep = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
-export function debounce<T extends (...a: any[]) => void>(fn: T, delay: number) {
+export function debounce<T extends (...a: unknown[]) => void>(fn: T, delay: number) {
 	let id: NodeJS.Timeout;
 	return (...args: Parameters<T>) => {
 		clearTimeout(id);
@@ -509,7 +509,7 @@ export function debounce<T extends (...a: any[]) => void>(fn: T, delay: number) 
 	};
 }
 
-export function throttle<T extends (...a: any[]) => void>(fn: T, limit: number) {
+export function throttle<T extends (...a: unknown[]) => void>(fn: T, limit: number) {
 	let inThrottle = false;
 	return (...args: Parameters<T>) => {
 		if (!inThrottle) {
@@ -600,30 +600,52 @@ export const safeStringify = (v: unknown): string => {
 export const deepClone = <T>(obj: T): T => structuredClone(obj);
 
 /** Deep merge objects */
-export function deepMerge<T extends object, U extends object>(a: T, b: U): T & U {
-	const out: any = { ...a };
+export function deepMerge<T extends Record<string, unknown>, U extends Record<string, unknown>>(
+	a: T,
+	b: U
+): T & U {
+	const out: Record<string, unknown> = { ...a };
 	for (const [k, v] of Object.entries(b)) {
-		out[k] =
-			v && typeof v === 'object' && !Array.isArray(v) ? deepMerge((a as any)[k] ?? {}, v) : v;
+		const aValue = a[k];
+		if (v && typeof v === 'object' && !Array.isArray(v)) {
+			const mergeTarget =
+				aValue && typeof aValue === 'object' && !Array.isArray(aValue)
+					? (aValue as Record<string, unknown>)
+					: ({} as Record<string, unknown>);
+			out[k] = deepMerge(mergeTarget, v as Record<string, unknown>);
+		} else {
+			out[k] = v;
+		}
 	}
-	return out;
+	return out as T & U;
 }
 
 /** Get nested property safely */
-export function getNested(obj: any, path: string, def?: unknown): unknown {
-	return path.split('.').reduce((o, k) => (o && k in o ? o[k] : def), obj);
+export function getNested(obj: Record<string, unknown>, path: string, def?: unknown): unknown {
+	return path.split('.').reduce<unknown>((o, k) => {
+		if (o && typeof o === 'object' && o !== null && k in o) {
+			return (o as Record<string, unknown>)[k];
+		}
+		return def;
+	}, obj);
 }
 
 /** Set nested property safely */
-export function setNested(obj: any, path: string, value: unknown): void {
+export function setNested(obj: Record<string, unknown>, path: string, value: unknown): void {
 	const keys = path.split('.');
 	let cur = obj;
-	for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]] ??= {};
+	for (let i = 0; i < keys.length - 1; i++) {
+		const key = keys[i];
+		if (!(key in cur) || typeof cur[key] !== 'object' || cur[key] === null) {
+			cur[key] = {} as Record<string, unknown>;
+		}
+		cur = cur[key] as Record<string, unknown>;
+	}
 	cur[keys.at(-1)!] = value;
 }
 
 /** Check if object is empty */
-export const isEmpty = (obj: any): boolean => {
+export const isEmpty = (obj: unknown): boolean => {
 	if (obj == null) return true;
 	if (Array.isArray(obj) || typeof obj === 'string') return obj.length === 0;
 	if (obj instanceof Map || obj instanceof Set) return obj.size === 0;

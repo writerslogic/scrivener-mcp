@@ -3,10 +3,51 @@
  * AI-powered analysis and recommendations for story improvement
  */
 
+import { unique } from '../../utils/common.js';
 import type { GraphAnalytics } from './graph-analytics.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { SQLiteManager } from './sqlite-manager.js';
-import { unique } from '../utils/common.js';
+
+// Type definitions for database query results
+interface CharacterArcData {
+	character_id: string;
+	character_name: string;
+	chapter_id: string;
+	chapter_title: string;
+	order_index: number;
+	stage?: string;
+	emotional_state?: string;
+	conflict?: string;
+	resolution?: string;
+}
+
+interface ChapterData {
+	id: string;
+	title: string;
+	word_count: number;
+	order_index: number;
+	beat_count: number;
+	avg_tension: number | null;
+	char_count: number;
+}
+
+interface PlotThreadData {
+	id: string;
+	name: string;
+	status: string;
+}
+
+interface ThemeData {
+	name: string;
+	mentions: number;
+}
+
+interface DocumentData {
+	id: string;
+	title: string;
+	content: string;
+	order_index: number;
+}
 
 export interface PlotHole {
 	type: 'continuity' | 'logic' | 'character' | 'timeline';
@@ -110,10 +151,10 @@ export class StoryIntelligence {
 			JOIN characters c ON ca.character_id = c.id
 			LEFT JOIN documents d ON ca.chapter_id = d.id
 			ORDER BY ca.character_id, ca.order_index
-		`) as any[];
+		`) as CharacterArcData[];
 
 		// Group by character
-		const characterArcs = new Map<string, any[]>();
+		const characterArcs = new Map<string, CharacterArcData[]>();
 		for (const arc of arcs) {
 			if (!characterArcs.has(arc.character_id)) {
 				characterArcs.set(arc.character_id, []);
@@ -180,7 +221,7 @@ export class StoryIntelligence {
 			WHERE d.type = 'chapter'
 			GROUP BY d.id
 			ORDER BY d.order_index
-		`) as any[];
+		`) as ChapterData[];
 
 		// Check for pacing issues
 		for (let i = 0; i < chapters.length - 2; i++) {
@@ -218,7 +259,8 @@ export class StoryIntelligence {
 		// Check overall pacing
 		const avgWordCount = chapters.reduce((sum, ch) => sum + ch.word_count, 0) / chapters.length;
 		const slowChapters = chapters.filter(
-			(ch) => ch.word_count > avgWordCount * 1.5 && ch.avg_tension < 5
+			(ch) =>
+				ch.word_count > avgWordCount * 1.5 && ch.avg_tension !== null && ch.avg_tension < 5
 		);
 
 		if (slowChapters.length > chapters.length * 0.3) {
@@ -337,7 +379,7 @@ export class StoryIntelligence {
 			FROM documents
 			WHERE type IN ('chapter', 'scene')
 			ORDER BY order_index
-		`) as any[];
+		`) as DocumentData[];
 
 		const timeline: TimelineEvent[] = [];
 		let currentStoryDate = 'Day 1'; // Default starting point
@@ -431,7 +473,7 @@ export class StoryIntelligence {
 			SELECT id, name, status
 			FROM plot_threads
 			WHERE status IN ('setup', 'development')
-		`) as any[];
+		`) as PlotThreadData[];
 
 		for (const thread of threads) {
 			holes.push({
@@ -446,7 +488,7 @@ export class StoryIntelligence {
 		return holes;
 	}
 
-	private analyzeCharacterProgression(arcs: any[]): {
+	private analyzeCharacterProgression(arcs: CharacterArcData[]): {
 		issues: string[];
 		affectedChapters: string[];
 		recommendation: string;
@@ -495,7 +537,7 @@ export class StoryIntelligence {
 			FROM themes t
 			JOIN document_relationships dr ON t.id = dr.target_id
 			GROUP BY t.id
-		`) as any[];
+		`) as ThemeData[];
 
 		const avgMentions = themes.reduce((sum, t) => sum + t.mentions, 0) / themes.length;
 
@@ -505,10 +547,10 @@ export class StoryIntelligence {
 		};
 	}
 
-	private extractTimelineEvents(doc: any, currentDate: string): TimelineEvent[] {
+	private extractTimelineEvents(doc: DocumentData, currentDate: string): TimelineEvent[] {
 		const events: TimelineEvent[] = [];
 
-		// Extract significant events (simplified - would need NLP in production)
+		// TODO: Extract significant events (simplified - would need NLP in production)
 		const eventPatterns = [
 			/(\w+) arrived at (.+)/gi,
 			/(\w+) discovered (.+)/gi,
@@ -534,13 +576,13 @@ export class StoryIntelligence {
 	}
 
 	private extractCharacterNames(text: string): string[] {
-		// Simplified - would need entity recognition
+		// TODO: Simplified - would need entity recognition
 		const properNouns = text.match(/[A-Z][a-z]+/g) || [];
 		return unique(properNouns);
 	}
 
 	private parseRelativeDate(current: string, relative: string): string {
-		// Simplified date parsing
+		// TODO: Simplified date parsing
 		if (relative.includes('next day')) {
 			const dayNum = parseInt(current.match(/\d+/)?.[0] || '1');
 			return `Day ${dayNum + 1}`;

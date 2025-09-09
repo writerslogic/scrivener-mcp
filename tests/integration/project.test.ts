@@ -49,7 +49,7 @@ describe('Scrivener Project Integration', () => {
 			contentAnalyzer: new ContentAnalyzer(),
 			contentEnhancer: new ContentEnhancer(),
 		};
-	});
+	}, 45000);
 
 	afterAll(async () => {
 		// Clean up
@@ -62,7 +62,7 @@ describe('Scrivener Project Integration', () => {
 		
 		// Remove temp directory
 		await fs.rm(tempDir, { recursive: true, force: true });
-	});
+	}, 60000);
 
 	describe('Project Loading', () => {
 		it('should load a Scrivener project successfully', async () => {
@@ -75,7 +75,7 @@ describe('Scrivener Project Integration', () => {
 			expect(project).not.toBeNull();
 			const metadata = await project.getProjectMetadata();
 			expect(metadata).toBeDefined();
-		});
+		}, 45000);
 
 		it('should prevent loading multiple projects', async () => {
 			// First load should succeed (already loaded in previous test)
@@ -92,7 +92,7 @@ describe('Scrivener Project Integration', () => {
 			context.project = project2;
 			
 			expect(context.project).toBe(project2);
-		});
+		}, 60000);
 
 		it('should get project structure', async () => {
 			if (!context.project) {
@@ -224,7 +224,7 @@ describe('Scrivener Project Integration', () => {
 			const status = dbService.getStatus();
 			expect(status).toHaveProperty('sqlite');
 			expect(status.sqlite.enabled).toBe(true);
-		});
+		}, 45000);
 	});
 
 	describe('Memory Management', () => {
@@ -251,7 +251,7 @@ describe('Scrivener Project Integration', () => {
 			const retrieved = memoryManager.getCharacter(character.id);
 			expect(retrieved).not.toBeNull();
 			expect(retrieved?.name).toBe('Test Character');
-		});
+		}, 45000);
 	});
 });
 

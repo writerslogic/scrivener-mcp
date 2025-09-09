@@ -17,9 +17,9 @@ import type {
 	ResearchData,
 	WritingSuggestion,
 } from '../types/analysis.js';
+import { getWordPairs, splitIntoSentences } from '../utils/common.js';
 import { advancedReadabilityService } from './advanced-readability.js';
 import { classifier as wordClassifier } from './ml-word-classifier-pro.js';
-import { splitIntoSentences, getWordPairs } from '../utils/common.js';
 
 const logger = getLogger('content-analyzer');
 
@@ -161,7 +161,10 @@ export class ContentAnalyzer {
 	];
 
 	@cached(
-		(content: string, documentId: string) => `analysis:${documentId}:${content.length}`,
+		(...args: unknown[]) => {
+			const [content, documentId] = args as [string, string];
+			return `analysis:${documentId}:${content.length}`;
+		},
 		caches.analysis,
 		300_000 // Cache for 5 minutes
 	)
@@ -285,7 +288,7 @@ export class ContentAnalyzer {
 			dialoguePercentage,
 			descriptionPercentage,
 			mostFrequentWords,
-			styleConsistency: 85, // Simplified for now
+			styleConsistency: 85, // TODO: Simplified for now
 		};
 	}
 
@@ -551,7 +554,7 @@ export class ContentAnalyzer {
 		const dominantEmotion =
 			Array.from(emotionCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
-		// Simplified emotional arc
+		// TODO: Simplified emotional arc
 		const segments = this.splitIntoSegments(content, 5);
 		const emotionalArc = segments.map((segment, index) => {
 			const segmentEmotions = this.detectSegmentEmotion(segment);
@@ -571,7 +574,7 @@ export class ContentAnalyzer {
 			dominantEmotion,
 			emotionalArc,
 			tensionLevel,
-			moodConsistency: 75, // Simplified
+			moodConsistency: 75, // TODO: Simplified
 		};
 	}
 
@@ -965,7 +968,10 @@ export class ContentAnalyzer {
 	 * Analyze writing style using AI
 	 */
 	@cached(
-		(content: string) => `ai-style:${content.substring(0, 100)}:${content.length}`,
+		(...args: unknown[]) => {
+			const content = args[0] as string;
+			return `ai-style:${content.substring(0, 100)}:${content.length}`;
+		},
 		caches.analysis,
 		600_000 // Cache for 10 minutes
 	)
@@ -1005,7 +1011,10 @@ export class ContentAnalyzer {
 	 * Analyze plot structure using AI
 	 */
 	@cached(
-		(content: string) => `ai-plot:${content.substring(0, 100)}:${content.length}`,
+		(...args: unknown[]) => {
+			const content = args[0] as string;
+			return `ai-plot:${content.substring(0, 100)}:${content.length}`;
+		},
 		caches.analysis,
 		600_000 // Cache for 10 minutes
 	)
@@ -1072,7 +1081,33 @@ export class ContentAnalyzer {
 	/**
 	 * Generate writing prompts using AI
 	 */
-	async generateWritingPrompts(options: any = {}): Promise<any> {
+	async generateWritingPrompts(
+		options: {
+			genre?: string;
+			theme?: string;
+			count?: number;
+			complexity?: 'simple' | 'moderate' | 'complex';
+			promptType?: 'scene' | 'character' | 'dialogue' | 'description' | 'conflict' | 'mixed';
+			existingCharacters?: string[];
+			currentPlotPoints?: string[];
+			storyContext?: string;
+			targetWordCount?: number;
+			writingStyle?: string;
+			mood?: string;
+		} = {}
+	): Promise<{
+		prompts: Array<{
+			prompt: string;
+			type: string;
+			difficulty: string;
+			estimatedWords: number;
+			tips: string[];
+			relatedCharacters?: string[];
+			suggestedTechniques?: string[];
+		}>;
+		overallTheme: string;
+		writingGoals: string[];
+	}> {
 		if (!openaiService.isConfigured()) {
 			return {
 				prompts: [],

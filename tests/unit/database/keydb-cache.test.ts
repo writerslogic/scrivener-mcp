@@ -24,13 +24,13 @@ describe('KeyDBCache', () => {
 
 		// Mock Redis client
 		mockClient = {
-			ping: jest.fn().mockResolvedValue('PONG' as const),
+			ping: jest.fn<Promise<'PONG'>, []>().mockResolvedValue('PONG'),
 			get: jest.fn(),
-			setex: jest.fn().mockResolvedValue('OK' as const),
+			setex: jest.fn<Promise<'OK'>, [string, number, string]>().mockResolvedValue('OK'),
 			del: jest.fn(),
 			keys: jest.fn(),
 			scan: jest.fn(),
-			quit: jest.fn().mockResolvedValue('OK' as const),
+			quit: jest.fn<Promise<'OK'>, []>().mockResolvedValue('OK'),
 		};
 
 		// Setup default mock responses
@@ -272,7 +272,7 @@ describe('KeyDBCache', () => {
 			const cachedData = { id: 1, name: 'Cached' };
 			mockClient.get.mockResolvedValue(JSON.stringify(cachedData));
 
-			const fetchFn = jest.fn<Promise<any>, []>().mockResolvedValue({ id: 1, name: 'Fresh' });
+			const fetchFn = jest.fn().mockResolvedValue({ id: 1, name: 'Fresh' });
 			const result = await cache.getOrSet('test-key', fetchFn);
 
 			expect(result).toEqual(cachedData);
@@ -283,7 +283,7 @@ describe('KeyDBCache', () => {
 			const freshData = { id: 1, name: 'Fresh' };
 			mockClient.get.mockResolvedValue(null);
 
-			const fetchFn = jest.fn<Promise<any>, []>().mockResolvedValue(freshData);
+			const fetchFn = jest.fn().mockResolvedValue(freshData);
 			const result = await cache.getOrSet('test-key', fetchFn, 120);
 
 			expect(result).toEqual(freshData);

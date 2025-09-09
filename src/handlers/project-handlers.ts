@@ -3,9 +3,9 @@
  */
 
 import * as path from 'path';
-import { DatabaseService } from '../database/database-service.js';
 import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
+import { DatabaseService } from './database/database-service.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import { requireProject } from './types.js';
 
@@ -130,7 +130,7 @@ export const refreshProjectHandler: ToolDefinition = {
 		type: 'object',
 		properties: {},
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		await project.refreshProject();
 
@@ -152,7 +152,7 @@ export const closeProjectHandler: ToolDefinition = {
 		type: 'object',
 		properties: {},
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		await project.close();
 

@@ -43,7 +43,7 @@ export function getAllTools() {
  */
 export async function executeHandler(
 	toolName: string,
-	args: any,
+	args: Record<string, unknown>,
 	context: HandlerContext
 ): Promise<HandlerResult> {
 	const handler = handlerMap.get(toolName);
@@ -71,7 +71,7 @@ export async function executeHandler(
 /**
  * Validate handler arguments
  */
-export function validateHandlerArgs(toolName: string, args: any): void {
+export function validateHandlerArgs(toolName: string, args: Record<string, unknown>): void {
 	const handler = handlerMap.get(toolName);
 
 	if (!handler) {
@@ -93,20 +93,22 @@ export function validateHandlerArgs(toolName: string, args: any): void {
 			continue; // Allow extra properties
 		}
 
-		const schema = properties[key] as any;
+		const schema = properties[key] as Record<string, unknown>;
+		const schemaType = schema.type as string | undefined;
+		const schemaEnum = schema.enum as unknown[] | undefined;
 		const actualType = Array.isArray(value) ? 'array' : typeof value;
 
-		if (schema.type && actualType !== schema.type) {
+		if (schemaType && actualType !== schemaType) {
 			throw new HandlerError(
-				`Invalid type for ${key}: expected ${schema.type}, got ${actualType}`,
+				`Invalid type for ${key}: expected ${schemaType}, got ${actualType}`,
 				'INVALID_TYPE'
 			);
 		}
 
 		// Validate enum values
-		if (schema.enum && !schema.enum.includes(value)) {
+		if (schemaEnum && !schemaEnum.includes(value)) {
 			throw new HandlerError(
-				`Invalid value for ${key}: must be one of ${schema.enum.join(', ')}`,
+				`Invalid value for ${key}: must be one of ${schemaEnum.join(', ')}`,
 				'INVALID_VALUE'
 			);
 		}

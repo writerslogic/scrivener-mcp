@@ -4,7 +4,7 @@
 
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
-import type { ScrivenerDocument } from '../types/index.js';
+import type { ScrivenerDocument, ProjectStatistics, DocumentInfo, ProjectMetadata } from '../types/index.js';
 import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
@@ -223,25 +223,31 @@ export class CompilationService {
 	/**
 	 * Get project statistics
 	 */
-	getStatistics(documents: ScrivenerDocument[]): Record<string, any> {
-		const stats = {
+	getStatistics(documents: ScrivenerDocument[]): ProjectStatistics {
+		const stats: ProjectStatistics = {
 			totalDocuments: 0,
-			textDocuments: 0,
-			folders: 0,
+			totalFolders: 0,
 			totalWords: 0,
 			totalCharacters: 0,
-			averageDocumentLength: 0,
+			draftDocuments: 0,
+			researchDocuments: 0,
+			trashedDocuments: 0,
+			metadata: {} as ProjectMetadata,
 			documentsByType: {} as Record<string, number>,
+			documentsByStatus: {} as Record<string, number>,
+			documentsByLabel: {} as Record<string, number>,
+			averageDocumentLength: 0,
+			longestDocument: null,
+			shortestDocument: null,
+			recentlyModified: [],
 		};
 
 		const processDocuments = (docs: ScrivenerDocument[]) => {
 			for (const doc of docs) {
 				stats.totalDocuments++;
 
-				if (doc.type === DOCUMENT_TYPES.TEXT) {
-					stats.textDocuments++;
-				} else if (doc.type === DOCUMENT_TYPES.FOLDER) {
-					stats.folders++;
+				if (doc.type === DOCUMENT_TYPES.FOLDER) {
+					stats.totalFolders++;
 				}
 
 				stats.documentsByType[doc.type] = (stats.documentsByType[doc.type] || 0) + 1;
@@ -254,8 +260,9 @@ export class CompilationService {
 
 		processDocuments(documents);
 
-		if (stats.textDocuments > 0) {
-			stats.averageDocumentLength = Math.round(stats.totalWords / stats.textDocuments);
+		const textDocs = stats.totalDocuments - stats.totalFolders;
+		if (textDocs > 0) {
+			stats.averageDocumentLength = Math.round(stats.totalWords / textDocs);
 		}
 
 		return stats;

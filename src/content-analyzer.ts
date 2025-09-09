@@ -1,16 +1,15 @@
 // import type { ScrivenerDocument } from './scrivener-project.js';
 import { advancedReadabilityService } from './analysis/advanced-readability.js';
+import { classifier as wordClassifier } from './analysis/ml-word-classifier-pro.js';
 import { cached, caches } from './core/cache.js';
 import { getLogger } from './core/logger.js';
-import { classifier as wordClassifier } from './analysis/ml-word-classifier-pro.js';
 import type {
 	CharacterAnalysis as OpenAICharacterAnalysis,
 	PlotAnalysis as OpenAIPlotAnalysis,
 	StyleAnalysis as OpenAIStyleAnalysis,
 } from './services/openai-service.js';
 import { OpenAIService } from './services/openai-service.js';
-
-const openaiService = new OpenAIService();
+import { webContentParser } from './services/web-content-parser.js';
 import type {
 	ContentExtractionOptions,
 	ParsedWebContent,
@@ -20,8 +19,9 @@ import type {
 	ResearchData,
 	WritingSuggestion,
 } from './types/analysis.js';
-import { webContentParser } from './services/web-content-parser.js';
-import { splitIntoSentences, getWordPairs } from './utils/common.js';
+import { getWordPairs, splitIntoSentences } from './utils/common.js';
+
+const openaiService = new OpenAIService();
 
 const logger = getLogger('content-analyzer');
 
@@ -286,7 +286,7 @@ export class ContentAnalyzer {
 			dialoguePercentage,
 			descriptionPercentage,
 			mostFrequentWords,
-			styleConsistency: 85, // Simplified for now
+			styleConsistency: 85, // TODO: Simplified for now
 		};
 	}
 
@@ -552,7 +552,7 @@ export class ContentAnalyzer {
 		const dominantEmotion =
 			Array.from(emotionCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
-		// Simplified emotional arc
+		// TODO: Simplified emotional arc
 		const segments = this.splitIntoSegments(content, 5);
 		const emotionalArc = segments.map((segment, index) => {
 			const segmentEmotions = this.detectSegmentEmotion(segment);
@@ -572,7 +572,7 @@ export class ContentAnalyzer {
 			dominantEmotion,
 			emotionalArc,
 			tensionLevel,
-			moodConsistency: 75, // Simplified
+			moodConsistency: 75, // TODO: Simplified
 		};
 	}
 
@@ -1073,7 +1073,33 @@ export class ContentAnalyzer {
 	/**
 	 * Generate writing prompts using AI
 	 */
-	async generateWritingPrompts(options: any = {}): Promise<any> {
+	async generateWritingPrompts(
+		options: {
+			genre?: string;
+			theme?: string;
+			count?: number;
+			complexity?: 'simple' | 'moderate' | 'complex';
+			promptType?: 'scene' | 'character' | 'dialogue' | 'description' | 'conflict' | 'mixed';
+			existingCharacters?: string[];
+			currentPlotPoints?: string[];
+			storyContext?: string;
+			targetWordCount?: number;
+			writingStyle?: string;
+			mood?: string;
+		} = {}
+	): Promise<{
+		prompts: Array<{
+			prompt: string;
+			type: string;
+			difficulty: string;
+			estimatedWords: number;
+			tips: string[];
+			relatedCharacters?: string[];
+			suggestedTechniques?: string[];
+		}>;
+		overallTheme: string;
+		writingGoals: string[];
+	}> {
 		if (!openaiService.isConfigured()) {
 			return {
 				prompts: [],

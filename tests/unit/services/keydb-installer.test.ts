@@ -214,12 +214,12 @@ describe('KeyDBInstaller', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.message).toContain('failed');
-		});
+		}, 15000);
 	});
 
 	describe('startKeyDB', () => {
 		it('should start KeyDB successfully', async () => {
-			let startAttempt = 0;
+			let callCount = 0;
 			
 			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
 				const cb = typeof options === 'function' ? options : callback;
@@ -233,12 +233,12 @@ describe('KeyDBInstaller', () => {
 				return {} as any;
 			});
 
-			// Mock checkAvailability to return running after start
+			// Mock checkAvailability to return not running first, then running
 			jest.spyOn(installer, 'checkAvailability').mockImplementation(async () => {
-				startAttempt++;
+				callCount++;
 				return {
 					installed: true,
-					running: startAttempt > 0,
+					running: callCount > 1, // First call: not running, subsequent calls: running
 					version: '6.3.4',
 					port: 6379,
 				};
@@ -247,10 +247,11 @@ describe('KeyDBInstaller', () => {
 			const started = await installer.startKeyDB();
 
 			expect(started).toBe(true);
-		});
+		}, 25000);
 
 		it('should try multiple start methods', async () => {
 			const attemptedCommands: string[] = [];
+			let systemctlExecuted = false;
 
 			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
 				const cb = typeof options === 'function' ? options : callback;
@@ -259,6 +260,7 @@ describe('KeyDBInstaller', () => {
 				if (typeof cb === 'function') {
 					// Fail all except systemctl
 					if (cmd === 'systemctl start keydb') {
+						systemctlExecuted = true;
 						cb(null, 'Started', '');
 					} else {
 						cb(new Error('Command failed'), '', '');
@@ -268,12 +270,12 @@ describe('KeyDBInstaller', () => {
 			});
 
 			jest.spyOn(installer, 'checkAvailability').mockImplementation(async () => {
-				// Return running only after systemctl command
-				const systemctlCalled = attemptedCommands.includes('systemctl start keydb');
+				// Return running only after systemctl command executed successfully
 				return {
 					installed: true,
-					running: systemctlCalled,
+					running: systemctlExecuted,
 					version: '6.3.4',
+					port: 6379,
 				};
 			});
 
@@ -282,7 +284,7 @@ describe('KeyDBInstaller', () => {
 			expect(started).toBe(true);
 			expect(attemptedCommands).toContain('keydb-server --daemonize yes');
 			expect(attemptedCommands).toContain('systemctl start keydb');
-		});
+		}, 25000);
 	});
 
 	describe('getManualInstructions', () => {

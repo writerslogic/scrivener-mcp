@@ -3,24 +3,41 @@
  * Handles automatic installation and configuration of Neo4j
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as os from 'os';
 import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
 import { createWriteStream } from 'fs';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
 import * as readline from 'readline/promises';
+import { promisify } from 'util';
+import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
 import {
 	AppError,
 	ErrorCode,
 	ensureDir,
-	safeStringify,
 	safeReadFile,
+	safeStringify,
 	safeWriteFile,
-} from '../utils/common.js';
-import { AdaptiveTimeout, ProgressIndicators } from '../utils/adaptive-timeout.js';
+} from '../../utils/common.js';
 
 const execAsync = promisify(exec);
+
+interface SystemInfo {
+	platform: NodeJS.Platform;
+	arch: string;
+	dockerAvailable: boolean;
+	dockerRunning: boolean;
+	homebrewAvailable: boolean;
+	neo4jInstalled: boolean;
+	java11Available: boolean;
+}
+
+interface Neo4jCredentials {
+	uri: string;
+	user: string;
+	password: string;
+	database: string;
+}
 
 export interface InstallOptions {
 	method: 'docker' | 'native' | 'homebrew' | 'auto';
@@ -33,12 +50,7 @@ export interface InstallOptions {
 export interface InstallResult {
 	success: boolean;
 	method: string;
-	credentials?: {
-		uri: string;
-		user: string;
-		password: string;
-		database: string;
-	};
+	credentials?: Neo4jCredentials;
 	message: string;
 }
 
@@ -103,23 +115,15 @@ export class Neo4jAutoInstaller {
 	/**
 	 * Check system capabilities
 	 */
-	private static async checkSystemCapabilities(): Promise<{
-		platform: string;
-		arch: string;
-		dockerAvailable: boolean;
-		dockerRunning: boolean;
-		homebrewAvailable: boolean;
-		hasInternet: boolean;
-		hasSudo: boolean;
-	}> {
-		const info = {
+	private static async checkSystemCapabilities(): Promise<SystemInfo> {
+		const info: SystemInfo = {
 			platform: os.platform(),
 			arch: os.arch(),
 			dockerAvailable: false,
 			dockerRunning: false,
 			homebrewAvailable: false,
-			hasInternet: false,
-			hasSudo: false,
+			neo4jInstalled: false,
+			java11Available: false,
 		};
 
 		// Check Docker
@@ -144,25 +148,22 @@ export class Neo4jAutoInstaller {
 			}
 		}
 
-		// Check internet connectivity
+		// Check for existing Neo4j installation
 		try {
-			await execAsync(
-				'ping -c 1 -t 1 neo4j.com 2>/dev/null || ping -n 1 -w 1000 neo4j.com 2>nul'
-			);
-			info.hasInternet = true;
+			await execAsync('neo4j version');
+			info.neo4jInstalled = true;
 		} catch {
-			// No internet or ping blocked
-			info.hasInternet = true; // Assume true as ping might be blocked
+			// Neo4j not installed
 		}
 
-		// Check sudo availability (Unix-like systems)
-		if (info.platform !== 'win32') {
-			try {
-				await execAsync('sudo -n true 2>/dev/null');
-				info.hasSudo = true;
-			} catch {
-				// Sudo not available or requires password
+		// Check for Java 11+
+		try {
+			const javaVersion = await execAsync('java -version 2>&1');
+			if (javaVersion.stdout.includes('11') || javaVersion.stdout.includes('17')) {
+				info.java11Available = true;
 			}
+		} catch {
+			// Java not available
 		}
 
 		return info;
@@ -172,7 +173,7 @@ export class Neo4jAutoInstaller {
 	 * Determine optimal installation method
 	 */
 	private static async determineOptimalMethod(
-		systemInfo: any
+		systemInfo: SystemInfo
 	): Promise<'docker' | 'homebrew' | 'native'> {
 		// Prefer Docker if available and running
 		if (systemInfo.dockerAvailable && systemInfo.dockerRunning) {
@@ -209,7 +210,10 @@ export class Neo4jAutoInstaller {
 	/**
 	 * Get user confirmation for installation
 	 */
-	private static async getUserConfirmation(method: string, systemInfo: any): Promise<boolean> {
+	private static async getUserConfirmation(
+		method: string,
+		systemInfo: SystemInfo
+	): Promise<boolean> {
 		const rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout,
@@ -307,7 +311,7 @@ export class Neo4jAutoInstaller {
 			console.error('❌ Docker installation failed:', error);
 
 			// Try to install Docker if not available
-			if ((error as any).message?.includes('docker: command not found')) {
+			if ((error as Error).message?.includes('docker: command not found')) {
 				console.log('\n📦 Docker is not installed. Would you like to install it?');
 				console.log('Visit: https://docs.docker.com/get-docker/');
 			}
@@ -337,8 +341,6 @@ export class Neo4jAutoInstaller {
 
 			// Configure Neo4j
 			const password = this.DEFAULT_PASSWORD;
-			const neo4jHome = (await execAsync('brew --prefix neo4j')).stdout.trim();
-			const _configPath = path.join(neo4jHome, 'libexec', 'conf', 'neo4j.conf');
 
 			// Set initial password
 			console.log('🔐 Setting initial password...');
@@ -733,7 +735,10 @@ export class Neo4jAutoInstaller {
 	/**
 	 * Save credentials to project
 	 */
-	private static async saveCredentials(projectPath: string, credentials: any): Promise<void> {
+	private static async saveCredentials(
+		projectPath: string,
+		credentials: Neo4jCredentials
+	): Promise<void> {
 		const configDir = path.join(projectPath, '.scrivener-databases');
 		await ensureDir(configDir);
 

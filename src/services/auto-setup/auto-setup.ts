@@ -57,7 +57,7 @@ export class AutoSetup {
 	/**
 	 * Save setup status
 	 */
-	private async saveSetupStatus(status: any): Promise<void> {
+	private async saveSetupStatus(status: Record<string, unknown>): Promise<void> {
 		const dir = join(homedir(), '.scrivener-mcp');
 		if (!existsSync(dir)) {
 			mkdirSync(dir, { recursive: true });
@@ -131,45 +131,45 @@ export class AutoSetup {
 
 		try {
 			// Step 1: Queue system is now embedded, no setup needed
-			console.log(chalk.green('✅ Queue system ready (embedded, no setup required)'));
+			logger.info(chalk.green('✅ Queue system ready (embedded, no setup required)'));
 
 			// Step 2: Configure AI services (optional)
 			if (!options.skipAI) {
-				console.log(chalk.cyan('\n📊 Configuring AI services...'));
+				logger.info(chalk.cyan('\n📊 Configuring AI services...'));
 
 				if (options.quickSetup && options.openaiApiKey) {
 					// Quick setup with provided key
 					await this.aiWizard.quickSetup(options.openaiApiKey);
 					result.aiConfigured = true;
-					console.log(chalk.green('✅ AI services configured with OpenAI'));
+					logger.info(chalk.green('✅ AI services configured with OpenAI'));
 				} else if (options.interactive) {
 					// Interactive wizard
 					const aiConfig = await this.aiWizard.runWizard();
 					result.aiConfigured = !!aiConfig;
 					if (result.aiConfigured) {
-						console.log(chalk.green('✅ AI services configured'));
+						logger.info(chalk.green('✅ AI services configured'));
 					}
 				} else {
 					// Check for existing configuration
 					const existingConfig = this.aiWizard.getActiveConfig();
 					if (existingConfig.openaiApiKey || existingConfig.anthropicApiKey) {
 						result.aiConfigured = true;
-						console.log(chalk.green('✅ AI services already configured'));
+						logger.info(chalk.green('✅ AI services already configured'));
 					} else {
 						result.warnings?.push(
 							'AI services not configured. Run with --interactive to configure.'
 						);
-						console.log(chalk.yellow('⚠️  AI services not configured (optional)'));
+						logger.info(chalk.yellow('⚠️  AI services not configured (optional)'));
 					}
 				}
 			}
 
 			// Step 3: Initialize async services
-			console.log(chalk.cyan('\n🚀 Initializing services...'));
+			logger.info(chalk.cyan('\n🚀 Initializing services...'));
 			await initializeAsyncServices({
 				openaiApiKey: options.openaiApiKey,
 			});
-			console.log(chalk.green('✅ Services initialized'));
+			logger.info(chalk.green('✅ Services initialized'));
 
 			// Save setup status
 			await this.saveSetupStatus({
@@ -179,18 +179,18 @@ export class AutoSetup {
 			});
 
 			// Final summary
-			console.log(chalk.green('\n✨ Setup completed successfully!'));
-			console.log(chalk.gray('\nYou can now use Scrivener MCP with:'));
-			console.log(chalk.cyan('  • Embedded queue system for async processing'));
+			logger.info(chalk.green('\n✨ Setup completed successfully!'));
+			logger.info(chalk.gray('\nYou can now use Scrivener MCP with:'));
+			logger.info(chalk.cyan('  • Embedded queue system for async processing'));
 			if (result.aiConfigured) {
-				console.log(chalk.cyan('  • AI-powered content analysis and generation'));
+				logger.info(chalk.cyan('  • AI-powered content analysis and generation'));
 			}
-			console.log(chalk.gray('\nNo external services required!'));
+			logger.info(chalk.gray('\nNo external services required!'));
 		} catch (error) {
 			logger.error('Setup failed', { error });
 			result.success = false;
 			result.errors?.push(`Setup failed: ${error}`);
-			console.log(chalk.red(`\n❌ Setup failed: ${error}`));
+			logger.info(chalk.red(`\n❌ Setup failed: ${error}`));
 		}
 
 		return result;

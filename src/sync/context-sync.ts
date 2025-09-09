@@ -1,13 +1,13 @@
 import * as fs from 'fs';
-import { safeWriteFile, ensureDir, pathExists, buildPath, safeStringify } from '../utils/common.js';
-import { createError, ErrorCode } from '../core/errors.js';
-import type { DatabaseService } from '../database/database-service.js';
 import type {
-	ContextAnalyzer,
 	ChapterContext,
-	StoryContext,
+	ContextAnalyzer,
 	ScrivenerDocument,
+	StoryContext,
 } from '../analysis/context-analyzer.js';
+import { createError, ErrorCode } from '../core/errors.js';
+import type { DatabaseService } from '../handlers/database/database-service.js';
+import { buildPath, ensureDir, pathExists, safeStringify, safeWriteFile } from '../utils/common.js';
 
 export interface SyncOptions {
 	autoSync: boolean;
@@ -403,7 +403,7 @@ export class ContextSyncService {
 				buildPath(`${storyPath}.json`),
 				JSON.stringify(
 					storyContext,
-					(key, value) => {
+					(_key, value) => {
 						if (value instanceof Map) {
 							return Object.fromEntries(value);
 						}

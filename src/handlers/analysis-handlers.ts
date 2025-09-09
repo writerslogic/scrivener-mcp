@@ -3,11 +3,30 @@
  */
 
 import { createError, ErrorCode } from '../core/errors.js';
+import type {
+	CharacterProfile,
+	MemoryManager,
+	PlotThread,
+	ProjectMemory,
+	StyleGuide,
+} from '../memory-manager.js';
 import type { EnhancementType } from '../services/enhancements/content-enhancer.js';
 import { OpenAIService } from '../services/openai-service.js';
+import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
-import { requireMemoryManager, requireProject } from './types.js';
+import {
+	requireMemoryManager,
+	requireProject,
+	getStringArg,
+	getOptionalStringArg,
+	getOptionalNumberArg,
+	getOptionalBooleanArg,
+	getObjectArg,
+	getOptionalObjectArg,
+	getArrayArg,
+	getNumberArg,
+} from './types.js';
 import {
 	analysisSchema,
 	enhancementSchema,
@@ -40,11 +59,12 @@ export const analyzeDocumentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, analysisSchema);
 
-		const content = await project.readDocument(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		const content = await project.readDocument(documentId);
 		if (!content) {
 			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
 		}
-		const analysis = await context.contentAnalyzer.analyzeContent(content, args.documentId);
+		const analysis = await context.contentAnalyzer.analyzeContent(content, documentId);
 
 		return {
 			content: [
@@ -84,15 +104,19 @@ export const enhanceContentHandler: ToolDefinition = {
 		const project = requireProject(context);
 		validateInput(args, enhancementSchema);
 
-		const content = await project.readDocument(args.documentId);
+		const documentId = getStringArg(args, 'documentId');
+		const enhancementType = getStringArg(args, 'enhancementType') as EnhancementType;
+		const options = getOptionalObjectArg(args, 'options');
+		
+		const content = await project.readDocument(documentId);
 		if (!content) {
 			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
 		}
 
 		const enhanced = await context.contentEnhancer.enhance({
 			content,
-			type: args.enhancementType as EnhancementType,
-			options: args.options,
+			type: enhancementType,
+			options: options as any,
 		});
 
 		return {
@@ -177,16 +201,18 @@ export const generateContentHandler: ToolDefinition = {
 			const openaiService = new OpenAIService({ apiKey });
 
 			// Extract context information
-			const contextData = args.context || {};
+			const prompt = getStringArg(args, 'prompt');
+			const length = getOptionalNumberArg(args, 'length');
+			const contextData = getOptionalObjectArg(args, 'context') || {} as any;
 			const style = contextData.style || 'creative';
 			const contextInfo = contextData.documentId
 				? `Document context: ${contextData.documentId}\nCharacters: ${(contextData.characterIds || []).join(', ')}`
 				: '';
 
 			// Generate content using AI
-			const generated = await openaiService.generateContent(args.prompt, {
-				length: args.length,
-				style: style as any,
+			const generated = await openaiService.generateContent(prompt, {
+				length,
+				style: style as 'narrative' | 'dialogue' | 'descriptive' | 'academic' | 'creative',
 				context: contextInfo,
 			});
 
@@ -249,34 +275,37 @@ export const updateMemoryHandler: ToolDefinition = {
 		validateInput(args, memorySchema);
 
 		// Update memory based on type
-		switch (args.memoryType) {
+		const memoryType = getStringArg(args, 'memoryType');
+		const data = getObjectArg(args, 'data') as any;
+		
+		switch (memoryType) {
 			case 'characters':
-				if (args.data.id) {
-					await memoryManager.updateCharacter(args.data.id as string, args.data);
+				if (data.id) {
+					await memoryManager.updateCharacter(data.id as string, data);
 				} else {
-					await memoryManager.addCharacter(args.data as any);
+					await memoryManager.addCharacter(data as Omit<CharacterProfile, 'id'>);
 				}
 				break;
 			case 'plotThreads':
-				if (args.data.id) {
-					await memoryManager.updatePlotThread(args.data.id as string, args.data);
+				if (data.id) {
+					await memoryManager.updatePlotThread(data.id as string, data);
 				} else {
-					await memoryManager.addPlotThread(args.data as any);
+					await memoryManager.addPlotThread(data as Omit<PlotThread, 'id'>);
 				}
 				break;
 			case 'styleGuide':
-				await memoryManager.updateStyleGuide(args.data as any);
+				await memoryManager.updateStyleGuide(data as Partial<StyleGuide>);
 				break;
 			case 'worldBuilding':
 			case 'all':
-				for (const [key, value] of Object.entries(args.data)) {
+				for (const [key, value] of Object.entries(data)) {
 					await memoryManager.setCustomContext(key, value);
 				}
 				break;
 			default:
 				throw createError(
 					ErrorCode.INVALID_INPUT,
-					`Unknown memory type: ${args.memoryType}`
+					`Unknown memory type: ${memoryType}`
 				);
 		}
 
@@ -284,7 +313,7 @@ export const updateMemoryHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `${args.memoryType} memory updated`,
+					text: `${memoryType} memory updated`,
 				},
 			],
 		};
@@ -307,7 +336,7 @@ export const getMemoryHandler: ToolDefinition = {
 	handler: async (args, context): Promise<HandlerResult> => {
 		const memoryManager = requireMemoryManager(context);
 
-		let memory: any;
+		let memory: ProjectMemory | CharacterProfile[] | PlotThread[] | StyleGuide | unknown;
 		if (!args.memoryType || args.memoryType === 'all') {
 			memory = memoryManager.getFullMemory();
 		} else {
@@ -362,14 +391,8 @@ export const checkConsistencyHandler: ToolDefinition = {
 		const project = requireProject(_context);
 		const memoryManager = requireMemoryManager(_context);
 
-		const checkTypes = args.checkTypes || ['all'];
-		const issues: Array<{
-			type: 'character' | 'timeline' | 'location' | 'plot';
-			severity: 'error' | 'warning' | 'info';
-			documentId?: string;
-			description: string;
-			suggestion?: string;
-		}> = [];
+		const checkTypes = (getOptionalObjectArg(args, 'checkTypes') as string[]) || ['all'];
+		const issues: ConsistencyIssue[] = [];
 
 		try {
 			// Get all documents for analysis
@@ -442,19 +465,18 @@ export const checkConsistencyHandler: ToolDefinition = {
 };
 
 // Consistency checking helper functions
+type ConsistencyIssue = {
+	type: 'character' | 'timeline' | 'worldbuilding' | 'plot' | 'location';
+	severity: 'error' | 'warning' | 'info';
+	documentId?: string;
+	description: string;
+	suggestion?: string;
+};
 async function checkCharacterConsistency(
-	documents: any[],
-	characters: any[]
-): Promise<
-	Array<{
-		type: 'character';
-		severity: 'error' | 'warning' | 'info';
-		documentId?: string;
-		description: string;
-		suggestion?: string;
-	}>
-> {
-	const issues: any[] = [];
+	documents: ScrivenerDocument[],
+	characters: CharacterProfile[]
+): Promise<ConsistencyIssue[]> {
+	const issues: ConsistencyIssue[] = [];
 
 	for (const character of characters) {
 		const mentions: { docId: string; count: number }[] = [];
@@ -500,15 +522,11 @@ async function checkCharacterConsistency(
 		}
 
 		// Check for sudden disappearances
-		const orderedMentions = mentions.sort((a, b) => {
-			const docA = documents.find((d) => d.id === a.docId);
-			const docB = documents.find((d) => d.id === b.docId);
-			return (docA?.order || 0) - (docB?.order || 0);
-		});
+		const orderedMentions = mentions.sort((a, b) => a.docId.localeCompare(b.docId));
 
 		if (orderedMentions.length > 2) {
 			// Check if character disappears for more than 3 chapters
-			// This is a simplified check - in practice you'd want more sophisticated logic
+			// TODO: This is a simplified check - in practice you'd want more sophisticated logic
 			for (let i = 0; i < orderedMentions.length - 1; i++) {
 				// Implementation would go here for gap analysis
 			}
@@ -518,16 +536,10 @@ async function checkCharacterConsistency(
 	return issues;
 }
 
-async function checkTimelineConsistency(documents: any[]): Promise<
-	Array<{
-		type: 'timeline';
-		severity: 'error' | 'warning' | 'info';
-		documentId?: string;
-		description: string;
-		suggestion?: string;
-	}>
-> {
-	const issues: any[] = [];
+async function checkTimelineConsistency(
+	documents: ScrivenerDocument[]
+): Promise<ConsistencyIssue[]> {
+	const issues: ConsistencyIssue[] = [];
 
 	// Look for temporal inconsistencies in document content
 	const timeKeywords = [
@@ -581,35 +593,33 @@ async function checkTimelineConsistency(documents: any[]): Promise<
 }
 
 async function checkLocationConsistency(
-	documents: any[],
-	memoryManager: any
-): Promise<
-	Array<{
-		type: 'location';
-		severity: 'error' | 'warning' | 'info';
-		documentId?: string;
-		description: string;
-		suggestion?: string;
-	}>
-> {
-	const issues: any[] = [];
+	documents: ScrivenerDocument[],
+	memoryManager: MemoryManager
+): Promise<ConsistencyIssue[]> {
+	const issues: ConsistencyIssue[] = [];
 
 	// Get world-building information if available
-	let worldBuilding: any = {};
+	let worldBuilding: Record<string, unknown> = {};
 	try {
-		worldBuilding = (await memoryManager.getCustomContext('worldBuilding')) || {};
+		const context = memoryManager.getCustomContext('worldBuilding');
+		worldBuilding = (context as Record<string, unknown>) || {};
 	} catch {
 		// World building not available
 	}
 
-	const locations = worldBuilding.locations || [];
-	const locationNames = locations.map((loc: any) => loc.name?.toLowerCase()).filter(Boolean);
+	const locations = (worldBuilding.locations as unknown[]) || [];
+	const locationNames = locations
+		.map((loc) => {
+			const location = loc as Record<string, unknown>;
+			return typeof location.name === 'string' ? location.name.toLowerCase() : '';
+		})
+		.filter(Boolean);
 
 	// Check for undefined locations mentioned in documents
 	for (const doc of documents) {
 		if (!doc.content) continue;
 
-		// Look for location patterns (this is simplified - could be more sophisticated)
+		// TODO: Look for location patterns (this is simplified - could be more sophisticated)
 		const locationPatterns = [
 			/\bat (?:the )?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g,
 			/\bin (?:the )?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g,
@@ -647,18 +657,10 @@ async function checkLocationConsistency(
 }
 
 async function checkPlotThreadConsistency(
-	documents: any[],
-	plotThreads: any[]
-): Promise<
-	Array<{
-		type: 'plot';
-		severity: 'error' | 'warning' | 'info';
-		documentId?: string;
-		description: string;
-		suggestion?: string;
-	}>
-> {
-	const issues: any[] = [];
+	documents: ScrivenerDocument[],
+	plotThreads: PlotThread[]
+): Promise<ConsistencyIssue[]> {
+	const issues: ConsistencyIssue[] = [];
 
 	for (const thread of plotThreads) {
 		if (!thread.documents || thread.documents.length === 0) {
@@ -703,7 +705,7 @@ async function checkPlotThreadConsistency(
 	return issues;
 }
 
-function createConsistencySummary(issues: any[]): string {
+function createConsistencySummary(issues: ConsistencyIssue[]): string {
 	const totalIssues = issues.length;
 	const errors = issues.filter((i) => i.severity === 'error').length;
 	const warnings = issues.filter((i) => i.severity === 'warning').length;

@@ -5,8 +5,8 @@
 import Database from 'better-sqlite3';
 import type { Driver, Session } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
-import { createError, ErrorCode, withRetry } from '../core/errors.js';
-import { waitForCondition } from '../utils/condition-waiter.js';
+import { createError, ErrorCode, withRetry } from '../../core/errors.js';
+import { waitForCondition } from '../../utils/condition-waiter.js';
 
 interface PoolConfig {
 	maxConnections?: number;

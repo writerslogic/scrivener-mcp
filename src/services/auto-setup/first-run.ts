@@ -39,8 +39,8 @@ export class FirstRunManager {
 		}
 
 		try {
-			const setup = (await readJSON(this.setupPath, {})) as any;
-			return setup.completed === true && setup.features;
+			const setup = (await readJSON(this.setupPath, {})) as Record<string, unknown>;
+			return Boolean(setup.completed === true && setup.features);
 		} catch {
 			return false;
 		}
@@ -98,10 +98,10 @@ export class FirstRunManager {
 				logger.info('Advanced features not configured');
 
 				if (!config.quietMode) {
-					console.log('\n💡 Tip: Run "npm run setup" to enable advanced features:');
-					console.log('   • Redis job queuing for async processing');
-					console.log('   • AI-powered writing assistance');
-					console.log('   • Semantic search across manuscripts\n');
+					logger.info('\n💡 Tip: Run "npm run setup" to enable advanced features:');
+					logger.info('   • Redis job queuing for async processing');
+					logger.info('   • AI-powered writing assistance');
+					logger.info('   • Semantic search across manuscripts\n');
 				}
 			}
 			return;
@@ -123,14 +123,14 @@ export class FirstRunManager {
 		}
 
 		// Prompt for setup
-		console.log('\n🎉 Welcome to Scrivener MCP!');
-		console.log('─'.repeat(40));
-		console.log('\nThis appears to be your first time running the application.');
-		console.log('Would you like to set up advanced features?\n');
-		console.log('Available features:');
-		console.log('  • Neo4j graph database for relationships');
-		console.log('  • Redis + BullMQ for background processing');
-		console.log('  • LangChain AI integration for writing assistance\n');
+		logger.info('\n🎉 Welcome to Scrivener MCP!');
+		logger.info('─'.repeat(40));
+		logger.info('\nThis appears to be your first time running the application.');
+		logger.info('Would you like to set up advanced features?\n');
+		logger.info('Available features:');
+		logger.info('  • Neo4j graph database for relationships');
+		logger.info('  • Redis + BullMQ for background processing');
+		logger.info('  • LangChain AI integration for writing assistance\n');
 
 		// Import readline for prompt
 		const readline = await import('readline/promises');
@@ -151,8 +151,8 @@ export class FirstRunManager {
 					quickSetup: false,
 				});
 			} else {
-				console.log('\n✓ Basic features enabled.');
-				console.log('You can run "npm run setup" anytime to add advanced features.\n');
+				logger.info('\n✓ Basic features enabled.');
+				logger.info('You can run "npm run setup" anytime to add advanced features.\n');
 				await this.minimalSetup();
 			}
 		} catch (error) {

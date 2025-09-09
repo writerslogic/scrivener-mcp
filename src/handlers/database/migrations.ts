@@ -4,7 +4,7 @@
  * Manages schema versions and migrations for SQLite and Neo4j
  */
 
-import { AppError, ErrorCode } from '../utils/common.js';
+import { AppError, ErrorCode } from '../../utils/common.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 
@@ -193,7 +193,7 @@ export class MigrationManager {
 					CREATE CONSTRAINT unique_plotthread_id IF NOT EXISTS
 					FOR (p:PlotThread) REQUIRE p.id IS UNIQUE;
 				`,
-				up: async (sqlite, neo4j) => {
+				up: async (_sqlite, neo4j) => {
 					if (neo4j && neo4j.isAvailable()) {
 						const constraints = this.migrations[6]
 							.cypher!.split(';')

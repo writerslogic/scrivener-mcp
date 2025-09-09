@@ -1,6 +1,11 @@
 import { validateInput } from '../utils/common.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
-import { requireProject } from './types.js';
+import {
+	getOptionalObjectArg,
+	getOptionalStringArg,
+	getStringArg,
+	requireProject,
+} from './types.js';
 import { compileSchema, exportSchema } from './validation-schemas.js';
 
 export const compileDocumentsHandler: ToolDefinition = {
@@ -44,21 +49,22 @@ export const compileDocumentsHandler: ToolDefinition = {
 		const documents = await project.getAllDocuments();
 		let documentIds: string[];
 
-		if (args.rootFolderId) {
+		const rootFolderId = getOptionalStringArg(args, 'rootFolderId');
+		if (rootFolderId) {
 			// Filter documents under the specified folder
 			documentIds = documents
-				.filter((doc) => doc.path && doc.path.startsWith(args.rootFolderId!))
+				.filter((doc) => doc.path && doc.path.startsWith(rootFolderId))
 				.map((doc) => doc.id);
 		} else {
 			// Use all text documents
 			documentIds = documents.filter((doc) => doc.type === 'Text').map((doc) => doc.id);
 		}
 
-		const compiled = await project.compileDocuments(
-			documentIds,
-			args.separator || '\n\n---\n\n',
-			(args.format as any) || 'text'
-		);
+		const separator = getOptionalStringArg(args, 'separator') || '\n\n---\n\n';
+		const format =
+			(getOptionalStringArg(args, 'format') as 'text' | 'markdown' | 'html') || 'text';
+
+		const compiled = await project.compileDocuments(documentIds, separator, format);
 
 		return {
 			content: [
@@ -98,11 +104,11 @@ export const exportProjectHandler: ToolDefinition = {
 		validateInput(args, exportSchema);
 
 		// Export project
-		const result = await project.exportProject(
-			args.format as any,
-			args.outputPath,
-			args.options
-		);
+		const format = getStringArg(args, 'format');
+		const outputPath = getOptionalStringArg(args, 'outputPath');
+		const options = getOptionalObjectArg(args, 'options');
+
+		const result = await project.exportProject(format, outputPath, options);
 
 		return {
 			content: [
@@ -128,12 +134,11 @@ export const getStatisticsHandler: ToolDefinition = {
 			},
 		},
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 
-		// Get project statistics
-		const stats = await project.getStatistics();
 		const metadata = await project.getProjectMetadata();
+		const stats = await project.getStatistics();
 
 		const fullStats = {
 			...stats,

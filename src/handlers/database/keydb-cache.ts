@@ -4,9 +4,9 @@
  */
 
 import type { Redis } from 'ioredis';
-import { getLogger } from '../core/logger.js';
-import { detectConnection, createBullMQConnection } from '../services/queue/keydb-detector.js';
-import { withErrorHandling, retry } from '../utils/common.js';
+import { getLogger } from '../../core/logger.js';
+import { createBullMQConnection, detectConnection } from '../../services/queue/keydb-detector.js';
+import { retry, withErrorHandling } from '../../utils/common.js';
 
 const logger = getLogger('keydb-cache');
 

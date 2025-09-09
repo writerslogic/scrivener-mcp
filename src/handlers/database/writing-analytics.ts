@@ -3,9 +3,72 @@
  * Provides deep insights into writing patterns, productivity, and quality
  */
 
-import { AppError, ErrorCode } from '../utils/common.js';
+import { AppError, ErrorCode } from '../../utils/common.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { SQLiteManager } from './sqlite-manager.js';
+
+// Type definitions for database query results
+interface WritingSessionData {
+	date: string;
+	words_written: number;
+	duration_minutes: number;
+	time_of_day: string;
+	days_gap: number | null;
+}
+
+interface TimeProductivityData {
+	time_period: string;
+	avg_words: number;
+	session_count: number;
+}
+
+interface SceneData {
+	avg_length: number;
+}
+
+interface DialogueRatioData {
+	dialogue_ratio: number;
+}
+
+interface TrendData {
+	date: string;
+	total_words: number;
+	session_count: number;
+	efficiency: number;
+	revisions: number;
+}
+
+interface CharacterDialogueData {
+	character_id: string;
+	name: string;
+	dialogue_samples: string;
+	avg_sentence_length: number;
+}
+
+interface VocabularyData {
+	character_id: string;
+	unique_words: number;
+	total_words: number;
+}
+
+interface SceneAnalysisData {
+	id: string;
+	title: string;
+	content?: string;
+	word_count: number;
+	character_count: number;
+	tension_level: number | null;
+	beat_type?: string;
+}
+
+interface DialogueAnalysis {
+	complexity: number;
+	avgSentenceLength: number;
+	phrases: string[];
+	tone: string;
+	patterns: string[];
+	consistency: number;
+}
 
 export interface WritingPattern {
 	mostProductiveTime: string;
@@ -72,7 +135,7 @@ export class WritingAnalytics {
 			FROM writing_sessions
 			ORDER BY date DESC
 			LIMIT 100
-		`) as any[];
+		`) as WritingSessionData[];
 
 		// Calculate most productive time
 		const timeProductivity = this.sqliteManager.query(`
@@ -89,7 +152,7 @@ export class WritingAnalytics {
 			GROUP BY time_period
 			ORDER BY avg_words DESC
 			LIMIT 1
-		`) as any[];
+		`) as TimeProductivityData[];
 
 		// Calculate writing streak
 		let currentStreak = 0;
@@ -97,7 +160,8 @@ export class WritingAnalytics {
 		let tempStreak = 1;
 
 		for (let i = 0; i < sessions.length - 1; i++) {
-			if (sessions[i].days_gap <= 1) {
+			const gap = sessions[i].days_gap;
+			if (gap !== null && gap <= 1) {
 				tempStreak++;
 			} else {
 				longestStreak = Math.max(longestStreak, tempStreak);
@@ -112,7 +176,7 @@ export class WritingAnalytics {
 			SELECT AVG(word_count) as avg_length
 			FROM documents
 			WHERE type = 'scene' OR type = 'chapter'
-		`) as any[];
+		`) as SceneData[];
 
 		// Calculate dialogue to narrative ratio
 		const dialogueRatio = await this.calculateDialogueRatio();
@@ -149,7 +213,7 @@ export class WritingAnalytics {
 			WHERE date >= datetime('now', '-${days} days')
 			GROUP BY DATE(date)
 			ORDER BY date
-		`) as any[];
+		`) as TrendData[];
 
 		return trends.map((t) => ({
 			date: t.date,
@@ -221,7 +285,7 @@ export class WritingAnalytics {
 			FROM documents d
 			LEFT JOIN scene_beats sb ON d.id = sb.document_id
 			WHERE d.type IN ('scene', 'chapter')
-		`) as any[];
+		`) as SceneAnalysisData[];
 
 		return scenes.map((scene) => {
 			const effectiveness = this.calculateSceneEffectiveness(scene);
@@ -337,7 +401,7 @@ export class WritingAnalytics {
 		// Get current word count
 		const current = this.sqliteManager.queryOne(
 			'SELECT SUM(word_count) as total FROM documents WHERE type != "trash"'
-		) as any;
+		) as { total: number } | null;
 
 		// Get average daily word count over last 30 days
 		const avgDaily = this.sqliteManager.queryOne(`
@@ -347,7 +411,7 @@ export class WritingAnalytics {
 				WHERE date >= datetime('now', '-30 days')
 				GROUP BY DATE(date)
 			)
-		`) as any;
+		`) as { avg_words: number } | null;
 
 		const currentWords = current?.total || 0;
 		const remainingWords = targetWords - currentWords;
@@ -378,7 +442,7 @@ export class WritingAnalytics {
 
 		const docs = this.sqliteManager.query(
 			'SELECT synopsis, notes, word_count FROM documents WHERE type IN ("scene", "chapter")'
-		) as any[];
+		) as Array<{ synopsis?: string; notes?: string; word_count: number }>;
 
 		let dialogueWords = 0;
 		let totalWords = 0;
@@ -398,7 +462,7 @@ export class WritingAnalytics {
 		return totalWords > 0 ? dialogueWords / totalWords : 0;
 	}
 
-	private analyzeDialogue(text: string): any {
+	private analyzeDialogue(text: string): DialogueAnalysis {
 		const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
 		const words = text.split(/\s+/);
 
@@ -447,11 +511,19 @@ export class WritingAnalytics {
 		};
 	}
 
-	private determineScenePurpose(scene: any): 'action' | 'dialogue' | 'exposition' | 'transition' {
+	private determineScenePurpose(
+		scene: SceneAnalysisData
+	): 'action' | 'dialogue' | 'exposition' | 'transition' {
 		const content = scene.content || '';
 		const dialogueRatio = (content.match(/"[^"]+"/g) || []).join('').length / content.length;
 
-		if (scene.beat_type) return scene.beat_type;
+		if (scene.beat_type) {
+			// Ensure beat_type is one of the valid values
+			const validTypes = ['action', 'dialogue', 'exposition', 'transition'] as const;
+			if (validTypes.includes(scene.beat_type as any)) {
+				return scene.beat_type as 'action' | 'dialogue' | 'exposition' | 'transition';
+			}
+		}
 		if (dialogueRatio > 0.6) return 'dialogue';
 		if (content.length < 500) return 'transition';
 		if (content.includes('fight') || content.includes('chase') || content.includes('ran'))
@@ -459,7 +531,10 @@ export class WritingAnalytics {
 		return 'exposition';
 	}
 
-	private calculateSceneEffectiveness(scene: any): { score: number; suggestions: string[] } {
+	private calculateSceneEffectiveness(scene: SceneAnalysisData): {
+		score: number;
+		suggestions: string[];
+	} {
 		let score = 50; // Base score
 		const suggestions = [];
 

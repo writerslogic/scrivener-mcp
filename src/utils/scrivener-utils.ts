@@ -378,7 +378,7 @@ export function getDocumentType(typeCode?: string): 'Text' | 'Folder' | 'Other' 
  * Check if folder type
  */
 export function isFolderType(type?: string): boolean {
-	return type !== undefined && Object.values(SCRIVENER_FOLDERS).includes(type as any);
+	return type !== undefined && (Object.values(SCRIVENER_FOLDERS) as string[]).includes(type);
 }
 
 /**
@@ -497,8 +497,8 @@ export const documentValidationSchema = {
 /**
  * Validate document operation input
  */
-export function validateDocumentInput(input: any): void {
-	validateInput(input, documentValidationSchema);
+export function validateDocumentInput(input: unknown): void {
+	validateInput(input as Record<string, unknown>, documentValidationSchema);
 }
 
 // ============================================================================

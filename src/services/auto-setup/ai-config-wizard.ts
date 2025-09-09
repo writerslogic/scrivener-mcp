@@ -181,8 +181,8 @@ export class AIConfigWizard {
 			if (platform === 'darwin' || platform === 'linux') {
 				execSync('curl -fsSL https://ollama.ai/install.sh | sh', { stdio: 'inherit' });
 			} else if (platform === 'win32') {
-				console.log(
-					'\nPlease download and install Ollama from: https://ollama.ai/download/windows\n'
+				logger.info(
+					'Please download and install Ollama from: https://ollama.ai/download/windows'
 				);
 				await this.prompt('Press Enter after installation is complete...');
 			}
@@ -210,29 +210,29 @@ export class AIConfigWizard {
 	 * Interactive configuration wizard
 	 */
 	async runWizard(): Promise<AIConfig> {
-		console.log('\n🤖 AI Configuration Wizard for Scrivener MCP\n');
-		console.log('This wizard will help you set up AI features powered by LangChain.\n');
+		logger.info('🤖 AI Configuration Wizard for Scrivener MCP');
+		logger.info('This wizard will help you set up AI features powered by LangChain.');
 
 		const config = this.loadConfig();
 
 		// OpenAI Configuration
-		console.log('━━━ OpenAI Configuration ━━━');
+		logger.info('━━━ OpenAI Configuration ━━━');
 		const useOpenAI = await this.prompt('Do you want to use OpenAI? (y/n): ');
 
 		if (useOpenAI.toLowerCase() === 'y') {
 			const currentKey = config.openaiApiKey ? '(configured)' : '(not set)';
-			console.log(`Current OpenAI API key: ${currentKey}`);
+			logger.info(`Current OpenAI API key: ${currentKey}`);
 
 			const updateKey = await this.prompt(
 				'Enter new OpenAI API key (or press Enter to skip): '
 			);
 			if (updateKey) {
-				console.log('Validating API key...');
+				logger.info('Validating API key...');
 				if (await this.validateOpenAIKey(updateKey)) {
 					config.openaiApiKey = updateKey;
-					console.log('✅ API key validated successfully');
+					logger.info('✅ API key validated successfully');
 				} else {
-					console.log(
+					logger.warn(
 						'⚠️  Warning: Could not validate API key. It will be saved but may not work.'
 					);
 					config.openaiApiKey = updateKey;
@@ -241,8 +241,8 @@ export class AIConfigWizard {
 
 			// Model selection
 			const models = ['gpt-4-turbo-preview', 'gpt-4', 'gpt-3.5-turbo'];
-			console.log('\nAvailable models:');
-			models.forEach((m, i) => console.log(`  ${i + 1}. ${m}`));
+			logger.info('\nAvailable models:');
+			models.forEach((m, i) => logger.info(`  ${i + 1}. ${m}`));
 
 			const modelChoice = await this.prompt('Select default model (1-3): ');
 			const modelIndex = parseInt(modelChoice) - 1;
@@ -252,23 +252,23 @@ export class AIConfigWizard {
 		}
 
 		// Anthropic Configuration
-		console.log('\n━━━ Anthropic Configuration ━━━');
+		logger.info('\n━━━ Anthropic Configuration ━━━');
 		const useAnthropic = await this.prompt('Do you want to use Anthropic Claude? (y/n): ');
 
 		if (useAnthropic.toLowerCase() === 'y') {
 			const currentKey = config.anthropicApiKey ? '(configured)' : '(not set)';
-			console.log(`Current Anthropic API key: ${currentKey}`);
+			logger.info(`Current Anthropic API key: ${currentKey}`);
 
 			const updateKey = await this.prompt(
 				'Enter new Anthropic API key (or press Enter to skip): '
 			);
 			if (updateKey) {
-				console.log('Validating API key...');
+				logger.info('Validating API key...');
 				if (await this.validateAnthropicKey(updateKey)) {
 					config.anthropicApiKey = updateKey;
-					console.log('✅ API key validated successfully');
+					logger.info('✅ API key validated successfully');
 				} else {
-					console.log(
+					logger.warn(
 						'⚠️  Warning: Could not validate API key. It will be saved but may not work.'
 					);
 					config.anthropicApiKey = updateKey;
@@ -277,14 +277,14 @@ export class AIConfigWizard {
 		}
 
 		// Local Models Configuration
-		console.log('\n━━━ Local Models Configuration ━━━');
+		logger.info('\n━━━ Local Models Configuration ━━━');
 		const useLocal = await this.prompt('Do you want to use local models (Ollama)? (y/n): ');
 
 		if (useLocal.toLowerCase() === 'y') {
 			config.enableLocalModels = true;
 
 			if (await this.checkOllama()) {
-				console.log('✅ Ollama is already installed and running');
+				logger.info('✅ Ollama is already installed and running');
 				config.ollamaUrl = 'http://localhost:11434';
 			} else {
 				const installNow = await this.prompt('Ollama not found. Install now? (y/n): ');
@@ -296,7 +296,7 @@ export class AIConfigWizard {
 		}
 
 		// Advanced Settings
-		console.log('\n━━━ Advanced Settings ━━━');
+		logger.info('\n━━━ Advanced Settings ━━━');
 		const configureAdvanced = await this.prompt('Configure advanced settings? (y/n): ');
 
 		if (configureAdvanced.toLowerCase() === 'y') {
@@ -326,8 +326,8 @@ export class AIConfigWizard {
 				'text-embedding-3-small',
 				'text-embedding-3-large',
 			];
-			console.log('\nAvailable embedding models:');
-			embeddingModels.forEach((m, i) => console.log(`  ${i + 1}. ${m}`));
+			logger.info('\nAvailable embedding models:');
+			embeddingModels.forEach((m, i) => logger.info(`  ${i + 1}. ${m}`));
 
 			const embChoice = await this.prompt('Select embedding model (1-3): ');
 			const embIndex = parseInt(embChoice) - 1;
@@ -340,9 +340,9 @@ export class AIConfigWizard {
 		await this.saveConfig(config);
 		this.rl.close();
 
-		console.log('\n✅ Configuration complete!');
-		console.log(`Configuration saved to: ${this.configPath}`);
-		console.log(`Environment variables saved to: ${this.envPath}`);
+		logger.info('\n✅ Configuration complete!');
+		logger.info(`Configuration saved to: ${this.configPath}`);
+		logger.info(`Environment variables saved to: ${this.envPath}`);
 
 		return config;
 	}

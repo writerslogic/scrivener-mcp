@@ -3,17 +3,17 @@
  * Handles long-running analysis tasks and AI operations
  */
 
-import { Queue, Worker, QueueEvents } from 'bullmq';
-import type { Job, ConnectionOptions } from 'bullmq';
+import type { ConnectionOptions, Job } from 'bullmq';
+import { Queue, QueueEvents, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import * as path from 'path';
-import { getLogger } from '../../core/logger.js';
-import { createError, ErrorCode } from '../../core/errors.js';
-import { MemoryRedis } from './memory-redis.js';
-import type { ScrivenerDocument } from '../../types/index.js';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
+import { createError, ErrorCode } from '../../core/errors.js';
+import { getLogger } from '../../core/logger.js';
+import { DatabaseService } from '../../handlers/database/database-service.js';
+import type { ScrivenerDocument } from '../../types/index.js';
 import { LangChainService } from '../ai/langchain-service.js';
-import { DatabaseService } from '../../database/database-service.js';
+import { MemoryRedis } from './memory-redis.js';
 
 // Job types
 export enum JobType {

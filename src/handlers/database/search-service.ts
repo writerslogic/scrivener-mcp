@@ -12,7 +12,7 @@ export interface SearchResult {
 	title: string;
 	snippet: string;
 	relevance: number;
-	metadata?: Record<string, any>;
+	metadata?: Record<string, unknown>;
 }
 
 export interface SearchOptions {
@@ -115,14 +115,14 @@ export class SearchService {
 				params.push(options.dateRange.to || '2100-01-01');
 			}
 
-			const results = this.sqliteManager.query(sql, params) as any[];
+			const results = this.sqliteManager.query(sql, params) as Record<string, unknown>[];
 
 			return results.map((r) => ({
-				id: r.id,
+				id: String(r.id),
 				type: 'document' as const,
-				title: r.title,
-				snippet: r.snippet,
-				relevance: Math.abs(r.relevance),
+				title: String(r.title),
+				snippet: String(r.snippet),
+				relevance: Math.abs(Number(r.relevance) || 0),
 				metadata: {
 					docType: r.doc_type,
 					modifiedAt: r.modified_at,
@@ -152,14 +152,14 @@ export class SearchService {
 			const sqlResults = this.sqliteManager.query(sql, [
 				searchPattern,
 				searchPattern,
-			]) as any[];
+			]) as Record<string, unknown>[];
 
 			results.push(
 				...sqlResults.map((r) => ({
-					id: r.id,
+					id: String(r.id),
 					type: 'character' as const,
-					title: r.name,
-					snippet: this.createSnippet(r.description, query),
+					title: String(r.name),
+					snippet: this.createSnippet(String(r.description), query),
 					relevance: this.calculateRelevance(`${r.name} ${r.description}`, query),
 					metadata: { role: r.role },
 				}))
@@ -216,13 +216,16 @@ export class SearchService {
 		`;
 
 		const searchPattern = options.fuzzy ? `%${query}%` : query;
-		const results = this.sqliteManager.query(sql, [searchPattern, searchPattern]) as any[];
+		const results = this.sqliteManager.query(sql, [searchPattern, searchPattern]) as Record<
+			string,
+			unknown
+		>[];
 
 		return results.map((r) => ({
-			id: r.id,
+			id: String(r.id),
 			type: 'plot' as const,
-			title: r.name,
-			snippet: this.createSnippet(r.description, query),
+			title: String(r.name),
+			snippet: this.createSnippet(String(r.description), query),
 			relevance: this.calculateRelevance(`${r.name} ${r.description}`, query),
 			metadata: { status: r.status },
 		}));
@@ -241,13 +244,16 @@ export class SearchService {
 		`;
 
 		const searchPattern = options.fuzzy ? `%${query}%` : query;
-		const results = this.sqliteManager.query(sql, [searchPattern, searchPattern]) as any[];
+		const results = this.sqliteManager.query(sql, [searchPattern, searchPattern]) as Record<
+			string,
+			unknown
+		>[];
 
 		return results.map((r) => ({
-			id: r.id,
+			id: String(r.id),
 			type: 'theme' as const,
-			title: r.name,
-			snippet: this.createSnippet(r.description, query),
+			title: String(r.name),
+			snippet: this.createSnippet(String(r.description), query),
 			relevance: this.calculateRelevance(`${r.name} ${r.description}`, query),
 		}));
 	}
@@ -265,13 +271,16 @@ export class SearchService {
 		`;
 
 		const searchPattern = options.fuzzy ? `%${query}%` : query;
-		const results = this.sqliteManager.query(sql, [searchPattern, searchPattern]) as any[];
+		const results = this.sqliteManager.query(sql, [searchPattern, searchPattern]) as Record<
+			string,
+			unknown
+		>[];
 
 		return results.map((r) => ({
-			id: r.id,
+			id: String(r.id),
 			type: 'location' as const,
-			title: r.name,
-			snippet: this.createSnippet(r.description, query),
+			title: String(r.name),
+			snippet: this.createSnippet(String(r.description), query),
 			relevance: this.calculateRelevance(`${r.name} ${r.description}`, query),
 			metadata: {
 				locationType: r.type,
@@ -408,7 +417,7 @@ export class SearchService {
 				return results.sort((a, b) => {
 					const dateA = a.metadata?.modifiedAt || '0';
 					const dateB = b.metadata?.modifiedAt || '0';
-					return dateB.localeCompare(dateA);
+					return String(dateB).localeCompare(String(dateA));
 				});
 			default:
 				return results;
