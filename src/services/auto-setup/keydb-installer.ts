@@ -397,7 +397,7 @@ export class KeyDBInstaller {
 						method: 'docker',
 					};
 				}
-			} catch (error) {
+			} catch {
 				// Container doesn't exist, continue with creation
 			}
 

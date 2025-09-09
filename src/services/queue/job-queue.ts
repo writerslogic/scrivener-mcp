@@ -10,7 +10,6 @@ import * as path from 'path';
 import { getLogger } from '../../core/logger.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { MemoryRedis } from './memory-redis.js';
-import { detectConnection, createBullMQConnection } from './keydb-detector.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
 import { LangChainService } from '../ai/langchain-service.js';

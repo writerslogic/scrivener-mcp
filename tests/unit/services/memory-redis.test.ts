@@ -166,6 +166,10 @@ describe('MemoryRedis', () => {
       await redis1.sadd('set', 'member');
       await redis1.disconnect();
 
+      // Check file was created
+      const fileExists = await fs.access(persistPath).then(() => true).catch(() => false);
+      expect(fileExists).toBe(true);
+
       // Second session
       const redis2 = new MemoryRedis({ persistPath });
       await redis2.connect();

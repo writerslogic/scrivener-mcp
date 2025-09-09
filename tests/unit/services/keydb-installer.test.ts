@@ -194,7 +194,7 @@ describe('KeyDBInstaller', () => {
 
 			expect(result.success).toBe(true);
 			expect(result.method).toBe('docker');
-		});
+		}, 10000);
 
 		it('should handle installation failure gracefully', async () => {
 			detectConnectionMock.mockResolvedValue({

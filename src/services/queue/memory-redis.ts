@@ -41,8 +41,19 @@ export class MemoryRedis extends EventEmitter {
 			// Restore data with proper types
 			this.data = new Map();
 			for (const [key, value] of parsed.data) {
-				// Restore Sets from arrays
-				if (value && typeof value === 'object' && (value as any)._isSet) {
+				if (value && typeof value === 'object' && (value as any)._type) {
+					const type = (value as any)._type;
+					if (type === 'set') {
+						this.data.set(key, new Set((value as any).items));
+					} else if (type === 'list') {
+						this.data.set(key, (value as any).items);
+					} else if (type === 'hash') {
+						this.data.set(key, (value as any).data);
+					} else {
+						this.data.set(key, value);
+					}
+				} else if (value && typeof value === 'object' && (value as any)._isSet) {
+					// Legacy format compatibility
 					this.data.set(key, new Set((value as any).items));
 				} else {
 					this.data.set(key, value);
@@ -73,8 +84,6 @@ export class MemoryRedis extends EventEmitter {
 	async disconnect(): Promise<void> {
 		if (!this.connected) return;
 
-		this.isShuttingDown = true;
-
 		// Stop timers first
 		if (this.persistInterval) {
 			clearInterval(this.persistInterval);
@@ -90,7 +99,10 @@ export class MemoryRedis extends EventEmitter {
 		if (this.persistPromise) {
 			await this.persistPromise;
 		}
+		
+		// Set shutting down flag AFTER final persist
 		await this.persist();
+		this.isShuttingDown = true;
 
 		this.connected = false;
 		this.emit('close');
@@ -488,7 +500,7 @@ export class MemoryRedis extends EventEmitter {
 	}
 
 	private async persist(): Promise<void> {
-		if (!this.persistPath || this.isShuttingDown) return;
+		if (!this.persistPath) return;
 
 		// Prevent concurrent persist operations
 		if (this.persistPromise) {
@@ -509,11 +521,15 @@ export class MemoryRedis extends EventEmitter {
 			const dataSnapshot = new Map(this.data);
 			const expirySnapshot = new Map(this.expiry);
 
-			// Convert Sets to serializable format
+			// Convert data to serializable format
 			const serializableData: Array<[string, any]> = [];
 			for (const [key, value] of dataSnapshot.entries()) {
 				if (value instanceof Set) {
-					serializableData.push([key, { _isSet: true, items: Array.from(value) }]);
+					serializableData.push([key, { _type: 'set', items: Array.from(value) }]);
+				} else if (Array.isArray(value)) {
+					serializableData.push([key, { _type: 'list', items: value }]);
+				} else if (value && typeof value === 'object' && !(value instanceof Map)) {
+					serializableData.push([key, { _type: 'hash', data: value }]);
 				} else {
 					serializableData.push([key, value]);
 				}

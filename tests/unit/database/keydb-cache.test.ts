@@ -13,25 +13,25 @@ jest.mock('ioredis');
 
 describe('KeyDBCache', () => {
 	let cache: KeyDBCache;
-	let mockClient: any;
-	let detectConnectionMock: any;
-	let createBullMQConnectionMock: any;
+	let mockClient: jest.Mocked<any>;
+	let detectConnectionMock: jest.MockedFunction<typeof keydbDetector.detectConnection>;
+	let createBullMQConnectionMock: jest.MockedFunction<typeof keydbDetector.createBullMQConnection>;
 
 	beforeEach(() => {
 		// Setup mocks
-		detectConnectionMock = keydbDetector.detectConnection as any;
-		createBullMQConnectionMock = keydbDetector.createBullMQConnection as any;
+		detectConnectionMock = keydbDetector.detectConnection as jest.MockedFunction<typeof keydbDetector.detectConnection>;
+		createBullMQConnectionMock = keydbDetector.createBullMQConnection as jest.MockedFunction<typeof keydbDetector.createBullMQConnection>;
 
 		// Mock Redis client
 		mockClient = {
-			ping: jest.fn().mockResolvedValue('PONG'),
+			ping: jest.fn().mockResolvedValue('PONG' as const),
 			get: jest.fn(),
-			setex: jest.fn().mockResolvedValue('OK'),
+			setex: jest.fn().mockResolvedValue('OK' as const),
 			del: jest.fn(),
 			keys: jest.fn(),
 			scan: jest.fn(),
-			quit: jest.fn().mockResolvedValue('OK'),
-		} as any;
+			quit: jest.fn().mockResolvedValue('OK' as const),
+		};
 
 		// Setup default mock responses
 		createBullMQConnectionMock.mockReturnValue(mockClient);
@@ -272,7 +272,7 @@ describe('KeyDBCache', () => {
 			const cachedData = { id: 1, name: 'Cached' };
 			mockClient.get.mockResolvedValue(JSON.stringify(cachedData));
 
-			const fetchFn = jest.fn().mockResolvedValue({ id: 1, name: 'Fresh' });
+			const fetchFn = jest.fn<Promise<any>, []>().mockResolvedValue({ id: 1, name: 'Fresh' });
 			const result = await cache.getOrSet('test-key', fetchFn);
 
 			expect(result).toEqual(cachedData);
@@ -283,7 +283,7 @@ describe('KeyDBCache', () => {
 			const freshData = { id: 1, name: 'Fresh' };
 			mockClient.get.mockResolvedValue(null);
 
-			const fetchFn = jest.fn().mockResolvedValue(freshData);
+			const fetchFn = jest.fn<Promise<any>, []>().mockResolvedValue(freshData);
 			const result = await cache.getOrSet('test-key', fetchFn, 120);
 
 			expect(result).toEqual(freshData);
