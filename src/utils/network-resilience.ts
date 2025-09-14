@@ -5,7 +5,7 @@
 
 import { ApplicationError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
-import { retry } from './common.js';
+import { AsyncUtils } from './shared-patterns.js';
 
 const logger = getLogger('network-resilience');
 
@@ -114,7 +114,7 @@ export class NetworkResilience {
 		port: number,
 		options: NetworkOptions
 	): Promise<void> {
-		return retry(
+		return AsyncUtils.retryWithBackoff(
 			async () => {
 				const net = await import('net');
 				const socket = new net.Socket();

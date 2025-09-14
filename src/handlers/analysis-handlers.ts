@@ -2,6 +2,7 @@
  * Content analysis and AI enhancement handlers
  */
 
+import { LangChainAnalyticsPipeline } from '../analysis/langchain-analytics-pipeline.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type {
 	CharacterProfile,
@@ -11,9 +12,11 @@ import type {
 	StyleGuide,
 } from '../memory-manager.js';
 import type { EnhancementType } from '../services/enhancements/content-enhancer.js';
+import { LangChainContentEnhancer } from '../services/enhancements/langchain-content-enhancer.js';
 import { OpenAIService } from '../services/openai-service.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
+import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getObjectArg,
@@ -56,21 +59,58 @@ export const analyzeDocumentHandler: ToolDefinition = {
 		validateInput(args, analysisSchema);
 
 		const documentId = getStringArg(args, 'documentId');
-		const content = await project.readDocument(documentId);
-		if (!content) {
+		const analysisTypes = (args.analysisTypes as string[]) || ['all'];
+
+		const document = await project.getDocument(documentId);
+		if (!document) {
 			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
 		}
-		const analysis = await context.contentAnalyzer.analyzeContent(content, documentId);
 
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Document analysis complete',
-					data: analysis,
-				},
-			],
-		};
+		try {
+			// Initialize LangChain analytics pipeline
+			const analyticsPipeline = new LangChainAnalyticsPipeline();
+			await analyticsPipeline.initialize();
+
+			// Perform comprehensive analysis using LangChain
+			const analysis = await analyticsPipeline.analyzeDocument(document.content || '', {
+				depth: 'detailed',
+				includeMetrics: true,
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Advanced document analysis complete',
+						data: {
+							...analysis,
+							enhanced: true,
+							analysisTypes,
+							processingTime: 0,
+						},
+					},
+				],
+			};
+		} catch (error) {
+			// Fallback to basic analysis if LangChain fails
+			const fallbackAnalysis = await context.contentAnalyzer.analyzeContent(
+				document.content || '',
+				documentId
+			);
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Document analysis complete (basic mode)',
+						data: {
+							...fallbackAnalysis,
+							enhanced: false,
+							fallbackReason: (error as Error).message,
+						},
+					},
+				],
+			};
+		}
 	},
 };
 
@@ -104,31 +144,78 @@ export const enhanceContentHandler: ToolDefinition = {
 		const enhancementType = getStringArg(args, 'enhancementType') as EnhancementType;
 		const options = getOptionalObjectArg(args, 'options');
 
-		const content = await project.readDocument(documentId);
-		if (!content) {
+		const document = await project.getDocument(documentId);
+		if (!document) {
 			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
 		}
 
-		const enhanced = await context.contentEnhancer.enhance({
-			content,
-			type: enhancementType,
-			options: options || {},
-		});
+		try {
+			// Initialize LangChain content enhancer
+			const langChainEnhancer = new LangChainContentEnhancer();
+			await langChainEnhancer.initialize();
 
-		return {
-			content: [
-				{
-					type: 'text',
-					text: enhanced.enhanced,
-					data: {
-						original: enhanced.original,
-						suggestions: enhanced.suggestions,
-						changes: enhanced.changes,
-						metrics: enhanced.metrics,
-					},
+			// Initialize continuous learning for feedback collection
+			const learningHandler = new LangChainContinuousLearningHandler();
+			await learningHandler.initialize();
+
+			const sessionId = `enhance_${documentId}_${Date.now()}`;
+			await learningHandler.startFeedbackSession(sessionId);
+
+			// Perform enhanced content improvement using LangChain
+			const enhanced = await langChainEnhancer.enhance({
+				content: document.content || '',
+				type: enhancementType,
+				options: {
+					...(options || {}),
+					documentId,
+					context: `Document: ${document.title} (Type: ${document.type})`,
 				},
-			],
-		};
+			});
+
+			// Collect implicit feedback based on enhancement success
+			await learningHandler.collectImplicitFeedback(sessionId, 'enhance_content', {
+				timeSpent: enhanced.metrics?.processingTime || 0,
+				userActions: ['enhance_content'],
+				enhancementType,
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: enhanced.enhanced,
+						data: {
+							...enhanced,
+							enhanced: true,
+							langChainProcessed: true,
+							sessionId, // For potential feedback collection
+							qualityScore: enhanced.qualityValidation?.overallScore,
+						},
+					},
+				],
+			};
+		} catch (error) {
+			// Fallback to basic enhancement if LangChain fails
+			const enhanced = await context.contentEnhancer.enhance({
+				content: document.content || '',
+				type: enhancementType,
+				options: options || {},
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: enhanced.enhanced,
+						data: {
+							...enhanced,
+							enhanced: false,
+							fallbackReason: (error as Error).message,
+						},
+					},
+				],
+			};
+		}
 	},
 };
 
@@ -781,6 +868,321 @@ function createConsistencySummary(issues: ConsistencyIssue[]): string {
 	return summary;
 }
 
+// Advanced LangChain handlers
+export const multiAgentAnalysisHandler: ToolDefinition = {
+	name: 'multi_agent_analysis',
+	description: 'Collaborative analysis using multiple AI agent perspectives',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			documentId: {
+				type: 'string',
+				description: 'UUID of the document to analyze',
+			},
+			agents: {
+				type: 'array',
+				items: {
+					type: 'string',
+					enum: ['editor', 'critic', 'researcher', 'stylist', 'plotter', 'all'],
+				},
+				description: 'AI agents to include in analysis',
+			},
+			collaborationMode: {
+				type: 'string',
+				enum: ['collaborative', 'workshop', 'review'],
+				description: 'Type of multi-agent collaboration',
+			},
+		},
+		required: ['documentId'],
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
+		const documentId = getStringArg(args, 'documentId');
+		const agents = (args.agents as string[]) || ['all'];
+		const collaborationMode = (args.collaborationMode as string) || 'collaborative';
+
+		const document = await project.getDocument(documentId);
+		if (!document) {
+			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
+		}
+
+		try {
+			const { EnhancedLangChainService } = await import(
+				'../services/ai/langchain-service-enhanced.js'
+			);
+			const { AdvancedLangChainFeatures } = await import(
+				'../services/ai/langchain-advanced-features.js'
+			);
+			const { MultiAgentLangChainOrchestrator } = await import(
+				'../services/agents/langchain-multi-agent.js'
+			);
+
+			// Initialize services
+			const langchainService = new EnhancedLangChainService();
+			const advancedFeatures = new AdvancedLangChainFeatures();
+			const multiAgentSystem = new MultiAgentLangChainOrchestrator(langchainService, advancedFeatures);
+
+			// Use collaborateOnDocument method
+			const result = await multiAgentSystem.collaborateOnDocument(document, {
+				enabledAgents: agents.includes('all')
+					? ['Writer', 'Editor', 'Researcher', 'Critic', 'Coordinator']
+					: agents,
+				enableCritique: collaborationMode === 'workshop',
+				enableSynthesis: true,
+				maxDiscussionRounds: collaborationMode === 'workshop' ? 3 : 2,
+				consensusThreshold: 0.7,
+				timeoutMs: 300000, // 5 minutes
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Multi-agent analysis complete',
+						data: {
+							...result,
+							collaborationMode,
+							agents,
+							enhanced: true,
+						},
+					},
+				],
+			};
+		} catch (error) {
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Multi-agent analysis failed: ${(error as Error).message}`,
+						data: { error: true, enhanced: false },
+					},
+				],
+			};
+		}
+	},
+};
+
+export const semanticSearchHandler: ToolDefinition = {
+	name: 'semantic_search',
+	description: 'AI-powered semantic search across project documents',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			query: {
+				type: 'string',
+				description: 'Search query in natural language',
+			},
+			maxResults: {
+				type: 'number',
+				description: 'Maximum number of results to return',
+			},
+			threshold: {
+				type: 'number',
+				description: 'Minimum similarity threshold (0-1)',
+			},
+		},
+		required: ['query'],
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const query = getStringArg(args, 'query');
+		const maxResults = getOptionalNumberArg(args, 'maxResults') || 10;
+		const threshold = getOptionalNumberArg(args, 'threshold') || 0.5;
+
+		try {
+			if (!context.databaseService) {
+				throw createError(ErrorCode.INVALID_STATE, 'Database service not available');
+			}
+
+			const { SemanticDatabaseLayer } = await import(
+				'../handlers/database/langchain-semantic-layer.js'
+			);
+			const semanticLayer = new SemanticDatabaseLayer(context.databaseService);
+			await semanticLayer.initialize();
+
+			const results = await semanticLayer.semanticQuery(query, {
+				maxResults,
+				threshold,
+				includeEntities: true,
+				includeRelationships: true,
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Found ${results.documents.length} semantic matches`,
+						data: {
+							...results,
+							query,
+							enhanced: true,
+							searchType: 'semantic',
+						},
+					},
+				],
+			};
+		} catch (error) {
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Semantic search failed: ${(error as Error).message}`,
+						data: { error: true, query, enhanced: false },
+					},
+				],
+			};
+		}
+	},
+};
+
+export const realtimeAssistanceHandler: ToolDefinition = {
+	name: 'start_realtime_assistance',
+	description: 'Start real-time AI writing assistance for a document',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			documentId: {
+				type: 'string',
+				description: 'UUID of the document for assistance',
+			},
+			assistanceType: {
+				type: 'string',
+				enum: ['writing', 'editing', 'brainstorming', 'research'],
+				description: 'Type of real-time assistance',
+			},
+		},
+		required: ['documentId'],
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
+		const documentId = getStringArg(args, 'documentId');
+		const assistanceType = (args.assistanceType as string) || 'writing';
+
+		const document = await project.getDocument(documentId);
+		if (!document) {
+			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
+		}
+
+		try {
+			const { RealtimeWritingAssistant } = await import(
+				'../services/realtime/langchain-writing-assistant.js'
+			);
+			const assistant = new RealtimeWritingAssistant();
+			await assistant.initialize();
+
+			const sessionId = await assistant.startSession(document, {
+				assistanceType,
+				streamingEnabled: true,
+				contextWindow: 2000,
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Real-time ${assistanceType} assistance started`,
+						data: {
+							sessionId,
+							assistanceType,
+							documentId,
+							enhanced: true,
+							status: 'active',
+						},
+					},
+				],
+			};
+		} catch (error) {
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Failed to start real-time assistance: ${(error as Error).message}`,
+						data: { error: true, enhanced: false },
+					},
+				],
+			};
+		}
+	},
+};
+
+export const collectFeedbackHandler: ToolDefinition = {
+	name: 'collect_feedback',
+	description: 'Collect user feedback for continuous learning',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			sessionId: {
+				type: 'string',
+				description: 'Session ID from previous operation',
+			},
+			rating: {
+				type: 'number',
+				minimum: 1,
+				maximum: 5,
+				description: 'User rating (1-5)',
+			},
+			comments: {
+				type: 'string',
+				description: 'Optional user comments',
+			},
+			operation: {
+				type: 'string',
+				description: 'Operation being rated',
+			},
+		},
+		required: ['sessionId', 'rating', 'operation'],
+	},
+	handler: async (args): Promise<HandlerResult> => {
+		const sessionId = getStringArg(args, 'sessionId');
+		const rating = args.rating as number;
+		const comments = args.comments as string | undefined;
+		const operation = getStringArg(args, 'operation');
+
+		try {
+			const learningHandler = new LangChainContinuousLearningHandler();
+			await learningHandler.initialize();
+
+			await learningHandler.collectFeedback({
+				sessionId,
+				operation,
+				input: {},
+				output: {},
+				userRating: rating,
+				userComments: comments,
+				timestamp: new Date(),
+				context: {
+					operation,
+					sessionId,
+				},
+			});
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Feedback collected successfully',
+						data: {
+							sessionId,
+							rating,
+							operation,
+							learningEnabled: true,
+						},
+					},
+				],
+			};
+		} catch (error) {
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Failed to collect feedback: ${(error as Error).message}`,
+						data: { error: true },
+					},
+				],
+			};
+		}
+	},
+};
+
 export const analysisHandlers = [
 	analyzeDocumentHandler,
 	enhanceContentHandler,
@@ -788,4 +1190,9 @@ export const analysisHandlers = [
 	updateMemoryHandler,
 	getMemoryHandler,
 	checkConsistencyHandler,
+	// Advanced LangChain handlers
+	multiAgentAnalysisHandler,
+	semanticSearchHandler,
+	realtimeAssistanceHandler,
+	collectFeedbackHandler,
 ];

@@ -12,12 +12,18 @@ import { DatabaseService } from './handlers/database/index.js';
 import { ContextSyncService, type SyncStatus } from './sync/context-sync.js';
 import { CleanupManager } from './utils/common.js';
 import { ensureProjectDataDirectory } from './utils/project-utils.js';
+import { findBinderItem } from './utils/scrivener-utils.js';
 
 // Import service modules
 import { CompilationService } from './services/compilation-service.js';
+import { documentIndexer, type SearchResult } from './services/document-indexer.js';
 import { DocumentManager } from './services/document-manager.js';
 import { MetadataManager } from './services/metadata-manager.js';
 import { ProjectLoader } from './services/project-loader.js';
+import {
+	createDocument as createDocumentUtil,
+	type DocumentOperationContext,
+} from './utils/document-operations.js';
 
 import type {
 	ScrivenerDocument as AnalyzerDocument,
@@ -25,8 +31,10 @@ import type {
 } from './analysis/context-analyzer.js';
 import type { RTFContent } from './services/parsers/rtf-handler.js';
 import type {
+	DocumentInfo,
 	ExportOptions,
 	ProjectStatistics,
+	ProjectStructure,
 	ScrivenerDocument,
 	ScrivenerMetadata,
 } from './types/index.js';
@@ -52,6 +60,7 @@ export class ScrivenerProject {
 	private contextSync?: ContextSyncService;
 	private cleanupManager: CleanupManager;
 	private options: ScrivenerProjectOptions;
+	private indexInitialized = false;
 
 	constructor(projectPath: string, options: ScrivenerProjectOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
@@ -92,6 +101,12 @@ export class ScrivenerProject {
 		// Load project structure
 		const structure = await this.projectLoader.loadProject();
 		this.documentManager.setProjectStructure(structure);
+
+		// Initialize document indexer
+		const documents = await this.getAllDocuments();
+		await documentIndexer.buildIndex(documents);
+		this.indexInitialized = true;
+		logger.info('Document index built');
 
 		// Initialize database
 		await this.databaseService.initialize();
@@ -166,9 +181,17 @@ export class ScrivenerProject {
 		parentId?: string,
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
-		const id = await this.documentManager.createDocument(title, content, parentId, type);
-		await this.saveProject();
-		return id;
+		// Use unified document creation utility with transaction support
+		const context: DocumentOperationContext = {
+			projectStructure: this.documentManager.getProjectStructureData(),
+			projectPath: this.projectPath,
+			writeDocument: (id, content) => this.documentManager.writeDocument(id, content),
+			saveProject: () => this.saveProject(),
+		};
+
+		const result = await createDocumentUtil({ title, content, parentId, type }, context);
+
+		return result.id;
 	}
 
 	async deleteDocument(documentId: string): Promise<void> {
@@ -230,9 +253,40 @@ export class ScrivenerProject {
 
 	async searchContent(
 		query: string,
-		options?: { caseSensitive?: boolean; regex?: boolean; searchMetadata?: boolean }
+		options?: {
+			caseSensitive?: boolean;
+			regex?: boolean;
+			searchMetadata?: boolean;
+			includeTrash?: boolean;
+		}
 	): Promise<Array<{ documentId: string; title: string; matches: string[] }>> {
-		const documents = await this.getAllDocuments();
+		// Use the document indexer for efficient search if available
+		if (this.indexInitialized && !options?.searchMetadata) {
+			const results = await documentIndexer.searchContent(query, {
+				caseSensitive: options?.caseSensitive,
+				regex: options?.regex,
+				limit: 100,
+			});
+
+			// Update index for accessed documents
+			for (const result of results.slice(0, 10)) {
+				try {
+					const content = await this.readDocument(result.documentId);
+					await documentIndexer.updateDocumentInIndex(result.documentId, content);
+				} catch {
+					// Skip if can't read
+				}
+			}
+
+			return results.map((r: SearchResult) => ({
+				documentId: r.documentId,
+				title: r.title,
+				matches: r.matches,
+			}));
+		}
+
+		// Fallback to full scan for metadata search or if index not available
+		const documents = await this.getAllDocuments(options?.includeTrash);
 		const docsWithContent = [];
 
 		for (const doc of documents) {
@@ -249,6 +303,11 @@ export class ScrivenerProject {
 							keywords: doc.keywords,
 						},
 					});
+
+					// Update index while we have the content
+					if (this.indexInitialized) {
+						await documentIndexer.updateDocumentInIndex(doc.id, content);
+					}
 				} catch {
 					// Skip documents that can't be read
 				}
@@ -395,11 +454,11 @@ export class ScrivenerProject {
 		});
 		const documentsWithCharCount = allDocuments.map(addCharCount);
 		const documentWithCharCount = addCharCount(document.document);
-		return await this.contextAnalyzer.analyzeChapter(
+		return (await this.contextAnalyzer.analyzeChapter(
 			documentWithCharCount,
 			content,
 			documentsWithCharCount
-		);
+		)) as ChapterContext;
 	}
 
 	async buildStoryContext(): Promise<unknown> {
@@ -444,6 +503,12 @@ export class ScrivenerProject {
 	}
 
 	markDocumentChanged(documentId: string): void {
+		// Track in document indexer for efficient syncing
+		if (this.indexInitialized) {
+			documentIndexer.markDocumentChanged(documentId);
+		}
+
+		// Also track in context sync if available
 		if (this.contextSync) {
 			this.contextSync.markDocumentChanged(documentId);
 		}
@@ -463,6 +528,26 @@ export class ScrivenerProject {
 		metadata: Record<string, unknown>;
 		location: 'active' | 'trash' | 'unknown';
 	}> {
+		// Use document indexer for O(1) lookup if available
+		if (this.indexInitialized) {
+			const docInfo = documentIndexer.getDocumentInfo(documentId);
+			if (docInfo) {
+				return {
+					document: docInfo.document,
+					path: docInfo.path,
+					metadata: {
+						synopsis: docInfo.document.synopsis,
+						notes: docInfo.document.notes,
+						keywords: docInfo.document.keywords,
+						status: docInfo.document.status,
+						label: docInfo.document.label,
+					},
+					location: docInfo.location,
+				};
+			}
+		}
+
+		// Fallback to tree search if index not available or document not found
 		const structure = await this.getProjectStructure(true);
 		let foundDoc: ScrivenerDocument | null = null;
 		let path: Array<{ id: string; title: string; type: string }> = [];
@@ -559,18 +644,37 @@ export class ScrivenerProject {
 		folderId?: string;
 		includeTrash?: boolean;
 		summaryOnly?: boolean;
-	}): Promise<unknown> {
+	}): Promise<ProjectStructure> {
 		const structure = await this.getProjectStructure(options?.includeTrash);
 
-		if (options?.summaryOnly) {
-			const stats = this.compilationService.getStatistics(structure);
-			return {
-				...stats,
-				tree: structure.slice(0, 3), // Just top level items
-			};
-		}
+		// Convert ScrivenerDocument[] to ProjectStructure format
+		const root = structure[0] || {
+			id: 'root',
+			title: 'Project Root',
+			type: 'Folder' as const,
+			path: '',
+			children: structure,
+		};
 
-		return structure;
+		const convertToDocumentInfo = (doc: ScrivenerDocument): DocumentInfo => ({
+			...doc,
+			path: typeof doc.path === 'string' ? doc.path.split('/') : doc.path,
+			children: doc.children ? doc.children.map(convertToDocumentInfo) : undefined,
+		});
+
+		const draft = structure.find((doc) => doc.title === 'Manuscript' || doc.title === 'Draft');
+		const research = structure.find((doc) => doc.title === 'Research');
+		const trash = options?.includeTrash
+			? structure.find((doc) => doc.title === 'Trash')
+			: undefined;
+
+		return {
+			root: convertToDocumentInfo(root),
+			draft: draft ? convertToDocumentInfo(draft) : undefined,
+			research: research ? convertToDocumentInfo(research) : undefined,
+			trash: trash ? convertToDocumentInfo(trash) : undefined,
+			templates: [],
+		};
 	}
 
 	async getDocumentAnnotations(documentId: string): Promise<Map<string, string>> {
@@ -586,25 +690,54 @@ export class ScrivenerProject {
 		}
 	}
 
+	// Compatibility aliases for handlers
+	async getDocument(documentId: string): Promise<ScrivenerDocument> {
+		const info = await this.getDocumentInfo(documentId);
+		const doc = await this.readDocument(documentId);
+
+		if (!info.document) {
+			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
+		}
+
+		return {
+			...info.document,
+			content: doc || '',
+		};
+	}
+
+	async getStructure(options?: {
+		includeContent?: boolean;
+		maxDepth?: number;
+	}): Promise<ProjectStructure> {
+		return this.getProjectStructureLimited(options);
+	}
+
+	get metadata(): ScrivenerMetadata {
+		return {
+			draftFolder: 'draft', // Default draft folder ID
+		};
+	}
+
+	get title(): string {
+		return this.metadataManager?.getProjectTitle() || 'Untitled Project';
+	}
+
+	get structure(): Promise<ProjectStructure> {
+		// Alias for getStructure
+		return this.getStructure();
+	}
+
 	// Private helpers
 	private async performInitialSync(): Promise<void> {
-		try {
-			logger.info('Performing initial sync');
+		const allDocs = await this.getAllDocuments();
+		const BATCH_SIZE = 50;
 
-			const allDocs = await this.getAllDocuments();
-			for (const doc of allDocs) {
-				await this.syncDocumentToDatabase(doc);
-			}
-
-			if (this.contextSync) {
-				await this.contextSync.performSync();
-			}
-
-			logger.info('Initial sync completed');
-		} catch (error) {
-			logger.error('Initial sync failed:', {
-				error: error instanceof Error ? error.message : String(error),
-			});
+		for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
+			const batch = allDocs.slice(i, i + BATCH_SIZE);
+			await Promise.all(batch.map((doc) => this.syncDocumentToDatabase(doc)));
+			logger.debug(
+				`Synced ${Math.min(i + BATCH_SIZE, allDocs.length)}/${allDocs.length} documents`
+			);
 		}
 	}
 
@@ -650,39 +783,21 @@ export class ScrivenerProject {
 		const scrivenerProject = structure.ScrivenerProject as Record<string, unknown> | undefined;
 		if (!scrivenerProject?.Binder) return null;
 
-		const searchInBinder = (
-			container: Record<string, unknown>
-		): Record<string, unknown> | null => {
-			if (!container) return null;
-
-			const children = container.Children as Record<string, unknown> | undefined;
-			const items = container.BinderItem || children?.BinderItem;
-			if (!items) return null;
-
-			const itemArray = Array.isArray(items) ? items : [items];
-
-			for (const item of itemArray) {
-				if (item.UUID === documentId) return item;
-
-				const itemChildren = (item as Record<string, unknown>).Children as
-					| Record<string, unknown>
-					| undefined;
-				if (itemChildren?.BinderItem) {
-					const found = searchInBinder(itemChildren);
-					if (found) return found;
-				}
-			}
-
-			return null;
-		};
-
-		const binder = scrivenerProject.Binder as Record<string, unknown>;
-		return searchInBinder(binder);
+		const binder = scrivenerProject.Binder;
+		const found = findBinderItem(binder, documentId);
+		return found as Record<string, unknown> | null;
 	}
 
 	// Cleanup
 	async close(): Promise<void> {
 		logger.info('Closing Scrivener project');
+
+		// Flush any pending changes in the indexer
+		if (this.indexInitialized) {
+			await documentIndexer.flushChanges();
+			documentIndexer.dispose();
+			this.indexInitialized = false;
+		}
 
 		if (this.contextSync) {
 			this.contextSync.close();

@@ -1,101 +1,13 @@
 /**
- * Centralized validation system
+ * Centralized validation system - utilizes utils/common.ts
  */
 
-import { ErrorCode, createError } from './errors.js';
-import type { ValidationRule, ValidationSchema } from '../types/index.js';
+import { ErrorCode, createError, validateInput, sanitizePath, truncate } from '../utils/common.js';
 
 /**
- * Validate value against rule
+ * Validate object against schema - re-export from utils/common.ts
  */
-function validateValue(value: unknown, rule: ValidationRule, field: string): string | true {
-	// Check required
-	if (rule.required && (value === undefined || value === null)) {
-		return `${field} is required`;
-	}
-
-	// Allow undefined for optional fields
-	if (!rule.required && (value === undefined || value === null)) {
-		return true;
-	}
-
-	// Type validation
-	const actualType = Array.isArray(value) ? 'array' : typeof value;
-	if (rule.type && actualType !== rule.type) {
-		return `${field} must be ${rule.type}, got ${actualType}`;
-	}
-
-	// String validation
-	if (rule.type === 'string' && typeof value === 'string') {
-		if (rule.minLength !== undefined && value.length < rule.minLength) {
-			return `${field} must be at least ${rule.minLength} characters`;
-		}
-		if (rule.maxLength !== undefined && value.length > rule.maxLength) {
-			return `${field} must be at most ${rule.maxLength} characters`;
-		}
-		if (rule.pattern && !rule.pattern.test(value)) {
-			return `${field} format is invalid`;
-		}
-	}
-
-	// Number validation
-	if (rule.type === 'number' && typeof value === 'number') {
-		if (rule.min !== undefined && value < rule.min) {
-			return `${field} must be at least ${rule.min}`;
-		}
-		if (rule.max !== undefined && value > rule.max) {
-			return `${field} must be at most ${rule.max}`;
-		}
-	}
-
-	// Array validation
-	if (rule.type === 'array' && Array.isArray(value)) {
-		if (rule.minLength !== undefined && value.length < rule.minLength) {
-			return `${field} must have at least ${rule.minLength} items`;
-		}
-		if (rule.maxLength !== undefined && value.length > rule.maxLength) {
-			return `${field} must have at most ${rule.maxLength} items`;
-		}
-	}
-
-	// Enum validation
-	if (rule.enum && !rule.enum.includes(value)) {
-		return `${field} must be one of: ${rule.enum.join(', ')}`;
-	}
-
-	// Custom validation
-	if (rule.custom) {
-		const result = rule.custom(value);
-		if (result !== true) {
-			return typeof result === 'string' ? result : `${field} validation failed`;
-		}
-	}
-
-	return true;
-}
-
-/**
- * Validate object against schema
- */
-export function validate(data: unknown, schema: ValidationSchema): void {
-	if (!data || typeof data !== 'object') {
-		throw createError(ErrorCode.INVALID_INPUT, { data }, 'Input must be an object');
-	}
-
-	const errors: string[] = [];
-	const obj = data as Record<string, unknown>;
-
-	for (const [field, rule] of Object.entries(schema)) {
-		const result = validateValue(obj[field], rule, field);
-		if (result !== true) {
-			errors.push(result);
-		}
-	}
-
-	if (errors.length > 0) {
-		throw createError(ErrorCode.VALIDATION_FAILED, { errors, data }, errors.join('; '));
-	}
-}
+export const validate = validateInput;
 
 /**
  * Common validation schemas
@@ -156,11 +68,10 @@ export const CommonSchemas = {
 };
 
 /**
- * Sanitize string input
+ * Sanitize string input - utilizes truncate from utils
  */
 export function sanitizeString(input: string, maxLength: number = 1000): string {
-	return input
-		.substring(0, maxLength)
+	return truncate(input, maxLength)
 		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // eslint-disable-line no-control-regex
 		.trim();
 }
@@ -179,26 +90,9 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
- * Validate and sanitize file path
+ * Validate and sanitize file path - re-export from utils/common.ts
  */
-export function validatePath(path: string): string {
-	// Check for path traversal attempts
-	if (path.includes('..')) {
-		throw createError(ErrorCode.PATH_INVALID, { path }, 'Path traversal detected');
-	}
-
-	// Remove dangerous characters
-	const sanitized = path
-		.replace(/[<>:"|?*]/g, '')
-		.replace(/\/+/g, '/') // Normalize slashes
-		.trim();
-
-	if (!sanitized || sanitized.length === 0) {
-		throw createError(ErrorCode.PATH_INVALID, { path });
-	}
-
-	return sanitized;
-}
+export const validatePath = sanitizePath;
 
 /**
  * Type guards

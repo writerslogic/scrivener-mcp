@@ -5,7 +5,19 @@
  */
 
 // Type definitions are now in types/analysis.d.ts
-import { splitIntoSentences } from '../utils/common.js';
+import {
+	validateInput,
+	processBatch,
+	truncate,
+	formatDuration,
+	formatBytes,
+	getTextMetrics,
+	splitIntoSentences,
+	generateHash,
+} from '../utils/common.js';
+import { getLogger } from '../core/logger.js';
+
+const logger = getLogger('advanced-readability');
 
 export interface ReadabilityMetrics {
 	[key: string]: number | string | ReadingLevel | ReadabilityRecommendation[] | undefined;
@@ -96,116 +108,200 @@ export class AdvancedReadabilityService {
 	 * Calculate comprehensive readability metrics for text
 	 */
 	calculateMetrics(text: string): ReadabilityMetrics {
-		if (!text || text.trim().length === 0) {
+		try {
+			validateInput(
+				{ text },
+				{
+					text: { type: 'string', required: true, minLength: 1 },
+				}
+			);
+
+			if (!text || text.trim().length === 0) {
+				return this.getEmptyMetrics();
+			}
+
+			const textMetrics = getTextMetrics(text);
+			const textHash = generateHash(text);
+			logger.debug('Calculating readability metrics', {
+				textHash: truncate(textHash, 8),
+				wordCount: textMetrics.wordCount,
+				sentenceCount: textMetrics.sentenceCount,
+				contentSize: formatBytes(text.length),
+			});
+
+			const calculateMetricsSync = () => {
+				// Calculate basic text statistics using utility functions where possible
+				const sentences = this.countSentences(text);
+				const words = this.countWords(text);
+				const syllables = this.countSyllables(text);
+				const characters = this.countCharacters(text, false);
+				const difficultWords = this.countDifficultWords(text);
+
+				const sentenceCount = sentences.length;
+				const lexiconCount = words.length;
+				const syllableCount = syllables;
+				const characterCount = characters;
+
+				const averageSentenceLength = lexiconCount / sentenceCount;
+				const averageSyllablesPerWord = syllableCount / lexiconCount;
+				const averageLettersPerWord = characterCount / lexiconCount;
+
+				// Calculate readability scores using manual implementations
+				const fleschReadingEase = this.calculateFleschReadingEase(
+					averageSentenceLength,
+					averageSyllablesPerWord
+				);
+				const fleschKincaidGrade = this.calculateFleschKincaidGrade(
+					averageSentenceLength,
+					averageSyllablesPerWord
+				);
+				const smogIndex = this.calculateSmogIndex(
+					sentenceCount,
+					this.countComplexWords(text)
+				);
+				const colemanLiauIndex = this.calculateColemanLiauIndex(
+					characterCount,
+					lexiconCount,
+					sentenceCount
+				);
+				const automatedReadabilityIndex = this.calculateAutomatedReadabilityIndex(
+					characterCount,
+					lexiconCount,
+					sentenceCount
+				);
+				const gunningFogIndex = this.calculateGunningFogIndex(
+					averageSentenceLength,
+					this.countComplexWords(text),
+					lexiconCount
+				);
+				const linsearWriteFormula = this.calculateLinsearWriteFormula(text);
+				const textStandard = this.determineTextStandard(fleschKincaidGrade);
+
+				// Calculate derived metrics
+				const readingTimeMinutes = Math.ceil(lexiconCount / this.readingSpeedWPM);
+				const readingLevel = this.determineReadingLevel(fleschKincaidGrade);
+				const comprehensionDifficulty =
+					this.determineComprehensionDifficulty(fleschReadingEase);
+				const targetAudience = this.determineTargetAudience(
+					fleschKincaidGrade,
+					comprehensionDifficulty
+				);
+				const fullMetrics = {
+					fleschReadingEase,
+					fleschKincaidGrade,
+					smogIndex,
+					colemanLiauIndex,
+					automatedReadabilityIndex,
+					gunningFogIndex,
+					linsearWriteFormula,
+					textStandard,
+					syllableCount,
+					lexiconCount,
+					sentenceCount,
+					characterCount,
+					averageSentenceLength,
+					averageWordsPerSentence: averageSentenceLength,
+					averageSyllablesPerWord,
+					averageLettersPerWord,
+					difficultWords,
+					daleChallReadabilityScore: 0,
+					gunningFog: gunningFogIndex,
+					readingTimeMinutes,
+					readingLevel,
+					comprehensionDifficulty,
+					targetAudience,
+					recommendations: [],
+				};
+				const recommendations = this.generateRecommendations(fullMetrics);
+
+				return {
+					fleschReadingEase,
+					fleschKincaidGrade,
+					smogIndex,
+					colemanLiauIndex,
+					automatedReadabilityIndex,
+					gunningFogIndex,
+					linsearWriteFormula,
+					textStandard,
+					syllableCount,
+					lexiconCount,
+					sentenceCount,
+					characterCount,
+					averageSentenceLength,
+					averageWordsPerSentence: averageSentenceLength,
+					averageSyllablesPerWord,
+					averageLettersPerWord,
+					difficultWords,
+					daleChallReadabilityScore: 0, // Not implemented yet
+					gunningFog: gunningFogIndex,
+					readingTimeMinutes,
+					readingLevel,
+					comprehensionDifficulty,
+					targetAudience,
+					recommendations,
+				};
+			};
+
+			const startTime = performance.now();
+			const result = calculateMetricsSync();
+			const executionTime = performance.now() - startTime;
+
+			logger.debug('Readability calculation completed', {
+				executionTime: formatDuration(executionTime),
+				fleschScore: result.fleschReadingEase,
+			});
+
+			return result;
+		} catch (error) {
+			logger.error('Failed to calculate readability metrics', { error });
 			return this.getEmptyMetrics();
 		}
+	}
 
-		// Calculate basic text statistics
-		const sentences = this.countSentences(text);
-		const words = this.countWords(text);
-		const syllables = this.countSyllables(text);
-		const characters = this.countCharacters(text, false);
-		const difficultWords = this.countDifficultWords(text);
+	/**
+	 * Calculate metrics for multiple texts efficiently
+	 */
+	async calculateMetricsBatch(texts: string[]): Promise<ReadabilityMetrics[]> {
+		try {
+			validateInput(
+				{ texts },
+				{
+					texts: { type: 'array', required: true, minLength: 1, maxLength: 1000 },
+				}
+			);
 
-		const sentenceCount = sentences.length;
-		const lexiconCount = words.length;
-		const syllableCount = syllables;
-		const characterCount = characters;
+			// Optimized batch processing function
+			const processBatchOfTexts = async (batch: string[]): Promise<ReadabilityMetrics[]> => {
+				return batch.map((text) => {
+					// Add minimal validation for each text
+					if (!text || text.trim().length === 0) {
+						return this.getEmptyMetrics();
+					}
+					return this.calculateMetrics(text);
+				});
+			};
 
-		const averageSentenceLength = lexiconCount / sentenceCount;
-		const averageSyllablesPerWord = syllableCount / lexiconCount;
-		const averageLettersPerWord = characterCount / lexiconCount;
+			const startTime = performance.now();
+			logger.debug('Starting batch readability calculation', {
+				textsCount: texts.length,
+				estimatedTime: formatDuration(texts.length * 50), // Rough estimate
+			});
 
-		// Calculate readability scores using manual implementations
-		const fleschReadingEase = this.calculateFleschReadingEase(
-			averageSentenceLength,
-			averageSyllablesPerWord
-		);
-		const fleschKincaidGrade = this.calculateFleschKincaidGrade(
-			averageSentenceLength,
-			averageSyllablesPerWord
-		);
-		const smogIndex = this.calculateSmogIndex(sentenceCount, this.countComplexWords(text));
-		const colemanLiauIndex = this.calculateColemanLiauIndex(
-			characterCount,
-			lexiconCount,
-			sentenceCount
-		);
-		const automatedReadabilityIndex = this.calculateAutomatedReadabilityIndex(
-			characterCount,
-			lexiconCount,
-			sentenceCount
-		);
-		const gunningFogIndex = this.calculateGunningFogIndex(
-			averageSentenceLength,
-			this.countComplexWords(text),
-			lexiconCount
-		);
-		const linsearWriteFormula = this.calculateLinsearWriteFormula(text);
-		const textStandard = this.determineTextStandard(fleschKincaidGrade);
+			const results = await processBatch(texts, processBatchOfTexts, 20);
+			const flatResults = results.flat();
 
-		// Calculate derived metrics
-		const readingTimeMinutes = Math.ceil(lexiconCount / this.readingSpeedWPM);
-		const readingLevel = this.determineReadingLevel(fleschKincaidGrade);
-		const comprehensionDifficulty = this.determineComprehensionDifficulty(fleschReadingEase);
-		const targetAudience = this.determineTargetAudience(
-			fleschKincaidGrade,
-			comprehensionDifficulty
-		);
-		const fullMetrics = {
-			fleschReadingEase,
-			fleschKincaidGrade,
-			smogIndex,
-			colemanLiauIndex,
-			automatedReadabilityIndex,
-			gunningFogIndex,
-			linsearWriteFormula,
-			textStandard,
-			syllableCount,
-			lexiconCount,
-			sentenceCount,
-			characterCount,
-			averageSentenceLength,
-			averageWordsPerSentence: averageSentenceLength,
-			averageSyllablesPerWord,
-			averageLettersPerWord,
-			difficultWords,
-			daleChallReadabilityScore: 0,
-			gunningFog: gunningFogIndex,
-			readingTimeMinutes,
-			readingLevel,
-			comprehensionDifficulty,
-			targetAudience,
-			recommendations: [],
-		};
-		const recommendations = this.generateRecommendations(fullMetrics);
+			const executionTime = performance.now() - startTime;
+			logger.debug('Batch readability calculation completed', {
+				textsProcessed: flatResults.length,
+				executionTime: formatDuration(executionTime),
+				averageTimePerText: formatDuration(executionTime / Math.max(texts.length, 1)),
+			});
 
-		return {
-			fleschReadingEase,
-			fleschKincaidGrade,
-			smogIndex,
-			colemanLiauIndex,
-			automatedReadabilityIndex,
-			gunningFogIndex,
-			linsearWriteFormula,
-			textStandard,
-			syllableCount,
-			lexiconCount,
-			sentenceCount,
-			characterCount,
-			averageSentenceLength,
-			averageWordsPerSentence: averageSentenceLength,
-			averageSyllablesPerWord,
-			averageLettersPerWord,
-			difficultWords,
-			daleChallReadabilityScore: 0, // Not implemented yet
-			gunningFog: gunningFogIndex,
-			readingTimeMinutes,
-			readingLevel,
-			comprehensionDifficulty,
-			targetAudience,
-			recommendations,
-		};
+			return flatResults;
+		} catch (error) {
+			logger.error('Failed to calculate batch metrics', { error });
+			return [];
+		}
 	}
 
 	/**

@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as readline from 'readline/promises';
 import { promisify } from 'util';
 import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
+import { generateScrivenerUUID } from '../../utils/scrivener-utils.js';
 import {
 	AppError,
 	ErrorCode,
@@ -19,8 +20,11 @@ import {
 	safeStringify,
 	safeWriteFile,
 } from '../../utils/common.js';
+import { getLogger } from '../../core/logger.js';
+import { PermissionManager } from '../../utils/permission-manager.js';
 
 const execAsync = promisify(exec);
+const logger = getLogger('auto-installer');
 
 interface SystemInfo {
 	platform: NodeJS.Platform;
@@ -55,14 +59,14 @@ export interface InstallResult {
 }
 
 export class Neo4jAutoInstaller {
-	private static readonly DEFAULT_PASSWORD = `scrivener-${Math.random().toString(36).substring(2, 15)}`;
+	private static readonly DEFAULT_PASSWORD = `scrivener-${generateScrivenerUUID().toLowerCase().slice(0, 8)}`;
 	private static readonly NEO4J_VERSION = '5.15.0';
 
 	/**
 	 * Main installation entry point
 	 */
 	static async install(options: InstallOptions): Promise<InstallResult> {
-		console.log('\n🚀 Neo4j Auto-Installation Starting...\n');
+		logger.info('Neo4j Auto-Installation Starting');
 
 		// Check what's available on the system
 		const systemInfo = await this.checkSystemCapabilities();
@@ -187,19 +191,27 @@ export class Neo4jAutoInstaller {
 
 		// Try to start Docker if available but not running
 		if (systemInfo.dockerAvailable && !systemInfo.dockerRunning) {
-			console.log('Docker is installed but not running. Attempting to start...');
+			logger.info('Docker is installed but not running. Attempting to start...');
 			try {
 				if (systemInfo.platform === 'darwin') {
-					await execAsync('open -a Docker');
+					await PermissionManager.executeWithPermissions('open -a Docker', {
+						operation: 'start-docker',
+						timeout: 10000,
+					});
 					await this.waitForDocker(30);
 					return 'docker';
 				} else if (systemInfo.platform === 'linux') {
-					await execAsync('sudo systemctl start docker');
+					await PermissionManager.executeWithPermissions('systemctl start docker', {
+						operation: 'start-docker-daemon',
+						timeout: 15000,
+					});
 					await this.waitForDocker(10);
 					return 'docker';
 				}
-			} catch {
-				console.log('Could not start Docker automatically.');
+			} catch (error) {
+				logger.warn('Could not start Docker automatically', {
+					error: (error as Error).message,
+				});
 			}
 		}
 
@@ -333,23 +345,38 @@ export class Neo4jAutoInstaller {
 
 			// Update Homebrew
 			console.log('📥 Updating Homebrew...');
-			await execAsync('brew update');
+			await PermissionManager.executeWithPermissions('brew update', {
+				operation: 'update-homebrew',
+				timeout: 30000,
+			});
 
 			// Install Neo4j
 			console.log('📦 Installing Neo4j...');
-			await execAsync('brew install neo4j');
+			await PermissionManager.executeWithPermissions('brew install neo4j', {
+				operation: 'install-neo4j',
+				timeout: 60000,
+			});
 
 			// Configure Neo4j
 			const password = this.DEFAULT_PASSWORD;
 
 			// Set initial password
 			console.log('🔐 Setting initial password...');
-			await execAsync(`neo4j-admin set-initial-password ${password}`);
+			await PermissionManager.executeWithPermissions(
+				`neo4j-admin set-initial-password ${password}`,
+				{
+					operation: 'set-neo4j-password',
+					timeout: 10000,
+				}
+			);
 
 			// Start Neo4j service
 			if (options.autoStart) {
 				console.log('🚀 Starting Neo4j service...');
-				await execAsync('brew services start neo4j');
+				await PermissionManager.executeWithPermissions('brew services start neo4j', {
+					operation: 'start-neo4j-service',
+					timeout: 20000,
+				});
 
 				// Wait for Neo4j to start
 				console.log('⏳ Waiting for Neo4j to start...');

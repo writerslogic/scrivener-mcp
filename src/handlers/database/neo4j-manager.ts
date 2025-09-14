@@ -2,9 +2,14 @@ import type { Driver, ManagedTransaction, QueryResult } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
 import { getLogger } from '../../core/logger.js';
 import type { QueryParameters } from '../../types/database.js';
-import { AppError, ErrorCode } from '../../utils/common.js';
 import { waitForServiceReady } from '../../utils/condition-waiter.js';
-import { extractValues, nodeToObject } from '../../utils/database.js';
+import {
+	extractValues,
+	isTransientDatabaseError,
+	mapNeo4jRecords,
+	nodeToObject,
+	toDatabaseError,
+} from '../../utils/database.js';
 
 const logger = getLogger('neo4j');
 
@@ -164,15 +169,18 @@ export class Neo4jManager {
 	 */
 	async query(cypher: string, parameters: QueryParameters = {}): Promise<QueryResult> {
 		if (!this.driver) {
-			throw new AppError(
-				'Neo4j not connected. Initialize first or check connection.',
-				ErrorCode.DATABASE_ERROR
+			throw toDatabaseError(
+				new Error('Neo4j not connected. Initialize first or check connection.'),
+				'query execution'
 			);
 		}
 
 		const session = this.driver.session({ database: this.database });
 		try {
 			return await session.run(cypher, parameters);
+		} catch (error) {
+			// Use the enhanced database error utility for consistent error handling
+			throw toDatabaseError(error, 'Neo4j query execution');
 		} finally {
 			await session.close();
 		}
@@ -183,7 +191,7 @@ export class Neo4jManager {
 	 */
 	async readTransaction<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		if (!this.driver) {
-			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('Neo4j not connected'), 'read transaction');
 		}
 
 		const session = this.driver.session({ database: this.database });
@@ -199,7 +207,7 @@ export class Neo4jManager {
 	 */
 	async writeTransaction<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		if (!this.driver) {
-			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('Neo4j not connected'), 'write transaction');
 		}
 
 		const session = this.driver.session({ database: this.database });
@@ -235,6 +243,30 @@ export class Neo4jManager {
 		`;
 
 		await this.query(cypher, documentData);
+	}
+
+	/**
+	 * Create or update a generic node
+	 */
+	async upsertNode(
+		label: string,
+		id: string,
+		properties: Record<string, unknown>
+	): Promise<void> {
+		if (!this.driver) return;
+
+		const setProps = Object.entries(properties)
+			.map(([key, _]) => `n.${key} = $${key}`)
+			.join(', ');
+
+		const cypher = `
+			MERGE (n:${label} {id: $id})
+			SET ${setProps},
+				n.updatedAt = datetime()
+			RETURN n
+		`;
+
+		await this.query(cypher, { id, ...properties });
 	}
 
 	/**
@@ -310,7 +342,7 @@ export class Neo4jManager {
 		`;
 
 		const result = await this.query(cypher, { characterId });
-		return result.records.map((record) => ({
+		return mapNeo4jRecords(result, (record) => ({
 			character: nodeToObject(record.get('c')),
 			relationship: {
 				type: record.get('r').type,
@@ -364,7 +396,7 @@ export class Neo4jManager {
 			ORDER BY d.title
 		`);
 
-		const documentFlow = flowResult.records.map((record) => ({
+		const documentFlow = mapNeo4jRecords(flowResult, (record) => ({
 			from: nodeToObject(record.get('d')),
 			to: nodeToObject(record.get('next')),
 			relationship: nodeToObject(record.get('r')),
@@ -378,7 +410,7 @@ export class Neo4jManager {
 			ORDER BY c.name
 		`);
 
-		const characterArcs = arcResult.records.map((record) => ({
+		const characterArcs = mapNeo4jRecords(arcResult, (record) => ({
 			character: nodeToObject(record.get('c')),
 			documents: record.get('documents').map((d: unknown) => nodeToObject(d)),
 		}));
@@ -391,7 +423,7 @@ export class Neo4jManager {
 			ORDER BY t.name
 		`);
 
-		const themeProgression = themeResult.records.map((record) => ({
+		const themeProgression = mapNeo4jRecords(themeResult, (record) => ({
 			theme: nodeToObject(record.get('t')),
 			documents: record.get('documents').map((d: unknown) => nodeToObject(d)),
 		}));
@@ -477,7 +509,7 @@ export class Neo4jManager {
 		retries: number = 3
 	): Promise<QueryResult> {
 		if (!this.driver) {
-			throw new AppError('Neo4j not connected', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('Neo4j not connected'), 'query execution');
 		}
 
 		let lastError: Error | null = null;
@@ -490,9 +522,13 @@ export class Neo4jManager {
 			} catch (error) {
 				lastError = error as Error;
 
-				// Check if it's a transient error that should be retried
-				const errorCode = (error as Error & { code?: string }).code;
-				if (errorCode && this.isTransientError(errorCode) && attempt < retries) {
+				// Check if it's a transient error that should be retried using database utility
+				if (isTransientDatabaseError(error) && attempt < retries) {
+					logger.warn(`Transient database error on attempt ${attempt}, retrying...`, {
+						error: (error as Error).message,
+						attempt,
+						maxRetries: retries,
+					});
 					// Wait for service to recover instead of fixed delay
 					try {
 						const parsedUrl = new URL(this.uri);
@@ -511,6 +547,7 @@ export class Neo4jManager {
 				}
 
 				// Check if connection is lost and try to reconnect
+				const errorCode = (error as Error & { code?: string }).code;
 				if (errorCode && this.isConnectionError(errorCode) && attempt < retries) {
 					this.isConnected = false;
 					await this.reconnect();
@@ -523,19 +560,10 @@ export class Neo4jManager {
 			}
 		}
 
-		throw lastError || new AppError('Query failed after retries', ErrorCode.DATABASE_ERROR);
-	}
-
-	/**
-	 * Check if error is transient and should be retried
-	 */
-	private isTransientError(code: string): boolean {
-		const transientCodes = [
-			'Neo.TransientError.Transaction.DeadlockDetected',
-			'Neo.TransientError.Transaction.LockClientStopped',
-			'Neo.TransientError.General.DatabaseUnavailable',
-		];
-		return transientCodes.some((c) => code?.includes(c));
+		throw toDatabaseError(
+			lastError || new Error('Query failed after retries'),
+			'query execution'
+		);
 	}
 
 	/**

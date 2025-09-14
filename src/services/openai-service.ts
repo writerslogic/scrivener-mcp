@@ -4,9 +4,27 @@
  */
 
 import OpenAI from 'openai';
-import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
-import { safeParse } from '../utils/common.js';
+import type { ValidationSchema } from '../utils/common.js';
+import {
+	AppError,
+	ErrorCode,
+	formatDuration,
+	generateHash,
+	handleError,
+	measureExecution,
+	processBatch,
+	RateLimiter,
+	retry,
+	safeParse,
+	safeStringify,
+	truncate,
+	validateInput,
+	withErrorHandling,
+} from '../utils/common.js';
+import { measureAndTrackOperation, OperationMetricsTracker } from '../utils/operation-metrics.js';
+import { StringUtils } from '../utils/shared-patterns.js';
+import { getTextMetrics } from '../utils/text-metrics.js';
 
 const logger = getLogger('openai-service');
 
@@ -69,6 +87,8 @@ export interface WritingPromptsResponse {
 export class OpenAIService {
 	private client: OpenAI | null = null;
 	private config: OpenAIConfig;
+	private rateLimiter: RateLimiter;
+	private metricsTracker: OperationMetricsTracker;
 
 	constructor(config: OpenAIConfig = {}) {
 		this.config = {
@@ -82,7 +102,42 @@ export class OpenAIService {
 			this.client = new OpenAI({
 				apiKey: config.apiKey,
 			});
+
+			logger.info('OpenAI service initialized', {
+				model: this.config.model,
+				maxTokens: this.config.maxTokens,
+				temperature: this.config.temperature,
+				hasApiKey: !!config.apiKey,
+				configHash: generateHash(safeStringify(this.config)).substring(0, 8),
+			});
 		}
+
+		// Initialize rate limiter (60 requests per minute for OpenAI)
+		this.rateLimiter = new RateLimiter(60, 60000);
+
+		// Initialize metrics tracker with enhanced logging
+		this.metricsTracker = new OperationMetricsTracker(
+			(message, meta?: Record<string, unknown>) => {
+				logger.debug(message, meta);
+
+				// Log performance alerts for slow operations
+				if (meta?.duration && typeof meta.duration === 'number' && meta.duration > 10000) {
+					// > 10 seconds
+					logger.warn('Slow OpenAI operation detected', {
+						operation: meta.operation,
+						duration: formatDuration(meta.duration),
+						model: this.config.model,
+					});
+				}
+			}
+		);
+	}
+
+	/**
+	 * Get operation metrics for monitoring
+	 */
+	getOperationMetrics() {
+		return this.metricsTracker.getMetrics();
 	}
 
 	/**
@@ -95,6 +150,7 @@ export class OpenAIService {
 			this.client = new OpenAI({
 				apiKey: config.apiKey,
 			});
+			logger.info('OpenAI service configured with new API key');
 		}
 	}
 
@@ -106,7 +162,7 @@ export class OpenAIService {
 	}
 
 	/**
-	 * Get advanced writing suggestions using GPT
+	 * Get advanced writing suggestions using GPT with enhanced utility integration
 	 */
 	async getWritingSuggestions(
 		text: string,
@@ -119,40 +175,103 @@ export class OpenAIService {
 			);
 		}
 
-		const prompt = this.buildSuggestionsPrompt(text, context);
+		// Enhanced input validation with proper schema
+		const validationSchema: ValidationSchema = {
+			text: {
+				type: 'string',
+				required: true,
+				minLength: 1,
+				maxLength: 50000,
+			},
+			context: {
+				type: 'object',
+				required: false,
+			},
+		};
 
-		try {
-			const response = await this.client.chat.completions.create({
-				model: this.config.model!,
-				messages: [
-					{
-						role: 'system',
-						content:
-							'You are an expert writing coach and editor. Analyze the provided text and return suggestions in valid JSON format.',
-					},
-					{
-						role: 'user',
-						content: prompt,
-					},
-				],
-				max_tokens: this.config.maxTokens,
-				temperature: this.config.temperature,
-			});
+		validateInput({ text, context }, validationSchema);
 
-			const content = response.choices[0]?.message?.content;
-			if (!content) {
-				return [];
-			}
-
-			return this.parseWritingSuggestions(content);
-		} catch (error) {
-			logger.error('OpenAI API error', { error });
-			return [];
+		// Apply rate limiting
+		while (!this.rateLimiter.tryRemove()) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
 		}
+
+		const operationName = 'getWritingSuggestions';
+
+		return measureAndTrackOperation(
+			operationName,
+			async () => {
+				const prompt = this.buildSuggestionsPrompt(text, context);
+				if (!prompt) {
+					throw new AppError(
+						'Failed to build suggestions prompt',
+						ErrorCode.PROCESSING_ERROR
+					);
+				}
+
+				const textMetrics = getTextMetrics(text);
+				const textHash = generateHash(text.substring(0, 1000));
+
+				logger.debug('Getting writing suggestions for text', {
+					wordCount: textMetrics.wordCount,
+					sentenceCount: textMetrics.sentenceCount,
+					readingTime: textMetrics.readingTimeMinutes,
+					genre: context?.genre,
+					targetAudience: context?.targetAudience,
+					textHash: textHash.substring(0, 8),
+				});
+
+				// Use retry mechanism for API calls
+				const response = await retry(
+					async () => {
+						if (!this.client) {
+							throw new Error('OpenAI client not configured');
+						}
+						return await this.client.chat.completions.create({
+							model: this.config.model!,
+							messages: [
+								{
+									role: 'system',
+									content:
+										'You are an expert writing coach and editor. Analyze the provided text and return suggestions in valid JSON format.',
+								},
+								{
+									role: 'user',
+									content: prompt,
+								},
+							],
+							max_tokens: this.config.maxTokens,
+							temperature: this.config.temperature,
+						});
+					},
+					{
+						maxAttempts: 3,
+						initialDelay: 1000,
+						maxDelay: 5000,
+					}
+				);
+
+				const content = response.choices[0]?.message?.content;
+				if (!content) {
+					return [];
+				}
+
+				return this.parseWritingSuggestions(content);
+			},
+			this.metricsTracker,
+			'OpenAI'
+		).catch((error) => {
+			const appError = handleError(error, 'OpenAIService.getWritingSuggestions');
+			logger.error(appError.message, {
+				operation: 'Getting writing suggestions',
+				textLength: text.length,
+			});
+			return [];
+		});
 	}
 
 	/**
-	 * Analyze writing style using GPT
+	 * Analyze writing style using GPT with enhanced utility integration
 	 */
 	async analyzeStyle(text: string): Promise<StyleAnalysis> {
 		if (!this.client) {
@@ -162,10 +281,35 @@ export class OpenAIService {
 			);
 		}
 
+		// Validate and truncate input if necessary
+		validateInput(
+			{ text },
+			{
+				text: { type: 'string', required: true, minLength: 10, maxLength: 100000 },
+			}
+		);
+
+		const truncatedText = truncate(text, 10000); // Limit to 10k chars for analysis
+		const textMetrics = getTextMetrics(truncatedText);
+
+		// Apply rate limiting
+		while (!this.rateLimiter.tryRemove()) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+
+		const operationName = 'analyzeStyle';
+
+		logger.debug('Analyzing writing style', {
+			wordCount: textMetrics.wordCount,
+			sentenceCount: textMetrics.sentenceCount,
+			averageWordsPerSentence: textMetrics.averageWordsPerSentence,
+			textTruncated: text.length > 10000,
+		});
+
 		const prompt = `Analyze the writing style of the following text and provide a detailed assessment:
 
 TEXT:
-${text}
+${truncatedText}
 
 Please analyze:
 1. Overall tone (formal, casual, academic, literary, etc.)
@@ -192,38 +336,51 @@ Return your analysis in this JSON format:
     ]
 }`;
 
-		try {
-			const response = await this.client.chat.completions.create({
-				model: this.config.model!,
-				messages: [
-					{
-						role: 'system',
-						content:
-							'You are a professional writing analyst. Provide detailed style analysis in valid JSON format.',
-					},
-					{
-						role: 'user',
-						content: prompt,
-					},
-				],
-				max_tokens: this.config.maxTokens,
-				temperature: this.config.temperature,
+		return measureAndTrackOperation(
+			operationName,
+			async () => {
+				if (!this.client) {
+					throw new Error('OpenAI client not configured');
+				}
+				const response = await this.client.chat.completions.create({
+					model: this.config.model!,
+					messages: [
+						{
+							role: 'system',
+							content:
+								'You are a professional writing analyst. Provide detailed style analysis in valid JSON format.',
+						},
+						{
+							role: 'user',
+							content: prompt,
+						},
+					],
+					max_tokens: this.config.maxTokens,
+					temperature: this.config.temperature,
+				});
+
+				const content = response.choices[0]?.message?.content;
+				if (!content) {
+					return this.getDefaultStyleAnalysis();
+				}
+
+				return this.parseStyleAnalysis(content);
+			},
+			this.metricsTracker,
+			'OpenAI'
+		).catch((error) => {
+			const appError = handleError(error, 'OpenAIService.analyzeStyle');
+			logger.error(appError.message, {
+				operation: 'Analyzing writing style',
+				textLength: truncatedText.length,
+				wordCount: textMetrics.wordCount,
 			});
-
-			const content = response.choices[0]?.message?.content;
-			if (!content) {
-				return this.getDefaultStyleAnalysis();
-			}
-
-			return this.parseStyleAnalysis(content);
-		} catch (error) {
-			logger.error('OpenAI API error', { error });
 			return this.getDefaultStyleAnalysis();
-		}
+		});
 	}
 
 	/**
-	 * Analyze character development and consistency
+	 * Analyze character development and consistency with enhanced processing
 	 */
 	async analyzeCharacters(text: string, characterNames?: string[]): Promise<CharacterAnalysis[]> {
 		if (!this.client) {
@@ -233,6 +390,31 @@ Return your analysis in this JSON format:
 			);
 		}
 
+		// Validate input
+		validateInput(
+			{ text, characterNames },
+			{
+				text: { type: 'string', required: true, minLength: 50 },
+				characterNames: { type: 'array', required: false },
+			}
+		);
+
+		const truncatedText = truncate(text, 15000); // Allow more text for character analysis
+		const textMetrics = getTextMetrics(truncatedText);
+
+		// Apply rate limiting
+		while (!this.rateLimiter.tryRemove()) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+
+		const operationName = 'analyzeCharacters';
+
+		logger.debug('Analyzing character development', {
+			wordCount: textMetrics.wordCount,
+			characterCount: characterNames?.length || 'auto-detect',
+			textTruncated: text.length > 15000,
+		});
+
 		const charactersPrompt =
 			characterNames && characterNames.length > 0
 				? `Focus on these specific characters: ${characterNames.join(', ')}.`
@@ -241,7 +423,7 @@ Return your analysis in this JSON format:
 		const prompt = `Analyze character development in the following text:
 
 TEXT:
-${text}
+${truncatedText}
 
 ${charactersPrompt}
 
@@ -264,38 +446,51 @@ Return analysis in this JSON format:
     ]
 }`;
 
-		try {
-			const response = await this.client.chat.completions.create({
-				model: this.config.model!,
-				messages: [
-					{
-						role: 'system',
-						content:
-							'You are a character development expert. Analyze characters and return valid JSON.',
-					},
-					{
-						role: 'user',
-						content: prompt,
-					},
-				],
-				max_tokens: this.config.maxTokens,
-				temperature: this.config.temperature,
+		return measureAndTrackOperation(
+			operationName,
+			async () => {
+				if (!this.client) {
+					throw new Error('OpenAI client not configured');
+				}
+				const response = await this.client.chat.completions.create({
+					model: this.config.model!,
+					messages: [
+						{
+							role: 'system',
+							content:
+								'You are a character development expert. Analyze characters and return valid JSON.',
+						},
+						{
+							role: 'user',
+							content: prompt,
+						},
+					],
+					max_tokens: this.config.maxTokens,
+					temperature: this.config.temperature,
+				});
+
+				const content = response.choices[0]?.message?.content;
+				if (!content) {
+					return [];
+				}
+
+				return this.parseCharacterAnalysis(content);
+			},
+			this.metricsTracker,
+			'OpenAI'
+		).catch((error) => {
+			const appError = handleError(error, 'OpenAIService.analyzeCharacters');
+			logger.error(appError.message, {
+				operation: 'Analyzing character development',
+				textLength: truncatedText.length,
+				characterNames,
 			});
-
-			const content = response.choices[0]?.message?.content;
-			if (!content) {
-				return [];
-			}
-
-			return this.parseCharacterAnalysis(content);
-		} catch (error) {
-			logger.error('OpenAI API error', { error });
 			return [];
-		}
+		});
 	}
 
 	/**
-	 * Analyze plot structure and pacing
+	 * Analyze plot structure and pacing with enhanced metrics
 	 */
 	async analyzePlot(text: string): Promise<PlotAnalysis> {
 		if (!this.client) {
@@ -305,10 +500,36 @@ Return analysis in this JSON format:
 			);
 		}
 
+		// Validate input
+		validateInput(
+			{ text },
+			{
+				text: { type: 'string', required: true, minLength: 100 },
+			}
+		);
+
+		const truncatedText = truncate(text, 20000); // Allow more text for plot analysis
+		const textMetrics = getTextMetrics(truncatedText);
+
+		// Apply rate limiting
+		while (!this.rateLimiter.tryRemove()) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+
+		const operationName = 'analyzePlot';
+
+		logger.debug('Analyzing plot structure and pacing', {
+			wordCount: textMetrics.wordCount,
+			sentenceCount: textMetrics.sentenceCount,
+			paragraphCount: textMetrics.paragraphCount,
+			averageWordsPerParagraph: textMetrics.averageWordsPerParagraph,
+			textTruncated: text.length > 20000,
+		});
+
 		const prompt = `Analyze the plot structure and pacing of the following text:
 
 TEXT:
-${text}
+${truncatedText}
 
 Assess:
 1. Overall pacing (slow, moderate, fast)
@@ -326,34 +547,47 @@ Return analysis in this JSON format:
     "suggestions": ["suggestion1", "suggestion2"]
 }`;
 
-		try {
-			const response = await this.client.chat.completions.create({
-				model: this.config.model!,
-				messages: [
-					{
-						role: 'system',
-						content:
-							'You are a plot structure expert. Analyze narrative structure and return valid JSON.',
-					},
-					{
-						role: 'user',
-						content: prompt,
-					},
-				],
-				max_tokens: this.config.maxTokens,
-				temperature: this.config.temperature,
+		return measureAndTrackOperation(
+			operationName,
+			async () => {
+				if (!this.client) {
+					throw new Error('OpenAI client not configured');
+				}
+				const response = await this.client.chat.completions.create({
+					model: this.config.model!,
+					messages: [
+						{
+							role: 'system',
+							content:
+								'You are a plot structure expert. Analyze narrative structure and return valid JSON.',
+						},
+						{
+							role: 'user',
+							content: prompt,
+						},
+					],
+					max_tokens: this.config.maxTokens,
+					temperature: this.config.temperature,
+				});
+
+				const content = response.choices[0]?.message?.content;
+				if (!content) {
+					return this.getDefaultPlotAnalysis();
+				}
+
+				return this.parsePlotAnalysis(content);
+			},
+			this.metricsTracker,
+			'OpenAI'
+		).catch((error) => {
+			const appError = handleError(error, 'OpenAIService.analyzePlot');
+			logger.error(appError.message, {
+				operation: 'Analyzing plot structure',
+				textLength: truncatedText.length,
+				wordCount: textMetrics.wordCount,
 			});
-
-			const content = response.choices[0]?.message?.content;
-			if (!content) {
-				return this.getDefaultPlotAnalysis();
-			}
-
-			return this.parsePlotAnalysis(content);
-		} catch (error) {
-			logger.error('OpenAI API error', { error });
 			return this.getDefaultPlotAnalysis();
-		}
+		});
 	}
 
 	/**
@@ -391,8 +625,8 @@ Return analysis in this JSON format:
 		try {
 			const prompt = `Analyze this writing project data and suggest areas for development:
 
-Characters: ${JSON.stringify(projectData.characters.slice(0, 10))}
-Plot Threads: ${JSON.stringify(projectData.plotThreads.slice(0, 10))}
+Characters: ${safeStringify(projectData.characters.slice(0, 10))}
+Plot Threads: ${safeStringify(projectData.plotThreads.slice(0, 10))}
 Themes: ${projectData.themes.join(', ')}
 Genre: ${projectData.genre || 'fiction'}
 Current Word Count: ${projectData.wordCount || 0}
@@ -406,6 +640,9 @@ Provide a JSON response with:
 	"recommendedExercises": ["specific writing exercises for this project"]
 }`;
 
+			if (!this.client) {
+				throw new Error('OpenAI client not configured');
+			}
 			const response = await this.client.chat.completions.create({
 				model: this.config.model || 'gpt-4o-mini',
 				messages: [
@@ -447,6 +684,99 @@ Provide a JSON response with:
 				recommendedExercises: ['character development', 'plot advancement'],
 			};
 		}
+	}
+
+	/**
+	 * Analyze multiple texts in batch for efficiency
+	 */
+	async analyzeBatch(
+		texts: string[],
+		options: {
+			analysisTypes?: ('style' | 'suggestions' | 'plot' | 'characters')[];
+			context?: { genre?: string; targetAudience?: string; style?: string };
+			batchSize?: number;
+		} = {}
+	): Promise<
+		Array<{
+			text: string;
+			textHash: string;
+			results: {
+				style?: StyleAnalysis;
+				suggestions?: WritingSuggestion[];
+				plot?: PlotAnalysis;
+				characters?: CharacterAnalysis[];
+			};
+			processingTime: string;
+			error?: string;
+		}>
+	> {
+		if (!this.client) {
+			throw new AppError(
+				'OpenAI service not configured. Please provide an API key.',
+				ErrorCode.CONFIGURATION_ERROR
+			);
+		}
+
+		const { analysisTypes = ['suggestions'], batchSize = 3 } = options;
+
+		return processBatch(
+			texts,
+			async (textBatch: string[]) => {
+				const results = [];
+
+				for (const text of textBatch) {
+					const startTime = performance.now();
+					const textHash = generateHash(text.substring(0, 1000));
+					const result: {
+						text: string;
+						textHash: string;
+						results: Record<string, WritingSuggestion[] | StyleAnalysis | PlotAnalysis | CharacterAnalysis[]>;
+						processingTime: string;
+						error?: string;
+					} = {
+						text: StringUtils.truncate(text, 100),
+						textHash: textHash.substring(0, 8),
+						results: {},
+						processingTime: '',
+					};
+
+					try {
+						// Process each analysis type
+						for (const analysisType of analysisTypes) {
+							switch (analysisType) {
+								case 'suggestions':
+									result.results.suggestions = await this.getWritingSuggestions(
+										text,
+										options.context
+									);
+									break;
+								case 'style':
+									result.results.style = await this.analyzeStyle(text);
+									break;
+								case 'plot':
+									result.results.plot = await this.analyzePlot(text);
+									break;
+								case 'characters':
+									result.results.characters = await this.analyzeCharacters(text);
+									break;
+							}
+						}
+					} catch (error) {
+						result.error = (error as Error).message;
+						logger.error('Batch analysis failed for text', {
+							error: (error as Error).message,
+							textHash: result.textHash,
+						});
+					}
+
+					result.processingTime = formatDuration(performance.now() - startTime);
+					results.push(result);
+				}
+
+				return results;
+			},
+			batchSize
+		);
 	}
 
 	/**
@@ -559,6 +889,9 @@ Return in this JSON format:
 }`;
 
 		try {
+			if (!this.client) {
+				throw new Error('OpenAI client not configured');
+			}
 			const response = await this.client.chat.completions.create({
 				model: this.config.model!,
 				messages: [
@@ -669,6 +1002,50 @@ Return in this JSON format:
 		suggestions: string[];
 		alternativeVersions: string[];
 	}> {
+		// Validate input
+		validateInput(
+			{ prompt, ...options },
+			{
+				prompt: {
+					type: 'string',
+					required: true,
+					minLength: 1,
+					maxLength: 5000,
+				},
+				length: {
+					type: 'number',
+					required: false,
+					min: 10,
+					max: 10000,
+				},
+				style: {
+					type: 'string',
+					required: false,
+					enum: ['narrative', 'dialogue', 'descriptive', 'academic', 'creative'],
+				},
+				tone: {
+					type: 'string',
+					required: false,
+					maxLength: 100,
+				},
+				perspective: {
+					type: 'string',
+					required: false,
+					enum: ['1st', '2nd', '3rd'],
+				},
+				genre: {
+					type: 'string',
+					required: false,
+					maxLength: 100,
+				},
+				context: {
+					type: 'string',
+					required: false,
+					maxLength: 5000,
+				},
+			}
+		);
+
 		if (!this.client) {
 			throw new AppError(
 				'OpenAI service not configured. Please provide an API key.',
@@ -710,23 +1087,35 @@ Please generate content based on this prompt and return in this exact JSON forma
   "alternativeVersions": ["Brief alternative approach 1", "Brief alternative approach 2"]
 }`;
 
-		try {
-			const response = await this.client.chat.completions.create({
-				model: this.config.model || 'gpt-3.5-turbo',
-				messages: [
-					{ role: 'system', content: systemPrompt },
-					{ role: 'user', content: userPrompt },
-				],
-				max_tokens: Math.min(length * 2 + 500, this.config.maxTokens || 2000),
-				temperature: this.config.temperature || 0.7,
-			});
-
-			const content = response.choices[0]?.message?.content?.trim();
-			if (!content) {
-				return this.getDefaultContentResponse(prompt, length, style);
+		return withErrorHandling(async () => {
+			if (!this.client) {
+				throw new AppError(
+					'OpenAI service not configured. Please provide an API key.',
+					ErrorCode.CONFIGURATION_ERROR
+				);
 			}
+			const executionResult = await measureExecution(async () => {
+				const response = await retry(
+					async () => {
+						// this.client is guaranteed non-null here
+						return await this.client!.chat.completions.create({
+							model: this.config.model || 'gpt-3.5-turbo',
+							messages: [
+								{ role: 'system', content: systemPrompt },
+								{ role: 'user', content: userPrompt },
+							],
+							max_tokens: Math.min(length * 2 + 500, this.config.maxTokens || 2000),
+							temperature: this.config.temperature || 0.7,
+						});
+					},
+					{ maxAttempts: 3, initialDelay: 1000 }
+				);
 
-			try {
+				const content = response.choices[0]?.message?.content?.trim() || null;
+				if (!content) {
+					return this.getDefaultContentResponse(prompt, length, style);
+				}
+
 				const result = safeParse(content, {}) as {
 					content?: string;
 					suggestions?: string[];
@@ -747,14 +1136,23 @@ Please generate content based on this prompt and return in this exact JSON forma
 						? result.alternativeVersions
 						: [],
 				};
-			} catch (parseError) {
-				logger.error('Failed to parse content response', { error: parseError });
-				return this.getDefaultContentResponse(prompt, length, style);
-			}
-		} catch (error) {
-			logger.error('OpenAI API error during content generation', { error });
-			return this.getDefaultContentResponse(prompt, length, style);
-		}
+			});
+
+			logger.debug('Content generation completed', {
+				prompt: StringUtils.truncate(prompt, 50),
+				executionTime: formatDuration(executionResult.ms),
+				targetLength: length,
+				actualWordCount: executionResult.result.wordCount,
+			});
+
+			return executionResult.result;
+		}, 'OpenAIService.generateContent')() as Promise<{
+			content: string;
+			wordCount: number;
+			type: string;
+			suggestions: string[];
+			alternativeVersions: string[];
+		}>;
 	}
 
 	/**

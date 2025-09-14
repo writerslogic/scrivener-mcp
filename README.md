@@ -137,9 +137,21 @@ npm uninstall -g scrivener-mcp
 - **Format Preservation**: Option to maintain or strip RTF formatting
 - **Custom Separators**: Configure how documents are joined
 
+### 🧠 **NEW** Holographic Hyperdimensional Memory (HHM)
+- **Semantic Search**: Find documents by meaning, not just keywords
+- **Analogical Reasoning**: Discover relationships like "protagonist:hero :: antagonist:?"
+- **Auto-Memorization**: Documents automatically stored in 10,000-dimensional semantic space
+- **GPU Acceleration**: WebGPU-powered operations with CPU fallback
+- **Multi-modal Learning**: Text, documents, relationships, and temporal sequences
+- **Creative Combinations**: Dream mode generates novel concept associations
+- **Memory Evolution**: Background learning and concept refinement
+- **Consistency Checking**: Detect contradictory information across documents
+- **SIMD Optimization**: Vectorized operations for maximum performance
+- **Vector Caching**: LRU cache system for frequently accessed patterns
+
 ## 🛠️ Available Tools
 
-The MCP server provides 60+ powerful tools for comprehensive Scrivener integration:
+The MCP server provides 75+ powerful tools for comprehensive Scrivener integration:
 
 ### 📁 Project Operations
 - `open_project(path)` - Open a Scrivener project
@@ -203,6 +215,23 @@ The MCP server provides 60+ powerful tools for comprehensive Scrivener integrati
 - `update_document_synopsis_notes(documentId, synopsis?, notes?)` - Update synopsis and/or notes for a document
 - `batch_update_synopsis_notes(updates)` - Update synopsis and/or notes for multiple documents at once
 
+### 🧠 **NEW** Holographic Memory (HHM) Tools
+- `semantic_search(query, k?, threshold?)` - Find documents by semantic meaning
+- `find_analogies(a, b, c)` - Discover analogical relationships (A:B :: C:?)
+- `hhm/memorize/text(text, id?)` - Store text in semantic memory
+- `hhm/memorize/document(document)` - Store document with structure
+- `hhm/memorize/relationship(subject, relation, object)` - Store semantic relationships
+- `hhm/query/text(text, k?)` - Query memory with text
+- `hhm/query/analogy(a, b, c)` - Find analogical completions
+- `hhm/concepts/generate()` - Generate novel concept combinations
+- `hhm/dream(duration?)` - Enter creative recombination mode
+- `hhm/consistency/check(memoryIds)` - Verify memory consistency
+- `hhm/stats()` - Get HHM system statistics
+- `hhm/benchmark/run(dimensions?)` - Run performance benchmarks
+- `hhm/benchmark/gpu()` - Test GPU acceleration capabilities
+- `hhm/cache/clear()` - Clear vector cache
+- `hhm/cache/stats()` - Get cache performance metrics
+
 ### 🗄️ Database Tools (Advanced)
 - `get_database_status()` - Get status of SQLite and Neo4j databases
 - `query_database(query, params?)` - Execute SELECT queries on SQLite database
@@ -233,6 +262,7 @@ This MCP server includes comprehensive RTF (Rich Text Format) support specifical
 - `MemoryManager` - Persistent project memory and context storage
 - `ContentAnalyzer` - Deep writing analysis and metrics
 - `ContentEnhancer` - AI-powered content improvement engine
+- **`HolographicMemorySystem`** - 10,000-dimensional semantic memory with GPU acceleration
 - MCP Server - Tool definitions and request handling
 
 ### Data Storage
@@ -401,6 +431,10 @@ If you find this project helpful, consider:
 - 🐛 Reporting bugs or requesting features
 - ☕ [Buying me a coffee](https://buymeacoffee.com/davidcondrey)
 - 📣 Sharing with other Scrivener users
+
+## 📚 Documentation
+
+- [Holographic Memory Guide](./HOLOGRAPHIC_MEMORY_GUIDE.md) - Complete guide to the new HHM system
 
 ## 🔗 Links
 

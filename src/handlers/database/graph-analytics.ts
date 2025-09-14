@@ -3,8 +3,8 @@
  * Provides advanced graph analysis capabilities for story structure
  */
 
-import { AppError, ErrorCode } from '../../utils/common.js';
 import type { Neo4jManager } from './neo4j-manager.js';
+import { mapNeo4jRecords, toDatabaseError } from '../../utils/database.js';
 
 export interface CharacterNetwork {
 	centralCharacters: Array<{
@@ -53,7 +53,7 @@ export class GraphAnalytics {
 	 */
 	async analyzeCharacterNetwork(): Promise<CharacterNetwork> {
 		if (!this.neo4j.isAvailable()) {
-			throw new AppError('Neo4j not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('Neo4j not available'), 'character network analysis');
 		}
 
 		// Calculate character centrality using PageRank
@@ -134,7 +134,7 @@ export class GraphAnalytics {
 	 */
 	async analyzePlotComplexity(): Promise<PlotComplexity> {
 		if (!this.neo4j.isAvailable()) {
-			throw new AppError('Neo4j not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('Neo4j not available'), 'plot complexity analysis');
 		}
 
 		// Count plot threads
@@ -198,7 +198,7 @@ export class GraphAnalytics {
 	 */
 	async analyzeStoryFlow(): Promise<StoryFlow> {
 		if (!this.neo4j.isAvailable()) {
-			throw new AppError('Neo4j not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('Neo4j not available'), 'story flow analysis');
 		}
 
 		// Get chapter-by-chapter analysis
@@ -258,7 +258,10 @@ export class GraphAnalytics {
 		}>
 	> {
 		if (!this.neo4j.isAvailable()) {
-			throw new AppError('Neo4j not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(
+				new Error('Neo4j not available'),
+				'character relationships analysis'
+			);
 		}
 
 		const result = await this.neo4j.query(`
@@ -272,7 +275,7 @@ export class GraphAnalytics {
 			LIMIT 10
 		`);
 
-		return result.records.map((r) => {
+		return mapNeo4jRecords(result, (r) => {
 			const count = r.get('cooccurrences');
 			return {
 				character1: r.get('char1'),
@@ -292,7 +295,10 @@ export class GraphAnalytics {
 		suggestions: string[];
 	}> {
 		if (!this.neo4j.isAvailable()) {
-			throw new AppError('Neo4j not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(
+				new Error('Neo4j not available'),
+				'plot thread improvement analysis'
+			);
 		}
 
 		// Analyze plot thread patterns

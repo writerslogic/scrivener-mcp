@@ -10,6 +10,8 @@ import type {
 } from './services/openai-service.js';
 import { OpenAIService } from './services/openai-service.js';
 import { webContentParser } from './services/web-content-parser.js';
+import { nlpAnalyzer } from './services/analysis/nlp-sentiment-analyzer.js';
+import { advancedAnalyzer } from './services/analysis/advanced-content-analyzer.js';
 import type {
 	ContentExtractionOptions,
 	ParsedWebContent,
@@ -19,7 +21,14 @@ import type {
 	ResearchData,
 	WritingSuggestion,
 } from './types/analysis.js';
-import { getWordPairs, splitIntoSentences } from './utils/common.js';
+import {
+	getWordPairs,
+	splitIntoSentences,
+	getAccurateWordCount,
+	getAccurateSentenceCount,
+	getAccurateParagraphCount,
+	generateHash,
+} from './utils/common.js';
 
 const openaiService = new OpenAIService();
 
@@ -163,7 +172,10 @@ export class ContentAnalyzer {
 	];
 
 	@cached(
-		(content: string, documentId: string) => `analysis:${documentId}:${content.length}`,
+		(content: string, documentId: string) => {
+			const contentHash = generateHash(content);
+			return `analysis:${documentId}:${contentHash}`;
+		},
 		caches.analysis,
 		300_000 // Cache for 5 minutes
 	)
@@ -191,22 +203,23 @@ export class ContentAnalyzer {
 	}
 
 	private calculateMetrics(content: string): WritingMetrics {
-		const words = content.split(/\s+/).filter((w) => w.length > 0);
-		const sentences = splitIntoSentences(content);
-		const paragraphs = content.split(/\n\n+/).filter((p) => p.trim().length > 0);
-
-		const wordCount = words.length;
-		const sentenceCount = sentences.length;
-		const paragraphCount = paragraphs.length;
+		// Use accurate counting methods
+		const wordCount = getAccurateWordCount(content);
+		const sentenceCount = getAccurateSentenceCount(content);
+		const paragraphCount = getAccurateParagraphCount(content);
 		const averageSentenceLength = sentenceCount > 0 ? wordCount / sentenceCount : 0;
 		const averageParagraphLength = paragraphCount > 0 ? wordCount / paragraphCount : 0;
 		const readingTime = Math.ceil(wordCount / 250); // Average reading speed
 
-		// Calculate readability scores
-		const { fleschReadingEase, fleschKincaidGrade } = this.calculateReadability(
+		// Use advanced analyzer for accurate readability scores with fallback
+		const readabilityScores = advancedAnalyzer.calculateReadability(content);
+
+		// Calculate our own readability metrics as backup/validation
+		const syllableCount = this.countSyllables(content.split(/\s+/));
+		const fallbackReadability = this.calculateReadability(
 			wordCount,
 			sentenceCount,
-			this.countSyllables(words)
+			syllableCount
 		);
 
 		return {
@@ -216,8 +229,11 @@ export class ContentAnalyzer {
 			averageSentenceLength,
 			averageParagraphLength,
 			readingTime,
-			fleschReadingEase,
-			fleschKincaidGrade,
+			// Use advanced scores if available, fallback to our calculation
+			fleschReadingEase:
+				readabilityScores.fleschReadingEase || fallbackReadability.fleschReadingEase,
+			fleschKincaidGrade:
+				readabilityScores.fleschKincaidGrade || fallbackReadability.fleschKincaidGrade,
 		};
 	}
 
@@ -266,6 +282,12 @@ export class ContentAnalyzer {
 		const dialoguePercentage = (dialogueLines.length / content.split('\n').length) * 100;
 		const descriptionPercentage = 100 - dialoguePercentage;
 
+		// Analyze content patterns using helper methods
+		const patterns = this.analyzeContentPatterns(content);
+		const conflictDensity = (patterns.conflictWords / patterns.totalWords) * 100;
+		const actionDensity = (patterns.actionWords / patterns.totalWords) * 100;
+		const reflectionDensity = (patterns.reflectionWords / patterns.totalWords) * 100;
+
 		// Most frequent words (excluding common words)
 		const wordFrequency = new Map<string, number>();
 		words.forEach((word) => {
@@ -295,7 +317,7 @@ export class ContentAnalyzer {
 			descriptionPercentage,
 			mostFrequentWords,
 			styleConsistency,
-		};
+		} as any;
 	}
 
 	private calculateStyleConsistency(data: {
@@ -595,53 +617,66 @@ export class ContentAnalyzer {
 	}
 
 	private analyzeEmotions(content: string): EmotionalAnalysis {
-		// Pattern-based emotion detection using semantic field analysis
+		// Use NLP-based sentiment analysis for accurate context-aware emotion detection
+		const overallSentiment = nlpAnalyzer.analyzeSentiment(content);
+		const dominantEmotion = overallSentiment.emotion;
 
-		const words = content.toLowerCase().split(/\s+/);
-		const emotionCounts = new Map<string, number>();
+		// Sophisticated emotional arc analysis with proper context
+		const emotionalArcData = nlpAnalyzer.analyzeEmotionalArc(content, 10);
+		const emotionalArc = emotionalArcData.map((data, index) => {
+			const prevEmotion = index > 0 ? emotionalArcData[index - 1].emotion : null;
+			const emotionShift = prevEmotion && prevEmotion !== data.emotion;
 
-		const emotionAnalysis = this.analyzeEmotionPatterns(words);
-		for (const [emotion, count] of Object.entries(emotionAnalysis)) {
-			if (count > 0) emotionCounts.set(emotion, count);
-		}
-
-		const dominantEmotion =
-			Array.from(emotionCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
-
-		// Sophisticated emotional arc analysis
-		const segments = this.splitIntoSegments(content, 10); // More granular segments
-		const emotionalArc: Array<{
-			position: number;
-			emotion: string;
-			intensity: number;
-			transition?: boolean;
-		}> = [];
-
-		for (let index = 0; index < segments.length; index++) {
-			const segment = segments[index];
-			const segmentEmotions = this.detectSegmentEmotion(segment);
-			const segmentWords = segment.toLowerCase().split(/\s+/);
-
-			// Calculate emotional intensity based on density of emotional words
-			const emotionalWordCount = segmentWords.filter((w) => this.isEmotionalWord(w)).length;
-			const intensity = Math.min(100, (emotionalWordCount / segmentWords.length) * 500);
-
-			// Detect emotional transitions
-			const prevEmotion = index > 0 ? emotionalArc[index - 1]?.emotion : null;
-			const emotionShift = prevEmotion && prevEmotion !== segmentEmotions.emotion;
-
-			emotionalArc.push({
-				position: (index + 1) / segments.length,
-				emotion: segmentEmotions.emotion,
-				intensity: Math.round(intensity),
+			return {
+				position: data.position,
+				emotion: data.emotion,
+				intensity: Math.round(data.intensity),
 				transition: emotionShift || undefined,
-			});
-		}
+			};
+		});
 
-		// Tension level using semantic pattern detection
-		const tensionCount = words.filter((w) => this.isConflictWord(w)).length;
-		const sentenceCount = splitIntoSentences(content).length;
-		const tensionLevel = Math.min((tensionCount / sentenceCount) * 100, 100);
+		// Calculate tension level using context-aware analysis
+		const tensionWords = [
+			'tension',
+			'conflict',
+			'danger',
+			'threat',
+			'suspense',
+			'crisis',
+			'confrontation',
+			'struggle',
+			'clash',
+			'peril',
+			'risk',
+			'jeopardy',
+		];
+		const sentences = splitIntoSentences(content);
+		let tensionScore = 0;
+
+		sentences.forEach((sentence) => {
+			const sentimentResult = nlpAnalyzer.analyzeSentiment(sentence);
+			// Check for tension words with proper negation handling
+			const hasTension = tensionWords.some((word) => {
+				const regex = new RegExp(`\\b${word}\\b`, 'i');
+				if (sentence.match(regex)) {
+					// Check if it's negated in the sentiment analysis
+					const negated = sentimentResult.negations.some((neg) =>
+						neg.scope.some((scopeWord) => scopeWord.toLowerCase().includes(word))
+					);
+					return !negated;
+				}
+				return false;
+			});
+
+			if (hasTension) tensionScore++;
+
+			// High negative sentiment with high intensity also indicates tension
+			if (sentimentResult.comparative < -0.3 && Math.abs(sentimentResult.score) > 2) {
+				tensionScore += 0.5;
+			}
+		});
+
+		const tensionLevel = Math.min((tensionScore / sentences.length) * 100, 100);
 
 		// Calculate mood consistency based on emotional transitions
 		const moodConsistency = this.calculateMoodConsistency(emotionalArc);
@@ -741,12 +776,9 @@ export class ContentAnalyzer {
 			};
 		});
 
-		// Action vs reflection using morphological pattern analysis
-
-		const words = content.toLowerCase().split(/\s+/);
-		const actionCount = words.filter((w) => this.isActionWord(w)).length;
-		const reflectionCount = words.filter((w) => this.isReflectionWord(w)).length;
-		const actionVsReflection = actionCount / Math.max(reflectionCount, 1);
+		// Use NLP-based pacing analysis for accurate verb type detection
+		const pacingData = nlpAnalyzer.analyzePacing(content);
+		const actionVsReflection = pacingData.actionDensity / (1 - pacingData.actionDensity || 0.1);
 
 		// Recommendations
 		const recommendedAdjustments: string[] = [];
@@ -951,6 +983,9 @@ export class ContentAnalyzer {
 
 		for (const word of words) {
 			const lowerWord = word.toLowerCase();
+
+			// First check if it's an emotional word at all for performance
+			if (!this.isEmotionalWord(lowerWord)) continue;
 
 			// Pattern-based emotion detection using morphological analysis
 			if (this.isJoyWord(lowerWord)) emotionCounts.joy++;
@@ -1253,5 +1288,33 @@ export class ContentAnalyzer {
 	 */
 	getOpenAIService() {
 		return openaiService;
+	}
+
+	/**
+	 * Analyze content for different types of word patterns
+	 */
+	private analyzeContentPatterns(content: string): {
+		conflictWords: number;
+		actionWords: number;
+		reflectionWords: number;
+		totalWords: number;
+	} {
+		const words = content.toLowerCase().split(/\s+/);
+		let conflictWords = 0;
+		let actionWords = 0;
+		let reflectionWords = 0;
+
+		for (const word of words) {
+			if (this.isConflictWord(word)) conflictWords++;
+			if (this.isActionWord(word)) actionWords++;
+			if (this.isReflectionWord(word)) reflectionWords++;
+		}
+
+		return {
+			conflictWords,
+			actionWords,
+			reflectionWords,
+			totalWords: words.length,
+		};
 	}
 }

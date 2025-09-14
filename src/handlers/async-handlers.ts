@@ -1,15 +1,23 @@
 /**
- * Async handlers for job queue operations
+ * Async handlers for job queue operations - utilizes comprehensive utils for better performance
  * Provides MCP handlers for async processing with BullMQ
  */
 
 import type { Job } from 'bullmq';
-import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
 import { LangChainService } from '../services/ai/langchain-service.js';
 import { JobQueueService, JobType } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
-import { validateInput } from '../utils/common.js';
+import {
+	ErrorCode,
+	createError,
+	formatDuration,
+	getEnv,
+	handleError,
+	measureExecution,
+	retry,
+	validateInput,
+} from '../utils/common.js';
 
 let jobQueueService: JobQueueService | null = null;
 let langchainService: LangChainService | null = null;
@@ -28,24 +36,39 @@ export async function initializeAsyncServices(
 	} = {}
 ): Promise<void> {
 	try {
-		// Initialize job queue with automatic KeyDB/Redis detection
-		// Will use KeyDB/Redis if available, otherwise falls back to embedded queue
-		jobQueueService = new JobQueueService(options.projectPath);
-		await jobQueueService.initialize({
-			langchainApiKey: options.openaiApiKey,
-			databasePath: options.databasePath,
-			neo4jUri: options.neo4jUri,
-		});
-		const connectionInfo = jobQueueService.getConnectionInfo();
-		logger.info(`Job queue service initialized with ${connectionInfo.type} connection`);
+		const initResult = await measureExecution(async () => {
+			// Initialize job queue with automatic KeyDB/Redis detection
+			// Will use KeyDB/Redis if available, otherwise falls back to embedded queue
+			jobQueueService = new JobQueueService(options.projectPath);
 
-		// Initialize LangChain service if API key is available
-		if (options.openaiApiKey || process.env.OPENAI_API_KEY) {
-			langchainService = new LangChainService(options.openaiApiKey);
-			logger.info('LangChain service initialized');
-		}
+			// Use retry for robust initialization
+			await retry(
+				() =>
+					jobQueueService!.initialize({
+						langchainApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
+						databasePath: options.databasePath,
+						neo4jUri: options.neo4jUri || getEnv('NEO4J_URI'),
+					}),
+				{ maxAttempts: 3 }
+			);
+
+			const connectionInfo = jobQueueService.getConnectionInfo();
+			logger.info(
+				`Job queue service initialized with ${connectionInfo.type} connection in ${formatDuration(initResult.ms)}`
+			);
+
+			// Initialize LangChain service if API key is available
+			const apiKey = options.openaiApiKey || getEnv('OPENAI_API_KEY');
+			if (apiKey) {
+				langchainService = new LangChainService(apiKey);
+				logger.info('LangChain service initialized');
+			}
+		});
+
+		logger.info(`Async services initialization completed in ${formatDuration(initResult.ms)}`);
 	} catch (error) {
-		logger.warn('Failed to initialize async services', { error });
+		const appError = handleError(error, 'initializeAsyncServices');
+		logger.warn('Failed to initialize async services', { error: appError.message });
 		// Don't throw - allow app to run without async features
 	}
 }

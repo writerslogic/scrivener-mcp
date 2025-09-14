@@ -5,9 +5,16 @@ import type {
 	ScrivenerDocument,
 	StoryContext,
 } from '../analysis/context-analyzer.js';
-import { createError, ErrorCode } from '../core/errors.js';
+import { ErrorCode, createError, handleError } from '../utils/common.js';
 import type { DatabaseService } from '../handlers/database/database-service.js';
-import { buildPath, ensureDir, pathExists, safeStringify, safeWriteFile } from '../utils/common.js';
+import {
+	buildPath,
+	ensureDir,
+	pathExists,
+	safeStringify,
+	safeWriteFile,
+	truncate,
+} from '../utils/common.js';
 
 export interface SyncOptions {
 	autoSync: boolean;
@@ -83,8 +90,9 @@ export class ContextSyncService {
 
 		this.syncTimer = setInterval(() => {
 			this.performSync().catch((error) => {
-				// Auto-sync error handled silently
-				this.syncStatus.errors.push(`Auto-sync error: ${error.message}`);
+				// Auto-sync error handled with proper error formatting
+				const appError = handleError(error, 'auto-sync');
+				this.syncStatus.errors.push(appError.message);
 			});
 		}, this.options.syncInterval);
 	}
@@ -136,9 +144,10 @@ export class ContextSyncService {
 
 			// Context synchronization completed
 		} catch (error) {
-			// Sync failed - error stored in status
-			this.syncStatus.errors.push(`Sync error: ${error}`);
-			throw error;
+			// Sync failed - error stored in status with proper handling
+			const appError = handleError(error, 'sync');
+			this.syncStatus.errors.push(appError.message);
+			throw appError;
 		}
 	}
 
@@ -178,10 +187,11 @@ export class ContextSyncService {
 		} catch (error) {
 			const appError = createError(
 				ErrorCode.SYNC_ERROR,
-				`Failed syncing document ${documentId}: ${error}`
+				{ documentId, error },
+				`Failed syncing document ${documentId}`
 			);
-			// Failed to sync document - error captured
-			this.syncStatus.errors.push(`Document ${documentId}: ${appError.message}`);
+			// Failed to sync document - error captured with structured details
+			this.syncStatus.errors.push(appError.message);
 		}
 	}
 
@@ -506,7 +516,16 @@ export class ContextSyncService {
 
 		const result = this.databaseService
 			.getSQLite()
-			.queryOne(`SELECT * FROM documents WHERE id = ?`, [documentId]) as any;
+			.queryOne(`SELECT * FROM documents WHERE id = ?`, [documentId]) as {
+			id: string;
+			title: string;
+			type: string;
+			synopsis?: string;
+			notes?: string;
+			word_count?: number;
+			character_count?: number;
+			path?: string;
+		} | null;
 
 		if (!result) {
 			return null;
@@ -515,11 +534,11 @@ export class ContextSyncService {
 		return {
 			id: result.id,
 			title: result.title,
-			type: result.type,
+			type: result.type as 'Text' | 'Folder' | 'Other',
 			synopsis: result.synopsis,
 			notes: result.notes,
-			wordCount: result.word_count,
-			characterCount: result.character_count,
+			wordCount: result.word_count || 0,
+			characterCount: result.character_count || 0,
 			children: [],
 		};
 	}
@@ -543,16 +562,24 @@ export class ContextSyncService {
 
 		const results = this.databaseService
 			.getSQLite()
-			.query(`SELECT * FROM documents ORDER BY title`) as any[];
+			.query(`SELECT * FROM documents ORDER BY title`) as Array<{
+			id: string;
+			title: string;
+			type: string;
+			synopsis?: string;
+			notes?: string;
+			word_count?: number;
+			character_count?: number;
+		}>;
 
 		return results.map((r) => ({
 			id: r.id,
 			title: r.title,
-			type: r.type,
-			synopsis: r.synopsis,
-			notes: r.notes,
-			wordCount: r.word_count,
-			characterCount: r.character_count,
+			type: r.type as 'Text' | 'Folder' | 'Other',
+			synopsis: r.synopsis || '',
+			notes: r.notes || '',
+			wordCount: r.word_count || 0,
+			characterCount: r.character_count || 0,
 			children: [],
 		}));
 	}
@@ -592,10 +619,12 @@ export class ContextSyncService {
 	}
 
 	/**
-	 * Sanitize filename
+	 * Sanitize filename - now uses truncate utility
 	 */
 	private sanitizeFileName(name: string): string {
-		return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+		// First truncate to reasonable length, then sanitize
+		const truncated = truncate(name, 100);
+		return truncated.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 	}
 
 	/**

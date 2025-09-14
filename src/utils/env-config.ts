@@ -4,6 +4,7 @@
  */
 
 import { getLogger } from '../core/logger.js';
+import { ValidationUtils, FileUtils, ProcessUtils } from './shared-patterns.js';
 
 const logger = getLogger('env-config');
 
@@ -57,14 +58,9 @@ export function parseEnvBool(value: string | undefined, defaultValue: boolean): 
 export function validateUrl(url: string | undefined, name: string): string | undefined {
 	if (!url) return undefined;
 
-	try {
-		const parsed = new URL(url);
-		if (!['redis:', 'rediss:', 'http:', 'https:'].includes(parsed.protocol)) {
-			logger.warn(`Invalid protocol for ${name}: ${parsed.protocol}`);
-			return undefined;
-		}
+	if (ValidationUtils.validateUrl(url, ['redis:', 'rediss:', 'http:', 'https:'])) {
 		return url;
-	} catch {
+	} else {
 		logger.warn(`Invalid URL for ${name}: "${url}"`);
 		return undefined;
 	}
@@ -185,35 +181,19 @@ async function detectContainer(): Promise<boolean> {
 }
 
 async function checkFileExists(filePath: string, content?: string): Promise<boolean> {
-	try {
-		const fs = await import('fs/promises');
-		if (content) {
-			const fileContent = await fs.readFile(filePath, 'utf-8');
-			return fileContent.includes(content);
-		} else {
-			await fs.access(filePath);
-			return true;
-		}
-	} catch {
-		return false;
-	}
+	return FileUtils.existsWithContent(filePath, content);
 }
 
 async function detectPackageManagers(): Promise<string[]> {
 	const managers = ['brew', 'apt-get', 'yum', 'dnf', 'zypper', 'pacman', 'apk', 'docker'];
 	const available: string[] = [];
 
-	const { exec } = await import('child_process');
-	const { promisify } = await import('util');
-	const execAsync = promisify(exec);
-
 	// Use Promise.allSettled for better error handling and parallelization
 	const results = await Promise.allSettled(
 		managers.map(async (manager) => {
-			try {
-				await execAsync(`which ${manager}`, { timeout: 2000 });
+			if (await ProcessUtils.commandExists(manager)) {
 				return manager;
-			} catch {
+			} else {
 				return null;
 			}
 		})
@@ -237,11 +217,9 @@ async function checkSudoRequired(): Promise<boolean> {
 		}
 
 		// Check if sudo is available
-		const { exec } = await import('child_process');
-		const { promisify } = await import('util');
-		const execAsync = promisify(exec);
-
-		await execAsync('which sudo', { timeout: 2000 });
+		if (!(await ProcessUtils.commandExists('sudo'))) {
+			return false;
+		}
 		return true;
 	} catch {
 		return false;

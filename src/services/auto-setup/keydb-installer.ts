@@ -3,9 +3,9 @@
  * Automatically detects and installs KeyDB based on the operating system
  */
 
+import * as os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import * as os from 'os';
 import { getLogger } from '../../core/logger.js';
 import { detectConnection } from '../queue/keydb-detector.js';
 import { AppError, ErrorCode, handleError, withErrorHandling, retry } from '../../utils/common.js';
@@ -13,6 +13,7 @@ import { detectPlatform, type PlatformInfo } from '../../utils/env-config.js';
 import { PermissionManager, withPermissionHandling } from '../../utils/permission-manager.js';
 import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
 import { waitForServiceReady, waitForDockerContainer } from '../../utils/condition-waiter.js';
+import { ProcessUtils } from '../../utils/shared-patterns.js';
 
 const execAsync = promisify(exec);
 const logger = getLogger('keydb-installer');
@@ -214,6 +215,14 @@ export class KeyDBInstaller {
 
 			for (const cmd of methods) {
 				try {
+					// Check if the command exists before trying to execute it
+					const baseCommand = cmd.split(' ')[0];
+					const commandAvailable = await this.commandExists(baseCommand);
+					if (!commandAvailable) {
+						logger.debug(`Command not available: ${baseCommand}`);
+						continue;
+					}
+
 					// Use retry for each start command
 					await retry(() => execAsync(cmd, { timeout: 10000 }), {
 						maxAttempts: 2,
@@ -590,17 +599,12 @@ export class KeyDBInstaller {
 	 * Check if KeyDB is installed
 	 */
 	private async isKeyDBInstalled(): Promise<boolean> {
-		try {
-			await execAsync('which keydb-server');
+		// Check for KeyDB first
+		if (await ProcessUtils.commandExists('keydb-server')) {
 			return true;
-		} catch {
-			try {
-				await execAsync('which redis-server');
-				return true;
-			} catch {
-				return false;
-			}
 		}
+		// Try Redis as fallback
+		return await ProcessUtils.commandExists('redis-server');
 	}
 
 	/**
@@ -608,7 +612,7 @@ export class KeyDBInstaller {
 	 */
 	private async getInstalledVersion(): Promise<string | undefined> {
 		try {
-			const { stdout } = await execAsync('keydb-server --version');
+			const { stdout } = await ProcessUtils.safeExec('keydb-server --version');
 			const match = stdout.match(/KeyDB server v=([^\s]+)/);
 			return match ? match[1] : undefined;
 		} catch {

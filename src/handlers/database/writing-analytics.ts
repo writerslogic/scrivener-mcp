@@ -3,7 +3,7 @@
  * Provides deep insights into writing patterns, productivity, and quality
  */
 
-import { AppError, ErrorCode } from '../../utils/common.js';
+import { toDatabaseError } from '../../utils/database.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 
@@ -110,7 +110,7 @@ export class WritingAnalytics {
 	 */
 	async analyzeWritingPatterns(): Promise<WritingPattern> {
 		if (!this.sqliteManager) {
-			throw new AppError('SQLite not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('SQLite not available'), 'database operations');
 		}
 
 		// Get writing sessions data
@@ -188,7 +188,7 @@ export class WritingAnalytics {
 	 */
 	async getProductivityTrends(days: number = 30): Promise<ProductivityTrend[]> {
 		if (!this.sqliteManager) {
-			throw new AppError('SQLite not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('SQLite not available'), 'database operations');
 		}
 
 		const trends = this.sqliteManager.query(`
@@ -407,7 +407,7 @@ export class WritingAnalytics {
 		onTrack: boolean;
 	}> {
 		if (!this.sqliteManager) {
-			throw new AppError('SQLite not available', ErrorCode.DATABASE_ERROR);
+			throw toDatabaseError(new Error('SQLite not available'), 'database operations');
 		}
 
 		// Get current word count

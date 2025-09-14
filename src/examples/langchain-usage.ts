@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Example usage of the Enhanced LangChain Service
  * Demonstrates effective use of LangChain for manuscript analysis and writing assistance
@@ -104,9 +105,9 @@ async function demonstrateLangChainUsage() {
 	console.log('3️⃣ Analyzing character development...');
 	const characterAnalysis = await langchainService.generateWithTemplate(
 		'character_development',
-		'Analyze Sarah\'s character arc and her relationship with David and Emma'
+		"Analyze Sarah's character arc and her relationship with David and Emma"
 	);
-	console.log('Character Analysis:', characterAnalysis.substring(0, 200) + '...\n');
+	console.log('Character Analysis:', `${characterAnalysis.content.substring(0, 200)}...\n`);
 
 	// 4. Plot structure analysis
 	console.log('4️⃣ Analyzing plot structure...');
@@ -114,7 +115,7 @@ async function demonstrateLangChainUsage() {
 		'plot_structure',
 		'Evaluate the three-act structure and identify the inciting incident'
 	);
-	console.log('Plot Analysis:', plotAnalysis.substring(0, 200) + '...\n');
+	console.log('Plot Analysis:', `${plotAnalysis.content.substring(0, 200)}...\n`);
 
 	// 5. Dialogue enhancement suggestions
 	console.log('5️⃣ Getting dialogue enhancement suggestions...');
@@ -122,7 +123,7 @@ async function demonstrateLangChainUsage() {
 		'dialogue_enhancement',
 		'Suggest improvements for the dialogue between Sarah and David in the coffee shop'
 	);
-	console.log('Dialogue Suggestions:', dialogueSuggestions.substring(0, 200) + '...\n');
+	console.log('Dialogue Suggestions:', `${dialogueSuggestions.content.substring(0, 200)}...\n`);
 
 	// 6. Advanced plot consistency check
 	console.log('6️⃣ Running advanced plot consistency check...');
@@ -141,7 +142,7 @@ async function demonstrateLangChainUsage() {
 	let streamedContent = '';
 	await langchainService.generateWithStreaming(
 		'Write the opening of Chapter 4',
-		searchResults.map(doc => doc.pageContent).join('\n'),
+		searchResults.map((doc) => doc.pageContent).join('\n'),
 		{
 			onToken: (token) => {
 				streamedContent += token;
@@ -160,13 +161,16 @@ async function demonstrateLangChainUsage() {
 
 	// 8. Conversational Q&A with memory
 	console.log('8️⃣ Testing conversational Q&A with memory...');
-	const qa1 = await langchainService.askWithMemory('Who is Emma and what is her relationship to Sarah?', 'session-1');
+	const qa1 = await langchainService.askWithMemory(
+		'Who is Emma and what is her relationship to Sarah?',
+		'session-1'
+	);
 	console.log('Q: Who is Emma and what is her relationship to Sarah?');
-	console.log('A:', qa1.answer.substring(0, 150) + '...\n');
+	console.log('A:', `${qa1.answer.substring(0, 150)}...\n`);
 
 	const qa2 = await langchainService.askWithMemory('What danger is she in?', 'session-1');
 	console.log('Q: What danger is she in? (using conversation memory)');
-	console.log('A:', qa2.answer.substring(0, 150) + '...\n');
+	console.log('A:', `${qa2.answer.substring(0, 150)}...\n`);
 
 	// 9. Multi-model fallback
 	console.log('9️⃣ Testing multi-model fallback...');
@@ -174,21 +178,21 @@ async function demonstrateLangChainUsage() {
 		'Suggest a plot twist for the next chapter',
 		['openai-gpt-4-turbo-preview'] // Add more model names when available
 	);
-	console.log('Plot Twist Suggestion:', fallbackResponse.substring(0, 150) + '...\n');
+	console.log('Plot Twist Suggestion:', `${fallbackResponse.substring(0, 150)}...\n`);
 
 	// 10. Comprehensive manuscript report
 	console.log('🔟 Generating comprehensive manuscript report...');
 	const report = await langchainService.generateManuscriptReport(documents);
 	console.log('\n📊 MANUSCRIPT REPORT');
-	console.log('=' .repeat(50));
+	console.log('='.repeat(50));
 	console.log('\n📝 Summary:');
-	console.log(report.summary.substring(0, 300) + '...');
+	console.log(`${report.summary.substring(0, 300)}...`);
 	console.log('\n💪 Strengths:');
-	report.strengths.slice(0, 3).forEach(s => console.log(`  • ${s}`));
+	report.strengths.slice(0, 3).forEach((s) => console.log(`  • ${s}`));
 	console.log('\n⚠️ Weaknesses:');
-	report.weaknesses.slice(0, 3).forEach(w => console.log(`  • ${w}`));
+	report.weaknesses.slice(0, 3).forEach((w) => console.log(`  • ${w}`));
 	console.log('\n💡 Recommendations:');
-	report.recommendations.slice(0, 3).forEach(r => console.log(`  • ${r}`));
+	report.recommendations.slice(0, 3).forEach((r) => console.log(`  • ${r}`));
 	console.log('\n📈 Statistics:');
 	console.log(`  • Total Words: ${report.statistics.totalWords}`);
 	console.log(`  • Total Chapters: ${report.statistics.totalChapters}`);
@@ -198,7 +202,7 @@ async function demonstrateLangChainUsage() {
 	console.log(`  • Target Audience: ${report.marketability.targetAudience}`);
 	console.log(`  • Comparable Titles: ${report.marketability.comparableTitles.join(', ')}`);
 	console.log(`  • Unique Selling Points:`);
-	report.marketability.uniqueSellingPoints.forEach(usp => console.log(`    - ${usp}`));
+	report.marketability.uniqueSellingPoints.forEach((usp) => console.log(`    - ${usp}`));
 
 	// Service statistics
 	console.log('\n📊 Service Statistics:');

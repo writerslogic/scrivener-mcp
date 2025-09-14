@@ -1,24 +1,35 @@
 /**
  * Advanced caching system with size limits and LRU eviction
+ * Utilizes common utilities for better error handling and logging
  */
 
-import type { CacheEntry, CacheOptions } from '../types/index.js';
+import { formatBytes, generateHash } from '../utils/common.js';
+import { getLogger } from './logger.js';
+import type { CacheEntry } from '../types/index.js';
+import type { CacheOptions } from '../types/index.js';
 
 export class LRUCache<T = unknown> {
 	private cache = new Map<string, CacheEntry<T>>();
 	private accessOrder: string[] = [];
 	private currentSize = 0;
+	private logger = getLogger('cache');
 
 	private readonly ttl: number;
 	private readonly maxSize: number;
 	private readonly maxEntries: number;
-	private readonly onEvict?: (key: string, value: T) => void;
+	private readonly onEvict?: <U>(key: string, value: U) => void;
 
 	constructor(options: CacheOptions = {}) {
 		this.ttl = options.ttl || 300_000; // 5 minutes default
 		this.maxSize = options.maxSize || 100 * 1024 * 1024; // 100MB default
 		this.maxEntries = options.maxEntries || 1000;
 		this.onEvict = options.onEvict;
+
+		this.logger.debug('Cache initialized', {
+			ttl: this.ttl,
+			maxSize: formatBytes(this.maxSize),
+			maxEntries: this.maxEntries,
+		});
 	}
 
 	/**
@@ -134,13 +145,18 @@ export class LRUCache<T = unknown> {
 	 * Get cache statistics
 	 */
 	getStats() {
-		return {
+		const stats = {
 			entries: this.cache.size,
 			size: this.currentSize,
 			maxSize: this.maxSize,
 			maxEntries: this.maxEntries,
 			utilization: this.currentSize / this.maxSize,
+			formattedSize: formatBytes(this.currentSize),
+			formattedMaxSize: formatBytes(this.maxSize),
 		};
+
+		this.logger.debug('Cache stats requested', stats);
+		return stats;
 	}
 
 	/**
@@ -221,13 +237,13 @@ export const caches = {
 		maxEntries: 500,
 	}),
 
-	analysis: new LRUCache<unknown>({
+	analysis: new LRUCache<Record<string, unknown>>({
 		ttl: 300_000, // 5 minutes
 		maxSize: 20 * 1024 * 1024, // 20MB
 		maxEntries: 100,
 	}),
 
-	queries: new LRUCache<unknown>({
+	queries: new LRUCache<Record<string, unknown>>({
 		ttl: 60_000, // 1 minute
 		maxSize: 10 * 1024 * 1024, // 10MB
 		maxEntries: 200,
@@ -235,38 +251,46 @@ export const caches = {
 };
 
 /**
- * Cache key builders
+ * Cache key builders - utilizes generateHash for consistent key generation
  */
 export const CacheKeys = {
-	document: (projectId: string, documentId: string) => `doc:${projectId}:${documentId}`,
+	document: (projectId: string, documentId: string) =>
+		`doc:${generateHash(`${projectId}:${documentId}`)}`,
 
-	analysis: (documentId: string, type: string) => `analysis:${documentId}:${type}`,
+	analysis: (documentId: string, type: string) =>
+		`analysis:${generateHash(`${documentId}:${type}`)}`,
 
-	query: (query: string, params: string) => `query:${query}:${params}`,
+	query: (query: string, params: string) => `query:${generateHash(`${query}:${params}`)}`,
 
 	structure: (projectId: string, folderId?: string) =>
-		folderId ? `structure:${projectId}:${folderId}` : `structure:${projectId}`,
+		folderId
+			? `structure:${generateHash(`${projectId}:${folderId}`)}`
+			: `structure:${generateHash(projectId)}`,
 };
 
 /**
  * Cache decorator for async functions
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function cached<T extends (...args: any[]) => Promise<any>>(
-	keyBuilder: (...args: Parameters<T>) => string,
-	cache: LRUCache<unknown> = caches.queries,
+export function cached<TArgs extends readonly unknown[], TReturn>(
+	keyBuilder: (...args: TArgs) => string,
+	cache: LRUCache<TReturn> = caches.queries as LRUCache<TReturn>,
 	ttl?: number
 ) {
-	return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
+	return function (
+		// Note: Using 'any' for decorator target - required for TypeScript decorator compatibility
+		_target: any, // Decorator target must be any per TypeScript spec 
+		_propertyKey: string, 
+		descriptor: PropertyDescriptor
+	) {
 		const originalMethod = descriptor.value;
 
-		descriptor.value = async function (...args: Parameters<T>): Promise<ReturnType<T>> {
+		descriptor.value = async function (...args: TArgs): Promise<TReturn> {
 			const key = keyBuilder(...args);
 
 			// Check cache
 			const cached = cache.get(key);
 			if (cached !== undefined) {
-				return cached as ReturnType<T>;
+				return cached;
 			}
 
 			// Execute and cache

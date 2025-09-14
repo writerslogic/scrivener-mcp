@@ -497,19 +497,21 @@ export function paginate<T>(
 /**
  * Convert database rows to nested structure
  */
-export function rowsToNested<T>(
-	rows: any[],
+export function rowsToNested<T extends Record<string, unknown>>(
+	rows: T[],
 	parentKey: string,
 	childKey: string,
 	childrenProp = 'children'
 ): T[] {
-	const map = new Map<any, any>();
+	const map = new Map<unknown, T & { [K in typeof childrenProp]: T[] }>();
 	const roots: T[] = [];
 
 	// First pass: create all objects
 	for (const row of rows) {
 		if (!map.has(row[parentKey])) {
-			map.set(row[parentKey], { ...row, [childrenProp]: [] });
+			map.set(row[parentKey], { ...row, [childrenProp]: [] } as T & {
+				[K in typeof childrenProp]: T[];
+			});
 		}
 	}
 
@@ -520,7 +522,7 @@ export function rowsToNested<T>(
 
 		if (child && parent && parent !== child) {
 			parent[childrenProp].push(child);
-		} else if (!row[childKey]) {
+		} else if (!row[childKey] && parent) {
 			roots.push(parent);
 		}
 	}

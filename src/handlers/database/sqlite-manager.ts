@@ -1,8 +1,17 @@
+import type { RunResult } from 'better-sqlite3';
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../../core/logger.js';
-import { AppError, ErrorCode, ensureDir } from '../../utils/common.js';
+import {
+	AppError,
+	ErrorCode,
+	ensureDir,
+	formatBytes,
+	formatDuration,
+	measureExecution,
+	retry,
+} from '../../utils/common.js';
 import { CachedSQLiteManager } from './keydb-cache.js';
 
 const logger = getLogger('sqlite-manager');
@@ -20,28 +29,45 @@ export class SQLiteManager {
 	}
 
 	/**
-	 * Initialize the SQLite database
+	 * Initialize the SQLite database with comprehensive error handling and performance monitoring
 	 */
 	async initialize(): Promise<void> {
-		// Ensure directory exists
-		const dir = path.dirname(this.dbPath);
-		await ensureDir(dir);
+		const initResult = await measureExecution(async () => {
+			// Ensure directory exists
+			const dir = path.dirname(this.dbPath);
+			await ensureDir(dir);
 
-		// Open database connection
-		this.db = new Database(this.dbPath);
+			// Open database connection with retry for robustness
+			await retry(
+				async () => {
+					this.db = new Database(this.dbPath);
 
-		// Enable WAL mode for better performance
-		this.db.exec('PRAGMA journal_mode = WAL;');
-		this.db.exec('PRAGMA synchronous = NORMAL;');
-		this.db.exec('PRAGMA cache_size = 1000;');
-		this.db.exec('PRAGMA temp_store = MEMORY;');
+					// Verify database is accessible
+					this.db.exec('SELECT 1');
+				},
+				{ maxAttempts: 3 }
+			);
 
-		// Initialize database schema
-		await this.createTables();
+			// Enable WAL mode and optimizations for better performance
+			this.db!.exec('PRAGMA journal_mode = WAL;');
+			this.db!.exec('PRAGMA synchronous = NORMAL;');
+			this.db!.exec('PRAGMA cache_size = 10000;'); // Increased cache
+			this.db!.exec('PRAGMA temp_store = MEMORY;');
+			this.db!.exec('PRAGMA mmap_size = 268435456;'); // 256MB mmap
 
-		// Initialize cached manager if KeyDB is available
-		this.cachedManager = new CachedSQLiteManager(this);
-		await this.cachedManager.initialize();
+			// Get database size for monitoring
+			const stats = fs.statSync(this.dbPath);
+			logger.info(`Database file size: ${formatBytes(stats.size)}`);
+
+			// Initialize database schema
+			await this.createTables();
+
+			// Initialize cached manager if KeyDB is available
+			this.cachedManager = new CachedSQLiteManager(this);
+			await this.cachedManager.initialize();
+		});
+
+		logger.info(`SQLite database initialized in ${formatDuration(initResult.ms)}`);
 	}
 
 	/**
@@ -52,8 +78,11 @@ export class SQLiteManager {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
 		}
 
-		// Documents table
-		this.db.exec(`
+		const createResult = await measureExecution(async () => {
+			// Execute all table creation in a transaction for atomicity and performance
+			this.db!.transaction(() => {
+				// Documents table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS documents (
 				id TEXT PRIMARY KEY,
 				title TEXT NOT NULL,
@@ -71,8 +100,8 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Characters table
-		this.db.exec(`
+				// Characters table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS characters (
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL UNIQUE,
@@ -88,8 +117,8 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Plot threads table
-		this.db.exec(`
+				// Plot threads table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS plot_threads (
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL,
@@ -102,8 +131,8 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Themes table
-		this.db.exec(`
+				// Themes table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS themes (
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL UNIQUE,
@@ -115,8 +144,8 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Writing sessions table
-		this.db.exec(`
+				// Writing sessions table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS writing_sessions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				date TEXT NOT NULL,
@@ -129,8 +158,8 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Document relationships table
-		this.db.exec(`
+				// Document relationships table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS document_relationships (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				source_document_id TEXT NOT NULL,
@@ -144,8 +173,8 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Content analysis table
-		this.db.exec(`
+				// Content analysis table
+				this.db!.exec(`
 			CREATE TABLE IF NOT EXISTS content_analysis (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				document_id TEXT NOT NULL,
@@ -156,19 +185,27 @@ export class SQLiteManager {
 			);
 		`);
 
-		// Create indexes for better performance
-		this.db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type);`);
-		this.db.exec(
-			`CREATE INDEX IF NOT EXISTS idx_documents_modified ON documents (modified_at);`
-		);
-		this.db.exec(`CREATE INDEX IF NOT EXISTS idx_characters_name ON characters (name);`);
-		this.db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_date ON writing_sessions (date);`);
-		this.db.exec(
-			`CREATE INDEX IF NOT EXISTS idx_analysis_document ON content_analysis (document_id);`
-		);
-		this.db.exec(
-			`CREATE INDEX IF NOT EXISTS idx_analysis_type ON content_analysis (analysis_type);`
-		);
+				// Create indexes for better performance
+				this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type);`);
+				this.db!.exec(
+					`CREATE INDEX IF NOT EXISTS idx_documents_modified ON documents (modified_at);`
+				);
+				this.db!.exec(
+					`CREATE INDEX IF NOT EXISTS idx_characters_name ON characters (name);`
+				);
+				this.db!.exec(
+					`CREATE INDEX IF NOT EXISTS idx_sessions_date ON writing_sessions (date);`
+				);
+				this.db!.exec(
+					`CREATE INDEX IF NOT EXISTS idx_analysis_document ON content_analysis (document_id);`
+				);
+				this.db!.exec(
+					`CREATE INDEX IF NOT EXISTS idx_analysis_type ON content_analysis (analysis_type);`
+				);
+			})();
+		});
+
+		logger.info(`Database tables created in ${formatDuration(createResult.ms)}`);
 	}
 
 	/**
@@ -221,7 +258,7 @@ export class SQLiteManager {
 	/**
 	 * Execute an insert/update/delete statement
 	 */
-	execute(sql: string, params: unknown[] = []): Database.RunResult {
+	execute(sql: string, params: unknown[] = []): RunResult {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
 		}

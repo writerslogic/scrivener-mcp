@@ -3,24 +3,63 @@
  * Demonstrates cutting-edge capabilities for manuscript analysis
  */
 
-import { ChatOpenAI } from '@langchain/openai';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import type { Document as LangchainDocument } from 'langchain/document';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { PromptTemplate, ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
-import { RunnableSequence, RunnableMap, RunnableLambda } from '@langchain/core/runnables';
-import { StringOutputParser, JsonOutputParser } from '@langchain/core/output_parsers';
-import { BufferWindowMemory } from 'langchain/memory';
-import { createStuffDocumentsChain } from 'langchain/chains/combine_documents';
-import { createRetrievalChain } from 'langchain/chains/retrieval';
-import { pull } from 'langchain/hub';
 import type { BaseLanguageModel } from '@langchain/core/language_models/base';
-import type { ScrivenerDocument } from '../../types/index.js';
-import { getLogger } from '../../core/logger.js';
-import { createError, ErrorCode } from '../../core/errors.js';
-import { z } from 'zod';
+import { JsonOutputParser, StringOutputParser } from '@langchain/core/output_parsers';
+import { ChatPromptTemplate, MessagesPlaceholder, PromptTemplate } from '@langchain/core/prompts';
+import { RunnableMap, RunnableSequence } from '@langchain/core/runnables';
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
+import type { Document as LangchainDocument } from 'langchain/document';
+import { BufferWindowMemory } from 'langchain/memory';
 import { StructuredOutputParser } from 'langchain/output_parsers';
+import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+import { MemoryVectorStore } from 'langchain/vectorstores/memory';
+import { z } from 'zod';
+import { createError, ErrorCode } from '../../core/errors.js';
+import { getLogger } from '../../core/logger.js';
+import type { ScrivenerDocument } from '../../types/index.js';
+
+// Interfaces for advanced features
+interface Entity {
+	name: string;
+	type: 'character' | 'location' | 'organization' | 'event' | 'object';
+	context: string;
+	mentions: number;
+}
+
+interface Relationship {
+	entity1: string;
+	entity2: string;
+	relationship: string;
+	strength: number;
+	type: 'character' | 'location' | 'object' | 'event';
+}
+
+interface WritingStyleAnalysis {
+	voice: {
+		tone: string;
+		perspective: string;
+		consistency: number;
+	};
+	structure: {
+		sentenceVariety: number;
+		averageLength: number;
+		complexity: string;
+	};
+	vocabulary: {
+		level: string;
+		variety: number;
+		distinctiveness: number;
+	};
+	pacing: {
+		rhythm: string;
+		flow: number;
+		tension: number;
+	};
+	literaryDevices: string[];
+	strengths: string[];
+	weaknesses: string[];
+	overallScore: number;
+}
 
 // Advanced schemas for structured output
 const CharacterAnalysisSchema = z.object({
@@ -28,49 +67,70 @@ const CharacterAnalysisSchema = z.object({
 	role: z.enum(['protagonist', 'antagonist', 'supporting', 'minor']).describe('Character role'),
 	arc: z.string().describe('Character arc description'),
 	traits: z.array(z.string()).describe('Key personality traits'),
-	relationships: z.array(z.object({
-		character: z.string(),
-		relationship: z.string(),
-		dynamic: z.enum(['static', 'evolving', 'deteriorating', 'improving']),
-	})).describe('Relationships with other characters'),
+	relationships: z
+		.array(
+			z.object({
+				character: z.string(),
+				relationship: z.string(),
+				dynamic: z.enum(['static', 'evolving', 'deteriorating', 'improving']),
+			})
+		)
+		.describe('Relationships with other characters'),
 	motivations: z.array(z.string()).describe('Core motivations'),
 	conflicts: z.array(z.string()).describe('Internal and external conflicts'),
 	symbolism: z.string().optional().describe('Symbolic significance'),
-	development: z.object({
-		beginning: z.string().describe('Character state at story beginning'),
-		middle: z.string().describe('Character state at story middle'),
-		end: z.string().describe('Character state at story end'),
-	}).describe('Character development through story'),
+	development: z
+		.object({
+			beginning: z.string().describe('Character state at story beginning'),
+			middle: z.string().describe('Character state at story middle'),
+			end: z.string().describe('Character state at story end'),
+		})
+		.describe('Character development through story'),
 });
 
 const PlotStructureSchema = z.object({
-	acts: z.array(z.object({
-		number: z.number(),
-		title: z.string(),
-		summary: z.string(),
-		keyEvents: z.array(z.string()),
-		turningPoint: z.string().optional(),
-		tension: z.number().min(1).max(10).describe('Tension level 1-10'),
-	})).describe('Story acts'),
+	acts: z
+		.array(
+			z.object({
+				number: z.number(),
+				title: z.string(),
+				summary: z.string(),
+				keyEvents: z.array(z.string()),
+				turningPoint: z.string().optional(),
+				tension: z.number().min(1).max(10).describe('Tension level 1-10'),
+			})
+		)
+		.describe('Story acts'),
 	incitingIncident: z.string().describe('The event that starts the story'),
 	climax: z.string().describe('The story climax'),
 	resolution: z.string().describe('How the story resolves'),
-	subplots: z.array(z.object({
-		title: z.string(),
-		summary: z.string(),
-		resolution: z.string().optional(),
-		connection: z.string().describe('How it connects to main plot'),
-	})).describe('Subplots'),
+	subplots: z
+		.array(
+			z.object({
+				title: z.string(),
+				summary: z.string(),
+				resolution: z.string().optional(),
+				connection: z.string().describe('How it connects to main plot'),
+			})
+		)
+		.describe('Subplots'),
 	themes: z.array(z.string()).describe('Major themes'),
-	pacing: z.object({
-		overall: z.enum(['too slow', 'slow', 'balanced', 'fast', 'too fast']),
-		recommendations: z.array(z.string()),
-	}).describe('Pacing analysis'),
+	pacing: z
+		.object({
+			overall: z.enum(['too slow', 'slow', 'balanced', 'fast', 'too fast']),
+			recommendations: z.array(z.string()),
+		})
+		.describe('Pacing analysis'),
 });
 
 const WritingStyleSchema = z.object({
 	voice: z.object({
-		perspective: z.enum(['first-person', 'second-person', 'third-person-limited', 'third-person-omniscient']),
+		perspective: z.enum([
+			'first-person',
+			'second-person',
+			'third-person-limited',
+			'third-person-omniscient',
+		]),
 		tone: z.array(z.string()).describe('Dominant tones (e.g., humorous, serious, ironic)'),
 		consistency: z.number().min(1).max(10).describe('Voice consistency score'),
 	}),
@@ -138,7 +198,7 @@ export class AdvancedLangChainFeatures {
 		try {
 			// Build context from documents
 			const context = documents
-				.map(doc => doc.content)
+				.map((doc) => doc.content)
 				.join('\n\n')
 				.substring(0, 10000); // Limit context size
 
@@ -152,11 +212,7 @@ export class AdvancedLangChainFeatures {
 				Provide a comprehensive character analysis.
 			`);
 
-			const chain = RunnableSequence.from([
-				prompt,
-				this.llm,
-				this.characterParser,
-			]);
+			const chain = RunnableSequence.from([prompt, this.llm, this.characterParser]);
 
 			const result = await chain.invoke({
 				characterName,
@@ -196,11 +252,7 @@ export class AdvancedLangChainFeatures {
 				Provide a detailed plot structure analysis including acts, pacing, and themes.
 			`);
 
-			const chain = RunnableSequence.from([
-				prompt,
-				this.llm,
-				this.plotParser,
-			]);
+			const chain = RunnableSequence.from([prompt, this.llm, this.plotParser]);
 
 			const result = await chain.invoke({
 				context,
@@ -227,7 +279,7 @@ export class AdvancedLangChainFeatures {
 			// Sample from different parts of the manuscript
 			const samples = documents
 				.filter((_, index) => index % Math.ceil(documents.length / 5) === 0)
-				.map(doc => doc.content?.substring(0, 2000))
+				.map((doc) => doc.content?.substring(0, 2000))
 				.join('\n\n---\n\n');
 
 			const prompt = PromptTemplate.fromTemplate(`
@@ -240,11 +292,7 @@ export class AdvancedLangChainFeatures {
 				Provide a comprehensive writing style analysis.
 			`);
 
-			const chain = RunnableSequence.from([
-				prompt,
-				this.llm,
-				this.styleParser,
-			]);
+			const chain = RunnableSequence.from([prompt, this.llm, this.styleParser]);
 
 			const result = await chain.invoke({
 				samples,
@@ -332,8 +380,10 @@ export class AdvancedLangChainFeatures {
 		styles: Array<'literary' | 'commercial' | 'minimalist' | 'ornate' | 'noir' | 'comedic'>
 	): Promise<Record<string, string>> {
 		const stylePrompts = {
-			literary: 'Rewrite in a literary fiction style with rich metaphors and deep introspection',
-			commercial: 'Rewrite in a commercial fiction style with clear, engaging prose and strong hooks',
+			literary:
+				'Rewrite in a literary fiction style with rich metaphors and deep introspection',
+			commercial:
+				'Rewrite in a commercial fiction style with clear, engaging prose and strong hooks',
 			minimalist: 'Rewrite in a minimalist style like Hemingway with short, direct sentences',
 			ornate: 'Rewrite in an ornate Victorian style with elaborate descriptions',
 			noir: 'Rewrite in a noir style with cynical tone and atmospheric descriptions',
@@ -352,11 +402,7 @@ export class AdvancedLangChainFeatures {
 				Rewritten version:
 			`);
 
-			const chain = RunnableSequence.from([
-				prompt,
-				this.llm,
-				new StringOutputParser(),
-			]);
+			const chain = RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
 
 			alternatives[style] = await chain.invoke({
 				stylePrompt: stylePrompts[style],
@@ -378,12 +424,14 @@ export class AdvancedLangChainFeatures {
 			maxResults?: number;
 			includeContext?: boolean;
 		} = {}
-	): Promise<Array<{
-		document: ScrivenerDocument;
-		similarity: number;
-		excerpt: string;
-		analysis: string;
-	}>> {
+	): Promise<
+		Array<{
+			document: ScrivenerDocument;
+			similarity: number;
+			excerpt: string;
+			analysis: string;
+		}>
+	> {
 		if (!this.vectorStore) {
 			// Build vector store from documents
 			const splitter = new RecursiveCharacterTextSplitter({
@@ -416,17 +464,17 @@ export class AdvancedLangChainFeatures {
 		// Analyze each result
 		const analyzed = await Promise.all(
 			filtered.map(async ([doc, score]) => {
-				const sourceDoc = documents.find(d => d.id === doc.metadata.documentId);
+				const sourceDoc = documents.find((d) => d.id === doc.metadata.documentId);
 				if (!sourceDoc) return null;
 
 				let analysis = '';
 				if (options.includeContext) {
 					const prompt = PromptTemplate.fromTemplate(`
 						Compare these two scenes and explain their similarities:
-						
+
 						Scene 1: {scene1}
 						Scene 2: {scene2}
-						
+
 						Brief analysis:
 					`);
 
@@ -445,7 +493,7 @@ export class AdvancedLangChainFeatures {
 				return {
 					document: sourceDoc,
 					similarity: score,
-					excerpt: doc.pageContent.substring(0, 200) + '...',
+					excerpt: `${doc.pageContent.substring(0, 200)}...`,
 					analysis,
 				};
 			})
@@ -467,25 +515,24 @@ export class AdvancedLangChainFeatures {
 		// const basePrompt = await pull('manuscript-editor');
 
 		const editorPrompt = ChatPromptTemplate.fromMessages([
-			['system', `You are an experienced developmental editor specializing in fiction manuscripts.
+			[
+				'system',
+				`You are an experienced developmental editor specializing in fiction manuscripts.
 				Your role is to:
 				1. Identify structural issues in the narrative
 				2. Suggest improvements to character arcs
 				3. Point out plot inconsistencies
 				4. Recommend pacing adjustments
 				5. Highlight themes that need strengthening
-				
-				Always provide actionable, specific feedback with examples.`],
+
+				Always provide actionable, specific feedback with examples.`,
+			],
 			['user', '{manuscript_section}'],
 			['assistant', `I'll analyze this section as a developmental editor.`],
 			['user', '{question}'],
 		]);
 
-		const chain = RunnableSequence.from([
-			editorPrompt,
-			this.llm,
-			new StringOutputParser(),
-		]);
+		const chain = RunnableSequence.from([editorPrompt, this.llm, new StringOutputParser()]);
 
 		return {
 			analyze: async (section: string, question: string) => {
@@ -497,13 +544,13 @@ export class AdvancedLangChainFeatures {
 			compareVersions: async (original: string, revised: string) => {
 				const comparePrompt = PromptTemplate.fromTemplate(`
 					As a developmental editor, compare these two versions:
-					
+
 					ORIGINAL:
 					{original}
-					
+
 					REVISED:
 					{revised}
-					
+
 					Provide:
 					1. What improved
 					2. What still needs work
@@ -533,17 +580,18 @@ export class AdvancedLangChainFeatures {
 		symbols: Array<{ symbol: string; meaning: string; appearances: string[] }>;
 		styleGuide: Record<string, string>;
 	}> {
-		const fullText = documents.map(d => d.content).join('\n\n');
+		const fullText = documents.map((d) => d.content).join('\n\n');
 
 		// Generate each section of the story bible
-		const [characters, worldbuilding, timeline, themes, symbols, styleGuide] = await Promise.all([
-			this.extractCharacters(fullText),
-			this.extractWorldbuilding(fullText),
-			this.extractTimeline(documents),
-			this.extractThemes(fullText),
-			this.extractSymbols(fullText),
-			this.extractStyleGuide(fullText),
-		]);
+		const [characters, worldbuilding, timeline, themes, symbols, styleGuide] =
+			await Promise.all([
+				this.extractCharacters(fullText),
+				this.extractWorldbuilding(fullText),
+				this.extractTimeline(documents),
+				this.extractThemes(fullText),
+				this.extractSymbols(fullText),
+				this.extractStyleGuide(fullText),
+			]);
 
 		return {
 			characters,
@@ -559,7 +607,7 @@ export class AdvancedLangChainFeatures {
 		const prompt = PromptTemplate.fromTemplate(`
 			Extract all characters from this manuscript and create detailed profiles:
 			{text}
-			
+
 			For each character include:
 			- Full name and aliases
 			- Physical description
@@ -567,15 +615,11 @@ export class AdvancedLangChainFeatures {
 			- Background
 			- Relationships
 			- Arc/journey
-			
+
 			Format as JSON.
 		`);
 
-		const chain = RunnableSequence.from([
-			prompt,
-			this.llm,
-			new JsonOutputParser(),
-		]);
+		const chain = RunnableSequence.from([prompt, this.llm, new JsonOutputParser()]);
 
 		return await chain.invoke({ text: text.substring(0, 10000) });
 	}
@@ -584,7 +628,7 @@ export class AdvancedLangChainFeatures {
 		const prompt = PromptTemplate.fromTemplate(`
 			Extract worldbuilding details from this manuscript:
 			{text}
-			
+
 			Include:
 			- Settings and locations
 			- Time period
@@ -592,15 +636,11 @@ export class AdvancedLangChainFeatures {
 			- Rules and systems
 			- Technology level
 			- Cultural elements
-			
+
 			Format as JSON.
 		`);
 
-		const chain = RunnableSequence.from([
-			prompt,
-			this.llm,
-			new JsonOutputParser(),
-		]);
+		const chain = RunnableSequence.from([prompt, this.llm, new JsonOutputParser()]);
 
 		return await chain.invoke({ text: text.substring(0, 10000) });
 	}
@@ -615,19 +655,15 @@ export class AdvancedLangChainFeatures {
 			const prompt = PromptTemplate.fromTemplate(`
 				Extract the key plot event from this chapter:
 				{content}
-				
+
 				Provide:
 				1. The main event (one sentence)
 				2. Its significance to the overall story
-				
+
 				Format: EVENT|SIGNIFICANCE
 			`);
 
-			const chain = RunnableSequence.from([
-				prompt,
-				this.llm,
-				new StringOutputParser(),
-			]);
+			const chain = RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
 
 			const result = await chain.invoke({
 				content: doc.content?.substring(0, 2000),
@@ -650,18 +686,17 @@ export class AdvancedLangChainFeatures {
 		const prompt = PromptTemplate.fromTemplate(`
 			Identify the major themes in this manuscript:
 			{text}
-			
+
 			List 5-10 major themes, one per line.
 		`);
 
-		const chain = RunnableSequence.from([
-			prompt,
-			this.llm,
-			new StringOutputParser(),
-		]);
+		const chain = RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
 
 		const result = await chain.invoke({ text: text.substring(0, 10000) });
-		return result.split('\n').filter(line => line.trim()).map(line => line.trim());
+		return result
+			.split('\n')
+			.filter((line) => line.trim())
+			.map((line) => line.trim());
 	}
 
 	private async extractSymbols(
@@ -670,7 +705,7 @@ export class AdvancedLangChainFeatures {
 		const prompt = PromptTemplate.fromTemplate(`
 			Identify recurring symbols and motifs in this manuscript:
 			{text}
-			
+
 			For each symbol provide:
 			SYMBOL: [name]
 			MEANING: [what it represents]
@@ -678,24 +713,20 @@ export class AdvancedLangChainFeatures {
 			---
 		`);
 
-		const chain = RunnableSequence.from([
-			prompt,
-			this.llm,
-			new StringOutputParser(),
-		]);
+		const chain = RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
 
 		const result = await chain.invoke({ text: text.substring(0, 10000) });
-		
+
 		const symbols: Array<{ symbol: string; meaning: string; appearances: string[] }> = [];
 		const symbolBlocks = result.split('---');
-		
+
 		for (const block of symbolBlocks) {
 			const lines = block.trim().split('\n');
 			if (lines.length >= 3) {
 				const symbol = lines[0].replace('SYMBOL:', '').trim();
 				const meaning = lines[1].replace('MEANING:', '').trim();
 				const appears = lines[2].replace('APPEARS:', '').trim();
-				
+
 				if (symbol && meaning) {
 					symbols.push({
 						symbol,
@@ -713,7 +744,7 @@ export class AdvancedLangChainFeatures {
 		const prompt = PromptTemplate.fromTemplate(`
 			Create a style guide from this manuscript sample:
 			{text}
-			
+
 			Include:
 			- POV and tense
 			- Dialogue style
@@ -721,21 +752,17 @@ export class AdvancedLangChainFeatures {
 			- Tone guidelines
 			- Vocabulary level
 			- Sentence structure preferences
-			
+
 			Format as key: value pairs.
 		`);
 
-		const chain = RunnableSequence.from([
-			prompt,
-			this.llm,
-			new StringOutputParser(),
-		]);
+		const chain = RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
 
 		const result = await chain.invoke({ text: text.substring(0, 5000) });
-		
+
 		const styleGuide: Record<string, string> = {};
 		const lines = result.split('\n');
-		
+
 		for (const line of lines) {
 			const [key, value] = line.split(':');
 			if (key && value) {
@@ -767,20 +794,19 @@ export class AdvancedLangChainFeatures {
 		specific_feedback: Record<string, string>;
 	}> {
 		const readerPrompt = ChatPromptTemplate.fromMessages([
-			['system', `You are a beta reader with these characteristics:
+			[
+				'system',
+				`You are a beta reader with these characteristics:
 				- Preferred genre: {genre_preference}
 				- Reading level: {reading_level}
 				- Focus area: {focus}
-				
-				Provide honest, constructive feedback as a real reader would.`],
+
+				Provide honest, constructive feedback as a real reader would.`,
+			],
 			['user', '{content}'],
 		]);
 
-		const chain = RunnableSequence.from([
-			readerPrompt,
-			this.llm,
-			new StringOutputParser(),
-		]);
+		const chain = RunnableSequence.from([readerPrompt, this.llm, new StringOutputParser()]);
 
 		const response = await chain.invoke({
 			genre_preference: readerProfile.genre_preference,
@@ -806,22 +832,111 @@ export class AdvancedLangChainFeatures {
 		const structuredPrompt = PromptTemplate.fromTemplate(`
 			Based on this beta reader feedback:
 			{feedback}
-			
+
 			{format_instructions}
-			
+
 			Structure the feedback accordingly.
 		`);
 
-		const structuredChain = RunnableSequence.from([
-			structuredPrompt,
-			this.llm,
-			feedbackParser,
-		]);
+		const structuredChain = RunnableSequence.from([structuredPrompt, this.llm, feedbackParser]);
 
 		return await structuredChain.invoke({
 			feedback: response,
 			format_instructions: feedbackParser.getFormatInstructions(),
 		});
+	}
+
+	/**
+	 * Extract entities from text
+	 */
+	async extractEntities(text: string): Promise<Entity[]> {
+		const prompt = ChatPromptTemplate.fromTemplate(`
+			Extract all named entities from the following text:
+			{text}
+
+			Return entities in categories: characters, locations, organizations, events, objects.
+			Format as JSON array with fields: name, type, context, mentions
+		`);
+
+		const chain = prompt.pipe(this.llm).pipe(new JsonOutputParser());
+
+		try {
+			const result = await chain.invoke({ text });
+			return Array.isArray(result) ? result : [];
+		} catch (error) {
+			this.logger.error('Failed to extract entities', { error });
+			return [];
+		}
+	}
+
+	/**
+	 * Analyze relationships between entities
+	 */
+	async analyzeRelationships(entities: Entity[]): Promise<Relationship[]> {
+		if (!entities || entities.length === 0) return [];
+
+		const prompt = ChatPromptTemplate.fromTemplate(`
+			Analyze relationships between these entities:
+			{entities}
+
+			Identify:
+			1. Character relationships (family, romantic, adversarial, etc.)
+			2. Location associations (who lives/works where)
+			3. Object ownership or significance
+			4. Event participation
+
+			Return as JSON array with fields: entity1, entity2, relationship, strength, type
+		`);
+
+		const chain = prompt.pipe(this.llm).pipe(new JsonOutputParser());
+
+		try {
+			const result = await chain.invoke({
+				entities: JSON.stringify(entities),
+			});
+			return Array.isArray(result) ? result : [];
+		} catch (error) {
+			this.logger.error('Failed to analyze relationships', { error });
+			return [];
+		}
+	}
+
+	/**
+	 * Analyze writing style
+	 */
+	async analyzeWritingStyle(text: string): Promise<WritingStyleAnalysis> {
+		const prompt = ChatPromptTemplate.fromTemplate(`
+			Analyze the writing style of this text:
+			{text}
+
+			Evaluate:
+			1. Voice and tone
+			2. Sentence structure and variety
+			3. Vocabulary and word choice
+			4. Pacing and rhythm
+			5. Literary devices used
+			6. Strengths and weaknesses
+
+			Return detailed analysis as JSON.
+		`);
+
+		const chain = prompt.pipe(this.llm).pipe(new JsonOutputParser());
+
+		try {
+			return await chain.invoke({ text });
+		} catch (error) {
+			this.logger.error('Failed to analyze writing style', { error });
+			return {
+				voice: { tone: 'unknown', perspective: 'unknown', consistency: 0 },
+				structure: { sentenceVariety: 0, averageLength: 0, complexity: 'unknown' },
+				vocabulary: { level: 'unknown', variety: 0, distinctiveness: 0 },
+				pacing: { rhythm: 'unknown', flow: 0, tension: 0 },
+				literaryDevices: [],
+				strengths: [],
+				weaknesses: ['Analysis failed'],
+				overallScore: 0,
+			};
+		}
 	}
 }
 

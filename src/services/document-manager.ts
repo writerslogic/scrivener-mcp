@@ -2,7 +2,6 @@
  * Document management service for Scrivener projects
  */
 
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import { LRUCache } from '../core/cache.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
@@ -15,8 +14,23 @@ import type {
 	MetaDataItem,
 	ProjectStructure,
 } from '../types/internal.js';
-import { ensureDir } from '../utils/common.js';
+import {
+	ensureDir,
+	handleError,
+	isValidUUID,
+	safeReadFile,
+	truncate,
+	validateInput,
+} from '../utils/common.js';
 import { generateScrivenerUUID, getDocumentPath } from '../utils/scrivener-utils.js';
+import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
+import {
+	addBinderItem,
+	findBinderItemById,
+	iterateBinderItems,
+	removeBinderItem,
+	validateProjectStructure,
+} from './document-manager-helpers.js';
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
 
@@ -27,6 +41,9 @@ export class DocumentManager {
 	private rtfHandler: RTFHandler;
 	private documentCache: LRUCache<RTFContent>;
 	private projectStructure?: ProjectStructure;
+	private operationQueue: Map<string, Promise<unknown>>;
+	private readonly batchSize = 10;
+	private pendingWrites: Map<string, { content: RTFContent | string; timestamp: number }>;
 
 	constructor(projectPath: string) {
 		this.projectPath = projectPath;
@@ -38,18 +55,65 @@ export class DocumentManager {
 				logger.debug(`Document ${key} evicted from cache`);
 			},
 		});
+		this.operationQueue = new Map();
+		this.pendingWrites = new Map();
+
+		// Auto-flush pending writes every 5 seconds
+		setInterval(() => this.flushPendingWrites(), 5000);
 	}
 
 	setProjectStructure(structure: ProjectStructure): void {
 		this.projectStructure = structure;
 	}
 
+	getProjectStructureData(): ProjectStructure | undefined {
+		return this.projectStructure;
+	}
+
 	/**
-	 * Read document content
+	 * Read document content with deduplication
 	 */
 	async readDocument(documentId: string): Promise<string> {
-		const rtfContent = await this.readDocumentFormatted(documentId);
-		return rtfContent.plainText || '';
+		try {
+			// Validate input
+			validateInput(
+				{ documentId },
+				{
+					documentId: { type: 'string', required: true },
+				}
+			);
+
+			if (!isValidUUID(documentId)) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Invalid document ID format'
+				);
+			}
+
+			return this.dedupedOperation(`read:${documentId}`, async () => {
+				const rtfContent = await this.readDocumentFormatted(documentId);
+				return rtfContent.plainText || '';
+			});
+		} catch (error) {
+			throw handleError(error, 'readDocument');
+		}
+	}
+
+	/**
+	 * Deduplicate operations to prevent redundant work
+	 */
+	private async dedupedOperation<T>(key: string, operation: () => Promise<T>): Promise<T> {
+		if (this.operationQueue.has(key)) {
+			return this.operationQueue.get(key) as Promise<T>;
+		}
+
+		const promise = operation().finally(() => {
+			this.operationQueue.delete(key);
+		});
+
+		this.operationQueue.set(key, promise);
+		return promise;
 	}
 
 	/**
@@ -60,12 +124,16 @@ export class DocumentManager {
 		logger.debug(`Reading raw document from ${filePath}`);
 
 		try {
-			return await fs.readFile(filePath, 'utf-8');
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+			if (await FileUtils.exists(filePath)) {
+				return await safeReadFile(filePath, 'utf-8');
+			} else {
 				logger.warn(`Document ${documentId} not found at ${filePath}`);
 				return '';
 			}
+		} catch (error) {
+			logger.error(`Error reading document ${documentId}:`, {
+				error: error instanceof Error ? error.message : String(error),
+			});
 			throw error;
 		}
 	}
@@ -74,60 +142,139 @@ export class DocumentManager {
 	 * Read document with formatting preserved
 	 */
 	async readDocumentFormatted(documentId: string): Promise<RTFContent> {
-		const cacheKey = `doc:${documentId}`;
-		const cached = this.documentCache.get(cacheKey);
-
-		if (cached) {
-			logger.debug(`Cache hit for document ${documentId}`);
-			return cached;
-		}
-
-		const filePath = getDocumentPath(this.projectPath, documentId);
-		logger.debug(`Reading document from ${filePath}`);
-
 		try {
-			const rtfString = await fs.readFile(filePath, 'utf-8');
+			// Validate input
+			validateInput(
+				{ documentId },
+				{
+					documentId: { type: 'string', required: true },
+				}
+			);
+
+			if (!isValidUUID(documentId)) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Invalid document ID format'
+				);
+			}
+
+			const cacheKey = `doc:${documentId}`;
+			const cached = this.documentCache.get(cacheKey);
+
+			if (cached) {
+				logger.debug(`Cache hit for document ${documentId}`);
+				return cached;
+			}
+
+			// Use PathUtils for path operations
+			const filePath = PathUtils.build(
+				this.projectPath,
+				'Files',
+				'Data',
+				`${documentId}`,
+				'content.rtf'
+			);
+			logger.debug(`Reading document from ${filePath}`);
+
+			const rtfString = await safeReadFile(filePath, 'utf-8');
 			const rtfContent = await this.rtfHandler.parseRTF(rtfString);
 			this.documentCache.set(cacheKey, rtfContent);
 			return rtfContent;
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-				logger.warn(`Document ${documentId} not found at ${filePath}`);
+				logger.warn(`Document ${documentId} not found`);
 				return {
 					plainText: '',
 					formattedText: [],
 					metadata: {},
 				};
 			}
-			throw error;
+			throw handleError(error, 'readDocumentFormatted');
 		}
 	}
 
 	/**
-	 * Write document content
+	 * Write document content with batching and deduplication
 	 */
-	async writeDocument(documentId: string, content: string | RTFContent): Promise<void> {
-		const filePath = getDocumentPath(this.projectPath, documentId);
-		logger.debug(`Writing document to ${filePath}`);
-
-		// Ensure the directory exists
-		const dir = path.dirname(filePath);
-		await ensureDir(dir);
-
-		// Convert to RTF if needed
-		let rtfContent: RTFContent;
-		if (typeof content === 'string') {
-			rtfContent = {
-				plainText: content,
-				formattedText: [],
-				metadata: {},
-			};
-		} else {
-			rtfContent = content;
+	async writeDocument(
+		documentId: string,
+		content: string | RTFContent,
+		immediate = false
+	): Promise<void> {
+		if (immediate) {
+			return this.writeDocumentImmediate(documentId, content);
 		}
 
-		await this.rtfHandler.writeRTF(filePath, rtfContent);
-		return; // writeRTF handles the file writing
+		// Queue for batch writing
+		this.pendingWrites.set(documentId, {
+			content,
+			timestamp: Date.now(),
+		});
+
+		// Flush if queue is full
+		if (this.pendingWrites.size >= this.batchSize) {
+			await this.flushPendingWrites();
+		}
+	}
+
+	/**
+	 * Write document immediately
+	 */
+	private async writeDocumentImmediate(
+		documentId: string,
+		content: string | RTFContent
+	): Promise<void> {
+		return this.dedupedOperation(`write:${documentId}`, async () => {
+			const filePath = getDocumentPath(this.projectPath, documentId);
+			logger.debug(`Writing document to ${filePath}`);
+
+			// Ensure the directory exists
+			const dir = path.dirname(filePath);
+			await ensureDir(dir);
+
+			// Convert to RTF if needed
+			let rtfContent: RTFContent;
+			if (typeof content === 'string') {
+				rtfContent = {
+					plainText: content,
+					formattedText: [],
+					metadata: {},
+				};
+			} else {
+				rtfContent = content;
+			}
+
+			await this.rtfHandler.writeRTF(filePath, rtfContent);
+
+			// Update cache
+			const cacheKey = `doc:${documentId}`;
+			this.documentCache.set(cacheKey, rtfContent);
+		});
+	}
+
+	/**
+	 * Flush pending writes in batches
+	 */
+	private async flushPendingWrites(): Promise<void> {
+		if (this.pendingWrites.size === 0) return;
+
+		const writes = Array.from(this.pendingWrites.entries());
+		this.pendingWrites.clear();
+
+		// Process in parallel batches
+		const batches = [];
+		for (let i = 0; i < writes.length; i += this.batchSize) {
+			batches.push(writes.slice(i, i + this.batchSize));
+		}
+
+		for (const batch of batches) {
+			await Promise.all(
+				batch.map(([documentId, { content }]) =>
+					this.writeDocumentImmediate(documentId, content)
+				)
+			);
+		}
 	}
 
 	/**
@@ -139,188 +286,226 @@ export class DocumentManager {
 		parentId?: string,
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
-		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
-		}
-
-		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
-		const id = generateScrivenerUUID();
-
-		// Create the document file if it's a text document
-		if (type === DOCUMENT_TYPES.TEXT) {
-			await this.writeDocument(id, content);
-		}
-
-		// Create the binder item
-		const newItem: BinderItem = {
-			UUID: id,
-			Type: type,
-			Title: title,
-			MetaData: {},
-		};
-
-		// Find parent container
-		let targetContainer: BinderContainer | undefined;
-		if (parentId) {
-			const parent = this.findBinderItem(parentId, binder);
-			if (!parent || parent?.Type !== DOCUMENT_TYPES.FOLDER) {
-				throw createError(
-					ErrorCode.NOT_FOUND,
-					undefined,
-					`Parent folder ${parentId} not found`
-				);
-			}
-			if (!parent.Children) {
-				parent.Children = { BinderItem: [] };
-			}
-			targetContainer = parent.Children;
-		} else {
-			const binderItems = Array.isArray(binder.BinderItem)
-				? binder.BinderItem
-				: binder.BinderItem
-					? [binder.BinderItem]
-					: [];
-			targetContainer = binderItems[0]?.Children;
-		}
-
-		if (!targetContainer) {
-			throw createError(
-				ErrorCode.INVALID_STATE,
-				undefined,
-				'Could not find target container'
+		try {
+			// Validate input using utility functions
+			validateInput(
+				{ title, content, parentId, type },
+				{
+					title: { type: 'string', required: true, minLength: 1, maxLength: 255 },
+					content: { type: 'string', required: false, maxLength: 10000000 },
+					parentId: { type: 'string', required: false },
+					type: { type: 'string', required: false },
+				}
 			);
-		}
 
-		if (!targetContainer.BinderItem) {
-			targetContainer.BinderItem = [];
-		}
+			// Validate project structure
+			validateProjectStructure(this.projectStructure);
 
-		if (Array.isArray(targetContainer.BinderItem)) {
-			targetContainer.BinderItem.push(newItem);
-		} else {
-			targetContainer.BinderItem = [targetContainer.BinderItem, newItem];
+			const binder = this.projectStructure!.ScrivenerProject.Binder;
+			const id = generateScrivenerUUID();
+			const sanitizedTitle = truncate(title, 255);
+
+			// Create the document file if it's a text document
+			if (type === DOCUMENT_TYPES.TEXT) {
+				await this.writeDocument(id, content);
+			}
+
+			// Create the binder item
+			const newItem: BinderItem = {
+				UUID: id,
+				Type: type,
+				Title: sanitizedTitle,
+				MetaData: {},
+			};
+
+			// Use utility function to add binder item
+			addBinderItem(binder, newItem, parentId ? parseInt(parentId, 10) : undefined);
+
+			logger.info(`Created document ${id} with title "${sanitizedTitle}"`);
+			return id;
+		} catch (error) {
+			throw handleError(error, 'createDocument');
 		}
-		logger.info(`Created document ${id} with title "${title}"`);
-		return id;
 	}
 
 	/**
 	 * Delete a document (move to trash)
 	 */
 	async deleteDocument(documentId: string): Promise<void> {
-		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
+		try {
+			// Validate input
+			validateInput(
+				{ documentId },
+				{
+					documentId: { type: 'string', required: true },
+				}
+			);
+
+			if (!isValidUUID(documentId)) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Invalid document ID format'
+				);
+			}
+
+			if (!this.projectStructure?.ScrivenerProject?.Binder) {
+				throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
+			}
+
+			const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
+
+			// Use utility function to remove binder item
+			const removed = removeBinderItem(binder, documentId);
+
+			if (!removed) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					{ documentId },
+					`Document ${documentId} not found`
+				);
+			}
+
+			// Move to trash - ensure SearchResults is an array
+			const searchResults = Array.isArray(binder.SearchResults)
+				? binder.SearchResults
+				: binder.SearchResults
+					? [binder.SearchResults]
+					: [];
+
+			if (searchResults.length === 0) {
+				searchResults.push({ Children: { BinderItem: [] } });
+				binder.SearchResults = searchResults;
+			} else if (!searchResults[0].Children) {
+				searchResults[0].Children = { BinderItem: [] };
+			}
+
+			const trashContainer = searchResults[0].Children!;
+			if (!trashContainer.BinderItem) {
+				trashContainer.BinderItem = [];
+			} else if (!Array.isArray(trashContainer.BinderItem)) {
+				trashContainer.BinderItem = [trashContainer.BinderItem];
+			}
+
+			(trashContainer.BinderItem as BinderItem[]).push(removed);
+			logger.info(`Document ${documentId} moved to trash`);
+		} catch (error) {
+			throw handleError(error, 'deleteDocument');
 		}
-
-		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
-		const removed = this.removeBinderItem(documentId, binder);
-
-		if (!removed) {
-			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
-		}
-
-		// Move to trash - ensure SearchResults is an array
-		const searchResults = Array.isArray(binder.SearchResults)
-			? binder.SearchResults
-			: binder.SearchResults
-				? [binder.SearchResults]
-				: [];
-
-		if (searchResults.length === 0) {
-			searchResults.push({ Children: { BinderItem: [] } });
-			binder.SearchResults = searchResults;
-		} else if (!searchResults[0].Children) {
-			searchResults[0].Children = { BinderItem: [] };
-		}
-
-		const trashContainer = searchResults[0].Children!;
-		if (!trashContainer.BinderItem) {
-			trashContainer.BinderItem = [];
-		} else if (!Array.isArray(trashContainer.BinderItem)) {
-			trashContainer.BinderItem = [trashContainer.BinderItem];
-		}
-
-		(trashContainer.BinderItem as BinderItem[]).push(removed);
-		logger.info(`Document ${documentId} moved to trash`);
 	}
 
 	/**
 	 * Rename a document
 	 */
 	async renameDocument(documentId: string, newTitle: string): Promise<void> {
-		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
+		try {
+			// Validate input
+			validateInput(
+				{ documentId, newTitle },
+				{
+					documentId: { type: 'string', required: true },
+					newTitle: { type: 'string', required: true, minLength: 1, maxLength: 255 },
+				}
+			);
+
+			if (!isValidUUID(documentId)) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Invalid document ID format'
+				);
+			}
+
+			if (!this.projectStructure?.ScrivenerProject?.Binder) {
+				throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
+			}
+
+			const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
+
+			// Use utility function to find binder item
+			const item = findBinderItemById(binder, documentId);
+
+			if (!item) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					{ documentId },
+					`Document ${documentId} not found`
+				);
+			}
+
+			const sanitizedTitle = truncate(newTitle, 255);
+			item.Title = sanitizedTitle;
+			logger.info(`Document ${documentId} renamed to "${sanitizedTitle}"`);
+		} catch (error) {
+			throw handleError(error, 'renameDocument');
 		}
-
-		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
-		const item = this.findBinderItem(documentId, binder);
-
-		if (!item) {
-			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
-		}
-
-		item.Title = newTitle;
-		logger.info(`Document ${documentId} renamed to "${newTitle}"`);
 	}
 
 	/**
 	 * Move a document to a different parent
 	 */
 	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
-		if (!this.projectStructure?.ScrivenerProject?.Binder) {
-			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
-		}
+		try {
+			// Validate input
+			validateInput(
+				{ documentId, newParentId },
+				{
+					documentId: { type: 'string', required: true },
+					newParentId: { type: 'string', required: false },
+				}
+			);
 
-		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
-
-		if (documentId === newParentId) {
-			throw createError(ErrorCode.INVALID_INPUT, undefined, 'Cannot move document to itself');
-		}
-
-		const extractedItem = this.removeBinderItem(documentId, binder);
-		if (!extractedItem) {
-			throw createError(ErrorCode.NOT_FOUND, undefined, `Document ${documentId} not found`);
-		}
-
-		if (newParentId) {
-			const newParent = this.findBinderItem(newParentId, binder);
-			if (!newParent || newParent?.Type !== DOCUMENT_TYPES.FOLDER) {
+			if (!isValidUUID(documentId)) {
 				throw createError(
-					ErrorCode.NOT_FOUND,
-					undefined,
-					`Parent folder ${newParentId} not found`
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Invalid document ID format'
 				);
 			}
-			if (!newParent.Children) {
-				newParent.Children = { BinderItem: [] };
-			}
-			if (!newParent.Children.BinderItem) {
-				newParent.Children.BinderItem = [];
-			}
-			if (Array.isArray(newParent.Children.BinderItem)) {
-				newParent.Children.BinderItem.push(extractedItem);
-			} else {
-				newParent.Children.BinderItem = [newParent.Children.BinderItem, extractedItem];
-			}
-		} else {
-			// Move to root
-			const binderItems = Array.isArray(binder.BinderItem)
-				? binder.BinderItem
-				: binder.BinderItem
-					? [binder.BinderItem]
-					: [];
 
-			if (!binderItems[0]?.Children?.BinderItem) {
-				throw createError(ErrorCode.INVALID_STATE, undefined, 'Root container not found');
+			if (newParentId && !isValidUUID(newParentId)) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ newParentId },
+					'Invalid parent ID format'
+				);
 			}
-			// Ensure BinderItem is an array
-			if (!Array.isArray(binderItems[0].Children.BinderItem)) {
-				binderItems[0].Children.BinderItem = [binderItems[0].Children.BinderItem];
+
+			if (!this.projectStructure?.ScrivenerProject?.Binder) {
+				throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 			}
-			(binderItems[0].Children.BinderItem as BinderItem[]).push(extractedItem);
+
+			const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
+
+			if (documentId === newParentId) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId, newParentId },
+					'Cannot move document to itself'
+				);
+			}
+
+			// Use utility function to remove and add binder item
+			const extractedItem = removeBinderItem(binder, documentId);
+			if (!extractedItem) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					{ documentId },
+					`Document ${documentId} not found`
+				);
+			}
+
+			// Use utility function to add to new location
+			addBinderItem(
+				binder,
+				extractedItem,
+				newParentId ? parseInt(newParentId, 10) : undefined
+			);
+
+			logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
+		} catch (error) {
+			throw handleError(error, 'moveDocument');
 		}
-
-		logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
 	}
 
 	/**
@@ -372,7 +557,7 @@ export class DocumentManager {
 
 		// Place in target location or root
 		if (targetParentId) {
-			const targetParent = this.findBinderItem(targetParentId, binder);
+			const targetParent = findBinderItemById(binder, targetParentId);
 			if (!targetParent || targetParent.Type !== DOCUMENT_TYPES.FOLDER) {
 				throw createError(
 					ErrorCode.NOT_FOUND,
@@ -417,54 +602,119 @@ export class DocumentManager {
 	 * Get word count for a document
 	 */
 	async getWordCount(documentId?: string): Promise<{ words: number; characters: number }> {
-		let totalWords = 0;
-		let totalChars = 0;
+		try {
+			// Validate input if provided
+			if (documentId) {
+				validateInput(
+					{ documentId },
+					{
+						documentId: { type: 'string', required: true },
+					}
+				);
 
-		if (documentId) {
-			const content = await this.readDocument(documentId);
-			const words = content
-				.trim()
-				.split(/\s+/)
-				.filter((w) => w.length > 0);
-			totalWords = words.length;
-			totalChars = content.length;
-		} else {
-			// Count all documents
-			const documents = await this.getAllDocuments();
-			for (const doc of documents) {
-				if (doc.type === DOCUMENT_TYPES.TEXT && doc.id) {
-					const content = await this.readDocument(doc.id);
-					const words = content
-						.trim()
-						.split(/\s+/)
-						.filter((w) => w.length > 0);
-					totalWords += words.length;
-					totalChars += content.length;
+				if (!isValidUUID(documentId)) {
+					throw createError(
+						ErrorCode.INVALID_INPUT,
+						{ documentId },
+						'Invalid document ID format'
+					);
 				}
 			}
-		}
 
-		return { words: totalWords, characters: totalChars };
+			let totalWords = 0;
+			let totalChars = 0;
+
+			if (documentId) {
+				const content = await this.readDocument(documentId);
+				const words = content
+					.trim()
+					.split(/\s+/)
+					.filter((w) => w.length > 0);
+				totalWords = words.length;
+				totalChars = content.length;
+			} else {
+				// Count all documents using AsyncUtils for better performance
+				const documents = await this.getAllDocuments();
+				const textDocuments = documents.filter(
+					(doc) => doc.type === DOCUMENT_TYPES.TEXT && doc.id
+				);
+
+				// Process documents in batches
+				const results: Array<{ words: number; characters: number }> = [];
+				for (let i = 0; i < textDocuments.length; i += this.batchSize) {
+					const batch = textDocuments.slice(i, i + this.batchSize);
+					const batchPromises = batch.map(async (doc: ScrivenerDocument) => {
+						const content = await this.readDocument(doc.id!);
+						const words = content
+							.trim()
+							.split(/\s+/)
+							.filter((w) => w.length > 0);
+						return { words: words.length, characters: content.length };
+					});
+					const batchResults = await Promise.all(batchPromises);
+					results.push(...batchResults);
+				}
+
+				// Sum up results
+				for (const result of results) {
+					totalWords += result.words;
+					totalChars += result.characters;
+				}
+			}
+
+			return { words: totalWords, characters: totalChars };
+		} catch (error) {
+			throw handleError(error, 'getWordCount');
+		}
 	}
 
 	/**
 	 * Get all documents in the project
 	 */
 	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
-		const structure = await this.getProjectStructure(includeTrash);
-		const flatList: ScrivenerDocument[] = [];
+		try {
+			await this.getProjectStructure(includeTrash);
+			const flatList: ScrivenerDocument[] = [];
 
-		const flatten = (docs: ScrivenerDocument[]) => {
-			for (const doc of docs) {
-				flatList.push(doc);
-				if (doc.children) {
-					flatten(doc.children);
+			// Use utility function to iterate through binder items
+			if (this.projectStructure?.ScrivenerProject?.Binder) {
+				const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
+
+				// Iterate through all binder items using utility function
+				const generator = iterateBinderItems(binder);
+				let result = generator.next();
+				while (!result.done) {
+					const item = result.value;
+					const doc = this.binderItemToDocument(item, '');
+					flatList.push(doc);
+					result = generator.next();
+				}
+
+				// Include trash if requested
+				if (includeTrash && binder.SearchResults) {
+					const searchResults = Array.isArray(binder.SearchResults)
+						? binder.SearchResults
+						: [binder.SearchResults];
+
+					for (const searchResult of searchResults) {
+						if (searchResult.Children) {
+							const trashGenerator = iterateBinderItems(searchResult.Children);
+							let trashResult = trashGenerator.next();
+							while (!trashResult.done) {
+								const item = trashResult.value;
+								const doc = this.binderItemToDocument(item, 'Trash/');
+								flatList.push(doc);
+								trashResult = trashGenerator.next();
+							}
+						}
+					}
 				}
 			}
-		};
 
-		flatten(structure);
-		return flatList;
+			return flatList;
+		} catch (error) {
+			throw handleError(error, 'getAllDocuments');
+		}
 	}
 
 	/**
@@ -592,100 +842,7 @@ export class DocumentManager {
 		return doc;
 	}
 
-	private findBinderItem(
-		id: string,
-		container: {
-			BinderItem?: BinderItem | BinderItem[];
-			Children?: { BinderItem?: BinderItem | BinderItem[] };
-		}
-	): BinderItem | undefined {
-		if (!container) return undefined;
+	// Removed private findBinderItem - now using utility function findBinderItemById
 
-		const searchContainer = (cont: {
-			BinderItem?: BinderItem | BinderItem[];
-			Children?: { BinderItem?: BinderItem | BinderItem[] };
-		}): BinderItem | undefined => {
-			const items = cont.BinderItem || cont.Children?.BinderItem;
-			if (!items) return undefined;
-
-			const itemArray = Array.isArray(items) ? items : [items];
-			for (const item of itemArray) {
-				// Check both UUID and ID fields (tests use ID)
-				if (item.UUID === id || item.ID === id) return item;
-				if (item.Children?.BinderItem) {
-					const found = searchContainer(item.Children);
-					if (found) return found;
-				}
-			}
-			return undefined;
-		};
-
-		if (container.BinderItem) {
-			return searchContainer(container);
-		} else if (container.Children?.BinderItem) {
-			return searchContainer(container.Children);
-		}
-
-		return undefined;
-	}
-
-	private removeBinderItem(
-		id: string,
-		container: {
-			BinderItem?: BinderItem | BinderItem[];
-			Children?: { BinderItem?: BinderItem | BinderItem[] };
-		}
-	): BinderItem | undefined {
-		if (!container) return undefined;
-
-		const removeFromContainer = (
-			cont: {
-				BinderItem?: BinderItem | BinderItem[];
-				Children?: { BinderItem?: BinderItem | BinderItem[] };
-			},
-			isRoot = false
-		): BinderItem | undefined => {
-			const items = cont.BinderItem || cont.Children?.BinderItem;
-			if (!items) return undefined;
-
-			// Ensure items is an array for operations
-			const itemArray = Array.isArray(items) ? items : [items];
-
-			// Check both UUID and ID fields (tests use ID)
-			const index = itemArray.findIndex(
-				(item: BinderItem) => item.UUID === id || item.ID === id
-			);
-			if (index !== -1) {
-				const removed = itemArray.splice(index, 1)[0];
-				// Update the container with the modified array
-				if (cont.BinderItem !== undefined) {
-					cont.BinderItem = itemArray.length > 0 ? itemArray : [];
-				} else if (cont.Children?.BinderItem !== undefined) {
-					cont.Children.BinderItem = itemArray.length > 0 ? itemArray : [];
-				}
-				if (itemArray.length === 0 && !isRoot) {
-					if (cont.BinderItem !== undefined) delete cont.BinderItem;
-					else if (cont.Children?.BinderItem !== undefined)
-						delete cont.Children.BinderItem;
-				}
-				return removed;
-			}
-			for (const item of itemArray) {
-				if (item.Children?.BinderItem) {
-					const removed = removeFromContainer(item.Children);
-					if (removed) return removed;
-				}
-			}
-
-			return undefined;
-		};
-
-		if (container.BinderItem) {
-			return removeFromContainer(container, true);
-		} else if (container.Children?.BinderItem) {
-			return removeFromContainer(container.Children, true);
-		}
-
-		return undefined;
-	}
+	// Removed private removeBinderItem - now using utility function removeBinderItem
 }

@@ -6,7 +6,7 @@
 import type { Redis } from 'ioredis';
 import { getLogger } from '../../core/logger.js';
 import { createBullMQConnection, detectConnection } from '../../services/queue/keydb-detector.js';
-import { retry, withErrorHandling } from '../../utils/common.js';
+import { retry, withErrorHandling, safeParse, safeStringify } from '../../utils/common.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 
 const logger = getLogger('keydb-cache');
@@ -89,7 +89,7 @@ export class KeyDBCache {
 			if (cached) {
 				this.stats.hits++;
 				this.logger.debug(`Cache hit for key: ${key}`);
-				return JSON.parse(cached) as T;
+				return safeParse<T>(cached, null as T);
 			}
 
 			this.stats.misses++;
@@ -108,7 +108,7 @@ export class KeyDBCache {
 
 		return withErrorHandling(async () => {
 			const cacheKey = this.prefix + key;
-			const serialized = JSON.stringify(value);
+			const serialized = safeStringify(value);
 			const expiry = ttl || this.defaultTTL;
 
 			// Use retry for cache set operation
@@ -356,7 +356,7 @@ export class CachedSQLiteManager {
 	 * Hash query and parameters for cache key
 	 */
 	private hashQuery(sql: string, params: unknown[]): string {
-		const combined = sql + JSON.stringify(params);
+		const combined = sql + safeStringify(params);
 		// Simple hash function for demo - in production, use a proper hash
 		let hash = 0;
 		for (let i = 0; i < combined.length; i++) {

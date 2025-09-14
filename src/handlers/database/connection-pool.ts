@@ -195,8 +195,10 @@ export class Neo4jSessionPool {
 				// Verify connectivity
 				await this.driver.verifyConnectivity();
 			},
-			this.config.connectionRetryLimit,
-			this.config.connectionRetryDelay
+			{
+				maxAttempts: this.config.connectionRetryLimit,
+				initialDelay: this.config.connectionRetryDelay,
+			}
 		);
 	}
 

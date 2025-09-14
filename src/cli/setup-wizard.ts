@@ -10,14 +10,31 @@ import { Neo4jAutoInstaller } from '../handlers/database/auto-installer.js';
 import { DatabaseSetup } from '../handlers/database/database-setup.js';
 import { AutoSetup } from '../services/auto-setup/auto-setup.js';
 import { KeyDBInstaller } from '../services/auto-setup/keydb-installer.js';
+import {
+	handleError,
+	withErrorHandling,
+	validateInput,
+	sanitizePath,
+	buildPath,
+	pathExists,
+	measureExecution,
+	formatDuration,
+	AppError,
+	ErrorCode,
+} from '../utils/common.js';
+import { OperationMetricsTracker, measureAndTrackOperation } from '../utils/operation-metrics.js';
 
 export class SetupWizard {
 	private rl: readline.Interface;
+	private metricsTracker: OperationMetricsTracker;
 
 	constructor() {
 		this.rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout,
+		});
+		this.metricsTracker = new OperationMetricsTracker((message, meta) => {
+			console.log(chalk.gray(`[METRICS] ${message}`), meta);
 		});
 	}
 
@@ -25,108 +42,138 @@ export class SetupWizard {
 	 * Run the setup wizard
 	 */
 	async run(): Promise<void> {
-		console.clear();
-		this.printBanner();
+		const wrappedFunction = withErrorHandling(async () => {
+			console.clear();
+			this.printBanner();
 
-		// Offer setup options
-		console.log(chalk.yellow('\nChoose setup type:'));
-		console.log(chalk.cyan('  1. Quick Setup (All features with auto-detection)'));
-		console.log(chalk.cyan('  2. Basic Setup (Neo4j database only)'));
-		console.log(chalk.cyan('  3. KeyDB Setup (High-performance queues)'));
-		console.log(chalk.cyan('  4. Advanced Setup (Custom configuration)'));
-		console.log(chalk.cyan('  5. Check system health'));
-		console.log(chalk.cyan('  6. Exit'));
+			// Offer setup options
+			console.log(chalk.yellow('\nChoose setup type:'));
+			console.log(chalk.cyan('  1. Quick Setup (All features with auto-detection)'));
+			console.log(chalk.cyan('  2. Basic Setup (Neo4j database only)'));
+			console.log(chalk.cyan('  3. KeyDB Setup (High-performance queues)'));
+			console.log(chalk.cyan('  4. Advanced Setup (Custom configuration)'));
+			console.log(chalk.cyan('  5. Check system health'));
+			console.log(chalk.cyan('  6. Exit'));
 
-		const choice = await this.askQuestion('\nSelect option (1-6): ');
+			const choice = await this.askQuestion(
+				'\nSelect option (1-6): ',
+				undefined,
+				(input: string) => /^[1-6]$/.test(input),
+				'Please enter a number between 1 and 6.'
+			);
 
-		switch (choice) {
-			case '1':
-				await this.runQuickSetup();
-				break;
-			case '2':
-				await this.runBasicSetup();
-				break;
-			case '3':
-				await this.runKeyDBSetup();
-				break;
-			case '4':
-				await this.runAdvancedSetup();
-				break;
-			case '5':
-				await this.checkHealth();
-				break;
-			case '6':
-			default:
-				console.log(chalk.gray('\nSetup cancelled.'));
-				this.rl.close();
-				return;
-		}
+			switch (choice) {
+				case '1':
+					await this.runQuickSetup();
+					break;
+				case '2':
+					await this.runBasicSetup();
+					break;
+				case '3':
+					await this.runKeyDBSetup();
+					break;
+				case '4':
+					await this.runAdvancedSetup();
+					break;
+				case '5':
+					await this.checkHealth();
+					break;
+				case '6':
+				default:
+					console.log(chalk.gray('\nSetup cancelled.'));
+					this.rl.close();
+					return;
+			}
 
-		this.rl.close();
+			// Show metrics summary
+			this.showMetricsSummary();
+			this.rl.close();
+		}, 'SetupWizard.run');
+
+		await wrappedFunction();
 	}
 
 	/**
 	 * Run quick setup with all features
 	 */
 	private async runQuickSetup(): Promise<void> {
-		console.log(chalk.bold.cyan('\n🚀 Quick Setup - All Features\n'));
+		const wrappedFunction = withErrorHandling(async () => {
+			return measureAndTrackOperation(
+				'quickSetup',
+				async () => {
+					console.log(chalk.bold.cyan('\n🚀 Quick Setup - All Features\n'));
 
-		console.log('This will automatically install and configure:');
-		console.log(chalk.cyan('  • KeyDB (high-performance job queues)'));
-		console.log(chalk.cyan('  • Neo4j (graph database for relationships)'));
-		console.log(chalk.cyan('  • All required dependencies'));
-		console.log(chalk.cyan('  • Optimal configuration settings\n'));
+					console.log('This will automatically install and configure:');
+					console.log(chalk.cyan('  • KeyDB (high-performance job queues)'));
+					console.log(chalk.cyan('  • Neo4j (graph database for relationships)'));
+					console.log(chalk.cyan('  • All required dependencies'));
+					console.log(chalk.cyan('  • Optimal configuration settings\n'));
 
-		const proceed = await this.askYesNo('Continue with automatic setup?');
-		if (!proceed) {
-			console.log(chalk.gray('\nSetup cancelled.'));
-			return;
+					const proceed = await this.askYesNo('Continue with automatic setup?');
+					if (!proceed) {
+						console.log(chalk.gray('\nSetup cancelled.'));
+						return;
+					}
+
+					// Install KeyDB first
+					console.log(chalk.blue('\n📦 Installing KeyDB...\n'));
+					const keydbInstaller = await KeyDBInstaller.getInstance();
+					const keydbResult = await keydbInstaller.autoInstall({ startService: true });
+
+					if (keydbResult.success) {
+						console.log(chalk.green(`✅ ${keydbResult.message}`));
+					} else {
+						console.log(chalk.yellow(`⚠️ KeyDB installation: ${keydbResult.message}`));
+						console.log(
+							chalk.gray('   Scrivener MCP will use embedded queue as fallback')
+						);
+					}
+
+					// Install Neo4j
+					console.log(chalk.blue('\n📦 Installing Neo4j...\n'));
+					const neo4jResult = await Neo4jAutoInstaller.install({
+						method: 'auto',
+						interactive: false,
+						projectPath: './data',
+						autoStart: true,
+					});
+
+					if (neo4jResult.success) {
+						console.log(chalk.green(`✅ ${neo4jResult.message}`));
+					} else {
+						console.log(chalk.yellow(`⚠️ Neo4j installation: ${neo4jResult.message}`));
+						console.log(chalk.gray('   Scrivener MCP will use SQLite-only mode'));
+					}
+
+					// Summary
+					console.log(chalk.bold.green('\n🎉 Quick Setup Complete!\n'));
+					console.log('Your Scrivener MCP installation includes:');
+					if (keydbResult.success) {
+						console.log(chalk.green('  ✅ KeyDB - High-performance job processing'));
+					} else {
+						console.log(chalk.yellow('  ⚪ Embedded queue - Basic job processing'));
+					}
+					if (neo4jResult.success) {
+						console.log(chalk.green('  ✅ Neo4j - Advanced graph analytics'));
+					} else {
+						console.log(chalk.yellow('  ⚪ SQLite - Basic data storage'));
+					}
+					console.log(chalk.green('  ✅ All core features ready\n'));
+
+					console.log(chalk.cyan('Start using Scrivener MCP with: npm start'));
+				},
+				this.metricsTracker,
+				'Setup'
+			);
+		}, 'SetupWizard.runQuickSetup');
+
+		try {
+			await wrappedFunction();
+		} catch (error: unknown) {
+			console.log(chalk.red('❌ Quick setup failed:'));
+			console.log(chalk.gray((error as Error).message));
+			throw error;
 		}
-
-		// Install KeyDB first
-		console.log(chalk.blue('\n📦 Installing KeyDB...\n'));
-		const keydbInstaller = await KeyDBInstaller.getInstance();
-		const keydbResult = await keydbInstaller.autoInstall({ startService: true });
-
-		if (keydbResult.success) {
-			console.log(chalk.green(`✅ ${keydbResult.message}`));
-		} else {
-			console.log(chalk.yellow(`⚠️ KeyDB installation: ${keydbResult.message}`));
-			console.log(chalk.gray('   Scrivener MCP will use embedded queue as fallback'));
-		}
-
-		// Install Neo4j
-		console.log(chalk.blue('\n📦 Installing Neo4j...\n'));
-		const neo4jResult = await Neo4jAutoInstaller.install({
-			method: 'auto',
-			interactive: false,
-			projectPath: './data',
-			autoStart: true,
-		});
-
-		if (neo4jResult.success) {
-			console.log(chalk.green(`✅ ${neo4jResult.message}`));
-		} else {
-			console.log(chalk.yellow(`⚠️ Neo4j installation: ${neo4jResult.message}`));
-			console.log(chalk.gray('   Scrivener MCP will use SQLite-only mode'));
-		}
-
-		// Summary
-		console.log(chalk.bold.green('\n🎉 Quick Setup Complete!\n'));
-		console.log('Your Scrivener MCP installation includes:');
-		if (keydbResult.success) {
-			console.log(chalk.green('  ✅ KeyDB - High-performance job processing'));
-		} else {
-			console.log(chalk.yellow('  ⚪ Embedded queue - Basic job processing'));
-		}
-		if (neo4jResult.success) {
-			console.log(chalk.green('  ✅ Neo4j - Advanced graph analytics'));
-		} else {
-			console.log(chalk.yellow('  ⚪ SQLite - Basic data storage'));
-		}
-		console.log(chalk.green('  ✅ All core features ready\n'));
-
-		console.log(chalk.cyan('Start using Scrivener MCP with: npm start'));
 	}
 
 	/**
@@ -284,11 +331,36 @@ export class SetupWizard {
 		// Choose installation method
 		const method = await this.chooseInstallMethod(status);
 
-		// Get project path
-		const projectPath = await this.askQuestion(
-			'Enter your Scrivener project path (or press Enter for current directory): ',
-			process.cwd()
-		);
+		// Get project path with validation
+		const measureResult = await measureExecution(async () => {
+			const inputPath = await this.askQuestion(
+				'Enter your Scrivener project path (or press Enter for current directory): ',
+				process.cwd(),
+				async (path: string) => {
+					try {
+						const sanitized = sanitizePath(path);
+						const fullPath = buildPath(sanitized);
+						return await pathExists(fullPath);
+					} catch (error) {
+						handleError(error, 'SetupWizard.pathValidation');
+						return false;
+					}
+				},
+				'Path does not exist. Please enter a valid directory path.'
+			);
+
+			// Validate the final path exists and is accessible
+			const fullPath = buildPath(sanitizePath(inputPath));
+			if (!(await pathExists(fullPath))) {
+				throw new AppError(
+					`Project path does not exist: ${fullPath}`,
+					ErrorCode.INVALID_INPUT
+				);
+			}
+
+			return fullPath;
+		});
+		const projectPath = measureResult.result;
 
 		// Perform installation
 		console.log(chalk.blue('\n🚀 Starting installation...\n'));
@@ -339,11 +411,25 @@ export class SetupWizard {
 	}
 
 	/**
-	 * Ask a question with optional default
+	 * Ask a question with optional default and validation
 	 */
-	private async askQuestion(question: string, defaultValue?: string): Promise<string> {
-		const answer = await this.rl.question(chalk.yellow(question));
-		return answer || defaultValue || '';
+	private async askQuestion(
+		question: string,
+		defaultValue?: string,
+		validator?: (input: string) => boolean | Promise<boolean>,
+		errorMessage?: string
+	): Promise<string> {
+		while (true) {
+			const answer = await this.rl.question(chalk.yellow(question));
+			const value = answer || defaultValue || '';
+
+			if (validator && !(await validator(value))) {
+				console.log(chalk.red(errorMessage || 'Invalid input. Please try again.'));
+				continue;
+			}
+
+			return value;
+		}
 	}
 
 	/**
@@ -477,26 +563,74 @@ export class SetupWizard {
 		user: string;
 		password: string;
 	}): Promise<void> {
-		try {
-			console.log(chalk.blue('\n🔌 Testing connection...'));
+		const wrappedFunction = withErrorHandling(async () => {
+			// Validate credentials
+			validateInput(credentials, {
+				uri: { type: 'string', required: true, minLength: 1 },
+				user: { type: 'string', required: true, minLength: 1 },
+				password: { type: 'string', required: true, minLength: 1 },
+			});
 
-			const neo4j = await import('neo4j-driver');
-			const driver = neo4j.default.driver(
-				credentials.uri,
-				neo4j.default.auth.basic(credentials.user, credentials.password)
+			return measureAndTrackOperation(
+				'testConnection',
+				async () => {
+					console.log(chalk.blue('\n🔌 Testing connection...'));
+
+					const neo4j = await import('neo4j-driver');
+					const driver = neo4j.default.driver(
+						credentials.uri,
+						neo4j.default.auth.basic(credentials.user, credentials.password)
+					);
+
+					try {
+						await driver.verifyConnectivity();
+						const session = driver.session();
+						const result = await session.run(
+							'RETURN "Connection successful!" as message'
+						);
+						await session.close();
+						console.log(chalk.green(`✅ ${result.records[0].get('message')}`));
+					} finally {
+						await driver.close();
+					}
+				},
+				this.metricsTracker,
+				'Setup'
 			);
+		}, 'SetupWizard.testConnection');
 
-			await driver.verifyConnectivity();
-			const session = driver.session();
-			const result = await session.run('RETURN "Connection successful!" as message');
-			await session.close();
-			await driver.close();
-
-			console.log(chalk.green(`✅ ${result.records[0].get('message')}`));
-		} catch (error) {
+		try {
+			await wrappedFunction();
+		} catch (error: unknown) {
 			console.log(chalk.red('❌ Connection test failed:'));
 			console.log(chalk.gray((error as Error).message));
+			throw error;
 		}
+	}
+
+	/**
+	 * Show setup operation metrics summary
+	 */
+	private showMetricsSummary(): void {
+		const metrics = this.metricsTracker.getMetrics();
+		if (Object.keys(metrics).length === 0) return;
+
+		console.log(chalk.bold.blue('\n📊 Setup Performance Summary'));
+		console.log(chalk.gray('━'.repeat(40)));
+
+		for (const [operation, data] of Object.entries(metrics)) {
+			const duration = formatDuration(data.averageTime);
+			const successRate = data.successRate ? `${data.successRate.toFixed(1)}%` : 'N/A';
+
+			console.log(chalk.cyan(`${operation}:`));
+			console.log(chalk.gray(`  Duration: ${duration}`));
+			console.log(chalk.gray(`  Calls: ${data.callCount}`));
+			if (data.successRate !== undefined) {
+				console.log(chalk.gray(`  Success Rate: ${successRate}`));
+			}
+		}
+
+		console.log(chalk.gray('━'.repeat(40)));
 	}
 }
 

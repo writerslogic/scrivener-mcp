@@ -5,11 +5,12 @@
 import type { Integer, Node, Relationship, Record as Neo4jRecord } from 'neo4j-driver';
 
 // Neo4j types
-export interface Neo4jNode<T = any> extends Omit<Node, 'properties'> {
+export interface Neo4jNode<T = Record<string, unknown>> extends Omit<Node, 'properties'> {
 	properties: T;
 }
 
-export interface Neo4jRelationship<T = any> extends Omit<Relationship, 'properties'> {
+export interface Neo4jRelationship<T = Record<string, unknown>>
+	extends Omit<Relationship, 'properties'> {
 	properties: T;
 }
 

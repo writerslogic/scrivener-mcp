@@ -1,6 +1,10 @@
 /**
  * Centralized constants for the application
+ * Re-exports common constants from utils/common.ts for consistency
  */
+
+// Re-export relevant constants from utils/common.ts
+export { ErrorCode } from '../utils/common.js';
 
 // Error Messages
 export const ERROR_MESSAGES = {

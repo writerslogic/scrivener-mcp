@@ -3,12 +3,12 @@
  * Provides backward compatibility while using enhanced features internally
  */
 
-import { EnhancedLangChainService } from './langchain-service-enhanced.js';
-import { AdvancedLangChainFeatures } from './langchain-advanced-features.js';
-import type { ScrivenerDocument } from '../../types/index.js';
 import type { Document as LangchainDocument } from 'langchain/document';
-import { getLogger } from '../../core/logger.js';
 import { createError, ErrorCode } from '../../core/errors.js';
+import { getLogger } from '../../core/logger.js';
+import type { ScrivenerDocument } from '../../types/index.js';
+import { AdvancedLangChainFeatures } from './langchain-advanced-features.js';
+import { EnhancedLangChainService } from './langchain-service-enhanced.js';
 
 interface ChunkingOptions {
 	chunkSize?: number;
@@ -53,7 +53,9 @@ export class LangChainService {
 				this.advancedFeatures = new AdvancedLangChainFeatures(apiKey);
 				this.logger.info('Advanced LangChain features enabled');
 			} catch (error) {
-				this.logger.warn('Failed to initialize advanced features, using basic mode', { error: (error as Error).message });
+				this.logger.warn('Failed to initialize advanced features, using basic mode', {
+					error: (error as Error).message,
+				});
 				this.useAdvancedFeatures = false;
 			}
 		}
@@ -101,7 +103,13 @@ export class LangChainService {
 	 */
 	async generateWithContext(prompt: string, options: RAGOptions = {}): Promise<string> {
 		// Detect the type of request and use appropriate template
-		type TemplateType = 'character_development' | 'plot_structure' | 'dialogue_enhancement' | 'worldbuilding' | 'pacing_rhythm' | 'theme_symbolism';
+		type TemplateType =
+			| 'character_development'
+			| 'plot_structure'
+			| 'dialogue_enhancement'
+			| 'worldbuilding'
+			| 'pacing_rhythm'
+			| 'theme_symbolism';
 		const templateMap: Record<string, TemplateType> = {
 			character: 'character_development',
 			plot: 'plot_structure',
@@ -121,11 +129,12 @@ export class LangChainService {
 		}
 
 		if (template) {
-			return this.enhancedService.generateWithTemplate(
+			const result = await this.enhancedService.generateWithTemplate(
 				template,
 				prompt,
 				options
 			);
+			return result.content;
 		}
 
 		// Fallback to general generation with context
@@ -134,22 +143,18 @@ export class LangChainService {
 			rerank: true,
 		});
 
-		const context = relevantDocs.map(doc => doc.pageContent).join('\n\n---\n\n');
-		
+		const context = relevantDocs.map((doc) => doc.pageContent).join('\n\n---\n\n');
+
 		// Use streaming for better UX if callback provided
 		let result = '';
-		await this.enhancedService.generateWithStreaming(
-			prompt,
-			context,
-			{
-				onToken: (token) => {
-					result += token;
-				},
-				onError: (error) => {
-					this.logger.error('Generation error', { error: error.message });
-				},
-			}
-		);
+		await this.enhancedService.generateWithStreaming(prompt, context, {
+			onToken: (token) => {
+				result += token;
+			},
+			onError: (error) => {
+				this.logger.error('Generation error', { error: error.message });
+			},
+		});
 
 		return result;
 	}
@@ -171,8 +176,9 @@ export class LangChainService {
 				}));
 
 				// Use advanced structured analysis
-				const styleAnalysis = await this.advancedFeatures.analyzeWritingStyleStructured(mockDocs);
-				
+				const styleAnalysis =
+					await this.advancedFeatures.analyzeWritingStyleStructured(mockDocs);
+
 				return {
 					voice: styleAnalysis.voice,
 					prose: styleAnalysis.prose,
@@ -182,11 +188,13 @@ export class LangChainService {
 					weaknesses: styleAnalysis.weaknesses,
 					comparisons: styleAnalysis.comparisons,
 					recommendations: [...styleAnalysis.strengths, ...styleAnalysis.weaknesses].map(
-						item => `Consider: ${item}`
+						(item) => `Consider: ${item}`
 					),
 				};
 			} catch (error) {
-				this.logger.warn('Advanced style analysis failed, falling back to basic', { error: (error as Error).message });
+				this.logger.warn('Advanced style analysis failed, falling back to basic', {
+					error: (error as Error).message,
+				});
 			}
 		}
 
@@ -201,10 +209,11 @@ export class LangChainService {
 	async summarizeChapter(content: string, maxLength: number = 200): Promise<string> {
 		// Use the enhanced service's template system
 		const prompt = `Summarize this chapter content in approximately ${maxLength} words, focusing on key plot points and character developments:\n\n${content}`;
-		
-		return this.enhancedService.generateWithTemplate('plot_structure', prompt, {
+
+		const result = await this.enhancedService.generateWithTemplate('plot_structure', prompt, {
 			maxTokens: Math.ceil(maxLength * 1.5), // Approximate tokens
 		});
+		return result.content;
 	}
 
 	/**
@@ -223,7 +232,7 @@ export class LangChainService {
 			try {
 				// Use advanced plot structure analysis
 				const plotAnalysis = await this.advancedFeatures.analyzePlotStructure(documents);
-				
+
 				const issues: Array<{
 					issue: string;
 					severity: 'low' | 'medium' | 'high';
@@ -232,7 +241,10 @@ export class LangChainService {
 				}> = [];
 
 				// Check pacing issues
-				if (plotAnalysis.pacing.overall === 'too slow' || plotAnalysis.pacing.overall === 'too fast') {
+				if (
+					plotAnalysis.pacing.overall === 'too slow' ||
+					plotAnalysis.pacing.overall === 'too fast'
+				) {
 					issues.push({
 						issue: `Overall pacing is ${plotAnalysis.pacing.overall}`,
 						severity: plotAnalysis.pacing.overall.includes('too') ? 'high' : 'medium',
@@ -254,8 +266,8 @@ export class LangChainService {
 				}
 
 				// Check tension progression
-				const tensionDrop = plotAnalysis.acts.findIndex((act, i) => 
-					i > 0 && act.tension < plotAnalysis.acts[i - 1].tension - 2
+				const tensionDrop = plotAnalysis.acts.findIndex(
+					(act, i) => i > 0 && act.tension < plotAnalysis.acts[i - 1].tension - 2
 				);
 				if (tensionDrop > 0) {
 					issues.push({
@@ -268,13 +280,15 @@ export class LangChainService {
 
 				return issues;
 			} catch (error) {
-				this.logger.warn('Advanced plot analysis failed, falling back to basic', { error: (error as Error).message });
+				this.logger.warn('Advanced plot analysis failed, falling back to basic', {
+					error: (error as Error).message,
+				});
 			}
 		}
 
 		// Fallback to enhanced service
 		const result = await this.enhancedService.checkPlotConsistencyAdvanced(documents);
-		return result.issues.map(issue => ({
+		return result.issues.map((issue) => ({
 			issue: issue.issue,
 			severity: issue.severity,
 			locations: issue.locations,
@@ -323,11 +337,7 @@ export class LangChainService {
 		styles: Array<'literary' | 'commercial' | 'minimalist' | 'ornate' | 'noir' | 'comedic'>
 	): Promise<Record<string, string>> {
 		if (!this.advancedFeatures) {
-			throw createError(
-				ErrorCode.NOT_IMPLEMENTED,
-				null,
-				'Advanced features not available'
-			);
+			throw createError(ErrorCode.NOT_IMPLEMENTED, null, 'Advanced features not available');
 		}
 		return this.advancedFeatures.generateAlternatives(passage, styles);
 	}
@@ -344,11 +354,7 @@ export class LangChainService {
 		}
 	): Promise<Record<string, unknown>> {
 		if (!this.advancedFeatures) {
-			throw createError(
-				ErrorCode.NOT_IMPLEMENTED,
-				null,
-				'Advanced features not available'
-			);
+			throw createError(ErrorCode.NOT_IMPLEMENTED, null, 'Advanced features not available');
 		}
 
 		const defaultProfile = {
@@ -357,23 +363,22 @@ export class LangChainService {
 			focus: 'general' as const,
 		};
 
-		return this.advancedFeatures.simulateBetaReader(
-			document,
-			profile || defaultProfile
-		);
+		return this.advancedFeatures.simulateBetaReader(document, profile || defaultProfile);
 	}
 
 	/**
 	 * Generate comprehensive manuscript report
 	 */
-	async generateManuscriptReport(documents: ScrivenerDocument[]): Promise<Record<string, unknown>> {
+	async generateManuscriptReport(
+		documents: ScrivenerDocument[]
+	): Promise<Record<string, unknown>> {
 		const baseReport = await this.enhancedService.generateManuscriptReport(documents);
-		
+
 		if (this.advancedFeatures) {
 			try {
 				// Enhance with story bible
 				const storyBible = await this.advancedFeatures.generateStoryBible(documents);
-				
+
 				return {
 					...baseReport,
 					storyBible,
@@ -385,7 +390,9 @@ export class LangChainService {
 					},
 				};
 			} catch (error) {
-				this.logger.warn('Failed to generate story bible', { error: (error as Error).message });
+				this.logger.warn('Failed to generate story bible', {
+					error: (error as Error).message,
+				});
 			}
 		}
 
@@ -409,10 +416,13 @@ export class LangChainService {
 						character: 'character_development',
 					};
 
-					return this.enhancedService.generateWithTemplate(
-						templateMap[focusArea] as Parameters<typeof this.enhancedService.generateWithTemplate>[0],
+					const result = await this.enhancedService.generateWithTemplate(
+						templateMap[focusArea] as Parameters<
+							typeof this.enhancedService.generateWithTemplate
+						>[0],
 						`Provide coaching feedback for: ${text}`
 					);
+					return result.content;
 				},
 			};
 		}
@@ -443,9 +453,9 @@ export class LangChainService {
 			});
 
 			return results.map((doc, index) => ({
-				document: documents.find(d => d.id === doc.metadata?.documentId) || documents[0],
+				document: documents.find((d) => d.id === doc.metadata?.documentId) || documents[0],
 				similarity: 1 - index * 0.1, // Approximate similarity score
-				excerpt: doc.pageContent.substring(0, 200) + '...',
+				excerpt: `${doc.pageContent.substring(0, 200)}...`,
 			}));
 		}
 
@@ -455,7 +465,7 @@ export class LangChainService {
 			options
 		);
 
-		return results.map(r => ({
+		return results.map((r) => ({
 			document: r.document,
 			similarity: r.similarity,
 			excerpt: r.excerpt,
@@ -464,5 +474,5 @@ export class LangChainService {
 }
 
 // Re-export enhanced services for direct use
-export { EnhancedLangChainService } from './langchain-service-enhanced.js';
 export { AdvancedLangChainFeatures } from './langchain-advanced-features.js';
+export { EnhancedLangChainService } from './langchain-service-enhanced.js';

@@ -1,7 +1,14 @@
 /* eslint-disable no-console */
 /**
- * Centralized logging system
+ * Centralized logging system - utilizes common utilities
  */
+
+import { getEnv, isDevelopment } from '../utils/common.js';
+import type { LogContext } from '../types/index.js';
+import { toLogContext } from '../types/index.js';
+
+// Re-export LogContext for backward compatibility
+export type { LogContext } from '../types/index.js';
 
 export enum LogLevel {
 	DEBUG = 0,
@@ -9,10 +16,6 @@ export enum LogLevel {
 	WARN = 2,
 	ERROR = 3,
 	FATAL = 4,
-}
-
-export interface LogContext {
-	[key: string]: unknown;
 }
 
 class Logger {
@@ -33,7 +36,7 @@ class Logger {
 
 			switch (level) {
 				case LogLevel.DEBUG:
-					if (process.env.NODE_ENV === 'development') {
+					if (isDevelopment()) {
 						console.debug(prefix, message, context || '');
 					}
 					break;
@@ -67,24 +70,39 @@ class Logger {
 		}
 	}
 
-	debug(message: string, context?: LogContext): void {
-		this.log(LogLevel.DEBUG, message, context);
+	debug(message: string, context?: LogContext | Record<string, unknown>): void {
+		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
+			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
+			: context as LogContext;
+		this.log(LogLevel.DEBUG, message, safeContext);
 	}
 
-	info(message: string, context?: LogContext): void {
-		this.log(LogLevel.INFO, message, context);
+	info(message: string, context?: LogContext | Record<string, unknown>): void {
+		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
+			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
+			: context as LogContext;
+		this.log(LogLevel.INFO, message, safeContext);
 	}
 
-	warn(message: string, context?: LogContext): void {
-		this.log(LogLevel.WARN, message, context);
+	warn(message: string, context?: LogContext | Record<string, unknown>): void {
+		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
+			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
+			: context as LogContext;
+		this.log(LogLevel.WARN, message, safeContext);
 	}
 
-	error(message: string, context?: LogContext): void {
-		this.log(LogLevel.ERROR, message, context);
+	error(message: string, context?: LogContext | Record<string, unknown>): void {
+		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
+			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
+			: context as LogContext;
+		this.log(LogLevel.ERROR, message, safeContext);
 	}
 
-	fatal(message: string, context?: LogContext): void {
-		this.log(LogLevel.FATAL, message, context);
+	fatal(message: string, context?: LogContext | Record<string, unknown>): void {
+		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
+			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
+			: context as LogContext;
+		this.log(LogLevel.FATAL, message, safeContext);
 	}
 
 	child(name: string): Logger {
@@ -98,8 +116,8 @@ class LoggerFactory {
 	private defaultLevel = LogLevel.INFO;
 
 	constructor() {
-		// Set level from environment
-		const envLevel = process.env.LOG_LEVEL?.toUpperCase();
+		// Set level from environment using utility
+		const envLevel = getEnv('LOG_LEVEL')?.toUpperCase();
 		if (envLevel && envLevel in LogLevel) {
 			this.defaultLevel = LogLevel[envLevel as keyof typeof LogLevel] as unknown as LogLevel;
 		}

@@ -4,6 +4,8 @@
  */
 
 import * as cheerio from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
+import type { AnyNode } from 'domhandler';
 import TurndownService from 'turndown';
 import type { ContentExtractionOptions } from '../types/analysis.js';
 import { splitIntoSentences } from '../utils/common.js';
@@ -86,7 +88,7 @@ export class WebContentParser {
 
 		// Remove unwanted elements
 		if (options.removeElements) {
-			options.removeElements.forEach((selector) => {
+			options.removeElements.forEach((selector: string) => {
 				$(selector).remove();
 			});
 		}
@@ -224,7 +226,7 @@ export class WebContentParser {
 	/**
 	 * Extract main content using various strategies
 	 */
-	private extractMainContent($: cheerio.Root, selector?: string): string {
+	private extractMainContent($: CheerioAPI, selector?: string): string {
 		if (selector) {
 			const selected = $(selector);
 			if (selected.length > 0) {
@@ -264,7 +266,7 @@ export class WebContentParser {
 	/**
 	 * Extract title using multiple strategies
 	 */
-	private extractTitle($: cheerio.Root): string {
+	private extractTitle($: CheerioAPI): string {
 		// Try different title sources in order of preference
 		const titleSources = [
 			'h1',
@@ -297,7 +299,7 @@ export class WebContentParser {
 	/**
 	 * Extract author information
 	 */
-	private extractAuthor($: cheerio.Root): string | undefined {
+	private extractAuthor($: CheerioAPI): string | undefined {
 		const authorSelectors = [
 			'.author',
 			'.byline',
@@ -324,7 +326,7 @@ export class WebContentParser {
 	/**
 	 * Extract publish date
 	 */
-	private extractPublishDate($: cheerio.Root): string | undefined {
+	private extractPublishDate($: CheerioAPI): string | undefined {
 		const dateSelectors = [
 			'time[datetime]',
 			'.date',
@@ -350,7 +352,7 @@ export class WebContentParser {
 	/**
 	 * Extract summary or description
 	 */
-	private extractSummary($: cheerio.Root): string | undefined {
+	private extractSummary($: CheerioAPI): string | undefined {
 		const summarySelectors = [
 			'.summary',
 			'.excerpt',
@@ -377,12 +379,12 @@ export class WebContentParser {
 	 * Extract all links from content
 	 */
 	private extractLinks(
-		$: cheerio.Root,
+		$: CheerioAPI,
 		baseUrl?: string
 	): Array<{ text: string; url: string; type: 'internal' | 'external' }> {
 		const links: Array<{ text: string; url: string; type: 'internal' | 'external' }> = [];
 
-		$('a[href]').each((_, element) => {
+		$('a[href]').each((_, element: AnyNode) => {
 			const $el = $(element);
 			const href = $el.attr('href');
 			const text = $el.text().trim();
@@ -411,12 +413,12 @@ export class WebContentParser {
 	 * Extract all images from content
 	 */
 	private extractImages(
-		$: cheerio.Root,
+		$: CheerioAPI,
 		baseUrl?: string
 	): Array<{ alt: string; src: string; title?: string }> {
 		const images: Array<{ alt: string; src: string; title?: string }> = [];
 
-		$('img[src]').each((_, element) => {
+		$('img[src]').each((_, element: AnyNode) => {
 			const $el = $(element);
 			const src = $el.attr('src');
 			const alt = $el.attr('alt') || '';
@@ -440,10 +442,10 @@ export class WebContentParser {
 	/**
 	 * Extract headings structure
 	 */
-	private extractHeadings($: cheerio.Root): Array<{ level: number; text: string; id?: string }> {
+	private extractHeadings($: CheerioAPI): Array<{ level: number; text: string; id?: string }> {
 		const headings: Array<{ level: number; text: string; id?: string }> = [];
 
-		$('h1, h2, h3, h4, h5, h6').each((_, element) => {
+		$('h1, h2, h3, h4, h5, h6').each((_, element: AnyNode) => {
 			const $el = $(element);
 			const tagName =
 				(element as unknown as { tagName?: string }).tagName ||
@@ -464,7 +466,7 @@ export class WebContentParser {
 	/**
 	 * Calculate content metadata
 	 */
-	private calculateMetadata($: cheerio.Root, content: string): ParsedWebContent['metadata'] {
+	private calculateMetadata($: CheerioAPI, content: string): ParsedWebContent['metadata'] {
 		const contentDoc = cheerio.load(content);
 		const bodyText = contentDoc('body').text();
 		const text = bodyText || content.replace(/<[^>]*>/g, ''); // Strip HTML as fallback
@@ -512,11 +514,11 @@ export class WebContentParser {
 	/**
 	 * Extract quotes from content
 	 */
-	private extractQuotes($: cheerio.Root, text: string): string[] {
+	private extractQuotes($: CheerioAPI, text: string): string[] {
 		const quotes: string[] = [];
 
 		// Extract blockquotes
-		$('blockquote').each((_, element) => {
+		$('blockquote').each((_, element: AnyNode) => {
 			const quote = $(element).text().trim();
 			if (quote.length > 10) {
 				quotes.push(quote);
@@ -564,7 +566,7 @@ export class WebContentParser {
 	/**
 	 * Extract source references
 	 */
-	private extractSources($: cheerio.Root, links: ParsedWebContent['links']): string[] {
+	private extractSources($: CheerioAPI, links: ParsedWebContent['links']): string[] {
 		const sources: string[] = [];
 
 		// Add external links as potential sources
@@ -575,7 +577,7 @@ export class WebContentParser {
 			});
 
 		// Look for citation patterns
-		$('.citation, .reference, .source').each((_, element) => {
+		$('.citation, .reference, .source').each((_, element: AnyNode) => {
 			const citation = $(element).text().trim();
 			if (citation.length > 5) {
 				sources.push(citation);
@@ -651,11 +653,11 @@ export class WebContentParser {
 	/**
 	 * Extract article-specific metadata
 	 */
-	private extractArticleMetadata($: cheerio.Root): Record<string, unknown> {
+	private extractArticleMetadata($: CheerioAPI): Record<string, unknown> {
 		const metadata: Record<string, unknown> = {};
 
 		// Extract Open Graph and Twitter Card metadata
-		$('meta[property^="og:"], meta[name^="twitter:"]').each((_, element) => {
+		$('meta[property^="og:"], meta[name^="twitter:"]').each((_, element: AnyNode) => {
 			const $el = $(element);
 			const property = $el.attr('property') || $el.attr('name');
 			const content = $el.attr('content');
@@ -666,7 +668,7 @@ export class WebContentParser {
 		});
 
 		// Extract JSON-LD structured data
-		$('script[type="application/ld+json"]').each((_, element) => {
+		$('script[type="application/ld+json"]').each((_, element: AnyNode) => {
 			try {
 				const jsonLd = JSON.parse($(element).html() || '');
 				metadata.jsonLd = jsonLd;

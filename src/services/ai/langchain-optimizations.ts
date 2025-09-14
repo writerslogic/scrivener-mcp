@@ -5,9 +5,14 @@
 
 import crypto from 'crypto';
 import type { Document as LangchainDocument } from 'langchain/document';
-import type { ScrivenerDocument } from '../../types/index.js';
 import { getLogger } from '../../core/logger.js';
-import { createError, ErrorCode } from '../../core/errors.js';
+import type { ScrivenerDocument } from '../../types/index.js';
+import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
+import { AsyncUtils } from '../../utils/shared-patterns.js';
+import { generateScrivenerUUID } from '../../utils/scrivener-utils.js';
+
+// Union type for cache values
+type CacheValue = string | LangchainDocument[] | number[];
 
 interface CacheOptions {
 	maxSize?: number; // Maximum number of items
@@ -193,7 +198,7 @@ export class LangChainCache {
 	cacheQuery(query: string, results: LangchainDocument[]): void {
 		const key = this.generateKey('query', query);
 		const existing = this.queryCache.get(key);
-		
+
 		this.queryCache.set(key, {
 			query,
 			results,
@@ -208,14 +213,14 @@ export class LangChainCache {
 	getCachedQuery(query: string): LangchainDocument[] | null {
 		const key = this.generateKey('query', query);
 		const cached = this.queryCache.get(key);
-		
+
 		if (cached) {
 			this.stats.hits++;
 			cached.hits++;
 			this.logger.debug(`Cache hit for query: ${query.substring(0, 50)}...`);
 			return cached.results;
 		}
-		
+
 		this.stats.misses++;
 		return null;
 	}
@@ -226,7 +231,7 @@ export class LangChainCache {
 	cacheGeneration(prompt: string, response: string, context?: string): void {
 		const key = this.generateKey('generation', prompt, context);
 		const existing = this.generationCache.get(key);
-		
+
 		this.generationCache.set(key, {
 			prompt,
 			context,
@@ -247,14 +252,14 @@ export class LangChainCache {
 	getCachedGeneration(prompt: string, context?: string): string | null {
 		const key = this.generateKey('generation', prompt, context);
 		const cached = this.generationCache.get(key);
-		
+
 		if (cached) {
 			this.stats.hits++;
 			cached.hits++;
 			this.logger.debug(`Cache hit for generation prompt: ${prompt.substring(0, 50)}...`);
 			return cached.response;
 		}
-		
+
 		this.stats.misses++;
 		return null;
 	}
@@ -279,10 +284,13 @@ export class LangChainCache {
 	 * Check if vector store needs rebuild
 	 */
 	shouldRebuildVectorStore(documents: ScrivenerDocument[]): boolean {
-		const documentIds = documents.map(d => d.id).sort();
-		const checksum = this.generateKey(...documentIds, ...documents.map(d => d.content?.length || 0));
+		const documentIds = documents.map((d) => d.id).sort();
+		const checksum = this.generateKey(
+			...documentIds,
+			...documents.map((d) => d.content?.length || 0)
+		);
 		const key = 'current';
-		
+
 		const cached = this.vectorStoreCache.get(key);
 		if (!cached) {
 			// No cache, should build
@@ -307,6 +315,36 @@ export class LangChainCache {
 		}
 
 		return false; // No rebuild needed
+	}
+
+	/**
+	 * Generic get method for compatibility
+	 */
+	get(key: string): CacheValue | null {
+		// Try each cache type
+		const generation = this.getCachedGeneration(key);
+		if (generation) return generation;
+
+		const query = this.getCachedQuery(key);
+		if (query) return query;
+
+		const embedding = this.getCachedEmbedding(key);
+		if (embedding) return embedding;
+
+		return null;
+	}
+
+	/**
+	 * Generic set method for compatibility
+	 */
+	set(key: string, value: CacheValue): void {
+		if (typeof value === 'string') {
+			this.cacheGeneration(key, value);
+		} else if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'number') {
+			this.cacheEmbedding(key, value as number[]);
+		} else if (Array.isArray(value)) {
+			this.cacheQuery(key, value as LangchainDocument[]);
+		}
 	}
 
 	/**
@@ -375,7 +413,9 @@ export class LangChainCache {
 		});
 
 		if (pruned.queries > 0 || pruned.generations > 0) {
-			this.logger.debug(`Pruned ${pruned.queries} queries and ${pruned.generations} generations`);
+			this.logger.debug(
+				`Pruned ${pruned.queries} queries and ${pruned.generations} generations`
+			);
 		}
 	}
 }
@@ -407,8 +447,8 @@ export class LangChainRateLimiter {
 		if (this.blocked.has(identifier)) {
 			const requests = this.requests.get(identifier) || [];
 			const oldestAllowed = Date.now() - this.options.windowMs;
-			const recentRequests = requests.filter(time => time > oldestAllowed);
-			
+			const recentRequests = requests.filter((time) => time > oldestAllowed);
+
 			if (recentRequests.length < this.options.maxRequests) {
 				this.blocked.delete(identifier);
 			} else {
@@ -418,31 +458,31 @@ export class LangChainRateLimiter {
 
 		const now = Date.now();
 		const requests = this.requests.get(identifier) || [];
-		
+
 		if (this.options.strategy === 'sliding') {
 			// Sliding window
 			const oldestAllowed = now - this.options.windowMs;
-			const recentRequests = requests.filter(time => time > oldestAllowed);
-			
+			const recentRequests = requests.filter((time) => time > oldestAllowed);
+
 			if (recentRequests.length >= this.options.maxRequests) {
 				this.blocked.add(identifier);
 				this.logger.warn(`Rate limit exceeded for ${identifier}`);
 				return false;
 			}
-			
+
 			recentRequests.push(now);
 			this.requests.set(identifier, recentRequests);
 		} else {
 			// Fixed window
 			const windowStart = Math.floor(now / this.options.windowMs) * this.options.windowMs;
-			const windowRequests = requests.filter(time => time >= windowStart);
-			
+			const windowRequests = requests.filter((time) => time >= windowStart);
+
 			if (windowRequests.length >= this.options.maxRequests) {
 				this.blocked.add(identifier);
 				this.logger.warn(`Rate limit exceeded for ${identifier}`);
 				return false;
 			}
-			
+
 			windowRequests.push(now);
 			this.requests.set(identifier, windowRequests);
 		}
@@ -459,9 +499,18 @@ export class LangChainRateLimiter {
 			const requests = this.requests.get(identifier) || [];
 			const oldestRequest = Math.min(...requests);
 			const waitTime = Math.max(100, this.options.windowMs - (Date.now() - oldestRequest));
-			
+
 			this.logger.debug(`Waiting ${waitTime}ms for rate limit`);
-			await new Promise(resolve => setTimeout(resolve, Math.min(waitTime, 1000)));
+
+			const rateLimitTimeout = new AdaptiveTimeout({
+				operation: 'rate-limit-wait',
+				baseTimeout: Math.min(waitTime, 1000),
+				maxTimeout: Math.min(waitTime, 2000),
+				stallTimeout: Math.min(waitTime, 1000) + 5000,
+				progressIndicators: [ProgressIndicators.networkProgress('api.openai.com', 443)],
+			});
+
+			await rateLimitTimeout.wait(AsyncUtils.sleep(Math.min(waitTime, 1000)));
 		}
 	}
 
@@ -473,7 +522,7 @@ export class LangChainRateLimiter {
 		const oldestAllowed = now - this.options.windowMs * 2;
 
 		this.requests.forEach((times, identifier) => {
-			const filtered = times.filter(time => time > oldestAllowed);
+			const filtered = times.filter((time) => time > oldestAllowed);
 			if (filtered.length === 0) {
 				this.requests.delete(identifier);
 				this.blocked.delete(identifier);
@@ -492,7 +541,7 @@ export class LangChainRateLimiter {
 		const oldestAllowed = now - this.options.windowMs;
 
 		this.requests.forEach((times, identifier) => {
-			const recentRequests = times.filter(time => time > oldestAllowed);
+			const recentRequests = times.filter((time) => time > oldestAllowed);
 			stats[identifier] = {
 				requests: recentRequests.length,
 				blocked: this.blocked.has(identifier),
@@ -521,13 +570,16 @@ export class LangChainRateLimiter {
  * Performance monitor for LangChain operations
  */
 export class LangChainPerformanceMonitor {
-	private metrics: Map<string, {
-		count: number;
-		totalTime: number;
-		minTime: number;
-		maxTime: number;
-		errors: number;
-	}> = new Map();
+	private metrics: Map<
+		string,
+		{
+			count: number;
+			totalTime: number;
+			minTime: number;
+			maxTime: number;
+			errors: number;
+		}
+	> = new Map();
 	private logger: ReturnType<typeof getLogger>;
 
 	constructor() {
@@ -539,7 +591,7 @@ export class LangChainPerformanceMonitor {
 	 */
 	startOperation(operation: string): () => void {
 		const startTime = Date.now();
-		
+
 		return () => {
 			const duration = Date.now() - startTime;
 			this.recordMetric(operation, duration);
@@ -588,20 +640,26 @@ export class LangChainPerformanceMonitor {
 	/**
 	 * Get performance statistics
 	 */
-	getStatistics(): Record<string, {
-		count: number;
-		averageTime: number;
-		minTime: number;
-		maxTime: number;
-		errorRate: number;
-	}> {
-		const stats: Record<string, {
+	getStatistics(): Record<
+		string,
+		{
 			count: number;
 			averageTime: number;
 			minTime: number;
 			maxTime: number;
 			errorRate: number;
-		}> = {};
+		}
+	> {
+		const stats: Record<
+			string,
+			{
+				count: number;
+				averageTime: number;
+				minTime: number;
+				maxTime: number;
+				errorRate: number;
+			}
+		> = {};
 
 		this.metrics.forEach((metric, operation) => {
 			stats[operation] = {
@@ -657,10 +715,18 @@ export class LangChainPerformanceMonitor {
  * Batch processor for efficient API usage
  */
 export class LangChainBatchProcessor {
-	private queue: Map<string, {
-		items: Array<{ id: string; data: unknown; resolve: (value: unknown) => void; reject: (error: Error) => void }>;
-		timer?: NodeJS.Timeout;
-	}> = new Map();
+	private queue: Map<
+		string,
+		{
+			items: Array<{
+				id: string;
+				data: unknown;
+				resolve: (value: unknown) => void;
+				reject: (error: Error) => void;
+			}>;
+			timer?: NodeJS.Timeout;
+		}
+	> = new Map();
 	private logger: ReturnType<typeof getLogger>;
 	private options: {
 		maxBatchSize: number;
@@ -687,9 +753,9 @@ export class LangChainBatchProcessor {
 	async add<T>(type: string, data: T): Promise<T> {
 		return new Promise((resolve, reject) => {
 			const queue = this.queue.get(type) || { items: [] };
-			
+
 			queue.items.push({
-				id: crypto.randomUUID(),
+				id: generateScrivenerUUID(),
 				data,
 				resolve: resolve as (value: unknown) => void,
 				reject,
@@ -726,7 +792,7 @@ export class LangChainBatchProcessor {
 
 		// Get items to process
 		const items = queue.items.splice(0, this.options.maxBatchSize);
-		const batchData = items.map(item => item.data);
+		const batchData = items.map((item) => item.data);
 
 		try {
 			this.logger.debug(`Processing batch of ${items.length} items for ${type}`);
@@ -738,7 +804,7 @@ export class LangChainBatchProcessor {
 			});
 		} catch (error) {
 			// Reject all promises in batch
-			items.forEach(item => {
+			items.forEach((item) => {
 				item.reject(error as Error);
 			});
 		}
@@ -754,7 +820,7 @@ export class LangChainBatchProcessor {
 	 */
 	async flush(): Promise<void> {
 		const promises: Promise<void>[] = [];
-		
+
 		this.queue.forEach((_, type) => {
 			promises.push(this.processBatch(type));
 		});

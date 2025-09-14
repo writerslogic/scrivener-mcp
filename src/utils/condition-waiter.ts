@@ -5,10 +5,7 @@
 
 import { getLogger } from '../core/logger.js';
 import { ApplicationError, ErrorCode } from '../core/errors.js';
-import { promisify } from 'util';
-import { exec } from 'child_process';
-
-const execAsync = promisify(exec);
+import { AsyncUtils, ProcessUtils } from './shared-patterns.js';
 
 const logger = getLogger('condition-waiter');
 
@@ -108,7 +105,7 @@ export async function waitForCondition({
 		}
 
 		// Wait before next check
-		await sleep(currentInterval);
+		await AsyncUtils.sleep(currentInterval);
 
 		// Exponential backoff if enabled
 		if (exponentialBackoff) {
@@ -252,12 +249,8 @@ export async function waitForProcess(
 	return waitForCondition({
 		condition: async () => {
 			try {
-				const { exec } = await import('child_process');
-				const { promisify } = await import('util');
-				const execAsync = promisify(exec);
-
-				await execAsync(`pgrep -f "${processName}"`, { timeout: 2000 });
-				return true;
+				const pids = await ProcessUtils.getProcessByName(processName);
+				return pids.length > 0;
 			} catch {
 				return false;
 			}
@@ -278,11 +271,11 @@ export async function waitForDockerContainer(
 ): Promise<WaitResult> {
 	return waitForCondition({
 		condition: async () => {
-			try {
-				const { exec } = await import('child_process');
-				const { promisify } = await import('util');
-				const execAsync = promisify(exec);
+			const { exec } = await import('child_process');
+			const { promisify } = await import('util');
+			const execAsync = promisify(exec);
 
+			try {
 				const { stdout } = await execAsync(
 					`docker inspect --format='{{.State.Health.Status}}' ${containerName}`,
 					{ timeout: 5000 }

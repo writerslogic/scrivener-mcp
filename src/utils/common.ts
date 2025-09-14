@@ -12,22 +12,45 @@ export enum ErrorCode {
 	NOT_FOUND = 'NOT_FOUND',
 	PERMISSION_DENIED = 'PERMISSION_DENIED',
 	IO_ERROR = 'IO_ERROR',
+	FILE_NOT_FOUND = 'FILE_NOT_FOUND',
+	FILE_ACCESS_DENIED = 'FILE_ACCESS_DENIED',
+	FILE_WRITE_ERROR = 'FILE_WRITE_ERROR',
+	PATH_INVALID = 'PATH_INVALID',
+	INVALID_FORMAT = 'INVALID_FORMAT',
+
+	// Project & Document Errors
+	PROJECT_NOT_FOUND = 'PROJECT_NOT_FOUND',
+	PROJECT_NOT_OPEN = 'PROJECT_NOT_OPEN',
+	PROJECT_INVALID = 'PROJECT_INVALID',
+	PROJECT_LOCKED = 'PROJECT_LOCKED',
+	PROJECT_ERROR = 'PROJECT_ERROR',
+	DOCUMENT_NOT_FOUND = 'DOCUMENT_NOT_FOUND',
+	DOCUMENT_INVALID = 'DOCUMENT_INVALID',
+	DOCUMENT_LOCKED = 'DOCUMENT_LOCKED',
+	DOCUMENT_TOO_LARGE = 'DOCUMENT_TOO_LARGE',
 
 	// Validation & Input Errors
 	INVALID_INPUT = 'INVALID_INPUT',
+	INVALID_REQUEST = 'INVALID_REQUEST',
 	VALIDATION_ERROR = 'VALIDATION_ERROR',
+	VALIDATION_FAILED = 'VALIDATION_FAILED',
+	MISSING_REQUIRED = 'MISSING_REQUIRED',
+	TYPE_MISMATCH = 'TYPE_MISMATCH',
 
 	// System & Runtime Errors
-	PROJECT_ERROR = 'PROJECT_ERROR',
 	INITIALIZATION_ERROR = 'INITIALIZATION_ERROR',
 	CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+	INVALID_CONFIG = 'INVALID_CONFIG',
 	RUNTIME_ERROR = 'RUNTIME_ERROR',
+	INVALID_STATE = 'INVALID_STATE',
+	NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
 
 	// Database & Sync Errors
 	DATABASE_ERROR = 'DATABASE_ERROR',
 	SYNC_ERROR = 'SYNC_ERROR',
 	CONNECTION_ERROR = 'CONNECTION_ERROR',
 	TRANSACTION_ERROR = 'TRANSACTION_ERROR',
+	QUERY_ERROR = 'QUERY_ERROR',
 
 	// API & Network Errors
 	API_ERROR = 'API_ERROR',
@@ -36,19 +59,32 @@ export enum ErrorCode {
 	TIMEOUT_ERROR = 'TIMEOUT_ERROR',
 	OPERATION_CANCELLED = 'OPERATION_CANCELLED',
 	RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
+	RATE_LIMITED = 'RATE_LIMITED',
 
 	// Cache & Memory Errors
 	CACHE_ERROR = 'CACHE_ERROR',
 	MEMORY_ERROR = 'MEMORY_ERROR',
+	CACHE_FULL = 'CACHE_FULL',
+	CACHE_MISS = 'CACHE_MISS',
+	RESOURCE_EXHAUSTED = 'RESOURCE_EXHAUSTED',
 
 	// Authentication & Authorization
 	AUTH_ERROR = 'AUTH_ERROR',
 	UNAUTHORIZED = 'UNAUTHORIZED',
 	FORBIDDEN = 'FORBIDDEN',
 
-	// Additional Errors
+	// Analysis & AI Errors
+	ANALYSIS_ERROR = 'ANALYSIS_ERROR',
+	ENHANCEMENT_ERROR = 'ENHANCEMENT_ERROR',
+	AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
+	PROCESSING_ERROR = 'PROCESSING_ERROR',
+
+	// Service Errors
+	SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+	OPERATION_FAILED = 'OPERATION_FAILED',
 	DEPENDENCY_ERROR = 'DEPENDENCY_ERROR',
 	UNSUPPORTED_OPERATION = 'UNSUPPORTED_OPERATION',
+	UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
 /** Standard application error */
@@ -63,6 +99,11 @@ export class AppError extends Error {
 		this.name = 'AppError';
 		Error.captureStackTrace?.(this, this.constructor);
 	}
+}
+
+/** Create a new AppError */
+export function createError(code: ErrorCode, details?: unknown, message?: string): AppError {
+	return new AppError(message || `Error: ${code}`, code, details);
 }
 
 /** Wrap unknown errors into AppError */
@@ -756,24 +797,20 @@ export const isDevelopment = (): boolean => process.env.NODE_ENV === 'developmen
 // Text Processing Utilities
 // ============================================================================
 
-/** Split text into sentences */
-export const splitIntoSentences = (text: string): string[] => {
-	return text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-};
+// Re-export accurate text metrics functions from dedicated module
+export {
+	getAccurateParagraphCount,
+	getAccurateSentenceCount,
+	getAccurateWordCount,
+	getCharacterCount,
+	getTextMetrics,
+	getWordFrequency,
+	splitIntoSentences,
+	splitIntoWords,
+	getWordPairs,
+} from './text-metrics.js';
 
-/** Split text into words */
-export const splitIntoWords = (text: string): string[] => {
-	return text.match(/\b\w+\b/g) || [];
-};
-
-/** Get word pairs (bigrams) from word array */
-export const getWordPairs = (words: string[]): Array<[string, string]> => {
-	const pairs: Array<[string, string]> = [];
-	for (let i = 0; i < words.length - 1; i++) {
-		pairs.push([words[i], words[i + 1]]);
-	}
-	return pairs;
-};
+// Text processing functions moved to text-metrics.js and re-exported above
 
 // ============================================================================
 // Date & Time Utilities
@@ -871,12 +908,6 @@ export default {
 	getEnv,
 	isProduction,
 	isDevelopment,
-
-	// Text Processing
-	splitIntoSentences,
-	splitIntoWords,
-	getWordPairs,
-
 	// Date & Time
 	formatDuration,
 	formatBytes,

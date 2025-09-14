@@ -4,8 +4,8 @@ import {
 	isValidUUID,
 	AppError,
 	ErrorCode,
-	formatBytes,
 	buildPath,
+	formatBytes,
 } from './common.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
 import type { BinderItem, BinderContainer, MetaDataItem } from '../types/internal.js';

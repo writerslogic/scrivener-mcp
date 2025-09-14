@@ -1,85 +1,153 @@
 /**
- * Utility functions for managing project-specific data
+ * Project utilities with proper error handling and security
+ * Consolidated from project-utils and project-utils-fixed
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getLogger } from '../core/logger.js';
-import { ensureDir, safeReadFile, safeWriteFile } from './common.js';
+import { FileUtils, PathUtils, AsyncUtils } from './shared-patterns.js';
+import { AppError, ErrorCode } from './common.js';
 
 const logger = getLogger('project-utils');
 
+interface CacheConfig {
+	maxSizeMB: number;
+	maxFiles: number;
+	maxAgeMs: number;
+}
+
+const _DEFAULT_CACHE_CONFIG: CacheConfig = {
+	maxSizeMB: 100,
+	maxFiles: 1000,
+	maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
 /**
- * Ensure the .scrivener-mcp directory exists and is properly configured
+ * Check if directory is a valid Scrivener project
  */
-export async function ensureProjectDataDirectory(projectPath: string): Promise<string> {
-	const mcpDir = path.join(projectPath, '.scrivener-mcp');
-
+async function isScrivenerProject(projectPath: string): Promise<boolean> {
 	try {
-		// Create the directory using common utility
-		await ensureDir(mcpDir);
-		logger.debug('Ensured .scrivener-mcp directory exists', { path: mcpDir });
-
-		// Create a README explaining what this directory is for
-		const readmePath = path.join(mcpDir, 'README.md');
-		try {
-			await fs.access(readmePath);
-		} catch {
-			// File doesn't exist, create it
-			const readmeContent = `# Scrivener MCP Data Directory
-
-This directory contains cached data and queue state for the Scrivener MCP server.
-
-## Contents
-
-- \`queue-state.json\` - Job queue persistence data
-- \`cache/\` - Cached analysis results
-- \`vectors/\` - Vector embeddings for semantic search
-
-## Notes
-
-- This directory is automatically created and managed by the Scrivener MCP server
-- It's safe to delete this directory; it will be recreated when needed
-- Add \`.scrivener-mcp/\` to your \`.gitignore\` to avoid committing cached data
-
-## Privacy
-
-All data in this directory is derived from your Scrivener project and never leaves your machine.
-`;
-			await fs.writeFile(readmePath, readmeContent);
-			logger.debug('Created README in .scrivener-mcp directory');
-		}
-
-		// Add to .gitignore if it exists
-		await addToGitignore(projectPath);
-
-		return mcpDir;
-	} catch (error) {
-		logger.error('Failed to ensure project data directory', { error });
-		throw error;
+		const projectFile = PathUtils.build(projectPath, 'project.scrivx');
+		const stats = await fs.stat(projectFile);
+		return stats.isFile();
+	} catch {
+		return false;
 	}
 }
 
 /**
- * Add .scrivener-mcp to .gitignore if the file exists
+ * Ensure the .scrivener-mcp directory exists with proper structure and security
  */
-async function addToGitignore(projectPath: string): Promise<void> {
-	const gitignorePath = path.join(projectPath, '.gitignore');
+export async function ensureProjectDataDirectory(projectPath: string): Promise<string> {
+	const validPath = PathUtils.validate(projectPath);
+
+	// Verify it's actually a Scrivener project
+	if (!(await isScrivenerProject(validPath))) {
+		throw new AppError(`Not a valid Scrivener project: ${validPath}`, ErrorCode.INVALID_INPUT);
+	}
+
+	const mcpDir = PathUtils.build(validPath, '.scrivener-mcp');
+	const cacheDir = PathUtils.build(mcpDir, 'cache');
+	const backupDir = PathUtils.build(mcpDir, 'backups');
+	const contextDir = PathUtils.build(mcpDir, 'context');
+
+	// Create directories with proper permissions
+	await FileUtils.ensureDir(mcpDir, 0o755);
+	await FileUtils.ensureDir(cacheDir, 0o755);
+	await FileUtils.ensureDir(backupDir, 0o755);
+	await FileUtils.ensureDir(contextDir, 0o755);
+
+	// Create README with safe atomic write
+	const readmePath = PathUtils.build(mcpDir, 'README.md');
+	const readmeContent = `# Scrivener MCP Data Directory
+
+This directory contains cached data and temporary files for the Scrivener MCP integration.
+
+## Structure:
+- \`cache/\` - Temporary cache files (auto-cleaned after 7 days)
+- \`backups/\` - Project backups
+- \`context/\` - AI context and memory files
+
+## Important:
+- This directory is safe to delete if you want to reset the integration
+- Cache files are automatically cleaned up
+- Backups are kept according to your retention settings
+
+Generated: ${new Date().toISOString()}
+`;
+
+	if (!(await FileUtils.exists(readmePath))) {
+		await FileUtils.safeWrite(readmePath, readmeContent);
+		logger.debug('Created README.md in .scrivener-mcp directory');
+	}
+
+	// Safely add to .gitignore
+	await addToGitignoreSafely(validPath);
+
+	return mcpDir;
+}
+
+/**
+ * Safely add .scrivener-mcp to .gitignore with atomic operations
+ */
+async function addToGitignoreSafely(projectPath: string): Promise<void> {
+	const gitignorePath = PathUtils.build(projectPath, '.gitignore');
+
+	if (!(await FileUtils.exists(gitignorePath))) {
+		return; // No .gitignore file exists
+	}
+
+	const lockPath = `${gitignorePath}.lock`;
+	const lockTimeout = 5000; // 5 seconds
+	const startTime = Date.now();
+
+	// Acquire lock with timeout
+	while (true) {
+		try {
+			// Try to create lock file exclusively
+			await fs.writeFile(lockPath, process.pid.toString(), { flag: 'wx' });
+			break; // Lock acquired
+		} catch (error: unknown) {
+			const err = error as { code?: string };
+			if (err.code !== 'EEXIST') throw error;
+
+			// Check timeout
+			if (Date.now() - startTime > lockTimeout) {
+				logger.warn('Timeout waiting for .gitignore lock, skipping');
+				return;
+			}
+
+			// Check for stale lock
+			try {
+				const lockStat = await fs.stat(lockPath);
+				const lockAge = Date.now() - lockStat.mtime.getTime();
+
+				// Remove stale lock (older than 30 seconds)
+				if (lockAge > 30000) {
+					await fs.unlink(lockPath).catch(() => {});
+				}
+			} catch {
+				// Lock doesn't exist, retry
+			}
+
+			// Wait before retry
+			await AsyncUtils.sleep(100);
+		}
+	}
 
 	try {
-		// Check if .gitignore exists
-		const gitignoreContent = await safeReadFile(gitignorePath);
+		const content = await fs.readFile(gitignorePath, 'utf-8');
+		const lines = content.split('\n');
 
-		// Check if .scrivener-mcp is already in .gitignore
-		if (!gitignoreContent.includes('.scrivener-mcp')) {
-			// Add it
-			const updatedContent = `${gitignoreContent.trim()}\n\n# Scrivener MCP cache\n.scrivener-mcp/\n`;
-			await safeWriteFile(gitignorePath, updatedContent);
-			logger.debug('Added .scrivener-mcp to .gitignore');
+		if (!lines.some((line) => line.trim() === '.scrivener-mcp/')) {
+			lines.push('', '# Scrivener MCP cache', '.scrivener-mcp/');
+			const newContent = lines.join('\n');
+			await FileUtils.safeWrite(gitignorePath, newContent);
+			logger.debug('Added .scrivener-mcp/ to .gitignore');
 		}
-	} catch (error) {
-		// .gitignore doesn't exist or can't be read, that's ok
-		logger.debug('.gitignore not found or not writable', { error });
+	} finally {
+		await fs.unlink(lockPath).catch(() => {});
 	}
 }
 

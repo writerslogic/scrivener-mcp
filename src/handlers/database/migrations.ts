@@ -1,12 +1,14 @@
-/* eslint-disable no-console */
 /**
  * Database Migration System
  * Manages schema versions and migrations for SQLite and Neo4j
  */
 
-import { AppError, ErrorCode } from '../../utils/common.js';
+import { getLogger } from '../../core/logger.js';
+import { toDatabaseError } from '../../utils/database.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { SQLiteManager } from './sqlite-manager.js';
+
+const logger = getLogger('migrations');
 
 export interface Migration {
 	version: number;
@@ -266,18 +268,18 @@ export class MigrationManager {
 			return;
 		}
 
-		console.log(`Running ${pending.length} migrations...`);
+		logger.info(`Running ${pending.length} migrations`);
 
 		for (const migration of pending) {
 			try {
 				await this.runMigration(migration);
-				console.log(`✓ Migration ${migration.version}: ${migration.name}`);
+				logger.info(`Migration ${migration.version} completed: ${migration.name}`);
 			} catch (error) {
-				console.error(`✗ Migration ${migration.version} failed:`, error);
-				throw new AppError(
-					`Migration ${migration.version} failed: ${error}`,
-					ErrorCode.DATABASE_ERROR
-				);
+				logger.error(`Migration ${migration.version} failed`, {
+					name: migration.name,
+					error: (error as Error).message,
+				});
+				throw toDatabaseError(error, `migration ${migration.version}`);
 			}
 		}
 	}
@@ -337,9 +339,12 @@ export class MigrationManager {
 						]);
 					}
 
-					console.log(`↓ Rolled back migration ${migration.version}: ${migration.name}`);
+					logger.info(`Rolled back migration ${migration.version}: ${migration.name}`);
 				} catch (error) {
-					console.error(`Failed to rollback migration ${migration.version}:`, error);
+					logger.error(`Failed to rollback migration ${migration.version}`, {
+						name: migration.name,
+						error: (error as Error).message,
+					});
 					throw error;
 				}
 			}

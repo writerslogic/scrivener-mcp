@@ -1,10 +1,17 @@
 /**
- * Project management handlers
+ * Project management handlers - utilizes common utilities for validation and error handling
  */
 
 import * as path from 'path';
 import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
+import {
+	validateInput,
+	pathExists,
+	sanitizePath,
+	createError,
+	ErrorCode,
+} from '../utils/common.js';
 import { DatabaseService } from './database/database-service.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -12,6 +19,7 @@ import {
 	getOptionalNumberArg,
 	getOptionalStringArg,
 	getOptionalBooleanArg,
+	getStringArg,
 } from './types.js';
 
 export const openProjectHandler: ToolDefinition = {
@@ -28,7 +36,26 @@ export const openProjectHandler: ToolDefinition = {
 		required: ['path'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		const projectPath = args.path as string;
+		// Validate input arguments
+		validateInput(args, {
+			path: {
+				type: 'string',
+				required: true,
+				minLength: 1,
+			},
+		});
+
+		const rawPath = getStringArg(args, 'path');
+		const projectPath = sanitizePath(rawPath);
+
+		// Verify the path exists
+		if (!(await pathExists(projectPath))) {
+			throw createError(
+				ErrorCode.FILE_NOT_FOUND,
+				{ path: projectPath },
+				`Project path does not exist: ${projectPath}`
+			);
+		}
 
 		// Close existing project
 		if (context.project) {

@@ -62,6 +62,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'node_modules/', 'tests/', '*.config.js', 'scripts/**/*'],
+    ignores: ['dist/', 'node_modules/', 'tests/', '*.config.js', 'scripts/**/*', 'desktop/i18n/', 'desktop/libs/', 'test-langchain-integration.js'],
   }
 );

@@ -1,6 +1,7 @@
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import { getLogger } from './core/logger.js';
+import { generateScrivenerUUID } from './utils/scrivener-utils.js';
 import type { DatabaseService } from './handlers/database/database-service.js';
 import {
 	buildPath,
@@ -66,6 +67,9 @@ export interface StyleGuide {
 	sentenceComplexity: 'simple' | 'varied' | 'complex';
 	paragraphLength: 'short' | 'medium' | 'long' | 'varied';
 	customGuidelines: string[];
+	genre?: string;
+	audience?: string;
+	styleNotes?: string[];
 }
 
 export interface WritingStatistics {
@@ -403,7 +407,7 @@ export class MemoryManager {
 	}
 
 	private generateId(): string {
-		return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+		return generateScrivenerUUID();
 	}
 
 	/**

@@ -9,6 +9,7 @@ import * as path from 'path';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
+import { getQueueStatePath } from '../../utils/project-utils.js';
 import { DatabaseService } from '../../handlers/database/database-service.js';
 import { getEnvConfig } from '../../utils/env-config.js';
 import { LangChainService } from '../ai/langchain-service.js';
@@ -130,7 +131,7 @@ export class JobQueueService {
 				this.logger.info('No KeyDB/Redis found, using embedded queue');
 
 				const persistPath = this.projectPath
-					? path.join(this.projectPath, '.scrivener-mcp', 'queue-state.json')
+					? getQueueStatePath(this.projectPath)
 					: './data/queue-state.json';
 
 				// Create directory if needed

@@ -1,5 +1,7 @@
 declare module 'rtf-parser' {
 	interface RTFDoc {
+		// Note: Using 'unknown' here because rtf-parser library returns variable content structure
+		// Content can be nested objects, arrays, or plain text depending on RTF complexity
 		content?: unknown;
 		meta?: {
 			title?: string;

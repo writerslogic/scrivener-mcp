@@ -1,13 +1,131 @@
 /**
  * Adaptive Timeout and Progress Monitoring Utilities
- * Replaces static timeouts with intelligent, progress-aware mechanisms
+ * Consolidated implementation with proper state management and error handling
  */
 
 import { EventEmitter } from 'events';
+import { ApplicationError } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
-import { ApplicationError, ErrorCode } from '../core/errors.js';
+import { ErrorCode } from '../utils/common.js';
 
 const logger = getLogger('adaptive-timeout');
+
+/**
+ * Ring buffer for efficient memory management
+ */
+export class RingBuffer<T> {
+	private buffer: (T | undefined)[];
+	private writeIndex = 0;
+	private size: number;
+
+	constructor(size: number) {
+		this.size = size;
+		this.buffer = new Array(size);
+	}
+
+	push(item: T): void {
+		this.buffer[this.writeIndex % this.size] = item;
+		this.writeIndex++;
+	}
+
+	getAll(): T[] {
+		return this.buffer.filter((item) => item !== undefined) as T[];
+	}
+
+	clear(): void {
+		this.buffer = new Array(this.size);
+		this.writeIndex = 0;
+	}
+
+	getLatest(count: number): T[] {
+		const result: T[] = [];
+		const start = Math.max(0, this.writeIndex - count);
+		for (let i = start; i < this.writeIndex; i++) {
+			const item = this.buffer[i % this.size];
+			if (item !== undefined) {
+				result.push(item);
+			}
+		}
+		return result;
+	}
+
+	get length(): number {
+		return Math.min(this.writeIndex, this.size);
+	}
+
+	slice(start?: number, end?: number): T[] {
+		const all = this.getAll();
+		return all.slice(start, end);
+	}
+
+	get(index: number): T | undefined {
+		return this.buffer[index % this.size];
+	}
+}
+
+/**
+ * Metrics collector for learning from past operations
+ */
+export class MetricsCollector {
+	private metrics = new Map<string, OperationMetrics>();
+
+	recordOperation(
+		operation: string,
+		duration: number,
+		success: boolean,
+		progressIntervals: number[]
+	): void {
+		const existing = this.metrics.get(operation) || {
+			operation,
+			totalCount: 0,
+			successCount: 0,
+			totalDuration: 0,
+			totalProgressIntervals: 0,
+			averageDuration: 0,
+			successRate: 0,
+			averageProgressInterval: 0,
+		};
+
+		// Update rolling averages
+		existing.totalCount++;
+		if (success) existing.successCount++;
+		existing.totalDuration += duration;
+		existing.totalProgressIntervals +=
+			progressIntervals.reduce((sum, interval) => sum + interval, 0) /
+			Math.max(progressIntervals.length, 1);
+
+		existing.averageDuration = existing.totalDuration / existing.totalCount;
+		existing.successRate = existing.successCount / existing.totalCount;
+		existing.averageProgressInterval = existing.totalProgressIntervals / existing.totalCount;
+
+		this.metrics.set(operation, existing);
+	}
+
+	suggestTimeout(operation: string): { base: number; max: number; stall: number } {
+		const metrics = this.metrics.get(operation);
+		if (!metrics) {
+			return { base: 30000, max: 300000, stall: 30000 }; // Defaults
+		}
+
+		// Calculate suggested timeouts based on historical data
+		const base = Math.max(metrics.averageProgressInterval * 2, 5000);
+		const max = Math.max(metrics.averageDuration * 1.5, base * 10);
+		const stall = Math.max(metrics.averageProgressInterval * 3, 10000);
+
+		return { base, max, stall };
+	}
+}
+
+interface OperationMetrics {
+	operation: string;
+	totalCount: number;
+	successCount: number;
+	totalDuration: number;
+	totalProgressIntervals: number;
+	averageDuration: number;
+	successRate: number;
+	averageProgressInterval: number;
+}
 
 export interface ProgressIndicator {
 	type: 'output' | 'file_size' | 'network' | 'heartbeat' | 'completion_check';
@@ -20,9 +138,11 @@ export interface AdaptiveTimeoutOptions {
 	baseTimeout: number;
 	maxTimeout: number;
 	progressIndicators?: ProgressIndicator[];
-	stallTimeout?: number; // Time without progress before giving up
+	stallTimeout?: number;
 	completionCheck?: () => Promise<boolean>;
 	onProgress?: (progress: ProgressUpdate) => void;
+	useExponentialBackoff?: boolean;
+	metricsCollector?: MetricsCollector;
 }
 
 export interface ProgressUpdate {
@@ -37,16 +157,17 @@ export interface ProgressUpdate {
 export class AdaptiveTimeout extends EventEmitter {
 	private startTime: number;
 	private lastProgressTime: number;
-	private progressHistory: ProgressUpdate[] = [];
-	private isCompleted = false;
-	private isCancelled = false;
+	private progressHistory: RingBuffer<ProgressUpdate>;
 	private timeoutHandle: NodeJS.Timeout | null = null;
 	private progressCheckHandle: NodeJS.Timeout | null = null;
+	private isCompleted = false;
+	private isCancelled = false;
 
 	constructor(private options: AdaptiveTimeoutOptions) {
 		super();
 		this.startTime = Date.now();
 		this.lastProgressTime = this.startTime;
+		this.progressHistory = new RingBuffer(100);
 	}
 
 	/**
@@ -197,10 +318,8 @@ export class AdaptiveTimeout extends EventEmitter {
 
 		this.progressHistory.push(progressUpdate);
 
-		// Keep history reasonable
-		if (this.progressHistory.length > 50) {
-			this.progressHistory = this.progressHistory.slice(-25);
-		}
+		// Keep history reasonable - RingBuffer automatically manages size
+		// No need to manually truncate as RingBuffer has a fixed size
 
 		// Emit progress event
 		this.emit('progress', progressUpdate);
@@ -305,15 +424,14 @@ export class AdaptiveTimeout extends EventEmitter {
 		const now = Date.now();
 		const elapsed = now - this.startTime;
 		const timeSinceProgress = now - this.lastProgressTime;
-		const progressEvents = this.progressHistory.length;
+		const progressHistory = this.progressHistory.getAll();
+		const progressEvents = progressHistory.length;
 
 		let averageProgressInterval = 0;
 		if (progressEvents > 1) {
 			const intervals = [];
-			for (let i = 1; i < this.progressHistory.length; i++) {
-				intervals.push(
-					this.progressHistory[i].timestamp - this.progressHistory[i - 1].timestamp
-				);
+			for (let i = 1; i < progressHistory.length; i++) {
+				intervals.push(progressHistory[i].timestamp - progressHistory[i - 1].timestamp);
 			}
 			averageProgressInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
 		}
@@ -397,14 +515,16 @@ export class ProgressIndicators {
 							resolve(false);
 						}, 2000);
 
-						socket.connect(port, host, () => {
+						socket.once('connect', () => {
 							clearTimeout(timeout);
+							socket.removeAllListeners();
 							socket.destroy();
 							resolve(true);
 						});
 
-						socket.on('error', () => {
+						socket.once('error', () => {
 							clearTimeout(timeout);
+							socket.removeAllListeners();
 							resolve(false);
 						});
 					});

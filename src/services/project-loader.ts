@@ -8,7 +8,15 @@ import { parseStringPromise, Builder } from 'xml2js';
 import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type { ProjectStructure, BinderItem } from '../types/internal.js';
-import { ensureDir, safeParse, safeStringify, safeReadFile, buildPath } from '../utils/common.js';
+import {
+	ensureDir,
+	safeParse,
+	safeStringify,
+	safeReadFile,
+	safeWriteFile,
+	buildPath,
+} from '../utils/common.js';
+import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
 
 const logger = getLogger('project-loader');
 
@@ -28,7 +36,7 @@ export class ProjectLoader {
 	constructor(projectPath: string, options: ProjectLoaderOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
 		const projectName = path.basename(projectPath, path.extname(projectPath));
-		this.scrivxPath = buildPath(this.projectPath, `${projectName}.scrivx`);
+		this.scrivxPath = PathUtils.build(this.projectPath, `${projectName}.scrivx`);
 		this.options = {
 			autoBackup: false,
 			backupInterval: 3600000, // 1 hour
@@ -44,6 +52,12 @@ export class ProjectLoader {
 		logger.info(`Loading project from ${this.scrivxPath}`);
 
 		try {
+			if (!(await FileUtils.exists(this.scrivxPath))) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					`Scrivener project file not found at "${this.scrivxPath}"`
+				);
+			}
 			const scrivxContent = await safeReadFile(this.scrivxPath, 'utf-8');
 			this.projectStructure = await parseStringPromise(scrivxContent, {
 				explicitArray: false,
@@ -120,7 +134,7 @@ export class ProjectLoader {
 
 		try {
 			const xml = builder.buildObject(cleanStructure);
-			await fs.writeFile(this.scrivxPath, xml, 'utf-8');
+			await safeWriteFile(this.scrivxPath, xml);
 			logger.info('Project saved successfully');
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'EACCES') {
@@ -131,7 +145,10 @@ export class ProjectLoader {
 			} else if ((error as NodeJS.ErrnoException).code === 'ENOSPC') {
 				throw createError(ErrorCode.IO_ERROR, 'No space left on device');
 			}
-			throw createError(ErrorCode.IO_ERROR, `Failed to save project: ${(error as Error).message}`);
+			throw createError(
+				ErrorCode.IO_ERROR,
+				`Failed to save project: ${(error as Error).message}`
+			);
 		}
 	}
 
@@ -187,7 +204,7 @@ export class ProjectLoader {
 
 		try {
 			const content = await safeReadFile(this.scrivxPath, 'utf-8');
-			await fs.writeFile(backupPath, content, 'utf-8');
+			await safeWriteFile(backupPath, content);
 			logger.info(`Backup created at ${backupPath}`);
 
 			// Clean up old backups
@@ -212,7 +229,7 @@ export class ProjectLoader {
 
 			// Restore from backup
 			const backupContent = await safeReadFile(backupPath, 'utf-8');
-			await fs.writeFile(this.scrivxPath, backupContent, 'utf-8');
+			await safeWriteFile(this.scrivxPath, backupContent);
 
 			// Reload the project
 			await this.reloadProject();

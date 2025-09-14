@@ -5,6 +5,7 @@
 import { DOCUMENT_TYPES } from '../core/constants.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
+import { getAccurateWordCount } from '../utils/text-metrics.js';
 import type { ProjectMetadata, ProjectStatistics, ScrivenerDocument } from '../types/index.js';
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
@@ -165,7 +166,7 @@ export class CompilationService {
 					documentId: doc.id,
 					title: doc.title,
 					matches: matches.slice(0, 10), // Limit matches per document
-					wordCount: doc.content.split(/\s+/).filter((w: string) => w.length > 0).length,
+					wordCount: getAccurateWordCount(doc.content),
 				});
 				resultCount++;
 			}
@@ -387,8 +388,7 @@ export class CompilationService {
 					id: doc.id,
 					title: doc.title,
 					content: content.plainText || '',
-					wordCount: (content.plainText || '').split(/\s+/).filter((w) => w.length > 0)
-						.length,
+					wordCount: getAccurateWordCount(content.plainText || ''),
 				};
 
 				if (content.formattedText) {
@@ -408,7 +408,7 @@ export class CompilationService {
 			}),
 			totalWordCount: contents.reduce((sum, c) => {
 				const text = c.plainText || '';
-				return sum + text.split(/\s+/).filter((w) => w.length > 0).length;
+				return sum + getAccurateWordCount(text);
 			}, 0),
 			metadata: {
 				compiledAt: new Date().toISOString(),

@@ -1,6 +1,20 @@
+import { getLogger } from '../core/logger.js';
 import type { DatabaseService } from '../handlers/database/database-service.js';
-import { safeParse } from '../utils/common.js';
-import type { ContentAnalyzer, ContentAnalysis } from './base-analyzer.js';
+import {
+	formatBytes,
+	formatDuration,
+	generateHash,
+	getTextMetrics,
+	measureExecution,
+	processBatch,
+	safeParse,
+	truncate,
+	validateInput,
+	withErrorHandling,
+} from '../utils/common.js';
+import type { ContentAnalysis, ContentAnalyzer } from './base-analyzer.js';
+
+const logger = getLogger('context-analyzer');
 
 export interface ScrivenerDocument {
 	id: string;
@@ -111,90 +125,137 @@ export class ContextAnalyzer {
 	/**
 	 * Analyze a chapter and build its context
 	 */
+	private async _analyzeChapter(
+		document: ScrivenerDocument,
+		content: string,
+		allDocuments: ScrivenerDocument[]
+	): Promise<ChapterContext> {
+		validateInput(
+			{ document, content, allDocuments },
+			{
+				document: {
+					type: 'object',
+					required: true,
+				},
+				content: {
+					type: 'string',
+					required: true,
+					minLength: 10,
+					maxLength: 5_000_000,
+				},
+				allDocuments: { type: 'array', required: true, maxLength: 1000 },
+			}
+		);
+
+		const textMetrics = getTextMetrics(content);
+		const contentHash = generateHash(content.substring(0, 1000));
+
+		logger.debug('Analyzing chapter context', {
+			documentId: truncate(document.id, 50),
+			title: truncate(document.title, 100),
+			contentHash: truncate(contentHash, 12),
+			wordCount: textMetrics.wordCount,
+			sentenceCount: textMetrics.sentenceCount,
+			contentSize: formatBytes(content.length),
+			totalDocuments: allDocuments.length,
+		});
+
+		const measureResult = await measureExecution(async () => {
+			// Get basic analysis
+			const basicAnalysis = await this.contentAnalyzer.analyzeContent(content, document.id);
+
+			// Find previous and next chapters
+			const chapterIndex = allDocuments.findIndex((d) => d.id === document.id);
+			const previousChapter = chapterIndex > 0 ? allDocuments[chapterIndex - 1] : undefined;
+			const nextChapter =
+				chapterIndex < allDocuments.length - 1 ? allDocuments[chapterIndex + 1] : undefined;
+
+			// Process character mentions with batch processing for large content
+			const characters = await this.extractCharacterMentions(document.id, content);
+
+			// Extract themes using truncated content for efficiency
+			const truncatedContent = truncate(content, 3000);
+			const themes = await this.extractThemes(truncatedContent, basicAnalysis);
+
+			// Get plot threads for this chapter
+			const plotThreads = await this.getChapterPlotThreads(document.id);
+
+			// Analyze emotional arc
+			const emotionalArc = this.analyzeEmotionalArc(content, basicAnalysis);
+
+			// Extract key narrative elements using batch processing
+			const keyEvents = this.extractKeyEvents(content);
+			const cliffhangers = this.extractCliffhangers(content);
+			const foreshadowing = this.extractForeshadowing(content);
+			const callbacks = this.extractCallbacks(content, allDocuments);
+
+			// Build chapter context
+			const context: ChapterContext = {
+				documentId: document.id,
+				title: document.title,
+				synopsis: document.synopsis,
+				notes: document.notes,
+				wordCount: basicAnalysis.metrics.wordCount,
+				characters,
+				themes,
+				plotThreads,
+				previousChapter: previousChapter
+					? {
+							id: previousChapter.id,
+							title: previousChapter.title,
+							summary: previousChapter.synopsis || 'No synopsis available',
+						}
+					: undefined,
+				nextChapter: nextChapter
+					? {
+							id: nextChapter.id,
+							title: nextChapter.title,
+						}
+					: undefined,
+				emotionalArc,
+				pacing: {
+					score:
+						basicAnalysis.pacing?.overall === 'fast'
+							? 0.8
+							: basicAnalysis.pacing?.overall === 'slow'
+								? 0.3
+								: 0.5,
+					description: this.describePacing(
+						basicAnalysis.pacing?.overall === 'fast'
+							? 0.8
+							: basicAnalysis.pacing?.overall === 'slow'
+								? 0.3
+								: 0.5
+					),
+					suggestions: basicAnalysis.suggestions
+						.filter((s) => s.suggestion?.includes('pacing'))
+						.map((s) => s.suggestion),
+				},
+				keyEvents,
+				cliffhangers,
+				foreshadowing,
+				callbacks,
+			};
+
+			// Store context in database
+			await this.storeChapterContext(context);
+
+			return context;
+		});
+
+		return measureResult.result;
+	}
+
 	async analyzeChapter(
 		document: ScrivenerDocument,
 		content: string,
 		allDocuments: ScrivenerDocument[]
 	): Promise<ChapterContext> {
-		// Get basic analysis
-		const basicAnalysis = await this.contentAnalyzer.analyzeContent(content, document.id);
-
-		// Find previous and next chapters
-		const chapterIndex = allDocuments.findIndex((d) => d.id === document.id);
-		const previousChapter = chapterIndex > 0 ? allDocuments[chapterIndex - 1] : undefined;
-		const nextChapter =
-			chapterIndex < allDocuments.length - 1 ? allDocuments[chapterIndex + 1] : undefined;
-
-		// Extract character mentions
-		const characters = await this.extractCharacterMentions(document.id, content);
-
-		// Extract themes
-		const themes = await this.extractThemes(content, basicAnalysis);
-
-		// Get plot threads for this chapter
-		const plotThreads = await this.getChapterPlotThreads(document.id);
-
-		// Analyze emotional arc
-		const emotionalArc = this.analyzeEmotionalArc(content, basicAnalysis);
-
-		// Extract key narrative elements
-		const keyEvents = this.extractKeyEvents(content);
-		const cliffhangers = this.extractCliffhangers(content);
-		const foreshadowing = this.extractForeshadowing(content);
-		const callbacks = this.extractCallbacks(content, allDocuments);
-
-		// Build chapter context
-		const context: ChapterContext = {
-			documentId: document.id,
-			title: document.title,
-			synopsis: document.synopsis,
-			notes: document.notes,
-			wordCount: basicAnalysis.metrics.wordCount,
-			characters,
-			themes,
-			plotThreads,
-			previousChapter: previousChapter
-				? {
-						id: previousChapter.id,
-						title: previousChapter.title,
-						summary: previousChapter.synopsis || 'No synopsis available',
-					}
-				: undefined,
-			nextChapter: nextChapter
-				? {
-						id: nextChapter.id,
-						title: nextChapter.title,
-					}
-				: undefined,
-			emotionalArc,
-			pacing: {
-				score:
-					basicAnalysis.pacing?.overall === 'fast'
-						? 0.8
-						: basicAnalysis.pacing?.overall === 'slow'
-							? 0.3
-							: 0.5,
-				description: this.describePacing(
-					basicAnalysis.pacing?.overall === 'fast'
-						? 0.8
-						: basicAnalysis.pacing?.overall === 'slow'
-							? 0.3
-							: 0.5
-				),
-				suggestions: basicAnalysis.suggestions
-					.filter((s) => s.suggestion?.includes('pacing'))
-					.map((s) => s.suggestion),
-			},
-			keyEvents,
-			cliffhangers,
-			foreshadowing,
-			callbacks,
-		};
-
-		// Store context in database
-		await this.storeChapterContext(context);
-
-		return context;
+		const result = await withErrorHandling(
+			() => this._analyzeChapter(document, content, allDocuments),
+			'analyzeChapter'
+		);
+		return result as unknown as ChapterContext;
 	}
 
 	/**
@@ -232,53 +293,89 @@ export class ContextAnalyzer {
 		documentId: string,
 		content: string
 	): Promise<ChapterContext['characters']> {
-		const characters: ChapterContext['characters'] = [];
+		const wrappedExtractCharacters = withErrorHandling(async () => {
+			const characters: ChapterContext['characters'] = [];
+			const hash = generateHash(content);
+			const startTime = performance.now();
 
-		// Get known characters from database
-		if (this.databaseService.getSQLite()) {
-			const knownCharacters = this.databaseService
-				.getSQLite()
-				.query('SELECT id, name, role FROM characters') as Array<{
-				id: string;
-				name: string;
-				role: string;
-			}>;
+			logger.debug('Extracting character mentions', {
+				documentId,
+				contentHash: truncate(hash, 8),
+				contentSize: formatBytes(content.length),
+			});
 
-			for (const char of knownCharacters) {
-				const regex = new RegExp(`\\b${char.name}\\b`, 'gi');
-				const matches = content.match(regex);
+			// Get known characters from database
+			if (this.databaseService.getSQLite()) {
+				const knownCharacters = this.databaseService
+					.getSQLite()
+					.query('SELECT id, name, role FROM characters') as Array<{
+					id: string;
+					name: string;
+					role: string;
+				}>;
 
-				if (matches && matches.length > 0) {
-					// Find last mention position
-					const lastIndex = content.lastIndexOf(char.name);
-					const contextStart = Math.max(0, lastIndex - 50);
-					const contextEnd = Math.min(content.length, lastIndex + 50);
-					const lastMention = content.substring(contextStart, contextEnd).trim();
+				// Process characters with optimized batch processing
+				const processCharacterBatch = async (
+					batch: typeof knownCharacters
+				): Promise<(ChapterContext['characters'][0] | null)[]> => {
+					return batch.map((char) => this.findCharacterInContent(char, content));
+				};
 
-					characters.push({
-						id: char.id,
-						name: char.name,
-						role: char.role,
-						appearances: matches.length,
-						lastMention,
-					});
+				const characterBatches = await processBatch(
+					knownCharacters,
+					processCharacterBatch,
+					10 // batchSize
+				);
 
-					// Create character-document relationship in Neo4j
-					if (this.databaseService.getNeo4j()) {
-						await this.databaseService.createRelationship(
-							char.id,
-							'character',
-							documentId,
-							'document',
-							'APPEARS_IN',
-							{ appearances: matches.length }
-						);
-					}
-				}
+				// Flatten results and filter out nulls
+				const foundCharacters = characterBatches
+					.flat()
+					.filter((char): char is ChapterContext['characters'][0] => char !== null);
+
+				characters.push(...foundCharacters);
+
+				const executionTime = performance.now() - startTime;
+				logger.debug('Character extraction completed', {
+					charactersFound: characters.length,
+					executionTime: formatDuration(executionTime),
+					totalCharactersChecked: knownCharacters.length,
+				});
 			}
+
+			return characters;
+		}, 'extractCharacterMentions');
+
+		const result = await wrappedExtractCharacters();
+		return result || [];
+	}
+
+	/**
+	 * Find a specific character in content
+	 */
+	private findCharacterInContent(
+		char: { id: string; name: string; role: string },
+		content: string
+	): ChapterContext['characters'][0] | null {
+		const regex = new RegExp(`\\b${char.name}\\b`, 'gi');
+		const matches = content.match(regex);
+
+		if (matches && matches.length > 0) {
+			// Find last mention position
+			const lastIndex = content.lastIndexOf(char.name);
+			const contextStart = Math.max(0, lastIndex - 50);
+			const contextEnd = Math.min(content.length, lastIndex + 50);
+			const lastMention = content.substring(contextStart, contextEnd).trim();
+
+			return {
+				id: char.id,
+				name: char.name,
+				role: char.role,
+				appearances: matches.length,
+				lastMention,
+			};
 		}
 
-		return characters;
+		return null;
 	}
 
 	/**

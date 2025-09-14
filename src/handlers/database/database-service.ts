@@ -1,6 +1,7 @@
 import * as path from 'path';
-import { ApplicationError as AppError, ErrorCode } from '../../core/errors.js';
+import { AppError, ErrorCode } from '../../utils/common.js';
 import { getLogger } from '../../core/logger.js';
+import { generateScrivenerUUID } from '../../utils/scrivener-utils.js';
 import {
 	buildPath,
 	ensureDir,
@@ -233,8 +234,8 @@ export class DatabaseService {
 			}
 
 			return config;
-		} catch {
-			console.error('Failed to load database config');
+		} catch (error) {
+			logger.error('Failed to load database config', { error: (error as Error).message });
 			return null;
 		}
 	}
@@ -263,7 +264,7 @@ export class DatabaseService {
 	 * Begin a two-phase commit transaction
 	 */
 	async beginTransaction(): Promise<string> {
-		const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const transactionId = generateScrivenerUUID();
 
 		this.transactionLog.set(transactionId, {
 			id: transactionId,

@@ -70,7 +70,7 @@ export class PermissionManager {
 
 			// Check if sudo is configured (non-interactive check)
 			try {
-				await execAsync('sudo -n true', { timeout: 5000 });
+				await execAsync('sudo -n true');
 				// If we get here, sudo worked without password
 				return {
 					hasPermission: true,
