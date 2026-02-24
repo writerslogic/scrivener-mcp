@@ -1,4 +1,4 @@
-import { HolographicMemorySystem as NativeHMS } from 'hms-native';
+import { HolographicMemorySystem as NativeHMS } from '@hms/native';
 import { getLogger } from '../../../core/logger.js';
 
 const logger = getLogger('hhm-benchmark');
@@ -11,7 +11,7 @@ export async function quickBenchmark(dimensions: number = 10000): Promise<void> 
     const startTime = performance.now();
 
     for (let i = 0; i < iterations; i++) {
-        hms.memorize_text(`id_${i}`, `This is a sample text for benchmarking iteration ${i}. It needs to be long enough to be meaningful.`);
+        hms.memorizeText(`id_${i}`, `This is a sample text for benchmarking iteration ${i}. It needs to be long enough to be meaningful.`);
     }
 
     const midTime = performance.now();

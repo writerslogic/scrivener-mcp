@@ -921,3 +921,45 @@ export default {
 	formatDuration,
 	formatBytes,
 };
+
+// Logging Utilities
+export type Primitive = string | number | boolean | null | undefined;
+export type JSONValue = Primitive | JSONObject | JSONArray;
+export interface JSONObject { [key: string]: JSONValue; }
+export type JSONArray = JSONValue[];
+
+export interface LogContext {
+	[key: string]: Primitive | JSONObject | JSONArray | Error;
+}
+
+export function toLogContext(obj: Record<string, unknown>): LogContext {
+	const result: LogContext = {};
+	for (const [key, value] of Object.entries(obj)) {
+		if (
+			value === null || 
+			value === undefined || 
+			typeof value === 'string' || 
+			typeof value === 'number' || 
+			typeof value === 'boolean'
+		) {
+			result[key] = value as Primitive;
+		} else if (value instanceof Error) {
+			result[key] = value;
+		} else if (Array.isArray(value)) {
+			try {
+				result[key] = value as JSONArray;
+			} catch {
+				result[key] = '[Complex Array]';
+			}
+		} else if (typeof value === 'object') {
+			try {
+				result[key] = value as JSONObject;
+			} catch {
+				result[key] = '[Complex Object]';
+			}
+		} else {
+			result[key] = String(value);
+		}
+	}
+	return result;
+}

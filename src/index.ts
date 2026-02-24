@@ -49,14 +49,11 @@ async function initializeContext(): Promise<HandlerContext> {
 		hhmSystem = await initializeHHM({
 			dimensions: 10000,
 			maxMemories: 1000000,
-			useGPU: GPUAccelerator.isSupported(),
 			similarityThreshold: 0.4,
 			autoEvolve: true,
 		});
 		hhmInitialized = true;
-		logger.info('HHM system initialized successfully', {
-			gpuSupported: GPUAccelerator.isSupported(),
-		});
+		logger.info('HHM system initialized successfully');
 	} catch (error) {
 		logger.warn('Failed to initialize HHM system, continuing without it', {
 			error: (error as Error).message,

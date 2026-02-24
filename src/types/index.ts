@@ -386,42 +386,8 @@ export interface Neo4jProperties {
 }
 
 // Logger context type
-export interface LogContext {
-	[key: string]: Primitive | JSONObject | JSONArray | Error;
-}
-
-// Utility function to safely convert objects to LogContext
-export function toLogContext(obj: Record<string, unknown>): LogContext {
-	const result: LogContext = {};
-	for (const [key, value] of Object.entries(obj)) {
-		if (
-			value === null || 
-			value === undefined || 
-			typeof value === 'string' || 
-			typeof value === 'number' || 
-			typeof value === 'boolean'
-		) {
-			result[key] = value as Primitive;
-		} else if (value instanceof Error) {
-			result[key] = value;
-		} else if (Array.isArray(value)) {
-			try {
-				result[key] = value as JSONArray;
-			} catch {
-				result[key] = '[Complex Array]';
-			}
-		} else if (typeof value === 'object') {
-			try {
-				result[key] = value as JSONObject;
-			} catch {
-				result[key] = '[Complex Object]';
-			}
-		} else {
-			result[key] = String(value);
-		}
-	}
-	return result;
-}
+export type { LogContext } from '../utils/common.js';
+export { toLogContext } from '../utils/common.js';
 
 // Enhanced cache options
 export interface CacheOptions {

@@ -1,4 +1,4 @@
-import { HolographicMemorySystem as NativeHMS } from 'hms-native';
+import { HolographicMemorySystem as NativeHMS } from '@hms/native';
 import { getLogger } from '../../../core/logger.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import * as path from 'path';
@@ -8,6 +8,12 @@ const logger = getLogger('holographic-memory-system');
 export interface HHMConfig {
 	dimensions?: number;
 	storagePath?: string;
+	// Optional fields to maintain compatibility with legacy config
+	maxMemories?: number;
+	useGPU?: boolean;
+	autoEvolve?: boolean;
+	similarityThreshold?: number;
+	evolution?: any;
 }
 
 export interface MemoryFormationResult {
@@ -18,6 +24,12 @@ export interface MemoryFormationResult {
 export interface QueryResult {
 	id: string;
 	similarity: number;
+	// Added to match document-handlers usage
+	entry: {
+		id: string;
+		metadata?: any;
+	};
+	rank: number;
 	reconstructed?: unknown;
 	explanation?: string;
 }
@@ -51,7 +63,7 @@ export class HolographicMemorySystem {
 		const memoryId = id || `text_${Date.now()}`;
 		
 		// Pure native call - text goes in, memory is formed in Rust
-		this.native.memorize_text(memoryId, text);
+		await this.native.memorizeText(memoryId, text);
 
 		this.memoryIndex.set(memoryId, {
 			modality: 'text',
@@ -68,7 +80,7 @@ export class HolographicMemorySystem {
 		const memoryId = `doc_${document.id}`;
 		const content = document.content || '';
 
-		this.native.memorize_text(memoryId, content);
+		await this.native.memorizeText(memoryId, content);
 
 		this.memoryIndex.set(memoryId, {
 			modality: 'document',
@@ -83,13 +95,18 @@ export class HolographicMemorySystem {
 
 	async queryText(text: string, k: number = 10): Promise<QueryResult[]> {
 		// Pure native search
-		const results = this.native.query(text, k);
+		const results = await this.native.query(text, k);
 
-		return results.map(r => {
+		return results.map((r: any, index: number) => {
 			const indexEntry = this.memoryIndex.get(r.id);
 			return {
 				id: r.id,
 				similarity: r.similarity,
+				entry: {
+					id: r.id,
+					metadata: indexEntry
+				},
+				rank: index + 1,
 				reconstructed: indexEntry?.originalData,
 				explanation: `Native Rust Engine | Type: ${indexEntry?.modality || 'unknown'} | Similarity: ${r.similarity.toFixed(3)}`
 			};
@@ -97,12 +114,17 @@ export class HolographicMemorySystem {
 	}
 
 	async findAnalogy(a: string, b: string, c: string): Promise<QueryResult[]> {
-		const results = this.native.find_analogy(a, b, c);
-		return results.map(r => {
+		const results = await this.native.findAnalogy(a, b, c);
+		return results.map((r: any, index: number) => {
 			const indexEntry = this.memoryIndex.get(r.id);
 			return {
 				id: r.id,
 				similarity: r.similarity,
+				entry: {
+					id: r.id,
+					metadata: indexEntry
+				},
+				rank: index + 1,
 				reconstructed: indexEntry?.originalData,
 				explanation: `Native Reasoning Engine | Analogy Result`
 			};
@@ -110,7 +132,7 @@ export class HolographicMemorySystem {
 	}
 
 	async dream(): Promise<any[]> {
-		return this.native.dream();
+		return await this.native.dream();
 	}
 
 	getStats(): Record<string, unknown> {

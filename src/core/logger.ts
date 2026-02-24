@@ -3,12 +3,9 @@
  * Centralized logging system - utilizes common utilities
  */
 
-import { getEnv, isDevelopment } from '../utils/common.js';
-import type { LogContext } from '../types/index.js';
-import { toLogContext } from '../types/index.js';
+import { getEnv, isDevelopment, toLogContext, type LogContext } from '../utils/common.js';
 
-// Re-export LogContext for backward compatibility
-export type { LogContext } from '../types/index.js';
+export type { LogContext } from '../utils/common.js';
 
 export enum LogLevel {
 	DEBUG = 0,
