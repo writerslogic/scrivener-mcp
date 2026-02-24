@@ -3,10 +3,9 @@
  * Main integration point for all HHM components
  */
 
-import type { HyperVector } from './hypervector.js';
+import { HyperVector, HolographicMemorySubstrate } from 'hms-native';
 import { SemanticVectors } from './hypervector.js';
 import type { MemoryEntry, RetrievalResult } from './memory-substrate.js';
-import { HolographicMemorySubstrate } from './memory-substrate.js';
 import {
 	MultiModalEncoder,
 	TextEncoder,
@@ -64,12 +63,8 @@ export class HolographicMemorySystem {
 
 		this.dimensions = this.config.dimensions!;
 
-		// Initialize core components
-		this.substrate = new HolographicMemorySubstrate(
-			this.dimensions,
-			this.config.maxMemories,
-			this.config.useGPU
-		);
+		// Initialize native components from Rust core
+		this.substrate = new HolographicMemorySubstrate(this.dimensions);
 
 		this.encoder = new MultiModalEncoder(this.dimensions);
 		this.logical = new LogicalOperations(this.dimensions, this.config.similarityThreshold);
@@ -91,57 +86,51 @@ export class HolographicMemorySystem {
 		});
 	}
 
-	/**
-	 * Form a memory from text input
-	 */
 	async memorizeText(text: string, id?: string): Promise<MemoryFormationResult> {
 		const memoryId = id || `text_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 		const encoded = await this.encoder.encode(text, 'text');
 
-		await this.substrate.store(memoryId, encoded.vector, {
-			modality: encoded.modality,
-			context: encoded.metadata,
-			timestamp: Date.now(),
-		});
+		// Bridge to native vector
+		const nativeVector = new HyperVector(this.dimensions);
+		// Copy components from TS vector to Native vector
+		(nativeVector as any).data = Int8Array.from(encoded.vector.getComponents());
+
+		await this.substrate.store(memoryId, nativeVector);
 
 		this.memoryIndex.set(memoryId, {
 			modality: 'text',
 			originalData: text,
 		});
 
-		logger.debug('Text memorized', { id: memoryId, length: text.length });
+		logger.debug('Text memorized natively', { id: memoryId, length: text.length });
 
 		return {
 			id: memoryId,
-			vector: encoded.vector,
+			vector: nativeVector,
 			modalities: ['text'],
 			metadata: encoded.metadata,
 		};
 	}
 
-	/**
-	 * Form a memory from a Scrivener document
-	 * Uses stable ID to update the document's semantic representation
-	 */
 	async memorizeDocument(document: ScrivenerDocument): Promise<MemoryFormationResult> {
 		// Use stable ID to represent the "current state" of the document
 		const memoryId = `doc_${document.id}`;
 
 		const encoded = await this.encoder.encode(document, 'document');
 
-		await this.substrate.store(memoryId, encoded.vector, {
-			modality: encoded.modality,
-			context: { ...encoded.metadata, documentId: document.id, version: Date.now() },
-			timestamp: Date.now(),
-		});
+		// Bridge to native vector
+		const nativeVector = new HyperVector(this.dimensions);
+		(nativeVector as any).data = Int8Array.from(encoded.vector.getComponents());
+
+		await this.substrate.store(memoryId, nativeVector);
 
 		this.memoryIndex.set(memoryId, {
 			modality: 'document',
 			originalData: document,
 		});
 
-		logger.debug('Document memory updated', {
+		logger.debug('Document memory updated natively', {
 			id: memoryId,
 			documentId: document.id,
 			title: document.title,
@@ -149,7 +138,7 @@ export class HolographicMemorySystem {
 
 		return {
 			id: memoryId,
-			vector: encoded.vector,
+			vector: nativeVector,
 			modalities: ['document'],
 			metadata: encoded.metadata,
 		};
@@ -315,7 +304,28 @@ export class HolographicMemorySystem {
 	 */
 	async queryText(text: string, k: number = 10): Promise<QueryResult[]> {
 		const encoded = await this.encoder.encode(text, 'text');
-		return this.query(encoded.vector, k);
+		
+		// Bridge to native query vector
+		const nativeQuery = new HyperVector(this.dimensions);
+		(nativeQuery as any).data = Int8Array.from(encoded.vector.getComponents());
+
+		const results = this.substrate.retrieve(nativeQuery, k, this.config.similarityThreshold || 0.4);
+
+		// Map native results back to QueryResult format
+		return results.map(r => {
+			const indexEntry = this.memoryIndex.get(r.id);
+			return {
+				entry: {
+					id: r.id,
+					vector: {} as any, // Vector reconstruction not needed for simple query
+					metadata: {} as any,
+				},
+				similarity: r.similarity,
+				rank: 0, // Rank determined by order in array
+				reconstructed: indexEntry?.originalData,
+				explanation: `Type: ${indexEntry?.modality || 'unknown'} | Similarity: ${r.similarity.toFixed(3)}`
+			} as unknown as QueryResult;
+		});
 	}
 
 	/**
