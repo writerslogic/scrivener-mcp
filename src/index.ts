@@ -19,7 +19,6 @@ import {
 import { LangChainContinuousLearningHandler } from './handlers/langchain-continuous-learning-handler.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
 import { initializeHHM, registerHHMHandlers } from './handlers/memory-handlers.js';
-import { GPUAccelerator } from './services/memory/hhm/gpu-accelerator.js';
 
 const logger = getLogger('main');
 

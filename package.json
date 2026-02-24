@@ -87,7 +87,7 @@
     "winston": "^3.17.0",
     "xml2js": "^0.6.2",
     "zod": "^3.24.1",
-    "hms-native": "file:../HMS"
+    "@hms/native": "file:../HMS"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

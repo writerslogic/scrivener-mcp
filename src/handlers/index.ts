@@ -9,6 +9,7 @@ import { projectHandlers } from './project-handlers.js';
 import { searchHandlers } from './search-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { fractalMemoryTools } from './fractal-memory-handlers.js';
+import { nativeHHMTools } from './memory-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -21,6 +22,7 @@ const allHandlers: ToolDefinition[] = [
 	...analysisHandlers,
 	...asyncHandlerDefinitions,
 	...fractalMemoryTools,
+	...nativeHHMTools,
 ];
 
 // Create handler map for fast lookup

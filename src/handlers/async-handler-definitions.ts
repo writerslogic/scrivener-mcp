@@ -94,62 +94,6 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		},
 	},
 	{
-		name: 'build_vector_store',
-		description: 'Build vector store for semantic search using LangChain',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				documents: { type: 'array', description: 'Documents to index' },
-				rebuild: { type: 'boolean', description: 'Rebuild from scratch' },
-			},
-			required: ['documents'],
-		},
-		handler: async (args) => {
-			const result = await asyncHandlers.buildVectorStore(
-				args as {
-					documents: ScrivenerDocument[];
-					rebuild?: boolean;
-				}
-			);
-			return {
-				content: [
-					{
-						type: 'text',
-						text: safeStringify(result) || JSON.stringify(result, null, 2),
-					},
-				],
-			};
-		},
-	},
-	{
-		name: 'semantic_search',
-		description: 'Perform semantic search across indexed documents',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				query: { type: 'string', description: 'Search query' },
-				topK: { type: 'number', description: 'Number of results' },
-			},
-			required: ['query'],
-		},
-		handler: async (args) => {
-			const result = await asyncHandlers.semanticSearch(
-				args as {
-					query: string;
-					topK?: number;
-				}
-			);
-			return {
-				content: [
-					{
-						type: 'text',
-						text: safeStringify(result) || JSON.stringify(result, null, 2),
-					},
-				],
-			};
-		},
-	},
-	{
 		name: 'generate_ai_suggestions',
 		description: 'Generate AI-powered writing suggestions with context',
 		inputSchema: {

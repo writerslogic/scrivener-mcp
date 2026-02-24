@@ -96,6 +96,23 @@ export class HolographicMemorySystem {
 		});
 	}
 
+	async findAnalogy(a: string, b: string, c: string): Promise<QueryResult[]> {
+		const results = this.native.find_analogy(a, b, c);
+		return results.map(r => {
+			const indexEntry = this.memoryIndex.get(r.id);
+			return {
+				id: r.id,
+				similarity: r.similarity,
+				reconstructed: indexEntry?.originalData,
+				explanation: `Native Reasoning Engine | Analogy Result`
+			};
+		});
+	}
+
+	async dream(): Promise<any[]> {
+		return this.native.dream();
+	}
+
 	getStats(): Record<string, unknown> {
 		return {
 			dimensions: this.dimensions,
