@@ -602,37 +602,46 @@ export async function processParallel<T, R>(
 // JSON & Object Utilities
 // ============================================================================
 
-/** Safe JSON parse */
+/** Safe JSON parse with Map/Set support */
 export const safeParse = <T>(s: string, fallback: T): T => {
 	try {
-		return JSON.parse(s) as T;
+		return JSON.parse(s, (_key, value) => {
+			if (typeof value === 'object' && value !== null) {
+				if (value.__type === 'Map') {
+					return new Map(value.value);
+				}
+				if (value.__type === 'Set') {
+					return new Set(value.value);
+				}
+			}
+			return value;
+		}) as T;
 	} catch {
 		return fallback;
 	}
 };
 
-/** Safe JSON stringify */
+/** Safe JSON stringify with Map/Set support */
 export const safeStringify = (v: unknown): string => {
 	try {
-		return JSON.stringify(v);
-	} catch (error) {
-		// Handle circular references by using a replacer function
-		if (error instanceof TypeError && error.message.includes('circular')) {
-			try {
-				const seen = new WeakSet();
-				return JSON.stringify(v, (_key, value) => {
-					if (typeof value === 'object' && value !== null) {
-						if (seen.has(value)) {
-							return '[Circular]';
-						}
-						seen.add(value);
-					}
-					return value;
-				});
-			} catch {
-				return '{}'; // Fallback to empty object
+		const seen = new WeakSet();
+		return JSON.stringify(v, (_key, value) => {
+			if (typeof value === 'object' && value !== null) {
+				if (seen.has(value)) {
+					return '[Circular]';
+				}
+				seen.add(value);
+
+				if (value instanceof Map) {
+					return { __type: 'Map', value: Array.from(value.entries()) };
+				}
+				if (value instanceof Set) {
+					return { __type: 'Set', value: Array.from(value) };
+				}
 			}
-		}
+			return value;
+		});
+	} catch {
 		return '';
 	}
 };
