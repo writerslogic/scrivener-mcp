@@ -44,6 +44,7 @@ export class DocumentManager {
 	private operationQueue: Map<string, Promise<unknown>>;
 	private readonly batchSize = 10;
 	private pendingWrites: Map<string, { content: RTFContent | string; timestamp: number }>;
+	private flushInterval: NodeJS.Timeout;
 
 	constructor(projectPath: string) {
 		this.projectPath = projectPath;
@@ -59,7 +60,7 @@ export class DocumentManager {
 		this.pendingWrites = new Map();
 
 		// Auto-flush pending writes every 5 seconds
-		setInterval(() => this.flushPendingWrites(), 5000);
+		this.flushInterval = setInterval(() => void this.flushPendingWrites(), 5000);
 	}
 
 	setProjectStructure(structure: ProjectStructure): void {
@@ -768,6 +769,13 @@ export class DocumentManager {
 	 * Clean up resources
 	 */
 	async close(): Promise<void> {
+		if (this.flushInterval) {
+			clearInterval(this.flushInterval);
+		}
+		
+		// Ensure any pending writes are saved
+		await this.flushPendingWrites();
+		
 		this.documentCache.clear();
 	}
 
