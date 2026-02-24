@@ -1,6 +1,8 @@
 import { getLogger } from '../../core/logger.js';
-import { ApplicationError as AppError, ErrorCode } from '../../core/errors.js';
+import { createError, ErrorCode } from '../../core/errors.js';
 import { handleError } from '../../utils/common.js';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import type { Embeddings } from '@langchain/core/embeddings';
 
 export interface VectorDocument {
 	id: string;
@@ -35,24 +37,32 @@ export class VectorStore {
 	private embeddings: Map<string, number[]>;
 	private logger: ReturnType<typeof getLogger>;
 	private initialized: boolean = false;
+	private embeddingModel: Embeddings;
 
 	constructor() {
 		this.documents = new Map();
 		this.embeddings = new Map();
 		this.logger = getLogger('VectorStore');
+		
+		// Initialize with OpenAI embeddings by default
+		this.embeddingModel = new OpenAIEmbeddings({
+			openAIApiKey: process.env.OPENAI_API_KEY,
+			modelName: 'text-embedding-3-small'
+		});
 	}
 
 	async initialize(): Promise<void> {
 		try {
-			// In a real implementation, this would initialize the vector database
-			// For now, we'll use in-memory storage as a placeholder
+			// In a real implementation, this could also initialize a persistent vector DB (Milvus, Pinecone, etc.)
+			// For this MCP, we maintain the high-performance in-memory index
 			this.initialized = true;
-			this.logger.info('Vector store initialized (in-memory)');
+			this.logger.info('Vector store initialized with text-embedding-3-small');
 		} catch (error) {
 			handleError(error, 'VectorStore.initialize');
-			throw new AppError(
-				'Vector store initialization failed',
-				ErrorCode.INITIALIZATION_ERROR
+			throw createError(
+				ErrorCode.INITIALIZATION_ERROR,
+				null,
+				'Vector store initialization failed'
 			);
 		}
 	}
@@ -62,34 +72,34 @@ export class VectorStore {
 			await this.initialize();
 		}
 
-		for (const doc of documents) {
-			try {
-				// Generate embedding (placeholder - in real implementation would use actual embeddings)
-				const embedding = await this.generateEmbedding(doc.content);
+		// Batch generate embeddings for efficiency
+		const contents = documents.map(d => d.content);
+		const generatedEmbeddings = await this.embeddingModel.embedDocuments(contents);
 
-				const vectorDoc: VectorDocument = {
-					...doc,
-					embedding,
-				};
+		for (let i = 0; i < documents.length; i++) {
+			const doc = documents[i];
+			const embedding = generatedEmbeddings[i];
 
-				this.documents.set(doc.id, vectorDoc);
-				this.embeddings.set(doc.id, embedding);
-			} catch (error) {
-				handleError(error, 'VectorStore.addDocuments');
-			}
+			const vectorDoc: VectorDocument = {
+				...doc,
+				embedding,
+			};
+
+			this.documents.set(doc.id, vectorDoc);
+			this.embeddings.set(doc.id, embedding);
 		}
 
-		this.logger.info(`Added ${documents.length} documents to vector store`);
+		this.logger.info(`Added ${documents.length} documents to vector store with semantic embeddings`);
 	}
 
 	async similaritySearch(query: string, limit: number = 10): Promise<SearchResult[]> {
 		if (!this.initialized) {
-			throw new AppError('Vector store not initialized', ErrorCode.INITIALIZATION_ERROR);
+			throw createError(ErrorCode.INITIALIZATION_ERROR, null, 'Vector store not initialized');
 		}
 
 		try {
-			// Generate embedding for query
-			const queryEmbedding = await this.generateEmbedding(query);
+			// Generate semantic embedding for query
+			const queryEmbedding = await this.embeddingModel.embedQuery(query);
 
 			// Calculate similarities
 			const similarities: Array<{ id: string; score: number }> = [];
@@ -127,7 +137,7 @@ export class VectorStore {
 
 	async findMentions(entity: string): Promise<MentionResult[]> {
 		if (!this.initialized) {
-			throw new AppError('Vector store not initialized', ErrorCode.INITIALIZATION_ERROR);
+			throw createError(ErrorCode.INITIALIZATION_ERROR, null, 'Vector store not initialized');
 		}
 
 		const mentions: MentionResult[] = [];
@@ -170,7 +180,7 @@ export class VectorStore {
 			}
 
 			const updatedContent = updates.content || existingDoc.content;
-			const embedding = await this.generateEmbedding(updatedContent);
+			const embedding = await this.embeddingModel.embedQuery(updatedContent);
 
 			const updatedDoc: VectorDocument = {
 				...existingDoc,
@@ -183,10 +193,10 @@ export class VectorStore {
 			this.documents.set(id, updatedDoc);
 			this.embeddings.set(id, embedding);
 
-			this.logger.debug(`Updated document ${id} in vector store`);
+			this.logger.debug(`Updated document ${id} in vector store with new embedding`);
 		} catch (error) {
 			handleError(error, 'VectorStore.updateDocument');
-			throw error; // Re-throw to maintain error propagation
+			throw error;
 		}
 	}
 
@@ -235,44 +245,9 @@ export class VectorStore {
 		this.logger.info('Vector store closed');
 	}
 
-	private async generateEmbedding(text: string): Promise<number[]> {
-		// Placeholder implementation - in a real system this would use
-		// OpenAI embeddings, Sentence Transformers, or similar
-
-		// Simple hash-based embedding for demonstration
-		const words = text.toLowerCase().split(/\s+/);
-		const embedding = new Array(384).fill(0); // Common embedding dimension
-
-		for (const word of words) {
-			const hash = this.simpleHash(word);
-			const index = Math.abs(hash) % embedding.length;
-			embedding[index] += 1;
-		}
-
-		// Normalize to unit vector
-		const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-		if (magnitude > 0) {
-			for (let i = 0; i < embedding.length; i++) {
-				embedding[i] /= magnitude;
-			}
-		}
-
-		return embedding;
-	}
-
-	private simpleHash(str: string): number {
-		let hash = 0;
-		for (let i = 0; i < str.length; i++) {
-			const char = str.charCodeAt(i);
-			hash = (hash << 5) - hash + char;
-			hash = hash & hash; // Convert to 32-bit integer
-		}
-		return hash;
-	}
-
 	private cosineSimilarity(a: number[], b: number[]): number {
 		if (a.length !== b.length) {
-			throw new AppError('Vectors must have same length', ErrorCode.VALIDATION_ERROR);
+			throw createError(ErrorCode.VALIDATION_ERROR, null, 'Vectors must have same length');
 		}
 
 		let dotProduct = 0;
@@ -406,3 +381,4 @@ export class VectorStore {
 		return Array.from(resultMap.values()).sort((a, b) => b.score - a.score);
 	}
 }
+

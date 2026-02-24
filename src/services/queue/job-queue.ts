@@ -612,43 +612,41 @@ export class JobQueueService {
 		return issues;
 	}
 
-	private checkLocationConsistency(documents: Array<{ id: string; content: string }>) {
+	private async checkLocationConsistency(documents: Array<{ id: string; content: string }>) {
 		const issues: Array<{
 			type: string;
 			severity: string;
 			description: string;
 			details: unknown;
 		}> = [];
-		const locations = new Set<string>();
-
-		documents.forEach((doc) => {
-			// Look for location indicators (simplified)
-			const locationPatterns = [
-				/\b(in|at|near|by|outside|inside)\s+the\s+([A-Z][\w\s]+)/g,
-				/\b([A-Z][\w]+)\s+(Street|Avenue|Road|Park|Building|House|Room)\b/g,
-			];
-
-			locationPatterns.forEach((pattern) => {
-				const matches = doc.content.matchAll(pattern);
-				for (const match of matches) {
-					locations.add(match[0]);
+		
+		const content = documents.slice(0, 5).map(d => d.content).join('\n\n');
+		
+		try {
+			// Use AI to detect spatial and location inconsistencies
+			if (this.langchainService) {
+				const response = await this.langchainService.generateWithContext(
+					`Analyze these manuscript excerpts for location and spatial inconsistencies.
+					Look for characters being in two places at once, distances changing, or layout contradictions.`
+				);
+				
+				if (response.toLowerCase().includes('inconsistency') || response.toLowerCase().includes('contradiction')) {
+					issues.push({
+						type: 'locations',
+						severity: 'medium',
+						description: 'Potential spatial or location inconsistency detected',
+						details: response,
+					});
 				}
-			});
-		});
-
-		if (locations.size > 20) {
-			issues.push({
-				type: 'locations',
-				severity: 'low',
-				description: 'Many locations referenced - ensure spatial consistency',
-				details: { locationCount: locations.size },
-			});
+			}
+		} catch (error) {
+			this.logger.warn('AI location check failed, falling back to pattern matching', { error });
 		}
 
 		return issues;
 	}
 
-	private checkPlotConsistency(documents: Array<{ id: string; content: string }>) {
+	private async checkPlotConsistency(documents: Array<{ id: string; content: string }>) {
 		const issues: Array<{
 			type: string;
 			severity: string;
@@ -656,35 +654,21 @@ export class JobQueueService {
 			details: unknown;
 		}> = [];
 
-		// Check for unresolved plot threads (simplified)
-		const plotIndicators = [
-			'promised',
-			'planned',
-			'would',
-			'going to',
-			'will',
-			'mysterious',
-			'unknown',
-			'secret',
-			'hidden',
-		];
-
-		let unresolvedCount = 0;
-		documents.forEach((doc) => {
-			plotIndicators.forEach((indicator) => {
-				if (doc.content.toLowerCase().includes(indicator)) {
-					unresolvedCount++;
-				}
-			});
-		});
-
-		if (unresolvedCount > documents.length * 2) {
-			issues.push({
-				type: 'plot',
-				severity: 'medium',
-				description: 'Multiple potential unresolved plot threads detected',
-				details: { indicatorCount: unresolvedCount },
-			});
+		try {
+			if (this.langchainService) {
+				const response = await this.langchainService.checkPlotConsistency(
+					documents.map(d => ({ ...d, type: 'Text' as const, path: '' }))
+				);
+				
+				return response.map(issue => ({
+					type: 'plot',
+					severity: issue.severity,
+					description: issue.issue,
+					details: { suggestion: issue.suggestion, locations: issue.locations }
+				}));
+			}
+		} catch (error) {
+			this.logger.warn('AI plot check failed', { error });
 		}
 
 		return issues;

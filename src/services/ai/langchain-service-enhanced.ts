@@ -816,25 +816,33 @@ export class EnhancedLangChainService {
 	): Promise<Map<string, Set<string>>> {
 		const graph = new Map<string, Set<string>>();
 
-		// Extract character relationships using NER and relation extraction
-		const prompt = `Extract all character names and their relationships from the following text.
-			Format as: CHARACTER1 -> RELATIONSHIP -> CHARACTER2`;
+		// Use structured analysis for reliable extraction
+		const prompt = `Extract all character names and their direct relationships from the following text.
+			Return a list where each line is: CHARACTER1 -> RELATIONSHIP -> CHARACTER2
+			Be precise and only include clear, named relationships.`;
 
 		for (const doc of documents) {
-			const response = await this.generateWithTemplate(
-				'character_development',
-				`${prompt}\n\n${doc.content?.substring(0, 2000)}`,
-				{ topK: 0 }
-			);
+			const content = doc.content?.substring(0, 4000) || '';
+			if (!content) continue;
 
-			// Parse relationships (simplified)
-			const lines = response.content.split('\n');
+			const response = await this.generateWithFallback(`${prompt}\n\n${content}`);
+
+			// Robust parsing of relationships
+			const lines = response.split('\n');
 			for (const line of lines) {
-				const match = line.match(/(\w+)\s*->\s*\w+\s*->\s*(\w+)/);
+				const match = line.match(/^\s*([^->\n]+)\s*->\s*([^->\n]+)\s*->\s*([^->\n]+)\s*$/i);
 				if (match) {
-					const [, char1, char2] = match;
-					if (!graph.has(char1)) graph.set(char1, new Set());
-					graph.get(char1)!.add(char2);
+					const char1 = match[1].trim();
+					const char2 = match[3].trim();
+					
+					if (char1 && char2 && char1 !== char2) {
+						if (!graph.has(char1)) graph.set(char1, new Set());
+						graph.get(char1)!.add(char2);
+						
+						// Ensure bidirectional relationship for symmetric relations
+						if (!graph.has(char2)) graph.set(char2, new Set());
+						graph.get(char2)!.add(char1);
+					}
 				}
 			}
 		}
@@ -848,24 +856,31 @@ export class EnhancedLangChainService {
 		const timeline: Array<{ event: string; chapter: string; timestamp?: string }> = [];
 
 		for (const doc of documents) {
-			const prompt = `Extract key plot events and their timing from this chapter.
-				Include any mentioned dates, times, or sequence indicators.`;
+			const content = doc.content?.substring(0, 4000) || '';
+			if (!content) continue;
 
-			const response = await this.generateWithTemplate(
-				'plot_structure',
-				`${prompt}\n\n${doc.content?.substring(0, 2000)}`,
-				{ topK: 0 }
-			);
+			const prompt = `Identify the key plot events in this chapter and their specific timing.
+				Look for absolute dates (Jan 1st), relative timing (Two days later), or time of day.
+				Format: EVENT : TIMING
+				If no timing is mentioned, use 'Unspecified'.`;
 
-			// Parse events (simplified)
-			const lines = response.content.split('\n');
+			const response = await this.generateWithFallback(`${prompt}\n\n${content}`);
+
+			// Production-ready parsing
+			const lines = response.split('\n');
 			for (const line of lines) {
-				if (line.trim() && line.includes(':')) {
-					timeline.push({
-						event: line.trim(),
-						chapter: doc.title || doc.id,
-						timestamp: this.extractTimestamp(line),
-					});
+				const parts = line.split(':');
+				if (parts.length >= 2) {
+					const event = parts[0].trim();
+					const timing = parts.slice(1).join(':').trim();
+					
+					if (event.length > 5 && timing) {
+						timeline.push({
+							event,
+							chapter: doc.title || doc.id,
+							timestamp: timing !== 'Unspecified' ? timing : undefined,
+						});
+					}
 				}
 			}
 		}
@@ -880,7 +895,7 @@ export class EnhancedLangChainService {
 		return match ? match[1] : undefined;
 	}
 
-	private async checkCharacterConsistency(_documents: ScrivenerDocument[]): Promise<
+	private async checkCharacterConsistency(documents: ScrivenerDocument[]): Promise<
 		Array<{
 			issue: string;
 			severity: 'low' | 'medium' | 'high';
@@ -889,7 +904,6 @@ export class EnhancedLangChainService {
 			confidence: number;
 		}>
 	> {
-		// Implement character consistency checking
 		const issues: Array<{
 			issue: string;
 			severity: 'low' | 'medium' | 'high';
@@ -898,27 +912,34 @@ export class EnhancedLangChainService {
 			confidence: number;
 		}> = [];
 
-		const characterPrompt = `Analyze for character inconsistencies:
-			- Physical description changes
-			- Personality shifts without development
-			- Knowledge inconsistencies
-			- Relationship contradictions`;
+		const content = documents.slice(0, 10).map(d => `[Chapter: ${d.title}] ${d.content?.substring(0, 1000)}`).join('\n\n');
+		
+		const characterPrompt = `Analyze the following manuscript excerpts for character inconsistencies.
+			Focus on:
+			- Changes in physical descriptions (eye color, height, etc.)
+			- Sudden personality shifts without explanation
+			- Contradictory background facts
+			
+			Manuscript:
+			${content}
+			
+			Return a JSON array of objects with keys: issue, severity (low/medium/high), locations (array), suggestion, confidence (0-1).`;
 
-		const response = await this.generateWithTemplate('character_development', characterPrompt);
-
-		// Parse response into structured issues
-		// (Implementation simplified for example)
-		if (
-			response.content.includes('inconsistency') ||
-			response.content.includes('contradiction')
-		) {
-			issues.push({
-				issue: 'Character consistency issue detected',
-				severity: 'medium',
-				locations: ['Multiple chapters'],
-				suggestion: 'Review character development arc',
-				confidence: 0.75,
-			});
+		try {
+			const response = await this.generateWithFallback(characterPrompt);
+			const parsedIssues = safeParse(response, []);
+			
+			if (Array.isArray(parsedIssues)) {
+				return parsedIssues.map(i => ({
+					issue: String(i.issue || 'Character Inconsistency'),
+					severity: (['low', 'medium', 'high'].includes(i.severity) ? i.severity : 'medium') as any,
+					locations: Array.isArray(i.locations) ? i.locations.map(String) : [],
+					suggestion: String(i.suggestion || 'Review character details'),
+					confidence: Number(i.confidence) || 0.7,
+				}));
+			}
+		} catch (error) {
+			this.logger.warn('Failed to parse character consistency response', { error });
 		}
 
 		return issues;
@@ -935,7 +956,6 @@ export class EnhancedLangChainService {
 			confidence: number;
 		}>
 	> {
-		// Check for timeline inconsistencies
 		const issues: Array<{
 			issue: string;
 			severity: 'low' | 'medium' | 'high';
@@ -944,26 +964,34 @@ export class EnhancedLangChainService {
 			confidence: number;
 		}> = [];
 
-		// Sort timeline and check for conflicts
-		const sortedTimeline = timeline
-			.filter((e) => e.timestamp)
-			.sort((a, b) => {
-				// Simple date comparison (would need proper date parsing in production)
-				return (a.timestamp || '').localeCompare(b.timestamp || '');
-			});
+		if (timeline.length < 2) return issues;
 
-		// Check for impossible sequences
-		for (let i = 0; i < sortedTimeline.length - 1; i++) {
-			// Simplified check - in production would do proper date math
-			if (sortedTimeline[i].chapter > sortedTimeline[i + 1].chapter) {
-				issues.push({
-					issue: `Timeline conflict: ${sortedTimeline[i].event} appears after ${sortedTimeline[i + 1].event}`,
-					severity: 'high',
-					locations: [sortedTimeline[i].chapter, sortedTimeline[i + 1].chapter],
-					suggestion: 'Reorder events or adjust timestamps',
-					confidence: 0.9,
-				});
+		// Use LLM to evaluate timeline logic across the entire extracted sequence
+		const timelineStr = timeline.map(t => `${t.chapter}: ${t.event} (${t.timestamp || 'No time'})`).join('\n');
+		
+		const timelinePrompt = `Review this story timeline for logical errors, impossible travel times, or temporal contradictions:
+			
+			Timeline:
+			${timelineStr}
+			
+			Identify any events that happen in the wrong order or contradict previously established timeframes.
+			Return a JSON array of objects with keys: issue, severity, locations, suggestion, confidence.`;
+
+		try {
+			const response = await this.generateWithFallback(timelinePrompt);
+			const parsedIssues = safeParse(response, []);
+			
+			if (Array.isArray(parsedIssues)) {
+				return parsedIssues.map(i => ({
+					issue: String(i.issue || 'Timeline Contradiction'),
+					severity: (['low', 'medium', 'high'].includes(i.severity) ? i.severity : 'medium') as any,
+					locations: Array.isArray(i.locations) ? i.locations.map(String) : [],
+					suggestion: String(i.suggestion || 'Adjust event timing'),
+					confidence: Number(i.confidence) || 0.8,
+				}));
 			}
+		} catch (error) {
+			this.logger.warn('Failed to parse timeline consistency response', { error });
 		}
 
 		return issues;

@@ -286,12 +286,23 @@ export class FractalSegmenter {
 		return (beforeText.match(/\n\n/g) || []).length;
 	}
 
-	private splitIntoSentences(
+	private async splitIntoSentences(
 		text: string
 	): Promise<Array<{ text: string; startChar: number; endChar: number }>> {
-		// Use spaCy or similar for proper sentence splitting
-		// Placeholder implementation
-		return Promise.resolve([]);
+		// Production-ready sentence splitting using NLP
+		const doc = nlp(text);
+		const sentences = doc.sentences().json();
+		let currentPos = 0;
+
+		return sentences.map((s: any) => {
+			const startChar = text.indexOf(s.text, currentPos);
+			currentPos = startChar + s.text.length;
+			return {
+				text: s.text,
+				startChar,
+				endChar: currentPos
+			};
+		});
 	}
 
 	private createSlidingWindows(
@@ -475,14 +486,58 @@ export class FractalRetriever {
 		query: string,
 		graphDB: Database
 	): Promise<number> {
-		// Query graph for nodes in segment
-		// Boost if segment contains high-centrality nodes or query-relevant nodes
-		return 0; // Placeholder
+		// Identify nodes in this segment from the map
+		const segmentId = String(segment.id);
+		
+		return new Promise((resolve) => {
+			graphDB.all(
+				`SELECT n.centrality, n.canonical_name FROM nodes n 
+				 JOIN segment_node_map m ON n.node_id = m.node_id 
+				 WHERE m.segment_id = ?`,
+				[segmentId],
+				(err, rows) => {
+					if (err || !rows || rows.length === 0) {
+						resolve(0);
+						return;
+					}
+					
+					// Calculate boost based on node centrality and query relevance
+					let boost = 0;
+					const queryLower = query.toLowerCase();
+					
+					for (const row of rows) {
+						// Boost for central characters/themes
+						boost += Number(row.centrality || 0) * 0.1;
+						
+						// Additional boost if query mentions this node
+						if (queryLower.includes(String(row.canonical_name).toLowerCase())) {
+							boost += 0.5;
+						}
+					}
+					
+					resolve(Math.min(boost, 1.0));
+				}
+			);
+		});
 	}
 
 	private computeContextBoost(segment: Record<string, unknown>): number {
-		// Boost based on recency, proximity to important events, etc.
-		return 0; // Placeholder
+		// Boost based on recency (higher index/timestamp = more recent)
+		const now = Date.now();
+		const timestamp = Number((segment as any).timestamp || now);
+		const ageMs = now - timestamp;
+		
+		// Recency boost: 1.0 for new, decaying to 0.0 over 1 hour
+		const hourMs = 3600000;
+		const recencyBoost = Math.max(0, 1.0 - (ageMs / hourMs));
+		
+		// Structural importance boost (e.g., climax scenes)
+		let structuralBoost = 0;
+		if ((segment as any).sceneType === 'action' || (segment as any).arcType === 'climax') {
+			structuralBoost = 0.3;
+		}
+		
+		return (recencyBoost * 0.7) + (structuralBoost * 0.3);
 	}
 
 	private getSegmentIdFromLabel(label: number, scale: string): string {
@@ -590,15 +645,35 @@ export class NarrativeGraphManager {
 	}
 
 	private async extractEntities(text: string): Promise<any[]> {
-		// Use coreference resolution and NER
-		// Placeholder implementation
-		return [];
+		// Implementation using NLP for entity extraction
+		const doc = nlp(text);
+		const people = doc.people().out('array');
+		const places = doc.places().out('array');
+		
+		const entities = [];
+		for (const name of people) {
+			entities.push({ name, type: 'character', attributes: { role: 'unknown' } });
+		}
+		for (const name of places) {
+			entities.push({ name, type: 'setting', attributes: { importance: 'unknown' } });
+		}
+		
+		return entities;
 	}
 
 	private async detectMotifs(text: string): Promise<any[]> {
-		// Pattern matching for known motifs
-		// Placeholder implementation
-		return [];
+		// Look for recurring symbols and themes
+		const motifs = [];
+		const themes = ['light', 'dark', 'water', 'fire', 'cold', 'warmth', 'silence', 'noise'];
+		
+		const lower = text.toLowerCase();
+		for (const theme of themes) {
+			if (lower.includes(theme)) {
+				motifs.push({ label: theme, type: 'thematic' });
+			}
+		}
+		
+		return motifs;
 	}
 
 	private async upsertNode(entity: Record<string, unknown>): Promise<string> {
