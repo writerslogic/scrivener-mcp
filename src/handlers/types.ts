@@ -8,6 +8,7 @@ import type { ScrivenerProject } from '../scrivener-project.js';
 import type { ContentEnhancer } from '../services/enhancements/content-enhancer.js';
 import type { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { DatabaseService } from './database/database-service.js';
+import type { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
 import type { JSONValue } from '../types/index.js';
 import { ErrorCode, createError } from '../utils/common.js';
 
@@ -18,6 +19,7 @@ export interface HandlerContext {
 	contentEnhancer: ContentEnhancer;
 	learningHandler?: LangChainContinuousLearningHandler;
 	databaseService?: DatabaseService;
+	hhmSystem?: HolographicMemorySystem;
 }
 
 export interface HandlerResult {

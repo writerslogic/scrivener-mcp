@@ -31,6 +31,8 @@ let hhmInitialized = false;
 
 // Initialize context
 async function initializeContext(): Promise<HandlerContext> {
+	let hhmSystem;
+
 	try {
 		// Initialize learning handler
 		learningHandler = new LangChainContinuousLearningHandler();
@@ -45,7 +47,7 @@ async function initializeContext(): Promise<HandlerContext> {
 
 	// Initialize HHM system
 	try {
-		await initializeHHM({
+		hhmSystem = await initializeHHM({
 			dimensions: 10000,
 			maxMemories: 1000000,
 			useGPU: GPUAccelerator.isSupported(),
@@ -69,6 +71,7 @@ async function initializeContext(): Promise<HandlerContext> {
 		contentAnalyzer: new ContentAnalyzer(),
 		contentEnhancer: new ContentEnhancer(),
 		learningHandler,
+		hhmSystem,
 	};
 }
 

@@ -63,7 +63,9 @@ export const openProjectHandler: ToolDefinition = {
 		}
 
 		// Initialize new project
-		const project = new ScrivenerProject(projectPath);
+		const project = new ScrivenerProject(projectPath, {
+			hhmSystem: context.hhmSystem,
+		});
 		await project.loadProject();
 
 		// Initialize database service

@@ -122,15 +122,17 @@ export class HolographicMemorySystem {
 
 	/**
 	 * Form a memory from a Scrivener document
+	 * Uses stable ID to update the document's semantic representation
 	 */
 	async memorizeDocument(document: ScrivenerDocument): Promise<MemoryFormationResult> {
-		const memoryId = `doc_${document.id}_${Date.now()}`;
+		// Use stable ID to represent the "current state" of the document
+		const memoryId = `doc_${document.id}`;
 
 		const encoded = await this.encoder.encode(document, 'document');
 
 		await this.substrate.store(memoryId, encoded.vector, {
 			modality: encoded.modality,
-			context: { ...encoded.metadata, documentId: document.id },
+			context: { ...encoded.metadata, documentId: document.id, version: Date.now() },
 			timestamp: Date.now(),
 		});
 
@@ -139,7 +141,7 @@ export class HolographicMemorySystem {
 			originalData: document,
 		});
 
-		logger.debug('Document memorized', {
+		logger.debug('Document memory updated', {
 			id: memoryId,
 			documentId: document.id,
 			title: document.title,

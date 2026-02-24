@@ -23,7 +23,7 @@ let hhmSystem: HolographicMemorySystem | null = null;
 /**
  * Initialize HHM system
  */
-export async function initializeHHM(config?: HHMConfig): Promise<void> {
+export async function initializeHHM(config?: HHMConfig): Promise<HolographicMemorySystem> {
 	if (hhmSystem) {
 		await hhmSystem.destroy();
 	}
@@ -44,6 +44,8 @@ export async function initializeHHM(config?: HHMConfig): Promise<void> {
 		useGPU: defaultConfig.useGPU,
 		autoEvolve: defaultConfig.autoEvolve,
 	});
+
+	return hhmSystem;
 }
 
 /**

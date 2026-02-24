@@ -39,6 +39,8 @@ import type {
 	ScrivenerMetadata,
 } from './types/index.js';
 
+import type { HolographicMemorySystem } from './services/memory/hhm/holographic-memory-system.js';
+
 const logger = getLogger('scrivener-project');
 
 export interface ScrivenerProjectOptions {
@@ -46,6 +48,7 @@ export interface ScrivenerProjectOptions {
 	autoBackup?: boolean;
 	cacheSize?: number;
 	syncInterval?: number;
+	hhmSystem?: HolographicMemorySystem;
 }
 
 export class ScrivenerProject {
@@ -61,6 +64,7 @@ export class ScrivenerProject {
 	private cleanupManager: CleanupManager;
 	private options: ScrivenerProjectOptions;
 	private indexInitialized = false;
+	private hhmSystem?: HolographicMemorySystem;
 
 	constructor(projectPath: string, options: ScrivenerProjectOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
@@ -71,6 +75,7 @@ export class ScrivenerProject {
 			syncInterval: 30000,
 			...options,
 		};
+		this.hhmSystem = options.hhmSystem;
 
 		// Initialize services
 		this.documentManager = new DocumentManager(this.projectPath);
@@ -173,6 +178,28 @@ export class ScrivenerProject {
 	async writeDocument(documentId: string, content: string | RTFContent): Promise<void> {
 		await this.documentManager.writeDocument(documentId, content);
 		this.markDocumentChanged(documentId);
+
+		// Update HHM if available
+		if (this.hhmSystem) {
+			try {
+				const doc = await this.getDocumentInfo(documentId);
+				if (doc.document) {
+					// Ensure we have plain text content
+					let plainText = '';
+					if (typeof content === 'string') {
+						plainText = content;
+					} else {
+						plainText = content.plainText;
+					}
+
+					// Update document object with new content
+					const updatedDoc = { ...doc.document, content: plainText };
+					await this.hhmSystem.memorizeDocument(updatedDoc);
+				}
+			} catch (error) {
+				logger.warn('Failed to update HHM memory for document', { documentId, error });
+			}
+		}
 	}
 
 	async createDocument(
@@ -190,6 +217,19 @@ export class ScrivenerProject {
 		};
 
 		const result = await createDocumentUtil({ title, content, parentId, type }, context);
+
+		// Add to HHM if available
+		if (this.hhmSystem && result.id) {
+			try {
+				const doc = await this.getDocumentInfo(result.id);
+				if (doc.document) {
+					const docWithContent = { ...doc.document, content };
+					await this.hhmSystem.memorizeDocument(docWithContent);
+				}
+			} catch (error) {
+				logger.warn('Failed to add new document to HHM', { documentId: result.id, error });
+			}
+		}
 
 		return result.id;
 	}
