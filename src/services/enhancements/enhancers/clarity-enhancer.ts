@@ -495,10 +495,17 @@ export class ClarityEnhancer {
 	}
 
 	private categorizeNoun(noun: string): string {
+		const doc = nlp(noun);
+		if (doc.has('#Person')) return 'person';
+		if (doc.has('#Place')) return 'place';
+		if (doc.has('#Organization')) return 'organization';
+		if (doc.has('#Date')) return 'time';
+		
 		const categories: Record<string, string[]> = {
-			'person': ['man', 'woman', 'person', 'child', 'boy', 'girl', 'friend'],
-			'place': ['house', 'building', 'room', 'street', 'park', 'store'],
-			'vehicle': ['car', 'truck', 'bus', 'bicycle', 'motorcycle'],
+			'person': ['man', 'woman', 'person', 'child', 'boy', 'girl', 'friend', 'stranger'],
+			'place': ['house', 'building', 'room', 'street', 'park', 'store', 'city', 'town'],
+			'vehicle': ['car', 'truck', 'bus', 'bicycle', 'motorcycle', 'train', 'plane'],
+			'object': ['table', 'chair', 'book', 'phone', 'computer', 'pen'],
 		};
 
 		for (const [category, words] of Object.entries(categories)) {
@@ -523,27 +530,22 @@ export class ClarityEnhancer {
 	}
 
 	private applyTenseConversion(word: string, targetTense: string): string {
-		// Simplified tense conversion - would need more sophisticated implementation
-		if (targetTense === 'past') {
-			return this.makePastTense(word);
-		} else if (targetTense === 'present') {
-			return this.makePresentTense(word);
+		const doc = nlp(word);
+		const verb = doc.verbs();
+		
+		if (verb.found) {
+			if (targetTense === 'past') {
+				verb.toPastTense();
+			} else if (targetTense === 'present') {
+				verb.toPresentTense();
+			} else if (targetTense === 'future') {
+				verb.toFutureTense();
+			}
+			return verb.text();
 		}
+		
 		return word;
 	}
 
-	private makePastTense(word: string): string {
-		if (word.endsWith('e')) return word + 'd';
-		if (word.endsWith('y')) return word.slice(0, -1) + 'ied';
-		return word + 'ed';
-	}
 
-	private makePresentTense(word: string): string {
-		if (word.endsWith('ed')) {
-			if (word.endsWith('ied')) return word.slice(0, -3) + 'y';
-			if (word.endsWith('d')) return word.slice(0, -1);
-			return word.slice(0, -2);
-		}
-		return word;
-	}
 }
