@@ -32,7 +32,10 @@ import {
 	formatDuration,
 	measureExecution,
 } from '../utils/common.js';
-import { getTextMetrics, splitIntoSentences } from '../utils/text-metrics.js';
+import {
+	getWritingTextMetrics as getTextMetrics,
+	splitIntoSentences,
+} from '../utils/text-metrics.js';
 
 // Import the new modular analyzers
 import {
@@ -67,7 +70,15 @@ export interface ContentAnalysis {
 }
 
 // Re-export types for backward compatibility
-export type { WritingMetrics, StyleAnalysis, StructureAnalysis, QualityIndicators, EmotionalAnalysis, PacingAnalysis, Suggestion };
+export type {
+	WritingMetrics,
+	StyleAnalysis,
+	StructureAnalysis,
+	QualityIndicators,
+	EmotionalAnalysis,
+	PacingAnalysis,
+	Suggestion,
+};
 
 export class ContentAnalyzer {
 	// Advanced caching and optimization features with lock-free structures
@@ -360,7 +371,10 @@ export class ContentAnalyzer {
 			const executionResult = await measureExecution(async () => {
 				try {
 					// Run lightweight analyses first using the new modular analyzers
-					const metrics = await this.metricsAnalyzer.calculateMetrics(content, textMetrics);
+					const metrics = await this.metricsAnalyzer.calculateMetrics(
+						content,
+						textMetrics
+					);
 					const structure = this.structureAnalyzer.analyzeStructure(content);
 
 					// Run heavier analyses with fallbacks

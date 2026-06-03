@@ -9,30 +9,15 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
-import type { Document as LangchainDocument } from 'langchain/document';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
+import { Document as LangchainDocument } from '@langchain/core/documents';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { LangChainHMSVectorStore } from './hms-vector-store.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
 import { AsyncUtils } from '../../utils/shared-patterns.js';
-import {
-	// handleError,
-	// withErrorHandling,
-	// retry,
-	// measureExecution,
-	RateLimiter,
-	// validateInput,
-	// ValidationSchema,
-	// safeParse,
-	// processBatch,
-	// truncate,
-	// generateHash,
-	formatDuration,
-} from '../../utils/common.js';
-// import { getTextMetrics } from '../../utils/text-metrics.js';
-// import { StringUtils } from '../../utils/shared-patterns.js';
+import { RateLimiter, formatDuration } from '../../utils/common.js';
 
 interface ChunkingOptions {
 	chunkSize?: number;
@@ -57,6 +42,7 @@ interface CircuitBreakerState {
 	state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 	failureCount: number;
 	lastFailureTime: number;
+	firstFailureTime: number;
 	successCount: number;
 	nextAttemptTime: number;
 }
@@ -88,7 +74,7 @@ interface CacheEntry<T> {
 export class LangChainService {
 	private llm: ChatOpenAI;
 	private embeddings: OpenAIEmbeddings;
-	private vectorStore: MemoryVectorStore | null = null;
+	private vectorStore: LangChainHMSVectorStore | null = null;
 	private textSplitter: RecursiveCharacterTextSplitter;
 	private contexts: Map<string, WritingContext> = new Map();
 	private logger: ReturnType<typeof getLogger>;
@@ -103,6 +89,8 @@ export class LangChainService {
 	private healthScore: number = 1.0;
 	private degradationLevel: 'none' | 'partial' | 'full' = 'none';
 	private fallbackResponses: Map<string, unknown> = new Map();
+	private healthInterval: ReturnType<typeof setInterval> | null = null;
+	private cacheCleanupInterval: ReturnType<typeof setInterval> | null = null;
 	private predictionModel: { failures: number[]; successes: number[]; patterns: string[] } = {
 		failures: [],
 		successes: [],
@@ -144,6 +132,7 @@ export class LangChainService {
 			state: 'CLOSED',
 			failureCount: 0,
 			lastFailureTime: 0,
+			firstFailureTime: 0,
 			successCount: 0,
 			nextAttemptTime: 0,
 		};
@@ -228,6 +217,7 @@ export class LangChainService {
 				if (this.circuitBreaker.successCount >= 3) {
 					this.circuitBreaker.state = 'CLOSED';
 					this.circuitBreaker.failureCount = 0;
+					this.circuitBreaker.firstFailureTime = 0;
 					this.logger.info(`Circuit breaker CLOSED for ${operationName}`);
 				}
 			}
@@ -237,16 +227,25 @@ export class LangChainService {
 			this.recordFailure(operationName, error as Error);
 
 			// Update circuit breaker on failure
-			this.circuitBreaker.failureCount++;
 			this.circuitBreaker.lastFailureTime = now;
+			const timeWindow = 60000; // 1 minute
+
+			// Reset the window if first failure was too long ago
+			if (now - this.circuitBreaker.firstFailureTime > timeWindow) {
+				this.circuitBreaker.failureCount = 0;
+				this.circuitBreaker.firstFailureTime = now;
+			}
+			if (this.circuitBreaker.failureCount === 0) {
+				this.circuitBreaker.firstFailureTime = now;
+			}
+			this.circuitBreaker.failureCount++;
 
 			// Determine if we should open the circuit
 			const failureThreshold = Math.max(3, Math.ceil(5 * (1 - this.healthScore)));
-			const timeWindow = 60000; // 1 minute
 
 			if (
 				this.circuitBreaker.failureCount >= failureThreshold &&
-				now - this.circuitBreaker.lastFailureTime < timeWindow
+				now - this.circuitBreaker.firstFailureTime < timeWindow
 			) {
 				this.circuitBreaker.state = 'OPEN';
 				this.circuitBreaker.nextAttemptTime =
@@ -266,7 +265,7 @@ export class LangChainService {
 	private async checkRateLimit(estimatedTokens: number = 1000): Promise<void> {
 		// Apply utility rate limiter first (for basic request throttling)
 		while (!this.utilRateLimiter.tryRemove()) {
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 		}
 
 		const now = Date.now();
@@ -562,7 +561,7 @@ export class LangChainService {
 	 * Background monitoring processes
 	 */
 	private startHealthMonitoring(): void {
-		setInterval(() => {
+		this.healthInterval = setInterval(() => {
 			this.updateHealthScore();
 			const riskScore = this.predictFailureRisk();
 
@@ -578,7 +577,7 @@ export class LangChainService {
 	}
 
 	private startCacheCleanup(): void {
-		setInterval(() => {
+		this.cacheCleanupInterval = setInterval(() => {
 			const now = Date.now();
 			for (const [key, entry] of this.intelligentCache.entries()) {
 				if (now - entry.timestamp > entry.ttl) {
@@ -605,6 +604,14 @@ export class LangChainService {
 		});
 	}
 
+	destroy(): void {
+		if (this.healthInterval) clearInterval(this.healthInterval);
+		if (this.cacheCleanupInterval) clearInterval(this.cacheCleanupInterval);
+		this.healthInterval = null;
+		this.cacheCleanupInterval = null;
+		this.intelligentCache.clear();
+	}
+
 	/**
 	 * Process and chunk a document for vector storage
 	 */
@@ -618,13 +625,21 @@ export class LangChainService {
 			if (cached) return cached;
 
 			// Use configured text splitter or create a custom one if options are different
-			const splitter = (options.chunkSize || options.chunkOverlap || options.separators) 
-				? new RecursiveCharacterTextSplitter({
-					chunkSize: options.chunkSize || 2000,
-					chunkOverlap: options.chunkOverlap || 200,
-					separators: options.separators || ['\n\n\n', '\n\n', '\n', '. ', ' ', ''],
-				})
-				: this.textSplitter;
+			const splitter =
+				options.chunkSize || options.chunkOverlap || options.separators
+					? new RecursiveCharacterTextSplitter({
+							chunkSize: options.chunkSize || 2000,
+							chunkOverlap: options.chunkOverlap || 200,
+							separators: options.separators || [
+								'\n\n\n',
+								'\n\n',
+								'\n',
+								'. ',
+								' ',
+								'',
+							],
+						})
+					: this.textSplitter;
 
 			const chunks = await splitter.createDocuments(
 				[document.content || ''],
@@ -695,7 +710,7 @@ export class LangChainService {
 				await this.vectorStore.addDocuments(allChunks);
 			} else {
 				// Create new store
-				this.vectorStore = await MemoryVectorStore.fromDocuments(
+				this.vectorStore = await LangChainHMSVectorStore.fromDocuments(
 					allChunks,
 					this.embeddings
 				);
@@ -806,7 +821,8 @@ export class LangChainService {
 
 			// Create chain with adjusted LLM settings
 			const adjustedLLM = new ChatOpenAI({
-				...this.llm,
+				openAIApiKey: process.env.OPENAI_API_KEY,
+				modelName: 'gpt-4-turbo-preview',
 				temperature: this.degradationLevel === 'full' ? 0.3 : options.temperature || 0.7,
 				maxTokens: this.degradationLevel === 'full' ? 200 : options.maxTokens || 1000,
 			});
@@ -1149,6 +1165,7 @@ export class LangChainService {
 			state: 'CLOSED',
 			failureCount: 0,
 			lastFailureTime: 0,
+			firstFailureTime: 0,
 			successCount: 0,
 			nextAttemptTime: 0,
 		};

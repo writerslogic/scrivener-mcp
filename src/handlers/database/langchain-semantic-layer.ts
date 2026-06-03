@@ -1,7 +1,9 @@
 import type { DatabaseService } from './database-service.js';
 import { EnhancedLangChainService } from '../../services/ai/langchain-service-enhanced.js';
 import { AdvancedLangChainFeatures } from '../../services/ai/langchain-advanced-features.js';
-import { VectorStore } from '../../services/ai/vector-store.js';
+import { LangChainHMSVectorStore } from '../../services/ai/hms-vector-store.js';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { Document as LangchainDocument } from '@langchain/core/documents';
 import type { ScrivenerDocument } from '../../types/index.js';
 import { getLogger } from '../../core/logger.js';
 import { toDatabaseError } from '../../utils/database.js';
@@ -135,7 +137,7 @@ export class SemanticDatabaseLayer {
 	private databaseService: DatabaseService;
 	private langchain: EnhancedLangChainService;
 	private advanced: AdvancedLangChainFeatures;
-	private vectorStore: VectorStore;
+	private vectorStore: LangChainHMSVectorStore;
 	private logger: ReturnType<typeof getLogger>;
 	private knowledgeGraphCache: KnowledgeGraph | null = null;
 	private cacheTimeout = 30 * 60 * 1000; // 30 minutes
@@ -145,14 +147,14 @@ export class SemanticDatabaseLayer {
 		this.databaseService = databaseService;
 		this.langchain = new EnhancedLangChainService();
 		this.advanced = new AdvancedLangChainFeatures();
-		this.vectorStore = new VectorStore();
+		const embeddings = new OpenAIEmbeddings();
+		this.vectorStore = new LangChainHMSVectorStore(embeddings);
 		this.logger = getLogger('SemanticDatabaseLayer');
 	}
 
 	async initialize(): Promise<void> {
 		try {
-			await this.vectorStore.initialize();
-			this.logger.info('Semantic database layer initialized');
+			this.logger.info('Semantic database layer initialized with HMS backing');
 		} catch (error) {
 			this.logger.error('Failed to initialize semantic layer', {
 				error: (error as Error).message,
@@ -282,11 +284,18 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 				...structuredQuery.relationships,
 			].join(' ');
 
-			// Perform vector similarity search
-			const vectorResults = await this.vectorStore.similaritySearch(
+			// Perform HMS similarity search
+			const hmsResults = await this.vectorStore.similaritySearchWithScore(
 				searchTerms,
 				options.maxResults
 			);
+
+			const vectorResults: VectorSearchResult[] = hmsResults.map(([doc, score]) => ({
+				id: (doc.metadata?.id || doc.metadata?.documentId) as string,
+				content: doc.pageContent,
+				score,
+				metadata: doc.metadata,
+			}));
 
 			// Enhance with traditional database search
 			const dbResults = await this.performTraditionalSearch(searchTerms);
@@ -371,7 +380,6 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 		}>
 	> {
 		// Use structured query for query expansion and relevance boosting
-		const queryTerms = structuredQuery.text.toLowerCase().split(/\s+/);
 		const resultMap = new Map<
 			string,
 			{
@@ -449,7 +457,7 @@ Provide a brief, clear explanation (1-2 sentences) of why this document matches 
 	}
 
 	private async extractEntitiesFromQuery(
-		query: string,
+		_query: string,
 		results: Array<{ content: string }>
 	): Promise<
 		Array<{
@@ -459,8 +467,6 @@ Provide a brief, clear explanation (1-2 sentences) of why this document matches 
 			documents: string[];
 		}>
 	> {
-		// Extract query entities for entity-based analysis
-		const queryEntities = await this.advanced.extractEntities(query);
 		try {
 			const combinedContent = results.map((r) => r.content).join('\n\n');
 			const entities = await this.advanced.extractEntities(combinedContent);
@@ -754,18 +760,21 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 	private async updateVectorStore(documents: ScrivenerDocument[]): Promise<void> {
 		try {
-			const vectorDocs = documents.map((doc) => ({
-				id: doc.id,
-				content: doc.content || '',
-				metadata: {
-					title: doc.title,
-					type: doc.type,
-					wordCount: doc.wordCount,
-					synopsis: doc.synopsis,
-				},
-			}));
+			const langchainDocs = documents.map(
+				(doc) =>
+					new LangchainDocument({
+						pageContent: doc.content || '',
+						metadata: {
+							id: doc.id,
+							title: doc.title,
+							type: doc.type,
+							wordCount: doc.wordCount,
+							synopsis: doc.synopsis,
+						},
+					})
+			);
 
-			await this.vectorStore.addDocuments(vectorDocs);
+			await this.vectorStore.addDocuments(langchainDocs);
 		} catch (error) {
 			this.logger.warn('Vector store update failed', { error: (error as Error).message });
 		}
@@ -820,22 +829,23 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 	private async findEntityMentions(entity: string): Promise<EntityAnalysis['mentions']> {
 		try {
-			const vectorResults = await this.vectorStore.findMentions(entity);
+			// HMS uses native text querying for semantic similarity
+			const hmsResults = await this.vectorStore.similaritySearchWithScore(entity, 20);
 
 			const mentions = await Promise.all(
-				vectorResults.map(async (result) => {
-					const sentiment = await this.analyzeMentionSentiment(result.context, entity);
+				hmsResults.map(async ([doc, score]) => {
+					const sentiment = await this.analyzeMentionSentiment(doc.pageContent, entity);
 					const importance = await this.calculateMentionImportance(
-						result.context,
+						doc.pageContent,
 						entity
 					);
 
 					return {
-						documentId: result.documentId,
-						documentTitle: result.title || 'Unknown',
-						context: result.context,
+						documentId: doc.metadata.id as string,
+						documentTitle: (doc.metadata.title as string) || 'Unknown',
+						context: doc.pageContent,
 						sentiment,
-						importance,
+						importance: importance * score, // Weight importance by semantic similarity
 					};
 				})
 			);
@@ -940,16 +950,41 @@ Return only the numeric score.`;
 		entity: string,
 		mentions: EntityAnalysis['mentions']
 	): Promise<EntityAnalysis['progression']> {
-		// Analyze how the entity develops throughout the story
-		const entityMentions = mentions.filter(m => m.context.includes(entity.toLowerCase()));
-		
-		// This would analyze how the entity develops throughout the story
-		// For now, return a simplified version
-		return mentions.map((mention, index) => ({
-			chapter: index + 1,
-			development: `Mention ${index + 1}: ${mention.context.slice(0, 100)}...`,
-			significance: mention.importance,
-		}));
+		try {
+			// Sort mentions by their appearance in the project (approximation via document metadata or ID)
+			const sortedMentions = [...mentions].sort((a, b) =>
+				a.documentId.localeCompare(b.documentId)
+			);
+
+			const prompt = `Analyze the development of "${entity}" across these story points:
+			
+			Points:
+			${sortedMentions.map((m, i) => `${i + 1}. [${m.documentTitle}]: ${m.context.slice(0, 150)}...`).join('\n')}
+			
+			Describe how the entity changes or is revealed further at each point. 
+			Return a JSON array of objects with keys: chapter (index), development (string), significance (0-1).`;
+
+			const result = await this.langchain.generateWithTemplate(
+				'character_arc_analysis',
+				entity,
+				{
+					format: 'json',
+					customPrompt: prompt,
+				}
+			);
+
+			const parsed = JSON.parse(result.content);
+			return Array.isArray(parsed) ? parsed : [];
+		} catch (error) {
+			this.logger.warn(`Progression analysis failed for ${entity}`, {
+				error: (error as Error).message,
+			});
+			return mentions.map((m, i) => ({
+				chapter: i + 1,
+				development: 'Mention identified in text',
+				significance: m.importance,
+			}));
+		}
 	}
 
 	private async generateEntityInsights(
@@ -1027,27 +1062,72 @@ Provide insights as JSON:
 		return null;
 	}
 
+	private validateSQLAgainstSchema(
+		sql: string,
+		schema: DatabaseSchema
+	): { valid: boolean; reason?: string } {
+		const sqlLower = sql.toLowerCase();
+
+		// Basic check for table existence
+		for (const table of schema.tables) {
+			if (sqlLower.includes(table.name.toLowerCase())) {
+				return { valid: true };
+			}
+		}
+
+		return { valid: false, reason: 'SQL references tables not found in schema' };
+	}
+
 	async nl2sql(
 		naturalLanguage: string,
 		schema?: DatabaseSchema
 	): Promise<{
 		sql: string;
+		params?: string[];
 		explanation: string;
 		confidence: number;
 	}> {
-		const prompt = `Convert this natural language query to SQL:
+		const standardSchema: DatabaseSchema = schema || {
+			tables: [
+				{
+					name: 'documents',
+					columns: [
+						{ name: 'id', type: 'TEXT' },
+						{ name: 'title', type: 'TEXT' },
+						{ name: 'content', type: 'TEXT' },
+					],
+				},
+				{
+					name: 'nodes',
+					columns: [
+						{ name: 'node_id', type: 'TEXT' },
+						{ name: 'canonical_name', type: 'TEXT' },
+					],
+				},
+				{
+					name: 'edges',
+					columns: [
+						{ name: 'from_node', type: 'TEXT' },
+						{ name: 'to_node', type: 'TEXT' },
+						{ name: 'edge_type', type: 'TEXT' },
+					],
+				},
+			],
+		};
+
+		const prompt = `Convert this natural language query to SQL for a Scrivener project database:
 
 "${naturalLanguage}"
 
-Database schema (if relevant):
-${schema ? JSON.stringify(schema, null, 2) : 'Standard Scrivener project database with documents, characters, themes tables'}
+Schema:
+${JSON.stringify(standardSchema, null, 2)}
 
 Return JSON with fields:
 - sql: The SQL query
-- explanation: Brief explanation of what the query does
+- explanation: Brief explanation
 - confidence: Confidence level (0.0-1.0)
 
-Focus on SELECT queries for safety. Use appropriate JOINs and WHERE clauses.`;
+Only use tables and columns defined in the schema.`;
 
 		try {
 			const result = await this.langchain.generateWithTemplate('nl2sql', naturalLanguage, {
@@ -1056,24 +1136,32 @@ Focus on SELECT queries for safety. Use appropriate JOINs and WHERE clauses.`;
 			});
 
 			const parsed = JSON.parse(result.content);
+			const validation = this.validateSQLAgainstSchema(parsed.sql, standardSchema);
+
+			if (!validation.valid) {
+				throw new Error(validation.reason);
+			}
+
 			return {
-				sql: parsed.sql || 'SELECT 1;',
-				explanation: parsed.explanation || 'Query conversion failed',
-				confidence: Math.max(0, Math.min(1, parsed.confidence || 0.5)),
+				sql: parsed.sql,
+				explanation: parsed.explanation,
+				confidence: parsed.confidence,
 			};
 		} catch (error) {
-			this.logger.warn('NL2SQL conversion failed', { error: (error as Error).message });
+			this.logger.warn('NL2SQL conversion failed or invalid', {
+				error: (error as Error).message,
+			});
 			return {
-				sql: 'SELECT 1;',
-				explanation: 'Natural language to SQL conversion failed',
-				confidence: 0,
+				sql: `SELECT * FROM documents WHERE content LIKE ? OR title LIKE ?;`,
+				params: [`%${naturalLanguage}%`, `%${naturalLanguage}%`],
+				explanation: 'Fallback to basic keyword search SQL',
+				confidence: 0.3,
 			};
 		}
 	}
 
 	async close(): Promise<void> {
 		try {
-			await this.vectorStore.close();
 			this.knowledgeGraphCache = null;
 			this.logger.info('Semantic database layer closed');
 		} catch (error) {

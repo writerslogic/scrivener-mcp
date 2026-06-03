@@ -590,7 +590,7 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 	}
 
 	private generateCorrelationId(): string {
-		return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+		return crypto.randomUUID();
 	}
 
 	private getPercentile(sortedArray: number[], percentile: number): number {

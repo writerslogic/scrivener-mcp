@@ -1,6 +1,6 @@
-# Scrivener MCP v0.3.0 Feature Demo
+# Scrivener MCP Feature Demo
 
-This guide demonstrates the powerful new AI features in Scrivener MCP v0.3.0.
+This guide demonstrates the AI-powered writing features in Scrivener MCP.
 
 ## Prerequisites
 

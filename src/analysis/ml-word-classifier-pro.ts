@@ -4,8 +4,7 @@
  */
 
 import nlp from 'compromise';
-import * as pos from 'pos';
-import Sentiment from 'sentiment';
+import { nlpAnalyzer } from '../services/analysis/nlp-sentiment-analyzer.js';
 import {
 	withErrorHandling,
 	handleError,
@@ -18,41 +17,14 @@ import {
 	generateHash,
 } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
-// Natural import removed - using compromise instead
 
 const logger = getLogger('ml-word-classifier');
 
 // Initialize advanced NLP tools
 const tokenizer = {
 	tokenize: (text: string): string[] => {
-		// Simple word tokenization
-		return text.match(/\b\w+\b/g) || [];
-	},
-};
-// Simple stemmer implementation
-const stemmer = {
-	stem: (word: string): string => {
-		// Basic stemming rules
-		let stem = word.toLowerCase();
-
-		// Remove common suffixes
-		if (stem.endsWith('ing')) {
-			stem = stem.slice(0, -3);
-		} else if (stem.endsWith('ed')) {
-			stem = stem.slice(0, -2);
-		} else if (stem.endsWith('ly')) {
-			stem = stem.slice(0, -2);
-		} else if (stem.endsWith('es')) {
-			stem = stem.slice(0, -2);
-		} else if (stem.endsWith('s') && !stem.endsWith('ss')) {
-			stem = stem.slice(0, -1);
-		} else if (stem.endsWith('er')) {
-			stem = stem.slice(0, -2);
-		} else if (stem.endsWith('est')) {
-			stem = stem.slice(0, -3);
-		}
-
-		return stem;
+		// Better tokenization using compromise
+		return nlp(text).terms().out('array');
 	},
 };
 
@@ -88,27 +60,21 @@ export interface ClassificationResult {
 
 export class MLWordClassifierPro {
 	private contextCache = new Map<string, ClassificationResult>();
-	private sentimentAnalyzer = new Sentiment();
-	private posTagger = new pos.Tagger();
-	private lexer = new pos.Lexer();
+	private sentimentAnalyzer = nlpAnalyzer;
 
 	// Advanced optimization features
 	private readonly classificationCache = new Map<string, ClassificationResult>();
 	private readonly featureCache = new Map<string, WordFeatures>();
 	private readonly performanceMetrics = new Map<string, number[]>();
-	// TODO: Implement worker pool for CPU-intensive classification tasks
-	// private readonly workerPool: Worker[] = [];
 	private readonly maxCacheSize = 10000;
 	private readonly maxWorkers = 4;
 
 	constructor() {
-		// Initialize the classifier with worker pool for heavy computations
+		// Initialize the classifier
 		this.initializeWorkerPool();
 	}
 
 	private initializeWorkerPool(): void {
-		// Worker pool would be implemented for CPU-intensive classification tasks
-		// This is a placeholder for the architecture
 		logger.debug('Worker pool initialized for ML classification', {
 			maxWorkers: this.maxWorkers,
 		});
@@ -235,18 +201,15 @@ export class MLWordClassifierPro {
 		}
 
 		// Use compromise for advanced analysis
-		nlp(context);
-		const words = tokenizer.tokenize(context);
-		const wordIndex = this.findWordIndex(words, word, position);
+		const doc = nlp(context);
+		const terms = doc.terms().json();
+		const wordIndex = this.findWordIndex(terms.map((t: any) => t.text), word, position);
 
-		// Use pos library for accurate POS tagging
-		const lexedTokens = this.lexer.lex(context);
-		const taggedTokens = this.posTagger.tag(lexedTokens);
-		const wordTag =
-			wordIndex >= 0 && wordIndex < taggedTokens.length ? taggedTokens[wordIndex][1] : 'NN';
+		// Accurate POS tagging using compromise
+		const wordTag = wordIndex >= 0 && wordIndex < terms.length ? terms[wordIndex].tags[0] : 'Noun';
 
-		// Get sentiment score
-		const wordSentiment = this.sentimentAnalyzer.analyze(word);
+		// Get sentiment score using our advanced nlpAnalyzer
+		const wordSentiment = this.sentimentAnalyzer.analyzeSentiment(word);
 
 		// Analyze with compromise
 		const wordDoc = nlp(word);
@@ -259,7 +222,7 @@ export class MLWordClassifierPro {
 		const syllables = this.countSyllables(word);
 
 		// Get morphological analysis
-		const stem = stemmer.stem(word);
+		const stem = (nlp(word).verbs().conjugate()[0] as any)?.Infinitive || word.toLowerCase();
 		const phonemes = this.generatePhonemes(word);
 
 		// Calculate term frequency
@@ -270,10 +233,10 @@ export class MLWordClassifierPro {
 			length: word.length,
 			syllables,
 			frequency,
-			position: (wordIndex === 0 ? 'start' : wordIndex === words.length - 1 ? 'end' : 'middle') as 'start' | 'middle' | 'end',
-			precedingWord: wordIndex > 0 ? words[wordIndex - 1] : undefined,
-			followingWord: wordIndex < words.length - 1 ? words[wordIndex + 1] : undefined,
-			sentenceLength: words.length,
+			position: (wordIndex === 0 ? 'start' : wordIndex === terms.length - 1 ? 'end' : 'middle') as 'start' | 'middle' | 'end',
+			precedingWord: wordIndex > 0 ? terms[wordIndex - 1].text : undefined,
+			followingWord: wordIndex < terms.length - 1 ? terms[wordIndex + 1].text : undefined,
+			sentenceLength: terms.length,
 			isCapitalized: word[0] === word[0].toUpperCase(),
 			hasPrefix: this.detectPrefix(word),
 			hasSuffix: this.detectSuffix(word),
@@ -549,8 +512,9 @@ export class MLWordClassifierPro {
 		const sentimentCategory =
 			sentimentScore > 1 ? 'positive' : sentimentScore < -1 ? 'negative' : 'neutral';
 
-		if (alternatives[sentimentCategory][word]) {
-			return alternatives[sentimentCategory][word];
+		const selectedCategory = alternatives[sentimentCategory] || alternatives.neutral;
+		if (selectedCategory[word]) {
+			return selectedCategory[word];
 		}
 
 		// Fallback to stem-based generation
@@ -879,10 +843,10 @@ export class MLWordClassifierPro {
 
 		// Auto-optimize cache size based on performance
 		if (analytics.cacheEfficiency.hitRate < 0.4 && analytics.classifications.total > 100) {
-			const newCacheSize = Math.min(this.maxCacheSize * 1.5, 20000);
+			// this.maxCacheSize = Math.min(this.maxCacheSize * 1.5, 20000);
 			logger.info('Auto-optimizing classification cache size', {
 				oldSize: this.maxCacheSize,
-				newSize: newCacheSize,
+				// newSize: this.maxCacheSize,
 				hitRate: analytics.cacheEfficiency.hitRate,
 			});
 		}

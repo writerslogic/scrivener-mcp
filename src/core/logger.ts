@@ -26,28 +26,17 @@ class Logger {
 		this.name = name;
 		this.level = level;
 
-		// Default console output
+		// Default output — all logging goes to stderr to avoid corrupting the
+		// MCP JSON-RPC stream on stdout.
 		this.addOutput((level, message, context) => {
 			const timestamp = new Date().toISOString();
 			const prefix = `[${timestamp}] [${LogLevel[level]}] [${this.name}]`;
 
-			switch (level) {
-				case LogLevel.DEBUG:
-					if (isDevelopment()) {
-						console.debug(prefix, message, context || '');
-					}
-					break;
-				case LogLevel.INFO:
-					console.info(prefix, message, context || '');
-					break;
-				case LogLevel.WARN:
-					console.warn(prefix, message, context || '');
-					break;
-				case LogLevel.ERROR:
-				case LogLevel.FATAL:
-					console.error(prefix, message, context || '');
-					break;
+			if (level === LogLevel.DEBUG && !isDevelopment()) {
+				return;
 			}
+			const ctx = context ? ` ${JSON.stringify(context)}` : '';
+			process.stderr.write(`${prefix} ${message}${ctx}\n`);
 		});
 	}
 
@@ -68,37 +57,52 @@ class Logger {
 	}
 
 	debug(message: string, context?: LogContext | Record<string, unknown>): void {
-		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
-			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
-			: context as LogContext;
+		const safeContext =
+			context && typeof context === 'object' && !Array.isArray(context)
+				? 'timestamp' in context || 'code' in context || 'source' in context
+					? (context as LogContext)
+					: toLogContext(context)
+				: (context as LogContext);
 		this.log(LogLevel.DEBUG, message, safeContext);
 	}
 
 	info(message: string, context?: LogContext | Record<string, unknown>): void {
-		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
-			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
-			: context as LogContext;
+		const safeContext =
+			context && typeof context === 'object' && !Array.isArray(context)
+				? 'timestamp' in context || 'code' in context || 'source' in context
+					? (context as LogContext)
+					: toLogContext(context)
+				: (context as LogContext);
 		this.log(LogLevel.INFO, message, safeContext);
 	}
 
 	warn(message: string, context?: LogContext | Record<string, unknown>): void {
-		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
-			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
-			: context as LogContext;
+		const safeContext =
+			context && typeof context === 'object' && !Array.isArray(context)
+				? 'timestamp' in context || 'code' in context || 'source' in context
+					? (context as LogContext)
+					: toLogContext(context)
+				: (context as LogContext);
 		this.log(LogLevel.WARN, message, safeContext);
 	}
 
 	error(message: string, context?: LogContext | Record<string, unknown>): void {
-		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
-			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
-			: context as LogContext;
+		const safeContext =
+			context && typeof context === 'object' && !Array.isArray(context)
+				? 'timestamp' in context || 'code' in context || 'source' in context
+					? (context as LogContext)
+					: toLogContext(context)
+				: (context as LogContext);
 		this.log(LogLevel.ERROR, message, safeContext);
 	}
 
 	fatal(message: string, context?: LogContext | Record<string, unknown>): void {
-		const safeContext = context && typeof context === 'object' && !Array.isArray(context) 
-			? ('timestamp' in context || 'code' in context || 'source' in context ? context as LogContext : toLogContext(context))
-			: context as LogContext;
+		const safeContext =
+			context && typeof context === 'object' && !Array.isArray(context)
+				? 'timestamp' in context || 'code' in context || 'source' in context
+					? (context as LogContext)
+					: toLogContext(context)
+				: (context as LogContext);
 		this.log(LogLevel.FATAL, message, safeContext);
 	}
 

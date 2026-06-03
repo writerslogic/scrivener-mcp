@@ -1,25 +1,52 @@
 import type { StyleGuide } from '../../../memory-manager.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
-import { SpecializedAgent, type AgentAnalysis, type AgentPersona, type DiscussionRound } from './base-agent.js';
+import {
+	SpecializedAgent,
+	type AgentAnalysis,
+	type AgentPersona,
+	type DiscussionRound,
+} from './base-agent.js';
 import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
 import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
-import { unique } from '../../../utils/common.js';
+import { truncate, unique } from '../../../utils/common.js';
 
 export class CoordinatorAgent extends SpecializedAgent {
 	constructor(langchain: EnhancedLangChainService, advanced: AdvancedLangChainFeatures) {
 		const persona: AgentPersona = {
 			name: 'Coordinator',
 			role: 'Analysis Coordinator and Synthesizer',
-			perspective: 'I synthesize multiple perspectives, identify consensus, resolve conflicts, and coordinate collaborative analysis efforts.',
-			expertise: ['synthesis', 'consensus building', 'conflict resolution', 'priority assessment', 'collaborative coordination', 'holistic analysis'],
+			perspective:
+				'I synthesize multiple perspectives, identify consensus, resolve conflicts, and coordinate collaborative analysis efforts.',
+			expertise: [
+				'synthesis',
+				'consensus building',
+				'conflict resolution',
+				'priority assessment',
+				'collaborative coordination',
+				'holistic analysis',
+			],
 			personality: 'Diplomatic, organized, focused on integration and coordination',
-			focusAreas: ['consensus building', 'priority synthesis', 'conflict resolution', 'collaborative coordination', 'holistic integration', 'actionable recommendations'],
+			focusAreas: [
+				'consensus building',
+				'priority synthesis',
+				'conflict resolution',
+				'collaborative coordination',
+				'holistic integration',
+				'actionable recommendations',
+			],
 			communicationStyle: 'Balanced and diplomatic, focuses on synthesis and coordination',
-			biases: ['may prioritize consensus over individual insights', 'might dilute strong opinions for harmony'],
-			strengths: ['excellent synthesis abilities', 'diplomatic coordination', 'holistic perspective'],
+			biases: [
+				'may prioritize consensus over individual insights',
+				'might dilute strong opinions for harmony',
+			],
+			strengths: [
+				'excellent synthesis abilities',
+				'diplomatic coordination',
+				'holistic perspective',
+			],
 			limitations: ['may suppress valuable dissenting views', 'could over-compromise'],
 		};
-		
+
 		super(langchain, advanced, persona);
 	}
 
@@ -73,7 +100,7 @@ Review this analysis from a coordination and synthesis perspective:
 Agent: ${analysis.agentId}
 Overall Score: ${analysis.overallScore}
 Priority: ${analysis.priority}
-Findings: ${analysis.findings.map(f => `${f.aspect}: ${f.assessment}`).join('; ')}
+Findings: ${analysis.findings.map((f) => `${f.aspect}: ${f.assessment}`).join('; ')}
 
 **Document Context**: ${document.title} (${(document.content || '').split(' ').length} words)
 
@@ -92,10 +119,10 @@ Focus on synthesis, integration, and coordinated understanding.
 
 	async buildConsensus(rounds: DiscussionRound[]): Promise<string[]> {
 		if (rounds.length === 0) return [];
-		
-		const allAgreements = unique(rounds.flatMap(round => round.agreements));
-		const allInsights = unique(rounds.flatMap(round => round.newInsights));
-		
+
+		const allAgreements = unique(rounds.flatMap((round) => round.agreements));
+		const allInsights = unique(rounds.flatMap((round) => round.newInsights));
+
 		const prompt = `
 Based on these discussion rounds, build consensus points:
 
@@ -103,9 +130,12 @@ Based on these discussion rounds, build consensus points:
 **New insights generated**: ${allInsights.join('; ')}
 
 **Discussion History**:
-${rounds.map(round => 
+${rounds
+	.map(
+		(round) =>
 			`Round ${round.roundNumber}: ${round.contributions.length} contributions, ${round.agreements.length} agreements, ${round.newInsights.length} insights`
-		).join('\n')}
+	)
+	.join('\n')}
 
 Synthesize the strongest consensus points that emerged from these discussions. 
 Focus on points with broad agreement and significant insights.
@@ -122,18 +152,18 @@ Return the top consensus points, one per line.
 
 	async identifyUnresolved(rounds: DiscussionRound[]): Promise<string[]> {
 		if (rounds.length === 0) return [];
-		
-		const allDisagreements = unique(rounds.flatMap(round => round.disagreements));
-		
+
+		const allDisagreements = unique(rounds.flatMap((round) => round.disagreements));
+
 		const prompt = `
 Identify unresolved issues from these discussion rounds:
 
 **Persistent disagreements**: ${allDisagreements.join('; ')}
 
 **Discussion History**:
-${rounds.map(round => 
-			`Round ${round.roundNumber}: ${round.disagreements.length} disagreements`
-		).join('\n')}
+${rounds
+	.map((round) => `Round ${round.roundNumber}: ${round.disagreements.length} disagreements`)
+	.join('\n')}
 
 Identify the most significant unresolved issues that persist across rounds.
 Focus on substantive disagreements that need further attention.
@@ -148,48 +178,104 @@ Return the key unresolved issues, one per line.
 			.slice(0, 5); // Limit to top 5 unresolved issues
 	}
 
-	async synthesizeAnalyses(analyses: AgentAnalysis[]): Promise<AgentAnalysis> {
+	async synthesizeAnalyses(
+		analyses: AgentAnalysis[],
+		discussionRounds: DiscussionRound[] = []
+	): Promise<AgentAnalysis> {
 		if (analyses.length === 0) {
 			throw new Error('Cannot synthesize empty analysis array');
 		}
 
-		if (analyses.length === 1) {
-			return analyses[0];
-		}
-
 		const prompt = `
-Synthesize these multiple agent analyses into a coordinated overall assessment:
+You are the COORDINATOR of a high-level writing roundtable. 
+Your task is to SYNTHESIZE all expert inputs and discussion results into a SOTA final report.
 
-${analyses.map(analysis => `
-**${analysis.agentId} Analysis**:
-- Overall Score: ${analysis.overallScore}
-- Priority: ${analysis.priority}
-- Key Findings: ${analysis.findings.map(f => `${f.aspect}: ${f.assessment} (confidence: ${f.confidence})`).join('; ')}
-- Reasoning: ${analysis.reasoning}
-`).join('\n')}
+**Expert Initial Analyses**:
+${analyses.map((a) => `- ${a.agentId}: Score ${a.overallScore}, Reasoning: ${a.reasoning}`).join('\n')}
 
-Create a synthesized analysis that:
-1. Integrates the strongest insights from each agent
-2. Identifies areas of consensus and disagreement
-3. Provides a balanced overall assessment
-4. Prioritizes the most critical issues
-5. Offers coordinated recommendations
+**Roundtable Discussion Summary**:
+${discussionRounds.map((r) => `Round ${r.roundNumber}: Agreements: ${r.agreements.join(', ')} | New Insights: ${r.newInsights.join(', ')}`).join('\n')}
+
+Create a MASTER SYNTHESIS that:
+1. Calibrates the final score based on the consensus level.
+2. Identifies "High Confidence" findings where experts agree.
+3. Highlights "Unique Expert Insights" from specialized agents.
+4. Resolves or flags persistent conflicts.
+5. Provides a tiered set of recommendations (Critical vs. Stylistic).
 
 Structure as JSON with the standard AgentAnalysis format.
 		`.trim();
 
 		const response = await this.langchain.generateWithFallback(prompt);
-		const synthesizedData = JSON.parse(response);
+		let synthesizedData;
+		try {
+			synthesizedData = JSON.parse(response);
+		} catch {
+			// Fallback if parsing fails
+			synthesizedData = {
+				perspective: 'Synthesized with errors',
+				findings: [],
+				overallScore: 70,
+				priority: 'medium',
+				reasoning: 'Failed to parse synthesis JSON',
+			};
+		}
 
 		return {
-			agentId: 'Synthesized',
-			perspective: synthesizedData.perspective || 'Coordinated synthesis of multiple agent perspectives',
+			agentId: 'Consensus-Synthesizer',
+			perspective: synthesizedData.perspective || 'Roundtable Consensus',
 			findings: Array.isArray(synthesizedData.findings) ? synthesizedData.findings : [],
-			overallScore: Math.min(Math.max(Number(synthesizedData.overallScore || 70), 0), 100),
-			priority: ['critical', 'high', 'medium', 'low'].includes(synthesizedData.priority) 
-				? synthesizedData.priority 
-				: 'medium',
-			reasoning: synthesizedData.reasoning || 'Synthesized analysis from multiple agent perspectives',
+			overallScore: this.calibrateScore(analyses, discussionRounds),
+			priority: synthesizedData.priority || 'medium',
+			reasoning:
+				synthesizedData.reasoning || 'Synthesized analysis from multi-agent roundtable',
 		};
+	}
+
+	async analyzeRound(
+		contributions: any[],
+		context: string
+	): Promise<{
+		agreements: string[];
+		disagreements: string[];
+		insights: string[];
+		consensusScore: number;
+	}> {
+		const prompt = `
+Analyze this discussion round between writing experts:
+
+**Context**: ${truncate(context, 1000)}
+**Contributions**:
+${contributions.map((c) => `${c.agentId}: ${truncate(c.message, 500)}`).join('\n\n')}
+
+Extract:
+1. Points of Agreement (List)
+2. Remaining Conflicts or Divergent Views (List)
+3. New Breakthrough Insights (List)
+4. Overall Consensus Score (0.0 to 1.0)
+
+Return as JSON with fields: agreements, disagreements, insights, consensusScore`;
+
+		const response = await this.langchain.generateWithFallback(prompt);
+		try {
+			const parsed = JSON.parse(response);
+			return {
+				agreements: parsed.agreements || [],
+				disagreements: parsed.disagreements || [],
+				insights: parsed.insights || [],
+				consensusScore: Number(parsed.consensusScore) || 0.5,
+			};
+		} catch {
+			return { agreements: [], disagreements: [], insights: [], consensusScore: 0.5 };
+		}
+	}
+
+	private calibrateScore(analyses: AgentAnalysis[], rounds: DiscussionRound[]): number {
+		const baseAvg = analyses.reduce((sum, a) => sum + a.overallScore, 0) / analyses.length;
+		const latestConsensus =
+			rounds.length > 0 ? (rounds[rounds.length - 1] as any).consensusScore || 0.5 : 0.5;
+
+		// SOTA formula: Weighted average between original scores and final consensus
+		return Math.round(baseAvg * 0.4 + latestConsensus * 100 * 0.6);
 	}
 }

@@ -3,7 +3,8 @@
  * Handles API key management and model configuration
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import * as readline from 'readline';
@@ -47,10 +48,10 @@ export class AIConfigWizard {
 	/**
 	 * Load existing configuration
 	 */
-	loadConfig(): AIConfig {
+	async loadConfig(): Promise<AIConfig> {
 		if (existsSync(this.configPath)) {
 			try {
-				const configData = readFileSync(this.configPath, 'utf-8');
+				const configData = await readFile(this.configPath, 'utf-8');
 				return JSON.parse(configData);
 			} catch (error) {
 				logger.warn('Failed to load existing config', { error });
@@ -64,18 +65,18 @@ export class AIConfigWizard {
 	 */
 	async saveConfig(config: AIConfig): Promise<void> {
 		await writeJSON(this.configPath, config);
-		this.updateEnvFile(config);
+		await this.updateEnvFile(config);
 		logger.info('Configuration saved');
 	}
 
 	/**
 	 * Update .env file with API keys
 	 */
-	private updateEnvFile(config: AIConfig): void {
+	private async updateEnvFile(config: AIConfig): Promise<void> {
 		let envContent = '';
 
 		if (existsSync(this.envPath)) {
-			envContent = readFileSync(this.envPath, 'utf-8');
+			envContent = await readFile(this.envPath, 'utf-8');
 		}
 
 		// Update or add environment variables
@@ -100,7 +101,7 @@ export class AIConfigWizard {
 		updateEnvVar('AI_MAX_TOKENS', config.maxTokens?.toString());
 		updateEnvVar('OLLAMA_URL', config.ollamaUrl);
 
-		writeFileSync(this.envPath, `${envContent.trim()}\n`);
+		await writeFile(this.envPath, `${envContent.trim()}\n`);
 	}
 
 	/**
@@ -213,7 +214,7 @@ export class AIConfigWizard {
 		logger.info('🤖 AI Configuration Wizard for Scrivener MCP');
 		logger.info('This wizard will help you set up AI features powered by LangChain.');
 
-		const config = this.loadConfig();
+		const config = await this.loadConfig();
 
 		// OpenAI Configuration
 		logger.info('━━━ OpenAI Configuration ━━━');
@@ -376,8 +377,8 @@ export class AIConfigWizard {
 	/**
 	 * Get active configuration
 	 */
-	getActiveConfig(): AIConfig {
-		const config = this.loadConfig();
+	async getActiveConfig(): Promise<AIConfig> {
+		const config = await this.loadConfig();
 
 		// Override with environment variables if present
 		config.openaiApiKey = getEnv('OPENAI_API_KEY') || config.openaiApiKey;

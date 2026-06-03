@@ -152,8 +152,8 @@ export class EnterpriseCircuitBreaker extends EventEmitter {
 
 	private createSpan(operation: string, parentContext?: TracingContext): TracingContext {
 		return {
-			traceId: parentContext?.traceId || generateHash(`trace-${Date.now()}-${Math.random()}`),
-			spanId: generateHash(`span-${Date.now()}-${Math.random()}`),
+			traceId: parentContext?.traceId || crypto.randomUUID(),
+			spanId: crypto.randomUUID(),
 			parentSpanId: parentContext?.spanId,
 			baggage: { ...parentContext?.baggage, circuitBreaker: this.name },
 			startTime: Date.now(),
@@ -342,8 +342,8 @@ export class BulkheadIsolation {
 
 	private createSpan(operation: string, parentContext?: TracingContext): TracingContext {
 		return {
-			traceId: parentContext?.traceId || generateHash(`trace-${Date.now()}-${Math.random()}`),
-			spanId: generateHash(`span-${Date.now()}-${Math.random()}`),
+			traceId: parentContext?.traceId || crypto.randomUUID(),
+			spanId: crypto.randomUUID(),
 			parentSpanId: parentContext?.spanId,
 			baggage: { ...parentContext?.baggage, bulkhead: this.name },
 			startTime: Date.now(),

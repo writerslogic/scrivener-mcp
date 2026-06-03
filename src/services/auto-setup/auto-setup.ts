@@ -83,7 +83,7 @@ export class AutoSetup {
 
 		// Check AI configuration
 		try {
-			const aiConfig = this.aiWizard.getActiveConfig();
+			const aiConfig = await this.aiWizard.getActiveConfig();
 			aiHealthy = !!(
 				aiConfig.openaiApiKey ||
 				aiConfig.anthropicApiKey ||
@@ -151,7 +151,7 @@ export class AutoSetup {
 					}
 				} else {
 					// Check for existing configuration
-					const existingConfig = this.aiWizard.getActiveConfig();
+					const existingConfig = await this.aiWizard.getActiveConfig();
 					if (existingConfig.openaiApiKey || existingConfig.anthropicApiKey) {
 						result.aiConfigured = true;
 						logger.info(chalk.green('✅ AI services already configured'));

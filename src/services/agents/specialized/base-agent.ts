@@ -13,7 +13,7 @@ import {
 	validateInput,
 } from '../../../utils/common.js';
 import { formatStyleGuideContext } from '../../../utils/style-guide-formatter.js';
-import { getTextMetrics } from '../../../utils/text-metrics.js';
+import { getWritingTextMetrics as getTextMetrics } from '../../../utils/text-metrics.js';
 import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
 import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
 
@@ -69,7 +69,11 @@ export abstract class SpecializedAgent extends EventEmitter {
 	public persona: AgentPersona;
 	private operationMetrics = new Map<string, { totalTime: number; callCount: number }>();
 
-	constructor(langchain: EnhancedLangChainService, advanced: AdvancedLangChainFeatures, persona: AgentPersona) {
+	constructor(
+		langchain: EnhancedLangChainService,
+		advanced: AdvancedLangChainFeatures,
+		persona: AgentPersona
+	) {
 		super();
 		this.langchain = langchain;
 		this.advanced = advanced;
@@ -87,10 +91,7 @@ export abstract class SpecializedAgent extends EventEmitter {
 		});
 	}
 
-	private updateOperationMetrics(
-		operation: string, 
-		duration: number
-	): void {
+	private updateOperationMetrics(operation: string, duration: number): void {
 		const existing = this.operationMetrics.get(operation);
 		if (existing) {
 			existing.totalTime += duration;
@@ -103,9 +104,13 @@ export abstract class SpecializedAgent extends EventEmitter {
 		}
 	}
 
-	getPerformanceMetrics(): Record<string, { avgTime: number; callCount: number; totalTime: number }> {
-		const result: Record<string, { avgTime: number; callCount: number; totalTime: number }> = {};
-		
+	getPerformanceMetrics(): Record<
+		string,
+		{ avgTime: number; callCount: number; totalTime: number }
+	> {
+		const result: Record<string, { avgTime: number; callCount: number; totalTime: number }> =
+			{};
+
 		for (const [operation, metrics] of this.operationMetrics.entries()) {
 			result[operation] = {
 				avgTime: metrics.totalTime / metrics.callCount,
@@ -113,7 +118,7 @@ export abstract class SpecializedAgent extends EventEmitter {
 				totalTime: metrics.totalTime,
 			};
 		}
-		
+
 		return result;
 	}
 
@@ -123,16 +128,19 @@ export abstract class SpecializedAgent extends EventEmitter {
 		styleGuide?: StyleGuide
 	): Promise<AgentAnalysis> {
 		const startTime = performance.now();
-		
+
 		try {
-			validateInput({ document, prompt }, {
-				document: { type: 'object', required: true },
-				prompt: { type: 'string', required: true, minLength: 10, maxLength: 10000 },
-			});
+			validateInput(
+				{ document, prompt },
+				{
+					document: { type: 'object', required: true },
+					prompt: { type: 'string', required: true, minLength: 10, maxLength: 10000 },
+				}
+			);
 
 			const textMetrics = getTextMetrics(document.content || '');
 			const styleContext = styleGuide ? formatStyleGuideContext(styleGuide) : '';
-			
+
 			const contextualPrompt = `
 ${this.persona.perspective}
 
@@ -175,29 +183,38 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 			const analysisData = safeParse(response, {}) as any;
 
 			if (!analysisData || typeof analysisData !== 'object') {
-				throw new AppError('Failed to parse agent analysis response', ErrorCode.PROCESSING_ERROR);
+				throw new AppError(
+					'Failed to parse agent analysis response',
+					ErrorCode.PROCESSING_ERROR
+				);
 			}
 
 			const analysis: AgentAnalysis = {
 				agentId: this.persona.name,
 				perspective: analysisData.perspective || this.persona.perspective,
-				findings: Array.isArray(analysisData.findings) ? analysisData.findings.map((finding: any) => ({
-					aspect: String(finding.aspect || 'General'),
-					assessment: String(finding.assessment || ''),
-					confidence: Math.min(Math.max(Number(finding.confidence || 0.5), 0), 1),
-					evidence: Array.isArray(finding.evidence) ? finding.evidence.map(String) : [],
-					suggestions: Array.isArray(finding.suggestions) ? finding.suggestions.map(String) : [],
-				})) : [],
+				findings: Array.isArray(analysisData.findings)
+					? analysisData.findings.map((finding: any) => ({
+							aspect: String(finding.aspect || 'General'),
+							assessment: String(finding.assessment || ''),
+							confidence: Math.min(Math.max(Number(finding.confidence || 0.5), 0), 1),
+							evidence: Array.isArray(finding.evidence)
+								? finding.evidence.map(String)
+								: [],
+							suggestions: Array.isArray(finding.suggestions)
+								? finding.suggestions.map(String)
+								: [],
+						}))
+					: [],
 				overallScore: Math.min(Math.max(Number(analysisData.overallScore || 50), 0), 100),
-				priority: ['critical', 'high', 'medium', 'low'].includes(analysisData.priority) 
-					? analysisData.priority 
+				priority: ['critical', 'high', 'medium', 'low'].includes(analysisData.priority)
+					? analysisData.priority
 					: 'medium',
 				reasoning: String(analysisData.reasoning || 'Analysis completed'),
 			};
 
 			const duration = performance.now() - startTime;
 			this.emit('operation', 'generateAnalysis', duration);
-			
+
 			this.logger.debug('Analysis generated successfully', {
 				agentId: analysis.agentId,
 				findingsCount: analysis.findings.length,
@@ -207,11 +224,10 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 			});
 
 			return analysis;
-
 		} catch (error) {
 			const duration = performance.now() - startTime;
 			this.emit('operation', 'generateAnalysis', duration);
-			
+
 			throw handleError(error, 'SpecializedAgent.generateAnalysis');
 		}
 	}
@@ -224,24 +240,30 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 	): Promise<DiscussionRound[]> {
 		const startTime = performance.now();
 		const rounds: DiscussionRound[] = [];
-		
-		try {
-			validateInput({ topic, initialContext, maxRounds }, {
-				topic: { type: 'string', required: true, minLength: 5, maxLength: 500 },
-				initialContext: { type: 'string', required: true, minLength: 10 },
-				maxRounds: { type: 'number', required: true, min: 1, max: 10 },
-			});
 
-			this.logger.info(`Starting discussion between ${this.persona.name} and ${otherAgent.persona.name}`, {
-				topic: truncate(topic, 100),
-				maxRounds,
-			});
+		try {
+			validateInput(
+				{ topic, initialContext, maxRounds },
+				{
+					topic: { type: 'string', required: true, minLength: 5, maxLength: 500 },
+					initialContext: { type: 'string', required: true, minLength: 10 },
+					maxRounds: { type: 'number', required: true, min: 1, max: 10 },
+				}
+			);
+
+			this.logger.info(
+				`Starting discussion between ${this.persona.name} and ${otherAgent.persona.name}`,
+				{
+					topic: truncate(topic, 100),
+					maxRounds,
+				}
+			);
 
 			let currentContext = initialContext;
-			
+
 			for (let roundNum = 1; roundNum <= maxRounds; roundNum++) {
 				const roundStartTime = performance.now();
-				
+
 				// Generate contributions from both agents
 				const [myContribution, theirContribution] = await Promise.all([
 					this.generateDiscussionContribution(topic, currentContext, rounds),
@@ -250,16 +272,16 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 
 				// Analyze the contributions
 				const agreements = await this.findAgreements(
-					myContribution.message, 
+					myContribution.message,
 					theirContribution.message
 				);
 				const disagreements = await this.findDisagreements(
-					myContribution.message, 
+					myContribution.message,
 					theirContribution.message
 				);
 				const newInsights = await this.extractNewInsights(
-					myContribution.message, 
-					theirContribution.message, 
+					myContribution.message,
+					theirContribution.message,
 					currentContext
 				);
 
@@ -271,9 +293,9 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 					newInsights,
 					timestamp: Date.now(),
 				};
-				
+
 				rounds.push(round);
-				
+
 				// Update context for next round
 				currentContext = [
 					currentContext,
@@ -282,8 +304,10 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 					`${otherAgent.persona.name}: ${truncate(theirContribution.message, 200)}`,
 					agreements.length > 0 ? `Agreements: ${agreements.join(', ')}` : '',
 					newInsights.length > 0 ? `New insights: ${newInsights.join(', ')}` : '',
-				].filter(Boolean).join('\n\n');
-				
+				]
+					.filter(Boolean)
+					.join('\n\n');
+
 				const roundDuration = performance.now() - roundStartTime;
 				this.logger.debug(`Discussion round ${roundNum} completed`, {
 					agreements: agreements.length,
@@ -291,7 +315,7 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 					newInsights: newInsights.length,
 					duration: formatDuration(roundDuration),
 				});
-				
+
 				// Check if we've reached consensus
 				if (disagreements.length === 0 && agreements.length > 0) {
 					this.logger.info('Early consensus reached, ending discussion', {
@@ -304,21 +328,60 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 
 			const totalDuration = performance.now() - startTime;
 			this.emit('operation', 'discussWith', totalDuration);
-			
+
 			this.logger.info('Discussion completed', {
 				totalRounds: rounds.length,
-				totalAgreements: unique(rounds.flatMap(r => r.agreements)).length,
-				totalInsights: unique(rounds.flatMap(r => r.newInsights)).length,
+				totalAgreements: unique(rounds.flatMap((r) => r.agreements)).length,
+				totalInsights: unique(rounds.flatMap((r) => r.newInsights)).length,
 				duration: formatDuration(totalDuration),
 			});
 
 			return rounds;
-
 		} catch (error) {
 			const duration = performance.now() - startTime;
 			this.emit('operation', 'discussWith', duration);
-			
+
 			throw handleError(error, 'SpecializedAgent.discussWith');
+		}
+	}
+
+	async discussWithRoundtable(
+		sharedContext: string,
+		topic: string
+	): Promise<DiscussionContribution> {
+		const startTime = performance.now();
+		try {
+			const prompt = `
+You are participating in a ROUNDTABLE DISCUSSION with other writing experts.
+**Topic**: ${topic}
+**Shared Knowledge Context**: 
+${truncate(sharedContext, 2000)}
+
+**Your Expert Persona**: ${this.persona.name} (${this.persona.role})
+**Focus**: ${this.persona.focusAreas.join(', ')}
+
+Please provide your contribution to the group discussion. 
+- Validate or critique the findings mentioned in the context.
+- Bring in your unique perspective from your expertise.
+- Propose specific, high-value improvements for the manuscript.
+- Address any conflicts you see in the shared context.
+
+Respond with a focused, analytical message (150-400 words).
+			`.trim();
+
+			const response = await this.langchain.generateWithFallback(prompt);
+			const duration = performance.now() - startTime;
+			this.emit('operation', 'roundtableContribution', duration);
+
+			return {
+				agentId: this.persona.name,
+				message: response.trim(),
+				confidence: 0.9, // Higher confidence for SOTA mode
+				references: [],
+				timestamp: Date.now(),
+			};
+		} catch (error) {
+			throw handleError(error, `Agent ${this.persona.name} roundtable contribution failed`);
 		}
 	}
 
@@ -335,14 +398,22 @@ As ${this.persona.name} (${this.persona.role}), contribute to this discussion:
 **Your Expertise**: ${this.persona.expertise.join(', ')}
 **Your Perspective**: ${this.persona.perspective}
 
-${previousRounds.length > 0 ? `
+${
+	previousRounds.length > 0
+		? `
 **Previous Discussion Rounds**:
-${previousRounds.slice(-2).map(round => 
-	`Round ${round.roundNumber}: ${round.contributions.map(c => 
-		`${c.agentId}: ${truncate(c.message, 150)}`
-	).join(' | ')}`
-).join('\n')}
-` : ''}
+${previousRounds
+	.slice(-2)
+	.map(
+		(round) =>
+			`Round ${round.roundNumber}: ${round.contributions
+				.map((c) => `${c.agentId}: ${truncate(c.message, 150)}`)
+				.join(' | ')}`
+	)
+	.join('\n')}
+`
+		: ''
+}
 
 Please provide your perspective on this topic. Consider:
 - Your areas of expertise: ${this.persona.focusAreas.join(', ')}
@@ -353,7 +424,7 @@ Respond with a thoughtful contribution (100-300 words) that adds value to the di
 		`.trim();
 
 		const response = await this.langchain.generateWithFallback(prompt);
-		
+
 		return {
 			agentId: this.persona.name,
 			message: response.trim(),

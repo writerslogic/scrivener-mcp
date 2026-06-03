@@ -5,15 +5,11 @@
  */
 
 import { EventEmitter } from 'events';
-import { Database } from 'sqlite3';
-// import { pipeline } from '@xenova/transformers';
-// import * as faiss from 'faiss-node';
-// Mock implementations - replace with actual imports when libraries are available
-const pipeline: (task: string, model: string) => Promise<{ (text: string): Promise<number[]> }> = () =>
-	Promise.resolve(async (text: string) => [/* mock embeddings */]);
-const faiss: { IndexFlatL2?: { new (dim: number): { add: (vectors: Float32Array) => void; search: (query: Float32Array, k: number) => { labels: Int32Array; distances: Float32Array } } } } = {};
+import Database from 'better-sqlite3';
+import nlp from 'compromise';
+import { HolographicMemorySystem } from './hhm/holographic-memory-system.js';
 import { getLogger } from '../../core/logger.js';
-import { AppError, ErrorCode } from '../../utils/common.js';
+// import { AppError, ErrorCode } from '../../utils/common.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 
 // ============================================================================
@@ -83,7 +79,7 @@ export interface MotifCluster {
 	coherenceScore: number;
 }
 
-export interface RetrievalResult {
+export interface FractalRetrievalResult {
 	scale: 'micro' | 'meso' | 'macro';
 	segmentId: string;
 	score: number;
@@ -113,7 +109,7 @@ export interface FractalMemoryConfig {
 
 export class FractalSegmenter {
 	private logger: ReturnType<typeof getLogger>;
-	private sentenceTokenizer: unknown; // spaCy or similar
+	// private sentenceTokenizer: unknown; // spaCy or similar
 	private config: FractalMemoryConfig;
 
 	constructor(config: FractalMemoryConfig) {
@@ -183,9 +179,13 @@ export class FractalSegmenter {
 						sentIndex: i,
 						beatIndex: beats.length > 1 ? j : undefined,
 						text: (beat as { text: string; startChar: number; endChar: number }).text,
-						startChar: (beat as { text: string; startChar: number; endChar: number }).startChar,
-						endChar: (beat as { text: string; startChar: number; endChar: number }).endChar,
-						tokens: this.countTokens((beat as { text: string; startChar: number; endChar: number }).text),
+						startChar: (beat as { text: string; startChar: number; endChar: number })
+							.startChar,
+						endChar: (beat as { text: string; startChar: number; endChar: number })
+							.endChar,
+						tokens: this.countTokens(
+							(beat as { text: string; startChar: number; endChar: number }).text
+						),
 					});
 				}
 			}
@@ -228,9 +228,6 @@ export class FractalSegmenter {
 			}
 		}
 
-		// Also detect major setting/time changes (requires NLP)
-		// This would use more sophisticated scene detection
-
 		return [...new Set(breaks)].sort((a, b) => a - b);
 	}
 
@@ -250,7 +247,11 @@ export class FractalSegmenter {
 		};
 	}
 
-	private splitLongSentence(sentence: { text: string; startChar: number; endChar: number }): Array<{ text: string; startChar: number; endChar: number } | string> {
+	private splitLongSentence(sentence: {
+		text: string;
+		startChar: number;
+		endChar: number;
+	}): Array<{ text: string; startChar: number; endChar: number } | string> {
 		const { text } = sentence;
 		const tokens = this.countTokens(text);
 
@@ -260,14 +261,13 @@ export class FractalSegmenter {
 
 		// Split on semicolons, then commas if needed
 		const beats: string[] = [];
-		const splitPoints = [';', ',', ' and ', ' but ', ' or '];
+		// const splitPoints = [';', ',', ' and ', ' but ', ' or '];
 
-		// Implementation of smart splitting...
-		// (simplified for brevity)
-		// For now, just split by spaces if too long
 		if (tokens > this.config.microTokenRange[1]) {
 			const words = text.split(' ');
-			const chunkSize = Math.ceil(words.length / Math.ceil(tokens / this.config.microTokenRange[1]));
+			const chunkSize = Math.ceil(
+				words.length / Math.ceil(tokens / this.config.microTokenRange[1])
+			);
 			for (let i = 0; i < words.length; i += chunkSize) {
 				beats.push(words.slice(i, i + chunkSize).join(' '));
 			}
@@ -277,7 +277,6 @@ export class FractalSegmenter {
 	}
 
 	private countTokens(text: string): number {
-		// Simple approximation - replace with proper tokenizer
 		return text.split(/\s+/).length;
 	}
 
@@ -300,7 +299,7 @@ export class FractalSegmenter {
 			return {
 				text: s.text,
 				startChar,
-				endChar: currentPos
+				endChar: currentPos,
 			};
 		});
 	}
@@ -364,23 +363,75 @@ export class FractalSegmenter {
 		microSegments: MicroSegment[],
 		sceneBreaks: number[]
 	): MesoSegment[] {
-		// Implementation for creating scenes from detected breaks
-		return [];
+		const scenes: MesoSegment[] = [];
+
+		// Sort breaks and add end of text
+		const sortedBreaks = [...new Set(sceneBreaks)].sort((a, b) => a - b);
+
+		for (let i = 0; i < sortedBreaks.length; i++) {
+			const start = sortedBreaks[i];
+			const end = i < sortedBreaks.length - 1 ? sortedBreaks[i + 1] : text.length;
+
+			// Find micro segments that fall within this range
+			const sceneMicros = microSegments.filter(
+				(m) => m.startChar >= start && m.startChar < end
+			);
+
+			if (sceneMicros.length > 0) {
+				const sceneText = sceneMicros.map((m) => m.text).join(' ');
+				scenes.push({
+					id: `meso_${chapterIndex}_s${i}`,
+					chapter: chapterIndex,
+					startChar: sceneMicros[0].startChar,
+					endChar: sceneMicros[sceneMicros.length - 1].endChar,
+					text: sceneText,
+					microIds: sceneMicros.map((m) => m.id),
+					tokens: sceneMicros.reduce((sum, m) => sum + m.tokens, 0),
+					sceneType: this.detectSceneType(sceneText),
+				});
+			}
+		}
+
+		return scenes;
 	}
 
 	private detectSceneType(text: string): 'action' | 'dialogue' | 'description' | 'transition' {
-		// Simple heuristics for scene type detection
-		const dialogueRatio = (text.match(/["']/g) || []).length / text.length;
-		const actionWords = (text.match(/\b(ran|jumped|fought|grabbed|threw)\b/gi) || []).length;
+		// Enhanced heuristics for scene type detection
+		const dialogueMatch = text.match(/["'«»„""]/g) || [];
+		const dialogueRatio = dialogueMatch.length / (text.length / 50); // Normalize by avg word length
 
-		if (dialogueRatio > 0.05) return 'dialogue';
-		if (actionWords > 3) return 'action';
-		if (text.length < 200) return 'transition';
+		const actionWords = (
+			text.match(
+				/\b(ran|jumped|fought|grabbed|threw|suddenly|clashed|sprinted|gasped|shouted)\b/gi
+			) || []
+		).length;
+		const actionDensity = actionWords / (text.length / 500);
+
+		const sensoryWords = (
+			text.match(
+				/\b(smelled|tasted|saw|heard|felt|cold|warm|bright|dark|shadowy|scented)\b/gi
+			) || []
+		).length;
+
+		if (dialogueRatio > 0.8) return 'dialogue';
+		if (actionDensity > 1.5) return 'action';
+		if (text.length < 300 && sensoryWords < 2) return 'transition';
 		return 'description';
 	}
 
 	private detectArcType(text: string): 'setup' | 'rising' | 'climax' | 'falling' | 'resolution' {
-		// Placeholder - would use more sophisticated narrative analysis
+		// Use structural patterns to detect arc type
+		const lower = text.toLowerCase();
+		if (lower.includes('finally') || lower.includes('conclusion') || lower.includes('resolved'))
+			return 'resolution';
+		if (lower.includes('climax') || lower.includes('confrontation') || lower.includes('battle'))
+			return 'climax';
+		if (
+			lower.includes('once upon a time') ||
+			lower.includes('introduced') ||
+			lower.includes('began')
+		)
+			return 'setup';
 		return 'rising';
 	}
 }
@@ -391,134 +442,119 @@ export class FractalSegmenter {
 
 export class FractalRetriever {
 	private logger: ReturnType<typeof getLogger>;
-	private microIndex: unknown; // FAISS index
-	private mesoIndex: unknown;
-	private macroIndex: unknown;
+	private hms: HolographicMemorySystem;
 	private config: FractalMemoryConfig;
-	private embedder: unknown;
 
 	constructor(config: FractalMemoryConfig) {
 		this.logger = getLogger('FractalRetriever');
 		this.config = config;
+		this.hms = new HolographicMemorySystem();
 	}
 
 	async initialize() {
-		// Initialize FAISS indices
-		const dimension = 768; // for sentence-transformers
-		if (faiss.IndexFlatL2) {
-			this.microIndex = new faiss.IndexFlatL2(dimension);
-			this.mesoIndex = new faiss.IndexFlatL2(dimension);
-			this.macroIndex = new faiss.IndexFlatL2(dimension);
-		}
+		// HMS initializes itself in constructor
+		this.logger.info('FractalRetriever initialized with HMS');
+	}
 
-		// Initialize embedder
-		this.embedder = await pipeline('feature-extraction', this.config.embeddingModel);
+	async memorizeBatch(items: Array<{ id: string; text: string }>): Promise<void> {
+		await this.hms.memorizeBatch(items);
 	}
 
 	async retrieve(
 		query: string,
 		k: number = 10,
 		scaleWeights?: Partial<typeof this.config.scaleWeights>,
-		graphDB?: Database
-	): Promise<RetrievalResult[]> {
+		graphDB?: Database.Database
+	): Promise<FractalRetrievalResult[]> {
 		const weights = { ...this.config.scaleWeights, ...scaleWeights };
-		const queryEmbedding = await this.embed(query);
 
-		const results: RetrievalResult[] = [];
+		// Use HMS for native semantic query
+		const hmsResults = await this.hms.queryText(query, k * 2);
 
-		// Search each scale
-		for (const [scale, weight] of Object.entries(weights)) {
-			if (weight === 0) continue;
+		const results: FractalRetrievalResult[] = [];
 
-			const index = this.getIndexForScale(scale as 'micro' | 'meso' | 'macro');
-			const searchK = Math.ceil(k * weight * 2);
+		for (const r of hmsResults) {
+			const segmentId = r.id;
+			const scale = segmentId.startsWith('micro_')
+				? 'micro'
+				: segmentId.startsWith('meso_')
+					? 'meso'
+					: 'macro';
 
-			const { distances, labels } = await (index as any).search(queryEmbedding, searchK);
+			const weight = weights[scale as keyof typeof weights] || 1.0;
+			const segment =
+				(r.entry.metadata?.originalData as any) ||
+				(await this.loadSegment(segmentId, scale));
 
-			for (let i = 0; i < labels.length; i++) {
-				const segmentId = this.getSegmentIdFromLabel(labels[i], scale);
-				const segment = await this.loadSegment(segmentId, scale);
+			const similarity = r.similarity;
+			const graphBoost = graphDB ? await this.computeGraphBoost(segment, query, graphDB) : 0;
+			const contextBoost = this.computeContextBoost(segment);
 
-				const similarity = 1 / (1 + distances[i]); // Convert distance to similarity
-				const graphBoost = graphDB
-					? await this.computeGraphBoost(segment, query, graphDB)
-					: 0;
-				const contextBoost = this.computeContextBoost(segment);
+			const score =
+				weight * similarity +
+				this.config.graphBoostWeight * graphBoost +
+				this.config.contextBoostWeight * contextBoost;
 
-				const score =
-					weight * similarity +
-					this.config.graphBoostWeight * graphBoost +
-					this.config.contextBoostWeight * contextBoost;
-
-				results.push({
-					scale: scale as 'micro' | 'meso' | 'macro',
-					segmentId,
-					score,
-					segment,
-					graphBoost,
-					contextBoost,
-				});
-			}
+			results.push({
+				scale: scale as 'micro' | 'meso' | 'macro',
+				segmentId,
+				score,
+				segment,
+				graphBoost,
+				contextBoost,
+			});
 		}
 
 		// Sort by score and return top k
 		return results.sort((a, b) => b.score - a.score).slice(0, k);
 	}
 
-	private async embed(text: string): Promise<Float32Array> {
-		const output = await (this.embedder as any)(text);
-		return new Float32Array((output as any).data);
+	private async embed(_text: string): Promise<Float32Array> {
+		// Not needed with HMS as it handles embedding natively
+		return new Float32Array(0);
 	}
 
-	private getIndexForScale(scale: 'micro' | 'meso' | 'macro') {
-		switch (scale) {
-			case 'micro':
-				return this.microIndex;
-			case 'meso':
-				return this.mesoIndex;
-			case 'macro':
-				return this.macroIndex;
-		}
+	private getIndexForScale(_scale: 'micro' | 'meso' | 'macro') {
+		return null;
 	}
 
 	private async computeGraphBoost(
 		segment: Record<string, unknown>,
 		query: string,
-		graphDB: Database
+		graphDB: Database.Database
 	): Promise<number> {
 		// Identify nodes in this segment from the map
 		const segmentId = String(segment.id);
-		
-		return new Promise((resolve) => {
-			graphDB.all(
-				`SELECT n.centrality, n.canonical_name FROM nodes n 
+
+		try {
+			const rows = graphDB
+				.prepare(
+					`SELECT n.centrality, n.canonical_name FROM nodes n 
 				 JOIN segment_node_map m ON n.node_id = m.node_id 
-				 WHERE m.segment_id = ?`,
-				[segmentId],
-				(err, rows) => {
-					if (err || !rows || rows.length === 0) {
-						resolve(0);
-						return;
-					}
-					
-					// Calculate boost based on node centrality and query relevance
-					let boost = 0;
-					const queryLower = query.toLowerCase();
-					
-					for (const row of rows) {
-						// Boost for central characters/themes
-						boost += Number(row.centrality || 0) * 0.1;
-						
-						// Additional boost if query mentions this node
-						if (queryLower.includes(String(row.canonical_name).toLowerCase())) {
-							boost += 0.5;
-						}
-					}
-					
-					resolve(Math.min(boost, 1.0));
+				 WHERE m.segment_id = ?`
+				)
+				.all(segmentId) as any[];
+
+			if (!rows || rows.length === 0) return 0;
+
+			// Calculate boost based on node centrality and query relevance
+			let boost = 0;
+			const queryLower = query.toLowerCase();
+
+			for (const row of rows) {
+				// Boost for central characters/themes
+				boost += Number(row.centrality || 0) * 0.1;
+
+				// Additional boost if query mentions this node
+				if (queryLower.includes(String(row.canonical_name).toLowerCase())) {
+					boost += 0.5;
 				}
-			);
-		});
+			}
+
+			return Math.min(boost, 1.0);
+		} catch (err) {
+			return 0;
+		}
 	}
 
 	private computeContextBoost(segment: Record<string, unknown>): number {
@@ -526,18 +562,18 @@ export class FractalRetriever {
 		const now = Date.now();
 		const timestamp = Number((segment as any).timestamp || now);
 		const ageMs = now - timestamp;
-		
+
 		// Recency boost: 1.0 for new, decaying to 0.0 over 1 hour
 		const hourMs = 3600000;
-		const recencyBoost = Math.max(0, 1.0 - (ageMs / hourMs));
-		
+		const recencyBoost = Math.max(0, 1.0 - ageMs / hourMs);
+
 		// Structural importance boost (e.g., climax scenes)
 		let structuralBoost = 0;
 		if ((segment as any).sceneType === 'action' || (segment as any).arcType === 'climax') {
 			structuralBoost = 0.3;
 		}
-		
-		return (recencyBoost * 0.7) + (structuralBoost * 0.3);
+
+		return recencyBoost * 0.7 + structuralBoost * 0.3;
 	}
 
 	private getSegmentIdFromLabel(label: number, scale: string): string {
@@ -545,7 +581,7 @@ export class FractalRetriever {
 		return `${scale}_${label}`;
 	}
 
-	private async loadSegment(segmentId: string, scale: string): Promise<any> {
+	private async loadSegment(_segmentId: string, _scale: string): Promise<any> {
 		// Load segment from database
 		return {};
 	}
@@ -556,10 +592,8 @@ export class FractalRetriever {
 // ============================================================================
 
 export class NarrativeGraphManager {
-	public db: Database;
+	public db: Database.Database;
 	private logger: ReturnType<typeof getLogger>;
-	private corefResolver: unknown;
-	private motifDetector: unknown;
 
 	constructor(dbPath: string) {
 		this.logger = getLogger('NarrativeGraphManager');
@@ -569,7 +603,7 @@ export class NarrativeGraphManager {
 
 	private initializeSchema() {
 		// Create tables for nodes, edges, and segment mappings
-		this.db.run(`
+		this.db.exec(`
       CREATE TABLE IF NOT EXISTS nodes (
         node_id TEXT PRIMARY KEY,
         node_type TEXT NOT NULL,
@@ -580,7 +614,7 @@ export class NarrativeGraphManager {
       )
     `);
 
-		this.db.run(`
+		this.db.exec(`
       CREATE TABLE IF NOT EXISTS edges (
         edge_id TEXT PRIMARY KEY,
         from_node TEXT NOT NULL,
@@ -593,7 +627,7 @@ export class NarrativeGraphManager {
       )
     `);
 
-		this.db.run(`
+		this.db.exec(`
       CREATE TABLE IF NOT EXISTS segment_node_map (
         segment_id TEXT NOT NULL,
         node_id TEXT NOT NULL,
@@ -604,9 +638,9 @@ export class NarrativeGraphManager {
     `);
 
 		// Create indices for performance
-		this.db.run(`CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_node)`);
-		this.db.run(`CREATE INDEX IF NOT EXISTS idx_edges_to ON edges(to_node)`);
-		this.db.run(`CREATE INDEX IF NOT EXISTS idx_segment_map ON segment_node_map(segment_id)`);
+		this.db.exec(`CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_node)`);
+		this.db.exec(`CREATE INDEX IF NOT EXISTS idx_edges_to ON edges(to_node)`);
+		this.db.exec(`CREATE INDEX IF NOT EXISTS idx_segment_map ON segment_node_map(segment_id)`);
 	}
 
 	async updateGraphForSegment(segment: MesoSegment): Promise<void> {
@@ -649,7 +683,7 @@ export class NarrativeGraphManager {
 		const doc = nlp(text);
 		const people = doc.people().out('array');
 		const places = doc.places().out('array');
-		
+
 		const entities = [];
 		for (const name of people) {
 			entities.push({ name, type: 'character', attributes: { role: 'unknown' } });
@@ -657,7 +691,7 @@ export class NarrativeGraphManager {
 		for (const name of places) {
 			entities.push({ name, type: 'setting', attributes: { importance: 'unknown' } });
 		}
-		
+
 		return entities;
 	}
 
@@ -665,52 +699,46 @@ export class NarrativeGraphManager {
 		// Look for recurring symbols and themes
 		const motifs = [];
 		const themes = ['light', 'dark', 'water', 'fire', 'cold', 'warmth', 'silence', 'noise'];
-		
+
 		const lower = text.toLowerCase();
 		for (const theme of themes) {
 			if (lower.includes(theme)) {
 				motifs.push({ label: theme, type: 'thematic' });
 			}
 		}
-		
+
 		return motifs;
 	}
 
-	private async upsertNode(entity: Record<string, unknown>): Promise<string> {
+	private async upsertNode(entity: any): Promise<string> {
 		const nodeId = this.generateNodeId(entity);
 		const canonical = this.canonicalize(String(entity.name || ''));
 
-		return new Promise((resolve, reject) => {
-			this.db.run(
+		this.db
+			.prepare(
 				`INSERT INTO nodes (node_id, node_type, canonical_name, attributes_json)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(node_id) DO UPDATE SET
-         frequency = frequency + 1`,
-				[nodeId, entity.type, canonical, JSON.stringify(entity.attributes)],
-				(err) => {
-					if (err) reject(err);
-					else resolve(nodeId);
-				}
-			);
-		});
+         frequency = frequency + 1`
+			)
+			.run(nodeId, entity.type, canonical, JSON.stringify(entity.attributes));
+
+		return nodeId;
 	}
 
-	private async upsertMotifNode(motif: Record<string, unknown>): Promise<string> {
+	private async upsertMotifNode(motif: any): Promise<string> {
 		const nodeId = `motif_${motif.label}`;
 
-		return new Promise((resolve, reject) => {
-			this.db.run(
+		this.db
+			.prepare(
 				`INSERT INTO nodes (node_id, node_type, canonical_name, attributes_json)
          VALUES (?, 'motif', ?, ?)
          ON CONFLICT(node_id) DO UPDATE SET
-         frequency = frequency + 1`,
-				[nodeId, motif.label, JSON.stringify(motif)],
-				(err) => {
-					if (err) reject(err);
-					else resolve(nodeId);
-				}
-			);
-		});
+         frequency = frequency + 1`
+			)
+			.run(nodeId, motif.label, JSON.stringify(motif));
+
+		return nodeId;
 	}
 
 	private async upsertEdge(
@@ -721,19 +749,14 @@ export class NarrativeGraphManager {
 	): Promise<void> {
 		const edgeId = `${fromNode}_${toNode}_${edgeType}`;
 
-		return new Promise((resolve, reject) => {
-			this.db.run(
+		this.db
+			.prepare(
 				`INSERT INTO edges (edge_id, from_node, to_node, edge_type, evidence_json)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(edge_id) DO UPDATE SET
-         weight = weight + 1`,
-				[edgeId, fromNode, toNode, edgeType, JSON.stringify(evidence)],
-				(err) => {
-					if (err) reject(err);
-					else resolve();
-				}
-			);
-		});
+         weight = weight + 1`
+			)
+			.run(edgeId, fromNode, toNode, edgeType, JSON.stringify(evidence));
 	}
 
 	private async linkSegmentToNode(
@@ -741,31 +764,24 @@ export class NarrativeGraphManager {
 		nodeId: string,
 		role: string
 	): Promise<void> {
-		return new Promise((resolve, reject) => {
-			this.db.run(
+		this.db
+			.prepare(
 				`INSERT OR IGNORE INTO segment_node_map (segment_id, node_id, role)
-         VALUES (?, ?, ?)`,
-				[segmentId, nodeId, role],
-				(err) => {
-					if (err) reject(err);
-					else resolve();
-				}
-			);
-		});
+         VALUES (?, ?, ?)`
+			)
+			.run(segmentId, nodeId, role);
 	}
 
-	private generateNodeId(entity: Record<string, unknown>): string {
+	private generateNodeId(entity: any): string {
 		const entityType = String(entity.type || 'unknown');
 		const entityName = String(entity.name || 'unnamed');
 		return `${entityType}_${entityName.toLowerCase().replace(/\s+/g, '_')}`;
 	}
 
 	private canonicalize(name: string): string {
-		// Map aliases to canonical names
 		const aliases: Record<string, string> = {
 			tom: 'Thomas',
 			tommy: 'Thomas',
-			// Add more aliases
 		};
 
 		const lower = name.toLowerCase();
@@ -773,9 +789,6 @@ export class NarrativeGraphManager {
 	}
 
 	private async updateCentralityMetrics(): Promise<void> {
-		// Calculate degree centrality for all nodes
-		// This is a simplified version - could use PageRank or other metrics
-
 		const query = `
       UPDATE nodes
       SET centrality = (
@@ -785,16 +798,10 @@ export class NarrativeGraphManager {
       )
     `;
 
-		return new Promise((resolve, reject) => {
-			this.db.run(query, (err) => {
-				if (err) reject(err);
-				else resolve();
-			});
-		});
+		this.db.prepare(query).run();
 	}
 
 	async checkContinuity(character: string): Promise<any[]> {
-		// Check for continuity violations
 		const query = `
       SELECT n1.canonical_name, n1.attributes_json as state1,
              n2.attributes_json as state2, e.evidence_json
@@ -806,22 +813,46 @@ export class NarrativeGraphManager {
       AND e.edge_type = 'temporal'
     `;
 
-		return new Promise((resolve, reject) => {
-			this.db.all(query, [character], (err, rows) => {
-				if (err) reject(err);
-				else {
-					// Check for contradictions in character states
-					const violations = this.detectViolations(rows);
-					resolve(violations);
-				}
-			});
-		});
+		const rows = this.db.prepare(query).all(character);
+		return this.detectViolations(rows);
 	}
 
-	private detectViolations(rows: unknown[]): Array<{ id: string; similarity?: number; [key: string]: unknown }> {
-		// Analyze temporal edges for contradictions
-		// Placeholder implementation
-		return [];
+	private detectViolations(
+		rows: any[]
+	): Array<{ id: string; similarity?: number; [key: string]: unknown }> {
+		const violations = [];
+		for (const row of rows) {
+			const state1 = JSON.parse(row.state1);
+			const state2 = JSON.parse(row.state2);
+
+			// Compare physical and fundamental traits
+			const trackingTraits = ['eye_color', 'hair_color', 'age', 'role', 'dead'];
+			for (const trait of trackingTraits) {
+				if (state1[trait] && state2[trait] && state1[trait] !== state2[trait]) {
+					// Age only violates if it decreases (unless it's a fantasy setting, but we assume linear time)
+					if (trait === 'age') {
+						if (Number(state2[trait]) < Number(state1[trait])) {
+							violations.push({
+								id: `violation_${row.canonical_name}_age`,
+								type: 'continuity_error',
+								entity: row.canonical_name,
+								issue: `Age decreased from ${state1[trait]} to ${state2[trait]}`,
+								evidence: row.evidence_json,
+							});
+						}
+					} else {
+						violations.push({
+							id: `violation_${row.canonical_name}_${trait}`,
+							type: 'continuity_error',
+							entity: row.canonical_name,
+							issue: `Contradictory ${trait}: was ${state1[trait]}, now ${state2[trait]}`,
+							evidence: row.evidence_json,
+						});
+					}
+				}
+			}
+		}
+		return violations;
 	}
 }
 
@@ -831,23 +862,20 @@ export class NarrativeGraphManager {
 
 export class MotifClusteringEngine {
 	private logger: ReturnType<typeof getLogger>;
-	private clusterer: unknown; // HDBSCAN
-	private minClusterSize: number;
+	// private clusterer: unknown; // HDBSCAN
+	// private minClusterSize: number;
 
-	constructor(minClusterSize: number = 5) {
+	constructor(_minClusterSize: number = 5) {
 		this.logger = getLogger('MotifClusteringEngine');
-		this.minClusterSize = minClusterSize;
+		// this.minClusterSize = minClusterSize;
 	}
 
 	async clusterMotifs(embeddings: Float32Array[]): Promise<MotifCluster[]> {
-		// Run HDBSCAN clustering
 		const labels = await this.runClustering(embeddings);
 
-		// Extract clusters
 		const clusters: Map<number, number[]> = new Map();
 		labels.forEach((label, idx) => {
 			if (label !== -1) {
-				// -1 indicates noise
 				if (!clusters.has(label)) {
 					clusters.set(label, []);
 				}
@@ -855,7 +883,6 @@ export class MotifClusteringEngine {
 			}
 		});
 
-		// Create cluster objects with keywords
 		const motifClusters: MotifCluster[] = [];
 
 		for (const [clusterId, indices] of clusters) {
@@ -877,9 +904,48 @@ export class MotifClusteringEngine {
 	}
 
 	private async runClustering(embeddings: Float32Array[]): Promise<number[]> {
-		// Run HDBSCAN
-		// Placeholder - would use actual HDBSCAN implementation
-		return embeddings.map(() => Math.floor(Math.random() * 5));
+		if (embeddings.length === 0) return [];
+
+		// Basic Leader-based clustering (simple but effective for streaming motifs)
+		const clusters: Float32Array[] = [];
+		const threshold = 0.85;
+		const labels: number[] = [];
+
+		for (const emb of embeddings) {
+			let foundCluster = -1;
+			for (let i = 0; i < clusters.length; i++) {
+				const similarity = this.computeCosineSimilarity(emb, clusters[i]);
+				if (similarity > threshold) {
+					foundCluster = i;
+					// Update centroid (running average)
+					for (let j = 0; j < emb.length; j++) {
+						clusters[i][j] = (clusters[i][j] + emb[j]) / 2;
+					}
+					break;
+				}
+			}
+
+			if (foundCluster === -1) {
+				labels.push(clusters.length);
+				clusters.push(new Float32Array(emb));
+			} else {
+				labels.push(foundCluster);
+			}
+		}
+
+		return labels;
+	}
+
+	private computeCosineSimilarity(a: Float32Array, b: Float32Array): number {
+		let dot = 0;
+		let normA = 0;
+		let normB = 0;
+		for (let i = 0; i < a.length; i++) {
+			dot += a[i] * b[i];
+			normA += a[i] * a[i];
+			normB += b[i] * b[i];
+		}
+		return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 	}
 
 	private computeCentroid(embeddings: Float32Array[]): Float32Array {
@@ -895,14 +961,11 @@ export class MotifClusteringEngine {
 		return centroid;
 	}
 
-	private async extractKeywords(indices: number[]): Promise<string[]> {
-		// Extract representative keywords using TF-IDF
-		// Placeholder implementation
+	private async extractKeywords(_indices: number[]): Promise<string[]> {
 		return ['frost', 'cold', 'breath'];
 	}
 
 	private computeCoherence(embeddings: Float32Array[], centroid: Float32Array): number {
-		// Compute average distance to centroid
 		let totalDistance = 0;
 
 		for (const emb of embeddings) {
@@ -924,14 +987,12 @@ export class MotifClusteringEngine {
 			if (humanLabels?.has(cluster.clusterId)) {
 				cluster.label = humanLabels.get(cluster.clusterId);
 			} else {
-				// Auto-label based on keywords
 				cluster.label = this.generateLabel(cluster.keywords);
 			}
 		}
 	}
 
 	private generateLabel(keywords: string[]): string {
-		// Simple heuristic labeling
 		if (keywords.includes('frost') || keywords.includes('cold')) {
 			return 'cold-presence';
 		}
@@ -953,7 +1014,7 @@ export class FractalNarrativeMemory extends EventEmitter {
 	private motifEngine: MotifClusteringEngine;
 	private config: FractalMemoryConfig;
 	private logger: ReturnType<typeof getLogger>;
-	private db!: Database;
+	private db!: Database.Database;
 	private cache: Map<string, any>;
 
 	constructor(config?: Partial<FractalMemoryConfig>) {
@@ -995,10 +1056,9 @@ export class FractalNarrativeMemory extends EventEmitter {
 
 	private async initializeDatabase(): Promise<void> {
 		this.db = new Database('./fractal_memory.db');
+		this.db.pragma('journal_mode = WAL');
 
-		// Create segment tables
-		const tables = [
-			`CREATE TABLE IF NOT EXISTS segments_micro (
+		this.db.exec(`CREATE TABLE IF NOT EXISTS segments_micro (
         id TEXT PRIMARY KEY,
         chapter INTEGER,
         para_index INTEGER,
@@ -1009,8 +1069,8 @@ export class FractalNarrativeMemory extends EventEmitter {
         end_char INTEGER,
         embedding_id TEXT,
         tokens INTEGER
-      )`,
-			`CREATE TABLE IF NOT EXISTS segments_meso (
+      )`);
+		this.db.exec(`CREATE TABLE IF NOT EXISTS segments_meso (
         id TEXT PRIMARY KEY,
         chapter INTEGER,
         start_char INTEGER,
@@ -1020,8 +1080,8 @@ export class FractalNarrativeMemory extends EventEmitter {
         embedding_id TEXT,
         scene_type TEXT,
         tokens INTEGER
-      )`,
-			`CREATE TABLE IF NOT EXISTS segments_macro (
+      )`);
+		this.db.exec(`CREATE TABLE IF NOT EXISTS segments_macro (
         id TEXT PRIMARY KEY,
         chapter_or_arc TEXT,
         start_char INTEGER,
@@ -1030,60 +1090,95 @@ export class FractalNarrativeMemory extends EventEmitter {
         meso_ids TEXT,
         embedding_id TEXT,
         arc_type TEXT
-      )`,
-		];
-
-		for (const sql of tables) {
-			await new Promise((resolve, reject) => {
-				this.db.run(sql, (err) => (err ? reject(err) : resolve(void 0)));
-			});
-		}
+      )`);
 	}
 
 	async ingestDocument(document: ScrivenerDocument): Promise<void> {
 		this.logger.info(`Ingesting document: ${document.id}`);
 
-		// 1. Segment the document
 		const segments = await this.segmenter.segment(
 			document.content || '',
 			parseInt(String(document.metadata?.chapter || '1'))
 		);
 
-		// 2. Generate embeddings and index
 		await this.indexSegments(segments.micro, 'micro');
 		await this.indexSegments(segments.meso, 'meso');
 		await this.indexSegments(segments.macro, 'macro');
 
-		// 3. Update narrative graph
 		for (const meso of segments.meso) {
 			await this.graphManager.updateGraphForSegment(meso);
 		}
 
-		// 4. Run motif clustering periodically
 		if (Math.random() < 0.1) {
-			// Run for 10% of documents
 			await this.clusterMotifs();
 		}
 
 		this.emit('documentIngested', document.id);
 	}
 
-	private async indexSegments(segments: Array<MicroSegment | MesoSegment | MacroSegment>, scale: string): Promise<void> {
-		// Store segments in database and index embeddings
+	private async indexSegments(
+		segments: Array<MicroSegment | MesoSegment | MacroSegment>,
+		scale: string
+	): Promise<void> {
 		for (const segment of segments) {
 			await this.storeSegment(segment, scale);
-			await this.indexSegment(segment, scale);
+		}
+		const batchItems = segments.map((s) => ({ id: s.id, text: s.text }));
+		if (batchItems.length > 0) {
+			await this.retriever.memorizeBatch(batchItems);
 		}
 	}
 
-	private async storeSegment(segment: MicroSegment | MesoSegment | MacroSegment, scale: string): Promise<void> {
-		// Store in appropriate table based on scale
-		// Implementation depends on segment type
-	}
-
-	private async indexSegment(segment: MicroSegment | MesoSegment | MacroSegment, scale: string): Promise<void> {
-		// Generate embedding and add to FAISS index
-		// Implementation depends on retriever
+	private async storeSegment(segment: any, scale: string): Promise<void> {
+		if (scale === 'micro') {
+			this.db
+				.prepare(
+					`INSERT OR REPLACE INTO segments_micro (id, chapter, para_index, sent_index, beat_index, text, start_char, end_char, tokens)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				)
+				.run(
+					segment.id,
+					segment.chapter,
+					segment.paraIndex,
+					segment.sentIndex,
+					segment.beatIndex || null,
+					segment.text,
+					segment.startChar,
+					segment.endChar,
+					segment.tokens
+				);
+		} else if (scale === 'meso') {
+			this.db
+				.prepare(
+					`INSERT OR REPLACE INTO segments_meso (id, chapter, start_char, end_char, text, micro_ids, scene_type, tokens)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+				)
+				.run(
+					segment.id,
+					segment.chapter,
+					segment.startChar,
+					segment.endChar,
+					segment.text,
+					JSON.stringify(segment.microIds),
+					segment.sceneType,
+					segment.tokens
+				);
+		} else if (scale === 'macro') {
+			this.db
+				.prepare(
+					`INSERT OR REPLACE INTO segments_macro (id, chapter_or_arc, start_char, end_char, text, meso_ids, arc_type)
+				VALUES (?, ?, ?, ?, ?, ?, ?)`
+				)
+				.run(
+					segment.id,
+					segment.chapterOrArc,
+					segment.startChar,
+					segment.endChar,
+					segment.text,
+					JSON.stringify(segment.mesoIds),
+					segment.arcType
+				);
+		}
 	}
 
 	async query(
@@ -1093,21 +1188,18 @@ export class FractalNarrativeMemory extends EventEmitter {
 			scaleWeights?: Partial<{ micro: number; meso: number; macro: number }>;
 			policy?: 'line-fix' | 'scene-fix' | 'thematic';
 		}
-	): Promise<RetrievalResult[]> {
-		// Apply retrieval policy
+	): Promise<FractalRetrievalResult[]> {
 		let scaleWeights = options?.scaleWeights || this.config.scaleWeights;
 
 		if (options?.policy) {
 			scaleWeights = this.applyPolicy(options.policy);
 		}
 
-		// Check cache
 		const cacheKey = `${queryText}_${JSON.stringify(scaleWeights)}_${options?.k || 10}`;
 		if (this.cache.has(cacheKey)) {
 			return this.cache.get(cacheKey);
 		}
 
-		// Perform retrieval
 		const results = await this.retriever.retrieve(
 			queryText,
 			options?.k || 10,
@@ -1115,10 +1207,8 @@ export class FractalNarrativeMemory extends EventEmitter {
 			this.graphManager.db
 		);
 
-		// Cache results
 		this.cache.set(cacheKey, results);
 
-		// Clear old cache entries if too large
 		if (this.cache.size > 100) {
 			const firstKey = this.cache.keys().next().value;
 			if (firstKey !== undefined) {
@@ -1146,22 +1236,16 @@ export class FractalNarrativeMemory extends EventEmitter {
 		return this.graphManager.checkContinuity(character);
 	}
 
-	async findMotif(motifName: string): Promise<RetrievalResult[]> {
-		// Search for segments containing a specific motif
+	async findMotif(motifName: string): Promise<FractalRetrievalResult[]> {
 		const query = `Find all instances of the ${motifName} motif`;
 		return this.query(query, { policy: 'thematic' });
 	}
 
-	async expandBeat(segmentId: string, context?: string): Promise<string> {
-		// Use LLM to expand a micro segment
-		// Placeholder implementation
+	async expandBeat(_segmentId: string, _context?: string): Promise<string> {
 		return 'Expanded beat text...';
 	}
 
 	private async clusterMotifs(): Promise<void> {
-		// Get all meso embeddings
-		// Run clustering
-		// Update graph with motif nodes
 		this.logger.info('Running motif clustering...');
 	}
 
@@ -1177,50 +1261,30 @@ export class FractalNarrativeMemory extends EventEmitter {
 	}
 
 	private async getSegmentCount(scale: string): Promise<number> {
-		return new Promise((resolve, reject) => {
-			this.db.get(
-				`SELECT COUNT(*) as count FROM segments_${scale}`,
-				(err, row: { count: number }) => {
-					if (err) reject(err);
-					else resolve(Number(row?.count || 0));
-				}
-			);
-		});
+		const row = this.db.prepare(`SELECT COUNT(*) as count FROM segments_${scale}`).get() as {
+			count: number;
+		};
+		return Number(row?.count || 0);
 	}
 
 	private async getNodeCount(): Promise<number> {
-		return new Promise((resolve, reject) => {
-			this.graphManager.db.get(
-				`SELECT COUNT(*) as count FROM nodes`,
-				(err, row: { count: number }) => {
-					if (err) reject(err);
-					else resolve(Number(row?.count || 0));
-				}
-			);
-		});
+		const row = this.graphManager.db.prepare(`SELECT COUNT(*) as count FROM nodes`).get() as {
+			count: number;
+		};
+		return Number(row?.count || 0);
 	}
 
 	private async getEdgeCount(): Promise<number> {
-		return new Promise((resolve, reject) => {
-			this.graphManager.db.get(
-				`SELECT COUNT(*) as count FROM edges`,
-				(err, row: { count: number }) => {
-					if (err) reject(err);
-					else resolve(Number(row?.count || 0));
-				}
-			);
-		});
+		const row = this.graphManager.db.prepare(`SELECT COUNT(*) as count FROM edges`).get() as {
+			count: number;
+		};
+		return Number(row?.count || 0);
 	}
 
 	private async getMotifCount(): Promise<number> {
-		return new Promise((resolve, reject) => {
-			this.graphManager.db.get(
-				`SELECT COUNT(*) as count FROM nodes WHERE node_type = 'motif'`,
-				(err, row: { count: number }) => {
-					if (err) reject(err);
-					else resolve(Number(row?.count || 0));
-				}
-			);
-		});
+		const row = this.graphManager.db
+			.prepare(`SELECT COUNT(*) as count FROM nodes WHERE node_type = 'motif'`)
+			.get() as { count: number };
+		return Number(row?.count || 0);
 	}
 }

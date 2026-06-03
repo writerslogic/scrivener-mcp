@@ -1,4 +1,4 @@
-import { getTextMetrics } from '../../utils/text-metrics.js';
+import { getWritingTextMetrics as getTextMetrics } from '../../utils/text-metrics.js';
 import { simdTextProcessor } from '../../utils/simd-text-processor.js';
 import { wasmAccelerator } from '../../utils/wasm-accelerator.js';
 import { generateHash } from '../../utils/common.js';
@@ -21,7 +21,9 @@ export class MetricsAnalyzer {
 	private isWasmInitialized = false;
 
 	constructor(
-		private predictiveMetricsCache: ReturnType<typeof PredictiveCacheFactory.createMetadataCache>,
+		private predictiveMetricsCache: ReturnType<
+			typeof PredictiveCacheFactory.createMetadataCache
+		>,
 		private memoizeAsync: <T>(key: string, calculator: () => Promise<T>) => Promise<T>,
 		private getResourceFromPool: <T>(type: string, creator: () => T) => T,
 		private returnResourceToPool: <T>(type: string, resource: T) => void

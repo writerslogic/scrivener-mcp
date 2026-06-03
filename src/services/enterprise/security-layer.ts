@@ -358,7 +358,7 @@ export class SecurityValidator {
 		evidence: Record<string, unknown>
 	): ThreatEvent {
 		return {
-			id: generateHash(`threat-${Date.now()}-${Math.random()}`),
+			id: crypto.randomUUID(),
 			type,
 			severity,
 			source: context.ipAddress,

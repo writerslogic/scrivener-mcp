@@ -2,7 +2,7 @@
  * Unit tests for cache implementation
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { LRUCache } from '../../src/core/cache.js';
 
 describe('LRUCache', () => {

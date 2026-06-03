@@ -314,11 +314,27 @@ export function getMetadataValue(
  * Parse metadata into key-value pairs
  */
 export function parseMetadata(
-	metadataItems: MetaDataItem[] | MetaDataItem | undefined
+	metadataItems: MetaDataItem[] | MetaDataItem | string | undefined
 ): Record<string, string> {
 	const metadata: Record<string, string> = {};
 
 	if (!metadataItems) {
+		return metadata;
+	}
+
+	if (typeof metadataItems === 'string') {
+		// Parse string format "Key: Value\nKey2: Value2"
+		const lines = metadataItems.split('\n');
+		for (const line of lines) {
+			const colonIndex = line.indexOf(':');
+			if (colonIndex !== -1) {
+				const key = line.substring(0, colonIndex).trim();
+				const value = line.substring(colonIndex + 1).trim();
+				if (key) {
+					metadata[key] = value;
+				}
+			}
+		}
 		return metadata;
 	}
 

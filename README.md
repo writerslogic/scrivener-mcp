@@ -49,6 +49,8 @@
 
 A powerful Model Context Protocol (MCP) server that enables Claude AI to seamlessly interact with Scrivener projects. This server provides comprehensive document management, AI-powered content analysis, and advanced writing assistance capabilities - all without requiring external services like Redis.
 
+> **v0.4.0** - Major reliability and performance update. See [CHANGELOG.md](./CHANGELOG.md) for details.
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -137,17 +139,17 @@ npm uninstall -g scrivener-mcp
 - **Format Preservation**: Option to maintain or strip RTF formatting
 - **Custom Separators**: Configure how documents are joined
 
-### 🧠 **NEW** Holographic Hyperdimensional Memory (HHM)
+### 🧠 Holographic Memory System (HMS) - Rust Native
+- **Rust-native engine**: High-performance napi-rs bindings with rayon parallel encoding
 - **Semantic Search**: Find documents by meaning, not just keywords
 - **Analogical Reasoning**: Discover relationships like "protagonist:hero :: antagonist:?"
 - **Auto-Memorization**: Documents automatically stored in 10,000-dimensional semantic space
-- **GPU Acceleration**: WebGPU-powered operations with CPU fallback
+- **Zero-copy ingestion**: Buffer and memmap2 paths avoid UTF-8 copies at the napi boundary
+- **Batch APIs**: Single native call per operation; no serial loops across the boundary
 - **Multi-modal Learning**: Text, documents, relationships, and temporal sequences
 - **Creative Combinations**: Dream mode generates novel concept associations
-- **Memory Evolution**: Background learning and concept refinement
-- **Consistency Checking**: Detect contradictory information across documents
-- **SIMD Optimization**: Vectorized operations for maximum performance
-- **Vector Caching**: LRU cache system for frequently accessed patterns
+- **End-to-end tracing**: trace_id flows from JSON-RPC request through Rust spans
+- **Type-safe**: TypeScript types and JSON schemas auto-generated from Rust structs via ts-rs/schemars
 
 ## 🛠️ Available Tools
 
@@ -431,10 +433,6 @@ If you find this project helpful, consider:
 - 🐛 Reporting bugs or requesting features
 - ☕ [Buying me a coffee](https://buymeacoffee.com/davidcondrey)
 - 📣 Sharing with other Scrivener users
-
-## 📚 Documentation
-
-- [Holographic Memory Guide](./HOLOGRAPHIC_MEMORY_GUIDE.md) - Complete guide to the new HHM system
 
 ## 🔗 Links
 

@@ -162,11 +162,11 @@ export class DistributedTracer extends EventEmitter {
 	}
 
 	generateTraceId(): string {
-		return generateHash(`trace-${Date.now()}-${Math.random()}-${process.pid}`);
+		return crypto.randomUUID();
 	}
 
 	generateSpanId(): string {
-		return generateHash(`span-${Date.now()}-${Math.random()}`);
+		return crypto.randomUUID();
 	}
 
 	getActiveSpans(): Span[] {

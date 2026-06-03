@@ -144,7 +144,7 @@ export class DatabaseSetup {
 	 */
 	static async setupNeo4jWithDocker(): Promise<boolean> {
 		try {
-			console.log('Setting up Neo4j with Docker...');
+			console.error('Setting up Neo4j with Docker...');
 
 			// Pull Neo4j image
 			await execAsync('docker pull neo4j:latest');
@@ -167,7 +167,7 @@ export class DatabaseSetup {
 			// Wait for Neo4j to start
 			await this.waitForNeo4j();
 
-			console.log('Neo4j container started successfully');
+			console.error('Neo4j container started successfully');
 			return true;
 		} catch (error) {
 			console.error('Failed to setup Neo4j with Docker:', error);

@@ -152,7 +152,7 @@ export function splitIntoSentences(content: string): string[] {
 /**
  * Get comprehensive text metrics
  */
-export interface TextMetrics {
+export interface WritingTextMetrics {
 	wordCount: number;
 	sentenceCount: number;
 	paragraphCount: number;
@@ -161,7 +161,7 @@ export interface TextMetrics {
 	readingTimeMinutes: number;
 }
 
-export function getTextMetrics(content: string): TextMetrics {
+export function getWritingTextMetrics(content: string): WritingTextMetrics {
 	const wordCount = getAccurateWordCount(content);
 	const sentenceCount = getAccurateSentenceCount(content);
 	const paragraphCount = getAccurateParagraphCount(content);

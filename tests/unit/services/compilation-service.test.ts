@@ -239,7 +239,7 @@ describe('CompilationService', () => {
 				metadata: {
 					synopsis: 'A document for testing search',
 					notes: 'Contains test-related content',
-					keywords: ['test', 'search', 'document'],
+					keywords: 'test, search, document',
 				},
 			},
 			{
@@ -295,10 +295,10 @@ describe('CompilationService', () => {
 				searchMetadata: true,
 			});
 
-			expect(results).toHaveLength(2); // Both docs have 'search' (doc1 in keyword, doc2 in content)
+			expect(results).toHaveLength(2); // Both docs have 'search' (doc1 in keyword string, doc2 in content)
 			// Find the doc1 result
 			const doc1Result = results.find(r => r.documentId === 'doc1');
-			expect(doc1Result?.matches).toContainEqual('Keyword: search');
+			expect(doc1Result?.matches).toContainEqual('Keyword: test, search, document');
 		});
 
 		it('should limit results when maxResults is set', () => {

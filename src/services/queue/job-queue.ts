@@ -84,6 +84,7 @@ export class JobQueueService {
 	private workers: Map<JobType, Worker> = new Map();
 	private events: Map<JobType, QueueEvents> = new Map();
 	private connection: Redis | MemoryRedis | undefined = undefined;
+	private memoryRedis: MemoryRedis | undefined = undefined;
 	private logger: ReturnType<typeof getLogger>;
 
 	// Services
@@ -489,13 +490,13 @@ export class JobQueueService {
 
 			// Location consistency checks
 			if (checkTypes.includes('locations')) {
-				const locationIssues = this.checkLocationConsistency(data.documents);
+				const locationIssues = await this.checkLocationConsistency(data.documents);
 				issues.push(...locationIssues);
 			}
 
 			// Plot consistency checks
 			if (checkTypes.includes('plot')) {
-				const plotIssues = this.checkPlotConsistency(data.documents);
+				const plotIssues = await this.checkPlotConsistency(data.documents);
 				issues.push(...plotIssues);
 			}
 
@@ -619,9 +620,12 @@ export class JobQueueService {
 			description: string;
 			details: unknown;
 		}> = [];
-		
-		const content = documents.slice(0, 5).map(d => d.content).join('\n\n');
-		
+
+		const content = documents
+			.slice(0, 5)
+			.map((d) => d.content)
+			.join('\n\n');
+
 		try {
 			// Use AI to detect spatial and location inconsistencies
 			if (this.langchainService) {
@@ -629,8 +633,11 @@ export class JobQueueService {
 					`Analyze these manuscript excerpts for location and spatial inconsistencies.
 					Look for characters being in two places at once, distances changing, or layout contradictions.`
 				);
-				
-				if (response.toLowerCase().includes('inconsistency') || response.toLowerCase().includes('contradiction')) {
+
+				if (
+					response.toLowerCase().includes('inconsistency') ||
+					response.toLowerCase().includes('contradiction')
+				) {
 					issues.push({
 						type: 'locations',
 						severity: 'medium',
@@ -640,7 +647,9 @@ export class JobQueueService {
 				}
 			}
 		} catch (error) {
-			this.logger.warn('AI location check failed, falling back to pattern matching', { error });
+			this.logger.warn('AI location check failed, falling back to pattern matching', {
+				error,
+			});
 		}
 
 		return issues;
@@ -657,14 +666,19 @@ export class JobQueueService {
 		try {
 			if (this.langchainService) {
 				const response = await this.langchainService.checkPlotConsistency(
-					documents.map(d => ({ ...d, type: 'Text' as const, path: '' }))
+					documents.map((d) => ({
+						...d,
+						title: (d as any).metadata?.title || `Document ${d.id}`,
+						type: 'Text' as const,
+						path: '',
+					}))
 				);
-				
-				return response.map(issue => ({
+
+				return response.map((issue) => ({
 					type: 'plot',
 					severity: issue.severity,
 					description: issue.issue,
-					details: { suggestion: issue.suggestion, locations: issue.locations }
+					details: { suggestion: issue.suggestion, locations: issue.locations },
 				}));
 			}
 		} catch (error) {
@@ -888,7 +902,4 @@ export class JobQueueService {
 		this.isInitialized = false;
 		this.logger.info('Job queue service shutdown complete');
 	}
-
-	// Add missing memoryRedis property
-	private memoryRedis: MemoryRedis | null = null;
 }

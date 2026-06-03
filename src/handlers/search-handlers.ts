@@ -1,5 +1,7 @@
 import { SemanticDatabaseLayer } from '../handlers/database/langchain-semantic-layer.js';
-import { VectorStore } from '../services/ai/vector-store.js';
+import { LangChainHMSVectorStore } from '../services/ai/hms-vector-store.js';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { Document as LangchainDocument } from '@langchain/core/documents';
 import { validateInput } from '../utils/common.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
@@ -94,13 +96,16 @@ export const searchContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${semanticResults.documents.length} semantic matches`,
-						data: {
-							...semanticResults,
-							enhanced: true,
-							searchType: 'semantic',
-							sessionId,
-						},
+						text: `Found ${semanticResults.documents.length} semantic matches\n${JSON.stringify(
+							{
+								...semanticResults,
+								enhanced: true,
+								searchType: 'semantic',
+								sessionId,
+							},
+							null,
+							2
+						)}`,
 					},
 				],
 			};
@@ -117,12 +122,15 @@ export const searchContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${results.length} matches (basic search)`,
-						data: {
-							results,
-							enhanced: false,
-							fallbackReason: (error as Error).message,
-						},
+						text: `Found ${results.length} matches (basic search)\n${JSON.stringify(
+							{
+								results,
+								enhanced: false,
+								fallbackReason: (error as Error).message,
+							},
+							null,
+							2
+						)}`,
 					},
 				],
 			};
@@ -145,8 +153,7 @@ export const listTrashHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `${trashItems.length} items in trash`,
-					data: trashItems,
+					text: `${trashItems.length} items in trash\n${JSON.stringify(trashItems, null, 2)}`,
 				},
 			],
 		};
@@ -187,8 +194,7 @@ export const searchTrashHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `Found ${results.length} matches in trash`,
-					data: results,
+					text: `Found ${results.length} matches in trash\n${JSON.stringify(results, null, 2)}`,
 				},
 			],
 		};
@@ -267,8 +273,7 @@ export const getAnnotationsHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `Found ${formattedAnnotations.comments?.length || 0} comments and ${formattedAnnotations.footnotes?.length || 0} footnotes`,
-					data: formattedAnnotations,
+					text: `Found ${formattedAnnotations.comments?.length || 0} comments and ${formattedAnnotations.footnotes?.length || 0} footnotes\n${JSON.stringify(formattedAnnotations, null, 2)}`,
 				},
 			],
 		};
@@ -310,9 +315,9 @@ export const vectorSearchHandler: ToolDefinition = {
 		const searchType = (args.searchType as string) || 'semantic';
 
 		try {
-			// Initialize vector store
-			const vectorStore = new VectorStore();
-			await vectorStore.initialize();
+			// Initialize HMS-backed vector store
+			const embeddings = new OpenAIEmbeddings();
+			const vectorStore = new LangChainHMSVectorStore(embeddings);
 
 			// Initialize continuous learning for feedback collection
 			const learningHandler = new LangChainContinuousLearningHandler();
@@ -321,43 +326,53 @@ export const vectorSearchHandler: ToolDefinition = {
 			const sessionId = `vector_search_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
 
-			let results;
-			if (searchType === 'hybrid') {
-				results = await vectorStore.hybridSearch(query, {
-					semanticWeight: 0.7,
-					keywordWeight: 0.3,
-					maxResults,
-				});
-			} else if (searchType === 'semantic') {
-				results = await vectorStore.semanticSearch(query, {
-					threshold,
-					maxResults,
-					includeMetadata: true,
-				});
-			} else {
-				// Keyword search fallback
-				const documents = await project.getAllDocuments();
-				const vectorDocuments = documents
-					.filter((doc) => doc.content)
-					.map((doc) => ({
-						id: doc.id,
-						content: doc.content || '',
-						metadata: {
-							title: doc.title,
-							type: doc.type,
-							wordCount: doc.content ? doc.content.split(' ').length : 0,
-						},
-					}));
+			// In HMS context, we should ensure documents are loaded
+			// For this tool, we'll load all documents if the store is effectively empty
+			const documents = await project.getAllDocuments();
+			const langchainDocs = documents
+				.filter((doc) => doc.content)
+				.map(
+					(doc) =>
+						new LangchainDocument({
+							pageContent: doc.content || '',
+							metadata: {
+								id: doc.id,
+								title: doc.title,
+								type: doc.type,
+								wordCount: doc.content ? doc.content.split(' ').length : 0,
+							},
+						})
+				);
 
-				await vectorStore.addDocuments(vectorDocuments);
-				results = await vectorStore.similaritySearch(query, maxResults);
+			await vectorStore.addDocuments(langchainDocs);
+
+			let results;
+			if (searchType === 'semantic' || searchType === 'hybrid') {
+				// HMS natively handles semantic search
+				results = await vectorStore.similaritySearchWithScore(query, maxResults);
+			} else {
+				// Keyword search fallback - simple filter for now as HMS is semantic-first
+				results = (await vectorStore.similaritySearchWithScore(query, maxResults)).filter(
+					([doc]) => doc.pageContent.toLowerCase().includes(query.toLowerCase())
+				);
 			}
+
+			// Format results to match the expected SearchResult interface
+			const formattedResults = results
+				.filter(([, score]) => score >= threshold)
+				.map(([doc, score]) => ({
+					id: doc.metadata.id,
+					title: doc.metadata.title || 'Untitled',
+					content: doc.pageContent,
+					score,
+					metadata: doc.metadata,
+				}));
 
 			// Collect implicit feedback
 			await learningHandler.collectImplicitFeedback(sessionId, 'vector_search', {
 				timeSpent: 0,
 				userActions: ['vector_search'],
-				documentsCount: results.length,
+				documentsCount: formattedResults.length,
 				enhancementType: 'vector_search',
 				targetOptimization: query,
 			});
@@ -366,16 +381,19 @@ export const vectorSearchHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${results.length} ${searchType} matches`,
-						data: {
-							results,
-							enhanced: true,
-							searchType,
-							query,
-							maxResults,
-							threshold,
-							sessionId,
-						},
+						text: `Found ${formattedResults.length} ${searchType} matches\n${JSON.stringify(
+							{
+								results: formattedResults,
+								enhanced: true,
+								searchType,
+								query,
+								maxResults,
+								threshold,
+								sessionId,
+							},
+							null,
+							2
+						)}`,
 					},
 				],
 			};
@@ -385,7 +403,6 @@ export const vectorSearchHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Vector search failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};
@@ -416,31 +433,42 @@ export const findMentionsHandler: ToolDefinition = {
 		const contextLength = getOptionalNumberArg(args, 'contextLength') || 100;
 
 		try {
-			// Initialize vector store for mention finding
-			const vectorStore = new VectorStore();
-			await vectorStore.initialize();
-
-			// Get all documents and add them to vector store
+			// Get all documents
 			const documents = await project.getAllDocuments();
-			const vectorDocuments = documents
-				.filter((doc) => doc.content)
-				.map((doc) => ({
-					id: doc.id,
-					content: doc.content || '',
-					metadata: {
-						title: doc.title,
-						type: doc.type,
-					},
-				}));
+			const mentions: Array<{
+				documentId: string;
+				title: string;
+				context: string;
+				position: number;
+			}> = [];
 
-			if (vectorDocuments.length === 0) {
-				throw new Error('No documents with content found');
+			const entityLower = entity.toLowerCase();
+
+			for (const doc of documents) {
+				const content = doc.content || '';
+				const title = doc.title || 'Untitled';
+				const contentLower = content.toLowerCase();
+
+				let position = 0;
+				while ((position = contentLower.indexOf(entityLower, position)) !== -1) {
+					// Extract context around the mention
+					const contextStart = Math.max(0, position - contextLength);
+					const contextEnd = Math.min(
+						content.length,
+						position + entity.length + contextLength
+					);
+					const contextSnippet = content.slice(contextStart, contextEnd);
+
+					mentions.push({
+						documentId: doc.id,
+						title,
+						context: contextSnippet,
+						position,
+					});
+
+					position += entity.length;
+				}
 			}
-
-			await vectorStore.addDocuments(vectorDocuments);
-
-			// Find mentions using vector store
-			const mentions = await vectorStore.findMentions(entity);
 
 			// Initialize continuous learning for feedback collection
 			const learningHandler = new LangChainContinuousLearningHandler();
@@ -462,14 +490,17 @@ export const findMentionsHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${mentions.length} mentions of "${entity}"`,
-						data: {
-							mentions,
-							entity,
-							enhanced: true,
-							contextLength,
-							sessionId,
-						},
+						text: `Found ${mentions.length} mentions of "${entity}"\n${JSON.stringify(
+							{
+								mentions,
+								entity,
+								enhanced: true,
+								contextLength,
+								sessionId,
+							},
+							null,
+							2
+						)}`,
 					},
 				],
 			};
@@ -479,7 +510,6 @@ export const findMentionsHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Mention search failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};
@@ -522,7 +552,6 @@ export const crossReferenceHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: 'Document not found',
-						data: { error: true },
 					},
 				],
 			};
@@ -561,14 +590,17 @@ export const crossReferenceHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Cross-reference analysis complete for ${document.title}`,
-						data: {
-							...analysis,
-							enhanced: true,
-							analysisType,
-							maxConnections,
-							sessionId,
-						},
+						text: `Cross-reference analysis complete for ${document.title}\n${JSON.stringify(
+							{
+								...analysis,
+								enhanced: true,
+								analysisType,
+								maxConnections,
+								sessionId,
+							},
+							null,
+							2
+						)}`,
 					},
 				],
 			};
@@ -578,7 +610,6 @@ export const crossReferenceHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Cross-reference analysis failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};

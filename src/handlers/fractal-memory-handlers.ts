@@ -7,6 +7,15 @@ import { getLogger } from '../core/logger.js';
 import { FractalMemoryService } from '../services/memory/fractal-memory-service.js';
 import type { DocumentInfo } from '../types/index.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
+import {
+	getStringArg,
+	getOptionalStringArg,
+	getOptionalNumberArg,
+	getOptionalBooleanArg,
+	getOptionalObjectArg,
+	getArrayArg,
+	getObjectArg,
+} from './types.js';
 
 const logger = getLogger('fractal-memory-handlers');
 
@@ -173,7 +182,9 @@ export const ingestDocumentHandler: ToolDefinition = {
 		args: Record<string, unknown>,
 		context: HandlerContext
 	): Promise<HandlerResult> => {
-		const { documentId, chapterId, options } = args as unknown as IngestDocumentArgs;
+		const documentId = getStringArg(args, 'documentId');
+		const chapterId = getOptionalStringArg(args, 'chapterId');
+		const options = getOptionalObjectArg<IngestDocumentArgs['options']>(args, 'options');
 
 		if (!context.project) {
 			return {
@@ -268,7 +279,11 @@ export const fractalSearchHandler: ToolDefinition = {
 		required: ['query'],
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { query, policy, k, chapterId, includeGraph } = args as unknown as FractalSearchArgs;
+		const query = getStringArg(args, 'query');
+		const policy = getOptionalStringArg(args, 'policy') as FractalSearchArgs['policy'];
+		const k = getOptionalNumberArg(args, 'k');
+		const chapterId = getOptionalStringArg(args, 'chapterId');
+		const includeGraph = getOptionalBooleanArg(args, 'includeGraph');
 
 		try {
 			const service = await getFractalMemoryService();
@@ -375,8 +390,10 @@ export const findCoOccurrencesHandler: ToolDefinition = {
 		required: ['items'],
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { items, itemTypes, minDistance, maxDistance } =
-			args as unknown as FindNarrativeConnectionsArgs;
+		const items = getArrayArg<string>(args, 'items');
+		const itemTypes = args.itemTypes as FindNarrativeConnectionsArgs['itemTypes'];
+		const minDistance = getOptionalNumberArg(args, 'minDistance');
+		const maxDistance = getOptionalNumberArg(args, 'maxDistance');
 
 		try {
 			const service = await getFractalMemoryService();
@@ -452,8 +469,9 @@ export const checkContinuityHandler: ToolDefinition = {
 		required: ['characterName'],
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { characterName, chapterId, includeRelationships } =
-			args as unknown as TrackCharacterArgs;
+		const characterName = getStringArg(args, 'characterName');
+		const chapterId = getOptionalStringArg(args, 'chapterId');
+		const includeRelationships = getOptionalBooleanArg(args, 'includeRelationships');
 
 		try {
 			const service = await getFractalMemoryService();
@@ -541,7 +559,9 @@ export const trackMotifsHandler: ToolDefinition = {
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { chapterId, minStrength, patternType } = args as unknown as GetNarrativePatternsArgs;
+		const chapterId = getOptionalStringArg(args, 'chapterId');
+		const minStrength = getOptionalNumberArg(args, 'minStrength');
+		const patternType = getOptionalStringArg(args, 'patternType');
 
 		try {
 			const service = await getFractalMemoryService();
@@ -634,7 +654,8 @@ export const ingestProjectHandler: ToolDefinition = {
 		args: Record<string, unknown>,
 		context: HandlerContext
 	): Promise<HandlerResult> => {
-		const { folderId, options } = args as unknown as BuildProjectContextArgs;
+		const folderId = getOptionalStringArg(args, 'folderId');
+		const options = getOptionalObjectArg<BuildProjectContextArgs['options']>(args, 'options');
 
 		if (!context.project) {
 			return {
@@ -801,7 +822,12 @@ export const updatePolicyHandler: ToolDefinition = {
 		required: ['name', 'scaleWeights'],
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { name, scaleWeights, ...otherParams } = args as unknown as CreateRetrievalPolicyArgs;
+		const name = getStringArg(args, 'name');
+		const scaleWeights = getObjectArg<CreateRetrievalPolicyArgs['scaleWeights']>(
+			args,
+			'scaleWeights'
+		);
+		const { name: _n, scaleWeights: _sw, ...otherParams } = args;
 
 		try {
 			const service = await getFractalMemoryService();
@@ -874,7 +900,9 @@ export const getMemoryAnalyticsHandler: ToolDefinition = {
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { startDate, endDate, limit } = args as unknown as GetMemoryTimelineArgs;
+		const startDate = getOptionalStringArg(args, 'startDate');
+		const endDate = getOptionalStringArg(args, 'endDate');
+		const limit = getOptionalNumberArg(args, 'limit');
 
 		try {
 			const service = await getFractalMemoryService();
@@ -963,7 +991,12 @@ export const analyzeNarrativeHandler: ToolDefinition = {
 		args: Record<string, unknown>,
 		context: HandlerContext
 	): Promise<HandlerResult> => {
-		const { documentId, analysisType, options } = args as unknown as AnalyzeNarrativeArgs;
+		const documentId = getStringArg(args, 'documentId');
+		const analysisType = getOptionalStringArg(
+			args,
+			'analysisType'
+		) as AnalyzeNarrativeArgs['analysisType'];
+		const options = getOptionalObjectArg<AnalyzeNarrativeArgs['options']>(args, 'options');
 
 		if (!context.project) {
 			return {
@@ -1092,7 +1125,8 @@ export const getMemoryStatsHandler: ToolDefinition = {
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
-		const { documentId, includeDetails } = args as unknown as GetMemoryStatsArgs;
+		const documentId = getOptionalStringArg(args, 'documentId');
+		const includeDetails = getOptionalBooleanArg(args, 'includeDetails');
 
 		try {
 			const service = await getFractalMemoryService();

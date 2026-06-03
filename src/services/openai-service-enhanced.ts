@@ -21,7 +21,7 @@ import {
 	withErrorHandling,
 } from '../utils/common.js';
 import { StringUtils } from '../utils/shared-patterns.js';
-import { getTextMetrics } from '../utils/text-metrics.js';
+import { getWritingTextMetrics as getTextMetrics } from '../utils/text-metrics.js';
 
 // Import resilience patterns
 import {
@@ -35,13 +35,13 @@ import {
 	RateLimit,
 	ResilientService,
 } from '../core/resilience/resilience-decorators.js';
-import { 
+import {
 	CircuitBreakers,
 	RetryStrategies,
 	globalCacheManager,
 	globalHealthManager,
 	StandardHealthChecks,
-	globalMetricsRegistry
+	globalMetricsRegistry,
 } from '../core/resilience/index.js';
 
 const logger = getLogger('enhanced-openai-service');
@@ -109,20 +109,20 @@ export class EnhancedOpenAIService {
 	private client: OpenAI | null = null;
 	private config: OpenAIConfig;
 	private cache: any;
-	
+
 	// Metrics counters
 	private requestCounter = globalMetricsRegistry.counter(
 		'openai.requests.total',
 		'Total OpenAI API requests',
 		{ service: 'openai' }
 	);
-	
+
 	private errorCounter = globalMetricsRegistry.counter(
 		'openai.requests.errors',
 		'Failed OpenAI API requests',
 		{ service: 'openai' }
 	);
-	
+
 	private requestTimer = globalMetricsRegistry.timer(
 		'openai.request.duration',
 		'OpenAI API request duration',
@@ -178,19 +178,15 @@ export class EnhancedOpenAIService {
 
 		// Register health check
 		globalHealthManager.register(
-			StandardHealthChecks.externalApi(
-				'openai',
-				'https://api.openai.com',
-				{
-					name: 'openai-api',
-					interval: 120000, // 2 minutes
-					timeout: 30000,
-					failureThreshold: 3,
-					recoveryThreshold: 2,
-					critical: false, // Not critical to core functionality
-					enabled: !!this.client,
-				}
-			)
+			StandardHealthChecks.externalApi('openai', 'https://api.openai.com', {
+				name: 'openai-api',
+				interval: 120000, // 2 minutes
+				timeout: 30000,
+				failureThreshold: 3,
+				recoveryThreshold: 2,
+				critical: false, // Not critical to core functionality
+				enabled: !!this.client,
+			})
 		);
 
 		logger.info('Resilience patterns initialized for OpenAI service');
@@ -288,7 +284,7 @@ export class EnhancedOpenAIService {
 		this.requestCounter.increment();
 
 		const operationStart = Date.now();
-		
+
 		try {
 			const prompt = this.buildSuggestionsPrompt(text, context);
 			if (!prompt) {
@@ -320,7 +316,8 @@ export class EnhancedOpenAIService {
 					messages: [
 						{
 							role: 'system',
-							content: 'You are an expert writing coach and editor. Analyze the provided text and return suggestions in valid JSON format.',
+							content:
+								'You are an expert writing coach and editor. Analyze the provided text and return suggestions in valid JSON format.',
 						},
 						{
 							role: 'user',
@@ -338,12 +335,11 @@ export class EnhancedOpenAIService {
 			}
 
 			const suggestions = this.parseWritingSuggestions(content);
-			
+
 			// Record metrics
 			this.requestTimer.record(Date.now() - operationStart);
-			
-			return suggestions;
 
+			return suggestions;
 		} catch (error) {
 			this.errorCounter.increment();
 			const appError = handleError(error, 'EnhancedOpenAIService.getWritingSuggestions');
@@ -404,7 +400,8 @@ export class EnhancedOpenAIService {
 				messages: [
 					{
 						role: 'system',
-						content: 'You are a professional writing analyst. Provide detailed style analysis in valid JSON format.',
+						content:
+							'You are a professional writing analyst. Provide detailed style analysis in valid JSON format.',
 					},
 					{
 						role: 'user',
@@ -421,7 +418,6 @@ export class EnhancedOpenAIService {
 			}
 
 			return this.parseStyleAnalysis(content);
-
 		} catch (error) {
 			this.errorCounter.increment();
 			const appError = handleError(error, 'EnhancedOpenAIService.analyzeStyle');
@@ -482,7 +478,8 @@ export class EnhancedOpenAIService {
 				messages: [
 					{
 						role: 'system',
-						content: 'You are a character development expert. Analyze characters and return valid JSON.',
+						content:
+							'You are a character development expert. Analyze characters and return valid JSON.',
 					},
 					{
 						role: 'user',
@@ -499,7 +496,6 @@ export class EnhancedOpenAIService {
 			}
 
 			return this.parseCharacterAnalysis(content);
-
 		} catch (error) {
 			this.errorCounter.increment();
 			const appError = handleError(error, 'EnhancedOpenAIService.analyzeCharacters');
@@ -546,7 +542,7 @@ export class EnhancedOpenAIService {
 		const totalErrors = this.errorCounter.getValue();
 		const timerMetric = this.requestTimer.getMetric();
 		const circuitBreakerMetric = CircuitBreakers.openai.getMetrics();
-		
+
 		return {
 			totalRequests,
 			errorRate: totalRequests > 0 ? totalErrors / totalRequests : 0,
@@ -628,9 +624,10 @@ Return your analysis in this JSON format:
 	}
 
 	private buildCharacterAnalysisPrompt(text: string, characterNames?: string[]): string {
-		const charactersPrompt = characterNames && characterNames.length > 0
-			? `Focus on these specific characters: ${characterNames.join(', ')}.`
-			: 'Identify and analyze all significant characters in the text.';
+		const charactersPrompt =
+			characterNames && characterNames.length > 0
+				? `Focus on these specific characters: ${characterNames.join(', ')}.`
+				: 'Identify and analyze all significant characters in the text.';
 
 		return `Analyze character development in the following text:
 
@@ -671,7 +668,9 @@ Return analysis in this JSON format:
 					const suggestion = s as Record<string, unknown>;
 					return {
 						type: String(suggestion.type || 'style') as WritingSuggestion['type'],
-						severity: String(suggestion.severity || 'medium') as WritingSuggestion['severity'],
+						severity: String(
+							suggestion.severity || 'medium'
+						) as WritingSuggestion['severity'],
 						original: String(suggestion.original || ''),
 						suggestion: String(suggestion.suggestion || ''),
 						explanation: String(suggestion.explanation || ''),
@@ -697,29 +696,35 @@ Return analysis in this JSON format:
 				tone: String(analysis.tone || 'neutral'),
 				voice: String(analysis.voice || 'third person'),
 				strengths: Array.isArray(analysis.strengths) ? analysis.strengths.map(String) : [],
-				weaknesses: Array.isArray(analysis.weaknesses) ? analysis.weaknesses.map(String) : [],
+				weaknesses: Array.isArray(analysis.weaknesses)
+					? analysis.weaknesses.map(String)
+					: [],
 				suggestions: Array.isArray(analysis.suggestions)
 					? (analysis.suggestions as unknown[]).map((s: unknown) => {
-						if (typeof s === 'object' && s !== null) {
-							const suggestion = s as Record<string, unknown>;
+							if (typeof s === 'object' && s !== null) {
+								const suggestion = s as Record<string, unknown>;
+								return {
+									type: String(
+										suggestion.type || 'style'
+									) as WritingSuggestion['type'],
+									severity: String(
+										suggestion.severity || 'medium'
+									) as WritingSuggestion['severity'],
+									original: String(suggestion.original || ''),
+									suggestion: String(suggestion.suggestion || ''),
+									explanation: String(suggestion.explanation || ''),
+									confidence: Number(suggestion.confidence || 0.5),
+								};
+							}
 							return {
-								type: String(suggestion.type || 'style') as WritingSuggestion['type'],
-								severity: String(suggestion.severity || 'medium') as WritingSuggestion['severity'],
-								original: String(suggestion.original || ''),
-								suggestion: String(suggestion.suggestion || ''),
-								explanation: String(suggestion.explanation || ''),
-								confidence: Number(suggestion.confidence || 0.5),
+								type: 'style' as WritingSuggestion['type'],
+								severity: 'medium' as WritingSuggestion['severity'],
+								original: '',
+								suggestion: String(s),
+								explanation: '',
+								confidence: 0.5,
 							};
-						}
-						return {
-							type: 'style' as WritingSuggestion['type'],
-							severity: 'medium' as WritingSuggestion['severity'],
-							original: '',
-							suggestion: String(s),
-							explanation: '',
-							confidence: 0.5,
-						};
-					})
+						})
 					: [],
 			};
 		} catch (error) {

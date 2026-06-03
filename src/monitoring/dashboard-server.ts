@@ -11,354 +11,358 @@ import { PerformanceMonitor, type DashboardData } from './performance-monitor.js
 import { AlertManager } from './alert-manager.js';
 
 export interface DashboardClient {
-  id: string;
-  ws: WebSocket;
-  subscriptions: Set<string>;
-  connectedAt: Date;
-  lastSeen: Date;
-  metadata: {
-    userAgent?: string;
-    ip?: string;
-    userId?: string;
-    permissions?: string[];
-  };
+	id: string;
+	ws: WebSocket;
+	subscriptions: Set<string>;
+	connectedAt: Date;
+	lastSeen: Date;
+	metadata: {
+		userAgent?: string;
+		ip?: string;
+		userId?: string;
+		permissions?: string[];
+	};
 }
 
 export interface DashboardMessage {
-  type: 'subscribe' | 'unsubscribe' | 'request' | 'acknowledge' | 'command';
-  id?: string;
-  data?: any;
-  timestamp: Date;
+	type: 'subscribe' | 'unsubscribe' | 'request' | 'acknowledge' | 'command';
+	id?: string;
+	data?: any;
+	timestamp: Date;
 }
 
 export interface DashboardResponse {
-  type: 'data' | 'error' | 'ack' | 'notification';
-  id?: string;
-  data?: any;
-  error?: string;
-  timestamp: Date;
+	type: 'data' | 'error' | 'ack' | 'notification';
+	id?: string;
+	data?: any;
+	error?: string;
+	timestamp: Date;
 }
 
 export interface DashboardConfig {
-  port: number;
-  host: string;
-  updateInterval: number;
-  maxClients: number;
-  enableCompression: boolean;
-  corsOrigins: string[];
-  authRequired: boolean;
-  apiKeys?: string[];
+	port: number;
+	host: string;
+	updateInterval: number;
+	maxClients: number;
+	enableCompression: boolean;
+	corsOrigins: string[];
+	authRequired: boolean;
+	apiKeys?: string[];
 }
 
 /**
  * Real-time dashboard server with WebSocket communication
  */
 export class DashboardServer extends EventEmitter {
-  private logger: EnhancedLogger;
-  private performanceMonitor: PerformanceMonitor;
-  private alertManager: AlertManager;
-  private config: DashboardConfig;
-  private server?: http.Server;
-  private wss?: WebSocketServer;
-  private clients = new Map<string, DashboardClient>();
-  private updateTimer?: NodeJS.Timeout;
-  private isRunning = false;
+	private logger: EnhancedLogger;
+	private performanceMonitor: PerformanceMonitor;
+	private alertManager: AlertManager;
+	private config: DashboardConfig;
+	private server?: http.Server;
+	private wss?: WebSocketServer;
+	private clients = new Map<string, DashboardClient>();
+	private updateTimer?: NodeJS.Timeout;
+	private isRunning = false;
 
-  constructor(
-    logger: EnhancedLogger,
-    performanceMonitor: PerformanceMonitor,
-    alertManager: AlertManager,
-    config: Partial<DashboardConfig> = {}
-  ) {
-    super();
-    
-    this.logger = logger;
-    this.performanceMonitor = performanceMonitor;
-    this.alertManager = alertManager;
-    
-    this.config = {
-      port: 3001,
-      host: '0.0.0.0',
-      updateInterval: 5000, // 5 seconds
-      maxClients: 100,
-      enableCompression: true,
-      corsOrigins: ['*'],
-      authRequired: false,
-      ...config,
-    };
+	constructor(
+		logger: EnhancedLogger,
+		performanceMonitor: PerformanceMonitor,
+		alertManager: AlertManager,
+		config: Partial<DashboardConfig> = {}
+	) {
+		super();
 
-    this.setupEventListeners();
-  }
+		this.logger = logger;
+		this.performanceMonitor = performanceMonitor;
+		this.alertManager = alertManager;
 
-  /**
-   * Start the dashboard server
-   */
-  async start(): Promise<void> {
-    if (this.isRunning) return;
+		this.config = {
+			port: 3001,
+			host: '0.0.0.0',
+			updateInterval: 5000, // 5 seconds
+			maxClients: 100,
+			enableCompression: true,
+			corsOrigins: ['*'],
+			authRequired: false,
+			...config,
+		};
 
-    try {
-      // Create HTTP server
-      this.server = http.createServer(this.handleHttpRequest.bind(this));
-      
-      // Create WebSocket server
-      this.wss = new WebSocketServer({
-        server: this.server,
-        perMessageDeflate: this.config.enableCompression,
-      });
+		this.setupEventListeners();
+	}
 
-      this.wss.on('connection', this.handleWebSocketConnection.bind(this));
+	/**
+	 * Start the dashboard server
+	 */
+	async start(): Promise<void> {
+		if (this.isRunning) return;
 
-      // Start HTTP server
-      await new Promise<void>((resolve, reject) => {
-        this.server!.listen(this.config.port, this.config.host, (error?: Error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
-        });
-      });
+		try {
+			// Create HTTP server
+			this.server = http.createServer(this.handleHttpRequest.bind(this));
 
-      // Start periodic updates
-      this.startPeriodicUpdates();
-      
-      this.isRunning = true;
-      
-      this.logger.info('Dashboard server started', {
-        host: this.config.host,
-        port: this.config.port,
-        updateInterval: this.config.updateInterval,
-        maxClients: this.config.maxClients,
-      });
+			// Create WebSocket server
+			this.wss = new WebSocketServer({
+				server: this.server,
+				perMessageDeflate: this.config.enableCompression,
+			});
 
-      this.emit('started', {
-        host: this.config.host,
-        port: this.config.port,
-      });
+			this.wss.on('connection', this.handleWebSocketConnection.bind(this));
 
-    } catch (error) {
-      this.logger.error('Failed to start dashboard server', error as Error);
-      throw error;
-    }
-  }
+			// Start HTTP server
+			await new Promise<void>((resolve, reject) => {
+				this.server!.listen(this.config.port, this.config.host, (error?: Error) => {
+					if (error) {
+						reject(error);
+					} else {
+						resolve();
+					}
+				});
+			});
 
-  /**
-   * Stop the dashboard server
-   */
-  async stop(): Promise<void> {
-    if (!this.isRunning) return;
+			// Start periodic updates
+			this.startPeriodicUpdates();
 
-    this.isRunning = false;
+			this.isRunning = true;
 
-    // Stop periodic updates
-    if (this.updateTimer) {
-      clearInterval(this.updateTimer);
-      this.updateTimer = undefined;
-    }
+			this.logger.info('Dashboard server started', {
+				host: this.config.host,
+				port: this.config.port,
+				updateInterval: this.config.updateInterval,
+				maxClients: this.config.maxClients,
+			});
 
-    // Close all WebSocket connections
-    for (const client of this.clients.values()) {
-      client.ws.close(1001, 'Server shutting down');
-    }
-    this.clients.clear();
+			this.emit('started', {
+				host: this.config.host,
+				port: this.config.port,
+			});
+		} catch (error) {
+			this.logger.error('Failed to start dashboard server', error as Error);
+			throw error;
+		}
+	}
 
-    // Close WebSocket server
-    if (this.wss) {
-      this.wss.close();
-      this.wss = undefined;
-    }
+	/**
+	 * Stop the dashboard server
+	 */
+	async stop(): Promise<void> {
+		if (!this.isRunning) return;
 
-    // Close HTTP server
-    if (this.server) {
-      await new Promise<void>((resolve) => {
-        this.server!.close(() => resolve());
-      });
-      this.server = undefined;
-    }
+		this.isRunning = false;
 
-    this.logger.info('Dashboard server stopped');
-    this.emit('stopped');
-  }
+		// Stop periodic updates
+		if (this.updateTimer) {
+			clearInterval(this.updateTimer);
+			this.updateTimer = undefined;
+		}
 
-  /**
-   * Broadcast message to all connected clients
-   */
-  broadcast(message: DashboardResponse, subscription?: string): void {
-    const messageStr = JSON.stringify(message);
+		// Close all WebSocket connections
+		for (const client of this.clients.values()) {
+			client.ws.close(1001, 'Server shutting down');
+		}
+		this.clients.clear();
 
-    for (const client of this.clients.values()) {
-      if (subscription && !client.subscriptions.has(subscription)) {
-        continue;
-      }
+		// Close WebSocket server
+		if (this.wss) {
+			this.wss.close();
+			this.wss = undefined;
+		}
 
-      if (client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(messageStr);
-      }
-    }
+		// Close HTTP server
+		if (this.server) {
+			await new Promise<void>((resolve) => {
+				this.server!.close(() => resolve());
+			});
+			this.server = undefined;
+		}
 
-    this.logger.debug('Broadcast message sent', {
-      type: message.type,
-      clientCount: this.clients.size,
-      subscription,
-    });
-  }
+		this.logger.info('Dashboard server stopped');
+		this.emit('stopped');
+	}
 
-  /**
-   * Send message to specific client
-   */
-  sendToClient(clientId: string, message: DashboardResponse): void {
-    const client = this.clients.get(clientId);
-    if (!client || client.ws.readyState !== WebSocket.OPEN) {
-      return;
-    }
+	/**
+	 * Broadcast message to all connected clients
+	 */
+	broadcast(message: DashboardResponse, subscription?: string): void {
+		const messageStr = JSON.stringify(message);
 
-    client.ws.send(JSON.stringify(message));
-    client.lastSeen = new Date();
-  }
+		for (const client of this.clients.values()) {
+			if (subscription && !client.subscriptions.has(subscription)) {
+				continue;
+			}
 
-  /**
-   * Get connected clients statistics
-   */
-  getClientStats(): {
-    totalClients: number;
-    clientsBySubscription: Record<string, number>;
-    connections: Array<{
-      id: string;
-      connectedAt: Date;
-      subscriptions: string[];
-      metadata: DashboardClient['metadata'];
-    }>;
-  } {
-    const clientsBySubscription: Record<string, number> = {};
-    const connections: Array<{
-      id: string;
-      connectedAt: Date;
-      subscriptions: string[];
-      metadata: DashboardClient['metadata'];
-    }> = [];
+			if (client.ws.readyState === WebSocket.OPEN) {
+				client.ws.send(messageStr);
+			}
+		}
 
-    for (const client of this.clients.values()) {
-      // Count subscriptions
-      for (const subscription of client.subscriptions) {
-        clientsBySubscription[subscription] = (clientsBySubscription[subscription] || 0) + 1;
-      }
+		this.logger.debug('Broadcast message sent', {
+			type: message.type,
+			clientCount: this.clients.size,
+			subscription,
+		});
+	}
 
-      // Add to connections list
-      connections.push({
-        id: client.id,
-        connectedAt: client.connectedAt,
-        subscriptions: Array.from(client.subscriptions),
-        metadata: client.metadata,
-      });
-    }
+	/**
+	 * Send message to specific client
+	 */
+	sendToClient(clientId: string, message: DashboardResponse): void {
+		const client = this.clients.get(clientId);
+		if (!client || client.ws.readyState !== WebSocket.OPEN) {
+			return;
+		}
 
-    return {
-      totalClients: this.clients.size,
-      clientsBySubscription,
-      connections,
-    };
-  }
+		client.ws.send(JSON.stringify(message));
+		client.lastSeen = new Date();
+	}
 
-  // Private methods
+	/**
+	 * Get connected clients statistics
+	 */
+	getClientStats(): {
+		totalClients: number;
+		clientsBySubscription: Record<string, number>;
+		connections: Array<{
+			id: string;
+			connectedAt: Date;
+			subscriptions: string[];
+			metadata: DashboardClient['metadata'];
+		}>;
+	} {
+		const clientsBySubscription: Record<string, number> = {};
+		const connections: Array<{
+			id: string;
+			connectedAt: Date;
+			subscriptions: string[];
+			metadata: DashboardClient['metadata'];
+		}> = [];
 
-  private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', this.config.corsOrigins.join(', '));
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+		for (const client of this.clients.values()) {
+			// Count subscriptions
+			for (const subscription of client.subscriptions) {
+				clientsBySubscription[subscription] =
+					(clientsBySubscription[subscription] || 0) + 1;
+			}
 
-    if (req.method === 'OPTIONS') {
-      res.writeHead(200);
-      res.end();
-      return;
-    }
+			// Add to connections list
+			connections.push({
+				id: client.id,
+				connectedAt: client.connectedAt,
+				subscriptions: Array.from(client.subscriptions),
+				metadata: client.metadata,
+			});
+		}
 
-    const url = req.url || '/';
+		return {
+			totalClients: this.clients.size,
+			clientsBySubscription,
+			connections,
+		};
+	}
 
-    // Handle API endpoints
-    if (url.startsWith('/api/')) {
-      this.handleApiRequest(req, res);
-      return;
-    }
+	// Private methods
 
-    // Serve static dashboard HTML
-    if (url === '/' || url === '/dashboard') {
-      this.serveDashboardHtml(res);
-      return;
-    }
+	private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+		// Set CORS headers
+		res.setHeader('Access-Control-Allow-Origin', this.config.corsOrigins.join(', '));
+		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+		res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // Health check endpoint
-    if (url === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        clients: this.clients.size,
-        uptime: process.uptime(),
-      }));
-      return;
-    }
+		if (req.method === 'OPTIONS') {
+			res.writeHead(200);
+			res.end();
+			return;
+		}
 
-    // 404 for unknown routes
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
-  }
+		const url = req.url || '/';
 
-  private async handleApiRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-    const url = req.url || '';
-    
-    try {
-      if (url === '/api/dashboard-data') {
-        const data = this.performanceMonitor.getDashboardData();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(data));
-        return;
-      }
+		// Handle API endpoints
+		if (url.startsWith('/api/')) {
+			this.handleApiRequest(req, res);
+			return;
+		}
 
-      if (url === '/api/performance-trends') {
-        const trends = this.performanceMonitor.getPerformanceTrends(24);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(trends));
-        return;
-      }
+		// Serve static dashboard HTML
+		if (url === '/' || url === '/dashboard') {
+			this.serveDashboardHtml(res);
+			return;
+		}
 
-      if (url === '/api/metrics/export') {
-        const format = req.url?.includes('format=prometheus') ? 'prometheus' : 'json';
-        const metrics = this.performanceMonitor.exportMetrics(format as any);
-        const contentType = format === 'prometheus' ? 'text/plain' : 'application/json';
-        
-        res.writeHead(200, { 'Content-Type': contentType });
-        res.end(metrics);
-        return;
-      }
+		// Health check endpoint
+		if (url === '/health') {
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			res.end(
+				JSON.stringify({
+					status: 'healthy',
+					timestamp: new Date().toISOString(),
+					clients: this.clients.size,
+					uptime: process.uptime(),
+				})
+			);
+			return;
+		}
 
-      if (url === '/api/alerts') {
-        const dashboardData = this.performanceMonitor.getDashboardData();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(dashboardData.activeAlerts));
-        return;
-      }
+		// 404 for unknown routes
+		res.writeHead(404, { 'Content-Type': 'text/plain' });
+		res.end('Not Found');
+	}
 
-      if (url === '/api/client-stats') {
-        const stats = this.getClientStats();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(stats));
-        return;
-      }
+	private async handleApiRequest(
+		req: http.IncomingMessage,
+		res: http.ServerResponse
+	): Promise<void> {
+		const url = req.url || '';
 
-      // 404 for unknown API routes
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'API endpoint not found' }));
+		try {
+			if (url === '/api/dashboard-data') {
+				const data = this.performanceMonitor.getDashboardData();
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(data));
+				return;
+			}
 
-    } catch (error) {
-      this.logger.error('API request error', error as Error, { url });
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal server error' }));
-    }
-  }
+			if (url === '/api/performance-trends') {
+				const trends = this.performanceMonitor.getPerformanceTrends(24);
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(trends));
+				return;
+			}
 
-  private serveDashboardHtml(res: http.ServerResponse): void {
-    const html = `
+			if (url === '/api/metrics/export') {
+				const format = req.url?.includes('format=prometheus') ? 'prometheus' : 'json';
+				const metrics = this.performanceMonitor.exportMetrics(format as any);
+				const contentType = format === 'prometheus' ? 'text/plain' : 'application/json';
+
+				res.writeHead(200, { 'Content-Type': contentType });
+				res.end(metrics);
+				return;
+			}
+
+			if (url === '/api/alerts') {
+				const dashboardData = this.performanceMonitor.getDashboardData();
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(dashboardData.activeAlerts));
+				return;
+			}
+
+			if (url === '/api/client-stats') {
+				const stats = this.getClientStats();
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(stats));
+				return;
+			}
+
+			// 404 for unknown API routes
+			res.writeHead(404, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'API endpoint not found' }));
+		} catch (error) {
+			this.logger.error('API request error', error as Error, { url });
+			res.writeHead(500, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Internal server error' }));
+		}
+	}
+
+	private serveDashboardHtml(res: http.ServerResponse): void {
+		const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -652,327 +656,341 @@ export class DashboardServer extends EventEmitter {
 </html>
     `;
 
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(html);
-  }
+		res.writeHead(200, { 'Content-Type': 'text/html' });
+		res.end(html);
+	}
 
-  private handleWebSocketConnection(ws: WebSocket, req: http.IncomingMessage): void {
-    if (this.clients.size >= this.config.maxClients) {
-      ws.close(1013, 'Maximum clients exceeded');
-      return;
-    }
+	private handleWebSocketConnection(ws: WebSocket, req: http.IncomingMessage): void {
+		if (this.clients.size >= this.config.maxClients) {
+			ws.close(1013, 'Maximum clients exceeded');
+			return;
+		}
 
-    const clientId = this.generateClientId();
-    const client: DashboardClient = {
-      id: clientId,
-      ws,
-      subscriptions: new Set(),
-      connectedAt: new Date(),
-      lastSeen: new Date(),
-      metadata: {
-        userAgent: req.headers['user-agent'],
-        ip: req.socket.remoteAddress,
-      },
-    };
+		const clientId = this.generateClientId();
+		const client: DashboardClient = {
+			id: clientId,
+			ws,
+			subscriptions: new Set(),
+			connectedAt: new Date(),
+			lastSeen: new Date(),
+			metadata: {
+				userAgent: req.headers['user-agent'],
+				ip: req.socket.remoteAddress,
+			},
+		};
 
-    this.clients.set(clientId, client);
+		this.clients.set(clientId, client);
 
-    this.logger.info('Dashboard client connected', {
-      clientId,
-      userAgent: client.metadata.userAgent,
-      ip: client.metadata.ip,
-      totalClients: this.clients.size,
-    });
+		this.logger.info('Dashboard client connected', {
+			clientId,
+			userAgent: client.metadata.userAgent,
+			ip: client.metadata.ip,
+			totalClients: this.clients.size,
+		});
 
-    // Set up message handler
-    ws.on('message', (data) => {
-      this.handleWebSocketMessage(client, Buffer.from(data.toString()));
-    });
+		// Set up message handler
+		ws.on('message', (data) => {
+			this.handleWebSocketMessage(client, Buffer.from(data.toString()));
+		});
 
-    // Set up close handler
-    ws.on('close', () => {
-      this.clients.delete(clientId);
-      this.logger.info('Dashboard client disconnected', {
-        clientId,
-        totalClients: this.clients.size,
-      });
-    });
+		// Set up close handler
+		ws.on('close', () => {
+			this.clients.delete(clientId);
+			this.logger.info('Dashboard client disconnected', {
+				clientId,
+				totalClients: this.clients.size,
+			});
+		});
 
-    // Set up error handler
-    ws.on('error', (error) => {
-      this.logger.error('WebSocket error', error, { clientId });
-    });
+		// Set up error handler
+		ws.on('error', (error) => {
+			this.logger.error('WebSocket error', error, { clientId });
+		});
 
-    // Send welcome message
-    this.sendToClient(clientId, {
-      type: 'ack',
-      data: {
-        clientId,
-        serverTime: new Date(),
-        message: 'Connected to dashboard server',
-      },
-      timestamp: new Date(),
-    });
+		// Send welcome message
+		this.sendToClient(clientId, {
+			type: 'ack',
+			data: {
+				clientId,
+				serverTime: new Date(),
+				message: 'Connected to dashboard server',
+			},
+			timestamp: new Date(),
+		});
 
-    this.emit('clientConnected', client);
-  }
+		this.emit('clientConnected', client);
+	}
 
-  private handleWebSocketMessage(client: DashboardClient, data: Buffer): void {
-    try {
-      const message: DashboardMessage = JSON.parse(data.toString());
-      client.lastSeen = new Date();
+	private handleWebSocketMessage(client: DashboardClient, data: Buffer): void {
+		try {
+			const message: DashboardMessage = JSON.parse(data.toString());
+			client.lastSeen = new Date();
 
-      this.logger.debug('WebSocket message received', {
-        clientId: client.id,
-        type: message.type,
-      });
+			this.logger.debug('WebSocket message received', {
+				clientId: client.id,
+				type: message.type,
+			});
 
-      switch (message.type) {
-        case 'subscribe':
-          this.handleSubscribe(client, message);
-          break;
-        
-        case 'unsubscribe':
-          this.handleUnsubscribe(client, message);
-          break;
-        
-        case 'request':
-          this.handleRequest(client, message);
-          break;
-        
-        case 'acknowledge':
-          this.handleAcknowledge(client, message);
-          break;
-        
-        case 'command':
-          this.handleCommand(client, message);
-          break;
-        
-        default:
-          this.sendToClient(client.id, {
-            type: 'error',
-            error: `Unknown message type: ${message.type}`,
-            timestamp: new Date(),
-          });
-      }
-    } catch (error) {
-      this.logger.error('Failed to handle WebSocket message', error as Error, {
-        clientId: client.id,
-      });
+			switch (message.type) {
+				case 'subscribe':
+					this.handleSubscribe(client, message);
+					break;
 
-      this.sendToClient(client.id, {
-        type: 'error',
-        error: 'Invalid message format',
-        timestamp: new Date(),
-      });
-    }
-  }
+				case 'unsubscribe':
+					this.handleUnsubscribe(client, message);
+					break;
 
-  private handleSubscribe(client: DashboardClient, message: DashboardMessage): void {
-    const subscriptions = Array.isArray(message.data) ? message.data : [message.data];
-    
-    for (const subscription of subscriptions) {
-      client.subscriptions.add(subscription);
-    }
+				case 'request':
+					this.handleRequest(client, message);
+					break;
 
-    this.sendToClient(client.id, {
-      type: 'ack',
-      id: message.id,
-      data: {
-        subscriptions: Array.from(client.subscriptions),
-        message: 'Subscribed successfully',
-      },
-      timestamp: new Date(),
-    });
+				case 'acknowledge':
+					this.handleAcknowledge(client, message);
+					break;
 
-    // Send initial data for subscriptions
-    if (client.subscriptions.has('dashboard')) {
-      const dashboardData = this.performanceMonitor.getDashboardData();
-      this.sendToClient(client.id, {
-        type: 'data',
-        data: dashboardData,
-        timestamp: new Date(),
-      });
-    }
-  }
+				case 'command':
+					this.handleCommand(client, message);
+					break;
 
-  private handleUnsubscribe(client: DashboardClient, message: DashboardMessage): void {
-    const subscriptions = Array.isArray(message.data) ? message.data : [message.data];
-    
-    for (const subscription of subscriptions) {
-      client.subscriptions.delete(subscription);
-    }
+				default:
+					this.sendToClient(client.id, {
+						type: 'error',
+						error: `Unknown message type: ${message.type}`,
+						timestamp: new Date(),
+					});
+			}
+		} catch (error) {
+			this.logger.error('Failed to handle WebSocket message', error as Error, {
+				clientId: client.id,
+			});
 
-    this.sendToClient(client.id, {
-      type: 'ack',
-      id: message.id,
-      data: {
-        subscriptions: Array.from(client.subscriptions),
-        message: 'Unsubscribed successfully',
-      },
-      timestamp: new Date(),
-    });
-  }
+			this.sendToClient(client.id, {
+				type: 'error',
+				error: 'Invalid message format',
+				timestamp: new Date(),
+			});
+		}
+	}
 
-  private handleRequest(client: DashboardClient, message: DashboardMessage): void {
-    const { type: requestType } = message.data || {};
+	private handleSubscribe(client: DashboardClient, message: DashboardMessage): void {
+		const subscriptions = Array.isArray(message.data) ? message.data : [message.data];
 
-    switch (requestType) {
-      case 'dashboard-data':
-        const dashboardData = this.performanceMonitor.getDashboardData();
-        this.sendToClient(client.id, {
-          type: 'data',
-          id: message.id,
-          data: dashboardData,
-          timestamp: new Date(),
-        });
-        break;
+		for (const subscription of subscriptions) {
+			client.subscriptions.add(subscription);
+		}
 
-      case 'performance-trends':
-        const trends = this.performanceMonitor.getPerformanceTrends();
-        this.sendToClient(client.id, {
-          type: 'data',
-          id: message.id,
-          data: trends,
-          timestamp: new Date(),
-        });
-        break;
+		this.sendToClient(client.id, {
+			type: 'ack',
+			id: message.id,
+			data: {
+				subscriptions: Array.from(client.subscriptions),
+				message: 'Subscribed successfully',
+			},
+			timestamp: new Date(),
+		});
 
-      default:
-        this.sendToClient(client.id, {
-          type: 'error',
-          id: message.id,
-          error: `Unknown request type: ${requestType}`,
-          timestamp: new Date(),
-        });
-    }
-  }
+		// Send initial data for subscriptions
+		if (client.subscriptions.has('dashboard')) {
+			const dashboardData = this.performanceMonitor.getDashboardData();
+			this.sendToClient(client.id, {
+				type: 'data',
+				data: dashboardData,
+				timestamp: new Date(),
+			});
+		}
+	}
 
-  private handleAcknowledge(client: DashboardClient, message: DashboardMessage): void {
-    const { alertId, note } = message.data || {};
-    
-    if (alertId) {
-      // TODO: Implement acknowledgeAlert method
-      // this.alertManager.acknowledgeAlert(alertId, client.id, note);
-      
-      this.sendToClient(client.id, {
-        type: 'ack',
-        id: message.id,
-        data: { message: 'Alert acknowledged' },
-        timestamp: new Date(),
-      });
-    } else {
-      this.sendToClient(client.id, {
-        type: 'error',
-        id: message.id,
-        error: 'Alert ID required for acknowledgment',
-        timestamp: new Date(),
-      });
-    }
-  }
+	private handleUnsubscribe(client: DashboardClient, message: DashboardMessage): void {
+		const subscriptions = Array.isArray(message.data) ? message.data : [message.data];
 
-  private handleCommand(client: DashboardClient, message: DashboardMessage): void {
-    const { command, args } = message.data || {};
+		for (const subscription of subscriptions) {
+			client.subscriptions.delete(subscription);
+		}
 
-    // Only allow certain commands and check permissions
-    const allowedCommands = ['test-alert', 'reset-metrics'];
-    
-    if (!allowedCommands.includes(command)) {
-      this.sendToClient(client.id, {
-        type: 'error',
-        id: message.id,
-        error: `Command not allowed: ${command}`,
-        timestamp: new Date(),
-      });
-      return;
-    }
+		this.sendToClient(client.id, {
+			type: 'ack',
+			id: message.id,
+			data: {
+				subscriptions: Array.from(client.subscriptions),
+				message: 'Unsubscribed successfully',
+			},
+			timestamp: new Date(),
+		});
+	}
 
-    // Execute command
-    try {
-      switch (command) {
-        case 'reset-metrics':
-          // TODO: Implement resetMetrics method
-          // this.performanceMonitor.resetMetrics();
-          break;
-      }
+	private handleRequest(client: DashboardClient, message: DashboardMessage): void {
+		const { type: requestType } = message.data || {};
 
-      this.sendToClient(client.id, {
-        type: 'ack',
-        id: message.id,
-        data: { message: `Command executed: ${command}` },
-        timestamp: new Date(),
-      });
-    } catch (error) {
-      this.sendToClient(client.id, {
-        type: 'error',
-        id: message.id,
-        error: `Command failed: ${(error as Error).message}`,
-        timestamp: new Date(),
-      });
-    }
-  }
+		switch (requestType) {
+			case 'dashboard-data':
+				const dashboardData = this.performanceMonitor.getDashboardData();
+				this.sendToClient(client.id, {
+					type: 'data',
+					id: message.id,
+					data: dashboardData,
+					timestamp: new Date(),
+				});
+				break;
 
-  private setupEventListeners(): void {
-    // Listen for performance monitor events
-    this.performanceMonitor.on('systemMetrics', (metrics) => {
-      this.broadcast({
-        type: 'data',
-        data: { systemMetrics: metrics },
-        timestamp: new Date(),
-      }, 'dashboard');
-    });
+			case 'performance-trends':
+				const trends = this.performanceMonitor.getPerformanceTrends();
+				this.sendToClient(client.id, {
+					type: 'data',
+					id: message.id,
+					data: trends,
+					timestamp: new Date(),
+				});
+				break;
 
-    this.performanceMonitor.on('applicationMetrics', (metrics) => {
-      this.broadcast({
-        type: 'data',
-        data: { applicationMetrics: metrics },
-        timestamp: new Date(),
-      }, 'dashboard');
-    });
+			default:
+				this.sendToClient(client.id, {
+					type: 'error',
+					id: message.id,
+					error: `Unknown request type: ${requestType}`,
+					timestamp: new Date(),
+				});
+		}
+	}
 
-    this.performanceMonitor.on('alertTriggered', (alert) => {
-      this.broadcast({
-        type: 'notification',
-        data: {
-          type: 'alert',
-          severity: alert.severity,
-          message: `Alert triggered: ${alert.ruleName}`,
-          alert,
-        },
-        timestamp: new Date(),
-      }, 'alerts');
-    });
+	private handleAcknowledge(client: DashboardClient, message: DashboardMessage): void {
+		const { alertId, note } = message.data || {};
 
-    // Listen for alert manager events
-    this.alertManager.on('alertSent', (event) => {
-      this.broadcast({
-        type: 'notification',
-        data: {
-          type: 'alert-sent',
-          message: `Alert sent: ${event.alert.ruleName}`,
-          results: event.results,
-        },
-        timestamp: new Date(),
-      }, 'alerts');
-    });
-  }
+		if (alertId) {
+			// TODO: Implement acknowledgeAlert method
+			// this.alertManager.acknowledgeAlert(alertId, client.id, note);
 
-  private startPeriodicUpdates(): void {
-    this.updateTimer = setInterval(() => {
-      if (this.clients.size === 0) return;
+			this.sendToClient(client.id, {
+				type: 'ack',
+				id: message.id,
+				data: { message: 'Alert acknowledged' },
+				timestamp: new Date(),
+			});
+		} else {
+			this.sendToClient(client.id, {
+				type: 'error',
+				id: message.id,
+				error: 'Alert ID required for acknowledgment',
+				timestamp: new Date(),
+			});
+		}
+	}
 
-      const dashboardData = this.performanceMonitor.getDashboardData();
-      
-      this.broadcast({
-        type: 'data',
-        data: dashboardData,
-        timestamp: new Date(),
-      }, 'dashboard');
+	private handleCommand(client: DashboardClient, message: DashboardMessage): void {
+		const { command, args } = message.data || {};
 
-    }, this.config.updateInterval);
-  }
+		// Only allow certain commands and check permissions
+		const allowedCommands = ['test-alert', 'reset-metrics'];
 
-  private generateClientId(): string {
-    return `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
+		if (!allowedCommands.includes(command)) {
+			this.sendToClient(client.id, {
+				type: 'error',
+				id: message.id,
+				error: `Command not allowed: ${command}`,
+				timestamp: new Date(),
+			});
+			return;
+		}
+
+		// Execute command
+		try {
+			switch (command) {
+				case 'reset-metrics':
+					// TODO: Implement resetMetrics method
+					// this.performanceMonitor.resetMetrics();
+					break;
+			}
+
+			this.sendToClient(client.id, {
+				type: 'ack',
+				id: message.id,
+				data: { message: `Command executed: ${command}` },
+				timestamp: new Date(),
+			});
+		} catch (error) {
+			this.sendToClient(client.id, {
+				type: 'error',
+				id: message.id,
+				error: `Command failed: ${(error as Error).message}`,
+				timestamp: new Date(),
+			});
+		}
+	}
+
+	private setupEventListeners(): void {
+		// Listen for performance monitor events
+		this.performanceMonitor.on('systemMetrics', (metrics) => {
+			this.broadcast(
+				{
+					type: 'data',
+					data: { systemMetrics: metrics },
+					timestamp: new Date(),
+				},
+				'dashboard'
+			);
+		});
+
+		this.performanceMonitor.on('applicationMetrics', (metrics) => {
+			this.broadcast(
+				{
+					type: 'data',
+					data: { applicationMetrics: metrics },
+					timestamp: new Date(),
+				},
+				'dashboard'
+			);
+		});
+
+		this.performanceMonitor.on('alertTriggered', (alert) => {
+			this.broadcast(
+				{
+					type: 'notification',
+					data: {
+						type: 'alert',
+						severity: alert.severity,
+						message: `Alert triggered: ${alert.ruleName}`,
+						alert,
+					},
+					timestamp: new Date(),
+				},
+				'alerts'
+			);
+		});
+
+		// Listen for alert manager events
+		this.alertManager.on('alertSent', (event) => {
+			this.broadcast(
+				{
+					type: 'notification',
+					data: {
+						type: 'alert-sent',
+						message: `Alert sent: ${event.alert.ruleName}`,
+						results: event.results,
+					},
+					timestamp: new Date(),
+				},
+				'alerts'
+			);
+		});
+	}
+
+	private startPeriodicUpdates(): void {
+		this.updateTimer = setInterval(() => {
+			if (this.clients.size === 0) return;
+
+			const dashboardData = this.performanceMonitor.getDashboardData();
+
+			this.broadcast(
+				{
+					type: 'data',
+					data: dashboardData,
+					timestamp: new Date(),
+				},
+				'dashboard'
+			);
+		}, this.config.updateInterval);
+	}
+
+	private generateClientId(): string {
+		return `client-${crypto.randomUUID()}`;
+	}
 }

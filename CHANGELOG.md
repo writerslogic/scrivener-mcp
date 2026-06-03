@@ -1,5 +1,41 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.4.0] - 2026-06-03
+
+### Fixed
+- **Critical: Logging corrupts JSON-RPC stream** (#3, #6, #7, #8) - All logging now routes to stderr instead of stdout, which was causing Claude Desktop to fail with JSON parse errors and lose state between tool calls.
+- **Critical: Tool results invisible to MCP clients** (#7) - Handler responses were attaching structured payloads in a non-standard `data` property on text content blocks, which clients silently drop. All ~40 locations now serialize payloads into the `text` field per the MCP spec.
+- **`update_metadata` ignores custom metadata** (#5) - The `customMetadata` parameter is now accepted in the tool schema and wired through to `MetadataManager.updateCustomMetadata()`.
+- Circuit breaker fix in HMS native module.
+- SQL injection fix in database layer.
+- Stale import fixes and type cleanup removing `as any` casts.
+
+### Added
+- **Rust-native Holographic Memory System (HMS) v2.0** with napi-rs bindings.
+  - `ts-rs` + `schemars` auto-generate TypeScript types and JSON schemas from Rust structs.
+  - Generated types: `ConceptCandidate`, `RetrievalResult`, `TextMetrics`, `MemorizeBatchItem`, `HmsError`.
+  - Batch memorize API (`memorizeBatch`) with rayon parallel encoding.
+  - Zero-copy Buffer ingestion (`memorizeTextBuffer`) avoiding UTF-8 copy at the napi boundary.
+  - File path shunting (`memorizeFile`) via memmap2.
+  - `thiserror`-based `HmsError` enum with JSON-RPC error codes.
+  - Structured `traceId` support on key napi methods with `tracing` crate instrumentation.
+- **Fractal Narrative Memory** - Multi-scale document segmentation (micro/meso/macro) with graph-boosted retrieval.
+- Generated JSON schemas loaded at startup for HMS-facing MCP tool definitions.
+- `memorizeTextBuffer` wrapper; document write handler uses zero-copy path for content > 10KB.
+
+### Changed
+- `indexSegments` calls `memorizeBatch` once per scale instead of looping `memorizeText` per segment.
+- 11 `args as unknown as XxxArgs` double casts in fractal-memory-handlers replaced with typed extractors (`getStringArg`, `getOptionalNumberArg`, etc.).
+- `readFileSync`/`writeFileSync` in config-manager, first-run, and ai-config-wizard converted to `fs/promises`.
+- 18 `Date.now()+Math.random()` ID patterns replaced with `crypto.randomUUID()`.
+- `RetrievalResult` renamed to `FractalRetrievalResult` in fractal-narrative-memory; `TextMetrics`/`getTextMetrics` renamed to `WritingTextMetrics`/`getWritingTextMetrics` in text-metrics to avoid collisions with generated HMS types.
+- `registerHHMHandlers(_server: any)` now properly typed with `Server` from `@modelcontextprotocol/sdk`.
+
 ## [0.3.0] - 2024-01-04
 
 ### Added
@@ -66,58 +102,7 @@
 - Document CRUD operations
 - Project structure navigation
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [0.1.0] - 2024-01-03
-
-### Added
-- Initial release of Scrivener MCP Server
-- Complete MCP interface for Scrivener project manipulation
-- Full RTF parsing and generation with Scrivener-specific features
-- 14 MCP tools for comprehensive Scrivener integration:
-  - `open_project` - Open Scrivener projects
-  - `get_structure` - Navigate project hierarchy
-  - `read_document` - Read document content
-  - `read_document_formatted` - Read with RTF formatting
-  - `write_document` - Write content to documents
-  - `create_document` - Create new documents/folders
-  - `delete_document` - Delete documents/folders
-  - `move_document` - Move documents in hierarchy
-  - `update_metadata` - Manage document metadata
-  - `search_content` - Full-text search with regex support
-  - `compile_documents` - Compile multiple documents
-  - `get_word_count` - Word and character counting
-  - `analyze_document` - Writing quality metrics
-  - `critique_document` - Constructive writing feedback
-  - `get_project_metadata` - Project-level metadata
-  - `get_document_annotations` - Extract Scrivener annotations
-- RTF format support with:
-  - Unicode and special character handling
-  - Format preservation (bold, italic, underline)
-  - Scrivener annotation extraction
-- Writing analysis features:
-  - Readability metrics (Flesch Reading Ease)
-  - Sentence structure analysis
-  - Passive voice detection
-  - Word frequency analysis
-- Document critique with focus areas:
-  - Structure and flow
-  - Clarity and style
-  - Dialogue and pacing
-  - Character development
-- Comprehensive error handling and recovery
-- Full TypeScript support with type definitions
-- Extensive test coverage
-- Publishing configuration for npm
-
-### Technical Details
-- Built with TypeScript and ES modules
-- Uses MCP SDK for protocol implementation
-- Supports Node.js 18+
-- Includes RTF parser with fallback mechanisms
-- XML-based Scrivener project manipulation
-
-[0.1.0]: https://github.com/dcondrey/scrivener-mcp/releases/tag/v0.1.0
+[0.4.0]: https://github.com/dcondrey/scrivener-mcp/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/dcondrey/scrivener-mcp/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/dcondrey/scrivener-mcp/compare/v0.1.0...v0.2.0
+[0.1.x]: https://github.com/dcondrey/scrivener-mcp/releases/tag/v0.1.0

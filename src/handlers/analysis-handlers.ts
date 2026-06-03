@@ -81,13 +81,16 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: 'Advanced document analysis complete',
-						data: {
-							...analysis,
-							enhanced: true,
-							analysisTypes,
-							processingTime: 0,
-						},
+						text: JSON.stringify(
+							{
+								...analysis,
+								enhanced: true,
+								analysisTypes,
+								processingTime: 0,
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -101,12 +104,15 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: 'Document analysis complete (basic mode)',
-						data: {
-							...fallbackAnalysis,
-							enhanced: false,
-							fallbackReason: (error as Error).message,
-						},
+						text: JSON.stringify(
+							{
+								...fallbackAnalysis,
+								enhanced: false,
+								fallbackReason: (error as Error).message,
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -183,14 +189,17 @@ export const enhanceContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: enhanced.enhanced,
-						data: {
-							...enhanced,
-							enhanced: true,
-							langChainProcessed: true,
-							sessionId, // For potential feedback collection
-							qualityScore: enhanced.qualityValidation?.overallScore,
-						},
+						text: JSON.stringify(
+							{
+								...enhanced,
+								enhanced: true,
+								langChainProcessed: true,
+								sessionId,
+								qualityScore: enhanced.qualityValidation?.overallScore,
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -206,12 +215,15 @@ export const enhanceContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: enhanced.enhanced,
-						data: {
-							...enhanced,
-							enhanced: false,
-							fallbackReason: (error as Error).message,
-						},
+						text: JSON.stringify(
+							{
+								...enhanced,
+								enhanced: false,
+								fallbackReason: (error as Error).message,
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -278,8 +290,7 @@ export const generateContentHandler: ToolDefinition = {
 					content: [
 						{
 							type: 'text',
-							text: generated.content,
-							data: generated,
+							text: JSON.stringify(generated, null, 2),
 						},
 					],
 				};
@@ -311,8 +322,7 @@ export const generateContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: generated.content,
-						data: generated,
+						text: JSON.stringify(generated, null, 2),
 					},
 				],
 			};
@@ -334,8 +344,7 @@ export const generateContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: generated.content,
-						data: generated,
+						text: JSON.stringify(generated, null, 2),
 					},
 				],
 			};
@@ -450,8 +459,7 @@ export const getMemoryHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: 'Memory retrieved',
-					data: memory,
+					text: JSON.stringify(memory, null, 2),
 				},
 			],
 		};
@@ -524,17 +532,24 @@ export const checkConsistencyHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: summary,
-						data: {
-							issues,
-							counts: {
-								total: issues.length,
-								errors: issues.filter((i) => i.severity === 'error').length,
-								warnings: issues.filter((i) => i.severity === 'warning').length,
-								info: issues.filter((i) => i.severity === 'info').length,
-							},
-							checkTypes,
-						},
+						text:
+							summary +
+							'\n\n' +
+							JSON.stringify(
+								{
+									issues,
+									counts: {
+										total: issues.length,
+										errors: issues.filter((i) => i.severity === 'error').length,
+										warnings: issues.filter((i) => i.severity === 'warning')
+											.length,
+										info: issues.filter((i) => i.severity === 'info').length,
+									},
+									checkTypes,
+								},
+								null,
+								2
+							),
 					},
 				],
 			};
@@ -544,7 +559,6 @@ export const checkConsistencyHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Error performing consistency check: ${(error as Error).message}`,
-						data: { error: true, issues: [] },
 					},
 				],
 			};
@@ -907,20 +921,20 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 		}
 
 		try {
-			const { EnhancedLangChainService } = await import(
-				'../services/ai/langchain-service-enhanced.js'
-			);
-			const { AdvancedLangChainFeatures } = await import(
-				'../services/ai/langchain-advanced-features.js'
-			);
-			const { MultiAgentLangChainOrchestrator } = await import(
-				'../services/agents/langchain-multi-agent.js'
-			);
+			const { EnhancedLangChainService } =
+				await import('../services/ai/langchain-service-enhanced.js');
+			const { AdvancedLangChainFeatures } =
+				await import('../services/ai/langchain-advanced-features.js');
+			const { MultiAgentLangChainOrchestrator } =
+				await import('../services/agents/langchain-multi-agent.js');
 
 			// Initialize services
 			const langchainService = new EnhancedLangChainService();
 			const advancedFeatures = new AdvancedLangChainFeatures();
-			const multiAgentSystem = new MultiAgentLangChainOrchestrator(langchainService, advancedFeatures);
+			const multiAgentSystem = new MultiAgentLangChainOrchestrator(
+				langchainService,
+				advancedFeatures
+			);
 
 			// Use collaborateOnDocument method
 			const result = await multiAgentSystem.collaborateOnDocument(document, {
@@ -938,13 +952,16 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: 'Multi-agent analysis complete',
-						data: {
-							...result,
-							collaborationMode,
-							agents,
-							enhanced: true,
-						},
+						text: JSON.stringify(
+							{
+								...result,
+								collaborationMode,
+								agents,
+								enhanced: true,
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -954,7 +971,6 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Multi-agent analysis failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};
@@ -993,9 +1009,8 @@ export const semanticSearchHandler: ToolDefinition = {
 				throw createError(ErrorCode.INVALID_STATE, 'Database service not available');
 			}
 
-			const { SemanticDatabaseLayer } = await import(
-				'../handlers/database/langchain-semantic-layer.js'
-			);
+			const { SemanticDatabaseLayer } =
+				await import('../handlers/database/langchain-semantic-layer.js');
 			const semanticLayer = new SemanticDatabaseLayer(context.databaseService);
 			await semanticLayer.initialize();
 
@@ -1010,13 +1025,18 @@ export const semanticSearchHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${results.documents.length} semantic matches`,
-						data: {
-							...results,
-							query,
-							enhanced: true,
-							searchType: 'semantic',
-						},
+						text:
+							`Found ${results.documents.length} semantic matches\n\n` +
+							JSON.stringify(
+								{
+									...results,
+									query,
+									enhanced: true,
+									searchType: 'semantic',
+								},
+								null,
+								2
+							),
 					},
 				],
 			};
@@ -1026,7 +1046,6 @@ export const semanticSearchHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Semantic search failed: ${(error as Error).message}`,
-						data: { error: true, query, enhanced: false },
 					},
 				],
 			};
@@ -1063,9 +1082,8 @@ export const realtimeAssistanceHandler: ToolDefinition = {
 		}
 
 		try {
-			const { RealtimeWritingAssistant } = await import(
-				'../services/realtime/langchain-writing-assistant.js'
-			);
+			const { RealtimeWritingAssistant } =
+				await import('../services/realtime/langchain-writing-assistant.js');
 			const assistant = new RealtimeWritingAssistant();
 			await assistant.initialize();
 
@@ -1079,14 +1097,19 @@ export const realtimeAssistanceHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Real-time ${assistanceType} assistance started`,
-						data: {
-							sessionId,
-							assistanceType,
-							documentId,
-							enhanced: true,
-							status: 'active',
-						},
+						text:
+							`Real-time ${assistanceType} assistance started\n\n` +
+							JSON.stringify(
+								{
+									sessionId,
+									assistanceType,
+									documentId,
+									enhanced: true,
+									status: 'active',
+								},
+								null,
+								2
+							),
 					},
 				],
 			};
@@ -1096,7 +1119,6 @@ export const realtimeAssistanceHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Failed to start real-time assistance: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};
@@ -1159,13 +1181,16 @@ export const collectFeedbackHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: 'Feedback collected successfully',
-						data: {
-							sessionId,
-							rating,
-							operation,
-							learningEnabled: true,
-						},
+						text: JSON.stringify(
+							{
+								sessionId,
+								rating,
+								operation,
+								learningEnabled: true,
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -1175,7 +1200,6 @@ export const collectFeedbackHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Failed to collect feedback: ${(error as Error).message}`,
-						data: { error: true },
 					},
 				],
 			};

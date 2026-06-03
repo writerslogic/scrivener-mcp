@@ -2,7 +2,6 @@ import {
 	validateInput,
 	isValidUUID,
 	truncate,
-	createApiResponse,
 	measureExecution,
 	createError,
 	ErrorCode,
@@ -60,8 +59,7 @@ export const getDocumentInfoHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Document info for: ${truncate(info.result.document?.title || 'Unknown', 50)}`,
-						data: createApiResponse(info.result, { executionTime: info.ms }),
+						text: JSON.stringify(info.result, null, 2),
 					},
 				],
 			};
@@ -131,10 +129,6 @@ export const readDocumentHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: result.result,
-						data: createApiResponse(
-							{ contentLength: result.result.length },
-							{ executionTime: result.ms }
-						),
 					},
 				],
 			};
@@ -186,18 +180,12 @@ export const writeDocumentHandler: ToolDefinition = {
 				const hhmSystem = getHHMSystem();
 				const docInfo = await project.getDocumentInfo(documentId);
 				if (docInfo.document && content.trim()) {
-					await hhmSystem.memorizeDocument({
-						id: docInfo.document.id,
-						title: docInfo.document.title || 'Untitled',
-						path: docInfo.document.path,
-						content,
-						type: docInfo.document.type || 'Text',
-						wordCount: content.split(/\s+/).length,
-						customMetadata: {
-							...docInfo.document.customMetadata,
-							lastModified: Date.now().toString(),
-						},
-					});
+					const memoryId = `doc_${docInfo.document.id}`;
+					if (content.length > 10_000) {
+						await hhmSystem.memorizeTextBuffer(memoryId, Buffer.from(content));
+					} else {
+						await hhmSystem.memorizeText(content, memoryId);
+					}
 					getLogger('document-handlers').debug('Document updated in HHM', { documentId });
 				}
 			} catch (error) {
@@ -210,10 +198,6 @@ export const writeDocumentHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: 'Document updated successfully',
-						data: createApiResponse(
-							{ documentId, contentLength: content.length },
-							{ executionTime: result.ms }
-						),
 					},
 				],
 			};
@@ -312,10 +296,6 @@ export const createDocumentHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Document created with ID: ${result.result}`,
-						data: createApiResponse(
-							{ documentId: result.result, title, documentType },
-							{ executionTime: result.ms, contentLength: content.length }
-						),
 					},
 				],
 			};
@@ -457,6 +437,11 @@ export const updateMetadataHandler: ToolDefinition = {
 				type: 'string',
 				description: 'Document status',
 			},
+			customMetadata: {
+				type: 'object',
+				description: 'Custom metadata key-value pairs',
+				additionalProperties: { type: 'string' },
+			},
 		},
 		required: ['documentId'],
 	},
@@ -469,12 +454,14 @@ export const updateMetadataHandler: ToolDefinition = {
 		const notes = getOptionalStringArg(args, 'notes');
 		const label = getOptionalStringArg(args, 'label');
 		const status = getOptionalStringArg(args, 'status');
+		const customMetadata = args.customMetadata as Record<string, string> | undefined;
 
 		await project.updateDocumentMetadata(documentId, {
 			synopsis,
 			notes,
 			label,
 			status,
+			customMetadata,
 		});
 
 		return {
@@ -547,8 +534,7 @@ export const getWordCountHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `Word count: ${count}`,
-					data: { wordCount: count },
+					text: JSON.stringify({ wordCount: count }),
 				},
 			],
 		};
@@ -578,11 +564,7 @@ export const readFormattedHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: formatted.plainText || '',
-					data: {
-						styles: formatted.formattedText,
-						metadata: formatted,
-					},
+					text: JSON.stringify(formatted, null, 2),
 				},
 			],
 		};
@@ -648,18 +630,6 @@ export const semanticSearchHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Found ${filtered.length} semantically similar documents:\n\n${resultsText}`,
-						data: createApiResponse(
-							{
-								query,
-								resultsCount: filtered.length,
-								results: filtered.map((r) => ({
-									documentId: r.entry.id,
-									similarity: r.similarity,
-									rank: r.rank,
-								})),
-							},
-							{}
-						),
 					},
 				],
 			};
@@ -741,17 +711,6 @@ export const findAnalogiesHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Analogical relationships found:\n\n${analogiesText}`,
-						data: createApiResponse(
-							{
-								analogy: { a, b, c },
-								resultsCount: results.length,
-								results: results.map((r) => ({
-									d: r.entry.id,
-									confidence: r.similarity,
-								})),
-							},
-							{}
-						),
 					},
 				],
 			};

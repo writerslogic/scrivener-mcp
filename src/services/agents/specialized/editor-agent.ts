@@ -3,37 +3,66 @@ import type { ScrivenerDocument } from '../../../types/index.js';
 import { SpecializedAgent, type AgentAnalysis, type AgentPersona } from './base-agent.js';
 import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
 import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
+import { truncate } from '../../../utils/common.js';
 
 export class EditorAgent extends SpecializedAgent {
 	constructor(langchain: EnhancedLangChainService, advanced: AdvancedLangChainFeatures) {
 		const persona: AgentPersona = {
 			name: 'Editor',
 			role: 'Professional Editor and Proofreader',
-			perspective: 'I focus on clarity, coherence, grammar, style consistency, and overall readability. I evaluate content for publication readiness and audience accessibility.',
-			expertise: ['grammar and syntax', 'style consistency', 'clarity and coherence', 'proofreading', 'publication standards', 'audience considerations'],
+			perspective:
+				'I focus on clarity, coherence, grammar, style consistency, and overall readability. I evaluate content for publication readiness and audience accessibility.',
+			expertise: [
+				'grammar and syntax',
+				'style consistency',
+				'clarity and coherence',
+				'proofreading',
+				'publication standards',
+				'audience considerations',
+			],
 			personality: 'Meticulous, detail-oriented, focused on precision and clarity',
-			focusAreas: ['grammar and punctuation', 'sentence structure', 'consistency', 'clarity', 'readability', 'style adherence'],
+			focusAreas: [
+				'grammar and punctuation',
+				'sentence structure',
+				'consistency',
+				'clarity',
+				'readability',
+				'style adherence',
+			],
 			communicationStyle: 'Precise and constructive, focuses on concrete improvements',
-			biases: ['may prioritize correctness over creativity', 'might be overly focused on minor details'],
-			strengths: ['excellent attention to detail', 'strong grasp of language mechanics', 'clarity enhancement'],
+			biases: [
+				'may prioritize correctness over creativity',
+				'might be overly focused on minor details',
+			],
+			strengths: [
+				'excellent attention to detail',
+				'strong grasp of language mechanics',
+				'clarity enhancement',
+			],
 			limitations: ['may miss creative opportunities', 'could be too rigid about rules'],
 		};
-		
+
 		super(langchain, advanced, persona);
 	}
 
 	async analyze(document: ScrivenerDocument, styleGuide?: StyleGuide): Promise<AgentAnalysis> {
+		const metrics = await this.advanced.analyzeWritingStyle(document.content || '');
+
 		const prompt = `
-Analyze this document from a professional editing perspective. Focus on:
+Perform a SOTA EDITORIAL ANALYSIS on this manuscript segment. 
+Technical Data:
+- Voice Consistency: ${metrics.voice?.consistency || 'unknown'}
+- Complexity Level: ${metrics.structure?.complexity || 'standard'}
+- Literary Devices: ${JSON.stringify(metrics.literaryDevices?.slice(0, 5))}
 
-1. **Grammar and Syntax**: Are there grammatical errors, awkward constructions, or syntax issues?
-2. **Style Consistency**: Is the writing style consistent throughout? Does it follow any style guide?
-3. **Clarity and Coherence**: Are ideas clearly expressed and logically connected?
-4. **Readability**: Is the text accessible to the intended audience?
-5. **Structure and Organization**: Is the content well-organized and easy to follow?
-6. **Publication Readiness**: What needs to be addressed before publication?
+Focus your analysis on:
+1. **Structural Pacing**: Does the sentence complexity align with the scene type?
+2. **Style Guide Compliance**: How well does the prose adhere to the ${styleGuide?.tone || 'General'} tone requirements?
+3. **Clarity Bottlenecks**: Identify exactly where cognitive load becomes too high for the reader.
+4. **Vocabulary Precision**: Flag weak verbs or excessive adverbs that dilute the narrative voice.
+5. **Scale-Aware Critique**: How does this segment contribute to the overall chapter's readability?
 
-Identify specific errors, inconsistencies, and areas needing improvement with examples.
+Provide specific, actionable suggestions with "Before" and "After" examples where appropriate.
 		`;
 
 		return this.generateAnalysis(document, prompt, styleGuide);
@@ -46,18 +75,18 @@ Identify specific errors, inconsistencies, and areas needing improvement with ex
 		styleGuide?: StyleGuide
 	): Promise<string> {
 		const prompt = `
-As a professional editor, please address this question about the document:
+As a SOTA Editorial Strategist, address the following query:
+**Query**: ${question}
 
-**Question**: ${question}
-${context ? `**Additional Context**: ${context}` : ''}
+**Contextual Breadth**: 
+${context ? truncate(context, 1000) : 'No additional context provided.'}
 
-Consider the document from an editorial perspective:
-- How does this affect clarity and readability?
-- What are the implications for consistency and style?
-- How might this impact the reader's experience?
-- What editorial standards should be applied?
+Evaluate this from a perspective of:
+- **Reader Cognitive Load**: Does this choice improve or hinder accessibility?
+- **Voice Consistency**: Does this maintain the ${styleGuide?.voice || 'established'} narrative voice?
+- **Commercial Polish**: Does this align with current publication standards for the genre?
 
-Provide specific, actionable editing guidance that improves the text's quality and accessibility.
+Provide a high-fidelity editorial recommendation.
 		`;
 
 		const response = await this.langchain.generateWithFallback(prompt);
@@ -66,23 +95,16 @@ Provide specific, actionable editing guidance that improves the text's quality a
 
 	async critique(analysis: AgentAnalysis, document: ScrivenerDocument): Promise<string> {
 		const prompt = `
-Review this analysis from a professional editing perspective:
+Perform a CROSS-AGENT EDITORIAL CRITIQUE.
+**Source Analysis**: ${analysis.agentId}
+**Primary Claim**: ${analysis.reasoning}
 
-**Original Analysis**:
-Agent: ${analysis.agentId}
-Overall Score: ${analysis.overallScore}
-Priority: ${analysis.priority}
-Findings: ${analysis.findings.map(f => `${f.aspect}: ${f.assessment}`).join('; ')}
+Evaluate the editorial validity of this analysis:
+1. **Implementation Feasibility**: Are the suggestions too abstract, or can an author actually apply them?
+2. **Clarity Impact**: Would following this advice actually improve the Flesch-Kincaid metrics of the text?
+3. **Blind Spots**: What technical editing issues (syntax, density, flow) did this analysis miss?
 
-**Document Context**: ${document.title} (${(document.content || '').split(' ').length} words)
-
-As a professional editor, provide constructive critique:
-1. Does this analysis adequately address grammar, style, and clarity issues?
-2. Are there important editing concerns that were overlooked?
-3. Are the suggestions practical and implementable?
-4. How could this analysis better serve publication readiness?
-
-Focus on editorial quality and reader accessibility.
+Synthesize your critique into 3 high-value refinement points.
 		`;
 
 		const response = await this.langchain.generateWithFallback(prompt);

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { MigrationManager, type Migration } from '../../../../src/handlers/database/migrations.js';
 import { ApplicationError as AppError, ErrorCode } from '../../../../src/core/errors.js';
 import { toDatabaseError } from '../../../../src/utils/database.js';
@@ -280,7 +280,9 @@ describe('MigrationManager', () => {
       await migrationManager.rollbackTo(1);
 
       // Should rollback in reverse order: 3 first, then 2
-      expect(migration3.down).toHaveBeenCalledBefore(migration2.down as any);
+      const callOrder3 = (migration3.down as jest.Mock).mock.invocationCallOrder[0];
+      const callOrder2 = (migration2.down as jest.Mock).mock.invocationCallOrder[0];
+      expect(callOrder3).toBeLessThan(callOrder2);
     });
   });
 

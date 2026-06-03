@@ -85,16 +85,16 @@ export class EnhancedConnectionPool<T> {
 		reject: (error: Error) => void;
 		timestamp: number;
 	}> = [];
-	
+
 	private healthCheck?: HealthCheck;
 	private healthCheckTimer?: NodeJS.Timeout;
 	private validationTimer?: NodeJS.Timeout;
 	private isShuttingDown = false;
-	
+
 	private readonly logger = getLogger('enhanced-pool');
 	private readonly circuitBreaker: CircuitBreaker;
 	private readonly retryStrategy = RetryStrategies.createDatabase();
-	
+
 	// Metrics
 	private metrics = {
 		totalAcquisitions: 0,
@@ -111,20 +111,17 @@ export class EnhancedConnectionPool<T> {
 		private readonly factory: ConnectionFactory<T>,
 		private readonly config: ConnectionPoolConfig
 	) {
-		this.circuitBreaker = CircuitBreakerFactory.getCircuitBreaker(
-			`pool-${config.poolName}`,
-			{
-				failureThreshold: 5,
-				successThreshold: 3,
-				timeWindow: 60000,
-				openTimeout: 30000,
-			}
-		);
+		this.circuitBreaker = CircuitBreakerFactory.getCircuitBreaker(`pool-${config.poolName}`, {
+			failureThreshold: 5,
+			successThreshold: 3,
+			timeWindow: 60000,
+			openTimeout: 30000,
+		});
 
 		this.initializePool();
 		this.setupHealthChecks();
 		this.setupMetrics();
-		
+
 		this.logger.info(`Enhanced connection pool initialized: ${config.poolName}`, {
 			minConnections: config.minConnections,
 			maxConnections: config.maxConnections,
@@ -137,10 +134,7 @@ export class EnhancedConnectionPool<T> {
 	 */
 	async acquire(): Promise<PooledConnection<T>> {
 		if (this.isShuttingDown) {
-			throw new AppError(
-				'Connection pool is shutting down',
-				ErrorCode.OPERATION_CANCELLED
-			);
+			throw new AppError('Connection pool is shutting down', ErrorCode.OPERATION_CANCELLED);
 		}
 
 		this.metrics.totalAcquisitions++;
@@ -155,18 +149,17 @@ export class EnhancedConnectionPool<T> {
 
 			this.metrics.successfulAcquisitions++;
 			this.updateAcquisitionTime(Date.now() - startTime);
-			
+
 			this.logger.debug(`Connection acquired: ${connection.id}`, {
 				poolName: this.config.poolName,
 				timesUsed: connection.timesUsed,
 			});
 
 			return connection;
-
 		} catch (error) {
 			this.metrics.failedAcquisitions++;
 			this.updateAcquisitionTime(Date.now() - startTime);
-			
+
 			this.logger.error('Failed to acquire connection', {
 				poolName: this.config.poolName,
 				error: (error as Error).message,
@@ -206,7 +199,7 @@ export class EnhancedConnectionPool<T> {
 	 */
 	async execute<R>(fn: (connection: T) => Promise<R>): Promise<R> {
 		const pooledConnection = await this.acquire();
-		
+
 		try {
 			return await fn(pooledConnection.connection);
 		} finally {
@@ -232,19 +225,17 @@ export class EnhancedConnectionPool<T> {
 
 		// Reject pending acquisitions
 		for (const pending of this.acquisitionQueue) {
-			pending.reject(new AppError(
-				'Connection pool is shutting down',
-				ErrorCode.OPERATION_CANCELLED
-			));
+			pending.reject(
+				new AppError('Connection pool is shutting down', ErrorCode.OPERATION_CANCELLED)
+			);
 		}
 		this.acquisitionQueue = [];
 
 		// Wait for active connections to be released (with timeout)
 		const shutdownTimeout = 30000; // 30 seconds
 		const shutdownStart = Date.now();
-		
-		while (this.activeConnections.size > 0 && 
-			   Date.now() - shutdownStart < shutdownTimeout) {
+
+		while (this.activeConnections.size > 0 && Date.now() - shutdownStart < shutdownTimeout) {
 			await sleep(100);
 		}
 
@@ -254,7 +245,7 @@ export class EnhancedConnectionPool<T> {
 		}
 
 		// Close all idle connections
-		const closePromises = this.connections.map(conn => this.destroyConnection(conn));
+		const closePromises = this.connections.map((conn) => this.destroyConnection(conn));
 		await Promise.allSettled(closePromises);
 
 		this.connections = [];
@@ -268,7 +259,7 @@ export class EnhancedConnectionPool<T> {
 	 */
 	getMetrics(): ConnectionMetrics {
 		const totalConnections = this.connections.length + this.activeConnections.size;
-		
+
 		return {
 			totalConnections,
 			activeConnections: this.activeConnections.size,
@@ -282,7 +273,8 @@ export class EnhancedConnectionPool<T> {
 			averageAcquisitionTime: this.calculateAverageTime(this.metrics.acquisitionTimes),
 			averageValidationTime: this.calculateAverageTime(this.metrics.validationTimes),
 			connectionErrors: this.metrics.connectionErrors,
-			poolUtilization: totalConnections > 0 ? this.activeConnections.size / totalConnections : 0,
+			poolUtilization:
+				totalConnections > 0 ? this.activeConnections.size / totalConnections : 0,
 			healthStatus: this.healthCheck?.getCurrentStatus() || HealthStatus.UNKNOWN,
 		};
 	}
@@ -301,7 +293,7 @@ export class EnhancedConnectionPool<T> {
 		await Promise.allSettled(validationPromises);
 
 		// Remove invalid connections
-		this.connections = this.connections.filter(conn => {
+		this.connections = this.connections.filter((conn) => {
 			if (!conn.isValid) {
 				this.destroyConnection(conn);
 				return false;
@@ -325,7 +317,6 @@ export class EnhancedConnectionPool<T> {
 			if (this.config.enablePreWarming) {
 				await this.preWarmConnections();
 			}
-
 		} catch (error) {
 			this.logger.error('Failed to initialize connection pool', {
 				poolName: this.config.poolName,
@@ -363,15 +354,17 @@ export class EnhancedConnectionPool<T> {
 		return new Promise<PooledConnection<T>>((resolve, reject) => {
 			const timeout = setTimeout(() => {
 				// Remove from queue
-				const index = this.acquisitionQueue.findIndex(item => item.resolve === resolve);
+				const index = this.acquisitionQueue.findIndex((item) => item.resolve === resolve);
 				if (index >= 0) {
 					this.acquisitionQueue.splice(index, 1);
 				}
-				
-				reject(new AppError(
-					`Connection acquisition timed out after ${this.config.acquireTimeout}ms`,
-					ErrorCode.TIMEOUT
-				));
+
+				reject(
+					new AppError(
+						`Connection acquisition timed out after ${this.config.acquireTimeout}ms`,
+						ErrorCode.TIMEOUT
+					)
+				);
 			}, this.config.acquireTimeout);
 
 			this.acquisitionQueue.push({
@@ -392,7 +385,7 @@ export class EnhancedConnectionPool<T> {
 		while (this.acquisitionQueue.length > 0 && this.connections.length > 0) {
 			const pending = this.acquisitionQueue.shift();
 			const connection = this.connections.pop();
-			
+
 			if (pending && connection) {
 				this.activeConnections.add(connection);
 				pending.resolve(connection);
@@ -417,7 +410,6 @@ export class EnhancedConnectionPool<T> {
 			});
 
 			return pooledConnection;
-
 		} catch (error) {
 			this.metrics.connectionErrors++;
 			this.logger.error('Failed to create connection', {
@@ -457,7 +449,6 @@ export class EnhancedConnectionPool<T> {
 
 			this.updateValidationTime(Date.now() - startTime);
 			return isValid;
-
 		} catch (error) {
 			this.metrics.validationFailures++;
 			pooledConnection.isValid = false;
@@ -494,7 +485,7 @@ export class EnhancedConnectionPool<T> {
 			try {
 				const connection = await this.createConnection();
 				this.connections.push(connection);
-				
+
 				if (this.config.preWarmingDelay > 0) {
 					await sleep(this.config.preWarmingDelay);
 				}
@@ -515,7 +506,7 @@ export class EnhancedConnectionPool<T> {
 	private startBackgroundTasks(): void {
 		// Connection validation timer
 		this.validationTimer = setInterval(() => {
-			this.validateConnections().catch(error => {
+			this.validateConnections().catch((error) => {
 				this.logger.error('Background validation failed', {
 					poolName: this.config.poolName,
 					error: (error as Error).message,
@@ -554,7 +545,7 @@ export class EnhancedConnectionPool<T> {
 			});
 
 			// Ensure minimum connections after cleanup
-			this.ensureMinimumConnections().catch(error => {
+			this.ensureMinimumConnections().catch((error) => {
 				this.logger.error('Failed to maintain minimum connections', {
 					poolName: this.config.poolName,
 					error: (error as Error).message,
@@ -569,8 +560,10 @@ export class EnhancedConnectionPool<T> {
 				this.config.poolName,
 				async () => {
 					const metrics = this.getMetrics();
-					return metrics.totalConnections > 0 && 
-						   metrics.healthStatus !== HealthStatus.UNHEALTHY;
+					return (
+						metrics.totalConnections > 0 &&
+						metrics.healthStatus !== HealthStatus.UNHEALTHY
+					);
 				},
 				{
 					name: `pool-${this.config.poolName}`,
@@ -620,7 +613,7 @@ export class EnhancedConnectionPool<T> {
 	}
 
 	private generateConnectionId(): string {
-		return `${this.config.poolName}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+		return `${this.config.poolName}-${crypto.randomUUID()}`;
 	}
 
 	private updateAcquisitionTime(time: number): void {
@@ -659,22 +652,22 @@ export class SQLiteConnectionFactory implements ConnectionFactory<Database.Datab
 
 	async create(): Promise<Database.Database> {
 		const db = new Database(this.dbPath);
-		
+
 		// Apply optimizations
 		if (this.options?.enableWAL !== false) {
 			db.pragma('journal_mode = WAL');
 		}
-		
+
 		db.pragma('synchronous = NORMAL');
 		db.pragma(`cache_size = ${this.options?.cacheSize || -64000}`); // 64MB default
 		db.pragma(`temp_store = ${this.options?.tempStore || 'MEMORY'}`);
-		
+
 		if (this.options?.mmapSize) {
 			db.pragma(`mmap_size = ${this.options.mmapSize}`);
 		}
-		
+
 		db.pragma('optimize');
-		
+
 		return db;
 	}
 
@@ -753,7 +746,7 @@ export class ConnectionPoolManager {
 	 * Shutdown all pools
 	 */
 	async shutdownAll(): Promise<void> {
-		const shutdownPromises = Array.from(this.pools.values()).map(pool => pool.shutdown());
+		const shutdownPromises = Array.from(this.pools.values()).map((pool) => pool.shutdown());
 		await Promise.allSettled(shutdownPromises);
 		this.pools.clear();
 		this.logger.info('All connection pools shutdown');

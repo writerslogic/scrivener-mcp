@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Neo4jManager } from '../../../../src/handlers/database/neo4j-manager.js';
 import { ApplicationError as AppError, ErrorCode } from '../../../../src/core/errors.js';
 import { isTransientDatabaseError, toDatabaseError } from '../../../../src/utils/database.js';
@@ -94,12 +94,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.run.mockRejectedValue(transientError);
 
-      try {
-        await neo4jManager.query('MATCH (n) RETURN count(n)');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(isTransientDatabaseError).toHaveBeenCalledWith(transientError);
-      }
+      await expect(neo4jManager.query('MATCH (n) RETURN count(n)')).rejects.toThrow();
+      expect(isTransientDatabaseError).toHaveBeenCalledWith(transientError);
     });
 
     it('should handle timeout errors as transient', async () => {
@@ -107,12 +103,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.run.mockRejectedValue(timeoutError);
 
-      try {
-        await neo4jManager.query('MATCH (n) RETURN count(n)');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(isTransientDatabaseError).toHaveBeenCalledWith(timeoutError);
-      }
+      await expect(neo4jManager.query('MATCH (n) RETURN count(n)')).rejects.toThrow();
+      expect(isTransientDatabaseError).toHaveBeenCalledWith(timeoutError);
     });
   });
 
@@ -159,13 +151,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.run.mockRejectedValue(dbError);
 
-      try {
-        await neo4jManager.query('INVALID QUERY');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(dbError, 'query execution');
-        expect(error).toBeInstanceOf(AppError);
-      }
+      await expect(neo4jManager.query('INVALID QUERY')).rejects.toThrow(AppError);
+      expect(toDatabaseError).toHaveBeenCalledWith(dbError, 'query execution');
     });
 
     it('should handle constraint violations', async () => {
@@ -174,12 +161,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.run.mockRejectedValue(constraintError);
 
-      try {
-        await neo4jManager.query('CREATE (c:Character {id: "existing"})');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(constraintError, 'query execution');
-      }
+      await expect(neo4jManager.query('CREATE (c:Character {id: "existing"})')).rejects.toThrow();
+      expect(toDatabaseError).toHaveBeenCalledWith(constraintError, 'query execution');
     });
 
     it('should handle authorization errors', async () => {
@@ -188,24 +171,16 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.run.mockRejectedValue(authError);
 
-      try {
-        await neo4jManager.query('MATCH (n) RETURN n');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(authError, 'query execution');
-      }
+      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow();
+      expect(toDatabaseError).toHaveBeenCalledWith(authError, 'query execution');
     });
 
     it('should properly close sessions after errors', async () => {
       const dbError = new Error('Database error');
       mockSession.run.mockRejectedValue(dbError);
 
-      try {
-        await neo4jManager.query('MATCH (n) RETURN n');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(mockSession.close).toHaveBeenCalled();
-      }
+      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow();
+      expect(mockSession.close).toHaveBeenCalled();
     });
   });
 
@@ -238,13 +213,9 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.executeWrite.mockRejectedValue(transactionError);
 
-      try {
-        await neo4jManager.write('CREATE (c:Character {id: "test"})');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(isTransientDatabaseError).toHaveBeenCalledWith(transactionError);
-        expect(toDatabaseError).toHaveBeenCalledWith(transactionError, 'write transaction');
-      }
+      await expect(neo4jManager.write('CREATE (c:Character {id: "test"})')).rejects.toThrow();
+      expect(isTransientDatabaseError).toHaveBeenCalledWith(transactionError);
+      expect(toDatabaseError).toHaveBeenCalledWith(transactionError, 'write transaction');
     });
 
     it('should handle deadlock errors as transient', async () => {
@@ -253,12 +224,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.executeWrite.mockRejectedValue(deadlockError);
 
-      try {
-        await neo4jManager.write('CREATE (c:Character {id: "test"})');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(isTransientDatabaseError).toHaveBeenCalledWith(deadlockError);
-      }
+      await expect(neo4jManager.write('CREATE (c:Character {id: "test"})')).rejects.toThrow();
+      expect(isTransientDatabaseError).toHaveBeenCalledWith(deadlockError);
     });
   });
 
@@ -287,12 +254,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockSession.executeRead.mockRejectedValue(readError);
 
-      try {
-        await neo4jManager.read('MATCH (n) RETURN count(n)');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(readError, 'read transaction');
-      }
+      await expect(neo4jManager.read('MATCH (n) RETURN count(n)')).rejects.toThrow();
+      expect(toDatabaseError).toHaveBeenCalledWith(readError, 'read transaction');
     });
   });
 
@@ -320,15 +283,11 @@ describe('Neo4jManager Enhanced Error Handling', () => {
         .mockResolvedValueOnce({ records: [], summary: {} })
         .mockRejectedValueOnce(new Error('Syntax error'));
 
-      try {
-        await neo4jManager.executeBatch(queries);
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(
-          expect.any(Error),
-          'batch execution'
-        );
-      }
+      await expect(neo4jManager.executeBatch(queries)).rejects.toThrow();
+      expect(toDatabaseError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'batch execution'
+      );
     });
 
     it('should handle transaction rollback in batch operations', async () => {
@@ -344,12 +303,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
         .mockResolvedValueOnce({ records: [], summary: {} })
         .mockRejectedValueOnce(constraintError);
 
-      try {
-        await neo4jManager.executeBatch(queries);
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(constraintError, 'batch execution');
-      }
+      await expect(neo4jManager.executeBatch(queries)).rejects.toThrow();
+      expect(toDatabaseError).toHaveBeenCalledWith(constraintError, 'batch execution');
     });
   });
 
@@ -376,13 +331,8 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       
       mockDriver.verifyConnectivity.mockRejectedValue(connectivityError);
 
-      try {
-        await neo4jManager.testConnection();
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(connectivityError, 'connection test');
-        expect(error).toBeInstanceOf(AppError);
-      }
+      await expect(neo4jManager.testConnection()).rejects.toThrow(AppError);
+      expect(toDatabaseError).toHaveBeenCalledWith(connectivityError, 'connection test');
     });
   });
 
@@ -453,25 +403,16 @@ describe('Neo4jManager Enhanced Error Handling', () => {
       const originalError = new Error('Original database error');
       mockSession.run.mockRejectedValue(originalError);
 
-      try {
-        await neo4jManager.query('MATCH (n) RETURN n');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(toDatabaseError).toHaveBeenCalledWith(originalError, 'query execution');
-      }
+      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow();
+      expect(toDatabaseError).toHaveBeenCalledWith(originalError, 'query execution');
     });
 
     it('should preserve AppError instances', async () => {
       const appError = new AppError('Custom app error', ErrorCode.VALIDATION_ERROR);
       mockSession.run.mockRejectedValue(appError);
 
-      try {
-        await neo4jManager.query('MATCH (n) RETURN n');
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(error).toBe(appError);
-        expect(toDatabaseError).toHaveBeenCalledWith(appError, 'query execution');
-      }
+      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow(appError);
+      expect(toDatabaseError).toHaveBeenCalledWith(appError, 'query execution');
     });
   });
 });

@@ -16,15 +16,15 @@ import {
 	RunnableSequence,
 } from '@langchain/core/runnables';
 import { OpenAIEmbeddings } from '@langchain/openai';
-import { ConversationalRetrievalQAChain } from 'langchain/chains';
-import { createStuffDocumentsChain } from 'langchain/chains/combine_documents';
-import { createRetrievalChain } from 'langchain/chains/retrieval';
-import type { Document as LangchainDocument } from 'langchain/document';
+import { ConversationalRetrievalQAChain } from '@langchain/classic/chains';
+import { createStuffDocumentsChain } from '@langchain/classic/chains/combine_documents';
+import { createRetrievalChain } from '@langchain/classic/chains/retrieval';
+import { Document as LangchainDocument } from '@langchain/core/documents';
 import { pull } from 'langchain/hub';
-import { BufferMemory, ConversationSummaryMemory } from 'langchain/memory';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { formatDocumentsAsString } from 'langchain/util/document';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
+import { BufferMemory, ConversationSummaryMemory } from '@langchain/classic/memory';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { formatDocumentsAsString } from '@langchain/classic/util/document';
+import { LangChainHMSVectorStore } from './hms-vector-store.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
 import type { ScrivenerDocument } from '../../types/index.js';
@@ -232,7 +232,7 @@ export class EnhancedLangChainService {
 	private models: Map<string, BaseLanguageModel> = new Map();
 	private primaryModel: BaseLanguageModel;
 	private embeddings: Embeddings;
-	private vectorStore: MemoryVectorStore | null = null;
+	private vectorStore: LangChainHMSVectorStore | null = null;
 	private textSplitter: RecursiveCharacterTextSplitter;
 	private conversationMemory: Map<string, BufferMemory> = new Map();
 	private summaryMemory: ConversationSummaryMemory | null = null;
@@ -481,7 +481,7 @@ export class EnhancedLangChainService {
 			if (this.vectorStore) {
 				await this.vectorStore.addDocuments(allChunks);
 			} else {
-				this.vectorStore = await MemoryVectorStore.fromDocuments(
+				this.vectorStore = await LangChainHMSVectorStore.fromDocuments(
 					allChunks,
 					this.embeddings
 				);
@@ -927,7 +927,7 @@ export class EnhancedLangChainService {
 
 		try {
 			const response = await this.generateWithFallback(characterPrompt);
-			const parsedIssues = safeParse(response, []);
+			const parsedIssues = safeParse(response, []) as any[];
 			
 			if (Array.isArray(parsedIssues)) {
 				return parsedIssues.map(i => ({
@@ -979,7 +979,7 @@ export class EnhancedLangChainService {
 
 		try {
 			const response = await this.generateWithFallback(timelinePrompt);
-			const parsedIssues = safeParse(response, []);
+			const parsedIssues = safeParse(response, []) as any[];
 			
 			if (Array.isArray(parsedIssues)) {
 				return parsedIssues.map(i => ({
@@ -1826,7 +1826,7 @@ export class EnhancedLangChainService {
 	} {
 		return {
 			modelsLoaded: this.models.size,
-			vectorStoreSize: this.vectorStore?.memoryVectors?.length || 0,
+			vectorStoreSize: 0, // No longer directly accessible via memoryVectors
 			activeConversations: this.conversationMemory.size,
 			contextsStored: this.contexts.size,
 		};

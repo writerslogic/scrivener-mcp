@@ -12,7 +12,7 @@ export enum HealthStatus {
 	HEALTHY = 'HEALTHY',
 	DEGRADED = 'DEGRADED',
 	UNHEALTHY = 'UNHEALTHY',
-	UNKNOWN = 'UNKNOWN'
+	UNKNOWN = 'UNKNOWN',
 }
 
 export interface HealthCheckConfig {
@@ -97,7 +97,7 @@ export class HealthCheck {
 		}
 
 		this.checkInterval = setInterval(() => {
-			this.performCheck().catch(error => {
+			this.performCheck().catch((error) => {
 				this.logger.error(`Health check error: ${this.config.name}`, {
 					error: (error as Error).message,
 				});
@@ -105,7 +105,7 @@ export class HealthCheck {
 		}, this.config.interval);
 
 		// Perform initial check
-		this.performCheck().catch(error => {
+		this.performCheck().catch((error) => {
 			this.logger.error(`Initial health check error: ${this.config.name}`, {
 				error: (error as Error).message,
 			});
@@ -134,23 +134,19 @@ export class HealthCheck {
 
 		try {
 			// Execute health check with timeout and optional retries
-			const result = await this.executeWithTimeout(
-				async () => {
-					if (this.config.retryOnFailure) {
-						return await this.retryStrategy.execute(() => this.config.check());
-					} else {
-						return await this.config.check();
-					}
-				},
-				this.config.timeout
-			);
+			const result = await this.executeWithTimeout(async () => {
+				if (this.config.retryOnFailure) {
+					return await this.retryStrategy.execute(() => this.config.check());
+				} else {
+					return await this.config.check();
+				}
+			}, this.config.timeout);
 
 			result.timestamp = Date.now();
 			result.responseTime = Date.now() - startTime;
 
 			this.onCheckComplete(result);
 			return result;
-
 		} catch (error) {
 			const result: HealthCheckResult = {
 				status: HealthStatus.UNHEALTHY,
@@ -194,25 +190,27 @@ export class HealthCheck {
 			this.consecutiveFailures = 0;
 
 			// Check if we should transition to healthy
-			if (this.currentStatus !== HealthStatus.HEALTHY &&
-				this.consecutiveSuccesses >= this.config.recoveryThreshold) {
+			if (
+				this.currentStatus !== HealthStatus.HEALTHY &&
+				this.consecutiveSuccesses >= this.config.recoveryThreshold
+			) {
 				this.transitionToStatus(HealthStatus.HEALTHY, result.message);
 			}
-
 		} else if (result.status === HealthStatus.UNHEALTHY) {
 			this.consecutiveFailures++;
 			this.consecutiveSuccesses = 0;
 
 			// Check if we should transition to unhealthy
-			if (this.currentStatus !== HealthStatus.UNHEALTHY &&
-				this.consecutiveFailures >= this.config.failureThreshold) {
+			if (
+				this.currentStatus !== HealthStatus.UNHEALTHY &&
+				this.consecutiveFailures >= this.config.failureThreshold
+			) {
 				this.transitionToStatus(HealthStatus.UNHEALTHY, result.message);
 			}
-
 		} else if (result.status === HealthStatus.DEGRADED) {
 			this.consecutiveSuccesses = 0;
 			this.consecutiveFailures = 0;
-			
+
 			if (this.currentStatus !== HealthStatus.DEGRADED) {
 				this.transitionToStatus(HealthStatus.DEGRADED, result.message);
 			}
@@ -232,16 +230,12 @@ export class HealthCheck {
 		});
 	}
 
-	private async executeWithTimeout<T>(
-		fn: () => Promise<T>,
-		timeout: number
-	): Promise<T> {
+	private async executeWithTimeout<T>(fn: () => Promise<T>, timeout: number): Promise<T> {
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			setTimeout(() => {
-				reject(new AppError(
-					`Health check timed out after ${timeout}ms`,
-					ErrorCode.TIMEOUT
-				));
+				reject(
+					new AppError(`Health check timed out after ${timeout}ms`, ErrorCode.TIMEOUT)
+				);
 			}, timeout);
 		});
 
@@ -336,10 +330,10 @@ export class HealthCheckManager {
 		for (const [name, healthCheck] of this.healthChecks) {
 			const result = healthCheck.getLastResult();
 			const config = healthCheck.getConfig();
-			
+
 			if (result) {
 				checks[name] = result;
-				
+
 				switch (result.status) {
 					case HealthStatus.HEALTHY:
 						healthyCount++;
@@ -373,7 +367,7 @@ export class HealthCheckManager {
 
 		// Determine overall system health
 		let systemStatus = HealthStatus.HEALTHY;
-		
+
 		if (criticalUnhealthy > 0) {
 			systemStatus = HealthStatus.UNHEALTHY;
 		} else if (unhealthyCount > 0 || degradedCount > 0) {
@@ -406,7 +400,7 @@ export class HealthCheckManager {
 	 */
 	getHealthChecksByTag(tag: string): HealthCheck[] {
 		const result: HealthCheck[] = [];
-		
+
 		for (const healthCheck of this.healthChecks.values()) {
 			const config = healthCheck.getConfig();
 			if (config.tags && config.tags.includes(tag)) {
@@ -465,7 +459,7 @@ export class StandardHealthChecks {
 				}
 			},
 			interval: 30000, // 30 seconds
-			timeout: 10000,  // 10 seconds
+			timeout: 10000, // 10 seconds
 			failureThreshold: 3,
 			recoveryThreshold: 2,
 			retryOnFailure: true,
@@ -491,10 +485,10 @@ export class StandardHealthChecks {
 				try {
 					// Simple HTTP health check (would use actual HTTP client)
 					const responseTime = Date.now() - startTime;
-					
+
 					// Simulate API check
 					const isHealthy = Math.random() > 0.1; // 90% success rate for demo
-					
+
 					if (isHealthy) {
 						return {
 							status: HealthStatus.HEALTHY,
@@ -523,7 +517,7 @@ export class StandardHealthChecks {
 				}
 			},
 			interval: 60000, // 1 minute
-			timeout: 15000,  // 15 seconds
+			timeout: 15000, // 15 seconds
 			failureThreshold: 2,
 			recoveryThreshold: 1,
 			retryOnFailure: true,
@@ -545,8 +539,9 @@ export class StandardHealthChecks {
 			name: 'memory-usage',
 			check: async () => {
 				const memoryUsage = process.memoryUsage();
-				const totalMemory = require('os').totalmem();
-				const freeMemory = require('os').freemem();
+				const os = await import('os');
+				const totalMemory = os.totalmem();
+				const freeMemory = os.freemem();
 				const usedMemory = totalMemory - freeMemory;
 				const usagePercent = (usedMemory / totalMemory) * 100;
 
@@ -579,7 +574,7 @@ export class StandardHealthChecks {
 				};
 			},
 			interval: 30000, // 30 seconds
-			timeout: 5000,   // 5 seconds
+			timeout: 5000, // 5 seconds
 			failureThreshold: 3,
 			recoveryThreshold: 2,
 			retryOnFailure: false,

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import {

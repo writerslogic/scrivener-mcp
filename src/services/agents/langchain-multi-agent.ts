@@ -136,72 +136,88 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 				timeoutMs: config.timeoutMs || 300000, // 5 minutes
 			};
 
-			this.logger.info('Starting collaborative document analysis', {
+			this.logger.info('Starting SOTA roundtable document analysis', {
 				documentTitle: document.title,
 				enabledAgents: finalConfig.enabledAgents,
-				config: finalConfig,
 			});
 
-			// Phase 1: Individual Analysis
+			// Phase 1: Initial Parallel Analysis
 			const individualAnalyses = await this.conductIndividualAnalysis(
 				document,
 				finalConfig.enabledAgents,
 				styleGuide
 			);
 
-			// Phase 2: Cross-Critique (if enabled)
-			let critiqueRounds: DiscussionRound[] = [];
-			if (finalConfig.enableCritique) {
-				critiqueRounds = await this.conductCritique(
-					individualAnalyses,
-					document,
-					finalConfig.maxDiscussionRounds
-				);
-			}
-
-			// Phase 3: Collaborative Discussion
-			const discussionRounds = await this.facilitateDiscussion(
+			// Phase 2: Multi-Agent Roundtable Discussion (SOTA)
+			// Instead of pairs, agents now debate the findings as a group
+			const discussionRounds = await this.conductRoundtableDiscussion(
 				individualAnalyses,
 				document,
-				finalConfig.maxDiscussionRounds
+				finalConfig
 			);
 
-			// Phase 4: Synthesis (if enabled)
-			let synthesizedAnalysis: AgentAnalysis;
-			if (finalConfig.enableSynthesis) {
-				synthesizedAnalysis = await this.coordinator.synthesizeAnalyses(individualAnalyses);
-			} else {
-				// Use the highest-scoring analysis as fallback
-				synthesizedAnalysis = individualAnalyses.reduce((best, current) =>
-					current.overallScore > best.overallScore ? current : best
-				);
-			}
+			// Phase 3: Synthesis with Consensus Calibration
+			const synthesizedAnalysis = await this.coordinator.synthesizeAnalyses(
+				individualAnalyses,
+				discussionRounds
+			);
 
-			// Phase 5: Build Final Result
+			// Phase 4: Build Result with Consensus Metrics
 			const result = await this.buildCollaborativeResult(
 				individualAnalyses,
-				[...critiqueRounds, ...discussionRounds],
+				discussionRounds,
 				synthesizedAnalysis,
 				finalConfig
 			);
 
-			const totalDuration = performance.now() - startTime;
-			
-			this.logger.info('Collaborative analysis completed', {
-				documentTitle: document.title,
-				participatingAgents: finalConfig.enabledAgents,
-				totalRounds: result.discussionRounds.length,
-				consensusLevel: result.metadata.consensusLevel,
-				duration: formatDuration(totalDuration),
-			});
-
 			return result;
-
 		} catch (error) {
-			const duration = performance.now() - startTime;
-			
 			throw handleError(error, 'MultiAgentLangChainOrchestrator.collaborateOnDocument');
 		}
+	}
+
+	private async conductRoundtableDiscussion(
+		analyses: AgentAnalysis[],
+		document: ScrivenerDocument,
+		config: MultiAgentConfig
+	): Promise<DiscussionRound[]> {
+		const rounds: DiscussionRound[] = [];
+		const activeAgents = config.enabledAgents
+			.map(name => this.agents.get(name))
+			.filter((a): a is SpecializedAgent => a !== undefined);
+
+		let sharedContext = `Initial findings for "${document.title}":\n` + 
+			analyses.map(a => `${a.agentId} suggests: ${a.reasoning}`).join('\n');
+
+		for (let r = 1; r <= config.maxDiscussionRounds; r++) {
+			this.logger.debug(`Starting Roundtable Round ${r}`);
+			
+			// Each agent contributes based on the current shared context (including previous round critiques)
+			const contributions = await Promise.all(
+				activeAgents.map(agent => agent.discussWithRoundtable(sharedContext, document.title))
+			);
+
+			const roundResult = await this.coordinator.analyzeRound(contributions, sharedContext);
+			rounds.push({
+				roundNumber: r,
+				contributions,
+				agreements: roundResult.agreements,
+				disagreements: roundResult.disagreements,
+				newInsights: roundResult.insights,
+				timestamp: Date.now(),
+			});
+
+			// Update shared context for next round
+			sharedContext += `\nRound ${r} Summary:\nAgreements: ${roundResult.agreements.join(', ')}\nConflicts: ${roundResult.disagreements.join(', ')}`;
+
+			// Early exit if consensus is high
+			if (roundResult.consensusScore >= config.consensusThreshold) {
+				this.logger.info(`Consensus reached in round ${r} (${roundResult.consensusScore})`);
+				break;
+			}
+		}
+
+		return rounds;
 	}
 
 	private async conductIndividualAnalysis(

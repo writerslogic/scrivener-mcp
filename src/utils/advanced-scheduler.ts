@@ -1293,7 +1293,7 @@ export class AdvancedTaskScheduler extends EventEmitter {
 	}
 
 	private generateTaskId(): string {
-		return `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+		return `task-${crypto.randomUUID()}`;
 	}
 }
 

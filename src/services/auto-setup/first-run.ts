@@ -3,7 +3,8 @@
  * Automatically prompts for setup on first use if not configured
  */
 
-import { existsSync, writeFileSync, unlinkSync, readFileSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getLogger } from '../../core/logger.js';
@@ -49,12 +50,12 @@ export class FirstRunManager {
 	/**
 	 * Get current feature status
 	 */
-	getFeatureStatus(): {
+	async getFeatureStatus(): Promise<{
 		basic: boolean;
 		neo4j: boolean;
 		redis: boolean;
 		ai: boolean;
-	} {
+	}> {
 		const defaultStatus = {
 			basic: true,
 			neo4j: false,
@@ -67,7 +68,7 @@ export class FirstRunManager {
 		}
 
 		try {
-			const setup = JSON.parse(readFileSync(this.setupPath, 'utf-8'));
+			const setup = JSON.parse(await readFile(this.setupPath, 'utf-8'));
 			return {
 				basic: true,
 				neo4j: setup.features?.neo4j || false,
@@ -92,7 +93,7 @@ export class FirstRunManager {
 		// Check if this is first run
 		if (!this.isFirstRun()) {
 			// Not first run, but check if features are missing
-			const status = this.getFeatureStatus();
+			const status = await this.getFeatureStatus();
 
 			if (!status.redis && !status.ai) {
 				logger.info('Advanced features not configured');
@@ -162,7 +163,7 @@ export class FirstRunManager {
 		}
 
 		// Mark first run as complete
-		this.markFirstRunComplete();
+		await this.markFirstRunComplete();
 	}
 
 	/**
@@ -179,7 +180,6 @@ export class FirstRunManager {
 
 		// Create minimal setup.json
 		if (!existsSync(this.setupPath)) {
-			const { writeFileSync } = await import('fs');
 			const minimalSetup = {
 				version: '0.3.2',
 				timestamp: new Date().toISOString(),
@@ -192,18 +192,17 @@ export class FirstRunManager {
 					ai: false,
 				},
 			};
-			// Using sync version for compatibility
-			writeFileSync(this.setupPath, JSON.stringify(minimalSetup, null, 2));
+			await writeFile(this.setupPath, JSON.stringify(minimalSetup, null, 2));
 		}
 
-		this.markFirstRunComplete();
+		await this.markFirstRunComplete();
 	}
 
 	/**
 	 * Mark first run as complete
 	 */
-	private markFirstRunComplete(): void {
-		writeFileSync(this.firstRunPath, new Date().toISOString());
+	private async markFirstRunComplete(): Promise<void> {
+		await writeFile(this.firstRunPath, new Date().toISOString());
 		logger.info('First run complete');
 	}
 

@@ -231,27 +231,27 @@ export class Neo4jAutoInstaller {
 			output: process.stdout,
 		});
 
-		console.log('\n📋 Installation Plan:');
-		console.log(`   Method: ${method}`);
-		console.log(`   Platform: ${systemInfo.platform}`);
-		console.log(`   Architecture: ${systemInfo.arch}`);
+		console.error('\n📋 Installation Plan:');
+		console.error(`   Method: ${method}`);
+		console.error(`   Platform: ${systemInfo.platform}`);
+		console.error(`   Architecture: ${systemInfo.arch}`);
 
 		if (method === 'docker') {
-			console.log('\n   Docker will be used to run Neo4j in a container.');
-			console.log('   This is the recommended approach - clean and isolated.');
+			console.error('\n   Docker will be used to run Neo4j in a container.');
+			console.error('   This is the recommended approach - clean and isolated.');
 		} else if (method === 'homebrew') {
-			console.log('\n   Homebrew will be used to install Neo4j.');
-			console.log('   This will install Neo4j as a system service.');
+			console.error('\n   Homebrew will be used to install Neo4j.');
+			console.error('   This will install Neo4j as a system service.');
 		} else {
-			console.log('\n   Native installation will download and configure Neo4j.');
-			console.log('   Java will be required (will be installed if missing).');
+			console.error('\n   Native installation will download and configure Neo4j.');
+			console.error('   Java will be required (will be installed if missing).');
 		}
 
-		console.log("\n   ✅ Benefits you'll get with Neo4j:");
-		console.log('      • Character relationship visualization');
-		console.log('      • Story structure analysis');
-		console.log('      • Plot complexity tracking');
-		console.log('      • Advanced writing analytics');
+		console.error("\n   ✅ Benefits you'll get with Neo4j:");
+		console.error('      • Character relationship visualization');
+		console.error('      • Story structure analysis');
+		console.error('      • Plot complexity tracking');
+		console.error('      • Advanced writing analytics');
 
 		const answer = await rl.question(
 			'\n❓ Do you want to proceed with installation? (yes/no): '
@@ -266,10 +266,10 @@ export class Neo4jAutoInstaller {
 	 */
 	private static async installViaDocker(options: InstallOptions): Promise<InstallResult> {
 		try {
-			console.log('\n🐳 Installing Neo4j via Docker...');
+			console.error('\n🐳 Installing Neo4j via Docker...');
 
 			// Pull Neo4j image
-			console.log('📥 Downloading Neo4j Docker image...');
+			console.error('📥 Downloading Neo4j Docker image...');
 			await execAsync(`docker pull neo4j:${options.version || this.NEO4J_VERSION}`);
 
 			// Check if container already exists
@@ -280,11 +280,11 @@ export class Neo4jAutoInstaller {
 			}
 
 			// Create data volume
-			console.log('💾 Creating data volume...');
+			console.error('💾 Creating data volume...');
 			await execAsync('docker volume create scrivener-neo4j-data');
 
 			// Run Neo4j container
-			console.log('🚀 Starting Neo4j container...');
+			console.error('🚀 Starting Neo4j container...');
 			const password = this.DEFAULT_PASSWORD;
 			const runCommand = [
 				'docker run -d',
@@ -303,10 +303,10 @@ export class Neo4jAutoInstaller {
 			await execAsync(runCommand);
 
 			// Wait for Neo4j to start
-			console.log('⏳ Waiting for Neo4j to start...');
+			console.error('⏳ Waiting for Neo4j to start...');
 			await this.waitForNeo4j(password);
 
-			console.log('✅ Neo4j installed successfully via Docker!');
+			console.error('✅ Neo4j installed successfully via Docker!');
 
 			return {
 				success: true,
@@ -324,8 +324,8 @@ export class Neo4jAutoInstaller {
 
 			// Try to install Docker if not available
 			if ((error as Error).message?.includes('docker: command not found')) {
-				console.log('\n📦 Docker is not installed. Would you like to install it?');
-				console.log('Visit: https://docs.docker.com/get-docker/');
+				console.error('\n📦 Docker is not installed. Would you like to install it?');
+				console.error('Visit: https://docs.docker.com/get-docker/');
 			}
 
 			return {
@@ -341,17 +341,17 @@ export class Neo4jAutoInstaller {
 	 */
 	private static async installViaHomebrew(options: InstallOptions): Promise<InstallResult> {
 		try {
-			console.log('\n🍺 Installing Neo4j via Homebrew...');
+			console.error('\n🍺 Installing Neo4j via Homebrew...');
 
 			// Update Homebrew
-			console.log('📥 Updating Homebrew...');
+			console.error('📥 Updating Homebrew...');
 			await PermissionManager.executeWithPermissions('brew update', {
 				operation: 'update-homebrew',
 				timeout: 30000,
 			});
 
 			// Install Neo4j
-			console.log('📦 Installing Neo4j...');
+			console.error('📦 Installing Neo4j...');
 			await PermissionManager.executeWithPermissions('brew install neo4j', {
 				operation: 'install-neo4j',
 				timeout: 60000,
@@ -361,7 +361,7 @@ export class Neo4jAutoInstaller {
 			const password = this.DEFAULT_PASSWORD;
 
 			// Set initial password
-			console.log('🔐 Setting initial password...');
+			console.error('🔐 Setting initial password...');
 			await PermissionManager.executeWithPermissions(
 				`neo4j-admin set-initial-password ${password}`,
 				{
@@ -372,22 +372,22 @@ export class Neo4jAutoInstaller {
 
 			// Start Neo4j service
 			if (options.autoStart) {
-				console.log('🚀 Starting Neo4j service...');
+				console.error('🚀 Starting Neo4j service...');
 				await PermissionManager.executeWithPermissions('brew services start neo4j', {
 					operation: 'start-neo4j-service',
 					timeout: 20000,
 				});
 
 				// Wait for Neo4j to start
-				console.log('⏳ Waiting for Neo4j to start...');
+				console.error('⏳ Waiting for Neo4j to start...');
 				await this.waitForNeo4j(password);
 			}
 
-			console.log('✅ Neo4j installed successfully via Homebrew!');
-			console.log('📝 To manage Neo4j:');
-			console.log('   Start: brew services start neo4j');
-			console.log('   Stop:  brew services stop neo4j');
-			console.log('   Status: brew services list');
+			console.error('✅ Neo4j installed successfully via Homebrew!');
+			console.error('📝 To manage Neo4j:');
+			console.error('   Start: brew services start neo4j');
+			console.error('   Stop:  brew services stop neo4j');
+			console.error('   Status: brew services list');
 
 			return {
 				success: true,
@@ -415,12 +415,12 @@ export class Neo4jAutoInstaller {
 	 */
 	private static async installNative(options: InstallOptions): Promise<InstallResult> {
 		try {
-			console.log('\n📦 Installing Neo4j natively...');
+			console.error('\n📦 Installing Neo4j natively...');
 
 			// Check Java availability
 			const javaVersion = await this.checkJava();
 			if (!javaVersion) {
-				console.log('☕ Java is required for Neo4j. Installing Java...');
+				console.error('☕ Java is required for Neo4j. Installing Java...');
 				await this.installJava();
 			}
 
@@ -433,13 +433,13 @@ export class Neo4jAutoInstaller {
 			await ensureDir(installDir);
 
 			// Download Neo4j
-			console.log('📥 Downloading Neo4j...');
+			console.error('📥 Downloading Neo4j...');
 			const filename = path.basename(downloadUrl);
 			const downloadPath = path.join(installDir, filename);
 			await this.downloadFile(downloadUrl, downloadPath);
 
 			// Extract Neo4j
-			console.log('📂 Extracting Neo4j...');
+			console.error('📂 Extracting Neo4j...');
 			await this.extractArchive(downloadPath, installDir);
 
 			// Find Neo4j directory
@@ -456,7 +456,7 @@ export class Neo4jAutoInstaller {
 
 			// Configure Neo4j
 			const password = this.DEFAULT_PASSWORD;
-			console.log('🔐 Configuring Neo4j...');
+			console.error('🔐 Configuring Neo4j...');
 			await this.configureNeo4j(neo4jHome, password);
 
 			// Create start script
@@ -464,16 +464,16 @@ export class Neo4jAutoInstaller {
 
 			// Start Neo4j if requested
 			if (options.autoStart) {
-				console.log('🚀 Starting Neo4j...');
+				console.error('🚀 Starting Neo4j...');
 				await this.startNeo4j(neo4jHome);
 
-				console.log('⏳ Waiting for Neo4j to start...');
+				console.error('⏳ Waiting for Neo4j to start...');
 				await this.waitForNeo4j(password);
 			}
 
-			console.log('✅ Neo4j installed successfully!');
-			console.log(`📂 Installation directory: ${neo4jHome}`);
-			console.log(`📝 Start script: ${path.join(options.projectPath, 'start-neo4j.sh')}`);
+			console.error('✅ Neo4j installed successfully!');
+			console.error(`📂 Installation directory: ${neo4jHome}`);
+			console.error(`📝 Start script: ${path.join(options.projectPath, 'start-neo4j.sh')}`);
 
 			return {
 				success: true,
@@ -732,7 +732,7 @@ export class Neo4jAutoInstaller {
 			],
 			onProgress: (progress) => {
 				if (progress.message?.includes('connectivity')) {
-					process.stdout.write('.');
+					process.stderr.write('.');
 				}
 			},
 		});

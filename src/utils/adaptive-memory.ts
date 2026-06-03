@@ -631,7 +631,7 @@ export class AdaptiveMemoryManager {
 	}
 
 	private generateObjectId(): string {
-		return `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		return `obj_${crypto.randomUUID()}`;
 	}
 
 	private simpleCompress(text: string): Uint8Array {

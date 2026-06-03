@@ -3,7 +3,7 @@
  * Provides backward compatibility while using enhanced features internally
  */
 
-import type { Document as LangchainDocument } from 'langchain/document';
+import { Document as LangchainDocument } from '@langchain/core/documents';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
 import type { ScrivenerDocument } from '../../types/index.js';

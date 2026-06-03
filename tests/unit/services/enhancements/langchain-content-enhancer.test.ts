@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { LangChainContentEnhancer } from '../../../../src/services/enhancements/langchain-content-enhancer.js';
 import type { CacheEntry } from '../../../../src/types/index.js';
 import { ApplicationError as AppError, ErrorCode } from '../../../../src/core/errors.js';
@@ -360,11 +360,10 @@ describe('LangChainContentEnhancer', () => {
         enhancementType: 'clarity' as const,
       };
 
+      await expect(enhancer.enhanceContent(input)).rejects.toThrow(AppError);
       try {
         await enhancer.enhanceContent(input);
-        expect.fail('Should have thrown an error');
       } catch (error) {
-        expect(error).toBeInstanceOf(AppError);
         expect((error as AppError).code).toBe(ErrorCode.EXTERNAL_SERVICE_ERROR);
       }
     });
@@ -388,13 +387,7 @@ describe('LangChainContentEnhancer', () => {
         enhancementType: 'clarity' as const,
       };
 
-      try {
-        await enhancer.enhanceContent(input);
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(error).toBeInstanceOf(AppError);
-        expect((error as AppError).message).toContain('Content enhancement failed');
-      }
+      await expect(enhancer.enhanceContent(input)).rejects.toThrow('Content enhancement failed');
     });
   });
 

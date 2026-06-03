@@ -14,24 +14,14 @@ export * from './enhanced-connection-pool.js';
 export * from './resilience-decorators.js';
 
 // Re-export commonly used instances
-export {
-	CircuitBreakers,
-	CircuitBreakerFactory,
-} from './circuit-breaker.js';
+import { CircuitBreakerFactory } from './circuit-breaker.js';
+export { CircuitBreakers, CircuitBreakerFactory } from './circuit-breaker.js';
 
-export {
-	RetryStrategies,
-	globalRetryManager,
-} from './retry-strategies.js';
+export { RetryStrategies, globalRetryManager } from './retry-strategies.js';
 
-export {
-	globalCacheManager,
-} from './multi-level-cache.js';
+export { globalCacheManager } from './multi-level-cache.js';
 
-export {
-	globalHealthManager,
-	StandardHealthChecks,
-} from './health-checks.js';
+export { globalHealthManager, StandardHealthChecks } from './health-checks.js';
 
 export {
 	globalMetricsRegistry,
@@ -39,15 +29,9 @@ export {
 	MetricsDecorators,
 } from './metrics-collector.js';
 
-export {
-	globalProfiler,
-	ProfilerDecorators,
-} from './performance-profiler.js';
+export { globalProfiler, ProfilerDecorators } from './performance-profiler.js';
 
-export {
-	globalPoolManager,
-	SQLiteConnectionFactory,
-} from './enhanced-connection-pool.js';
+export { globalPoolManager, SQLiteConnectionFactory } from './enhanced-connection-pool.js';
 
 export {
 	Resilient,
@@ -107,7 +91,6 @@ export function initializeResilienceSystem(): void {
 			retryStrategies: 'ready',
 			cachingSystem: 'ready',
 		});
-
 	} catch (error) {
 		logger.error('Failed to initialize resilience system', {
 			error: (error as Error).message,
@@ -136,7 +119,6 @@ export async function shutdownResilienceSystem(): Promise<void> {
 		await globalCacheManager.clearAll();
 
 		logger.info('Resilience system shutdown complete');
-
 	} catch (error) {
 		logger.error('Error during resilience system shutdown', {
 			error: (error as Error).message,
@@ -158,7 +140,7 @@ export function getSystemStatus(): {
 		health: globalHealthManager.getSystemHealth(),
 		metrics: globalMetricsCollector.getLatestSnapshot(),
 		profiling: globalProfiler.getMetrics(),
-		circuitBreakers: require('./circuit-breaker.js').CircuitBreakerFactory.getAllMetrics(),
+		circuitBreakers: CircuitBreakerFactory.getAllMetrics(),
 		caches: globalCacheManager.getAllMetrics(),
 	};
 }

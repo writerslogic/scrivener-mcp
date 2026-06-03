@@ -8,11 +8,11 @@ import { JsonOutputParser, StringOutputParser } from '@langchain/core/output_par
 import { ChatPromptTemplate, MessagesPlaceholder, PromptTemplate } from '@langchain/core/prompts';
 import { RunnableMap, RunnableSequence } from '@langchain/core/runnables';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
-import type { Document as LangchainDocument } from 'langchain/document';
-import { BufferWindowMemory } from 'langchain/memory';
-import { StructuredOutputParser } from 'langchain/output_parsers';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
+import { Document as LangchainDocument } from '@langchain/core/documents';
+import { BufferWindowMemory } from '@langchain/classic/memory';
+import { StructuredOutputParser } from '@langchain/core/output_parsers';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { LangChainHMSVectorStore } from './hms-vector-store.js';
 import { z } from 'zod';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
@@ -153,9 +153,9 @@ const WritingStyleSchema = z.object({
 });
 
 export class AdvancedLangChainFeatures {
-	private llm: BaseLanguageModel;
+	private llm: ChatOpenAI;
 	private embeddings: OpenAIEmbeddings;
-	private vectorStore: MemoryVectorStore | null = null;
+	private vectorStore: LangChainHMSVectorStore | null = null;
 	private logger: ReturnType<typeof getLogger>;
 	private characterParser: StructuredOutputParser<typeof CharacterAnalysisSchema>;
 	private plotParser: StructuredOutputParser<typeof PlotStructureSchema>;
@@ -448,7 +448,7 @@ export class AdvancedLangChainFeatures {
 				chunks.push(...docChunks);
 			}
 
-			this.vectorStore = await MemoryVectorStore.fromDocuments(chunks, this.embeddings);
+			this.vectorStore = await LangChainHMSVectorStore.fromDocuments(chunks, this.embeddings);
 		}
 
 		// Search for similar scenes
@@ -459,7 +459,7 @@ export class AdvancedLangChainFeatures {
 
 		// Filter by minimum similarity
 		const minSim = options.minSimilarity || 0.7;
-		const filtered = results.filter(([, score]) => score >= minSim);
+		const filtered = (results as [any, number][]).filter(([, score]) => score >= minSim);
 
 		// Analyze each result
 		const analyzed = await Promise.all(
@@ -825,7 +825,7 @@ export class AdvancedLangChainFeatures {
 				emotional_response: z.string(),
 				would_continue_reading: z.boolean(),
 				rating: z.number().min(1).max(10),
-				specific_feedback: z.record(z.string()),
+				specific_feedback: z.record(z.string(), z.string()),
 			})
 		);
 

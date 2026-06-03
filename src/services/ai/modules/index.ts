@@ -3,11 +3,11 @@
  * Provides a modular architecture for AI-powered operations
  */
 
-import type { Document as LangchainDocument } from 'langchain/document';
+import { Document as LangchainDocument } from '@langchain/core/documents';
 import type { Embeddings } from '@langchain/core/embeddings';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { BufferMemory } from 'langchain/memory';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { BufferMemory } from '@langchain/classic/memory';
 import { OpenAIEmbeddings, ChatOpenAI } from '@langchain/openai';
 import { getLogger } from '../../../core/logger.js';
 

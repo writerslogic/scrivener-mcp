@@ -109,13 +109,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 							typeof compiled.content === 'string'
 								? compiled.content
 								: JSON.stringify(compiled.content),
-						data: {
-							...compiled,
-							enhanced: true,
-							langChainProcessed: true,
-							sessionId,
-							documentCount: documentsToCompile.length,
-						},
 					},
 				],
 			};
@@ -130,10 +123,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: typeof compiled === 'string' ? compiled : JSON.stringify(compiled),
-						data: {
-							enhanced: false,
-							fallbackReason: (error as Error).message,
-						},
 					},
 				],
 			};
@@ -182,8 +171,7 @@ export const exportProjectHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `Project exported as ${args.format}`,
-					data: result,
+					text: JSON.stringify(result, null, 2),
 				},
 			],
 		};
@@ -219,8 +207,7 @@ export const getStatisticsHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: 'Project statistics generated',
-					data: fullStats,
+					text: JSON.stringify(fullStats, null, 2),
 				},
 			],
 		};
@@ -351,14 +338,6 @@ export const intelligentCompilationHandler: ToolDefinition = {
 							typeof compiled.content === 'string'
 								? compiled.content
 								: JSON.stringify(compiled.content),
-						data: {
-							...compiled,
-							enhanced: true,
-							targetOptimization,
-							sessionId,
-							documentCount: validDocuments.length,
-							optimization: compiled.optimization,
-						},
 					},
 				],
 			};
@@ -368,7 +347,6 @@ export const intelligentCompilationHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Intelligent compilation failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};
@@ -452,14 +430,6 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: result.content,
-						data: {
-							...result,
-							enhanced: true,
-							materialType,
-							length,
-							targetAudience,
-							sessionId,
-						},
 					},
 				],
 			};
@@ -469,7 +439,6 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Marketing material generation failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};
@@ -513,31 +482,35 @@ export const buildVectorStoreHandler: ToolDefinition = {
 				throw new Error('No documents with content found for indexing');
 			}
 
-			// Initialize vector store
-			const { VectorStore } = await import('../services/ai/vector-store.js');
-			const vectorStore = new VectorStore();
-			await vectorStore.initialize();
+			// Initialize HMS-backed vector store
+			const { LangChainHMSVectorStore } = await import('../services/ai/hms-vector-store.js');
+			const { OpenAIEmbeddings } = await import('@langchain/openai');
+			const { Document } = await import('@langchain/core/documents');
 
-			if (rebuild) {
-				await vectorStore.clear();
-			}
+			const docs = vectorDocuments.map(
+				(doc) =>
+					new Document({
+						pageContent: doc.content,
+						metadata: { id: doc.id, ...doc.metadata },
+					})
+			);
 
-			// Add documents to vector store
-			await vectorStore.addDocuments(vectorDocuments);
-
-			const stats = vectorStore.getStats();
+			const embeddings = new OpenAIEmbeddings();
+			await LangChainHMSVectorStore.fromDocuments(docs, embeddings);
 
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Vector store ${rebuild ? 'rebuilt' : 'updated'} successfully`,
-						data: {
-							...stats,
-							enhanced: true,
-							vectorIndexed: true,
-							documentsIndexed: vectorDocuments.length,
-						},
+						text: JSON.stringify(
+							{
+								vectorIndexed: true,
+								documentsIndexed: vectorDocuments.length,
+								status: rebuild ? 'rebuilt' : 'updated',
+							},
+							null,
+							2
+						),
 					},
 				],
 			};
@@ -547,7 +520,6 @@ export const buildVectorStoreHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Vector store build failed: ${(error as Error).message}`,
-						data: { error: true, enhanced: false },
 					},
 				],
 			};

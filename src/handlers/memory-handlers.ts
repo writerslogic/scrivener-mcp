@@ -2,6 +2,8 @@
  * MCP handlers for HHM memory operations
  */
 
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import type { HHMConfig } from '../services/memory/hhm/holographic-memory-system.js';
 import { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
 import { quickBenchmark } from '../services/memory/hhm/benchmark.js';
@@ -10,6 +12,18 @@ import type { ScrivenerDocument } from '../types/index.js';
 import type { ToolDefinition } from './types.js';
 
 const logger = getLogger('memory-handlers');
+
+function loadHmsSchema(name: string): Record<string, unknown> | null {
+	try {
+		const schemaPath = resolve(process.cwd(), '..', 'HMS', 'schemas', `${name}.json`);
+		return JSON.parse(readFileSync(schemaPath, 'utf-8'));
+	} catch {
+		return null;
+	}
+}
+
+const retrievalResultSchema = loadHmsSchema('RetrievalResult');
+const conceptCandidateSchema = loadHmsSchema('ConceptCandidate');
 
 // Global HHM instance
 let hhmSystem: HolographicMemorySystem | null = null;
@@ -42,7 +56,7 @@ export function getHHMSystem(): HolographicMemorySystem {
 export const nativeHHMTools: ToolDefinition[] = [
 	{
 		name: 'semantic_search',
-		description: 'Find documents by semantic meaning using native HMS engine',
+		description: `Find documents by semantic meaning using native HMS engine. Returns: ${retrievalResultSchema ? JSON.stringify(retrievalResultSchema.properties) : 'RetrievalResult[]'}`,
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -52,8 +66,13 @@ export const nativeHHMTools: ToolDefinition[] = [
 			required: ['query'],
 		},
 		handler: async (args) => {
+			const traceId = crypto.randomUUID();
 			const system = getHHMSystem();
-			const results = await system.queryText(args.query as string, (args.k as number) || 10);
+			const results = await system.queryText(
+				args.query as string,
+				(args.k as number) || 10,
+				traceId
+			);
 			return {
 				content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
 			};
@@ -61,7 +80,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 	},
 	{
 		name: 'find_analogies',
-		description: 'Discover analogical relationships (A:B :: C:?) using native reasoning engine',
+		description: `Discover analogical relationships (A:B :: C:?) using native reasoning engine. Returns: ${retrievalResultSchema ? JSON.stringify(retrievalResultSchema.properties) : 'RetrievalResult[]'}`,
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -72,8 +91,14 @@ export const nativeHHMTools: ToolDefinition[] = [
 			required: ['a', 'b', 'c'],
 		},
 		handler: async (args) => {
+			const traceId = crypto.randomUUID();
 			const system = getHHMSystem();
-			const results = await system.findAnalogy(args.a as string, args.b as string, args.c as string);
+			const results = await system.findAnalogy(
+				args.a as string,
+				args.b as string,
+				args.c as string,
+				traceId
+			);
 			return {
 				content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
 			};
@@ -81,7 +106,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 	},
 	{
 		name: 'hhm_dream',
-		description: 'Enter creative recombination mode to generate novel concept combinations',
+		description: `Enter creative recombination mode to generate novel concept combinations. Returns: ${conceptCandidateSchema ? JSON.stringify(conceptCandidateSchema.properties) : 'ConceptCandidate[]'}`,
 		inputSchema: {
 			type: 'object',
 			properties: {},
@@ -97,24 +122,24 @@ export const nativeHHMTools: ToolDefinition[] = [
 ];
 
 export const memoryHandlers = {
-	async memorizeText(params: { text: string; id?: string }) {
+	async memorizeText(params: { text: string; id?: string; traceId?: string }) {
 		const system = getHHMSystem();
-		return system.memorizeText(params.text, params.id);
+		return system.memorizeText(params.text, params.id, params.traceId);
 	},
-	async memorizeDocument(params: { document: ScrivenerDocument }) {
+	async memorizeDocument(params: { document: ScrivenerDocument; traceId?: string }) {
 		const system = getHHMSystem();
-		return system.memorizeDocument(params.document);
+		return system.memorizeDocument(params.document, params.traceId);
 	},
 };
 
 export const retrievalHandlers = {
-	async queryText(params: { text: string; k?: number }) {
+	async queryText(params: { text: string; k?: number; traceId?: string }) {
 		const system = getHHMSystem();
-		return system.queryText(params.text, params.k || 10);
+		return system.queryText(params.text, params.k || 10, params.traceId);
 	},
-	async findAnalogy(params: { a: string; b: string; c: string }) {
+	async findAnalogy(params: { a: string; b: string; c: string; traceId?: string }) {
 		const system = getHHMSystem();
-		return system.findAnalogy(params.a, params.b, params.c);
+		return system.findAnalogy(params.a, params.b, params.c, params.traceId);
 	},
 };
 
@@ -137,6 +162,8 @@ export const benchmarkHandlers = {
 	},
 };
 
-export function registerHHMHandlers(_server: any): void {
+export function registerHHMHandlers(
+	_server: import('@modelcontextprotocol/sdk/server/index.js').Server
+): void {
 	logger.info('HHM handlers integrated with Native core');
 }

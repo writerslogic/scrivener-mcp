@@ -2,11 +2,11 @@
  * Integration tests for Scrivener project operations
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
-import { DatabaseService } from '../../src/database/database-service.js';
+import { DatabaseService } from '../../src/handlers/database/database-service.js';
 import { MemoryManager } from '../../src/memory-manager.js';
 import { ContentAnalyzer } from '../../src/analysis/base-analyzer.js';
 import { ContentEnhancer } from '../../src/services/enhancements/content-enhancer.js';
@@ -176,10 +176,8 @@ describe('Scrivener Project Integration', () => {
 				'update_metadata',
 				{
 					documentId: testDocumentId,
-					metadata: {
-						synopsis: 'Test synopsis',
-						notes: 'Test notes',
-					},
+					synopsis: 'Test synopsis',
+					notes: 'Test notes',
 				},
 				context
 			);

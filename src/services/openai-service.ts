@@ -24,7 +24,7 @@ import {
 } from '../utils/common.js';
 import { measureAndTrackOperation, OperationMetricsTracker } from '../utils/operation-metrics.js';
 import { StringUtils } from '../utils/shared-patterns.js';
-import { getTextMetrics } from '../utils/text-metrics.js';
+import { getWritingTextMetrics as getTextMetrics } from '../utils/text-metrics.js';
 
 const logger = getLogger('openai-service');
 
@@ -730,7 +730,10 @@ Provide a JSON response with:
 					const result: {
 						text: string;
 						textHash: string;
-						results: Record<string, WritingSuggestion[] | StyleAnalysis | PlotAnalysis | CharacterAnalysis[]>;
+						results: Record<
+							string,
+							WritingSuggestion[] | StyleAnalysis | PlotAnalysis | CharacterAnalysis[]
+						>;
 						processingTime: string;
 						error?: string;
 					} = {

@@ -333,15 +333,18 @@ export class ScrivenerProject {
 			if (doc.type === DOCUMENT_TYPES.TEXT) {
 				try {
 					const content = await this.readDocument(doc.id);
+					const metadata: Record<string, string> = {};
+					if (doc.synopsis) metadata.synopsis = doc.synopsis;
+					if (doc.notes) metadata.notes = doc.notes;
+					if (doc.keywords && doc.keywords.length > 0) {
+						metadata.keywords = doc.keywords.join(', ');
+					}
+
 					docsWithContent.push({
 						id: doc.id,
 						title: doc.title,
 						content,
-						metadata: {
-							synopsis: doc.synopsis,
-							notes: doc.notes,
-							keywords: doc.keywords,
-						},
+						metadata,
 					});
 
 					// Update index while we have the content
@@ -397,6 +400,7 @@ export class ScrivenerProject {
 			notes?: string;
 			label?: string;
 			status?: string;
+			customMetadata?: Record<string, string>;
 		}
 	): Promise<void> {
 		await this.updateMetadata(documentId, metadata);
@@ -565,23 +569,26 @@ export class ScrivenerProject {
 	async getDocumentInfo(documentId: string): Promise<{
 		document: ScrivenerDocument | null;
 		path: Array<{ id: string; title: string; type: string }>;
-		metadata: Record<string, unknown>;
+		metadata: Record<string, string>;
 		location: 'active' | 'trash' | 'unknown';
 	}> {
 		// Use document indexer for O(1) lookup if available
 		if (this.indexInitialized) {
 			const docInfo = documentIndexer.getDocumentInfo(documentId);
 			if (docInfo) {
+				const metadata: Record<string, string> = {};
+				if (docInfo.document.synopsis) metadata.synopsis = docInfo.document.synopsis;
+				if (docInfo.document.notes) metadata.notes = docInfo.document.notes;
+				if (docInfo.document.keywords && docInfo.document.keywords.length > 0) {
+					metadata.keywords = docInfo.document.keywords.join(', ');
+				}
+				if (docInfo.document.status) metadata.status = docInfo.document.status;
+				if (docInfo.document.label) metadata.label = docInfo.document.label;
+
 				return {
 					document: docInfo.document,
 					path: docInfo.path,
-					metadata: {
-						synopsis: docInfo.document.synopsis,
-						notes: docInfo.document.notes,
-						keywords: docInfo.document.keywords,
-						status: docInfo.document.status,
-						label: docInfo.document.label,
-					},
+					metadata,
 					location: docInfo.location,
 				};
 			}
@@ -617,18 +624,23 @@ export class ScrivenerProject {
 			location = 'active';
 		}
 
-		const metadata: Record<string, unknown> = {};
+		const metadata: Record<string, string> = {};
 		if (foundDoc) {
 			const doc = foundDoc as ScrivenerDocument;
-			Object.assign(metadata, {
-				synopsis: doc.synopsis,
-				notes: doc.notes,
-				label: doc.label,
-				status: doc.status,
-				keywords: doc.keywords,
-				includeInCompile: doc.includeInCompile,
-				...doc.customMetadata,
-			});
+			if (doc.synopsis) metadata.synopsis = doc.synopsis;
+			if (doc.notes) metadata.notes = doc.notes;
+			if (doc.label) metadata.label = doc.label;
+			if (doc.status) metadata.status = doc.status;
+			if (doc.keywords && doc.keywords.length > 0) {
+				metadata.keywords = doc.keywords.join(', ');
+			}
+			if (doc.includeInCompile !== undefined) {
+				metadata.includeInCompile = doc.includeInCompile ? 'true' : 'false';
+			}
+
+			if (doc.customMetadata) {
+				Object.assign(metadata, doc.customMetadata);
+			}
 		}
 
 		return { document: foundDoc, path, metadata, location };

@@ -691,7 +691,7 @@ export function setNested(obj: Record<string, unknown>, path: string, value: unk
 		}
 		cur = cur[key] as Record<string, unknown>;
 	}
-	cur[keys.at(-1)!] = value;
+	cur[keys[keys.length - 1]] = value;
 }
 
 /** Check if object is empty */
@@ -812,7 +812,7 @@ export {
 	getAccurateSentenceCount,
 	getAccurateWordCount,
 	getCharacterCount,
-	getTextMetrics,
+	getWritingTextMetrics as getTextMetrics,
 	getWordFrequency,
 	splitIntoSentences,
 	splitIntoWords,
@@ -925,7 +925,9 @@ export default {
 // Logging Utilities
 export type Primitive = string | number | boolean | null | undefined;
 export type JSONValue = Primitive | JSONObject | JSONArray;
-export interface JSONObject { [key: string]: JSONValue; }
+export interface JSONObject {
+	[key: string]: JSONValue;
+}
 export type JSONArray = JSONValue[];
 
 export interface LogContext {
@@ -936,10 +938,10 @@ export function toLogContext(obj: Record<string, unknown>): LogContext {
 	const result: LogContext = {};
 	for (const [key, value] of Object.entries(obj)) {
 		if (
-			value === null || 
-			value === undefined || 
-			typeof value === 'string' || 
-			typeof value === 'number' || 
+			value === null ||
+			value === undefined ||
+			typeof value === 'string' ||
+			typeof value === 'number' ||
 			typeof value === 'boolean'
 		) {
 			result[key] = value as Primitive;

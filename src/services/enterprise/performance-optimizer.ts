@@ -440,8 +440,8 @@ export class IntelligentCache<T = any> extends EventEmitter {
 
 	private createSpan(operation: string, parentContext?: TraceContext): TraceContext {
 		return {
-			traceId: parentContext?.traceId || generateHash(`trace-${Date.now()}-${Math.random()}`),
-			spanId: generateHash(`span-${Date.now()}-${Math.random()}`),
+			traceId: parentContext?.traceId || crypto.randomUUID(),
+			spanId: crypto.randomUUID(),
 			baggage: { ...parentContext?.baggage, cacheOperation: operation },
 		};
 	}

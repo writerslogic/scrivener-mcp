@@ -1,26 +1,14 @@
 /**
  * Fractal Memory Service
  * Integrates Python fractal memory system with TypeScript MCP handlers
+ * Uses high-performance better-sqlite3 for local storage
  */
 
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import Database from 'better-sqlite3';
 import { getLogger } from '../../core/logger.js';
-
-// Dynamic import for sqlite3 to avoid compilation issues
-let sqlite3:
-	| { Database: new (path: string, callback?: (err: Error | null) => void) => any }
-	| undefined;
-try {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	sqlite3 = require('sqlite3');
-} catch (error) {
-	// Use logger after it's initialized
-	getLogger('fractal-memory').warn('sqlite3 not available, some features will be limited', {
-		error: (error as Error).message,
-	});
-}
 
 const logger = getLogger('fractal-memory');
 
@@ -85,8 +73,8 @@ interface SearchResult {
 }
 
 export class FractalMemoryService {
-	private db: any | null = null;
-	private pythonProcess: unknown | null = null;
+	private db: Database.Database | null = null;
+	private pythonProcess: any | null = null;
 	private dbPath: string;
 	private pythonScriptPath: string;
 	private initialized: boolean = false;
@@ -105,11 +93,9 @@ export class FractalMemoryService {
 		}
 
 		try {
-			// Initialize SQLite database
 			await this.initializeDatabase();
 
 			// Verify Python script exists
-			const fs = await import('fs');
 			if (!fs.existsSync(this.pythonScriptPath)) {
 				logger.warn(
 					'Python fractal memory script not found, some features will be limited'
@@ -128,40 +114,22 @@ export class FractalMemoryService {
 	 * Initialize SQLite database
 	 */
 	private async initializeDatabase(): Promise<void> {
-		if (!sqlite3) {
-			logger.warn('SQLite not available, database features disabled');
-			return;
+		try {
+			this.db = new Database(this.dbPath);
+
+			const schemaPath = path.join(process.cwd(), 'src/services/memory/schema.sql');
+
+			if (fs.existsSync(schemaPath)) {
+				const schema = await fs.promises.readFile(schemaPath, 'utf-8');
+				this.db.exec(schema);
+				logger.info('Database schema initialized');
+			} else {
+				logger.warn('Schema file not found, database may need manual setup');
+			}
+		} catch (error) {
+			logger.error('Failed to initialize database', { error });
+			throw error;
 		}
-
-		return new Promise((resolve, reject) => {
-			this.db = new sqlite3!.Database(this.dbPath, (err: Error | null) => {
-				if (err) {
-					reject(err);
-					return;
-				}
-
-				// Read and execute schema
-				// fs is already imported at the top
-				const schemaPath = path.join(__dirname, 'schema.sql');
-
-				if (fs.existsSync(schemaPath)) {
-					const schema = fs.readFileSync(schemaPath, 'utf-8');
-					(this.db as any).exec(schema, (err: Error | null) => {
-						if (err) {
-							logger.error('Failed to execute schema', { error: err });
-							reject(err);
-						} else {
-							logger.info('Database schema initialized');
-							resolve();
-						}
-					});
-				} else {
-					// Schema file not found, continue without it
-					logger.warn('Schema file not found, database may need manual setup');
-					resolve();
-				}
-			});
-		});
 	}
 
 	/**
@@ -177,7 +145,6 @@ export class FractalMemoryService {
 		}
 	): Promise<void> {
 		try {
-			// Call Python script for ingestion
 			const result = await this.callPythonScript('ingest', {
 				text,
 				chapterId,
@@ -213,21 +180,18 @@ export class FractalMemoryService {
 		}
 	): Promise<SearchResult[]> {
 		try {
-			// Try Python implementation first
 			const result = await this.callPythonScript('search', {
 				query,
 				...options,
 			});
 
 			if ((result as any).error) {
-				// Fallback to TypeScript implementation
 				return this.searchFallback(query, options);
 			}
 
 			return (result as any).results;
 		} catch (error) {
 			logger.error('Search failed', { error });
-			// Fallback to TypeScript implementation
 			return this.searchFallback(query, options);
 		}
 	}
@@ -236,59 +200,44 @@ export class FractalMemoryService {
 	 * Fallback search implementation in TypeScript
 	 */
 	private async searchFallback(query: string, options?: SearchOptions): Promise<SearchResult[]> {
-		return new Promise((resolve, reject) => {
-			if (!this.db) {
-				reject(new Error('Database not initialized'));
-				return;
-			}
+		if (!this.db) {
+			throw new Error('Database not initialized');
+		}
 
-			const policy = options?.policy || 'scene-fix';
-			const limit = options?.k || 10;
+		const policy = options?.policy || 'scene-fix';
+		const limit = options?.k || 10;
 
-			// Simple text search as fallback
-			const sql = `
-                SELECT 
-                    s.id, s.scale, s.text, s.chapter_id as chapterId,
-                    s.start_pos as startPos, s.end_pos as endPos,
-                    s.parent_id as parentId, s.sequence_num as sequenceNum
-                FROM segments s
-                WHERE s.text LIKE ?
-                ${options?.chapterId ? 'AND s.chapter_id = ?' : ''}
-                ORDER BY 
-                    CASE s.scale 
-                        WHEN 'micro' THEN ${policy === 'line-fix' ? 1 : 3}
-                        WHEN 'meso' THEN 2
-                        WHEN 'macro' THEN ${policy === 'thematic' ? 1 : 3}
-                    END,
-                    s.sequence_num
-                LIMIT ?
-            `;
+		const sql = `
+			SELECT 
+				s.id, s.scale, s.text, s.chapter_id as chapterId,
+				s.start_pos as startPos, s.end_pos as endPos,
+				s.parent_id as parentId, s.sequence_num as sequenceNum
+			FROM segments s
+			WHERE s.text LIKE ?
+			${options?.chapterId ? 'AND s.chapter_id = ?' : ''}
+			ORDER BY 
+				CASE s.scale 
+					WHEN 'micro' THEN ${policy === 'line-fix' ? 1 : 3}
+					WHEN 'meso' THEN 2
+					WHEN 'macro' THEN ${policy === 'thematic' ? 1 : 3}
+				END,
+				s.sequence_num
+			LIMIT ?
+		`;
 
-			const params = [`%${query}%`];
-			if (options?.chapterId) {
-				params.push(options.chapterId);
-			}
-			params.push(limit.toString());
+		const params = [`%${query}%`];
+		if (options?.chapterId) {
+			params.push(options.chapterId);
+		}
+		params.push(limit.toString());
 
-			(this.db as any).all(
-				sql,
-				params,
-				(err: Error | null, rows: Record<string, unknown>[]) => {
-					if (err) {
-						reject(err);
-						return;
-					}
+		const rows = this.db.prepare(sql).all(...params) as any[];
 
-					const results: SearchResult[] = rows.map((row: Record<string, unknown>) => ({
-						segments: [row as any],
-						score: 1.0, // Simple scoring
-						metadata: { policy, fallback: true },
-					}));
-
-					resolve(results);
-				}
-			);
-		});
+		return rows.map((row) => ({
+			segments: [row],
+			score: 1.0,
+			metadata: { policy, fallback: true },
+		}));
 	}
 
 	/**
@@ -329,68 +278,51 @@ export class FractalMemoryService {
 			includeRelationships?: boolean;
 		}
 	): Promise<any> {
-		return new Promise((resolve, reject) => {
-			if (!this.db) {
-				reject(new Error('Database not initialized'));
-				return;
-			}
+		if (!this.db) {
+			throw new Error('Database not initialized');
+		}
 
-			const sql = `
-                SELECT 
-                    character_name,
-                    chapter_id,
-                    scale,
-                    appearance_count,
-                    first_appearance_seq,
-                    last_appearance_seq,
-                    segment_ids
-                FROM character_continuity
-                WHERE character_name = ?
-                ${options?.chapterId ? 'AND chapter_id = ?' : ''}
-                ORDER BY chapter_id, scale
-            `;
+		const sql = `
+			SELECT 
+				character_name,
+				chapter_id,
+				scale,
+				appearance_count,
+				first_appearance_seq,
+				last_appearance_seq,
+				segment_ids
+			FROM character_continuity
+			WHERE character_name = ?
+			${options?.chapterId ? 'AND chapter_id = ?' : ''}
+			ORDER BY chapter_id, scale
+		`;
 
-			const params = [characterName];
-			if (options?.chapterId) {
-				params.push(options.chapterId);
-			}
+		const params = [characterName];
+		if (options?.chapterId) {
+			params.push(options.chapterId);
+		}
 
-			(this.db as any).all(
-				sql,
-				params,
-				(err: Error | null, rows: Record<string, unknown>[]) => {
-					if (err) {
-						reject(err);
-						return;
-					}
+		const rows = this.db.prepare(sql).all(...params) as any[];
 
-					resolve({
-						character: characterName,
-						continuity: rows,
-						gaps: this.identifyContinuityGaps(rows),
-					});
-				}
-			);
-		});
+		return {
+			character: characterName,
+			continuity: rows,
+			gaps: this.identifyContinuityGaps(rows),
+		};
 	}
 
-	/**
-	 * Identify gaps in character continuity
-	 */
-	private identifyContinuityGaps(
-		appearances: Record<string, unknown>[]
-	): Record<string, unknown>[] {
+	private identifyContinuityGaps(appearances: any[]): any[] {
 		const gaps = [];
 
 		for (let i = 1; i < appearances.length; i++) {
 			const prev = appearances[i - 1];
 			const curr = appearances[i];
 
-			if ((curr as any).first_appearance_seq - (prev as any).last_appearance_seq > 10) {
+			if (curr.first_appearance_seq - prev.last_appearance_seq > 10) {
 				gaps.push({
 					from: prev,
 					to: curr,
-					gapSize: (curr as any).first_appearance_seq - (prev as any).last_appearance_seq,
+					gapSize: curr.first_appearance_seq - prev.last_appearance_seq,
 				});
 			}
 		}
@@ -406,106 +338,81 @@ export class FractalMemoryService {
 		minStrength?: number;
 		patternType?: string;
 	}): Promise<any[]> {
-		return new Promise((resolve, reject) => {
-			if (!this.db) {
-				reject(new Error('Database not initialized'));
-				return;
-			}
+		if (!this.db) {
+			throw new Error('Database not initialized');
+		}
 
-			let sql = `
-                SELECT 
-                    motif_name,
-                    pattern_type,
-                    chapter_id,
-                    occurrence_count,
-                    avg_strength,
-                    segment_ids
-                FROM motif_tracking
-                WHERE 1=1
-            `;
+		let sql = `
+			SELECT 
+				motif_name,
+				pattern_type,
+				chapter_id,
+				occurrence_count,
+				avg_strength,
+				segment_ids
+			FROM motif_tracking
+			WHERE 1=1
+		`;
 
-			const params: unknown[] = [];
+		const params: any[] = [];
 
-			if (options?.chapterId) {
-				sql += ' AND chapter_id = ?';
-				params.push(options.chapterId);
-			}
+		if (options?.chapterId) {
+			sql += ' AND chapter_id = ?';
+			params.push(options.chapterId);
+		}
 
-			if (options?.minStrength) {
-				sql += ' AND avg_strength >= ?';
-				params.push(options.minStrength);
-			}
+		if (options?.minStrength) {
+			sql += ' AND avg_strength >= ?';
+			params.push(options.minStrength);
+		}
 
-			if (options?.patternType) {
-				sql += ' AND pattern_type = ?';
-				params.push(options.patternType);
-			}
+		if (options?.patternType) {
+			sql += ' AND pattern_type = ?';
+			params.push(options.patternType);
+		}
 
-			sql += ' ORDER BY avg_strength DESC, occurrence_count DESC';
+		sql += ' ORDER BY avg_strength DESC, occurrence_count DESC';
 
-			(this.db as any).all(
-				sql,
-				params,
-				(err: Error | null, rows: Record<string, unknown>[]) => {
-					if (err) {
-						reject(err);
-						return;
-					}
-					resolve(rows);
-				}
-			);
-		});
+		return this.db.prepare(sql).all(...params);
 	}
 
 	/**
 	 * Update retrieval policy
 	 */
 	async updatePolicy(name: string, policy: Partial<RetrievalPolicy>): Promise<void> {
-		return new Promise((resolve, reject) => {
-			if (!this.db) {
-				reject(new Error('Database not initialized'));
-				return;
-			}
+		if (!this.db) {
+			throw new Error('Database not initialized');
+		}
 
-			const sql = `
-                UPDATE memory_policies
-                SET 
-                    scale_weights = ?,
-                    entity_boost = ?,
-                    motif_boost = ?,
-                    recency_weight = ?,
-                    frequency_weight = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE name = ?
-            `;
+		const sql = `
+			UPDATE memory_policies
+			SET 
+				scale_weights = ?,
+				entity_boost = ?,
+				motif_boost = ?,
+				recency_weight = ?,
+				frequency_weight = ?,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE name = ?
+		`;
 
-			const params = [
+		this.db
+			.prepare(sql)
+			.run(
 				JSON.stringify(policy.scaleWeights),
 				policy.entityBoost || 1.0,
 				policy.motifBoost || 1.0,
 				policy.recencyWeight || 0.1,
 				policy.frequencyWeight || 0.1,
-				name,
-			];
-
-			(this.db as any).run(sql, params, (err: Error | null) => {
-				if (err) {
-					reject(err);
-					return;
-				}
-				resolve();
-			});
-		});
+				name
+			);
 	}
 
 	/**
 	 * Call Python script for advanced operations
 	 */
 	private async callPythonScript(operation: string, params: unknown): Promise<unknown> {
-		return new Promise((resolve, reject) => {
-			// fs is already imported at the top
-
-			// Check if Python script exists
+		return new Promise((resolve) => {
 			if (!fs.existsSync(this.pythonScriptPath)) {
 				resolve({ error: 'Python script not available' });
 				return;
@@ -553,11 +460,10 @@ export class FractalMemoryService {
 				resolve({ error: 'Failed to spawn Python process' });
 			});
 
-			// Set timeout
 			setTimeout(() => {
 				python.kill();
 				resolve({ error: 'Python script timeout' });
-			}, 30000); // 30 second timeout
+			}, 30000);
 		});
 	}
 
@@ -569,56 +475,46 @@ export class FractalMemoryService {
 		endDate?: Date;
 		limit?: number;
 	}): Promise<any> {
-		return new Promise((resolve, reject) => {
-			if (!this.db) {
-				reject(new Error('Database not initialized'));
-				return;
-			}
+		if (!this.db) {
+			throw new Error('Database not initialized');
+		}
 
-			const sql = `
-                SELECT 
-                    COUNT(*) as total_queries,
-                    AVG(latency_ms) as avg_latency,
-                    AVG(results_count) as avg_results,
-                    AVG(relevance_score) as avg_relevance,
-                    policy,
-                    COUNT(CASE WHEN user_feedback = 'positive' THEN 1 END) as positive_feedback,
-                    COUNT(CASE WHEN user_feedback = 'negative' THEN 1 END) as negative_feedback
-                FROM retrieval_analytics
-                WHERE created_at BETWEEN ? AND ?
-                GROUP BY policy
-                ORDER BY total_queries DESC
-                LIMIT ?
-            `;
+		const sql = `
+			SELECT 
+				COUNT(*) as total_queries,
+				AVG(latency_ms) as avg_latency,
+				AVG(results_count) as avg_results,
+				AVG(relevance_score) as avg_relevance,
+				policy,
+				COUNT(CASE WHEN user_feedback = 'positive' THEN 1 END) as positive_feedback,
+				COUNT(CASE WHEN user_feedback = 'negative' THEN 1 END) as negative_feedback
+			FROM retrieval_analytics
+			WHERE created_at BETWEEN ? AND ?
+			GROUP BY policy
+			ORDER BY total_queries DESC
+			LIMIT ?
+		`;
 
-			const params = [
-				options?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-				options?.endDate || new Date(),
-				options?.limit || 10,
-			];
+		const params = [
+			(options?.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).toISOString(),
+			(options?.endDate || new Date()).toISOString(),
+			options?.limit || 10,
+		];
 
-			(this.db as any).all(
-				sql,
-				params,
-				(err: Error | null, rows: Record<string, unknown>[]) => {
-					if (err) {
-						reject(err);
-						return;
-					}
+		const rows = this.db.prepare(sql).all(...params) as any[];
 
-					resolve({
-						metrics: rows,
-						summary: this.summarizeAnalytics(rows),
-					});
-				}
-			);
-		});
+		return {
+			metrics: rows,
+			summary: this.summarizeAnalytics(rows),
+		};
 	}
 
 	/**
 	 * Summarize analytics
 	 */
-	private summarizeAnalytics(metrics: Record<string, unknown>[]): Record<string, unknown> {
+	private summarizeAnalytics(metrics: any[]): Record<string, unknown> {
+		if (metrics.length === 0) return { totalQueries: 0 };
+
 		const totalQueries = metrics.reduce((sum, m) => sum + Number(m.total_queries || 0), 0);
 		const avgLatency =
 			metrics.reduce(
@@ -653,19 +549,12 @@ export class FractalMemoryService {
 	 */
 	async cleanup(): Promise<void> {
 		if (this.pythonProcess) {
-			(this.pythonProcess as any).kill();
+			this.pythonProcess.kill();
 			this.pythonProcess = null;
 		}
 
 		if (this.db) {
-			await new Promise<void>((resolve) => {
-				this.db!.close((err: Error | null) => {
-					if (err) {
-						logger.error('Error closing database', { error: err });
-					}
-					resolve();
-				});
-			});
+			this.db.close();
 			this.db = null;
 		}
 
