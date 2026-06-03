@@ -45,12 +45,11 @@
     "format:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run clean && npm run build && npm run test",
-    "prepare": "npm run build",
+    "prepare": "test -n \"$CI\" || npm run build",
     "postinstall": "node scripts/postinstall.cjs",
     "uninstall": "node scripts/uninstall.js"
   },
   "dependencies": {
-    "@hms/native": "file:../HMS",
     "@langchain/community": "^1.1.19",
     "@langchain/core": "^1.1.28",
     "@langchain/openai": "^1.2.10",
@@ -100,6 +99,9 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
+  },
+  "optionalDependencies": {
+    "@hms/native": "file:../HMS"
   },
   "engines": {
     "node": ">=18.0.0"
