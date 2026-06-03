@@ -307,9 +307,16 @@ npm test           # Run tests
 
 **Requirements:** Node.js 18+, TypeScript 5.0+, Scrivener 3 project files
 
+## Documentation
+
+- [Getting Started](./docs/getting-started.md) -- installation, configuration, first steps
+- [Writing with AI](./docs/writing-with-ai.md) -- analysis, enhancement, memory, semantic search
+- [Architecture](./docs/architecture.md) -- how the server works internally
+- [Contributing](./docs/contributing.md) -- development setup, code conventions, adding tools
+
 ## Contributing
 
-Contributions are welcome. Please see our [issue tracker](https://github.com/writerslogic/scrivener-mcp/issues) for good first issues and feature requests.
+Contributions are welcome. See the [contributing guide](./docs/contributing.md) and our [issue tracker](https://github.com/writerslogic/scrivener-mcp/issues) for good first issues.
 
 ## License
 
