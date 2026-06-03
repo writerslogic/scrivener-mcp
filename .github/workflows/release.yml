@@ -34,13 +34,6 @@ jobs:
         run: npm test -- --passWithNoTests || true
         continue-on-error: true
 
-      - name: Create Release
-        uses: ncipollo/release-action@v1
-        with:
-          generateReleaseNotes: true
-          draft: false
-          prerelease: false
-
       - name: Publish to npm (provenance)
         run: npm publish --access public --provenance
         env:
@@ -49,7 +42,10 @@ jobs:
       - name: Create tarball
         run: npm pack
 
-      - name: Upload tarball to release
-        uses: softprops/action-gh-release@v1
+      - name: Create Release
+        uses: ncipollo/release-action@v1
         with:
-          files: '*.tgz'
+          generateReleaseNotes: true
+          draft: false
+          prerelease: false
+          artifacts: '*.tgz'
