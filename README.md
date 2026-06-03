@@ -12,69 +12,40 @@
   <a href="https://www.npmjs.com/package/scrivener-mcp">
     <img src="https://img.shields.io/npm/v/scrivener-mcp.svg" alt="npm version"/>
   </a>
-  <img src="https://img.shields.io/npm/dt/scrivener-mcp.svg" alt="npm total downloads"/>
   <img src="https://img.shields.io/npm/dm/scrivener-mcp.svg" alt="npm monthly downloads"/>
   <a href="https://github.com/writerslogic/scrivener-mcp/actions">
     <img src="https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build status"/>
   </a>
-  <a href="https://coveralls.io/github/writerslogic/scrivener-mcp">
-    <img src="https://coveralls.io/repos/github/writerslogic/scrivener-mcp/badge.svg" alt="coverage"/>
-  </a>
   <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp" alt="license"/>
   <img src="https://img.shields.io/node/v/scrivener-mcp" alt="node version"/>
-  <img src="https://img.shields.io/badge/TypeScript-5.3-blue" alt="typescript"/>
 </p>
 
 <p align="center">
-  <a href="https://github.com/writerslogic/scrivener-mcp/stargazers">
-    <img src="https://img.shields.io/github/stars/writerslogic/scrivener-mcp?style=social" alt="GitHub stars"/>
-  </a>
-  <a href="https://github.com/writerslogic/scrivener-mcp/network/members">
-    <img src="https://img.shields.io/github/forks/writerslogic/scrivener-mcp?style=social" alt="GitHub forks"/>
-  </a>
-  <a href="https://buymeacoffee.com/davidcondrey">
-    <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow?logo=buy-me-a-coffee" alt="Buy Me A Coffee"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#api-reference">API</a> •
+  <a href="#quick-start">Quick Start</a> &middot;
+  <a href="#features">Features</a> &middot;
+  <a href="#available-tools">Tools</a> &middot;
+  <a href="#usage-examples">Usage</a> &middot;
   <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
-A powerful Model Context Protocol (MCP) server that enables Claude AI to seamlessly interact with Scrivener projects. This server provides comprehensive document management, AI-powered content analysis, and advanced writing assistance capabilities - all without requiring external services like Redis.
+An MCP server that gives Claude AI full read/write access to Scrivener projects. Manage documents, analyze writing, track characters and plot threads, and search by semantic meaning -- all from within Claude.
 
-> **v0.4.0** - Major reliability and performance update. See [CHANGELOG.md](./CHANGELOG.md) for details.
+> **v0.4** -- Major reliability and performance update. See [CHANGELOG.md](./CHANGELOG.md).
 
-## 🚀 Quick Start
-
-### Installation
+## Quick Start
 
 ```bash
 npm install -g scrivener-mcp
 ```
 
-✨ **Features:**
-- **Automatic Claude Desktop configuration** - Just restart Claude Desktop after installation
-- **No Redis or external services required** - Built-in embedded queue system
-- **Zero configuration** - Works out of the box
-- **AI providers optional** - Core features work without API keys
+Restart Claude Desktop. The package auto-configures itself. No Redis, no external services, no API keys required for core features.
 
-### Manual Configuration (Optional)
+<details>
+<summary><strong>Manual configuration</strong></summary>
 
-If automatic setup didn't work, you can manually configure:
-
-```bash
-# Run the setup script
-npx scrivener-mcp setup
-
-# Or manually add to claude_desktop_config.json:
-```
+If automatic setup didn't work, add to your `claude_desktop_config.json`:
 
 ```json
 {
@@ -87,276 +58,172 @@ npx scrivener-mcp setup
 }
 ```
 
-### Uninstalling
+Or run the setup script: `npx scrivener-mcp setup`
 
-```bash
-# Remove the package and configuration
-npm uninstall -g scrivener-mcp
-```
+</details>
 
-## ✨ Features
+## Features
 
-### 📚 Core Scrivener Operations
-- **Project Management**: Open and manage Scrivener `.scriv` projects
-- **Document CRUD**: Read, write, create, delete, and move documents and folders
-- **Metadata Management**: Update document titles, keywords, and custom metadata
-- **Project Structure**: Navigate and manipulate the hierarchical binder structure
+**Core Scrivener Operations** -- Open projects, read/write/create/delete/move documents, navigate the binder hierarchy, update metadata (including custom metadata), manage synopses and notes.
 
-### 📝 Advanced RTF Support
-- **Full RTF Parsing**: Complete support for Scrivener's RTF document format
-- **Formatted Content**: Preserve and manipulate bold, italic, underline, and other formatting
-- **Scrivener Annotations**: Extract and preserve Scrivener-specific annotations and comments
-- **Unicode Support**: Handle international characters and special symbols
+**RTF Support** -- Full parsing and generation of Scrivener's RTF format with annotations, Unicode, and formatting preservation.
 
-### 🤖 AI-Powered Content Analysis
-- **Deep Writing Analysis**: Comprehensive metrics including Flesch scores, readability, pacing
-- **Style Assessment**: Sentence variety, vocabulary complexity, adverb usage analysis
-- **Quality Indicators**: Detection of clichés, filter words, repetitiveness
-- **Emotional Analysis**: Track emotional arcs and tension levels
-- **Smart Suggestions**: Actionable recommendations for improvement
-- **Legacy Analysis**: Basic readability metrics and passive voice detection
+**AI Writing Analysis** -- Readability scores, style assessment, pacing analysis, emotional arc tracking, cliche/filter word detection, and actionable suggestions.
 
-### 🧠 Intelligent Memory Management
-- **Project Memory**: Persistent storage within each Scrivener project
-- **Character Profiles**: Track character details, relationships, and arcs
-- **Plot Threads**: Manage multiple storylines and their progression
-- **Style Guide**: Maintain consistent tone, voice, POV, and tense
-- **Writing Statistics**: Track progress, word counts, and productivity
-- **Auto-save**: Automatic backups with version history
+**Content Enhancement** -- 12+ enhancement types: filter word elimination, verb strengthening, sentence variation, sensory details, show-don't-tell, pacing control, expansion/condensing, and full rewrites.
 
-### ✍️ Smart Content Enhancement
-- **Smart Editing**: 12+ enhancement types for improving prose
-- **Filter Word Elimination**: Remove unnecessary qualifiers
-- **Verb Strengthening**: Replace weak verbs with powerful alternatives
-- **Sentence Variation**: Improve rhythm and flow
-- **Sensory Enhancement**: Add vivid sensory details
-- **Show Don't Tell**: Convert telling to showing
-- **Pacing Control**: Adjust story tempo
-- **Content Expansion/Condensing**: Meet word count targets
+**Project Memory** -- Persistent character profiles, plot threads, style guides, and writing statistics stored within each Scrivener project.
 
-### 📖 Document Compilation & Export
-- **Multi-document Compilation**: Combine multiple documents into single output
-- **Format Preservation**: Option to maintain or strip RTF formatting
-- **Custom Separators**: Configure how documents are joined
+**Holographic Memory System (HMS)** -- Rust-native semantic search engine with 10,000-dimensional vector space, analogical reasoning, batch APIs, zero-copy ingestion, and end-to-end tracing.
 
-### 🧠 Holographic Memory System (HMS) - Rust Native
-- **Rust-native engine**: High-performance napi-rs bindings with rayon parallel encoding
-- **Semantic Search**: Find documents by meaning, not just keywords
-- **Analogical Reasoning**: Discover relationships like "protagonist:hero :: antagonist:?"
-- **Auto-Memorization**: Documents automatically stored in 10,000-dimensional semantic space
-- **Zero-copy ingestion**: Buffer and memmap2 paths avoid UTF-8 copies at the napi boundary
-- **Batch APIs**: Single native call per operation; no serial loops across the boundary
-- **Multi-modal Learning**: Text, documents, relationships, and temporal sequences
-- **Creative Combinations**: Dream mode generates novel concept associations
-- **End-to-end tracing**: trace_id flows from JSON-RPC request through Rust spans
-- **Type-safe**: TypeScript types and JSON schemas auto-generated from Rust structs via ts-rs/schemars
+**Document Compilation** -- Combine multiple documents with configurable separators and format preservation.
 
-## 🛠️ Available Tools
+**Database Tools** -- SQLite for writing statistics and content history. Optional Neo4j for character relationship graphs and story structure analysis.
 
-The MCP server provides 75+ powerful tools for comprehensive Scrivener integration:
+## Available Tools
 
-### 📁 Project Operations
-- `open_project(path)` - Open a Scrivener project
-- `get_structure(options?)` - Get the project's hierarchical structure
-  - Options: `maxDepth` (limit tree depth), `folderId` (get specific folder), `includeTrash` (include trash), `summaryOnly` (return counts only)
-- `get_document_info(documentId)` - Get document metadata with full parent hierarchy and location
-- `get_project_metadata()` - Get project-level metadata
+The server provides 75+ tools. Click a category to expand.
 
-### 📄 Document Operations
-- `read_document(documentId)` - Read plain text content
-- `read_document_formatted(documentId)` - Read with RTF formatting preserved
-- `write_document(documentId, content)` - Write content to document
-- `get_document_annotations(documentId)` - Get Scrivener annotations
+<details>
+<summary><strong>Project Operations</strong></summary>
 
-### 🗂️ File Management
-- `create_document(parentId?, title, type?)` - Create new document or folder
-- `delete_document(documentId)` - Delete document or folder
-- `move_document(documentId, newParentId?)` - Move document to new location
+| Tool | Description |
+|------|-------------|
+| `open_project(path)` | Open a Scrivener project |
+| `get_structure(options?)` | Get hierarchical binder structure |
+| `get_document_info(documentId)` | Get document metadata with parent hierarchy |
+| `get_project_metadata()` | Get project-level metadata |
+| `get_all_documents(includeTrash?)` | Flat list of all documents |
+| `save_project()` | Save pending changes |
+| `is_project_modified()` | Check for unsaved changes |
 
-### 🔍 Metadata & Search
-- `update_metadata(documentId, metadata)` - Update document metadata
-- `search_content(query, options?)` - Search across all documents (excludes trash)
-- `get_word_count(documentId?)` - Get word/character counts
+</details>
 
-### 🗑️ Trash Management
-- `list_trash()` - List all documents in the trash folder
-- `search_trash(query, options?)` - Search only within trashed documents
-- `recover_document(documentId, targetParentId?)` - Recover document from trash
+<details>
+<summary><strong>Document Operations</strong></summary>
 
-### 📊 Analysis & Compilation
-- `analyze_document(documentId)` - Deep AI-powered content analysis
-- `deep_analyze_content(documentId)` - Comprehensive writing metrics and suggestions
-- `critique_document(documentId, focusAreas?)` - Get constructive feedback
-- `compile_documents(documentIds, separator?, preserveFormatting?)` - Compile multiple documents
+| Tool | Description |
+|------|-------------|
+| `read_document(documentId)` | Read plain text content |
+| `read_document_formatted(documentId)` | Read with RTF formatting |
+| `read_document_rtf(documentId)` | Read raw RTF |
+| `write_document(documentId, content)` | Write content |
+| `create_document(parentId?, title, type?)` | Create document or folder |
+| `delete_document(documentId)` | Delete document |
+| `move_document(documentId, newParentId?)` | Move document |
+| `get_document_annotations(documentId)` | Get Scrivener annotations |
+| `get_word_count(documentId?)` | Word/character counts |
 
-### ✨ Content Enhancement
-- `enhance_content(documentId, enhancementType, options?)` - Apply AI improvements
-  - Enhancement types: `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
+</details>
 
-### 💾 Memory Management
-- `save_character_profile(name, role, description?, traits?, arc?)` - Store character data
-- `get_character_profiles()` - Retrieve all character profiles
-- `update_style_guide(tone?, voice?, pov?, tense?)` - Set writing preferences
-- `get_style_guide()` - Get current style guide
-- `save_plot_thread(name, description, status?, documents?)` - Track plot lines
-- `get_plot_threads()` - View all plot threads
-- `get_writing_stats()` - Get project statistics
-- `export_project_memory()` - Export complete memory data
+<details>
+<summary><strong>Metadata & Search</strong></summary>
 
-### 🔧 Additional Tools
-- `get_all_documents(includeTrash?)` - Get flat list of all documents
-- `save_project()` - Save any pending changes to the project
-- `is_project_modified()` - Check if project has unsaved changes
-- `read_document_rtf(documentId)` - Read document with RTF formatting preserved
-- `update_document_context(documentId, summary?, themes?, pacing?)` - Update document memory context
-- `add_custom_context(key, value)` - Add custom context to project memory
-- `get_custom_context(key?)` - Get custom context from project memory
-- `update_writing_session(wordsWritten, duration?)` - Update writing session statistics
-- `extract_research_data(html, keywords?)` - Extract research data from web content
-- `import_memory(memoryData)` - Import project memory from exported data
-- `update_document_synopsis_notes(documentId, synopsis?, notes?)` - Update synopsis and/or notes for a document
-- `batch_update_synopsis_notes(updates)` - Update synopsis and/or notes for multiple documents at once
+| Tool | Description |
+|------|-------------|
+| `update_metadata(documentId, metadata)` | Update metadata (synopsis, notes, label, status, customMetadata) |
+| `update_document_synopsis_notes(documentId, synopsis?, notes?)` | Update synopsis and notes |
+| `batch_update_synopsis_notes(updates)` | Batch update multiple documents |
+| `search_content(query, options?)` | Search across all documents |
+| `list_trash()` | List trashed documents |
+| `search_trash(query, options?)` | Search within trash |
+| `recover_document(documentId, targetParentId?)` | Recover from trash |
 
-### 🧠 **NEW** Holographic Memory (HHM) Tools
-- `semantic_search(query, k?, threshold?)` - Find documents by semantic meaning
-- `find_analogies(a, b, c)` - Discover analogical relationships (A:B :: C:?)
-- `hhm/memorize/text(text, id?)` - Store text in semantic memory
-- `hhm/memorize/document(document)` - Store document with structure
-- `hhm/memorize/relationship(subject, relation, object)` - Store semantic relationships
-- `hhm/query/text(text, k?)` - Query memory with text
-- `hhm/query/analogy(a, b, c)` - Find analogical completions
-- `hhm/concepts/generate()` - Generate novel concept combinations
-- `hhm/dream(duration?)` - Enter creative recombination mode
-- `hhm/consistency/check(memoryIds)` - Verify memory consistency
-- `hhm/stats()` - Get HHM system statistics
-- `hhm/benchmark/run(dimensions?)` - Run performance benchmarks
-- `hhm/benchmark/gpu()` - Test GPU acceleration capabilities
-- `hhm/cache/clear()` - Clear vector cache
-- `hhm/cache/stats()` - Get cache performance metrics
+</details>
 
-### 🗄️ Database Tools (Advanced)
-- `get_database_status()` - Get status of SQLite and Neo4j databases
-- `query_database(query, params?)` - Execute SELECT queries on SQLite database
-- `get_writing_statistics(days?)` - Get writing statistics for specified period
-- `record_writing_session(wordsWritten, durationMinutes?, documentsWorkedOn?, notes?)` - Record a writing session
-- `analyze_story_structure()` - Analyze document flow, character arcs, and themes using Neo4j
-- `find_character_relationships(characterId)` - Find all relationships for a character
-- `create_relationship(fromId, fromType, toId, toType, relationshipType, properties?)` - Create relationships between entities
-- `get_content_analysis_history(documentId, analysisType?)` - Get historical analysis data
-- `backup_databases(backupPath?)` - Create backup of project databases
+<details>
+<summary><strong>Analysis & Enhancement</strong></summary>
 
-## 📄 RTF Format Support
+| Tool | Description |
+|------|-------------|
+| `analyze_document(documentId)` | AI-powered content analysis |
+| `deep_analyze_content(documentId)` | Comprehensive writing metrics |
+| `critique_document(documentId, focusAreas?)` | Constructive feedback |
+| `enhance_content(documentId, enhancementType, options?)` | Apply improvements |
+| `compile_documents(documentIds, separator?, preserveFormatting?)` | Compile documents |
 
-This MCP server includes comprehensive RTF (Rich Text Format) support specifically designed for Scrivener's document format:
+Enhancement types: `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
 
-- **RTF Parsing**: Converts RTF to structured content with formatting preserved
-- **RTF Generation**: Creates valid RTF from plain or formatted text
-- **Scrivener Extensions**: Handles Scrivener-specific RTF extensions and annotations
-- **Character Encoding**: Properly handles Unicode and special characters
-- **Metadata Extraction**: Extracts document metadata from RTF info groups
+</details>
 
-## 🏗️ Architecture
+<details>
+<summary><strong>Memory Management</strong></summary>
 
-### Core Components
-- `ScrivenerProject` - Main class for project operations
-- `RTFHandler` - Comprehensive RTF parsing and generation
-- `DatabaseService` - Manages SQLite and Neo4j database operations
-- `MemoryManager` - Persistent project memory and context storage
-- `ContentAnalyzer` - Deep writing analysis and metrics
-- `ContentEnhancer` - AI-powered content improvement engine
-- **`HolographicMemorySystem`** - 10,000-dimensional semantic memory with GPU acceleration
-- MCP Server - Tool definitions and request handling
+| Tool | Description |
+|------|-------------|
+| `save_character_profile(name, role, ...)` | Store character data |
+| `get_character_profiles()` | Retrieve all characters |
+| `update_style_guide(tone?, voice?, pov?, tense?)` | Set writing preferences |
+| `get_style_guide()` | Get current style guide |
+| `save_plot_thread(name, description, status?, ...)` | Track plot lines |
+| `get_plot_threads()` | View all plot threads |
+| `get_writing_stats()` | Project statistics |
+| `export_project_memory()` | Export all memory data |
+| `import_memory(memoryData)` | Import memory data |
+| `update_document_context(documentId, ...)` | Update document context |
+| `add_custom_context(key, value)` | Add custom context |
+| `get_custom_context(key?)` | Get custom context |
+| `update_writing_session(wordsWritten, duration?)` | Record writing session |
 
-### Data Storage
-- **SQLite Database** - Stored in `.scrivener-databases/scrivener.db` within each project
-  - Documents, characters, plot threads, themes, writing sessions
-  - Content analysis history and relationships
-- **Neo4j Graph Database** - Optional graph database for relationship analysis
-  - Document flow, character networks, theme progression
-  - Falls back gracefully if not available
-- **Memory Files** - Stored in `.ai-memory` folders for quick access
-- Automatic backups maintain history and data integrity
-- All data persists between sessions and travels with the project
+</details>
 
-## 💻 Usage Examples
+<details>
+<summary><strong>Semantic Memory (HMS)</strong></summary>
 
-### Basic Workflow
+| Tool | Description |
+|------|-------------|
+| `semantic_search(query, k?, threshold?)` | Find documents by meaning |
+| `find_analogies(a, b, c)` | Analogical reasoning (A:B :: C:?) |
+| `hhm_dream()` | Creative concept recombination |
+
+Documents are automatically memorized in the HMS vector space on write.
+
+</details>
+
+<details>
+<summary><strong>Database Tools (Advanced)</strong></summary>
+
+| Tool | Description |
+|------|-------------|
+| `get_database_status()` | SQLite and Neo4j status |
+| `query_database(query, params?)` | Execute SELECT queries |
+| `get_writing_statistics(days?)` | Writing stats for period |
+| `record_writing_session(...)` | Record a session |
+| `analyze_story_structure()` | Story structure analysis (Neo4j) |
+| `find_character_relationships(characterId)` | Character relationships |
+| `create_relationship(...)` | Create entity relationships |
+| `get_content_analysis_history(documentId, ...)` | Historical analysis |
+| `backup_databases(backupPath?)` | Backup project databases |
+
+</details>
+
+## Usage Examples
+
+<details>
+<summary><strong>Basic workflow</strong></summary>
+
 ```javascript
 // Open a project
 open_project("/path/to/MyNovel.scriv")
 
-// Get project structure
+// Browse structure
 get_structure()
 
-// Read a document
+// Read and analyze a chapter
 read_document("UUID-OF-DOCUMENT")
-
-// Analyze content
 deep_analyze_content("UUID-OF-DOCUMENT")
 
-// Apply enhancements
+// Improve the prose
 enhance_content("UUID-OF-DOCUMENT", "strengthen-verbs")
 ```
 
-### Synopsis and Notes Management
+</details>
+
+<details>
+<summary><strong>Character and style management</strong></summary>
+
 ```javascript
-// Update synopsis for a single document
-update_document_synopsis_notes("UUID-OF-CHAPTER", {
-  synopsis: "Elizabeth meets Mr. Darcy at the assembly ball and takes an instant dislike to him.",
-  notes: "Important first impression scene - sets up central conflict"
-})
-
-// Batch update multiple documents
-batch_update_synopsis_notes([
-  {
-    documentId: "UUID-OF-CHAPTER-1",
-    synopsis: "Introduction to Elizabeth and her family",
-    notes: "Character establishment chapter"
-  },
-  {
-    documentId: "UUID-OF-CHAPTER-2", 
-    synopsis: "The Netherfield ball",
-    notes: "Major social event - introduces Bingley and Darcy"
-  }
-])
-```
-
-### Database Operations
-```javascript
-// Check database status
-get_database_status()
-
-// Query documents with custom SQL
-query_database("SELECT title, word_count FROM documents WHERE word_count > 1000")
-
-// Record a writing session
-record_writing_session({
-  wordsWritten: 1250,
-  durationMinutes: 45,
-  documentsWorkedOn: ["UUID-1", "UUID-2"],
-  notes: "Productive morning session"
-})
-
-// Get writing statistics
-get_writing_statistics(30) // Last 30 days
-
-// Analyze story structure (requires Neo4j)
-analyze_story_structure()
-
-// Find character relationships in graph
-find_character_relationships("CHARACTER-UUID")
-
-// Create document relationship
-create_relationship(
-  "CHAPTER-1-UUID", "document",
-  "CHAPTER-2-UUID", "document", 
-  "FOLLOWS"
-)
-```
-
-### Character Management
-```javascript
-// Save a character profile
+// Save character profile
 save_character_profile({
   name: "Elizabeth Bennet",
   role: "protagonist",
@@ -365,12 +232,6 @@ save_character_profile({
   arc: "Overcomes initial prejudice to find true love"
 })
 
-// Retrieve all characters
-get_character_profiles()
-```
-
-### Style Consistency
-```javascript
 // Set style guide
 update_style_guide({
   tone: ["witty", "romantic", "formal"],
@@ -379,64 +240,84 @@ update_style_guide({
   tense: "past"
 })
 
-// Apply style-aware enhancements
-enhance_content("UUID", "match-style")
+// Track a plot thread
+save_plot_thread({
+  name: "Murder Mystery",
+  description: "Central whodunit spanning chapters 1-5",
+  status: "in-progress"
+})
 ```
 
-### Writing Analysis
+</details>
+
+<details>
+<summary><strong>Synopsis and notes management</strong></summary>
+
 ```javascript
-// Get comprehensive analysis
-const analysis = deep_analyze_content("UUID")
-// Returns metrics, suggestions, quality indicators, pacing analysis
+// Single document
+update_document_synopsis_notes("UUID-OF-CHAPTER", {
+  synopsis: "Elizabeth meets Mr. Darcy at the assembly ball.",
+  notes: "First impression scene - sets up central conflict"
+})
 
-// Get focused critique
-critique_document("UUID", ["pacing", "dialogue"])
+// Batch update
+batch_update_synopsis_notes([
+  { documentId: "UUID-1", synopsis: "Introduction to the family" },
+  { documentId: "UUID-2", synopsis: "The Netherfield ball" }
+])
 ```
 
-## 🛡️ Error Handling
+</details>
 
-The server includes robust error handling for:
-- Invalid project paths
-- Missing documents
-- RTF parsing failures
-- File system errors
-- Malformed project structures
-- Memory corruption recovery
+## Architecture
 
-## 👨‍💻 Development
+<details>
+<summary><strong>Core components</strong></summary>
+
+- **ScrivenerProject** -- Project operations and binder management
+- **RTFHandler** -- RTF parsing and generation
+- **DatabaseService** -- SQLite and Neo4j operations
+- **MemoryManager** -- Persistent project memory
+- **ContentAnalyzer** -- Writing analysis and metrics
+- **ContentEnhancer** -- AI-powered improvements
+- **HolographicMemorySystem** -- Rust-native semantic memory engine
+- **MCP Server** -- Tool definitions and JSON-RPC handling
+
+</details>
+
+<details>
+<summary><strong>Data storage</strong></summary>
+
+- **SQLite** -- `.scrivener-databases/scrivener.db` within each project (documents, characters, plot threads, writing sessions, analysis history)
+- **Neo4j** -- Optional graph database for relationship analysis (falls back gracefully)
+- **Memory files** -- `.ai-memory` folder for quick-access project memory
+- All data persists between sessions and travels with the project
+
+</details>
+
+## Development
 
 ```bash
-npm run dev       # Development mode with hot reload
-npm run build     # Build TypeScript
-npm run lint      # ESLint
-npm run typecheck # TypeScript checking
+npm run dev        # Development mode with hot reload
+npm run build      # Build TypeScript
+npm run typecheck  # Type checking
+npm run lint       # ESLint
+npm test           # Run tests
 ```
 
-## 📋 Requirements
+**Requirements:** Node.js 18+, TypeScript 5.0+, Scrivener 3 project files
 
-- Node.js 18+
-- TypeScript 5.0+
-- Valid Scrivener 3 project files
+## Contributing
 
-## 📜 License
+Contributions are welcome. Please see our [issue tracker](https://github.com/writerslogic/scrivener-mcp/issues) for good first issues and feature requests.
 
-MIT © [David Condrey](https://github.com/dcondrey)
+## License
 
-## 🤝 Contributing
+MIT (c) [WritersLogic, Inc.](https://github.com/writerslogic)
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 💖 Support
-
-If you find this project helpful, consider:
-- ⭐ Starring the repository
-- 🐛 Reporting bugs or requesting features
-- ☕ [Buying me a coffee](https://buymeacoffee.com/davidcondrey)
-- 📣 Sharing with other Scrivener users
-
-## 🔗 Links
+## Links
 
 - [GitHub Repository](https://github.com/writerslogic/scrivener-mcp)
 - [NPM Package](https://www.npmjs.com/package/scrivener-mcp)
 - [Issue Tracker](https://github.com/writerslogic/scrivener-mcp/issues)
-- [Changelog](https://github.com/writerslogic/scrivener-mcp/releases)
+- [Changelog](./CHANGELOG.md)
