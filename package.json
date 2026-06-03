@@ -18,11 +18,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/dcondrey/scrivener-mcp.git"
+    "url": "https://github.com/writerslogic/scrivener-mcp.git"
   },
-  "homepage": "https://github.com/dcondrey/scrivener-mcp#readme",
+  "homepage": "https://github.com/writerslogic/scrivener-mcp#readme",
   "bugs": {
-    "url": "https://github.com/dcondrey/scrivener-mcp/issues"
+    "url": "https://github.com/writerslogic/scrivener-mcp/issues"
   },
   "scripts": {
     "build": "tsc",

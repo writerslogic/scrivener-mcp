@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/dcondrey/scrivener-mcp/main/assets/logo.svg" alt="Scrivener MCP Logo" width="200"/>
+  <img src="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo.svg" alt="Scrivener MCP Logo" width="200"/>
 </p>
 
 <h1 align="center">Scrivener MCP Server</h1>
@@ -14,23 +14,23 @@
   </a>
   <img src="https://img.shields.io/npm/dt/scrivener-mcp.svg" alt="npm total downloads"/>
   <img src="https://img.shields.io/npm/dm/scrivener-mcp.svg" alt="npm monthly downloads"/>
-  <a href="https://github.com/dcondrey/scrivener-mcp/actions">
-    <img src="https://github.com/dcondrey/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build status"/>
+  <a href="https://github.com/writerslogic/scrivener-mcp/actions">
+    <img src="https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build status"/>
   </a>
-  <a href="https://coveralls.io/github/dcondrey/scrivener-mcp">
-    <img src="https://coveralls.io/repos/github/dcondrey/scrivener-mcp/badge.svg" alt="coverage"/>
+  <a href="https://coveralls.io/github/writerslogic/scrivener-mcp">
+    <img src="https://coveralls.io/repos/github/writerslogic/scrivener-mcp/badge.svg" alt="coverage"/>
   </a>
-  <img src="https://img.shields.io/github/license/dcondrey/scrivener-mcp" alt="license"/>
+  <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp" alt="license"/>
   <img src="https://img.shields.io/node/v/scrivener-mcp" alt="node version"/>
   <img src="https://img.shields.io/badge/TypeScript-5.3-blue" alt="typescript"/>
 </p>
 
 <p align="center">
-  <a href="https://github.com/dcondrey/scrivener-mcp/stargazers">
-    <img src="https://img.shields.io/github/stars/dcondrey/scrivener-mcp?style=social" alt="GitHub stars"/>
+  <a href="https://github.com/writerslogic/scrivener-mcp/stargazers">
+    <img src="https://img.shields.io/github/stars/writerslogic/scrivener-mcp?style=social" alt="GitHub stars"/>
   </a>
-  <a href="https://github.com/dcondrey/scrivener-mcp/network/members">
-    <img src="https://img.shields.io/github/forks/dcondrey/scrivener-mcp?style=social" alt="GitHub forks"/>
+  <a href="https://github.com/writerslogic/scrivener-mcp/network/members">
+    <img src="https://img.shields.io/github/forks/writerslogic/scrivener-mcp?style=social" alt="GitHub forks"/>
   </a>
   <a href="https://buymeacoffee.com/davidcondrey">
     <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow?logo=buy-me-a-coffee" alt="Buy Me A Coffee"/>
@@ -436,7 +436,7 @@ If you find this project helpful, consider:
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/dcondrey/scrivener-mcp)
+- [GitHub Repository](https://github.com/writerslogic/scrivener-mcp)
 - [NPM Package](https://www.npmjs.com/package/scrivener-mcp)
-- [Issue Tracker](https://github.com/dcondrey/scrivener-mcp/issues)
-- [Changelog](https://github.com/dcondrey/scrivener-mcp/releases)
+- [Issue Tracker](https://github.com/writerslogic/scrivener-mcp/issues)
+- [Changelog](https://github.com/writerslogic/scrivener-mcp/releases)
