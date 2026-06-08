@@ -134,6 +134,7 @@ export class AdvancedTaskScheduler extends EventEmitter {
 	private dependencyGraph = new Map<string, Set<string>>();
 	private metrics: SchedulerMetrics;
 	private isRunning = false;
+	private isScheduling = false;
 	private schedulingInterval: NodeJS.Timeout | null = null;
 	private maintenanceInterval: NodeJS.Timeout | null = null;
 	private priorityAgingInterval: NodeJS.Timeout | null = null;
@@ -433,9 +434,9 @@ export class AdvancedTaskScheduler extends EventEmitter {
 	 * Cancel a task
 	 */
 	async cancelTask(taskId: string, reason = 'User requested'): Promise<boolean> {
-		// Check if task is in queue
+		// Check if task is in queue — re-verify index before splice to guard against concurrent removal
 		const queueIndex = this.taskQueue.findIndex((qt) => qt.task.id === taskId);
-		if (queueIndex !== -1) {
+		if (queueIndex !== -1 && this.taskQueue[queueIndex]?.task.id === taskId) {
 			const queuedTask = this.taskQueue.splice(queueIndex, 1)[0];
 			queuedTask.task.status = 'cancelled';
 			queuedTask.task.abortController.abort();
@@ -592,44 +593,56 @@ export class AdvancedTaskScheduler extends EventEmitter {
 	// Private methods
 
 	private async scheduleNextTasks(): Promise<void> {
-		if (!this.isRunning || this.taskQueue.length === 0) {
+		if (this.isScheduling || !this.isRunning || this.taskQueue.length === 0) {
 			return;
 		}
 
-		// Find available workers and ready tasks
-		const availableWorkers = Array.from(this.workers.values()).filter(
-			(worker) => worker.currentTasks.size < worker.config.maxConcurrentTasks
-		);
+		this.isScheduling = true;
+		try {
+			// Find available workers and ready tasks
+			const availableWorkers = Array.from(this.workers.values()).filter(
+				(worker) => worker.currentTasks.size < worker.config.maxConcurrentTasks
+			);
 
-		if (availableWorkers.length === 0) {
-			return;
-		}
-
-		// Get ready tasks (no pending dependencies)
-		const readyTasks = this.taskQueue.filter((qt) =>
-			this.areAllDependenciesComplete(qt.task.id)
-		);
-
-		if (readyTasks.length === 0) {
-			return;
-		}
-
-		// Match tasks to workers using intelligent assignment
-		const assignments = this.assignTasksToWorkers(readyTasks, availableWorkers);
-
-		// Execute assignments
-		for (const { task: queuedTask, worker } of assignments) {
-			// Remove from queue
-			const queueIndex = this.taskQueue.findIndex((qt) => qt.task.id === queuedTask.task.id);
-			if (queueIndex !== -1) {
-				this.taskQueue.splice(queueIndex, 1);
+			if (availableWorkers.length === 0) {
+				return;
 			}
 
-			// Start execution
-			await this.executeTask(queuedTask.task, worker);
-		}
+			// Get ready tasks (no pending dependencies)
+			const readyTasks = this.taskQueue.filter((qt) =>
+				this.areAllDependenciesComplete(qt.task.id)
+			);
 
-		this.metrics.currentQueueSize = this.taskQueue.length;
+			if (readyTasks.length === 0) {
+				return;
+			}
+
+			// Match tasks to workers using intelligent assignment
+			const assignments = this.assignTasksToWorkers(readyTasks, availableWorkers);
+
+			// Execute assignments
+			for (const { task: queuedTask, worker } of assignments) {
+				// Re-check worker capacity before launching to prevent exceeding maxConcurrentTasks
+				if (worker.currentTasks.size >= worker.config.maxConcurrentTasks) {
+					continue;
+				}
+
+				// Remove from queue
+				const queueIndex = this.taskQueue.findIndex(
+					(qt) => qt.task.id === queuedTask.task.id
+				);
+				if (queueIndex !== -1) {
+					this.taskQueue.splice(queueIndex, 1);
+				}
+
+				// Start execution
+				await this.executeTask(queuedTask.task, worker);
+			}
+
+			this.metrics.currentQueueSize = this.taskQueue.length;
+		} finally {
+			this.isScheduling = false;
+		}
 	}
 
 	private assignTasksToWorkers(
@@ -646,16 +659,20 @@ export class AdvancedTaskScheduler extends EventEmitter {
 		});
 
 		for (const queuedTask of sortedTasks) {
+			if (availableWorkers.length === 0) break;
+
 			// Find best worker for this task
 			const bestWorker = this.findBestWorkerForTask(queuedTask.task, availableWorkers);
 
 			if (bestWorker && this.canWorkerHandleTask(bestWorker, queuedTask.task)) {
 				assignments.push({ task: queuedTask, worker: bestWorker });
 
-				// Update worker availability
-				const workerIndex = availableWorkers.indexOf(bestWorker);
+				// Update worker availability — remove fully loaded workers
 				if (bestWorker.currentTasks.size + 1 >= bestWorker.config.maxConcurrentTasks) {
-					availableWorkers.splice(workerIndex, 1);
+					const workerIndex = availableWorkers.indexOf(bestWorker);
+					if (workerIndex !== -1) {
+						availableWorkers.splice(workerIndex, 1);
+					}
 				}
 			}
 		}
@@ -912,14 +929,14 @@ export class AdvancedTaskScheduler extends EventEmitter {
 			this.metrics.totalTasksFailed++;
 		}
 
-		// Clean up old completed tasks
+		// Clean up old completed tasks using FIFO deletion
 		if (this.completedTasks.size > 1000) {
-			const oldestTasks = Array.from(this.completedTasks.entries())
-				.sort(([, a], [, b]) => (a.completedAt || 0) - (b.completedAt || 0))
-				.slice(0, 500);
-
-			for (const [taskId] of oldestTasks) {
+			// Map iteration order is insertion order, so delete the first 500 entries (oldest)
+			let deleteCount = this.completedTasks.size - 500;
+			for (const taskId of this.completedTasks.keys()) {
+				if (deleteCount <= 0) break;
 				this.completedTasks.delete(taskId);
+				deleteCount--;
 			}
 		}
 

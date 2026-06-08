@@ -489,13 +489,18 @@ export class PersonalizationEngine extends EventEmitter {
 	}
 
 	private async loadUserProfiles(): Promise<void> {
-		// In a real implementation, this would load from persistent storage
-		this.logger.debug('Loading user profiles from storage (placeholder)');
+		this.logger.warn(
+			'Persistence backend not configured; starting with empty in-memory profiles'
+		);
+		this.userProfiles.clear();
 	}
 
 	private async initializeLearningModels(): Promise<void> {
-		// In a real implementation, this would load ML models
-		this.logger.debug('Initializing learning models (placeholder)');
+		this.logger.warn(
+			'Persistence backend not configured; learning models initialized as empty in-memory state'
+		);
+		this.adaptationRules.clear();
+		this.initializeAdaptationRules();
 	}
 
 	private analyzeAndUpdateFeedbackTopics(

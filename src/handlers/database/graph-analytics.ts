@@ -102,16 +102,24 @@ export class GraphAnalytics {
 			connections: 0, // Will be calculated separately
 		}));
 
-		// Get connection counts
-		for (const char of central) {
+		// Get connection counts in a single batched query
+		if (central.length > 0) {
+			const ids = central.map((c) => c.id);
 			const connResult = await this.neo4j.query(
 				`
-				MATCH (c:Character {id: $id})-[:RELATES_TO]-(other)
-				RETURN count(DISTINCT other) AS connections
+				UNWIND $ids AS id
+				MATCH (c:Character {id: id})-[:RELATES_TO]-(other)
+				RETURN c.id AS charId, count(DISTINCT other) AS connections
 			`,
-				{ id: char.id }
+				{ ids }
 			);
-			char.connections = connResult.records[0]?.get('connections') || 0;
+			const connMap = new Map<string, number>();
+			for (const record of connResult.records) {
+				connMap.set(record.get('charId'), record.get('connections'));
+			}
+			for (const char of central) {
+				char.connections = connMap.get(char.id) || 0;
+			}
 		}
 
 		const clusters = clusterResult.records.map((r, idx) => ({

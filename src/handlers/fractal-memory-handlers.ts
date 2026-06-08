@@ -132,13 +132,25 @@ interface MotifResult {
 
 // Initialize service singleton
 let fractalMemoryService: FractalMemoryService | null = null;
+let initPromise: Promise<FractalMemoryService> | null = null;
 
 async function getFractalMemoryService(): Promise<FractalMemoryService> {
-	if (!fractalMemoryService) {
-		fractalMemoryService = new FractalMemoryService();
-		await fractalMemoryService.initialize();
+	if (fractalMemoryService) {
+		return fractalMemoryService;
 	}
-	return fractalMemoryService;
+	if (initPromise) {
+		return initPromise;
+	}
+	initPromise = (async () => {
+		const service = new FractalMemoryService();
+		await service.initialize();
+		fractalMemoryService = service;
+		return service;
+	})().catch((error) => {
+		initPromise = null;
+		throw error;
+	});
+	return initPromise;
 }
 
 /**

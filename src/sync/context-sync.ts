@@ -37,6 +37,7 @@ export class ContextSyncService {
 	private pendingChanges: Set<string> = new Set();
 	private syncStatus: SyncStatus;
 	private contextDir: string;
+	private isSyncing: boolean = false;
 
 	constructor(
 		private projectPath: string,
@@ -120,7 +121,10 @@ export class ContextSyncService {
 	 * Perform full synchronization
 	 */
 	async performSync(): Promise<void> {
-		// Starting context synchronization
+		if (this.isSyncing) {
+			return;
+		}
+		this.isSyncing = true;
 
 		try {
 			// Sync pending document changes
@@ -148,6 +152,8 @@ export class ContextSyncService {
 			const appError = handleError(error, 'sync');
 			this.syncStatus.errors.push(appError.message);
 			throw appError;
+		} finally {
+			this.isSyncing = false;
 		}
 	}
 
@@ -190,7 +196,9 @@ export class ContextSyncService {
 				{ documentId, error },
 				`Failed syncing document ${documentId}`
 			);
-			// Failed to sync document - error captured with structured details
+			if (error instanceof Error) {
+				(appError as unknown as { cause: Error }).cause = error;
+			}
 			this.syncStatus.errors.push(appError.message);
 		}
 	}
@@ -547,9 +555,21 @@ export class ContextSyncService {
 	 * Get document content
 	 */
 	private async getDocumentContent(documentId: string): Promise<string> {
-		// This would need to be implemented to fetch actual content
-		// For now, return empty string for document: ${documentId}
-		return `[Content for document ${documentId}]`;
+		try {
+			const contentPath = buildPath(
+				this.projectPath,
+				'Files',
+				'Data',
+				documentId,
+				'content.rtf'
+			);
+			if (await pathExists(contentPath)) {
+				return await fs.promises.readFile(contentPath, 'utf-8');
+			}
+			return '';
+		} catch {
+			return '';
+		}
 	}
 
 	/**

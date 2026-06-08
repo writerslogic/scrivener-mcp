@@ -13,6 +13,32 @@ import {
 	getStringArg,
 	requireProject,
 } from './types.js';
+// Cached singleton instances to avoid re-instantiation per request
+let cachedSearchLearningHandler: LangChainContinuousLearningHandler | null = null;
+let cachedSemanticLayer: SemanticDatabaseLayer | null = null;
+let cachedSemanticLayerDbService: unknown = null;
+
+async function getSearchLearningHandler(): Promise<LangChainContinuousLearningHandler> {
+	if (!cachedSearchLearningHandler) {
+		cachedSearchLearningHandler = new LangChainContinuousLearningHandler();
+		await cachedSearchLearningHandler.initialize();
+	}
+	return cachedSearchLearningHandler;
+}
+
+async function getSemanticLayer(
+	databaseService: NonNullable<unknown>
+): Promise<SemanticDatabaseLayer> {
+	if (!cachedSemanticLayer || cachedSemanticLayerDbService !== databaseService) {
+		cachedSemanticLayer = new SemanticDatabaseLayer(
+			databaseService as ConstructorParameters<typeof SemanticDatabaseLayer>[0]
+		);
+		await cachedSemanticLayer.initialize();
+		cachedSemanticLayerDbService = databaseService;
+	}
+	return cachedSemanticLayer;
+}
+
 import {
 	documentDetailsSchema,
 	moveDocumentSchema,
@@ -62,8 +88,7 @@ export const searchContentHandler: ToolDefinition = {
 
 		try {
 			// Try semantic search first for enhanced results
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
+			const learningHandler = await getSearchLearningHandler();
 
 			const sessionId = `search_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
@@ -73,8 +98,7 @@ export const searchContentHandler: ToolDefinition = {
 				throw new Error('Database service not available for semantic search');
 			}
 
-			const semanticLayer = new SemanticDatabaseLayer(context.databaseService!);
-			await semanticLayer.initialize();
+			const semanticLayer = await getSemanticLayer(context.databaseService!);
 
 			const semanticResults = await semanticLayer.semanticQuery(query, {
 				threshold: 0.3,
@@ -320,8 +344,7 @@ export const vectorSearchHandler: ToolDefinition = {
 			const vectorStore = new LangChainHMSVectorStore(embeddings);
 
 			// Initialize continuous learning for feedback collection
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
+			const learningHandler = await getSearchLearningHandler();
 
 			const sessionId = `vector_search_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
@@ -443,8 +466,11 @@ export const findMentionsHandler: ToolDefinition = {
 			}> = [];
 
 			const entityLower = entity.toLowerCase();
+			const maxResults = 50;
 
 			for (const doc of documents) {
+				if (mentions.length >= maxResults) break;
+
 				const content = doc.content || '';
 				const title = doc.title || 'Untitled';
 				const contentLower = content.toLowerCase();
@@ -466,13 +492,14 @@ export const findMentionsHandler: ToolDefinition = {
 						position,
 					});
 
+					if (mentions.length >= maxResults) break;
+
 					position += entity.length;
 				}
 			}
 
 			// Initialize continuous learning for feedback collection
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
+			const learningHandler = await getSearchLearningHandler();
 
 			const sessionId = `find_mentions_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
@@ -563,12 +590,10 @@ export const crossReferenceHandler: ToolDefinition = {
 				throw new Error('Database service not available for entity analysis');
 			}
 
-			const semanticLayer = new SemanticDatabaseLayer(context.databaseService!);
-			await semanticLayer.initialize();
+			const semanticLayer = await getSemanticLayer(context.databaseService!);
 
 			// Initialize continuous learning for feedback collection
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
+			const learningHandler = await getSearchLearningHandler();
 
 			const sessionId = `cross_reference_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);

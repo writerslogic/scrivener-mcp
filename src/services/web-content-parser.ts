@@ -8,7 +8,10 @@ import type { CheerioAPI } from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import TurndownService from 'turndown';
 import type { ContentExtractionOptions } from '../types/analysis.js';
+import { getLogger } from '../core/logger.js';
 import { splitIntoSentences } from '../utils/common.js';
+
+const logger = getLogger('WebContentParser');
 
 export interface ParsedWebContent {
 	title?: string;
@@ -668,12 +671,39 @@ export class WebContentParser {
 		});
 
 		// Extract JSON-LD structured data
+		const safeJsonLdFields = new Set([
+			'@context',
+			'@type',
+			'name',
+			'headline',
+			'description',
+			'author',
+			'datePublished',
+			'dateModified',
+			'publisher',
+			'image',
+			'url',
+			'mainEntityOfPage',
+			'articleBody',
+			'wordCount',
+			'inLanguage',
+			'keywords',
+		]);
+
 		$('script[type="application/ld+json"]').each((_, element: AnyNode) => {
 			try {
-				const jsonLd = JSON.parse($(element).html() || '');
-				metadata.jsonLd = jsonLd;
-			} catch {
-				// Ignore invalid JSON-LD
+				const parsed: unknown = JSON.parse($(element).html() || '');
+				if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+
+				const safe: Record<string, unknown> = {};
+				for (const key of Object.keys(parsed as Record<string, unknown>)) {
+					if (safeJsonLdFields.has(key)) {
+						safe[key] = (parsed as Record<string, unknown>)[key];
+					}
+				}
+				metadata.jsonLd = safe;
+			} catch (err) {
+				logger.warn('Failed to parse JSON-LD structured data', { error: err });
 			}
 		});
 

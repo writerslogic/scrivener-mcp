@@ -82,7 +82,7 @@ export class DashboardServer extends EventEmitter {
 			updateInterval: 5000, // 5 seconds
 			maxClients: 100,
 			enableCompression: true,
-			corsOrigins: ['*'],
+			corsOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000'],
 			authRequired: false,
 			...config,
 		};
@@ -856,8 +856,7 @@ export class DashboardServer extends EventEmitter {
 		const { alertId, note } = message.data || {};
 
 		if (alertId) {
-			// TODO: Implement acknowledgeAlert method
-			// this.alertManager.acknowledgeAlert(alertId, client.id, note);
+			this.performanceMonitor.acknowledgeAlert(alertId, client.id, note);
 
 			this.sendToClient(client.id, {
 				type: 'ack',

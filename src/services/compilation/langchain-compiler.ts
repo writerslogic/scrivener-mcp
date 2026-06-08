@@ -103,6 +103,7 @@ export class LangChainCompilationService extends CompilationService {
 	private elementCache: Map<string, GeneratedElements>;
 	private qualityCache: Map<string, QualityAssessment>;
 	private activeCompilations: Set<string>;
+	private static readonly MAX_CACHE_SIZE = 500;
 
 	constructor() {
 		super();
@@ -114,6 +115,15 @@ export class LangChainCompilationService extends CompilationService {
 		this.elementCache = new Map();
 		this.qualityCache = new Map();
 		this.activeCompilations = new Set();
+	}
+
+	private evictOldest<T>(cache: Map<string, T>): void {
+		if (cache.size > LangChainCompilationService.MAX_CACHE_SIZE) {
+			const firstKey = cache.keys().next().value;
+			if (firstKey !== undefined) {
+				cache.delete(firstKey);
+			}
+		}
 	}
 
 	async initialize(): Promise<void> {

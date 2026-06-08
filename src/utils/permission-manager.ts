@@ -183,17 +183,23 @@ export class PermissionManager {
 			);
 		}
 
-		let finalCommand = command.trim();
+		const finalArgs = command.trim().split(/\s+/);
+		const finalCmd = finalArgs.shift()!;
 
 		// Add sudo if needed and available
 		if (permissions.needsSudo && permissions.method === 'sudo') {
-			// Use non-interactive sudo to prevent hanging
-			finalCommand = `sudo -n ${finalCommand}`;
+			finalArgs.unshift(finalCmd, '-n');
+			finalArgs.unshift('sudo');
 		}
 
 		try {
-			logger.debug(`Executing with permissions: ${finalCommand}`);
-			const result = await execAsync(finalCommand, {
+			const cmdToRun = permissions.needsSudo ? 'sudo' : finalCmd;
+			const argsToRun = permissions.needsSudo ? finalArgs.slice(1) : finalArgs;
+			logger.debug(`Executing with permissions: ${cmdToRun} ${argsToRun.join(' ')}`);
+			const { execFile: execFileFn } = await import('child_process');
+			const { promisify: promisifyFn } = await import('util');
+			const execFileAsyncFn = promisifyFn(execFileFn);
+			const result = await execFileAsyncFn(cmdToRun, argsToRun, {
 				timeout: options.timeout || 30000,
 			});
 

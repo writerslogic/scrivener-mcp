@@ -275,7 +275,7 @@ export class DatabaseService {
 
 		// Begin transactions in both databases
 		if (this.sqliteManager) {
-			this.sqliteManager.beginTransaction();
+			await this.sqliteManager.beginTransaction();
 		}
 
 		return transactionId;
@@ -611,41 +611,60 @@ export class DatabaseService {
 			};
 		}
 
-		// Get total stats
-		const totalResult = this.sqliteManager.queryOne(`
-			SELECT
-				SUM(words_written) as total_words,
-				COUNT(*) as total_sessions
-			FROM writing_sessions
-			WHERE date >= date('now', '-${days} days')
-		`) as { total_words: number; total_sessions: number } | undefined;
+		const QUERY_TIMEOUT_MS = 10000;
+		const sqliteManager = this.sqliteManager;
 
-		// Get daily stats
-		const dailyResults = this.sqliteManager.query(`
-			SELECT
-				date,
-				SUM(words_written) as words,
-				COUNT(*) as sessions,
-				SUM(duration_minutes) as duration
-			FROM writing_sessions
-			WHERE date >= date('now', '-${days} days')
-			GROUP BY date
-			ORDER BY date DESC
-		`) as Array<{
-			date: string;
-			words: number;
-			sessions: number;
-			duration: number;
-		}>;
+		const queryPromise = new Promise<{
+			totalWords: number;
+			totalSessions: number;
+			averageWordsPerSession: number;
+			dailyStats: Array<{ date: string; words: number; sessions: number; duration: number }>;
+		}>((resolve) => {
+			// Get total stats
+			const totalResult = sqliteManager.queryOne(`
+				SELECT
+					SUM(words_written) as total_words,
+					COUNT(*) as total_sessions
+				FROM writing_sessions
+				WHERE date >= date('now', '-${days} days')
+			`) as { total_words: number; total_sessions: number } | undefined;
 
-		return {
-			totalWords: totalResult?.total_words || 0,
-			totalSessions: totalResult?.total_sessions || 0,
-			averageWordsPerSession: totalResult?.total_sessions
-				? Math.round((totalResult.total_words || 0) / totalResult.total_sessions)
-				: 0,
-			dailyStats: dailyResults,
-		};
+			// Get daily stats
+			const dailyResults = sqliteManager.query(`
+				SELECT
+					date,
+					SUM(words_written) as words,
+					COUNT(*) as sessions,
+					SUM(duration_minutes) as duration
+				FROM writing_sessions
+				WHERE date >= date('now', '-${days} days')
+				GROUP BY date
+				ORDER BY date DESC
+			`) as Array<{
+				date: string;
+				words: number;
+				sessions: number;
+				duration: number;
+			}>;
+
+			resolve({
+				totalWords: totalResult?.total_words || 0,
+				totalSessions: totalResult?.total_sessions || 0,
+				averageWordsPerSession: totalResult?.total_sessions
+					? Math.round((totalResult.total_words || 0) / totalResult.total_sessions)
+					: 0,
+				dailyStats: dailyResults,
+			});
+		});
+
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(
+				() => reject(new Error('Query timeout: getWritingStatistics exceeded 10s')),
+				QUERY_TIMEOUT_MS
+			)
+		);
+
+		return Promise.race([queryPromise, timeoutPromise]);
 	}
 
 	/**

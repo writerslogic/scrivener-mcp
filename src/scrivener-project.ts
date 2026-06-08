@@ -784,12 +784,32 @@ export class ScrivenerProject {
 		const allDocs = await this.getAllDocuments();
 		const BATCH_SIZE = 50;
 
+		const syncErrors: Array<{ docId: string; error: string }> = [];
 		for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
 			const batch = allDocs.slice(i, i + BATCH_SIZE);
-			await Promise.all(batch.map((doc) => this.syncDocumentToDatabase(doc)));
+			const results = await Promise.allSettled(
+				batch.map((doc) => this.syncDocumentToDatabase(doc))
+			);
+			for (let j = 0; j < results.length; j++) {
+				const result = results[j];
+				if (result.status === 'rejected') {
+					syncErrors.push({
+						docId: batch[j].id,
+						error:
+							result.reason instanceof Error
+								? result.reason.message
+								: String(result.reason),
+					});
+				}
+			}
 			logger.debug(
 				`Synced ${Math.min(i + BATCH_SIZE, allDocs.length)}/${allDocs.length} documents`
 			);
+		}
+		if (syncErrors.length > 0) {
+			logger.error(`Database sync completed with ${syncErrors.length} error(s)`, {
+				syncErrors,
+			});
 		}
 	}
 
@@ -822,9 +842,10 @@ export class ScrivenerProject {
 				characterCount,
 			});
 		} catch (error) {
-			logger.warn(`Failed to sync document ${doc.id}:`, {
+			logger.error(`Failed to sync document ${doc.id}:`, {
 				error: error instanceof Error ? error.message : String(error),
 			});
+			throw error;
 		}
 	}
 

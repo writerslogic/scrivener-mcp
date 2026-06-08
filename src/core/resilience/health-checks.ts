@@ -483,27 +483,27 @@ export class StandardHealthChecks {
 			check: async () => {
 				const startTime = Date.now();
 				try {
-					// Simple HTTP health check (would use actual HTTP client)
+					const response = await fetch(url, {
+						method: 'HEAD',
+						signal: AbortSignal.timeout(10000),
+					});
 					const responseTime = Date.now() - startTime;
 
-					// Simulate API check
-					const isHealthy = Math.random() > 0.1; // 90% success rate for demo
-
-					if (isHealthy) {
+					if (response.ok) {
 						return {
 							status: HealthStatus.HEALTHY,
 							message: `API ${name} is responsive`,
 							responseTime,
 							timestamp: Date.now(),
-							details: { url, responseTime },
+							details: { url, responseTime, statusCode: response.status },
 						};
 					} else {
 						return {
 							status: HealthStatus.UNHEALTHY,
-							message: `API ${name} is not responding`,
+							message: `API ${name} returned status ${response.status}`,
 							responseTime,
 							timestamp: Date.now(),
-							details: { url },
+							details: { url, statusCode: response.status },
 						};
 					}
 				} catch (error) {

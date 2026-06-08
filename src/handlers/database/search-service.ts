@@ -91,7 +91,8 @@ export class SearchService {
 		if (!this.sqliteManager) return [];
 
 		try {
-			const ftsQuery = options.fuzzy ? `"${query}"*` : `"${query}"`;
+			const sanitized = query.replace(/["\*\(\)\-\+\^]/g, ' ').trim();
+			const ftsQuery = options.fuzzy ? `"${sanitized}"*` : `"${sanitized}"`;
 
 			const sql = `
 				SELECT
@@ -376,7 +377,8 @@ export class SearchService {
 		if (end < text.length) snippet = `${snippet}...`;
 
 		// Highlight the match
-		const regex = new RegExp(`(${query})`, 'gi');
+		const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const regex = new RegExp(`(${escaped})`, 'gi');
 		snippet = snippet.replace(regex, '<mark>$1</mark>');
 
 		return snippet;
@@ -395,7 +397,8 @@ export class SearchService {
 		if (lowerText.startsWith(lowerQuery)) return 80;
 
 		// Count occurrences
-		const regex = new RegExp(lowerQuery, 'gi');
+		const escapedQuery = lowerQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const regex = new RegExp(escapedQuery, 'gi');
 		const matches = text.match(regex);
 		const occurrences = matches ? matches.length : 0;
 

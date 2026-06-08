@@ -60,6 +60,7 @@ export class MemoryRedis extends EventEmitter {
 	private cleanupInterval: NodeJS.Timeout | null = null;
 	private connected = false;
 	private persistPromise: Promise<void> | null = null;
+	private isCleaningExpiry = false;
 
 	constructor(options: { persistPath?: string } = {}) {
 		super();
@@ -548,27 +549,33 @@ export class MemoryRedis extends EventEmitter {
 
 	// Clean up all expired keys in batch
 	private cleanupExpired(): void {
-		const now = Date.now();
-		const expiredKeys: string[] = [];
+		if (this.isCleaningExpiry) return;
+		this.isCleaningExpiry = true;
+		try {
+			const now = Date.now();
+			const expiredKeys: string[] = [];
 
-		for (const [key, expiry] of this.expiry.entries()) {
-			if (expiry < now) {
-				expiredKeys.push(key);
+			for (const [key, expiry] of this.expiry.entries()) {
+				if (expiry < now) {
+					expiredKeys.push(key);
+				}
 			}
-		}
 
-		for (const key of expiredKeys) {
-			this.data.delete(key);
-			this.expiry.delete(key);
+			for (const key of expiredKeys) {
+				this.data.delete(key);
+				this.expiry.delete(key);
+			}
+		} finally {
+			this.isCleaningExpiry = false;
 		}
 	}
 
 	private async persist(): Promise<void> {
 		if (!this.persistPath) return;
 
-		// Prevent concurrent persist operations
+		// Chain persist calls to prevent out-of-order writes
 		if (this.persistPromise) {
-			return this.persistPromise;
+			await this.persistPromise;
 		}
 
 		this.persistPromise = this._doPersist();

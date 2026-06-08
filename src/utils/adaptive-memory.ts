@@ -56,6 +56,9 @@ export class AdaptiveMemoryManager {
 	private readonly gcTriggerThreshold = 0.9; // 90% usage triggers GC
 	private readonly poolMaxAge = 5 * 60 * 1000; // 5 minutes
 
+	// Monitor interval IDs
+	private monitorIntervals: ReturnType<typeof setInterval>[] = [];
+
 	// Advanced memory tracking
 	private weakRefs = new Set<WeakRef<object>>();
 	private compressionRegistry = new Map<
@@ -84,23 +87,29 @@ export class AdaptiveMemoryManager {
 	 */
 	private initializeMemoryMonitoring(): void {
 		// Monitor allocation patterns for prediction
-		setInterval(() => {
-			this.analyzeAllocationPatterns();
-			this.predictivePreallocation();
-		}, 10000); // Every 10 seconds
+		this.monitorIntervals.push(
+			setInterval(() => {
+				this.analyzeAllocationPatterns();
+				this.predictivePreallocation();
+			}, 10000)
+		); // Every 10 seconds
 
 		// Memory pressure detection
-		setInterval(() => {
-			const metrics = this.getMemoryMetrics();
-			if (metrics.pressure > this.pressureThreshold) {
-				this.handleMemoryPressure();
-			}
-		}, 1000); // Every second
+		this.monitorIntervals.push(
+			setInterval(() => {
+				const metrics = this.getMemoryMetrics();
+				if (metrics.pressure > this.pressureThreshold) {
+					this.handleMemoryPressure();
+				}
+			}, 1000)
+		); // Every second
 
 		// Periodic cleanup of stale objects
-		setInterval(() => {
-			this.cleanupStaleObjects();
-		}, 30000); // Every 30 seconds
+		this.monitorIntervals.push(
+			setInterval(() => {
+				this.cleanupStaleObjects();
+			}, 30000)
+		); // Every 30 seconds
 
 		// Advanced GC optimization
 		if (this.adaptiveGC) {
@@ -598,9 +607,42 @@ export class AdaptiveMemoryManager {
 			return obj.byteLength;
 		}
 		if (obj && typeof obj === 'object') {
-			return JSON.stringify(obj).length * 2;
+			return this.estimateObjectSizeRecursive(obj, 0);
 		}
 		return 64; // Default estimate
+	}
+
+	private estimateObjectSizeRecursive(obj: object, depth: number): number {
+		if (depth > 10) return 128; // Prevent runaway recursion
+		const POINTER_SIZE = 8;
+		const NUMBER_SIZE = 8;
+		const BOOL_SIZE = 4;
+		let size = 64; // Base object overhead
+
+		if (Array.isArray(obj)) {
+			size += POINTER_SIZE * obj.length;
+			for (const item of obj) {
+				if (typeof item === 'string') size += item.length * 2;
+				else if (typeof item === 'number') size += NUMBER_SIZE;
+				else if (typeof item === 'boolean') size += BOOL_SIZE;
+				else if (item && typeof item === 'object')
+					size += this.estimateObjectSizeRecursive(item, depth + 1);
+				else size += POINTER_SIZE;
+			}
+			return size;
+		}
+
+		for (const key of Object.keys(obj)) {
+			size += key.length * 2 + POINTER_SIZE; // Key storage
+			const val = (obj as Record<string, unknown>)[key];
+			if (typeof val === 'string') size += val.length * 2;
+			else if (typeof val === 'number') size += NUMBER_SIZE;
+			else if (typeof val === 'boolean') size += BOOL_SIZE;
+			else if (val && typeof val === 'object')
+				size += this.estimateObjectSizeRecursive(val, depth + 1);
+			else size += POINTER_SIZE;
+		}
+		return size;
 	}
 
 	private calculateFragmentation(): number {
@@ -675,6 +717,13 @@ export class AdaptiveMemoryManager {
 
 		const decoder = new TextDecoder();
 		return decoder.decode(new Uint8Array(decompressed));
+	}
+
+	destroy(): void {
+		for (const interval of this.monitorIntervals) {
+			clearInterval(interval);
+		}
+		this.monitorIntervals = [];
 	}
 }
 

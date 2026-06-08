@@ -25,6 +25,14 @@ export class Neo4jManager {
 	private lastHealthCheck: Date | null = null;
 	private healthCheckInterval: number = 60000; // 1 minute
 
+	private static readonly VALID_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+	private static validateIdentifier(value: string, context: string): void {
+		if (!Neo4jManager.VALID_IDENTIFIER.test(value)) {
+			throw new Error(`Invalid Neo4j identifier for ${context}: ${value}`);
+		}
+	}
+
 	constructor(uri: string, user: string, password: string, database = 'scrivener') {
 		this.uri = uri;
 		this.user = user;
@@ -254,8 +262,10 @@ export class Neo4jManager {
 		properties: Record<string, unknown>
 	): Promise<void> {
 		if (!this.driver) return;
+		Neo4jManager.validateIdentifier(label, 'label');
 
 		const setProps = Object.entries(properties)
+			.filter(([key]) => Neo4jManager.VALID_IDENTIFIER.test(key))
 			.map(([key, _]) => `n.${key} = $${key}`)
 			.join(', ');
 
@@ -306,6 +316,9 @@ export class Neo4jManager {
 		properties: Record<string, unknown> = {}
 	): Promise<void> {
 		if (!this.driver) return;
+		Neo4jManager.validateIdentifier(fromLabel, 'fromLabel');
+		Neo4jManager.validateIdentifier(toLabel, 'toLabel');
+		Neo4jManager.validateIdentifier(relationshipType, 'relationshipType');
 
 		const cypher = `
 			MATCH (from:${fromLabel} {id: $fromId})

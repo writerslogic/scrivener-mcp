@@ -82,6 +82,11 @@ export class RingBuffer<T> {
  * Document Indexer with O(1) lookup and efficient search
  */
 export class DocumentIndexer {
+	// These 6 state maps are safe without locks: Node.js is single-threaded, so concurrent
+	// access cannot occur. The isUpdating flag guards against re-entrant calls to buildIndex
+	// (e.g., if a second buildIndex is triggered while an async buildIndex is still running).
+	private isUpdating = false;
+
 	// Document index for O(1) lookup
 	private documentIndex = new Map<string, DocumentInfo>();
 
@@ -120,31 +125,41 @@ export class DocumentIndexer {
 		documents: ScrivenerDocument[],
 		location: 'active' | 'trash' = 'active'
 	): Promise<void> {
-		const startTime = Date.now();
-		logger.info(`Building index for ${documents.length} documents...`);
-
-		// Clear existing index for this location
-		if (location === 'active') {
-			this.clearIndex();
+		if (this.isUpdating) {
+			logger.warn('Index update already in progress, skipping re-entrant call');
+			return;
 		}
 
-		// Build document index with paths
-		await this.buildDocumentIndex(documents, location);
+		this.isUpdating = true;
+		try {
+			const startTime = Date.now();
+			logger.info(`Building index for ${documents.length} documents...`);
 
-		// Build search index
-		await this.buildSearchIndex();
+			// Clear existing index for this location
+			if (location === 'active') {
+				this.clearIndex();
+			}
 
-		const duration = Date.now() - startTime;
-		this.operationMetrics.push({
-			operation: 'buildIndex',
-			duration,
-			success: true,
-			timestamp: Date.now(),
-		});
+			// Build document index with paths
+			await this.buildDocumentIndex(documents, location);
 
-		logger.info(
-			`Index built in ${duration}ms: ${this.documentIndex.size} documents, ${this.searchIndex.size} unique words`
-		);
+			// Build search index
+			await this.buildSearchIndex();
+
+			const duration = Date.now() - startTime;
+			this.operationMetrics.push({
+				operation: 'buildIndex',
+				duration,
+				success: true,
+				timestamp: Date.now(),
+			});
+
+			logger.info(
+				`Index built in ${duration}ms: ${this.documentIndex.size} documents, ${this.searchIndex.size} unique words`
+			);
+		} finally {
+			this.isUpdating = false;
+		}
 	}
 
 	/**
@@ -333,9 +348,13 @@ export class DocumentIndexer {
 		options: { caseSensitive?: boolean; limit?: number } = {}
 	): Promise<SearchResult[]> {
 		const results: SearchResult[] = [];
-		const regex = new RegExp(pattern, options.caseSensitive ? 'g' : 'gi');
+		const maxResults = options.limit || Infinity;
+		const flags = options.caseSensitive ? '' : 'i';
+		const regex = new RegExp(pattern, flags);
 
 		for (const [docId, docInfo] of this.documentIndex.entries()) {
+			if (results.length >= maxResults) break;
+
 			const words = this.documentWords.get(docId);
 			if (!words) continue;
 
@@ -355,10 +374,6 @@ export class DocumentIndexer {
 					score: matches.length,
 				});
 			}
-
-			if (options.limit && results.length >= options.limit) {
-				break;
-			}
 		}
 
 		return results;
@@ -372,7 +387,7 @@ export class DocumentIndexer {
 
 		// Auto-flush if too many dirty documents
 		if (this.dirtyDocuments.size >= 10) {
-			void this.flushChanges();
+			this.flushChanges().catch((err) => logger.warn('Flush failed', { error: err }));
 		}
 	}
 

@@ -380,6 +380,11 @@ export class AdvancedContentAnalyzer {
 			'sounded like',
 		];
 
+		// Pre-compile regexes for filter words to avoid recreation per line
+		const filterWordRegexes = new Map(
+			filterWords.map((word) => [word, new RegExp(`\\b${word}\\b`, 'gi')])
+		);
+
 		// Emotional telling patterns
 		const emotionalTelling = [
 			/\bwas (angry|happy|sad|afraid|excited|nervous|anxious|worried)/i,
@@ -403,7 +408,9 @@ export class AdvancedContentAnalyzer {
 			// Check for filter words
 			filterWords.forEach((word) => {
 				if (doc.has(word)) {
-					const matches = line.match(new RegExp(`\\b${word}\\b`, 'gi')) || [];
+					const regex = filterWordRegexes.get(word)!;
+					regex.lastIndex = 0;
+					const matches = line.match(regex) || [];
 					matches.forEach((match) => {
 						const column = line.indexOf(match);
 						issues.push({

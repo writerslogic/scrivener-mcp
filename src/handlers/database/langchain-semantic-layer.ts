@@ -254,7 +254,8 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 				temporal: Array.isArray(parsed.temporal) ? parsed.temporal : [],
 				filters: parsed.filters || {},
 			};
-		} catch {
+		} catch (error) {
+			this.logger.warn('Query parse failed', { error: (error as Error).message });
 			return {
 				intent: 'search',
 				entities: [],
@@ -451,7 +452,10 @@ Provide a brief, clear explanation (1-2 sentences) of why this document matches 
 			);
 
 			return explanation.content;
-		} catch {
+		} catch (error) {
+			this.logger.warn('Result explanation generation failed', {
+				error: (error as Error).message,
+			});
 			return `Matches query with ${(result.relevanceScore * 100).toFixed(0)}% relevance`;
 		}
 	}
@@ -1151,9 +1155,10 @@ Only use tables and columns defined in the schema.`;
 			this.logger.warn('NL2SQL conversion failed or invalid', {
 				error: (error as Error).message,
 			});
+			const escapedQuery = naturalLanguage.replace(/[%_\\]/g, '\\$&');
 			return {
-				sql: `SELECT * FROM documents WHERE content LIKE ? OR title LIKE ?;`,
-				params: [`%${naturalLanguage}%`, `%${naturalLanguage}%`],
+				sql: `SELECT * FROM documents WHERE content LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\';`,
+				params: [`%${escapedQuery}%`, `%${escapedQuery}%`],
 				explanation: 'Fallback to basic keyword search SQL',
 				confidence: 0.3,
 			};

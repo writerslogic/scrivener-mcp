@@ -412,14 +412,21 @@ export class FractalMemoryService {
 	 * Call Python script for advanced operations
 	 */
 	private async callPythonScript(operation: string, params: unknown): Promise<unknown> {
-		return new Promise((resolve) => {
-			if (!fs.existsSync(this.pythonScriptPath)) {
-				resolve({ error: 'Python script not available' });
+		return new Promise((resolve, reject) => {
+			const resolvedPath = path.resolve(this.pythonScriptPath);
+			const projectDir = path.resolve(process.cwd());
+			if (!resolvedPath.startsWith(projectDir + path.sep)) {
+				reject(new Error('Python script path is outside the project directory'));
+				return;
+			}
+
+			if (!fs.existsSync(resolvedPath)) {
+				reject(new Error('Python script not available'));
 				return;
 			}
 
 			const args = [
-				this.pythonScriptPath,
+				resolvedPath,
 				'--operation',
 				operation,
 				'--params',
@@ -443,26 +450,26 @@ export class FractalMemoryService {
 			python.on('close', (code: number) => {
 				if (code !== 0) {
 					logger.error('Python script failed', { code, error });
-					resolve({ error: error || 'Python script failed' });
+					reject(new Error(error || 'Python script failed'));
 				} else {
 					try {
 						const result = JSON.parse(output);
 						resolve(result);
 					} catch (e) {
 						logger.error('Failed to parse Python output', { output, error: e });
-						resolve({ error: 'Invalid Python output' });
+						reject(new Error('Invalid Python output'));
 					}
 				}
 			});
 
 			python.on('error', (err: Error) => {
 				logger.error('Failed to spawn Python process', { error: err });
-				resolve({ error: 'Failed to spawn Python process' });
+				reject(new Error('Failed to spawn Python process'));
 			});
 
 			setTimeout(() => {
 				python.kill();
-				resolve({ error: 'Python script timeout' });
+				reject(new Error('Python script timeout after 30s'));
 			}, 30000);
 		});
 	}

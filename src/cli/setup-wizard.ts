@@ -5,6 +5,7 @@
  */
 
 import chalk from 'chalk';
+import * as path from 'path';
 import * as readline from 'readline/promises';
 import { Neo4jAutoInstaller } from '../handlers/database/auto-installer.js';
 import { DatabaseSetup } from '../handlers/database/database-setup.js';
@@ -351,14 +352,21 @@ export class SetupWizard {
 
 			// Validate the final path exists and is accessible
 			const fullPath = buildPath(sanitizePath(inputPath));
-			if (!(await pathExists(fullPath))) {
+			const resolvedPath = path.resolve(fullPath);
+			if (resolvedPath.includes('\0') || resolvedPath.includes('..')) {
 				throw new AppError(
-					`Project path does not exist: ${fullPath}`,
+					'Invalid project path: path traversal is not allowed',
+					ErrorCode.INVALID_INPUT
+				);
+			}
+			if (!(await pathExists(resolvedPath))) {
+				throw new AppError(
+					`Project path does not exist: ${resolvedPath}`,
 					ErrorCode.INVALID_INPUT
 				);
 			}
 
-			return fullPath;
+			return resolvedPath;
 		});
 		const projectPath = measureResult.result;
 

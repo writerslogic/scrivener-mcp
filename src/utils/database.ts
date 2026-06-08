@@ -232,10 +232,12 @@ export function buildInsertQuery(
 		sql = `INSERT OR IGNORE`;
 	}
 
-	sql += ` INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
+	sql += ` INTO ${escapeIdentifier(table)} (${keys.map(escapeIdentifier).join(', ')}) VALUES (${placeholders})`;
 
 	if (onConflict === 'UPDATE') {
-		const updates = keys.map((k) => `${k} = excluded.${k}`).join(', ');
+		const updates = keys
+			.map((k) => `${escapeIdentifier(k)} = excluded.${escapeIdentifier(k)}`)
+			.join(', ');
 		sql += ` ON CONFLICT DO UPDATE SET ${updates}`;
 	}
 
@@ -257,10 +259,10 @@ export function buildUpdateQuery(
 		throw new AppError('Invalid UPDATE query parameters', ErrorCode.INVALID_INPUT);
 	}
 
-	const setSql = dataKeys.map((k) => `${k} = ?`).join(', ');
-	const whereSql = whereKeys.map((k) => `${k} = ?`).join(' AND ');
+	const setSql = dataKeys.map((k) => `${escapeIdentifier(k)} = ?`).join(', ');
+	const whereSql = whereKeys.map((k) => `${escapeIdentifier(k)} = ?`).join(' AND ');
 
-	const sql = `UPDATE ${table} SET ${setSql} WHERE ${whereSql}`;
+	const sql = `UPDATE ${escapeIdentifier(table)} SET ${setSql} WHERE ${whereSql}`;
 	const params = [...dataKeys.map((k) => data[k]), ...whereKeys.map((k) => where[k])];
 
 	return { sql, params };
@@ -279,24 +281,25 @@ export function buildSelectQuery(
 		offset?: number;
 	}
 ): SqlQuery {
-	const columns = options?.columns?.join(', ') || '*';
-	let sql = `SELECT ${columns} FROM ${table}`;
+	const columns = options?.columns?.map(escapeIdentifier).join(', ') || '*';
+	let sql = `SELECT ${columns} FROM ${escapeIdentifier(table)}`;
 	const params: unknown[] = [];
 
 	if (filters && Object.keys(filters).length > 0) {
 		const whereConditions: string[] = [];
 		for (const [key, value] of Object.entries(filters)) {
+			const escapedKey = escapeIdentifier(key);
 			if (value === null) {
-				whereConditions.push(`${key} IS NULL`);
+				whereConditions.push(`${escapedKey} IS NULL`);
 			} else if (value === undefined) {
 				// Skip undefined values
 				continue;
 			} else if (Array.isArray(value)) {
 				const placeholders = value.map(() => '?').join(', ');
-				whereConditions.push(`${key} IN (${placeholders})`);
+				whereConditions.push(`${escapedKey} IN (${placeholders})`);
 				params.push(...value);
 			} else {
-				whereConditions.push(`${key} = ?`);
+				whereConditions.push(`${escapedKey} = ?`);
 				params.push(value);
 			}
 		}
@@ -365,7 +368,7 @@ export function batchInsert(
 	const columns = Object.keys(items[0]);
 	const placeholders = columns.map(() => '?').join(', ');
 	const stmt = db.prepare(
-		`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`
+		`INSERT INTO ${escapeIdentifier(table)} (${columns.map(escapeIdentifier).join(', ')}) VALUES (${placeholders})`
 	);
 
 	const insertMany = db.transaction((batch: Record<string, unknown>[]) => {

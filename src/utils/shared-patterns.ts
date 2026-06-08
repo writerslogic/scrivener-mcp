@@ -7,9 +7,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getLogger } from '../core/logger.js';
 import { promisify } from 'util';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const logger = getLogger('shared-patterns');
 
 // ============================================================================
@@ -129,7 +130,7 @@ export async function safeExec(
  */
 export async function commandExists(command: string): Promise<boolean> {
 	try {
-		await safeExec(`which ${command}`, { timeout: 2000 });
+		await execFileAsync('which', [command], { timeout: 2000 });
 		return true;
 	} catch {
 		return false;
@@ -141,7 +142,7 @@ export async function commandExists(command: string): Promise<boolean> {
  */
 export async function getProcessByName(processName: string): Promise<string[]> {
 	try {
-		const { stdout } = await safeExec(`pgrep -f "${processName}"`, { timeout: 2000 });
+		const { stdout } = await execFileAsync('pgrep', ['-f', processName], { timeout: 2000 });
 		return stdout
 			.trim()
 			.split('\n')

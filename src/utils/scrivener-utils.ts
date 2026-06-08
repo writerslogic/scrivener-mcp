@@ -179,7 +179,15 @@ export function findBinderItem(
 
 	for (const item of items) {
 		if (item.UUID === documentId) {
-			if (useCache) binderCache.set(documentId, item);
+			if (useCache) {
+				binderCache.set(documentId, item);
+				if (binderCache.size > 1000) {
+					const keysToDelete = [...binderCache.keys()].slice(0, 500);
+					for (const key of keysToDelete) {
+						binderCache.delete(key);
+					}
+				}
+			}
 			return item;
 		}
 
@@ -261,11 +269,22 @@ export function findBinderParent(
 
 /**
  * Get binder path (breadcrumb) for an item
+ * Uses a single traversal to build a parent map instead of O(n^2) repeated searches.
  */
 export function getBinderPath(
 	container: BinderContainer | undefined,
 	documentId: string
 ): BinderItem[] {
+	if (!container) return [];
+
+	// Build a parent map in a single traversal: childUUID -> parentItem
+	const parentMap = new Map<string, BinderItem>();
+	traverseBinder(container, (item, _depth, parent) => {
+		if (item.UUID && parent) {
+			parentMap.set(item.UUID, parent);
+		}
+	});
+
 	const path: BinderItem[] = [];
 	let current = findBinderItem(container, documentId);
 
@@ -273,8 +292,7 @@ export function getBinderPath(
 		path.unshift(current);
 		const currentUUID = current.UUID;
 		if (!currentUUID) break;
-		const parent = findBinderParent(container, currentUUID);
-		current = parent;
+		current = parentMap.get(currentUUID) || null;
 	}
 
 	return path;

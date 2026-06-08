@@ -544,11 +544,11 @@ export class ProgressIndicators {
 			description: `Process heartbeat: ${processName}`,
 			check: async () => {
 				try {
-					const { exec } = await import('child_process');
+					const { execFile } = await import('child_process');
 					const { promisify } = await import('util');
-					const execAsync = promisify(exec);
+					const execFileAsync = promisify(execFile);
 
-					await execAsync(`pgrep -f "${processName}"`, { timeout: 2000 });
+					await execFileAsync('pgrep', ['-f', processName], { timeout: 2000 });
 					return true;
 				} catch {
 					return false;

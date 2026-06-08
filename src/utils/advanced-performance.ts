@@ -5,6 +5,7 @@
  */
 
 import * as v8 from 'v8';
+import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import { getLogger } from '../core/logger.js';
 import { StringUtils } from './shared-patterns.js';

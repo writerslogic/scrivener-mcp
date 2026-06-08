@@ -8,7 +8,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import * as readline from 'readline';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { getLogger } from '../../core/logger.js';
 import { writeJSON, getEnv } from '../../utils/common.js';
 
@@ -180,7 +180,12 @@ export class AIConfigWizard {
 
 		try {
 			if (platform === 'darwin' || platform === 'linux') {
-				execSync('curl -fsSL https://ollama.ai/install.sh | sh', { stdio: 'inherit' });
+				execFileSync(
+					'curl',
+					['-fsSL', '-o', '/tmp/ollama-install.sh', 'https://ollama.ai/install.sh'],
+					{ stdio: 'inherit' }
+				);
+				execFileSync('sh', ['/tmp/ollama-install.sh'], { stdio: 'inherit' });
 			} else if (platform === 'win32') {
 				logger.info(
 					'Please download and install Ollama from: https://ollama.ai/download/windows'
@@ -198,7 +203,7 @@ export class AIConfigWizard {
 
 			// Pull a default model
 			logger.info('Downloading default model (llama2)...');
-			execSync('ollama pull llama2', { stdio: 'inherit' });
+			execFileSync('ollama', ['pull', 'llama2'], { stdio: 'inherit' });
 
 			logger.info('Ollama installed successfully');
 		} catch (error) {

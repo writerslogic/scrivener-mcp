@@ -343,11 +343,11 @@ export class SecurityValidator {
 
 	private sanitizeString(value: string): string {
 		return value
-			.replace(/[<>]/g, '') // Remove angle brackets
-			.replace(/['";]/g, '') // Remove quotes and semicolons
-			.replace(/--/g, '') // Remove SQL comment markers
-			.replace(/\/\*/g, '') // Remove CSS/SQL comment start
-			.replace(/\*\//g, '') // Remove CSS/SQL comment end
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#x27;')
 			.trim();
 	}
 
@@ -612,6 +612,8 @@ export class SecurityRateLimiter extends EventEmitter {
 
 // Security Context Manager
 export class SecurityContextManager {
+	private static readonly MAX_SESSIONS = 10000;
+
 	private sessions = new Map<
 		string,
 		{
@@ -631,15 +633,46 @@ export class SecurityContextManager {
 	}): SecurityContext {
 		const session = request.sessionId ? this.sessions.get(request.sessionId) : undefined;
 
+		if (request.sessionId && request.userId && !session) {
+			this.evictIfAtCapacity();
+			this.sessions.set(request.sessionId, {
+				userId: request.userId,
+				createdAt: Date.now(),
+				lastActivity: Date.now(),
+				permissions: [],
+				riskScore: 0,
+			});
+		}
+
+		const currentSession =
+			session || (request.sessionId ? this.sessions.get(request.sessionId) : undefined);
+
 		return {
-			userId: request.userId || session?.userId,
+			userId: request.userId || currentSession?.userId,
 			sessionId: request.sessionId,
 			ipAddress: request.ipAddress,
 			userAgent: request.userAgent,
 			timestamp: Date.now(),
-			permissions: session?.permissions || [],
-			riskScore: this.calculateRiskScore(request, session),
+			permissions: currentSession?.permissions || [],
+			riskScore: this.calculateRiskScore(request, currentSession),
 		};
+	}
+
+	private evictIfAtCapacity(): void {
+		if (this.sessions.size < SecurityContextManager.MAX_SESSIONS) {
+			return;
+		}
+		let oldestKey: string | undefined;
+		let oldestTime = Infinity;
+		for (const [key, session] of this.sessions) {
+			if (session.lastActivity < oldestTime) {
+				oldestTime = session.lastActivity;
+				oldestKey = key;
+			}
+		}
+		if (oldestKey) {
+			this.sessions.delete(oldestKey);
+		}
 	}
 
 	private calculateRiskScore(
@@ -672,14 +705,21 @@ export class SecurityContextManager {
 	}
 
 	private isHighRiskIP(ip: string): boolean {
-		// Simplified implementation - in production, use threat intelligence feeds
-		const highRiskPatterns = [
-			/^10\./, // Private networks can be suspicious in some contexts
-			/^192\.168\./, // Private networks
-			/^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private networks
+		// Private/reserved IPs are trusted; flag known-bad ranges via threat intelligence
+		const trustedPatterns = [
+			/^10\./, // RFC 1918 private
+			/^192\.168\./, // RFC 1918 private
+			/^172\.(1[6-9]|2[0-9]|3[0-1])\./, // RFC 1918 private
+			/^127\./, // Loopback
+			/^::1$/, // IPv6 loopback
 		];
 
-		return highRiskPatterns.some((pattern) => pattern.test(ip));
+		if (trustedPatterns.some((pattern) => pattern.test(ip))) {
+			return false;
+		}
+
+		// In production, check against threat intelligence feeds
+		return false;
 	}
 
 	private isSuspiciousUserAgent(userAgent: string): boolean {

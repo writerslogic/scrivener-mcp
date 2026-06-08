@@ -619,14 +619,14 @@ export class EnhancedConnectionPool<T> {
 	private updateAcquisitionTime(time: number): void {
 		this.metrics.acquisitionTimes.push(time);
 		if (this.metrics.acquisitionTimes.length > 1000) {
-			this.metrics.acquisitionTimes.shift();
+			this.metrics.acquisitionTimes = this.metrics.acquisitionTimes.slice(-1000);
 		}
 	}
 
 	private updateValidationTime(time: number): void {
 		this.metrics.validationTimes.push(time);
 		if (this.metrics.validationTimes.length > 1000) {
-			this.metrics.validationTimes.shift();
+			this.metrics.validationTimes = this.metrics.validationTimes.slice(-1000);
 		}
 	}
 

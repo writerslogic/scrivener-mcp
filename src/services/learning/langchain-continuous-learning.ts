@@ -90,6 +90,7 @@ export class LangChainContinuousLearning extends EventEmitter {
 	private abTestingActive: Map<string, boolean>;
 	private logger: ReturnType<typeof getLogger>;
 	private learningEnabled: boolean = true;
+	private periodicAnalysisInterval: ReturnType<typeof setInterval> | null = null;
 
 	constructor() {
 		super();
@@ -311,7 +312,7 @@ export class LangChainContinuousLearning extends EventEmitter {
 	}
 
 	private startPeriodicAnalysis(): void {
-		setInterval(
+		this.periodicAnalysisInterval = setInterval(
 			async () => {
 				try {
 					await this.performPeriodicAnalysis();
@@ -323,6 +324,13 @@ export class LangChainContinuousLearning extends EventEmitter {
 			},
 			24 * 60 * 60 * 1000
 		); // Daily analysis
+	}
+
+	stopPeriodicAnalysis(): void {
+		if (this.periodicAnalysisInterval) {
+			clearInterval(this.periodicAnalysisInterval);
+			this.periodicAnalysisInterval = null;
+		}
 	}
 
 	private async performPeriodicAnalysis(): Promise<void> {

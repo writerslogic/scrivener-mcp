@@ -113,6 +113,7 @@ export class LangChainContinuousLearningHandler implements ContinuousLearningHan
 	private personalizationEngine: PersonalizationEngine;
 	private logger: ReturnType<typeof getLogger>;
 	private initialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 
 	constructor() {
 		this.continuousLearning = new LangChainContinuousLearning();
@@ -126,24 +127,32 @@ export class LangChainContinuousLearningHandler implements ContinuousLearningHan
 		if (this.initialized) {
 			return;
 		}
-
-		try {
-			await Promise.all([
-				this.continuousLearning.initialize(),
-				this.personalizationEngine.initialize(),
-			]);
-
-			this.initialized = true;
-			this.logger.info('Continuous learning handler initialized');
-		} catch (error) {
-			this.logger.error('Failed to initialize continuous learning handler', {
-				error: (error as Error).message,
-			});
-			throw new AppError(
-				'Continuous learning initialization failed',
-				ErrorCode.INITIALIZATION_ERROR
-			);
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		this.initPromise = (async () => {
+			try {
+				await Promise.all([
+					this.continuousLearning.initialize(),
+					this.personalizationEngine.initialize(),
+				]);
+
+				this.initialized = true;
+				this.logger.info('Continuous learning handler initialized');
+			} catch (error) {
+				this.initPromise = null;
+				this.logger.error('Failed to initialize continuous learning handler', {
+					error: (error as Error).message,
+				});
+				throw new AppError(
+					'Continuous learning initialization failed',
+					ErrorCode.INITIALIZATION_ERROR
+				);
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	async startFeedbackSession(sessionId: string, userId?: string): Promise<void> {

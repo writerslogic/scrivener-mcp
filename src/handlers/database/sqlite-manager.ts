@@ -21,6 +21,7 @@ export class SQLiteManager {
 	private dbPath: string;
 	private transactionDepth: number = 0;
 	private isInTransaction: boolean = false;
+	private isTransactionPending: boolean = false;
 	private pendingOperations: Array<() => void> = [];
 	private cachedManager: CachedSQLiteManager | null = null;
 
@@ -268,7 +269,7 @@ export class SQLiteManager {
 	/**
 	 * Execute multiple statements in a transaction with retry logic
 	 */
-	transaction<T>(fn: () => T, retries: number = 3): T {
+	async transaction<T>(fn: () => T, retries: number = 3): Promise<T> {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
 		}
@@ -295,10 +296,7 @@ export class SQLiteManager {
 				if ((error as { code?: string }).code === 'SQLITE_BUSY' && i < retries - 1) {
 					// Wait a bit before retrying
 					const delay = Math.min(100 * Math.pow(2, i), 1000);
-					const start = Date.now();
-					while (Date.now() - start < delay) {
-						// Busy wait
-					}
+					await new Promise((resolve) => setTimeout(resolve, delay));
 					continue;
 				}
 				throw error;
@@ -333,10 +331,18 @@ export class SQLiteManager {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
 		}
+		if (this.isTransactionPending) {
+			throw new AppError('A transaction is already being started', ErrorCode.DATABASE_ERROR);
+		}
 		if (!this.isInTransaction) {
-			this.db.prepare('BEGIN TRANSACTION').run();
-			this.isInTransaction = true;
-			this.transactionDepth = 1;
+			this.isTransactionPending = true;
+			try {
+				this.db.prepare('BEGIN TRANSACTION').run();
+				this.isInTransaction = true;
+				this.transactionDepth = 1;
+			} finally {
+				this.isTransactionPending = false;
+			}
 		} else {
 			this.transactionDepth++;
 		}

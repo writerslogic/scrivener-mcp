@@ -320,19 +320,24 @@ export const deleteDocumentHandler: ToolDefinition = {
 		required: ['documentId'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, documentIdSchema);
+		try {
+			const project = requireProject(context);
+			validateInput(args, documentIdSchema);
 
-		const documentId = getStringArg(args, 'documentId');
-		await project.deleteDocument(documentId);
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Document moved to trash',
-				},
-			],
-		};
+			const documentId = getStringArg(args, 'documentId');
+			await project.deleteDocument(documentId);
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Document moved to trash',
+					},
+				],
+			};
+		} catch (error) {
+			const appError = handleError(error, 'deleteDocument');
+			throw appError;
+		}
 	},
 };
 
@@ -354,20 +359,25 @@ export const renameDocumentHandler: ToolDefinition = {
 		required: ['documentId', 'newTitle'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, documentTitleSchema);
+		try {
+			const project = requireProject(context);
+			validateInput(args, documentTitleSchema);
 
-		const documentId = getStringArg(args, 'documentId');
-		const newTitle = getStringArg(args, 'newTitle');
-		await project.renameDocument(documentId, newTitle);
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Document renamed successfully',
-				},
-			],
-		};
+			const documentId = getStringArg(args, 'documentId');
+			const newTitle = getStringArg(args, 'newTitle');
+			await project.renameDocument(documentId, newTitle);
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Document renamed successfully',
+					},
+				],
+			};
+		} catch (error) {
+			const appError = handleError(error, 'renameDocument');
+			throw appError;
+		}
 	},
 };
 
@@ -393,21 +403,26 @@ export const moveDocumentHandler: ToolDefinition = {
 		required: ['documentId', 'targetFolderId'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, documentMoveSchema);
+		try {
+			const project = requireProject(context);
+			validateInput(args, documentMoveSchema);
 
-		const documentId = getStringArg(args, 'documentId');
-		const targetFolderId = getStringArg(args, 'targetFolderId');
-		const position = getOptionalNumberArg(args, 'position');
-		await project.moveDocument(documentId, targetFolderId, position);
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Document moved successfully',
-				},
-			],
-		};
+			const documentId = getStringArg(args, 'documentId');
+			const targetFolderId = getStringArg(args, 'targetFolderId');
+			const position = getOptionalNumberArg(args, 'position');
+			await project.moveDocument(documentId, targetFolderId, position);
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Document moved successfully',
+					},
+				],
+			};
+		} catch (error) {
+			const appError = handleError(error, 'moveDocument');
+			throw appError;
+		}
 	},
 };
 
@@ -512,18 +527,14 @@ export const getWordCountHandler: ToolDefinition = {
 					(doc) => doc.path && doc.path.includes(documentId) && doc.id !== documentId
 				);
 
-				// Process children in batches for better performance
-				const batchSize = 10;
-				for (let i = 0; i < childDocs.length; i += batchSize) {
-					const batch = childDocs.slice(i, i + batchSize);
-					const batchCounts = await Promise.all(
-						batch.map(async (doc) => {
-							const childCount = await project.getWordCount(doc.id);
-							return childCount.words;
-						})
-					);
-					count += batchCounts.reduce((sum, words) => sum + words, 0);
-				}
+				// Parallelize all child document reads
+				const childCounts = await Promise.all(
+					childDocs.map(async (doc) => {
+						const childCount = await project.getWordCount(doc.id);
+						return childCount.words;
+					})
+				);
+				count += childCounts.reduce((sum, words) => sum + words, 0);
 			}
 		} else {
 			// No documentId provided, count all documents

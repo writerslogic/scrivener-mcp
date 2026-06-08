@@ -226,6 +226,13 @@ export class DocumentManager {
 		documentId: string,
 		content: string | RTFContent
 	): Promise<void> {
+		if (!isValidUUID(documentId)) {
+			throw createError(
+				ErrorCode.VALIDATION_ERROR,
+				{ documentId },
+				`Invalid document ID format: ${truncate(documentId, 50)}`
+			);
+		}
 		return this.dedupedOperation(`write:${documentId}`, async () => {
 			const filePath = getDocumentPath(this.projectPath, documentId);
 			logger.debug(`Writing document to ${filePath}`);
@@ -256,12 +263,18 @@ export class DocumentManager {
 
 	/**
 	 * Flush pending writes in batches
+	 * Takes a snapshot of pending writes and clears the map before processing,
+	 * so new writes during processing go into the fresh map.
 	 */
 	private async flushPendingWrites(): Promise<void> {
 		if (this.pendingWrites.size === 0) return;
 
-		const writes = Array.from(this.pendingWrites.entries());
+		// Snapshot current pending writes, then clear so new writes
+		// arriving during processing accumulate in the fresh map
+		const snapshot = new Map(this.pendingWrites);
 		this.pendingWrites.clear();
+
+		const writes = Array.from(snapshot.entries());
 
 		// Process in parallel batches
 		const batches = [];
@@ -772,10 +785,10 @@ export class DocumentManager {
 		if (this.flushInterval) {
 			clearInterval(this.flushInterval);
 		}
-		
+
 		// Ensure any pending writes are saved
 		await this.flushPendingWrites();
-		
+
 		this.documentCache.clear();
 	}
 

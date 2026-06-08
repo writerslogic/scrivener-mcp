@@ -9,6 +9,14 @@ import { ApplicationError as AppError, ErrorCode } from '../../core/errors.js';
 import { EventEmitter } from 'events';
 import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
 
+function safeJsonParse(content: string, fallback: Record<string, any> = {}): Record<string, any> {
+	try {
+		return JSON.parse(content);
+	} catch {
+		return fallback;
+	}
+}
+
 export interface WritingContext {
 	document: ScrivenerDocument;
 	currentPosition: number;
@@ -191,7 +199,11 @@ export class RealtimeWritingAssistant extends EventEmitter {
 							metadata: { title: document.title },
 						},
 						...(context.relatedDocuments || []).map(
-							(doc: { id: string; content: string; title: string }): ScrivenerDocument => ({
+							(doc: {
+								id: string;
+								content: string;
+								title: string;
+							}): ScrivenerDocument => ({
 								id: doc.id,
 								title: doc.title,
 								type: 'Text' as const,
@@ -429,7 +441,7 @@ Maximum 5 issues, focus on most important ones.`;
 				await this.cache.set(cacheKey, result.content); // 5 min cache
 			}
 
-			const detectedIssues = JSON.parse(result.content);
+			const detectedIssues = safeJsonParse(result.content);
 
 			if (Array.isArray(detectedIssues)) {
 				for (const issue of detectedIssues) {
@@ -481,7 +493,7 @@ Return as JSON with fields: completions, alternatives, nextSentence`;
 				customPrompt: prompt,
 			});
 
-			const predictions = JSON.parse(result.content);
+			const predictions = safeJsonParse(result.content);
 
 			return {
 				completions: [
@@ -550,7 +562,7 @@ Return JSON array with fields: type, priority, confidence, suggestion, explanati
 				}
 			);
 
-			const generatedSuggestions = JSON.parse(result.content);
+			const generatedSuggestions = safeJsonParse(result.content);
 
 			if (Array.isArray(generatedSuggestions)) {
 				for (const suggestion of generatedSuggestions) {
@@ -612,7 +624,7 @@ Return JSON array with type, suggestion, explanation, confidence fields.`;
 				}
 			);
 
-			const suggestions = JSON.parse(result.content);
+			const suggestions = safeJsonParse(result.content);
 
 			return (Array.isArray(suggestions) ? suggestions : []).map((sug) => ({
 				id: generateScrivenerUUID(),
@@ -664,7 +676,7 @@ Return JSON with fields: score, issues, trends`;
 				customPrompt: prompt,
 			});
 
-			const analysis = JSON.parse(result.content);
+			const analysis = safeJsonParse(result.content);
 
 			return {
 				score: Math.max(0, Math.min(1, analysis.score || 0.7)),

@@ -9,702 +9,690 @@ import { EnhancedLogger } from './enhanced-logger.js';
 import { AppError, ErrorCode } from '../utils/common.js';
 
 export interface ErrorContext {
-  correlationId?: string;
-  userId?: string;
-  operation?: string;
-  resource?: string;
-  additionalData?: Record<string, unknown>;
-  timestamp: Date;
+	correlationId?: string;
+	userId?: string;
+	operation?: string;
+	resource?: string;
+	additionalData?: Record<string, unknown>;
+	timestamp: Date;
 }
 
 export interface ErrorRecoveryStrategy {
-  name: string;
-  canRecover: (error: Error, context: ErrorContext) => boolean;
-  recover: (error: Error, context: ErrorContext) => Promise<boolean>;
-  maxAttempts?: number;
-  backoffMs?: number;
+	name: string;
+	canRecover: (error: Error, context: ErrorContext) => boolean;
+	recover: (error: Error, context: ErrorContext) => Promise<boolean>;
+	maxAttempts?: number;
+	backoffMs?: number;
 }
 
 export interface ErrorMetrics {
-  totalErrors: number;
-  errorsByType: Record<string, number>;
-  errorsByCode: Record<string, number>;
-  recoveryAttempts: number;
-  successfulRecoveries: number;
-  criticalErrors: number;
-  recentErrors: Array<{
-    error: string;
-    context: ErrorContext;
-    recovered: boolean;
-    timestamp: Date;
-  }>;
+	totalErrors: number;
+	errorsByType: Record<string, number>;
+	errorsByCode: Record<string, number>;
+	recoveryAttempts: number;
+	successfulRecoveries: number;
+	criticalErrors: number;
+	recentErrors: Array<{
+		error: string;
+		context: ErrorContext;
+		recovered: boolean;
+		timestamp: Date;
+	}>;
 }
 
 export interface ErrorNotification {
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  error: Error;
-  context: ErrorContext;
-  suggestion?: string;
-  correlationId: string;
-  notificationId: string;
+	severity: 'low' | 'medium' | 'high' | 'critical';
+	error: Error;
+	context: ErrorContext;
+	suggestion?: string;
+	correlationId: string;
+	notificationId: string;
 }
 
 export interface CircuitBreakerConfig {
-  failureThreshold: number;
-  recoveryTimeout: number;
-  monitoringWindow: number;
-  halfOpenMaxCalls: number;
+	failureThreshold: number;
+	recoveryTimeout: number;
+	monitoringWindow: number;
+	halfOpenMaxCalls: number;
 }
 
 export interface RateLimitConfig {
-  windowMs: number;
-  maxAttempts: number;
-  penaltyMs: number;
+	windowMs: number;
+	maxAttempts: number;
+	penaltyMs: number;
 }
 
 /**
  * Circuit breaker for preventing cascading failures
  */
 class CircuitBreaker extends EventEmitter {
-  private state: 'closed' | 'open' | 'half-open' = 'closed';
-  private failures = 0;
-  private lastFailureTime: Date | null = null;
-  private halfOpenCallCount = 0;
+	private state: 'closed' | 'open' | 'half-open' = 'closed';
+	private failures = 0;
+	private lastFailureTime: Date | null = null;
+	private halfOpenCallCount = 0;
 
-  constructor(
-    private config: CircuitBreakerConfig,
-    private logger: EnhancedLogger
-  ) {
-    super();
-  }
+	constructor(
+		private config: CircuitBreakerConfig,
+		private logger: EnhancedLogger
+	) {
+		super();
+	}
 
-  async execute<T>(operation: () => Promise<T>, context?: ErrorContext): Promise<T> {
-    if (this.state === 'open') {
-      if (this.shouldAttemptRecovery()) {
-        this.state = 'half-open';
-        this.halfOpenCallCount = 0;
-        this.logger.info('Circuit breaker transitioning to half-open', { context });
-        this.emit('stateChange', 'half-open');
-      } else {
-        const error = new AppError(
-          'Circuit breaker is open - operation blocked',
-          ErrorCode.SERVICE_UNAVAILABLE
-        );
-        this.logger.warn('Circuit breaker blocked operation', { context, error });
-        throw error;
-      }
-    }
+	async execute<T>(operation: () => Promise<T>, context?: ErrorContext): Promise<T> {
+		if (this.state === 'open') {
+			if (this.shouldAttemptRecovery()) {
+				this.state = 'half-open';
+				this.halfOpenCallCount = 0;
+				this.logger.info('Circuit breaker transitioning to half-open', { context });
+				this.emit('stateChange', 'half-open');
+			} else {
+				const error = new AppError(
+					'Circuit breaker is open - operation blocked',
+					ErrorCode.SERVICE_UNAVAILABLE
+				);
+				this.logger.warn('Circuit breaker blocked operation', { context, error });
+				throw error;
+			}
+		}
 
-    if (this.state === 'half-open') {
-      this.halfOpenCallCount++;
-      if (this.halfOpenCallCount > this.config.halfOpenMaxCalls) {
-        this.state = 'open';
-        this.lastFailureTime = new Date();
-        this.logger.warn('Circuit breaker reopened - too many half-open calls');
-        this.emit('stateChange', 'open');
-        throw new AppError(
-          'Circuit breaker reopened',
-          ErrorCode.SERVICE_UNAVAILABLE
-        );
-      }
-    }
+		if (this.state === 'half-open') {
+			this.halfOpenCallCount++;
+			if (this.halfOpenCallCount > this.config.halfOpenMaxCalls) {
+				this.state = 'open';
+				this.lastFailureTime = new Date();
+				this.logger.warn('Circuit breaker reopened - too many half-open calls');
+				this.emit('stateChange', 'open');
+				throw new AppError('Circuit breaker reopened', ErrorCode.SERVICE_UNAVAILABLE);
+			}
+		}
 
-    try {
-      const result = await operation();
-      
-      if (this.state === 'half-open') {
-        this.state = 'closed';
-        this.failures = 0;
-        this.halfOpenCallCount = 0;
-        this.logger.info('Circuit breaker recovered to closed state');
-        this.emit('stateChange', 'closed');
-      }
-      
-      return result;
-    } catch (error) {
-      this.recordFailure(error as Error, context);
-      throw error;
-    }
-  }
+		try {
+			const result = await operation();
 
-  private recordFailure(error: Error, context?: ErrorContext): void {
-    this.failures++;
-    this.lastFailureTime = new Date();
+			if (this.state === 'half-open') {
+				this.state = 'closed';
+				this.failures = 0;
+				this.halfOpenCallCount = 0;
+				this.logger.info('Circuit breaker recovered to closed state');
+				this.emit('stateChange', 'closed');
+			}
 
-    if (this.failures >= this.config.failureThreshold) {
-      this.state = 'open';
-      this.logger.error('Circuit breaker opened due to failures', {
-        failures: this.failures,
-        threshold: this.config.failureThreshold,
-        context,
-        error,
-      });
-      this.emit('stateChange', 'open');
-    }
-  }
+			return result;
+		} catch (error) {
+			this.recordFailure(error as Error, context);
+			throw error;
+		}
+	}
 
-  private shouldAttemptRecovery(): boolean {
-    if (!this.lastFailureTime) return false;
-    
-    const timeSinceLastFailure = Date.now() - this.lastFailureTime.getTime();
-    return timeSinceLastFailure >= this.config.recoveryTimeout;
-  }
+	private recordFailure(error: Error, context?: ErrorContext): void {
+		this.failures++;
+		this.lastFailureTime = new Date();
 
-  getState(): string {
-    return this.state;
-  }
+		if (this.failures >= this.config.failureThreshold) {
+			this.state = 'open';
+			this.logger.error('Circuit breaker opened due to failures', {
+				failures: this.failures,
+				threshold: this.config.failureThreshold,
+				context,
+				error,
+			});
+			this.emit('stateChange', 'open');
+		}
+	}
 
-  getMetrics(): { state: string; failures: number; lastFailureTime: Date | null } {
-    return {
-      state: this.state,
-      failures: this.failures,
-      lastFailureTime: this.lastFailureTime,
-    };
-  }
+	private shouldAttemptRecovery(): boolean {
+		if (!this.lastFailureTime) return false;
+
+		const timeSinceLastFailure = Date.now() - this.lastFailureTime.getTime();
+		return timeSinceLastFailure >= this.config.recoveryTimeout;
+	}
+
+	getState(): string {
+		return this.state;
+	}
+
+	getMetrics(): { state: string; failures: number; lastFailureTime: Date | null } {
+		return {
+			state: this.state,
+			failures: this.failures,
+			lastFailureTime: this.lastFailureTime,
+		};
+	}
 }
 
 /**
  * Comprehensive error handler with recovery strategies
  */
 export class ErrorHandler extends EventEmitter {
-  private logger: EnhancedLogger;
-  private recoveryStrategies: ErrorRecoveryStrategy[] = [];
-  private circuitBreakers = new Map<string, CircuitBreaker>();
-  private metrics: ErrorMetrics = {
-    totalErrors: 0,
-    errorsByType: {},
-    errorsByCode: {},
-    recoveryAttempts: 0,
-    successfulRecoveries: 0,
-    criticalErrors: 0,
-    recentErrors: [],
-  };
-  private rateLimits = new Map<string, { count: number; windowStart: number; penaltyEnd?: number }>();
+	private logger: EnhancedLogger;
+	private recoveryStrategies: ErrorRecoveryStrategy[] = [];
+	private circuitBreakers = new Map<string, CircuitBreaker>();
+	private metrics: ErrorMetrics = {
+		totalErrors: 0,
+		errorsByType: {},
+		errorsByCode: {},
+		recoveryAttempts: 0,
+		successfulRecoveries: 0,
+		criticalErrors: 0,
+		recentErrors: [],
+	};
+	private rateLimits = new Map<
+		string,
+		{ count: number; windowStart: number; penaltyEnd?: number }
+	>();
 
-  constructor(logger: EnhancedLogger) {
-    super();
-    this.logger = logger;
-    this.setupDefaultRecoveryStrategies();
-    this.setupProcessHandlers();
-  }
+	constructor(logger: EnhancedLogger) {
+		super();
+		this.logger = logger;
+		this.setupDefaultRecoveryStrategies();
+		this.setupProcessHandlers();
+	}
 
-  /**
-   * Handle error with recovery attempts
-   */
-  async handleError(
-    error: Error,
-    context: ErrorContext,
-    options: {
-      allowRecovery?: boolean;
-      notifySeverity?: ErrorNotification['severity'];
-      circuitBreakerKey?: string;
-      retryable?: boolean;
-    } = {}
-  ): Promise<{
-    recovered: boolean;
-    strategy?: string;
-    attempts: number;
-    finalError?: Error;
-  }> {
-    const correlationId = context.correlationId || randomUUID();
-    const notificationId = randomUUID();
+	/**
+	 * Handle error with recovery attempts
+	 */
+	async handleError(
+		error: Error,
+		context: ErrorContext,
+		options: {
+			allowRecovery?: boolean;
+			notifySeverity?: ErrorNotification['severity'];
+			circuitBreakerKey?: string;
+			retryable?: boolean;
+		} = {}
+	): Promise<{
+		recovered: boolean;
+		strategy?: string;
+		attempts: number;
+		finalError?: Error;
+	}> {
+		const correlationId = context.correlationId || randomUUID();
+		const notificationId = randomUUID();
 
-    // Update metrics
-    this.updateMetrics(error, context);
+		// Update metrics
+		this.updateMetrics(error, context);
 
-    // Log the error
-    this.logger.error('Error occurred', error, {
-      correlationId,
-      operation: context.operation,
-      resource: context.resource,
-      userId: context.userId,
-      additionalData: context.additionalData,
-    });
+		// Log the error
+		this.logger.error('Error occurred', error, {
+			correlationId,
+			operation: context.operation,
+			resource: context.resource,
+			userId: context.userId,
+			additionalData: context.additionalData,
+		});
 
-    // Check rate limiting
-    if (this.isRateLimited(context.operation || 'unknown', error)) {
-      this.logger.warn('Error handling rate limited', { correlationId, operation: context.operation });
-      return { recovered: false, attempts: 0, finalError: error };
-    }
+		// Check rate limiting
+		if (this.isRateLimited(context.operation || 'unknown', error)) {
+			this.logger.warn('Error handling rate limited', {
+				correlationId,
+				operation: context.operation,
+			});
+			return { recovered: false, attempts: 0, finalError: error };
+		}
 
-    let recovered = false;
-    let strategy: string | undefined;
-    let attempts = 0;
-    let finalError = error;
+		let recovered = false;
+		let strategy: string | undefined;
+		let attempts = 0;
+		let finalError = error;
 
-    // Attempt recovery if allowed
-    if (options.allowRecovery !== false) {
-      for (const recoveryStrategy of this.recoveryStrategies) {
-        if (recoveryStrategy.canRecover(error, context)) {
-          attempts++;
-          this.metrics.recoveryAttempts++;
+		// Attempt recovery if allowed
+		if (options.allowRecovery !== false) {
+			for (const recoveryStrategy of this.recoveryStrategies) {
+				if (recoveryStrategy.canRecover(error, context)) {
+					attempts++;
+					this.metrics.recoveryAttempts++;
 
-          try {
-            this.logger.info('Attempting error recovery', {
-              strategy: recoveryStrategy.name,
-              correlationId,
-              attempt: attempts,
-            });
+					try {
+						this.logger.info('Attempting error recovery', {
+							strategy: recoveryStrategy.name,
+							correlationId,
+							attempt: attempts,
+						});
 
-            recovered = await recoveryStrategy.recover(error, context);
-            
-            if (recovered) {
-              strategy = recoveryStrategy.name;
-              this.metrics.successfulRecoveries++;
-              this.logger.info('Error recovery successful', {
-                strategy: recoveryStrategy.name,
-                correlationId,
-              });
-              break;
-            }
-          } catch (recoveryError) {
-            this.logger.warn('Error recovery failed', {
-              error: (recoveryError as Error).message,
-              strategy: recoveryStrategy.name,
-              correlationId,
-              originalError: error.message,
-            });
-            finalError = recoveryError as Error;
-          }
-        }
-      }
-    }
+						recovered = await recoveryStrategy.recover(error, context);
 
-    // Create notification if severity specified
-    if (options.notifySeverity) {
-      const notification: ErrorNotification = {
-        severity: options.notifySeverity,
-        error: finalError,
-        context,
-        correlationId,
-        notificationId,
-        suggestion: this.generateSuggestion(error, context, recovered),
-      };
-      
-      this.emit('errorNotification', notification);
-    }
+						if (recovered) {
+							strategy = recoveryStrategy.name;
+							this.metrics.successfulRecoveries++;
+							this.logger.info('Error recovery successful', {
+								strategy: recoveryStrategy.name,
+								correlationId,
+							});
+							break;
+						}
+					} catch (recoveryError) {
+						this.logger.warn('Error recovery failed', {
+							error: (recoveryError as Error).message,
+							strategy: recoveryStrategy.name,
+							correlationId,
+							originalError: error.message,
+						});
+						finalError = recoveryError as Error;
+					}
+				}
+			}
+		}
 
-    // Update recent errors
-    this.metrics.recentErrors.unshift({
-      error: error.message,
-      context,
-      recovered,
-      timestamp: new Date(),
-    });
+		// Create notification if severity specified
+		if (options.notifySeverity) {
+			const notification: ErrorNotification = {
+				severity: options.notifySeverity,
+				error: finalError,
+				context,
+				correlationId,
+				notificationId,
+				suggestion: this.generateSuggestion(error, context, recovered),
+			};
 
-    // Keep only last 100 errors
-    if (this.metrics.recentErrors.length > 100) {
-      this.metrics.recentErrors.splice(100);
-    }
+			this.emit('errorNotification', notification);
+		}
 
-    // Emit error event
-    this.emit('error', {
-      error: finalError,
-      context,
-      recovered,
-      strategy,
-      attempts,
-      correlationId,
-    });
+		// Update recent errors
+		this.metrics.recentErrors.unshift({
+			error: error.message,
+			context,
+			recovered,
+			timestamp: new Date(),
+		});
 
-    return { recovered, strategy, attempts, finalError };
-  }
+		// Keep only last 100 errors
+		if (this.metrics.recentErrors.length > 100) {
+			this.metrics.recentErrors.splice(100);
+		}
 
-  /**
-   * Execute operation with circuit breaker protection
-   */
-  async executeWithCircuitBreaker<T>(
-    key: string,
-    operation: () => Promise<T>,
-    context?: ErrorContext,
-    config?: Partial<CircuitBreakerConfig>
-  ): Promise<T> {
-    let circuitBreaker = this.circuitBreakers.get(key);
-    
-    if (!circuitBreaker) {
-      const fullConfig: CircuitBreakerConfig = {
-        failureThreshold: 5,
-        recoveryTimeout: 60000,
-        monitoringWindow: 300000,
-        halfOpenMaxCalls: 3,
-        ...config,
-      };
-      
-      circuitBreaker = new CircuitBreaker(fullConfig, this.logger);
-      this.circuitBreakers.set(key, circuitBreaker);
-    }
+		// Emit error event
+		this.emit('error', {
+			error: finalError,
+			context,
+			recovered,
+			strategy,
+			attempts,
+			correlationId,
+		});
 
-    return circuitBreaker.execute(operation, context);
-  }
+		return { recovered, strategy, attempts, finalError };
+	}
 
-  /**
-   * Add custom recovery strategy
-   */
-  addRecoveryStrategy(strategy: ErrorRecoveryStrategy): void {
-    this.recoveryStrategies.push(strategy);
-    this.logger.info('Added recovery strategy', { strategy: strategy.name });
-  }
+	/**
+	 * Execute operation with circuit breaker protection
+	 */
+	async executeWithCircuitBreaker<T>(
+		key: string,
+		operation: () => Promise<T>,
+		context?: ErrorContext,
+		config?: Partial<CircuitBreakerConfig>
+	): Promise<T> {
+		let circuitBreaker = this.circuitBreakers.get(key);
 
-  /**
-   * Remove recovery strategy
-   */
-  removeRecoveryStrategy(strategyName: string): void {
-    const index = this.recoveryStrategies.findIndex(s => s.name === strategyName);
-    if (index !== -1) {
-      this.recoveryStrategies.splice(index, 1);
-      this.logger.info('Removed recovery strategy', { strategy: strategyName });
-    }
-  }
+		if (!circuitBreaker) {
+			const fullConfig: CircuitBreakerConfig = {
+				failureThreshold: 5,
+				recoveryTimeout: 60000,
+				monitoringWindow: 300000,
+				halfOpenMaxCalls: 3,
+				...config,
+			};
 
-  /**
-   * Get error metrics
-   */
-  getMetrics(): ErrorMetrics {
-    return { ...this.metrics };
-  }
+			circuitBreaker = new CircuitBreaker(fullConfig, this.logger);
+			this.circuitBreakers.set(key, circuitBreaker);
+		}
 
-  /**
-   * Get circuit breaker status
-   */
-  getCircuitBreakerStatus(): Record<string, { state: string; failures: number; lastFailureTime: Date | null }> {
-    const status: Record<string, ReturnType<CircuitBreaker['getMetrics']>> = {};
-    
-    for (const [key, breaker] of this.circuitBreakers) {
-      status[key] = breaker.getMetrics();
-    }
-    
-    return status;
-  }
+		return circuitBreaker.execute(operation, context);
+	}
 
-  /**
-   * Reset metrics
-   */
-  resetMetrics(): void {
-    this.metrics = {
-      totalErrors: 0,
-      errorsByType: {},
-      errorsByCode: {},
-      recoveryAttempts: 0,
-      successfulRecoveries: 0,
-      criticalErrors: 0,
-      recentErrors: [],
-    };
-    
-    this.rateLimits.clear();
-    this.emit('metricsReset');
-  }
+	/**
+	 * Add custom recovery strategy
+	 */
+	addRecoveryStrategy(strategy: ErrorRecoveryStrategy): void {
+		this.recoveryStrategies.push(strategy);
+		this.logger.info('Added recovery strategy', { strategy: strategy.name });
+	}
 
-  /**
-   * Generate error report
-   */
-  generateErrorReport(): string {
-    const metrics = this.getMetrics();
-    const cbStatus = this.getCircuitBreakerStatus();
-    
-    let report = '# Error Handling Report\n\n';
-    
-    report += `## Summary\n`;
-    report += `- **Total Errors**: ${metrics.totalErrors}\n`;
-    report += `- **Recovery Attempts**: ${metrics.recoveryAttempts}\n`;
-    report += `- **Successful Recoveries**: ${metrics.successfulRecoveries}\n`;
-    report += `- **Critical Errors**: ${metrics.criticalErrors}\n`;
-    report += `- **Recovery Rate**: ${metrics.recoveryAttempts > 0 ? (metrics.successfulRecoveries / metrics.recoveryAttempts * 100).toFixed(2) : 0}%\n\n`;
-    
-    report += `## Error Types\n`;
-    for (const [type, count] of Object.entries(metrics.errorsByType)) {
-      report += `- **${type}**: ${count}\n`;
-    }
-    report += '\n';
-    
-    report += `## Error Codes\n`;
-    for (const [code, count] of Object.entries(metrics.errorsByCode)) {
-      report += `- **${code}**: ${count}\n`;
-    }
-    report += '\n';
-    
-    report += `## Circuit Breakers\n`;
-    for (const [key, status] of Object.entries(cbStatus)) {
-      report += `- **${key}**: ${status.state} (${status.failures} failures)\n`;
-    }
-    report += '\n';
-    
-    if (metrics.recentErrors.length > 0) {
-      report += `## Recent Errors\n`;
-      for (const recentError of metrics.recentErrors.slice(0, 10)) {
-        report += `- **${recentError.timestamp.toISOString()}**: ${recentError.error} (${recentError.recovered ? 'Recovered' : 'Not recovered'})\n`;
-      }
-    }
-    
-    return report;
-  }
+	/**
+	 * Remove recovery strategy
+	 */
+	removeRecoveryStrategy(strategyName: string): void {
+		const index = this.recoveryStrategies.findIndex((s) => s.name === strategyName);
+		if (index !== -1) {
+			this.recoveryStrategies.splice(index, 1);
+			this.logger.info('Removed recovery strategy', { strategy: strategyName });
+		}
+	}
 
-  // Private methods
+	/**
+	 * Get error metrics
+	 */
+	getMetrics(): ErrorMetrics {
+		return { ...this.metrics };
+	}
 
-  private setupDefaultRecoveryStrategies(): void {
-    // Retry strategy
-    this.addRecoveryStrategy({
-      name: 'retry',
-      canRecover: (error) => {
-        const retryableErrors = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'];
-        return retryableErrors.some(code => error.message.includes(code));
-      },
-      recover: async (error, context) => {
-        const maxAttempts = 3;
-        const baseDelay = 1000;
-        
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          await this.delay(baseDelay * Math.pow(2, attempt - 1));
-          
-          // This would typically retry the original operation
-          // For demo purposes, we simulate recovery
-          if (Math.random() > 0.5) {
-            return true;
-          }
-        }
-        
-        return false;
-      },
-    });
+	/**
+	 * Get circuit breaker status
+	 */
+	getCircuitBreakerStatus(): Record<
+		string,
+		{ state: string; failures: number; lastFailureTime: Date | null }
+	> {
+		const status: Record<string, ReturnType<CircuitBreaker['getMetrics']>> = {};
 
-    // Fallback strategy
-    this.addRecoveryStrategy({
-      name: 'fallback',
-      canRecover: (error) => {
-        return error.message.includes('SERVICE_UNAVAILABLE');
-      },
-      recover: async (error, context) => {
-        this.logger.info('Using fallback recovery', { 
-          operation: context.operation,
-          error: error.message 
-        });
-        
-        // Implement fallback logic here
-        return true;
-      },
-    });
+		for (const [key, breaker] of this.circuitBreakers) {
+			status[key] = breaker.getMetrics();
+		}
 
-    // Cache recovery strategy
-    this.addRecoveryStrategy({
-      name: 'cache-fallback',
-      canRecover: (error, context) => {
-        return context.operation?.includes('cache') || false;
-      },
-      recover: async (error, context) => {
-        this.logger.info('Attempting cache fallback recovery');
-        
-        // Try to recover from cache failure by using alternative caching
-        return Math.random() > 0.3; // 70% success rate
-      },
-    });
-  }
+		return status;
+	}
 
-  private setupProcessHandlers(): void {
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (error) => {
-      this.logger.error('Uncaught exception', error, { critical: true });
-      
-      const context: ErrorContext = {
-        correlationId: randomUUID(),
-        operation: 'uncaughtException',
-        timestamp: new Date(),
-      };
-      
-      this.handleError(error, context, {
-        notifySeverity: 'critical',
-        allowRecovery: false,
-      });
-      
-      // Give time for logging then exit
-      setTimeout(() => {
-        process.exit(1);
-      }, 1000);
-    });
+	/**
+	 * Reset metrics
+	 */
+	resetMetrics(): void {
+		this.metrics = {
+			totalErrors: 0,
+			errorsByType: {},
+			errorsByCode: {},
+			recoveryAttempts: 0,
+			successfulRecoveries: 0,
+			criticalErrors: 0,
+			recentErrors: [],
+		};
 
-    // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason, promise) => {
-      const error = reason instanceof Error ? reason : new Error(String(reason));
-      
-      this.logger.error('Unhandled promise rejection', error, {
-        promise: promise.toString(),
-        critical: true,
-      });
-      
-      const context: ErrorContext = {
-        correlationId: randomUUID(),
-        operation: 'unhandledRejection',
-        timestamp: new Date(),
-      };
-      
-      this.handleError(error, context, {
-        notifySeverity: 'critical',
-        allowRecovery: false,
-      });
-    });
+		this.rateLimits.clear();
+		this.emit('metricsReset');
+	}
 
-    // Handle process warnings
-    process.on('warning', (warning) => {
-      this.logger.warn('Process warning', {
-        name: warning.name,
-        message: warning.message,
-        stack: warning.stack,
-      });
-    });
-  }
+	/**
+	 * Generate error report
+	 */
+	generateErrorReport(): string {
+		const metrics = this.getMetrics();
+		const cbStatus = this.getCircuitBreakerStatus();
 
-  private updateMetrics(error: Error, context: ErrorContext): void {
-    this.metrics.totalErrors++;
-    
-    // Update by error type
-    const errorType = error.constructor.name;
-    this.metrics.errorsByType[errorType] = (this.metrics.errorsByType[errorType] || 0) + 1;
-    
-    // Update by error code
-    const errorCode = (error as AppError).code || 'UNKNOWN';
-    this.metrics.errorsByCode[errorCode] = (this.metrics.errorsByCode[errorCode] || 0) + 1;
-    
-    // Check if critical
-    if (this.isCriticalError(error, context)) {
-      this.metrics.criticalErrors++;
-    }
-  }
+		let report = '# Error Handling Report\n\n';
 
-  private isRateLimited(operation: string, error: Error, config: RateLimitConfig = {
-    windowMs: 60000,
-    maxAttempts: 10,
-    penaltyMs: 300000,
-  }): boolean {
-    const key = `${operation}:${error.constructor.name}`;
-    const now = Date.now();
-    const rateLimit = this.rateLimits.get(key);
+		report += `## Summary\n`;
+		report += `- **Total Errors**: ${metrics.totalErrors}\n`;
+		report += `- **Recovery Attempts**: ${metrics.recoveryAttempts}\n`;
+		report += `- **Successful Recoveries**: ${metrics.successfulRecoveries}\n`;
+		report += `- **Critical Errors**: ${metrics.criticalErrors}\n`;
+		report += `- **Recovery Rate**: ${metrics.recoveryAttempts > 0 ? ((metrics.successfulRecoveries / metrics.recoveryAttempts) * 100).toFixed(2) : 0}%\n\n`;
 
-    if (!rateLimit) {
-      this.rateLimits.set(key, { count: 1, windowStart: now });
-      return false;
-    }
+		report += `## Error Types\n`;
+		for (const [type, count] of Object.entries(metrics.errorsByType)) {
+			report += `- **${type}**: ${count}\n`;
+		}
+		report += '\n';
 
-    // Check if in penalty period
-    if (rateLimit.penaltyEnd && now < rateLimit.penaltyEnd) {
-      return true;
-    }
+		report += `## Error Codes\n`;
+		for (const [code, count] of Object.entries(metrics.errorsByCode)) {
+			report += `- **${code}**: ${count}\n`;
+		}
+		report += '\n';
 
-    // Reset window if expired
-    if (now - rateLimit.windowStart >= config.windowMs) {
-      rateLimit.count = 1;
-      rateLimit.windowStart = now;
-      rateLimit.penaltyEnd = undefined;
-      return false;
-    }
+		report += `## Circuit Breakers\n`;
+		for (const [key, status] of Object.entries(cbStatus)) {
+			report += `- **${key}**: ${status.state} (${status.failures} failures)\n`;
+		}
+		report += '\n';
 
-    rateLimit.count++;
+		if (metrics.recentErrors.length > 0) {
+			report += `## Recent Errors\n`;
+			for (const recentError of metrics.recentErrors.slice(0, 10)) {
+				report += `- **${recentError.timestamp.toISOString()}**: ${recentError.error} (${recentError.recovered ? 'Recovered' : 'Not recovered'})\n`;
+			}
+		}
 
-    // Apply penalty if threshold exceeded
-    if (rateLimit.count > config.maxAttempts) {
-      rateLimit.penaltyEnd = now + config.penaltyMs;
-      return true;
-    }
+		return report;
+	}
 
-    return false;
-  }
+	// Private methods
 
-  private isCriticalError(error: Error, context: ErrorContext): boolean {
-    const criticalPatterns = [
-      'uncaughtException',
-      'unhandledRejection',
-      'ENOSPC', // Disk full
-      'EMFILE', // Too many open files
-      'ENOMEM', // Out of memory
-    ];
+	private setupDefaultRecoveryStrategies(): void {
+		// Retry strategy
+		this.addRecoveryStrategy({
+			name: 'retry',
+			canRecover: (error) => {
+				const retryableErrors = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'];
+				return retryableErrors.some((code) => error.message.includes(code));
+			},
+			recover: async (_error, _context) => {
+				// No actual retry logic implemented; caller should handle retry externally
+				return false;
+			},
+		});
 
-    return criticalPatterns.some(pattern => 
-      error.message.includes(pattern) || 
-      context.operation?.includes(pattern)
-    );
-  }
+		// Fallback strategy
+		this.addRecoveryStrategy({
+			name: 'fallback',
+			canRecover: (error) => {
+				return error.message.includes('SERVICE_UNAVAILABLE');
+			},
+			recover: async (error, context) => {
+				this.logger.info('Using fallback recovery', {
+					operation: context.operation,
+					error: error.message,
+				});
 
-  private generateSuggestion(
-    error: Error, 
-    context: ErrorContext, 
-    recovered: boolean
-  ): string {
-    if (recovered) {
-      return 'Error was automatically recovered';
-    }
+				// Fallback not implemented; return false so caller handles the error
+				return false;
+			},
+		});
 
-    // Generate contextual suggestions
-    if (error.message.includes('ECONNREFUSED')) {
-      return 'Check if the target service is running and accessible';
-    }
-    
-    if (error.message.includes('TIMEOUT')) {
-      return 'Consider increasing timeout values or optimizing the operation';
-    }
-    
-    if (error.message.includes('ENOSPC')) {
-      return 'Free up disk space immediately';
-    }
-    
-    if (context.operation?.includes('database')) {
-      return 'Check database connectivity and query performance';
-    }
-    
-    return 'Review error details and check system health';
-  }
+		// Cache recovery strategy
+		this.addRecoveryStrategy({
+			name: 'cache-fallback',
+			canRecover: (error, context) => {
+				return context.operation?.includes('cache') || false;
+			},
+			recover: async (error, context) => {
+				this.logger.info('Attempting cache fallback recovery');
 
-  private async delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+				// Try to recover from cache failure by using alternative caching
+				return false;
+			},
+		});
+	}
+
+	private setupProcessHandlers(): void {
+		// Handle uncaught exceptions
+		process.on('uncaughtException', (error) => {
+			this.logger.error('Uncaught exception', error, { critical: true });
+
+			const context: ErrorContext = {
+				correlationId: randomUUID(),
+				operation: 'uncaughtException',
+				timestamp: new Date(),
+			};
+
+			this.handleError(error, context, {
+				notifySeverity: 'critical',
+				allowRecovery: false,
+			});
+
+			// Give time for logging then exit
+			setTimeout(() => {
+				process.exit(1);
+			}, 1000);
+		});
+
+		// Handle unhandled promise rejections
+		process.on('unhandledRejection', (reason, promise) => {
+			const error = reason instanceof Error ? reason : new Error(String(reason));
+
+			this.logger.error('Unhandled promise rejection', error, {
+				promise: promise.toString(),
+				critical: true,
+			});
+
+			const context: ErrorContext = {
+				correlationId: randomUUID(),
+				operation: 'unhandledRejection',
+				timestamp: new Date(),
+			};
+
+			this.handleError(error, context, {
+				notifySeverity: 'critical',
+				allowRecovery: false,
+			});
+		});
+
+		// Handle process warnings
+		process.on('warning', (warning) => {
+			this.logger.warn('Process warning', {
+				name: warning.name,
+				message: warning.message,
+				stack: warning.stack,
+			});
+		});
+	}
+
+	private updateMetrics(error: Error, context: ErrorContext): void {
+		this.metrics.totalErrors++;
+
+		// Update by error type
+		const errorType = error.constructor.name;
+		this.metrics.errorsByType[errorType] = (this.metrics.errorsByType[errorType] || 0) + 1;
+
+		// Update by error code
+		const errorCode = (error as AppError).code || 'UNKNOWN';
+		this.metrics.errorsByCode[errorCode] = (this.metrics.errorsByCode[errorCode] || 0) + 1;
+
+		// Check if critical
+		if (this.isCriticalError(error, context)) {
+			this.metrics.criticalErrors++;
+		}
+	}
+
+	private isRateLimited(
+		operation: string,
+		error: Error,
+		config: RateLimitConfig = {
+			windowMs: 60000,
+			maxAttempts: 10,
+			penaltyMs: 300000,
+		}
+	): boolean {
+		const key = `${operation}:${error.constructor.name}`;
+		const now = Date.now();
+		const rateLimit = this.rateLimits.get(key);
+
+		if (!rateLimit) {
+			this.rateLimits.set(key, { count: 1, windowStart: now });
+			return false;
+		}
+
+		// Check if in penalty period
+		if (rateLimit.penaltyEnd && now < rateLimit.penaltyEnd) {
+			return true;
+		}
+
+		// Reset window if expired
+		if (now - rateLimit.windowStart >= config.windowMs) {
+			rateLimit.count = 1;
+			rateLimit.windowStart = now;
+			rateLimit.penaltyEnd = undefined;
+			return false;
+		}
+
+		rateLimit.count++;
+
+		// Apply penalty if threshold exceeded
+		if (rateLimit.count > config.maxAttempts) {
+			rateLimit.penaltyEnd = now + config.penaltyMs;
+			return true;
+		}
+
+		return false;
+	}
+
+	private isCriticalError(error: Error, context: ErrorContext): boolean {
+		const criticalPatterns = [
+			'uncaughtException',
+			'unhandledRejection',
+			'ENOSPC', // Disk full
+			'EMFILE', // Too many open files
+			'ENOMEM', // Out of memory
+		];
+
+		return criticalPatterns.some(
+			(pattern) => error.message.includes(pattern) || context.operation?.includes(pattern)
+		);
+	}
+
+	private generateSuggestion(error: Error, context: ErrorContext, recovered: boolean): string {
+		if (recovered) {
+			return 'Error was automatically recovered';
+		}
+
+		// Generate contextual suggestions
+		if (error.message.includes('ECONNREFUSED')) {
+			return 'Check if the target service is running and accessible';
+		}
+
+		if (error.message.includes('TIMEOUT')) {
+			return 'Consider increasing timeout values or optimizing the operation';
+		}
+
+		if (error.message.includes('ENOSPC')) {
+			return 'Free up disk space immediately';
+		}
+
+		if (context.operation?.includes('database')) {
+			return 'Check database connectivity and query performance';
+		}
+
+		return 'Review error details and check system health';
+	}
+
+	private async delay(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
 }
 
 /**
  * Error boundary for async operations
  */
 export class AsyncErrorBoundary {
-  constructor(
-    private errorHandler: ErrorHandler,
-    private defaultContext: Partial<ErrorContext> = {}
-  ) {}
+	constructor(
+		private errorHandler: ErrorHandler,
+		private defaultContext: Partial<ErrorContext> = {}
+	) {}
 
-  /**
-   * Wrap async function with error handling
-   */
-  wrap<T extends any[], R>(
-    fn: (...args: T) => Promise<R>,
-    context: Partial<ErrorContext> = {}
-  ): (...args: T) => Promise<R> {
-    return async (...args: T): Promise<R> => {
-      try {
-        return await fn(...args);
-      } catch (error) {
-        const fullContext: ErrorContext = {
-          ...this.defaultContext,
-          ...context,
-          timestamp: new Date(),
-        };
+	/**
+	 * Wrap async function with error handling
+	 */
+	wrap<T extends any[], R>(
+		fn: (...args: T) => Promise<R>,
+		context: Partial<ErrorContext> = {}
+	): (...args: T) => Promise<R> {
+		return async (...args: T): Promise<R> => {
+			try {
+				return await fn(...args);
+			} catch (error) {
+				const fullContext: ErrorContext = {
+					...this.defaultContext,
+					...context,
+					timestamp: new Date(),
+				};
 
-        const result = await this.errorHandler.handleError(
-          error as Error,
-          fullContext,
-          { allowRecovery: true }
-        );
+				const result = await this.errorHandler.handleError(error as Error, fullContext, {
+					allowRecovery: true,
+				});
 
-        if (result.recovered) {
-          // If recovered, try the operation again
-          return await fn(...args);
-        }
+				if (result.recovered) {
+					// If recovered, try the operation again
+					return await fn(...args);
+				}
 
-        throw result.finalError || error;
-      }
-    };
-  }
+				throw result.finalError || error;
+			}
+		};
+	}
 
-  /**
-   * Execute function with error boundary
-   */
-  async execute<T>(
-    fn: () => Promise<T>,
-    context: Partial<ErrorContext> = {}
-  ): Promise<T> {
-    const wrappedFn = this.wrap(fn, context);
-    return wrappedFn();
-  }
+	/**
+	 * Execute function with error boundary
+	 */
+	async execute<T>(fn: () => Promise<T>, context: Partial<ErrorContext> = {}): Promise<T> {
+		const wrappedFn = this.wrap(fn, context);
+		return wrappedFn();
+	}
 }

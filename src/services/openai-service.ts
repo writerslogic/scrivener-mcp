@@ -722,9 +722,7 @@ Provide a JSON response with:
 		return processBatch(
 			texts,
 			async (textBatch: string[]) => {
-				const results = [];
-
-				for (const text of textBatch) {
+				const promises = textBatch.map(async (text) => {
 					const startTime = performance.now();
 					const textHash = generateHash(text.substring(0, 1000));
 					const result: {
@@ -773,10 +771,10 @@ Provide a JSON response with:
 					}
 
 					result.processingTime = formatDuration(performance.now() - startTime);
-					results.push(result);
-				}
+					return result;
+				});
 
-				return results;
+				return Promise.all(promises);
 			},
 			batchSize
 		);

@@ -658,74 +658,93 @@ export class PerformanceMonitor extends EventEmitter {
 	}
 
 	private getDiskUsage(): SystemMetrics['disk'] {
-		// Simplified disk usage - in production you'd use actual disk space queries
-		return {
-			total: 1000000000000, // 1TB
-			used: 500000000000, // 500GB
-			free: 500000000000, // 500GB
-			percentage: 50,
-		};
+		try {
+			const stats = require('fs').statfsSync('/');
+			const total = stats.bsize * stats.blocks;
+			const free = stats.bsize * stats.bavail;
+			const used = total - free;
+			return {
+				total,
+				used,
+				free,
+				percentage: total > 0 ? (used / total) * 100 : 0,
+			};
+		} catch {
+			// Disk stats unavailable; return zeros rather than fake data
+			return {
+				total: 0,
+				used: 0,
+				free: 0,
+				percentage: 0,
+			};
+		}
 	}
 
 	private getNetworkStats(): SystemMetrics['network'] {
-		// Simplified network stats - in production you'd use actual network metrics
+		// Use os.networkInterfaces() for basic info; byte rates require OS-specific
+		// instrumentation and are not available from Node.js APIs alone.
+		const interfaces = os.networkInterfaces();
+		const connections = Object.values(interfaces).reduce(
+			(count, addrs) => count + (addrs?.length ?? 0),
+			0
+		);
 		return {
-			connections: 10,
-			bytesIn: 1024000,
-			bytesOut: 512000,
+			connections,
+			bytesIn: 0, // Not available without OS-specific instrumentation
+			bytesOut: 0,
 		};
 	}
 
 	private getRequestMetrics(): ApplicationMetrics['requests'] {
-		// This would integrate with actual request tracking
+		// Real tracking requires middleware integration; returning zeros as baseline
 		return {
-			total: 1000,
-			perSecond: 10.5,
-			averageResponseTime: 250,
-			errors: 15,
-			errorRate: 0.015,
+			total: 0,
+			perSecond: 0,
+			averageResponseTime: 0,
+			errors: 0,
+			errorRate: 0,
 		};
 	}
 
 	private getDatabaseMetrics(): ApplicationMetrics['database'] {
-		// This would integrate with actual database metrics
+		// Real tracking requires database driver instrumentation; returning zeros as baseline
 		return {
 			connections: {
-				active: 8,
-				idle: 12,
-				total: 20,
+				active: 0,
+				idle: 0,
+				total: 0,
 			},
 			queries: {
-				total: 500,
-				perSecond: 5.2,
-				averageTime: 45,
-				slowQueries: 3,
+				total: 0,
+				perSecond: 0,
+				averageTime: 0,
+				slowQueries: 0,
 			},
 			cache: {
-				hitRate: 0.85,
-				size: 1000000,
-				memoryUsage: 256000000,
+				hitRate: 0,
+				size: 0,
+				memoryUsage: 0,
 			},
 		};
 	}
 
 	private getAiMetrics(): ApplicationMetrics['ai'] {
-		// This would integrate with actual AI service metrics
+		// Real tracking requires AI service client instrumentation; returning zeros as baseline
 		return {
 			requests: {
-				total: 50,
-				perSecond: 0.8,
-				averageTime: 1500,
-				errors: 2,
+				total: 0,
+				perSecond: 0,
+				averageTime: 0,
+				errors: 0,
 			},
 			tokens: {
-				input: 25000,
-				output: 15000,
-				total: 40000,
+				input: 0,
+				output: 0,
+				total: 0,
 			},
 			costs: {
-				totalUsd: 12.5,
-				perRequest: 0.25,
+				totalUsd: 0,
+				perRequest: 0,
 			},
 		};
 	}

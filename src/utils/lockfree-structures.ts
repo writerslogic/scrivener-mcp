@@ -1,7 +1,9 @@
 /**
  * Lock-Free Concurrent Data Structures
- * Implements high-performance concurrent data structures without locks
- * for maximum scalability in multi-threaded text processing
+ *
+ * Note: JavaScript/Node.js is single-threaded (event loop), so true lock-free
+ * CAS operations are unnecessary. These structures use direct operations instead
+ * of simulated CAS spin loops, with iteration guards as a safety net.
  */
 
 import { getLogger } from '../core/logger.js';
@@ -25,59 +27,38 @@ export class LockFreeQueue<T> {
 	}
 
 	/**
-	 * Lock-free enqueue operation
+	 * Enqueue operation (direct, single-threaded safe)
 	 */
 	enqueue(value: T): void {
 		const newNode = new QueueNode(value);
 
-		while (true) {
-			const currentTail = this.tail;
-			const tailNext = currentTail?.next;
-
-			if (currentTail === this.tail) {
-				if (tailNext === null) {
-					// Attempt to link node at end of list
-					if (this.compareAndSwapNode(currentTail, 'next', null, newNode)) {
-						this.compareAndSwapField('tail', currentTail, newNode);
-						this.atomicIncrement('size');
-						break;
-					}
-				} else {
-					// Tail was not pointing to last node, try to swing tail to next node
-					this.compareAndSwapField('tail', currentTail, tailNext ?? null);
-				}
-			}
+		if (this.tail) {
+			this.tail.next = newNode;
 		}
+		this.tail = newNode;
+		this.size++;
 	}
 
 	/**
-	 * Lock-free dequeue operation
+	 * Dequeue operation (direct, single-threaded safe)
 	 */
 	dequeue(): T | null {
-		while (true) {
-			const currentHead = this.head;
-			const currentTail = this.tail;
-			const headNext = currentHead?.next;
+		const sentinel = this.head;
+		const firstNode = sentinel?.next;
 
-			if (currentHead === this.head) {
-				if (currentHead === currentTail) {
-					if (headNext === null) {
-						return null; // Queue is empty
-					}
-					// Tail is falling behind, advance it
-					this.compareAndSwapField('tail', currentTail, headNext ?? null);
-				} else {
-					if (headNext) {
-						const value = headNext.value;
-						// Attempt to move head to next node
-						if (this.compareAndSwapField('head', currentHead, headNext)) {
-							this.atomicDecrement('size');
-							return value;
-						}
-					}
-				}
-			}
+		if (!firstNode) {
+			return null; // Queue is empty
 		}
+
+		const value = firstNode.value;
+		this.head = firstNode;
+
+		if (this.tail === sentinel) {
+			this.tail = firstNode;
+		}
+
+		this.size--;
+		return value;
 	}
 
 	/**
@@ -94,53 +75,6 @@ export class LockFreeQueue<T> {
 		const head = this.head;
 		const tail = this.tail;
 		return head === tail && head?.next === null;
-	}
-
-	/**
-	 * Atomic compare-and-swap operation simulation for node references
-	 */
-	private compareAndSwapNode<T>(
-		node: QueueNode<T> | null,
-		field: 'next',
-		expected: QueueNode<T> | null,
-		newValue: QueueNode<T> | null
-	): boolean {
-		if (node && node[field] === expected) {
-			node[field] = newValue;
-			return true;
-		}
-		return false;
-	}
-
-	/**
-	 * Atomic compare-and-swap operation simulation for queue fields
-	 */
-	private compareAndSwapField(
-		field: 'head' | 'tail',
-		expected: QueueNode<T> | null,
-		newValue: QueueNode<T> | null
-	): boolean {
-		if (this[field] === expected) {
-			this[field] = newValue;
-			return true;
-		}
-		return false;
-	}
-
-	/**
-	 * Atomic increment operation
-	 */
-	private atomicIncrement(key: 'size'): void {
-		// In real implementation, this would use atomic increment
-		this[key]++;
-	}
-
-	/**
-	 * Atomic decrement operation
-	 */
-	private atomicDecrement(key: 'size'): void {
-		// In real implementation, this would use atomic decrement
-		this[key]--;
 	}
 }
 
@@ -159,40 +93,28 @@ export class LockFreeStack<T> {
 	private size = 0;
 
 	/**
-	 * Lock-free push operation
+	 * Push operation (direct, single-threaded safe)
 	 */
 	push(value: T): void {
 		const newNode = new StackNode(value);
-
-		while (true) {
-			const currentTop = this.top;
-			newNode.next = currentTop;
-
-			if (this.compareAndSwapTop(currentTop, newNode)) {
-				this.atomicIncrement('size');
-				break;
-			}
-		}
+		newNode.next = this.top;
+		this.top = newNode;
+		this.size++;
 	}
 
 	/**
-	 * Lock-free pop operation
+	 * Pop operation (direct, single-threaded safe)
 	 */
 	pop(): T | null {
-		while (true) {
-			const currentTop = this.top;
+		const currentTop = this.top;
 
-			if (currentTop === null) {
-				return null; // Stack is empty
-			}
-
-			const next = currentTop.next;
-
-			if (this.compareAndSwapTop(currentTop, next)) {
-				this.atomicDecrement('size');
-				return currentTop.value;
-			}
+		if (currentTop === null) {
+			return null; // Stack is empty
 		}
+
+		this.top = currentTop.next;
+		this.size--;
+		return currentTop.value;
 	}
 
 	/**
@@ -216,25 +138,6 @@ export class LockFreeStack<T> {
 	isEmpty(): boolean {
 		return this.top === null;
 	}
-
-	private compareAndSwapTop(
-		expected: StackNode<T> | null,
-		newValue: StackNode<T> | null
-	): boolean {
-		if (this.top === expected) {
-			this.top = newValue;
-			return true;
-		}
-		return false;
-	}
-
-	private atomicIncrement(key: 'size'): void {
-		this[key]++;
-	}
-
-	private atomicDecrement(key: 'size'): void {
-		this[key]--;
-	}
 }
 
 class StackNode<T> {
@@ -252,6 +155,7 @@ export class LockFreeHashMap<K, V> {
 	private capacity: number;
 	private size = 0;
 	private readonly loadFactorThreshold = 0.75;
+	private resizing = false;
 
 	constructor(initialCapacity = 16) {
 		this.capacity = this.nextPowerOfTwo(initialCapacity);
@@ -286,55 +190,44 @@ export class LockFreeHashMap<K, V> {
 	}
 
 	/**
-	 * Lock-free set operation
+	 * Set operation (direct, single-threaded safe)
 	 */
 	set(key: K, value: V): boolean {
-		// Check if resize is needed
 		if (this.size >= this.capacity * this.loadFactorThreshold) {
 			this.resize();
 		}
 
 		const hash = this.hash(key);
 		let index = hash & (this.capacity - 1);
+		const startIndex = index;
 
-		while (true) {
+		do {
 			const entry = this.buckets[index];
 
 			if (entry === null || entry.deleted) {
-				// Try to place new entry
-				const newEntry = new HashEntry(key, value);
-				if (this.compareAndSwap(this.buckets, index, entry, newEntry)) {
-					if (entry === null || entry.deleted) {
-						this.atomicIncrement('size');
-					}
-					return true;
-				}
+				this.buckets[index] = new HashEntry(key, value);
+				this.size++;
+				return true;
 			} else if (entry.key === key) {
-				// Update existing entry
-				const newEntry = new HashEntry(key, value);
-				if (this.compareAndSwap(this.buckets, index, entry, newEntry)) {
-					return true;
-				}
-			} else {
-				// Linear probing
-				index = (index + 1) & (this.capacity - 1);
-
-				// Prevent infinite loop
-				if (index === (hash & (this.capacity - 1))) {
-					return false; // Table is full
-				}
+				this.buckets[index] = new HashEntry(key, value);
+				return true;
 			}
-		}
+
+			index = (index + 1) & (this.capacity - 1);
+		} while (index !== startIndex);
+
+		return false; // Table is full
 	}
 
 	/**
-	 * Lock-free delete operation
+	 * Delete operation (direct, single-threaded safe)
 	 */
 	delete(key: K): boolean {
 		const hash = this.hash(key);
 		let index = hash & (this.capacity - 1);
+		const startIndex = index;
 
-		while (true) {
+		do {
 			const entry = this.buckets[index];
 
 			if (entry === null) {
@@ -342,21 +235,15 @@ export class LockFreeHashMap<K, V> {
 			}
 
 			if (entry.key === key && !entry.deleted) {
-				// Mark as deleted
-				const deletedEntry = new HashEntry(entry.key, entry.value, true);
-				if (this.compareAndSwap(this.buckets, index, entry, deletedEntry)) {
-					this.atomicDecrement('size');
-					return true;
-				}
+				this.buckets[index] = new HashEntry(entry.key, entry.value, true);
+				this.size--;
+				return true;
 			}
 
 			index = (index + 1) & (this.capacity - 1);
+		} while (index !== startIndex);
 
-			// Prevent infinite loop
-			if (index === (hash & (this.capacity - 1))) {
-				return false;
-			}
-		}
+		return false;
 	}
 
 	/**
@@ -420,41 +307,34 @@ export class LockFreeHashMap<K, V> {
 	}
 
 	private resize(): void {
-		const oldBuckets = this.buckets;
-		const oldCapacity = this.capacity;
+		if (this.resizing) {
+			return;
+		}
+		this.resizing = true;
 
-		this.capacity *= 2;
-		this.buckets = new Array(this.capacity).fill(null);
-		this.size = 0;
+		try {
+			const oldBuckets = this.buckets;
+			const oldCapacity = this.capacity;
 
-		// Rehash all entries
-		for (const entry of oldBuckets) {
-			if (entry && !entry.deleted) {
-				this.set(entry.key, entry.value);
+			this.capacity *= 2;
+			this.buckets = new Array(this.capacity).fill(null);
+			this.size = 0;
+
+			// Rehash all entries
+			for (const entry of oldBuckets) {
+				if (entry && !entry.deleted) {
+					this.set(entry.key, entry.value);
+				}
 			}
+
+			logger.debug('LockFreeHashMap resized', {
+				oldCapacity,
+				newCapacity: this.capacity,
+				currentSize: this.size,
+			});
+		} finally {
+			this.resizing = false;
 		}
-
-		logger.debug('LockFreeHashMap resized', {
-			oldCapacity,
-			newCapacity: this.capacity,
-			currentSize: this.size,
-		});
-	}
-
-	private compareAndSwap<T>(array: Array<T>, index: number, expected: T, newValue: T): boolean {
-		if (array[index] === expected) {
-			array[index] = newValue;
-			return true;
-		}
-		return false;
-	}
-
-	private atomicIncrement(key: 'size'): void {
-		this[key]++;
-	}
-
-	private atomicDecrement(key: 'size'): void {
-		this[key]--;
 	}
 }
 

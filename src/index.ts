@@ -88,18 +88,6 @@ const server = new Server(
 	}
 );
 
-// Register HHM handlers after context is initialized
-contextPromise
-	.then(() => {
-		if (hhmInitialized) {
-			registerHHMHandlers(server as any); // MCP server has complex overloaded types
-			logger.info('HHM handlers registered');
-		}
-	})
-	.catch((error) => {
-		logger.warn('Failed to register HHM handlers', { error });
-	});
-
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
 	tools: getAllTools(),
@@ -110,9 +98,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 	const { name, arguments: args } = request.params;
 
 	try {
-		// Ensure context is initialized
+		// Ensure context is initialized and HHM handlers registered
 		if (!context) {
 			context = await contextPromise;
+			if (hhmInitialized) {
+				registerHHMHandlers(server as any); // MCP server has complex overloaded types
+				logger.info('HHM handlers registered');
+			}
 		}
 
 		// Validate arguments

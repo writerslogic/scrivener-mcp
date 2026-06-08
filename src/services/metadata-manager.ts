@@ -38,14 +38,18 @@ export interface ProjectMetadata {
 export class MetadataManager {
 	private projectTitle: string = 'Untitled Project';
 	private validationCache: MemoryCache<{ valid: boolean; missing: string[] }>;
-	private metadataCache: MemoryCache<DocumentMetadata>;
+	private metadataCache: MemoryCache<
+		DocumentMetadata | Array<{ id: string; field: string; value: string }>
+	>;
 	private readonly maxStringLength = 10000; // Safety limit for metadata fields
 
 	constructor() {
 		this.validationCache = new MemoryCache<{ valid: boolean; missing: string[] }>(
 			5 * 60 * 1000
 		); // 5 minutes
-		this.metadataCache = new MemoryCache<DocumentMetadata>(10 * 60 * 1000); // 10 minutes
+		this.metadataCache = new MemoryCache<
+			DocumentMetadata | Array<{ id: string; field: string; value: string }>
+		>(10 * 60 * 1000); // 10 minutes
 	}
 
 	/**
@@ -929,7 +933,7 @@ export class MetadataManager {
 
 			// Cache results if enabled
 			if (cacheResults) {
-				this.metadataCache.set(cacheKey, results as any, 5 * 60 * 1000); // 5 minutes
+				this.metadataCache.set(cacheKey, results, 5 * 60 * 1000); // 5 minutes
 			}
 
 			return results;

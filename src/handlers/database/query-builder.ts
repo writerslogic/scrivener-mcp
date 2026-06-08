@@ -4,6 +4,7 @@
 
 import { createError, ErrorCode } from '../../core/errors.js';
 import type { PaginationParams, QueryParameters } from '../../types/database.js';
+import { escapeIdentifier } from '../../utils/database.js';
 
 /**
  * SQL Query Builder
@@ -144,7 +145,7 @@ export class SQLQueryBuilder {
 		const values = Object.values(data);
 		const placeholders = columns.map(() => '?').join(', ');
 
-		const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+		const sql = `INSERT INTO ${escapeIdentifier(table)} (${columns.map(escapeIdentifier).join(', ')}) VALUES (${placeholders})`;
 		return { sql, params: values };
 	}
 
@@ -153,10 +154,10 @@ export class SQLQueryBuilder {
 		data: Record<string, unknown>,
 		where: Record<string, unknown>
 	): { sql: string; params: unknown[] } {
-		const setClauses = Object.keys(data).map((key) => `${key} = ?`);
-		const whereClauses = Object.keys(where).map((key) => `${key} = ?`);
+		const setClauses = Object.keys(data).map((key) => `${escapeIdentifier(key)} = ?`);
+		const whereClauses = Object.keys(where).map((key) => `${escapeIdentifier(key)} = ?`);
 
-		const sql = `UPDATE ${table} SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')}`;
+		const sql = `UPDATE ${escapeIdentifier(table)} SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')}`;
 		const params = [...Object.values(data), ...Object.values(where)];
 
 		return { sql, params };
@@ -166,8 +167,8 @@ export class SQLQueryBuilder {
 		table: string,
 		where: Record<string, unknown>
 	): { sql: string; params: unknown[] } {
-		const whereClauses = Object.keys(where).map((key) => `${key} = ?`);
-		const sql = `DELETE FROM ${table} WHERE ${whereClauses.join(' AND ')}`;
+		const whereClauses = Object.keys(where).map((key) => `${escapeIdentifier(key)} = ?`);
+		const sql = `DELETE FROM ${escapeIdentifier(table)} WHERE ${whereClauses.join(' AND ')}`;
 		const params = Object.values(where);
 
 		return { sql, params };

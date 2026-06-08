@@ -71,6 +71,7 @@ export class LangChainContentEnhancer {
 	private qualityThreshold = 0.85;
 	private initialized = false;
 	private healthStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+	private activeRequests = 0;
 
 	// Enterprise service foundation components
 	private circuitBreaker!: EnterpriseCircuitBreaker;
@@ -243,7 +244,9 @@ export class LangChainContentEnhancer {
 	}
 
 	private cleanupResources(): void {
-		// Clean up expired cache entries and optimize memory usage
+		if (this.activeRequests > 0) {
+			return;
+		}
 		this.cache.clear();
 		this.profiler.reset();
 	}
@@ -438,6 +441,7 @@ export class LangChainContentEnhancer {
 			'service.name': 'langchain-content-enhancer',
 		});
 
+		this.activeRequests++;
 		try {
 			// Validate and sanitize input
 			const validatedRequest = await this.validateAndSanitizeRequest(request);
@@ -571,6 +575,8 @@ export class LangChainContentEnhancer {
 
 				throw error; // Throw original AI error
 			}
+		} finally {
+			this.activeRequests--;
 		}
 	}
 

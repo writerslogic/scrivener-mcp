@@ -177,10 +177,10 @@ export class StoryIntelligence {
 			}
 		}
 
-		// Check for missing arcs (characters without development)
+		// Check for missing arcs (characters without development) - single query
 		const charactersWithoutArcs = await this.neo4jManager.query(`
 			MATCH (c:Character)
-			WHERE NOT exists((c)-[:HAS_ARC]->())
+			WHERE NOT (c)-[:HAS_ARC]->()
 			AND size((c)-[:APPEARS_IN]->()) > 3
 			RETURN c.id as id, c.name as name
 		`);

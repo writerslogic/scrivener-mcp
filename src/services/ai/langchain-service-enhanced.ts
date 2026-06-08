@@ -240,6 +240,13 @@ export class EnhancedLangChainService {
 	private qaChain: ConversationalRetrievalQAChain | null = null;
 	private logger: ReturnType<typeof getLogger>;
 
+	/** Mask an API key for safe logging: shows only the last 4 characters. */
+	private static maskKey(key: string | undefined): string {
+		if (!key) return '(not set)';
+		if (key.length <= 4) return '****';
+		return `${key.slice(0, 3)}...${key.slice(-4)}`;
+	}
+
 	constructor(configs: ModelConfig[] = []) {
 		this.logger = getLogger('enhanced-langchain-service');
 
@@ -396,13 +403,14 @@ export class EnhancedLangChainService {
 	): Promise<LangchainDocument[]> {
 		// Implement semantic chunking based on meaning boundaries
 		// Use configured text splitter or create a custom one if options are provided
-		const splitter = (options.chunkSize || options.chunkOverlap || options.separators)
-			? new RecursiveCharacterTextSplitter({
-				chunkSize: options.chunkSize || 1500,
-				chunkOverlap: options.chunkOverlap || 300,
-				separators: options.separators || ['\n\n\n', '\n\n', '. ', ', ', ' ', ''],
-			})
-			: this.textSplitter;
+		const splitter =
+			options.chunkSize || options.chunkOverlap || options.separators
+				? new RecursiveCharacterTextSplitter({
+						chunkSize: options.chunkSize || 1500,
+						chunkOverlap: options.chunkOverlap || 300,
+						separators: options.separators || ['\n\n\n', '\n\n', '. ', ', ', ' ', ''],
+					})
+				: this.textSplitter;
 
 		return await splitter.createDocuments([document.content || '']);
 	}
@@ -750,7 +758,7 @@ export class EnhancedLangChainService {
 				return await chain.invoke({});
 			} catch (error) {
 				lastError = error as Error;
-				this.logger.warn(`Model failed, trying next: ${error}`);
+				this.logger.warn(`Model failed, trying next: ${(error as Error).message}`);
 				continue;
 			}
 		}
@@ -834,11 +842,11 @@ export class EnhancedLangChainService {
 				if (match) {
 					const char1 = match[1].trim();
 					const char2 = match[3].trim();
-					
+
 					if (char1 && char2 && char1 !== char2) {
 						if (!graph.has(char1)) graph.set(char1, new Set());
 						graph.get(char1)!.add(char2);
-						
+
 						// Ensure bidirectional relationship for symmetric relations
 						if (!graph.has(char2)) graph.set(char2, new Set());
 						graph.get(char2)!.add(char1);
@@ -873,7 +881,7 @@ export class EnhancedLangChainService {
 				if (parts.length >= 2) {
 					const event = parts[0].trim();
 					const timing = parts.slice(1).join(':').trim();
-					
+
 					if (event.length > 5 && timing) {
 						timeline.push({
 							event,
@@ -912,8 +920,11 @@ export class EnhancedLangChainService {
 			confidence: number;
 		}> = [];
 
-		const content = documents.slice(0, 10).map(d => `[Chapter: ${d.title}] ${d.content?.substring(0, 1000)}`).join('\n\n');
-		
+		const content = documents
+			.slice(0, 10)
+			.map((d) => `[Chapter: ${d.title}] ${d.content?.substring(0, 1000)}`)
+			.join('\n\n');
+
 		const characterPrompt = `Analyze the following manuscript excerpts for character inconsistencies.
 			Focus on:
 			- Changes in physical descriptions (eye color, height, etc.)
@@ -928,11 +939,13 @@ export class EnhancedLangChainService {
 		try {
 			const response = await this.generateWithFallback(characterPrompt);
 			const parsedIssues = safeParse(response, []) as any[];
-			
+
 			if (Array.isArray(parsedIssues)) {
-				return parsedIssues.map(i => ({
+				return parsedIssues.map((i) => ({
 					issue: String(i.issue || 'Character Inconsistency'),
-					severity: (['low', 'medium', 'high'].includes(i.severity) ? i.severity : 'medium') as any,
+					severity: (['low', 'medium', 'high'].includes(i.severity)
+						? i.severity
+						: 'medium') as any,
 					locations: Array.isArray(i.locations) ? i.locations.map(String) : [],
 					suggestion: String(i.suggestion || 'Review character details'),
 					confidence: Number(i.confidence) || 0.7,
@@ -967,8 +980,10 @@ export class EnhancedLangChainService {
 		if (timeline.length < 2) return issues;
 
 		// Use LLM to evaluate timeline logic across the entire extracted sequence
-		const timelineStr = timeline.map(t => `${t.chapter}: ${t.event} (${t.timestamp || 'No time'})`).join('\n');
-		
+		const timelineStr = timeline
+			.map((t) => `${t.chapter}: ${t.event} (${t.timestamp || 'No time'})`)
+			.join('\n');
+
 		const timelinePrompt = `Review this story timeline for logical errors, impossible travel times, or temporal contradictions:
 			
 			Timeline:
@@ -980,11 +995,13 @@ export class EnhancedLangChainService {
 		try {
 			const response = await this.generateWithFallback(timelinePrompt);
 			const parsedIssues = safeParse(response, []) as any[];
-			
+
 			if (Array.isArray(parsedIssues)) {
-				return parsedIssues.map(i => ({
+				return parsedIssues.map((i) => ({
 					issue: String(i.issue || 'Timeline Contradiction'),
-					severity: (['low', 'medium', 'high'].includes(i.severity) ? i.severity : 'medium') as any,
+					severity: (['low', 'medium', 'high'].includes(i.severity)
+						? i.severity
+						: 'medium') as any,
 					locations: Array.isArray(i.locations) ? i.locations.map(String) : [],
 					suggestion: String(i.suggestion || 'Adjust event timing'),
 					confidence: Number(i.confidence) || 0.8,

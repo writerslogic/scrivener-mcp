@@ -34,7 +34,21 @@ export class ProjectLoader {
 	private options: ProjectLoaderOptions;
 
 	constructor(projectPath: string, options: ProjectLoaderOptions = {}) {
+		// Validate input at system boundary before any filesystem operations
+		if (projectPath.includes('\0')) {
+			throw createError(ErrorCode.INVALID_INPUT, 'Project path must not contain null bytes');
+		}
+
 		this.projectPath = path.resolve(projectPath);
+
+		const ext = path.extname(this.projectPath).toLowerCase();
+		if (ext !== '.scriv') {
+			throw createError(
+				ErrorCode.INVALID_INPUT,
+				`Project path must have a .scriv extension, got "${ext || 'none'}"`
+			);
+		}
+
 		const projectName = path.basename(projectPath, path.extname(projectPath));
 		this.scrivxPath = PathUtils.build(this.projectPath, `${projectName}.scrivx`);
 		this.options = {

@@ -339,8 +339,8 @@ export class CachedSQLiteManager {
 	/**
 	 * Transaction with cache invalidation
 	 */
-	transaction<T>(fn: () => T, retries?: number): T {
-		const result = this.sqliteManager.transaction(fn, retries);
+	async transaction<T>(fn: () => T, retries?: number): Promise<T> {
+		const result = await this.sqliteManager.transaction(fn, retries);
 
 		// Invalidate all cache after transaction
 		if (this.cache.isAvailable()) {

@@ -95,7 +95,11 @@ export class Neo4jOptimizer {
 			const profiledQuery = this.enableProfiling ? `PROFILE ${cypher}` : cypher;
 
 			const result = await measureExecution(async () => {
-				return await session.run(profiledQuery, parameters);
+				const queryPromise = session.run(profiledQuery, parameters);
+				const timeoutPromise = new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('Query timeout after 30s')), 30000)
+				);
+				return await Promise.race([queryPromise, timeoutPromise]);
 			});
 
 			const profile: QueryProfile = {

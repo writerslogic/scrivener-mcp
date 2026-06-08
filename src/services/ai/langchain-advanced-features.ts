@@ -238,7 +238,10 @@ export class AdvancedLangChainFeatures {
 	): Promise<z.infer<typeof PlotStructureSchema>> {
 		try {
 			const context = documents
-				.map((doc, index) => `Chapter ${index + 1}: ${doc.title}\n${doc.content}`)
+				.map(
+					(doc, index) =>
+						`Chapter ${index + 1}: ${doc.title}\n<document-content>\n${doc.content}\n</document-content>`
+				)
 				.join('\n\n---\n\n')
 				.substring(0, 15000);
 

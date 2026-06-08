@@ -3,7 +3,7 @@
  * Handles automatic installation and configuration of Neo4j
  */
 
-import { exec, spawn } from 'child_process';
+import { exec, execFile, spawn } from 'child_process';
 import { createWriteStream } from 'fs';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -24,6 +24,7 @@ import { getLogger } from '../../core/logger.js';
 import { PermissionManager } from '../../utils/permission-manager.js';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const logger = getLogger('auto-installer');
 
 interface SystemInfo {
@@ -362,13 +363,9 @@ export class Neo4jAutoInstaller {
 
 			// Set initial password
 			console.error('🔐 Setting initial password...');
-			await PermissionManager.executeWithPermissions(
-				`neo4j-admin set-initial-password ${password}`,
-				{
-					operation: 'set-neo4j-password',
-					timeout: 10000,
-				}
-			);
+			await execFileAsync('neo4j-admin', ['set-initial-password', password], {
+				timeout: 10000,
+			});
 
 			// Start Neo4j service
 			if (options.autoStart) {
@@ -592,7 +589,9 @@ export class Neo4jAutoInstaller {
 					});
 				})
 				.on('error', (err) => {
-					fs.unlink(destination).catch(() => {});
+					fs.unlink(destination).catch((err) =>
+						logger.debug('Failed to cleanup download', { destination, error: err })
+					);
 					reject(err);
 				});
 		});
@@ -619,7 +618,7 @@ export class Neo4jAutoInstaller {
 
 		// Set initial password
 		const adminCmd = path.join(neo4jHome, 'bin', 'neo4j-admin');
-		await execAsync(`"${adminCmd}" set-initial-password ${password}`);
+		await execFileAsync(adminCmd, ['set-initial-password', password]);
 
 		// Update configuration
 		let config = await safeReadFile(configPath);

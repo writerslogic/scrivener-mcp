@@ -271,13 +271,14 @@ export async function waitForDockerContainer(
 ): Promise<WaitResult> {
 	return waitForCondition({
 		condition: async () => {
-			const { exec } = await import('child_process');
+			const { execFile } = await import('child_process');
 			const { promisify } = await import('util');
-			const execAsync = promisify(exec);
+			const execFileAsync = promisify(execFile);
 
 			try {
-				const { stdout } = await execAsync(
-					`docker inspect --format='{{.State.Health.Status}}' ${containerName}`,
+				const { stdout } = await execFileAsync(
+					'docker',
+					['inspect', '--format={{.State.Health.Status}}', containerName],
 					{ timeout: 5000 }
 				);
 
@@ -286,8 +287,9 @@ export async function waitForDockerContainer(
 			} catch {
 				// Try basic container running check if health check not available
 				try {
-					const { stdout } = await execAsync(
-						`docker inspect --format='{{.State.Running}}' ${containerName}`,
+					const { stdout } = await execFileAsync(
+						'docker',
+						['inspect', '--format={{.State.Running}}', containerName],
 						{ timeout: 5000 }
 					);
 					return stdout.trim() === 'true';

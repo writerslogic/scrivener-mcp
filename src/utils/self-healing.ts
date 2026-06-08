@@ -570,6 +570,9 @@ export class SelfHealingSystem extends EventEmitter {
 
 	private async executeRestartService(config: Record<string, unknown>): Promise<string> {
 		const serviceName = config.serviceName as string;
+		if (!serviceName || !/^[a-zA-Z0-9_-]+$/.test(serviceName)) {
+			throw new Error(`Invalid service name: ${serviceName}`);
+		}
 		this.emit('service-restart-requested', { serviceName });
 		// Implementation would restart the actual service
 		return `Service ${serviceName} restart initiated`;

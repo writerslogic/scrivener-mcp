@@ -7,10 +7,10 @@ import { getLogger } from '../logger.js';
 import { formatDuration, formatBytes } from '../../utils/common.js';
 
 export enum MetricType {
-	COUNTER = 'COUNTER',           // Monotonically increasing value
-	GAUGE = 'GAUGE',               // Current value that can go up or down
-	HISTOGRAM = 'HISTOGRAM',       // Distribution of values with buckets
-	TIMER = 'TIMER'                // Time-based measurements
+	COUNTER = 'COUNTER', // Monotonically increasing value
+	GAUGE = 'GAUGE', // Current value that can go up or down
+	HISTOGRAM = 'HISTOGRAM', // Distribution of values with buckets
+	TIMER = 'TIMER', // Time-based measurements
 }
 
 export interface MetricMetadata {
@@ -212,7 +212,7 @@ export class Timer {
 
 		// Keep only recent measurements to prevent memory leaks
 		if (this.measurements.length > this.maxMeasurements) {
-			this.measurements.shift();
+			this.measurements = this.measurements.slice(-this.maxMeasurements);
 		}
 	}
 
@@ -321,8 +321,8 @@ export class MetricsRegistry {
 	 * Create or get a histogram metric
 	 */
 	histogram(
-		name: string, 
-		description: string, 
+		name: string,
+		description: string,
 		tags: Record<string, string> = {},
 		buckets?: number[]
 	): Histogram {
@@ -495,8 +495,8 @@ export class MetricsCollector {
 	 */
 	clearOldSnapshots(): void {
 		const cutoffTime = Date.now() - this.config.retentionPeriod;
-		this.snapshots = this.snapshots.filter(snapshot => snapshot.timestamp > cutoffTime);
-		
+		this.snapshots = this.snapshots.filter((snapshot) => snapshot.timestamp > cutoffTime);
+
 		// Also enforce max snapshots limit
 		if (this.snapshots.length > this.config.maxSnapshots) {
 			this.snapshots = this.snapshots.slice(-this.config.maxSnapshots);
@@ -519,7 +519,6 @@ export class MetricsCollector {
 				snapshotCount: this.snapshots.length,
 				timestamp: snapshot.timestamp,
 			});
-
 		} catch (error) {
 			this.logger.error('Error collecting metrics', {
 				error: (error as Error).message,
@@ -531,7 +530,9 @@ export class MetricsCollector {
 		// Memory usage
 		const memUsage = process.memoryUsage();
 		this.registry.gauge('system.memory.heap_used', 'Heap memory used').set(memUsage.heapUsed);
-		this.registry.gauge('system.memory.heap_total', 'Total heap memory').set(memUsage.heapTotal);
+		this.registry
+			.gauge('system.memory.heap_total', 'Total heap memory')
+			.set(memUsage.heapTotal);
 		this.registry.gauge('system.memory.external', 'External memory').set(memUsage.external);
 		this.registry.gauge('system.memory.rss', 'Resident set size').set(memUsage.rss);
 
@@ -543,7 +544,8 @@ export class MetricsCollector {
 		// Event loop metrics
 		const eventLoopUtilization = (process as any).eventLoopUtilization?.();
 		if (eventLoopUtilization) {
-			this.registry.gauge('system.event_loop.utilization', 'Event loop utilization')
+			this.registry
+				.gauge('system.event_loop.utilization', 'Event loop utilization')
 				.set(eventLoopUtilization.utilization);
 		}
 
@@ -560,7 +562,6 @@ export class MetricsCollector {
 			// For now, we'll just log a summary
 			const summary = this.generateMetricsSummary(latestSnapshot);
 			this.logger.info('Metrics export', summary);
-
 		} catch (error) {
 			this.logger.error('Error exporting metrics', {
 				error: (error as Error).message,
@@ -597,7 +598,11 @@ export class MetricsDecorators {
 	/**
 	 * Count method calls
 	 */
-	static countCalls(registry: MetricsRegistry, metricName: string, tags: Record<string, string> = {}) {
+	static countCalls(
+		registry: MetricsRegistry,
+		metricName: string,
+		tags: Record<string, string> = {}
+	) {
 		return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
 			const originalMethod = descriptor.value;
 			const counter = registry.counter(metricName, `Count of ${propertyKey} calls`, tags);
@@ -614,7 +619,11 @@ export class MetricsDecorators {
 	/**
 	 * Time method execution
 	 */
-	static timeExecution(registry: MetricsRegistry, metricName: string, tags: Record<string, string> = {}) {
+	static timeExecution(
+		registry: MetricsRegistry,
+		metricName: string,
+		tags: Record<string, string> = {}
+	) {
 		return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
 			const originalMethod = descriptor.value;
 			const timer = registry.timer(metricName, `Execution time of ${propertyKey}`, tags);
@@ -636,11 +645,11 @@ export class MetricsDecorators {
 export const globalMetricsRegistry = new MetricsRegistry();
 
 export const globalMetricsCollector = new MetricsCollector(globalMetricsRegistry, {
-	collectionInterval: 30000,    // 30 seconds
-	retentionPeriod: 3600000,     // 1 hour
-	maxSnapshots: 120,            // 120 snapshots max
+	collectionInterval: 30000, // 30 seconds
+	retentionPeriod: 3600000, // 1 hour
+	maxSnapshots: 120, // 120 snapshots max
 	exportEnabled: true,
-	exportInterval: 60000,        // 1 minute
+	exportInterval: 60000, // 1 minute
 });
 
 // Start collection automatically in development/production

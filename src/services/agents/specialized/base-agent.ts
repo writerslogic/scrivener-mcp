@@ -265,10 +265,19 @@ Focus on ${this.persona.focusAreas.join(', ')} and consider potential ${this.per
 				const roundStartTime = performance.now();
 
 				// Generate contributions from both agents
-				const [myContribution, theirContribution] = await Promise.all([
+				const results = await Promise.allSettled([
 					this.generateDiscussionContribution(topic, currentContext, rounds),
 					otherAgent.generateDiscussionContribution(topic, currentContext, rounds),
 				]);
+
+				if (results[0].status === 'rejected' || results[1].status === 'rejected') {
+					const errors = results.filter(
+						(r): r is PromiseRejectedResult => r.status === 'rejected'
+					);
+					throw errors[0].reason;
+				}
+
+				const [myContribution, theirContribution] = [results[0].value, results[1].value];
 
 				// Analyze the contributions
 				const agreements = await this.findAgreements(

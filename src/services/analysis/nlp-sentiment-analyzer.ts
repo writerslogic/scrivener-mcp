@@ -10,6 +10,17 @@ import { getLogger } from '../../core/logger.js';
 
 const _logger = getLogger('nlp-sentiment-analyzer');
 
+/** Local interface covering the compromise document methods we use */
+interface CompromiseDoc {
+	terms: () => { out: (format: string) => string[] };
+	words: () => { text: () => string; has: (tag: string) => boolean }[];
+	match: (pattern: string) => {
+		out: (format: string) => Array<{ text: string; offset: { start: number } }>;
+	};
+	sentences: () => { out: (format: string) => string[] };
+	has: (pattern: string) => boolean;
+}
+
 export interface SentimentResult {
 	score: number; // -1 to 1
 	comparative: number; // normalized score
@@ -408,8 +419,8 @@ export class NLPSentimentAnalyzer {
 
 		// Process each sentence for context
 		sentences.forEach((sentence: string) => {
-			const sentenceDoc = nlp(sentence);
-			const sentenceTokens = this.analyzeSentenceWithContext(sentenceDoc as any);
+			const sentenceDoc = nlp(sentence) as unknown as CompromiseDoc;
+			const sentenceTokens = this.analyzeSentenceWithContext(sentenceDoc);
 
 			sentenceTokens.forEach((token) => {
 				tokens.push(token);
@@ -425,7 +436,7 @@ export class NLPSentimentAnalyzer {
 			});
 
 			// Detect negation contexts
-			const negationContexts = this.detectNegationContexts(sentenceDoc as any);
+			const negationContexts = this.detectNegationContexts(sentenceDoc);
 			negations.push(...negationContexts);
 		});
 
@@ -447,10 +458,7 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Analyzes a sentence with full grammatical context
 	 */
-	private analyzeSentenceWithContext(doc: { 
-		terms: () => { out: (format: string) => string[] };
-		words?: () => { text: () => string; has: (tag: string) => boolean }[];
-	}): TokenAnalysis[] {
+	private analyzeSentenceWithContext(doc: CompromiseDoc): TokenAnalysis[] {
 		const tokens: TokenAnalysis[] = [];
 		const terms = doc.terms().out('array');
 		const posTags = doc.terms().out('tags');
@@ -458,13 +466,16 @@ export class NLPSentimentAnalyzer {
 		for (let i = 0; i < terms.length; i++) {
 			const word = terms[i].toLowerCase();
 			const tagData = posTags[i];
-			const pos = typeof tagData === 'string' ? tagData : this.extractPOSTag(Array.isArray(tagData) ? tagData : []);
+			const pos =
+				typeof tagData === 'string'
+					? tagData
+					: this.extractPOSTag(Array.isArray(tagData) ? tagData : []);
 
 			// Check for negation scope
-			const negated = doc.words ? this.isInNegationScope(doc as any, i) : false;
+			const negated = this.isInNegationScope(doc, i);
 
 			// Check for intensifiers
-			const intensifierType = doc.words ? this.getIntensifier(doc as any, i) : undefined;
+			const intensifierType = this.getIntensifier(doc, i);
 
 			// Calculate sentiment
 			let sentiment = this.getWordSentiment(word, pos, negated);
@@ -489,11 +500,8 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Detects if a word is within negation scope
 	 */
-	private isInNegationScope(
-		doc: { words(): { text(): string; has(tag: string): boolean }[] },
-		wordIndex: number
-	): boolean {
-		const terms = (doc as any).terms().out('array');
+	private isInNegationScope(doc: CompromiseDoc, wordIndex: number): boolean {
+		const terms = doc.terms().out('array');
 		const windowSize = 3; // Look back 3 words for negation
 
 		for (let i = Math.max(0, wordIndex - windowSize); i < wordIndex; i++) {
@@ -512,11 +520,8 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Gets intensifier for a word
 	 */
-	private getIntensifier(
-		doc: { words(): { text(): string; has(tag: string): boolean }[] },
-		wordIndex: number
-	): string | undefined {
-		const terms = (doc as any).terms().out('array');
+	private getIntensifier(doc: CompromiseDoc, wordIndex: number): string | undefined {
+		const terms = doc.terms().out('array');
 
 		if (wordIndex > 0) {
 			const prevWord = terms[wordIndex - 1].toLowerCase();
@@ -552,9 +557,12 @@ export class NLPSentimentAnalyzer {
 
 		// Adjust sentiment based on part-of-speech
 		let posMultiplier = 1.0;
-		if (pos.startsWith('JJ')) posMultiplier = 1.2; // Adjectives are more emotionally charged
-		else if (pos.startsWith('RB')) posMultiplier = 1.1; // Adverbs modify intensity
-		else if (pos.startsWith('VB')) posMultiplier = 0.9; // Verbs are less emotionally direct
+		if (pos.startsWith('JJ'))
+			posMultiplier = 1.2; // Adjectives are more emotionally charged
+		else if (pos.startsWith('RB'))
+			posMultiplier = 1.1; // Adverbs modify intensity
+		else if (pos.startsWith('VB'))
+			posMultiplier = 0.9; // Verbs are less emotionally direct
 		else if (pos.startsWith('NN')) posMultiplier = 0.8; // Nouns are typically neutral
 
 		// Calculate valence from emotion vector
@@ -607,9 +615,9 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Detects negation contexts in a sentence
 	 */
-	private detectNegationContexts(doc: { match: (pattern: string) => { out: (format: string) => Array<{ text: string; offset: { start: number } }> } }): NegationContext[] {
+	private detectNegationContexts(doc: CompromiseDoc): NegationContext[] {
 		const contexts: NegationContext[] = [];
-		const terms = (doc as any).terms().out('array');
+		const terms = doc.terms().out('array');
 
 		for (let i = 0; i < terms.length; i++) {
 			const word = terms[i].toLowerCase();

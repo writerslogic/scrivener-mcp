@@ -107,7 +107,10 @@ export class DistributedTracer extends EventEmitter {
 		// Add final tags
 		Object.assign(span.tags, tags);
 
-		this.activeSpans.delete(span.spanId);
+		// Guard against finishing a span that was already removed or never tracked
+		if (this.activeSpans.has(span.spanId)) {
+			this.activeSpans.delete(span.spanId);
+		}
 		this.completedSpans.push(span);
 
 		// Limit memory usage

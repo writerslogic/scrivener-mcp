@@ -17,6 +17,26 @@ import { OpenAIService } from '../services/openai-service.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
+
+// Cached singleton instances to avoid re-instantiation per request
+let cachedContentEnhancer: LangChainContentEnhancer | null = null;
+let cachedAnalysisLearningHandler: LangChainContinuousLearningHandler | null = null;
+
+async function getContentEnhancer(): Promise<LangChainContentEnhancer> {
+	if (!cachedContentEnhancer) {
+		cachedContentEnhancer = new LangChainContentEnhancer();
+		await cachedContentEnhancer.initialize();
+	}
+	return cachedContentEnhancer;
+}
+
+async function getAnalysisLearningHandler(): Promise<LangChainContinuousLearningHandler> {
+	if (!cachedAnalysisLearningHandler) {
+		cachedAnalysisLearningHandler = new LangChainContinuousLearningHandler();
+		await cachedAnalysisLearningHandler.initialize();
+	}
+	return cachedAnalysisLearningHandler;
+}
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getObjectArg,
@@ -157,12 +177,10 @@ export const enhanceContentHandler: ToolDefinition = {
 
 		try {
 			// Initialize LangChain content enhancer
-			const langChainEnhancer = new LangChainContentEnhancer();
-			await langChainEnhancer.initialize();
+			const langChainEnhancer = await getContentEnhancer();
 
 			// Initialize continuous learning for feedback collection
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
+			const learningHandler = await getAnalysisLearningHandler();
 
 			const sessionId = `enhance_${documentId}_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
@@ -580,30 +598,52 @@ async function checkCharacterConsistency(
 ): Promise<ConsistencyIssue[]> {
 	const issues: ConsistencyIssue[] = [];
 
+	// Pre-build a map of name variation -> (docId -> count) in a single pass over documents
+	const allVariations = new Set<string>();
 	for (const character of characters) {
-		const mentions: { docId: string; count: number }[] = [];
+		allVariations.add(character.name.toLowerCase());
+		const firstName = character.name.split(' ')[0]?.toLowerCase();
+		if (firstName) allVariations.add(firstName);
+	}
 
-		// Check character mentions across documents
-		for (const doc of documents) {
-			if (!doc.content) continue;
+	const variationDocCounts = new Map<string, Map<string, number>>();
+	for (const v of allVariations) {
+		variationDocCounts.set(v, new Map());
+	}
 
-			const content = doc.content.toLowerCase();
-			const nameVariations = [
-				character.name.toLowerCase(),
-				character.name.split(' ')[0]?.toLowerCase(), // First name
-			].filter(Boolean);
-
-			let totalMentions = 0;
-			for (const variation of nameVariations) {
-				const regex = new RegExp(`\\b${variation}\\b`, 'gi');
-				const matches = content.match(regex);
-				totalMentions += matches ? matches.length : 0;
-			}
-
-			if (totalMentions > 0) {
-				mentions.push({ docId: doc.id, count: totalMentions });
+	for (const doc of documents) {
+		if (!doc.content) continue;
+		const content = doc.content.toLowerCase();
+		for (const variation of allVariations) {
+			const regex = new RegExp(`\\b${variation}\\b`, 'gi');
+			const matches = content.match(regex);
+			if (matches && matches.length > 0) {
+				variationDocCounts.get(variation)!.set(doc.id, matches.length);
 			}
 		}
+	}
+
+	for (const character of characters) {
+		const nameVariations = [
+			character.name.toLowerCase(),
+			character.name.split(' ')[0]?.toLowerCase(),
+		].filter(Boolean) as string[];
+
+		// Aggregate mentions from pre-built map
+		const mentionsByDoc = new Map<string, number>();
+		for (const variation of nameVariations) {
+			const docCounts = variationDocCounts.get(variation);
+			if (docCounts) {
+				for (const [docId, count] of docCounts) {
+					mentionsByDoc.set(docId, (mentionsByDoc.get(docId) || 0) + count);
+				}
+			}
+		}
+
+		const mentions = Array.from(mentionsByDoc.entries()).map(([docId, count]) => ({
+			docId,
+			count,
+		}));
 
 		// Check for character inconsistencies
 		if (mentions.length === 0) {
@@ -1160,8 +1200,7 @@ export const collectFeedbackHandler: ToolDefinition = {
 		const operation = getStringArg(args, 'operation');
 
 		try {
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
+			const learningHandler = await getAnalysisLearningHandler();
 
 			await learningHandler.collectFeedback({
 				sessionId,

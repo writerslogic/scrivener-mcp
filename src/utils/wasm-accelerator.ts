@@ -394,21 +394,28 @@ export class WasmAccelerator {
 	> {
 		await this.initialize();
 
-		const results = await Promise.all(
-			texts.map(async (text) => {
-				const [sentiment, syllables, readabilityData] = await Promise.all([
-					this.analyzeSentimentWasm(text),
-					this.countSyllablesWasm(text),
-					this.calculateReadabilityWasm(text),
-				]);
+		const CHUNK_SIZE = 10;
+		const results: Array<{ sentiment: number; syllables: number; readability: number }> = [];
 
-				return {
-					sentiment,
-					syllables,
-					readability: readabilityData.fleschReadingEase,
-				};
-			})
-		);
+		for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
+			const chunk = texts.slice(i, i + CHUNK_SIZE);
+			const chunkResults = await Promise.all(
+				chunk.map(async (text) => {
+					const [sentiment, syllables, readabilityData] = await Promise.all([
+						this.analyzeSentimentWasm(text),
+						this.countSyllablesWasm(text),
+						this.calculateReadabilityWasm(text),
+					]);
+
+					return {
+						sentiment,
+						syllables,
+						readability: readabilityData.fleschReadingEase,
+					};
+				})
+			);
+			results.push(...chunkResults);
+		}
 
 		return results;
 	}

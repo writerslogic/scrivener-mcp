@@ -1,3 +1,4 @@
+import * as path from 'path';
 import parseRTF from 'rtf-parser';
 import { promisify } from 'util';
 import { safeReadFile, safeWriteFile } from '../../utils/common.js';
@@ -68,10 +69,70 @@ export class RTFHandler {
 	]);
 
 	/**
+	 * Find a brace-balanced RTF group by keyword (e.g. "\\info").
+	 * Uses linear scanning instead of regex to avoid ReDoS on nested braces.
+	 * Returns the content between the outermost braces, or null if not found.
+	 */
+	private findBraceGroup(input: string, keyword: string): string | null {
+		const idx = input.indexOf('{' + keyword);
+		if (idx === -1) return null;
+
+		let depth = 0;
+		const start = idx;
+		for (let i = start; i < input.length; i++) {
+			if (input[i] === '{') depth++;
+			else if (input[i] === '}') {
+				depth--;
+				if (depth === 0) {
+					// Return inner content after the keyword
+					const inner = input.substring(start + 1 + keyword.length, i);
+					return inner;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Remove a brace-balanced RTF group by keyword from the string.
+	 * Uses linear scanning to avoid ReDoS.
+	 */
+	private removeBraceGroup(input: string, keyword: string): string {
+		let result = input;
+		let searchFrom = 0;
+		// eslint-disable-next-line no-constant-condition
+		while (true) {
+			const idx = result.indexOf('{' + keyword, searchFrom);
+			if (idx === -1) break;
+
+			let depth = 0;
+			let end = -1;
+			for (let i = idx; i < result.length; i++) {
+				if (result[i] === '{') depth++;
+				else if (result[i] === '}') {
+					depth--;
+					if (depth === 0) {
+						end = i;
+						break;
+					}
+				}
+			}
+			if (end === -1) break; // unbalanced braces, stop
+			result = result.substring(0, idx) + result.substring(end + 1);
+			// don't advance searchFrom; removal shifts content back
+		}
+		return result;
+	}
+
+	/**
 	 * Read and parse an RTF file
 	 */
 	async readRTF(filePath: string): Promise<RTFContent> {
-		const rtfContent = await safeReadFile(filePath);
+		const resolved = path.resolve(filePath);
+		if (resolved.includes('\0') || /\.\.[\\/]/.test(filePath)) {
+			throw new Error(`Invalid file path: ${filePath}`);
+		}
+		const rtfContent = await safeReadFile(resolved);
 		return this.parseRTF(rtfContent);
 	}
 
@@ -93,8 +154,12 @@ export class RTFHandler {
 	 * Write RTF content to a file
 	 */
 	async writeRTF(filePath: string, content: RTFContent | string): Promise<void> {
+		const resolved = path.resolve(filePath);
+		if (resolved.includes('\0') || /\.\.[\\/]/.test(filePath)) {
+			throw new Error(`Invalid file path: ${filePath}`);
+		}
 		const rtfString = this.unifiedConvertToRTF(content);
-		await safeWriteFile(filePath, rtfString);
+		await safeWriteFile(resolved, rtfString);
 	}
 
 	/**
@@ -194,12 +259,13 @@ export class RTFHandler {
 		const segments = this.parseRTFSegments(content);
 
 		// Build plain text and formatted text
+		const plainTextParts: string[] = [];
 		segments.forEach((segment) => {
-			result.plainText += segment.text;
+			plainTextParts.push(segment.text);
 			result.formattedText.push(segment);
 		});
 
-		result.plainText = result.plainText.trim();
+		result.plainText = plainTextParts.join('').trim();
 
 		return result;
 	}
@@ -208,10 +274,10 @@ export class RTFHandler {
 	 * Extract metadata from RTF info group
 	 */
 	private extractMetadata(rtfString: string): RTFContent['metadata'] | undefined {
-		const infoMatch = rtfString.match(/\{\\info([^}]*(?:\{[^}]*\}[^}]*)*)\}/);
-		if (!infoMatch) return undefined;
-
-		const info = infoMatch[1];
+		// Metadata is always near the start; limit search to avoid scanning large files
+		const head = rtfString.substring(0, 2000);
+		const info = this.findBraceGroup(head, '\\info');
+		if (!info) return undefined;
 		const metadata: RTFContent['metadata'] = {};
 
 		// Extract individual metadata fields
@@ -238,18 +304,18 @@ export class RTFHandler {
 		// Remove RTF declaration
 		content = content.replace(/^\{\\rtf\d+[^}]*/, '');
 
-		// Remove various table definitions
-		const tables = [
-			/\{\\fonttbl[^}]*(?:\{[^}]*\}[^}]*)*\}/g,
-			/\{\\colortbl[^}]*\}/g,
-			/\{\\stylesheet[^}]*(?:\{[^}]*\}[^}]*)*\}/g,
-			/\{\\listtable[^}]*(?:\{[^}]*\}[^}]*)*\}/g,
-			/\{\\listoverridetable[^}]*(?:\{[^}]*\}[^}]*)*\}/g,
-			/\{\\info[^}]*(?:\{[^}]*\}[^}]*)*\}/g,
+		// Remove various table definitions using brace-balanced scanning (avoids ReDoS)
+		const tableKeywords = [
+			'\\fonttbl',
+			'\\colortbl',
+			'\\stylesheet',
+			'\\listtable',
+			'\\listoverridetable',
+			'\\info',
 		];
 
-		tables.forEach((regex) => {
-			content = content.replace(regex, '');
+		tableKeywords.forEach((keyword) => {
+			content = this.removeBraceGroup(content, keyword);
 		});
 
 		// Remove Scrivener-specific control words
