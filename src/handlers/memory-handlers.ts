@@ -6,6 +6,7 @@ import type { HHMConfig } from '../services/memory/hhm/holographic-memory-system
 import { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
 import { quickBenchmark } from '../services/memory/hhm/benchmark.js';
 import { getLogger } from '../core/logger.js';
+import { compact } from '../core/response-formatter.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import type { ToolDefinition } from './types.js';
@@ -61,7 +62,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 				traceId
 			);
 			return {
-				content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
+				content: [{ type: 'text', text: compact(results) }],
 			};
 		},
 	},
@@ -87,7 +88,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 				traceId
 			);
 			return {
-				content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
+				content: [{ type: 'text', text: compact(results) }],
 			};
 		},
 	},
@@ -102,7 +103,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 			const system = getHHMSystem();
 			const results = await system.dream();
 			return {
-				content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
+				content: [{ type: 'text', text: compact(results) }],
 			};
 		},
 	},

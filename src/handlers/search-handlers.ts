@@ -39,6 +39,7 @@ async function getSemanticLayer(
 	return cachedSemanticLayer;
 }
 
+import { compact } from '../core/response-formatter.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import {
 	documentDetailsSchema,
@@ -101,20 +102,33 @@ export const searchContentHandler: ToolDefinition = {
 				targetOptimization: query,
 			});
 
+			// Trim results to compact snippets
+			const trimmedResults = (semanticResults.documents || []).map(
+				(doc: Record<string, unknown>) => ({
+					id: doc.id,
+					title: doc.title || 'Untitled',
+					snippet:
+						typeof doc.content === 'string'
+							? doc.content.length > 100
+								? doc.content.slice(0, 100) + '...'
+								: doc.content
+							: typeof doc.text === 'string'
+								? doc.text.length > 100
+									? doc.text.slice(0, 100) + '...'
+									: doc.text
+								: '',
+					score: doc.score ?? doc.relevance ?? null,
+				})
+			);
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${semanticResults.documents.length} semantic matches\n${JSON.stringify(
-							{
-								...semanticResults,
-								enhanced: true,
-								searchType: 'semantic',
-								sessionId,
-							},
-							null,
-							2
-						)}`,
+						text: `Found ${trimmedResults.length} semantic matches\n${compact({
+							results: trimmedResults,
+							searchType: 'semantic',
+						})}`,
 					},
 				],
 			};
@@ -127,19 +141,30 @@ export const searchContentHandler: ToolDefinition = {
 				searchMetadata: searchIn?.includes('synopsis') || searchIn?.includes('notes'),
 			});
 
+			// Trim fallback results to compact snippets
+			const trimmedResults = results.map((r: Record<string, unknown>) => ({
+				id: r.id,
+				title: r.title || 'Untitled',
+				snippet:
+					typeof r.content === 'string'
+						? r.content.length > 100
+							? r.content.slice(0, 100) + '...'
+							: r.content
+						: typeof r.text === 'string'
+							? r.text.length > 100
+								? r.text.slice(0, 100) + '...'
+								: r.text
+							: '',
+				score: r.score ?? null,
+			}));
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${results.length} matches (basic search)\n${JSON.stringify(
-							{
-								results,
-								enhanced: false,
-								fallbackReason: (error as Error).message,
-							},
-							null,
-							2
-						)}`,
+						text: `Found ${trimmedResults.length} matches (basic search)\n${compact({
+							results: trimmedResults,
+						})}`,
 					},
 				],
 			};
@@ -162,7 +187,7 @@ export const listTrashHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `${trashItems.length} items in trash\n${JSON.stringify(trashItems, null, 2)}`,
+					text: `${trashItems.length} items in trash\n${compact(trashItems)}`,
 				},
 			],
 		};
@@ -196,7 +221,7 @@ export const searchTrashHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `Found ${results.length} matches in trash\n${JSON.stringify(results, null, 2)}`,
+					text: `Found ${results.length} matches in trash\n${compact(results)}`,
 				},
 			],
 		};
@@ -260,7 +285,7 @@ export const getAnnotationsHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: `Found ${formattedAnnotations.comments?.length || 0} comments and ${formattedAnnotations.footnotes?.length || 0} footnotes\n${JSON.stringify(formattedAnnotations, null, 2)}`,
+					text: `Found ${formattedAnnotations.comments?.length || 0} comments and ${formattedAnnotations.footnotes?.length || 0} footnotes\n${compact(formattedAnnotations)}`,
 				},
 			],
 		};
@@ -336,9 +361,11 @@ export const vectorSearchHandler: ToolDefinition = {
 				.map(([doc, score]) => ({
 					id: doc.metadata.id,
 					title: doc.metadata.title || 'Untitled',
-					content: doc.pageContent,
+					snippet:
+						doc.pageContent.length > 100
+							? doc.pageContent.slice(0, 100) + '...'
+							: doc.pageContent,
 					score,
-					metadata: doc.metadata,
 				}));
 
 			// Collect implicit feedback
@@ -354,19 +381,10 @@ export const vectorSearchHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${formattedResults.length} ${searchType} matches\n${JSON.stringify(
-							{
-								results: formattedResults,
-								enhanced: true,
-								searchType,
-								query,
-								maxResults,
-								threshold,
-								sessionId,
-							},
-							null,
-							2
-						)}`,
+						text: `Found ${formattedResults.length} ${searchType} matches\n${compact({
+							results: formattedResults,
+							searchType,
+						})}`,
 					},
 				],
 			};
@@ -457,21 +475,20 @@ export const findMentionsHandler: ToolDefinition = {
 				targetOptimization: entity,
 			});
 
+			const trimmedMentions = mentions.map((m) => ({
+				id: m.documentId,
+				title: m.title,
+				snippet: m.context.length > 100 ? m.context.slice(0, 100) + '...' : m.context,
+				score: null,
+			}));
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${mentions.length} mentions of "${entity}"\n${JSON.stringify(
-							{
-								mentions,
-								entity,
-								enhanced: true,
-								contextLength,
-								sessionId,
-							},
-							null,
-							2
-						)}`,
+						text: `Found ${trimmedMentions.length} mentions of "${entity}"\n${compact({
+							results: trimmedMentions,
+						})}`,
 					},
 				],
 			};
@@ -552,17 +569,13 @@ export const crossReferenceHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Cross-reference analysis complete for ${document.title}\n${JSON.stringify(
-							{
-								...analysis,
-								enhanced: true,
-								analysisType,
-								maxConnections,
-								sessionId,
-							},
-							null,
-							2
-						)}`,
+						text: `Cross-reference analysis complete for ${document.title}\n${compact({
+							...analysis,
+							enhanced: true,
+							analysisType,
+							maxConnections,
+							sessionId,
+						})}`,
 					},
 				],
 			};
@@ -579,6 +592,57 @@ export const crossReferenceHandler: ToolDefinition = {
 	},
 };
 
+export const findDocumentHandler: ToolDefinition = {
+	name: 'find_document',
+	description: 'Find documents by title',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			pattern: {
+				type: 'string',
+				description: 'Substring to match against document titles (case-insensitive)',
+			},
+			type: {
+				type: 'string',
+				enum: ['Text', 'Folder', 'any'],
+				description: 'Filter by document type',
+			},
+		},
+		required: ['pattern'],
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
+		const pattern = getStringArg(args, 'pattern');
+		const typeFilter = getOptionalStringArg(args, 'type') || 'any';
+
+		const documents = await project.getAllDocuments();
+		const patternLower = pattern.toLowerCase();
+
+		const matches = documents
+			.filter((doc) => {
+				if (!doc.title?.toLowerCase().includes(patternLower)) return false;
+				if (typeFilter !== 'any' && doc.type !== typeFilter) return false;
+				return true;
+			})
+			.slice(0, 20)
+			.map((doc) => ({
+				id: doc.id,
+				title: doc.title,
+				type: doc.type,
+				path: doc.path,
+			}));
+
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Found ${matches.length} document(s) matching "${pattern}"\n${JSON.stringify(matches, null, 2)}`,
+				},
+			],
+		};
+	},
+};
+
 export const searchHandlers = [
 	searchContentHandler,
 	listTrashHandler,
@@ -589,4 +653,5 @@ export const searchHandlers = [
 	vectorSearchHandler,
 	findMentionsHandler,
 	crossReferenceHandler,
+	findDocumentHandler,
 ];

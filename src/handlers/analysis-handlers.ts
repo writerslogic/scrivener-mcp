@@ -37,6 +37,7 @@ async function getAnalysisLearningHandler(): Promise<LangChainContinuousLearning
 	}
 	return cachedAnalysisLearningHandler;
 }
+import { compact } from '../core/response-formatter.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getObjectArg,
@@ -94,20 +95,30 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				includeMetrics: true,
 			});
 
+			const a = analysis as Record<string, unknown>;
+			const readability = a.readability ?? a.readabilityScore ?? '?';
+			const pacing = a.pacing ?? '?';
+			const issues = Array.isArray(a.issues) ? a.issues : [];
+			const topIssues = issues
+				.slice(0, 3)
+				.map((i: unknown) =>
+					typeof i === 'string'
+						? i
+						: ((i as Record<string, unknown>).description ?? JSON.stringify(i))
+				);
+
+			const summary =
+				`Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n` +
+				(topIssues.length > 0
+					? `Top issues:\n${topIssues.map((t: unknown) => `- ${t}`).join('\n')}\n`
+					: '') +
+				'[Full analysis available via deep_analyze_content]';
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								...analysis,
-								enhanced: true,
-								analysisTypes,
-								processingTime: 0,
-							},
-							null,
-							2
-						),
+						text: summary,
 					},
 				],
 			};
@@ -117,19 +128,30 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				document.content || '',
 				documentId
 			);
+			const fb = fallbackAnalysis as unknown as Record<string, unknown>;
+			const readability = fb.readability ?? fb.readabilityScore ?? '?';
+			const pacing = fb.pacing ?? '?';
+			const issues = Array.isArray(fb.issues) ? fb.issues : [];
+			const topIssues = issues
+				.slice(0, 3)
+				.map((i: unknown) =>
+					typeof i === 'string'
+						? i
+						: ((i as Record<string, unknown>).description ?? JSON.stringify(i))
+				);
+
+			const summary =
+				`Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n` +
+				(topIssues.length > 0
+					? `Top issues:\n${topIssues.map((t: unknown) => `- ${t}`).join('\n')}\n`
+					: '') +
+				'[Full analysis available via deep_analyze_content]';
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								...fallbackAnalysis,
-								enhanced: false,
-								fallbackReason: (error as Error).message,
-							},
-							null,
-							2
-						),
+						text: summary,
 					},
 				],
 			};
@@ -193,21 +215,24 @@ export const enhanceContentHandler: ToolDefinition = {
 				enhancementType,
 			});
 
+			const originalContent = document.content || '';
+			if (enhanced.enhanced === originalContent) {
+				return {
+					content: [{ type: 'text', text: 'No changes suggested.' }],
+				};
+			}
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								...enhanced,
-								enhanced: true,
-								langChainProcessed: true,
-								sessionId,
-								qualityScore: enhanced.qualityValidation?.overallScore,
-							},
-							null,
-							2
-						),
+						text: compact({
+							...enhanced,
+							enhanced: true,
+							langChainProcessed: true,
+							sessionId,
+							qualityScore: enhanced.qualityValidation?.overallScore,
+						}),
 					},
 				],
 			};
@@ -219,19 +244,22 @@ export const enhanceContentHandler: ToolDefinition = {
 				options: options || {},
 			});
 
+			const originalContent = document.content || '';
+			if (enhanced.enhanced === originalContent) {
+				return {
+					content: [{ type: 'text', text: 'No changes suggested.' }],
+				};
+			}
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								...enhanced,
-								enhanced: false,
-								fallbackReason: (error as Error).message,
-							},
-							null,
-							2
-						),
+						text: compact({
+							...enhanced,
+							enhanced: false,
+							fallbackReason: (error as Error).message,
+						}),
 					},
 				],
 			};
@@ -291,7 +319,7 @@ export const generateContentHandler: ToolDefinition = {
 					content: [
 						{
 							type: 'text',
-							text: JSON.stringify(generated, null, 2),
+							text: compact(generated),
 						},
 					],
 				};
@@ -323,7 +351,7 @@ export const generateContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(generated, null, 2),
+						text: compact(generated),
 					},
 				],
 			};
@@ -345,7 +373,7 @@ export const generateContentHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(generated, null, 2),
+						text: compact(generated),
 					},
 				],
 			};
@@ -455,7 +483,7 @@ export const getMemoryHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: JSON.stringify(memory, null, 2),
+					text: compact(memory),
 				},
 			],
 		};
@@ -529,21 +557,16 @@ export const checkConsistencyHandler: ToolDefinition = {
 						text:
 							summary +
 							'\n\n' +
-							JSON.stringify(
-								{
-									issues,
-									counts: {
-										total: issues.length,
-										errors: issues.filter((i) => i.severity === 'error').length,
-										warnings: issues.filter((i) => i.severity === 'warning')
-											.length,
-										info: issues.filter((i) => i.severity === 'info').length,
-									},
-									checkTypes,
+							compact({
+								issues,
+								counts: {
+									total: issues.length,
+									errors: issues.filter((i) => i.severity === 'error').length,
+									warnings: issues.filter((i) => i.severity === 'warning').length,
+									info: issues.filter((i) => i.severity === 'info').length,
 								},
-								null,
-								2
-							),
+								checkTypes,
+							}),
 					},
 				],
 			};
@@ -960,16 +983,12 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								...result,
-								collaborationMode,
-								agents,
-								enhanced: true,
-							},
-							null,
-							2
-						),
+						text: compact({
+							...result,
+							collaborationMode,
+							agents,
+							enhanced: true,
+						}),
 					},
 				],
 			};
@@ -1020,22 +1039,34 @@ export const semanticSearchHandler: ToolDefinition = {
 				includeRelationships: true,
 			});
 
+			const trimmedResults = (results.documents || []).map(
+				(doc: Record<string, unknown>) => ({
+					id: doc.id,
+					title: doc.title || 'Untitled',
+					snippet:
+						typeof doc.content === 'string'
+							? doc.content.length > 100
+								? doc.content.slice(0, 100) + '...'
+								: doc.content
+							: typeof doc.text === 'string'
+								? doc.text.length > 100
+									? doc.text.slice(0, 100) + '...'
+									: doc.text
+								: '',
+					score: doc.score ?? doc.relevance ?? null,
+				})
+			);
+
 			return {
 				content: [
 					{
 						type: 'text',
 						text:
-							`Found ${results.documents.length} semantic matches\n\n` +
-							JSON.stringify(
-								{
-									...results,
-									query,
-									enhanced: true,
-									searchType: 'semantic',
-								},
-								null,
-								2
-							),
+							`Found ${trimmedResults.length} semantic matches\n\n` +
+							compact({
+								results: trimmedResults,
+								searchType: 'semantic',
+							}),
 					},
 				],
 			};
@@ -1094,17 +1125,13 @@ export const realtimeAssistanceHandler: ToolDefinition = {
 						type: 'text',
 						text:
 							`Real-time ${assistanceType} assistance started\n\n` +
-							JSON.stringify(
-								{
-									sessionId,
-									assistanceType,
-									documentId,
-									enhanced: true,
-									status: 'active',
-								},
-								null,
-								2
-							),
+							compact({
+								sessionId,
+								assistanceType,
+								documentId,
+								enhanced: true,
+								status: 'active',
+							}),
 					},
 				],
 			};
@@ -1161,16 +1188,12 @@ export const collectFeedbackHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								sessionId,
-								rating,
-								operation,
-								learningEnabled: true,
-							},
-							null,
-							2
-						),
+						text: compact({
+							sessionId,
+							rating,
+							operation,
+							learningEnabled: true,
+						}),
 					},
 				],
 			};

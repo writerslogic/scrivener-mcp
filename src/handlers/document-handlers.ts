@@ -7,6 +7,7 @@ import {
 	ErrorCode,
 	handleError,
 } from '../utils/common.js';
+import { compact } from '../core/response-formatter.js';
 import { getHHMSystem } from './memory-handlers.js';
 import { getLogger } from '../core/logger.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
@@ -71,7 +72,7 @@ export const getDocumentInfoHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(info.result, null, 2),
+						text: compact(info.result),
 					},
 				],
 			};
@@ -527,7 +528,7 @@ export const readFormattedHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: JSON.stringify(formatted, null, 2),
+					text: compact(formatted),
 				},
 			],
 		};
@@ -682,6 +683,43 @@ export const findAnalogiesHandler: ToolDefinition = {
 	},
 };
 
+export const getAllDocumentsHandler: ToolDefinition = {
+	name: 'get_all_documents',
+	description: 'Paginated flat list of all documents',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			offset: { type: 'number', description: 'Start index' },
+			limit: { type: 'number', description: 'Max items (default 50)' },
+			includeTrash: SHARED_DEFS.includeTrash,
+		},
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
+		const offset = getOptionalNumberArg(args, 'offset') || 0;
+		const limit = getOptionalNumberArg(args, 'limit') || 50;
+		const includeTrash = getOptionalBooleanArg(args, 'includeTrash') || false;
+
+		const allDocs = await project.getAllDocuments(includeTrash);
+		const total = allDocs.length;
+		const items = allDocs.slice(offset, offset + limit);
+
+		return {
+			content: [
+				{
+					type: 'text',
+					text: JSON.stringify({
+						items,
+						total,
+						offset,
+						hasMore: offset + limit < total,
+					}),
+				},
+			],
+		};
+	},
+};
+
 export const documentHandlers = [
 	getDocumentInfoHandler,
 	readDocumentHandler,
@@ -693,4 +731,5 @@ export const documentHandlers = [
 	updateMetadataHandler,
 	getWordCountHandler,
 	readFormattedHandler,
+	getAllDocumentsHandler,
 ];

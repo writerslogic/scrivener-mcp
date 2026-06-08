@@ -6,9 +6,11 @@ import * as path from 'path';
 import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
 import { validateInput, createError, ErrorCode } from '../utils/common.js';
+import { compact } from '../core/response-formatter.js';
 import { resolveScrivenerProjectPath } from '../utils/scrivener-utils.js';
 import { DatabaseService } from './database/database-service.js';
 import { SHARED_DEFS } from './shared-schemas.js';
+import type { DocumentInfo } from '../types/index.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	requireProject,
@@ -84,7 +86,7 @@ export const openProjectHandler: ToolDefinition = {
 					type: 'text',
 					text:
 						`Project opened: ${metadata.title || path.basename(projectPath)}\n\n` +
-						JSON.stringify(metadata, null, 2),
+						compact(metadata),
 				},
 			],
 		};
@@ -101,6 +103,7 @@ export const getStructureHandler: ToolDefinition = {
 			folderId: SHARED_DEFS.folderId,
 			includeTrash: SHARED_DEFS.includeTrash,
 			summaryOnly: { type: 'boolean', description: 'Counts only' },
+			flat: { type: 'boolean', description: 'Compact array format (default true)' },
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
@@ -118,7 +121,7 @@ export const getStructureHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(summary, null, 2),
+						text: compact(summary),
 					},
 				],
 			};
@@ -130,11 +133,51 @@ export const getStructureHandler: ToolDefinition = {
 			includeTrash: getOptionalBooleanArg(args, 'includeTrash') || false,
 		});
 
+		// Default to flat format for token efficiency
+		const flat = getOptionalBooleanArg(args, 'flat') ?? true;
+
+		if (flat) {
+			// Flatten into compact tuples: [id, title, type, depth, wordCount, hasChildren]
+			type FlatRow = [string, string, string, number, number, boolean];
+			const rows: FlatRow[] = [];
+
+			const flatten = (node: DocumentInfo, depth: number): void => {
+				const hasChildren = !!(node.children && node.children.length > 0);
+				rows.push([
+					node.id,
+					node.title,
+					node.type,
+					depth,
+					node.wordCount ?? 0,
+					hasChildren,
+				]);
+				if (node.children) {
+					for (const child of node.children) {
+						flatten(child, depth + 1);
+					}
+				}
+			};
+
+			// Flatten each top-level section
+			if (structure.draft) flatten(structure.draft, 0);
+			if (structure.research) flatten(structure.research, 0);
+			if (structure.trash) flatten(structure.trash, 0);
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: JSON.stringify(rows),
+					},
+				],
+			};
+		}
+
 		return {
 			content: [
 				{
 					type: 'text',
-					text: JSON.stringify(structure, null, 2),
+					text: compact(structure),
 				},
 			],
 		};

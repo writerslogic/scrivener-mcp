@@ -1,6 +1,7 @@
 import { LangChainCompilationService } from '../services/compilation/langchain-compiler.js';
 import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
+import { compact, formatPayload } from '../core/response-formatter.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -11,6 +12,33 @@ import {
 } from './types.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import { compileSchema, exportSchema } from './validation-schemas.js';
+
+function formatCompileResult(text: string, sectionCount: number): HandlerResult {
+	const charCount = text.length;
+	const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+	if (charCount <= 4000) {
+		return {
+			content: [{ type: 'text', text }],
+		};
+	}
+
+	const spooled = formatPayload({ compiledText: text }, 'compiled');
+	const ref = JSON.parse(spooled);
+	return {
+		content: [
+			{
+				type: 'text',
+				text: JSON.stringify({
+					wordCount,
+					charCount,
+					sections: sectionCount,
+					file: ref._file,
+				}),
+			},
+		],
+	};
+}
 
 export const compileDocumentsHandler: ToolDefinition = {
 	name: 'compile_documents',
@@ -83,31 +111,19 @@ export const compileDocumentsHandler: ToolDefinition = {
 				documentsCount: documentsToCompile.length,
 			});
 
-			return {
-				content: [
-					{
-						type: 'text',
-						text:
-							typeof compiled.content === 'string'
-								? compiled.content
-								: JSON.stringify(compiled.content),
-					},
-				],
-			};
+			const text =
+				typeof compiled.content === 'string'
+					? compiled.content
+					: JSON.stringify(compiled.content);
+			return formatCompileResult(text, documentsToCompile.length);
 		} catch (error) {
 			// Fallback to basic compilation if LangChain fails
 			const separator = getOptionalStringArg(args, 'separator') || '\n\n---\n\n';
 			const documentIds = documentsToCompile.map((doc) => doc.id);
 			const compiled = await project.compileDocuments(documentIds, separator, format);
 
-			return {
-				content: [
-					{
-						type: 'text',
-						text: typeof compiled === 'string' ? compiled : JSON.stringify(compiled),
-					},
-				],
-			};
+			const text = typeof compiled === 'string' ? compiled : JSON.stringify(compiled);
+			return formatCompileResult(text, documentsToCompile.length);
 		}
 	},
 };
@@ -143,7 +159,7 @@ export const exportProjectHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: JSON.stringify(result, null, 2),
+					text: compact(result),
 				},
 			],
 		};
@@ -176,7 +192,7 @@ export const getStatisticsHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text: JSON.stringify(fullStats, null, 2),
+					text: compact(fullStats),
 				},
 			],
 		};
@@ -449,15 +465,11 @@ export const buildVectorStoreHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: JSON.stringify(
-							{
-								vectorIndexed: true,
-								documentsIndexed: vectorDocuments.length,
-								status: rebuild ? 'rebuilt' : 'updated',
-							},
-							null,
-							2
-						),
+						text: compact({
+							vectorIndexed: true,
+							documentsIndexed: vectorDocuments.length,
+							status: rebuild ? 'rebuilt' : 'updated',
+						}),
 					},
 				],
 			};
