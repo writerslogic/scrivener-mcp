@@ -188,6 +188,9 @@ export class RTFHandler {
 	private buildRTFHeader(metadata?: RTFContent['metadata']): string {
 		const parts: string[] = ['{\\rtf1\\ansi\\deff0\\uc0'];
 
+		// Generator identification
+		parts.push('{\\*\\generator WritersLogic Scrivener MCP;}');
+
 		// Add metadata if present
 		if (metadata) {
 			const info: string[] = [];
@@ -204,7 +207,9 @@ export class RTFHandler {
 		}
 
 		// Font and color tables
-		parts.push('{\\fonttbl{\\f0\\fnil\\fcharset0 Cochin;}{\\f1\\fnil\\fcharset0 Optima;}}');
+		parts.push(
+			'{\\fonttbl{\\f0\\fswiss\\fcharset0 Helvetica;}{\\f1\\fnil\\fcharset0 Cochin;}{\\f2\\fnil\\fcharset0 Optima;}}'
+		);
 		parts.push('{\\colortbl;\\red0\\green0\\blue0;}');
 		parts.push('\\f0\\fs24\\cf1 ');
 

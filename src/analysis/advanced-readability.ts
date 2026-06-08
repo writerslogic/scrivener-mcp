@@ -987,7 +987,7 @@ export class AdvancedReadabilityService {
 		avgSentenceLength: number,
 		avgSyllablesPerWord: number
 	): number {
-		return 206.835 - 1.015 * avgSentenceLength - 84.6 * avgSyllablesPerWord;
+		return 206.8348 - 1.015 * avgSentenceLength - 84.6 * avgSyllablesPerWord;
 	}
 
 	private calculateFleschKincaidGrade(

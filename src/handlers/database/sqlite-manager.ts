@@ -55,6 +55,7 @@ export class SQLiteManager {
 			this.db!.exec('PRAGMA cache_size = 10000;'); // Increased cache
 			this.db!.exec('PRAGMA temp_store = MEMORY;');
 			this.db!.exec('PRAGMA mmap_size = 268435456;'); // 256MB mmap
+			this.db!.exec('PRAGMA application_id = 0x574C4D43;'); // Schema provider tag
 
 			// Get database size for monitoring
 			const stats = fs.statSync(this.dbPath);

@@ -323,7 +323,9 @@ We welcome contributions of all sizes. Check the [issue tracker](https://github.
 
 ## License
 
-MIT &copy; [WritersLogic, Inc.](https://github.com/writerslogic)
+AGPL-3.0 &copy; [WritersLogic, Inc.](https://github.com/writerslogic)
+
+Free for personal use and open-source projects. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](./COMMERCIAL_LICENSE.md) for details.
 
 <p align="center">
   <a href="https://github.com/writerslogic/scrivener-mcp">GitHub</a> &middot;

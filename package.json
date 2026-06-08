@@ -124,7 +124,7 @@
     "interface"
   ],
   "author": "David Condrey <davidcondrey@me.com>",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

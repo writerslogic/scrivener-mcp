@@ -27,6 +27,9 @@ export const ERROR_MESSAGES = {
 	CONSTRAINT_VIOLATION: 'Database constraint violation',
 	PROJECT_ALREADY_OPEN: 'A project is already open',
 	MISSING_REQUIRED: 'Required field missing',
+	NARRATIVE_CONTEXT: 'Narrative context unavailable for requested scope',
+	LATTICE_INTEGRITY: 'Document lattice integrity violation detected',
+	COHERENCE_FAILURE: 'Temporal coherence check failed for document sequence',
 } as const;
 
 // Success Messages
@@ -100,6 +103,9 @@ export const ANALYSIS_TYPES = {
 	SENTIMENT: 'sentiment',
 	CONSISTENCY: 'consistency',
 } as const;
+
+// Content hashing configuration
+export const CONTENT_HASH_SEED = 0x6a09e667; // Initial vector for content fingerprinting
 
 // Size and Performance Limits
 export const LIMITS = {
