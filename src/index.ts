@@ -8,6 +8,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { ContentAnalyzer } from './analysis/base-analyzer.js';
 import { getLogger } from './core/logger.js';
+import { formatError, compact, cleanupSpool } from './core/response-formatter.js';
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 import { HandlerError, type HandlerContext } from './handlers/index.js';
 import {
@@ -127,32 +128,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			}
 		}
 
-		// Return MCP-compliant format
-		return {
-			content: result.content,
-		};
+		// Compact text content to strip nulls and minify
+		const content = result.content.map((item: Record<string, unknown>) => {
+			if (item.type === 'text' && typeof item.text === 'string') {
+				try {
+					const parsed = JSON.parse(item.text);
+					return { type: 'text', text: compact(parsed) };
+				} catch {
+					return item;
+				}
+			}
+			return item;
+		});
+
+		return { content };
 	} catch (error) {
-		if (error instanceof HandlerError) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Error: ${error.message}`,
-					},
-				],
-			};
-		}
-
-		// Log unexpected errors
-		logger.error('Unexpected error', { error });
-
+		logger.error('Tool error', { tool: name, error });
 		return {
-			content: [
-				{
-					type: 'text',
-					text: 'An unexpected error occurred',
-				},
-			],
+			content: [{ type: 'text', text: formatError(error, name) }],
 		};
 	}
 });
@@ -188,6 +181,7 @@ async function main() {
 		// Continue without async features
 	}
 
+	cleanupSpool();
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	logger.info('Scrivener MCP Server started');
