@@ -316,7 +316,7 @@ export class QueryOptimizer {
 		const usesIndex = plan.some((step) => step.detail?.includes('USING INDEX'));
 
 		if (!usesIndex && process.env.NODE_ENV === 'development') {
-			console.warn('Query may benefit from indexing:', query);
+			console.error('Query may benefit from indexing:', query);
 		}
 
 		// Execute with prepared statement
