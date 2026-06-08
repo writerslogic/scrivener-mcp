@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-08
+
+### Security
+- Fix 10 command injection vulnerabilities: shell exec replaced with execFile/execFileSync across auto-installer, adaptive-timeout, condition-waiter, shared-patterns, permission-manager, ai-config-wizard.
+- Fix 4 SQL/Cypher injection vulnerabilities: identifier escaping in query builders, FTS5 sanitization, Neo4j label/relationship validation.
+- Fix 5 path traversal vulnerabilities: validation in RTF handler, setup wizard, project loader.
+- Fix ReDoS in search service RegExp and RTF parser nested regex (replaced with iterative parser).
+- Fix unsafe JSON-LD deserialization with schema validation.
+- Restrict dashboard CORS from wildcard to localhost.
+- Add API key masking in log output.
+- Resolve all 31 npm dependency vulnerabilities (0 remaining).
+
+### Added
+- **Skill-based progressive tool registration**: only 6 tools at startup instead of 58. Skills hydrate on demand via `list_skills` and `use_skill` meta-tools with `sendToolListChanged` notifications. ~94% reduction in initial token overhead.
+- **Sliding window reads**: `read_document` accepts `offset` and `limit` (word-based) for large manuscripts.
+- **Flattened binder output**: `get_structure` defaults to compact `[id, title, type, depth, wordCount, hasChildren]` array format.
+- **Paginated document listing**: `get_all_documents` with `offset`/`limit` (default 50).
+- **`find_document` tool**: search by title pattern without fetching the full binder tree.
+- **Summary-first analysis**: `analyze_document` returns compact scores + top 3 issues instead of full JSON blob.
+- **Response formatter**: null stripping, error masking, large payload spill to disk with tracker IDs.
+- **Compilation disk spill**: compiled manuscripts over 4K chars write to temp file, return metadata + path.
+- **API key auto-discovery**: checks `~/.env`, `~/.openai/key`, `~/.scrivener-mcp/.env`, and macOS Keychain.
+- **Multiple install methods**: npm, npx, Smithery, GitHub direct, Docker.
+- **Smithery registry support** (`smithery.yaml`).
+- **Dockerfile** for containerized deployment.
+- **`COMMERCIAL_LICENSE.md`** for dual-license (AGPL-3.0 + commercial).
+- **Windows Scrivener path discovery** (PR #17): case-insensitive .scrivx resolution, drive-letter path preservation.
+- **Actionable handler error messages** (PR #16): document-not-found guidance, .scrivx path acceptance.
+
+### Fixed
+- 88 audit findings across 67 files (25 critical, 63 high severity).
+- Race conditions: re-entrancy guards on scheduler, context-sync, memory-redis, singleton initialization, transaction state.
+- Lock-free structures: removed fake CAS loops, added iteration limits, resize guard.
+- Silent error handling: mock Math.random() recovery replaced with honest returns, floating promises caught, error context preserved.
+- Timer leaks: intervals stored and cleared on shutdown in adaptive-memory, enhanced-logger, langchain-continuous-learning.
+- N+1 queries: batched Neo4j queries, parallelized Redis operations, Promise.all for batch analysis and word counts.
+- Performance: busy-wait replaced with async sleep, O(n^2) algorithms replaced with map lookups, unbounded caches capped.
+- Stub implementations replaced: real disk/network metrics, real HTTP health checks, real document content reads.
+- `console.warn` on stdout in connection-pool replaced with stderr.
+
+### Changed
+- License changed from MIT to AGPL-3.0 with commercial dual-license option.
+- Tool descriptions trimmed to under 40 characters with shared schema definitions.
+- JSON outputs use `compact()` (no indentation, nulls stripped) for data responses.
+- Search results return 100-char snippets instead of full content.
+- `enhance_content` returns "No changes suggested" instead of echoing full text on no-op.
+- Postinstall auto-configures Claude Desktop silently (no wizard prompts).
+- Setup wizard detects Claude Desktop, Claude Code, and Cursor.
+- Dead tier-based registration code removed (handlers/index.ts: 149 lines to 7).
+
 ## [0.4.0] - 2026-06-03
 
 ### Fixed
@@ -102,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document CRUD operations
 - Project structure navigation
 
+[0.5.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.1.0...v0.2.0

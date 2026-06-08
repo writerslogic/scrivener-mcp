@@ -91,7 +91,7 @@ npm install -g writerslogic/scrivener-mcp
 Or a specific release:
 
 ```bash
-npm install -g writerslogic/scrivener-mcp#v0.4.3
+npm install -g writerslogic/scrivener-mcp#v0.5.0
 ```
 
 ### Docker

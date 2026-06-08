@@ -38,7 +38,22 @@ If the automatic setup didn't work, or you're using a different MCP client, add 
 You can also run the interactive setup wizard:
 
 ```bash
-npx scrivener-mcp setup
+npx scrivener-setup
+```
+
+The setup wizard detects Claude Desktop, Claude Code, and Cursor automatically.
+
+### Other install methods
+
+```bash
+# Smithery
+npx -y @smithery/cli install scrivener-mcp --client claude
+
+# Direct from GitHub
+npm install -g writerslogic/scrivener-mcp
+
+# Docker
+docker build -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
 ```
 
 ## Verifying the Connection
@@ -47,7 +62,7 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list tools like `open_project`, `read_document`, `get_structure`, and many others. If you don't see them, check the troubleshooting section below.
+Claude should list `open_project`, `get_structure`, `list_skills`, and `use_skill`. These are the startup tools. More tools become available after you open a project or activate skill groups. If you don't see them, check the troubleshooting section below.
 
 ## Opening Your First Project
 
@@ -65,7 +80,7 @@ Once the project is open, it stays open for the duration of your conversation. Y
 
 > "Show me the project structure"
 
-Claude calls `get_structure` and returns your binder hierarchy -- Draft, Research, Trash, and everything inside them. Each document has a UUID that other tools use to identify it.
+Claude calls `get_structure` and returns your binder hierarchy in a compact format -- each entry shows the ID, title, type, and depth. Each document has a UUID that other tools use to identify it. You can also use `find_document` to search by title without browsing the full tree.
 
 You don't need to memorize UUIDs. Just describe what you want and Claude will find the right document:
 

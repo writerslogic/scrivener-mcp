@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 75+ tools over the Model Context Protocol.
+Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 60+ tools over the Model Context Protocol via progressive skill-based registration.
 
 ```
 Claude Desktop / Claude Code
@@ -22,27 +22,40 @@ Project Memory  DB  Analysis  HMS
 
 ### MCP Server (`src/index.ts`)
 
-Entry point. Creates the MCP `Server` instance, registers all tool definitions, and routes incoming `CallToolRequest` messages to the appropriate handler.
+Entry point. Creates the MCP `Server` instance, initializes the skill registry, and routes incoming `CallToolRequest` messages to the appropriate handler.
+
+### Skill Registry (`src/handlers/skill-registry.ts`)
+
+Tools are organized into skills that load progressively to minimize token overhead:
+
+| Skill | Tools | When Loaded |
+|-------|-------|-------------|
+| `project` | open_project, get_structure, refresh, close | Startup (always) |
+| `documents` | read, write, create, delete, move, rename, metadata, word count | After open_project |
+| `search` | search, trash, annotations, mentions, find_document | After open_project |
+| `analysis` | analyze, enhance, generate, consistency, multi-agent | On demand via use_skill |
+| `compilation` | compile, export, statistics | On demand via use_skill |
+| `memory` | semantic search, analogies, dream | On demand via use_skill |
+| `advanced` | fractal memory, async queue, batch ops | On demand via use_skill |
+
+Two meta-tools (`list_skills`, `use_skill`) are always available. When a skill is activated, `sendToolListChanged` notifies the client to re-fetch the tool list.
 
 ### Handlers (`src/handlers/`)
 
 Each handler file defines a set of MCP tools as `ToolDefinition` objects with:
 - `name` -- tool name exposed to the client
-- `description` -- what the tool does
-- `inputSchema` -- JSON Schema for arguments
+- `description` -- concise (<40 char) description
+- `inputSchema` -- JSON Schema with shared definitions from `shared-schemas.ts`
 - `handler` -- async function that executes the tool
 
 Arguments are validated using typed extractors (`getStringArg`, `getOptionalNumberArg`, etc.) from `src/handlers/types.ts`.
 
-| File | Tools |
-|------|-------|
-| `project-handlers.ts` | open_project, get_structure, get_project_metadata |
-| `document-handlers.ts` | read/write/create/delete/move documents, word count, search |
-| `search-handlers.ts` | content search, trash search, vector search, cross-references |
-| `analysis-handlers.ts` | analyze, critique, enhance, generate content |
-| `compilation-handlers.ts` | compile documents, export, marketing materials |
-| `memory-handlers.ts` | HMS semantic search, analogies, dream mode |
-| `fractal-memory-handlers.ts` | fractal narrative memory tools |
+### Response Formatting (`src/core/response-formatter.ts`)
+
+All tool outputs are optimized for token efficiency:
+- `compact()` -- JSON serialization with null stripping, no indentation
+- `formatPayload()` -- large results (>4K chars) spill to disk, return tracker ID + preview
+- `formatError()` -- masks stack traces and internal paths into short actionable messages
 
 ### Scrivener Project (`src/scrivener-project.ts`)
 
