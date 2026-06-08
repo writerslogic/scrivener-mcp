@@ -9,15 +9,14 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { ContentAnalyzer } from './analysis/base-analyzer.js';
 import { getLogger } from './core/logger.js';
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
+import { HandlerError, type HandlerContext } from './handlers/index.js';
 import {
-	executeHandler,
-	getAllTools,
-	registerExtendedTools,
-	registerAdvancedTools,
-	HandlerError,
-	validateHandlerArgs,
-	type HandlerContext,
-} from './handlers/index.js';
+	initializeSkillRegistry,
+	getRegisteredTools,
+	executeRegisteredHandler,
+	validateRegisteredArgs,
+	activateSkills,
+} from './handlers/skill-registry.js';
 import { LangChainContinuousLearningHandler } from './handlers/langchain-continuous-learning-handler.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
 import { initializeHHM, registerHHMHandlers } from './handlers/memory-handlers.js';
@@ -90,9 +89,12 @@ const server = new Server(
 	}
 );
 
+// Initialize skill registry
+initializeSkillRegistry();
+
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-	tools: getAllTools(),
+	tools: getRegisteredTools(),
 }));
 
 // Handle tool execution
@@ -106,16 +108,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		}
 
 		// Validate arguments
-		validateHandlerArgs(name, args || {});
+		validateRegisteredArgs(name, args || {});
 
 		// Execute handler
-		const result = await executeHandler(name, args || {}, context);
+		const result = await executeRegisteredHandler(name, args || {}, context);
 
-		// After open_project succeeds, register extended tools and notify client
-		if (name === 'open_project' && context.project) {
-			let changed = registerExtendedTools();
+		// After use_skill or open_project, notify client of new tools
+		if (name === 'use_skill') {
+			await server.sendToolListChanged();
+		} else if (name === 'open_project' && context.project) {
+			const changed = activateSkills('documents', 'search');
 			if (hhmInitialized) {
-				changed = registerAdvancedTools() || changed;
+				activateSkills('memory');
 				registerHHMHandlers(server as any);
 			}
 			if (changed) {
