@@ -8,6 +8,7 @@ import { ScrivenerProject } from '../scrivener-project.js';
 import { validateInput, createError, ErrorCode } from '../utils/common.js';
 import { resolveScrivenerProjectPath } from '../utils/scrivener-utils.js';
 import { DatabaseService } from './database/database-service.js';
+import { SHARED_DEFS } from './shared-schemas.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	requireProject,
@@ -23,10 +24,7 @@ export const openProjectHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			path: {
-				type: 'string',
-				description: 'Path to .scriv folder',
-			},
+			path: { type: 'string', description: 'Path to .scriv' },
 		},
 		required: ['path'],
 	},
@@ -99,22 +97,10 @@ export const getStructureHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			maxDepth: {
-				type: 'number',
-				description: 'Max traversal depth',
-			},
-			folderId: {
-				type: 'string',
-				description: 'Folder UUID',
-			},
-			includeTrash: {
-				type: 'boolean',
-				description: 'Include trash',
-			},
-			summaryOnly: {
-				type: 'boolean',
-				description: 'Summary with counts only',
-			},
+			maxDepth: { type: 'number', description: 'Max depth' },
+			folderId: SHARED_DEFS.folderId,
+			includeTrash: SHARED_DEFS.includeTrash,
+			summaryOnly: { type: 'boolean', description: 'Counts only' },
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {

@@ -7,6 +7,7 @@ import { getLogger } from '../core/logger.js';
 import { FractalMemoryService } from '../services/memory/fractal-memory-service.js';
 import type { DocumentInfo } from '../types/index.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
+import { SHARED_DEFS } from './shared-schemas.js';
 import {
 	getStringArg,
 	getOptionalStringArg,
@@ -158,33 +159,18 @@ async function getFractalMemoryService(): Promise<FractalMemoryService> {
  */
 export const ingestDocumentHandler: ToolDefinition = {
 	name: 'ingest_document_fractal',
-	description: 'Ingest document into fractal memory',
+	description: 'Ingest into fractal memory',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			chapterId: {
-				type: 'string',
-				description: 'Chapter ID',
-			},
+			documentId: SHARED_DEFS.docId,
+			chapterId: SHARED_DEFS.chapterId,
 			options: {
 				type: 'object',
 				properties: {
-					forceRebuild: {
-						type: 'boolean',
-						description: 'Force rebuild indices',
-					},
-					extractEntities: {
-						type: 'boolean',
-						description: 'Extract entities',
-					},
-					clusterMotifs: {
-						type: 'boolean',
-						description: 'Cluster motifs',
-					},
+					forceRebuild: { type: 'boolean' },
+					extractEntities: { type: 'boolean' },
+					clusterMotifs: { type: 'boolean' },
 				},
 			},
 		},
@@ -262,31 +248,15 @@ export const ingestDocumentHandler: ToolDefinition = {
  */
 export const fractalSearchHandler: ToolDefinition = {
 	name: 'fractal_search',
-	description: 'Multi-scale fractal retrieval search',
+	description: 'Fractal retrieval search',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			query: {
-				type: 'string',
-				description: 'Search query',
-			},
-			policy: {
-				type: 'string',
-				enum: ['line-fix', 'scene-fix', 'thematic', 'continuity'],
-				description: 'Retrieval policy',
-			},
-			k: {
-				type: 'number',
-				description: 'Result count',
-			},
-			chapterId: {
-				type: 'string',
-				description: 'Chapter filter',
-			},
-			includeGraph: {
-				type: 'boolean',
-				description: 'Include graph data',
-			},
+			query: SHARED_DEFS.query,
+			policy: { type: 'string', enum: ['line-fix', 'scene-fix', 'thematic', 'continuity'] },
+			k: SHARED_DEFS.maxResults,
+			chapterId: SHARED_DEFS.chapterId,
+			includeGraph: { type: 'boolean' },
 		},
 		required: ['query'],
 	},
@@ -371,33 +341,14 @@ export const fractalSearchHandler: ToolDefinition = {
  */
 export const findCoOccurrencesHandler: ToolDefinition = {
 	name: 'find_cooccurrences',
-	description: 'Find entity/motif co-occurrences',
+	description: 'Find co-occurrences',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			items: {
-				type: 'array',
-				items: {
-					type: 'string',
-				},
-				description: 'Items to find',
-			},
-			itemTypes: {
-				type: 'array',
-				items: {
-					type: 'string',
-					enum: ['entity', 'motif'],
-				},
-				description: 'Item types',
-			},
-			minDistance: {
-				type: 'number',
-				description: 'Min token distance',
-			},
-			maxDistance: {
-				type: 'number',
-				description: 'Max token distance',
-			},
+			items: { type: 'array', items: { type: 'string' } },
+			itemTypes: { type: 'array', items: { type: 'string', enum: ['entity', 'motif'] } },
+			minDistance: { type: 'number' },
+			maxDistance: { type: 'number' },
 		},
 		required: ['items'],
 	},
@@ -461,22 +412,13 @@ export const findCoOccurrencesHandler: ToolDefinition = {
  */
 export const checkContinuityHandler: ToolDefinition = {
 	name: 'check_character_continuity',
-	description: 'Check character continuity and gaps',
+	description: 'Check character continuity',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			characterName: {
-				type: 'string',
-				description: 'Character name',
-			},
-			chapterId: {
-				type: 'string',
-				description: 'Chapter filter',
-			},
-			includeRelationships: {
-				type: 'boolean',
-				description: 'Include relationships',
-			},
+			characterName: { type: 'string' },
+			chapterId: SHARED_DEFS.chapterId,
+			includeRelationships: { type: 'boolean' },
 		},
 		required: ['characterName'],
 	},
@@ -551,23 +493,13 @@ export const checkContinuityHandler: ToolDefinition = {
  */
 export const trackMotifsHandler: ToolDefinition = {
 	name: 'track_motifs',
-	description: 'Track recurring motifs and patterns',
+	description: 'Track recurring motifs',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			chapterId: {
-				type: 'string',
-				description: 'Chapter filter',
-			},
-			minStrength: {
-				type: 'number',
-				description: 'Min motif strength',
-			},
-			patternType: {
-				type: 'string',
-				enum: ['theme', 'symbol', 'phrase', 'structure'],
-				description: 'Pattern type',
-			},
+			chapterId: SHARED_DEFS.chapterId,
+			minStrength: { type: 'number' },
+			patternType: { type: 'string', enum: ['theme', 'symbol', 'phrase', 'structure'] },
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
@@ -635,29 +567,14 @@ export const ingestProjectHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			folderId: {
-				type: 'string',
-				description: 'Folder UUID (default: Draft)',
-			},
+			folderId: SHARED_DEFS.folderId,
 			options: {
 				type: 'object',
 				properties: {
-					batchSize: {
-						type: 'number',
-						description: 'Batch size',
-					},
-					parallel: {
-						type: 'boolean',
-						description: 'Parallel processing',
-					},
-					extractEntities: {
-						type: 'boolean',
-						description: 'Extract entities',
-					},
-					clusterMotifs: {
-						type: 'boolean',
-						description: 'Cluster motifs',
-					},
+					batchSize: { type: 'number' },
+					parallel: { type: 'boolean' },
+					extractEntities: { type: 'boolean' },
+					clusterMotifs: { type: 'boolean' },
 				},
 			},
 		},
@@ -785,51 +702,24 @@ export const ingestProjectHandler: ToolDefinition = {
  */
 export const updatePolicyHandler: ToolDefinition = {
 	name: 'update_retrieval_policy',
-	description: 'Create or update a retrieval policy',
+	description: 'Update retrieval policy',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			name: {
-				type: 'string',
-				description: 'Policy name',
-			},
+			name: { type: 'string' },
 			scaleWeights: {
 				type: 'object',
 				properties: {
-					micro: {
-						type: 'number',
-						minimum: 0,
-						maximum: 1,
-					},
-					meso: {
-						type: 'number',
-						minimum: 0,
-						maximum: 1,
-					},
-					macro: {
-						type: 'number',
-						minimum: 0,
-						maximum: 1,
-					},
+					micro: { type: 'number', minimum: 0, maximum: 1 },
+					meso: { type: 'number', minimum: 0, maximum: 1 },
+					macro: { type: 'number', minimum: 0, maximum: 1 },
 				},
 				description: 'Weights summing to ~1.0',
 			},
-			entityBoost: {
-				type: 'number',
-				description: 'Entity boost factor',
-			},
-			motifBoost: {
-				type: 'number',
-				description: 'Motif boost factor',
-			},
-			recencyWeight: {
-				type: 'number',
-				description: 'Recency weight',
-			},
-			frequencyWeight: {
-				type: 'number',
-				description: 'Frequency weight',
-			},
+			entityBoost: { type: 'number' },
+			motifBoost: { type: 'number' },
+			recencyWeight: { type: 'number' },
+			frequencyWeight: { type: 'number' },
 		},
 		required: ['name', 'scaleWeights'],
 	},
@@ -893,22 +783,13 @@ export const updatePolicyHandler: ToolDefinition = {
  */
 export const getMemoryAnalyticsHandler: ToolDefinition = {
 	name: 'get_memory_analytics',
-	description: 'Get fractal memory performance metrics',
+	description: 'Get memory performance metrics',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			startDate: {
-				type: 'string',
-				description: 'Start date (ISO)',
-			},
-			endDate: {
-				type: 'string',
-				description: 'End date (ISO)',
-			},
-			limit: {
-				type: 'number',
-				description: 'Max results',
-			},
+			startDate: { type: 'string', description: 'ISO date' },
+			endDate: { type: 'string', description: 'ISO date' },
+			limit: SHARED_DEFS.maxResults,
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
@@ -970,30 +851,17 @@ export const getMemoryAnalyticsHandler: ToolDefinition = {
  */
 export const analyzeNarrativeHandler: ToolDefinition = {
 	name: 'analyze_narrative',
-	description: 'Analyze narrative structure and motifs',
+	description: 'Analyze narrative structure',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			analysisType: {
-				type: 'string',
-				enum: ['structure', 'motifs', 'relationships', 'all'],
-				description: 'Analysis type',
-			},
+			documentId: SHARED_DEFS.docId,
+			analysisType: { type: 'string', enum: ['structure', 'motifs', 'relationships', 'all'] },
 			options: {
 				type: 'object',
 				properties: {
-					includeVisualization: {
-						type: 'boolean',
-						description: 'Include visualization',
-					},
-					includeMetrics: {
-						type: 'boolean',
-						description: 'Include metrics',
-					},
+					includeVisualization: { type: 'boolean' },
+					includeMetrics: { type: 'boolean' },
 				},
 			},
 		},
@@ -1122,18 +990,12 @@ export const analyzeNarrativeHandler: ToolDefinition = {
  */
 export const getMemoryStatsHandler: ToolDefinition = {
 	name: 'get_memory_stats',
-	description: 'Get fractal memory usage stats',
+	description: 'Get memory usage stats',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID filter',
-			},
-			includeDetails: {
-				type: 'boolean',
-				description: 'Include detailed stats',
-			},
+			documentId: SHARED_DEFS.docId,
+			includeDetails: { type: 'boolean' },
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {

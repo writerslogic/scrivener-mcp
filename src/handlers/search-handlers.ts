@@ -39,6 +39,7 @@ async function getSemanticLayer(
 	return cachedSemanticLayer;
 }
 
+import { SHARED_DEFS } from './shared-schemas.js';
 import {
 	documentDetailsSchema,
 	moveDocumentSchema,
@@ -48,31 +49,15 @@ import {
 
 export const searchContentHandler: ToolDefinition = {
 	name: 'search_content',
-	description: 'Search content across all documents',
+	description: 'Search across all documents',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			query: {
-				type: 'string',
-				description: 'Search query',
-			},
-			caseSensitive: {
-				type: 'boolean',
-				description: 'Case sensitive',
-			},
-			regex: {
-				type: 'boolean',
-				description: 'Use regex',
-			},
-			includeTrash: {
-				type: 'boolean',
-				description: 'Include trash',
-			},
-			searchIn: {
-				type: 'array',
-				items: { type: 'string' },
-				description: 'Fields to search',
-			},
+			query: SHARED_DEFS.query,
+			caseSensitive: { type: 'boolean' },
+			regex: { type: 'boolean' },
+			includeTrash: SHARED_DEFS.includeTrash,
+			searchIn: { type: 'array', items: { type: 'string' }, description: 'Fields to search' },
 		},
 		required: ['query'],
 	},
@@ -186,19 +171,12 @@ export const listTrashHandler: ToolDefinition = {
 
 export const searchTrashHandler: ToolDefinition = {
 	name: 'search_trash',
-	description: 'Search documents in trash',
+	description: 'Search trashed documents',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			query: {
-				type: 'string',
-				description: 'Search query',
-			},
-			searchType: {
-				type: 'string',
-				enum: ['title', 'content', 'both'],
-				description: 'Search scope',
-			},
+			query: SHARED_DEFS.query,
+			searchType: { type: 'string', enum: ['title', 'content', 'both'] },
 		},
 		required: ['query'],
 	},
@@ -227,18 +205,12 @@ export const searchTrashHandler: ToolDefinition = {
 
 export const recoverDocumentHandler: ToolDefinition = {
 	name: 'recover_document',
-	description: 'Restore document from trash',
+	description: 'Restore from trash',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			targetFolderId: {
-				type: 'string',
-				description: 'Target folder UUID',
-			},
+			documentId: SHARED_DEFS.docId,
+			targetFolderId: SHARED_DEFS.folderId,
 		},
 		required: ['documentId'],
 	},
@@ -263,22 +235,13 @@ export const recoverDocumentHandler: ToolDefinition = {
 
 export const getAnnotationsHandler: ToolDefinition = {
 	name: 'get_document_annotations',
-	description: 'Get document annotations',
+	description: 'Get annotations and footnotes',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			includeComments: {
-				type: 'boolean',
-				description: 'Include comments',
-			},
-			includeFootnotes: {
-				type: 'boolean',
-				description: 'Include footnotes',
-			},
+			documentId: SHARED_DEFS.docId,
+			includeComments: { type: 'boolean' },
+			includeFootnotes: { type: 'boolean' },
 		},
 		required: ['documentId'],
 	},
@@ -307,27 +270,14 @@ export const getAnnotationsHandler: ToolDefinition = {
 // Advanced LangChain search handlers
 export const vectorSearchHandler: ToolDefinition = {
 	name: 'vector_search',
-	description: 'Semantic vector search across documents',
+	description: 'Semantic vector search',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			query: {
-				type: 'string',
-				description: 'Natural language query',
-			},
-			maxResults: {
-				type: 'number',
-				description: 'Max results (default: 10)',
-			},
-			threshold: {
-				type: 'number',
-				description: 'Min similarity 0-1',
-			},
-			searchType: {
-				type: 'string',
-				enum: ['semantic', 'hybrid', 'keyword'],
-				description: 'Search mode',
-			},
+			query: SHARED_DEFS.query,
+			maxResults: SHARED_DEFS.maxResults,
+			threshold: SHARED_DEFS.threshold,
+			searchType: { type: 'string', enum: ['semantic', 'hybrid', 'keyword'] },
 		},
 		required: ['query'],
 	},
@@ -435,18 +385,12 @@ export const vectorSearchHandler: ToolDefinition = {
 
 export const findMentionsHandler: ToolDefinition = {
 	name: 'find_mentions',
-	description: 'Find entity mentions across documents',
+	description: 'Find entity mentions',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			entity: {
-				type: 'string',
-				description: 'Entity name to search',
-			},
-			contextLength: {
-				type: 'number',
-				description: 'Context chars per mention',
-			},
+			entity: { type: 'string' },
+			contextLength: { type: 'number', description: 'Context chars' },
 		},
 		required: ['entity'],
 	},
@@ -546,23 +490,16 @@ export const findMentionsHandler: ToolDefinition = {
 
 export const crossReferenceHandler: ToolDefinition = {
 	name: 'cross_reference_analysis',
-	description: 'Cross-reference analysis for related content',
+	description: 'Cross-reference related content',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Source document UUID',
-			},
+			documentId: SHARED_DEFS.docId,
 			analysisType: {
 				type: 'string',
 				enum: ['characters', 'themes', 'plot_points', 'locations', 'all'],
-				description: 'Analysis scope',
 			},
-			maxConnections: {
-				type: 'number',
-				description: 'Max connections (default: 10)',
-			},
+			maxConnections: SHARED_DEFS.maxResults,
 		},
 		required: ['documentId'],
 	},

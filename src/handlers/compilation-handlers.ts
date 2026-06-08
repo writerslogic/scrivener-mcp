@@ -9,39 +9,21 @@ import {
 	getStringArg,
 	requireProject,
 } from './types.js';
+import { SHARED_DEFS } from './shared-schemas.js';
 import { compileSchema, exportSchema } from './validation-schemas.js';
 
 export const compileDocumentsHandler: ToolDefinition = {
 	name: 'compile_documents',
-	description: 'Compile documents in reading order',
+	description: 'Compile documents in order',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			format: {
-				type: 'string',
-				enum: ['text', 'markdown', 'html'],
-				description: 'Output format',
-			},
-			rootFolderId: {
-				type: 'string',
-				description: 'Root folder UUID',
-			},
-			includeSynopsis: {
-				type: 'boolean',
-				description: 'Include synopsis',
-			},
-			includeNotes: {
-				type: 'boolean',
-				description: 'Include notes',
-			},
-			separator: {
-				type: 'string',
-				description: 'Document separator',
-			},
-			hierarchical: {
-				type: 'boolean',
-				description: 'Keep folder hierarchy',
-			},
+			format: { type: 'string', enum: ['text', 'markdown', 'html'] },
+			rootFolderId: SHARED_DEFS.folderId,
+			includeSynopsis: { type: 'boolean' },
+			includeNotes: { type: 'boolean' },
+			separator: { type: 'string' },
+			hierarchical: { type: 'boolean' },
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
@@ -136,19 +118,9 @@ export const exportProjectHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			format: {
-				type: 'string',
-				enum: ['markdown', 'html', 'json', 'epub'],
-				description: 'Export format',
-			},
-			outputPath: {
-				type: 'string',
-				description: 'Output file path',
-			},
-			options: {
-				type: 'object',
-				description: 'Format-specific options',
-			},
+			format: { type: 'string', enum: ['markdown', 'html', 'json', 'epub'] },
+			outputPath: { type: 'string' },
+			options: { type: 'object' },
 		},
 		required: ['format'],
 	},
@@ -184,10 +156,7 @@ export const getStatisticsHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			detailed: {
-				type: 'boolean',
-				description: 'Include detailed stats',
-			},
+			detailed: { type: 'boolean' },
 		},
 	},
 	handler: async (_args, context): Promise<HandlerResult> => {
@@ -217,15 +186,11 @@ export const getStatisticsHandler: ToolDefinition = {
 // Advanced LangChain compilation handlers
 export const intelligentCompilationHandler: ToolDefinition = {
 	name: 'intelligent_compilation',
-	description: 'AI compilation with target optimization',
+	description: 'AI-optimized compilation',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentsIds: {
-				type: 'array',
-				items: { type: 'string' },
-				description: 'Document UUIDs',
-			},
+			documentsIds: SHARED_DEFS.documentIds,
 			targetOptimization: {
 				type: 'string',
 				enum: [
@@ -236,16 +201,9 @@ export const intelligentCompilationHandler: ToolDefinition = {
 					'query_letter',
 					'general',
 				],
-				description: 'Optimization target',
 			},
-			outputFormat: {
-				type: 'string',
-				enum: ['text', 'markdown', 'html', 'rtf'],
-				description: 'Output format',
-			},
-			contentOptimization: {
-				description: 'Enable AI optimization',
-			},
+			outputFormat: { type: 'string', enum: ['text', 'markdown', 'html', 'rtf'] },
+			contentOptimization: { description: 'Enable AI optimization' },
 		},
 		required: ['documentsIds', 'targetOptimization'],
 	},
@@ -356,24 +314,16 @@ export const intelligentCompilationHandler: ToolDefinition = {
 
 export const generateMarketingMaterialsHandler: ToolDefinition = {
 	name: 'generate_marketing_materials',
-	description: 'Generate marketing materials from project',
+	description: 'Generate marketing materials',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			materialType: {
 				type: 'string',
 				enum: ['synopsis', 'query_letter', 'pitch_packet', 'elevator_pitch', 'book_blurb'],
-				description: 'Material type',
 			},
-			length: {
-				type: 'string',
-				enum: ['short', 'medium', 'long'],
-				description: 'Output length',
-			},
-			targetAudience: {
-				type: 'string',
-				description: 'Target audience',
-			},
+			length: { type: 'string', enum: ['short', 'medium', 'long'] },
+			targetAudience: { type: 'string' },
 		},
 		required: ['materialType'],
 	},
@@ -448,14 +398,11 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 
 export const buildVectorStoreHandler: ToolDefinition = {
 	name: 'build_vector_store',
-	description: 'Build semantic search index',
+	description: 'Build search index',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			rebuild: {
-				type: 'boolean',
-				description: 'Rebuild from scratch',
-			},
+			rebuild: { type: 'boolean' },
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {

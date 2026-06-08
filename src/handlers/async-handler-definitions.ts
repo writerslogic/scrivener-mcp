@@ -6,17 +6,18 @@ import type { JobType } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { safeStringify } from '../utils/common.js';
 import * as asyncHandlers from './async-handlers.js';
+import { SHARED_DEFS } from './shared-schemas.js';
 import type { ToolDefinition } from './types.js';
 
 export const asyncHandlerDefinitions: ToolDefinition[] = [
 	{
 		name: 'queue_document_analysis',
-		description: 'Queue document for async NLP analysis',
+		description: 'Queue async NLP analysis',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				documentId: { type: 'string', description: 'Document UUID' },
-				content: { type: 'string', description: 'Document content' },
+				documentId: SHARED_DEFS.docId,
+				content: SHARED_DEFS.content,
 				options: {
 					type: 'object',
 					properties: {
@@ -54,7 +55,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'queue_project_analysis',
-		description: 'Queue project for batch analysis',
+		description: 'Queue batch project analysis',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -95,14 +96,14 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'generate_ai_suggestions',
-		description: 'Generate AI writing suggestions',
+		description: 'Generate writing suggestions',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				prompt: { type: 'string', description: 'Suggestion prompt' },
-				documentId: { type: 'string' },
-				useContext: { type: 'boolean', description: 'Use document context' },
-				async: { type: 'boolean', description: 'Run async' },
+				prompt: { type: 'string' },
+				documentId: SHARED_DEFS.docId,
+				useContext: { type: 'boolean' },
+				async: { type: 'boolean' },
 			},
 			required: ['prompt'],
 		},
@@ -127,14 +128,11 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'analyze_writing_style',
-		description: 'Analyze writing style via AI',
+		description: 'Analyze writing style',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				samples: {
-					type: 'array',
-					description: 'Writing samples',
-				},
+				samples: { type: 'array' },
 			},
 			required: ['samples'],
 		},
@@ -156,7 +154,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'check_plot_consistency',
-		description: 'Check plot consistency across documents',
+		description: 'Check plot consistency',
 		inputSchema: {
 			type: 'object',
 			properties: {

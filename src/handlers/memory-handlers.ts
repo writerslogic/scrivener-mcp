@@ -7,6 +7,7 @@ import { HolographicMemorySystem } from '../services/memory/hhm/holographic-memo
 import { quickBenchmark } from '../services/memory/hhm/benchmark.js';
 import { getLogger } from '../core/logger.js';
 import type { ScrivenerDocument } from '../types/index.js';
+import { SHARED_DEFS } from './shared-schemas.js';
 import type { ToolDefinition } from './types.js';
 
 const logger = getLogger('memory-handlers');
@@ -42,12 +43,12 @@ export function getHHMSystem(): HolographicMemorySystem {
 export const nativeHHMTools: ToolDefinition[] = [
 	{
 		name: 'semantic_search',
-		description: 'Semantic search via native HMS engine',
+		description: 'Native HMS semantic search',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				query: { type: 'string', description: 'Search query' },
-				k: { type: 'number', description: 'Result count' },
+				query: SHARED_DEFS.query,
+				k: SHARED_DEFS.maxResults,
 			},
 			required: ['query'],
 		},
@@ -66,7 +67,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 	},
 	{
 		name: 'find_analogies',
-		description: 'Find analogies (A:B :: C:?) via HMS',
+		description: 'Find analogies (A:B :: C:?)',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -92,7 +93,7 @@ export const nativeHHMTools: ToolDefinition[] = [
 	},
 	{
 		name: 'hhm_dream',
-		description: 'Creative recombination for novel concepts',
+		description: 'Creative concept recombination',
 		inputSchema: {
 			type: 'object',
 			properties: {},
