@@ -128,20 +128,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			}
 		}
 
-		// Compact text content to strip nulls and minify
-		const content = result.content.map((item: Record<string, unknown>) => {
-			if (item.type === 'text' && typeof item.text === 'string') {
-				try {
-					const parsed = JSON.parse(item.text);
-					return { type: 'text', text: compact(parsed) };
-				} catch {
-					return item;
-				}
-			}
-			return item;
-		});
-
-		return { content };
+		return { content: result.content };
 	} catch (error) {
 		logger.error('Tool error', { tool: name, error });
 		return {
