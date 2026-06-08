@@ -113,12 +113,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 		// After open_project succeeds, register extended tools and notify client
 		if (name === 'open_project' && context.project) {
-			const added = registerExtendedTools();
+			let changed = registerExtendedTools();
 			if (hhmInitialized) {
-				registerAdvancedTools();
+				changed = registerAdvancedTools() || changed;
 				registerHHMHandlers(server as any);
 			}
-			if (added) {
+			if (changed) {
 				await server.sendToolListChanged();
 			}
 		}

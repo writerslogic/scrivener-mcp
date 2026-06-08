@@ -1254,7 +1254,6 @@ export const analysisHandlers = [
 	checkConsistencyHandler,
 	// Advanced LangChain handlers
 	multiAgentAnalysisHandler,
-	semanticSearchHandler,
 	realtimeAssistanceHandler,
 	collectFeedbackHandler,
 ];

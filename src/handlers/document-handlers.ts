@@ -765,6 +765,4 @@ export const documentHandlers = [
 	updateMetadataHandler,
 	getWordCountHandler,
 	readFormattedHandler,
-	semanticSearchHandler,
-	findAnalogiesHandler,
 ];
