@@ -5,7 +5,7 @@
 import * as path from 'path';
 import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
-import { validateInput } from '../utils/common.js';
+import { validateInput, createError, ErrorCode } from '../utils/common.js';
 import { resolveScrivenerProjectPath } from '../utils/scrivener-utils.js';
 import { DatabaseService } from './database/database-service.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
@@ -53,7 +53,19 @@ export const openProjectHandler: ToolDefinition = {
 			hhmSystem: context.hhmSystem,
 			scrivxPath,
 		});
-		await project.loadProject();
+		try {
+			await project.loadProject();
+		} catch (error) {
+			const expectedScrivxPath = path.join(
+				projectPath,
+				`${path.basename(projectPath, path.extname(projectPath))}.scrivx`
+			);
+			throw createError(
+				ErrorCode.PROJECT_NOT_FOUND,
+				{ path: projectPath, expectedScrivxPath, cause: error },
+				`Could not open Scrivener project at "${projectPath}". Expected to find "${expectedScrivxPath}". Pass the .scriv project folder or its .scrivx file.`
+			);
+		}
 
 		// Initialize database service
 		const dbService = new DatabaseService(projectPath);

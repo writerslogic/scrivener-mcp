@@ -24,6 +24,28 @@ import {
 	documentTitleSchema,
 } from './validation-schemas.js';
 
+function assertValidDocumentId(documentId: string): void {
+	if (!isValidUUID(documentId)) {
+		throw createError(
+			ErrorCode.INVALID_INPUT,
+			{ documentId },
+			`Invalid document ID format: "${documentId}". Use get_structure or get_all_documents to find a valid Scrivener UUID.`
+		);
+	}
+}
+
+async function requireExistingDocument(project: ReturnType<typeof requireProject>, documentId: string) {
+	const info = await project.getDocumentInfo(documentId);
+	if (!info.document) {
+		throw createError(
+			ErrorCode.DOCUMENT_NOT_FOUND,
+			{ documentId },
+			`Document "${documentId}" was not found in the open project. Use get_structure or get_all_documents to choose a valid document ID.`
+		);
+	}
+	return info;
+}
+
 export const getDocumentInfoHandler: ToolDefinition = {
 	name: 'get_document_info',
 	description: 'Get detailed information about a document including parent hierarchy',
@@ -40,20 +62,9 @@ export const getDocumentInfoHandler: ToolDefinition = {
 	handler: async (args, _context): Promise<HandlerResult> => {
 		try {
 			const project = requireProject(_context);
-			validateInput(args, documentIdSchema);
-
 			const documentId = getStringArg(args, 'documentId');
-
-			// Validate UUID format
-			if (!isValidUUID(documentId)) {
-				throw createError(
-					ErrorCode.INVALID_INPUT,
-					{ documentId },
-					'Invalid document ID format'
-				);
-			}
-
-			const info = await measureExecution(() => project.getDocumentInfo(documentId));
+			assertValidDocumentId(documentId);
+			const info = await measureExecution(() => requireExistingDocument(project, documentId));
 
 			return {
 				content: [
@@ -86,25 +97,15 @@ export const readDocumentHandler: ToolDefinition = {
 	handler: async (args, _context): Promise<HandlerResult> => {
 		try {
 			const project = requireProject(_context);
-			validateInput(args, documentIdSchema);
-
 			const documentId = getStringArg(args, 'documentId');
-
-			// Validate UUID format
-			if (!isValidUUID(documentId)) {
-				throw createError(
-					ErrorCode.INVALID_INPUT,
-					{ documentId },
-					'Invalid document ID format'
-				);
-			}
+			assertValidDocumentId(documentId);
+			const docInfo = await requireExistingDocument(project, documentId);
 
 			const result = await measureExecution(() => project.readDocument(documentId));
 
 			// Optionally memorize document content in HHM
 			try {
 				const hhmSystem = getHHMSystem();
-				const docInfo = await project.getDocumentInfo(documentId);
 				if (docInfo.document && result.result.trim()) {
 					await hhmSystem.memorizeDocument({
 						id: docInfo.document.id,
