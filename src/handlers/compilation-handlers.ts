@@ -24,23 +24,23 @@ export const compileDocumentsHandler: ToolDefinition = {
 			},
 			rootFolderId: {
 				type: 'string',
-				description: 'Root folder to compile from',
+				description: 'Root folder UUID',
 			},
 			includeSynopsis: {
 				type: 'boolean',
-				description: 'Include document synopsis',
+				description: 'Include synopsis',
 			},
 			includeNotes: {
 				type: 'boolean',
-				description: 'Include document notes',
+				description: 'Include notes',
 			},
 			separator: {
 				type: 'string',
-				description: 'Separator between documents',
+				description: 'Document separator',
 			},
 			hierarchical: {
 				type: 'boolean',
-				description: 'Maintain folder hierarchy in output',
+				description: 'Keep folder hierarchy',
 			},
 		},
 	},
@@ -132,7 +132,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 
 export const exportProjectHandler: ToolDefinition = {
 	name: 'export_project',
-	description: 'Export project in various formats',
+	description: 'Export project to file',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -186,7 +186,7 @@ export const getStatisticsHandler: ToolDefinition = {
 		properties: {
 			detailed: {
 				type: 'boolean',
-				description: 'Include detailed breakdown',
+				description: 'Include detailed stats',
 			},
 		},
 	},
@@ -217,14 +217,14 @@ export const getStatisticsHandler: ToolDefinition = {
 // Advanced LangChain compilation handlers
 export const intelligentCompilationHandler: ToolDefinition = {
 	name: 'intelligent_compilation',
-	description: 'AI-powered compilation with target optimization',
+	description: 'AI compilation with target optimization',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentsIds: {
 				type: 'array',
 				items: { type: 'string' },
-				description: 'Document IDs to compile',
+				description: 'Document UUIDs',
 			},
 			targetOptimization: {
 				type: 'string',
@@ -236,7 +236,7 @@ export const intelligentCompilationHandler: ToolDefinition = {
 					'query_letter',
 					'general',
 				],
-				description: 'Target optimization for compilation',
+				description: 'Optimization target',
 			},
 			outputFormat: {
 				type: 'string',
@@ -244,7 +244,7 @@ export const intelligentCompilationHandler: ToolDefinition = {
 				description: 'Output format',
 			},
 			contentOptimization: {
-				description: 'Enable AI content optimization',
+				description: 'Enable AI optimization',
 			},
 		},
 		required: ['documentsIds', 'targetOptimization'],
@@ -356,23 +356,23 @@ export const intelligentCompilationHandler: ToolDefinition = {
 
 export const generateMarketingMaterialsHandler: ToolDefinition = {
 	name: 'generate_marketing_materials',
-	description: 'Generate marketing materials (synopsis, query letter, etc.) from project',
+	description: 'Generate marketing materials from project',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			materialType: {
 				type: 'string',
 				enum: ['synopsis', 'query_letter', 'pitch_packet', 'elevator_pitch', 'book_blurb'],
-				description: 'Type of marketing material to generate',
+				description: 'Material type',
 			},
 			length: {
 				type: 'string',
 				enum: ['short', 'medium', 'long'],
-				description: 'Length of the generated material',
+				description: 'Output length',
 			},
 			targetAudience: {
 				type: 'string',
-				description: 'Target audience or market',
+				description: 'Target audience',
 			},
 		},
 		required: ['materialType'],
@@ -448,13 +448,13 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 
 export const buildVectorStoreHandler: ToolDefinition = {
 	name: 'build_vector_store',
-	description: 'Build semantic search index for project documents',
+	description: 'Build semantic search index',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			rebuild: {
 				type: 'boolean',
-				description: 'Rebuild index from scratch',
+				description: 'Rebuild from scratch',
 			},
 		},
 	},

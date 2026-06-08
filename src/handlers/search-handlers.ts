@@ -48,7 +48,7 @@ import {
 
 export const searchContentHandler: ToolDefinition = {
 	name: 'search_content',
-	description: 'Search for content across all documents',
+	description: 'Search content across all documents',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -58,20 +58,20 @@ export const searchContentHandler: ToolDefinition = {
 			},
 			caseSensitive: {
 				type: 'boolean',
-				description: 'Case sensitive search',
+				description: 'Case sensitive',
 			},
 			regex: {
 				type: 'boolean',
-				description: 'Use regular expression',
+				description: 'Use regex',
 			},
 			includeTrash: {
 				type: 'boolean',
-				description: 'Include trash in search',
+				description: 'Include trash',
 			},
 			searchIn: {
 				type: 'array',
 				items: { type: 'string' },
-				description: 'Search in specific fields: content, synopsis, notes, title',
+				description: 'Fields to search',
 			},
 		},
 		required: ['query'],
@@ -164,7 +164,7 @@ export const searchContentHandler: ToolDefinition = {
 
 export const listTrashHandler: ToolDefinition = {
 	name: 'list_trash',
-	description: 'List all documents in trash',
+	description: 'List trashed documents',
 	inputSchema: {
 		type: 'object',
 		properties: {},
@@ -186,18 +186,18 @@ export const listTrashHandler: ToolDefinition = {
 
 export const searchTrashHandler: ToolDefinition = {
 	name: 'search_trash',
-	description: 'Search for documents in trash',
+	description: 'Search documents in trash',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			query: {
 				type: 'string',
-				description: 'Search query for title or content',
+				description: 'Search query',
 			},
 			searchType: {
 				type: 'string',
 				enum: ['title', 'content', 'both'],
-				description: 'What to search in',
+				description: 'Search scope',
 			},
 		},
 		required: ['query'],
@@ -227,17 +227,17 @@ export const searchTrashHandler: ToolDefinition = {
 
 export const recoverDocumentHandler: ToolDefinition = {
 	name: 'recover_document',
-	description: 'Recover a document from trash',
+	description: 'Restore document from trash',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of document to recover',
+				description: 'Document UUID',
 			},
 			targetFolderId: {
 				type: 'string',
-				description: 'Target folder (optional, defaults to Draft)',
+				description: 'Target folder UUID',
 			},
 		},
 		required: ['documentId'],
@@ -263,17 +263,17 @@ export const recoverDocumentHandler: ToolDefinition = {
 
 export const getAnnotationsHandler: ToolDefinition = {
 	name: 'get_document_annotations',
-	description: 'Get all annotations for a document',
+	description: 'Get document annotations',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document',
+				description: 'Document UUID',
 			},
 			includeComments: {
 				type: 'boolean',
-				description: 'Include inline comments',
+				description: 'Include comments',
 			},
 			includeFootnotes: {
 				type: 'boolean',
@@ -307,26 +307,26 @@ export const getAnnotationsHandler: ToolDefinition = {
 // Advanced LangChain search handlers
 export const vectorSearchHandler: ToolDefinition = {
 	name: 'vector_search',
-	description: 'Semantic vector search across project documents',
+	description: 'Semantic vector search across documents',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			query: {
 				type: 'string',
-				description: 'Search query in natural language',
+				description: 'Natural language query',
 			},
 			maxResults: {
 				type: 'number',
-				description: 'Maximum number of results (default: 10)',
+				description: 'Max results (default: 10)',
 			},
 			threshold: {
 				type: 'number',
-				description: 'Minimum similarity threshold 0-1 (default: 0.5)',
+				description: 'Min similarity 0-1',
 			},
 			searchType: {
 				type: 'string',
 				enum: ['semantic', 'hybrid', 'keyword'],
-				description: 'Type of search to perform',
+				description: 'Search mode',
 			},
 		},
 		required: ['query'],
@@ -435,17 +435,17 @@ export const vectorSearchHandler: ToolDefinition = {
 
 export const findMentionsHandler: ToolDefinition = {
 	name: 'find_mentions',
-	description: 'Find all mentions of a character, location, or entity across documents',
+	description: 'Find entity mentions across documents',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			entity: {
 				type: 'string',
-				description: 'Entity to search for (character name, location, etc.)',
+				description: 'Entity name to search',
 			},
 			contextLength: {
 				type: 'number',
-				description: 'Length of context around each mention (default: 100)',
+				description: 'Context chars per mention',
 			},
 		},
 		required: ['entity'],
@@ -546,22 +546,22 @@ export const findMentionsHandler: ToolDefinition = {
 
 export const crossReferenceHandler: ToolDefinition = {
 	name: 'cross_reference_analysis',
-	description: 'AI-powered cross-reference analysis to find related content and connections',
+	description: 'Cross-reference analysis for related content',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'Source document for cross-reference analysis',
+				description: 'Source document UUID',
 			},
 			analysisType: {
 				type: 'string',
 				enum: ['characters', 'themes', 'plot_points', 'locations', 'all'],
-				description: 'Type of cross-reference analysis',
+				description: 'Analysis scope',
 			},
 			maxConnections: {
 				type: 'number',
-				description: 'Maximum number of connections to find (default: 10)',
+				description: 'Max connections (default: 10)',
 			},
 		},
 		required: ['documentId'],

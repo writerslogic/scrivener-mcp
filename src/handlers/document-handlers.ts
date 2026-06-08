@@ -34,7 +34,10 @@ function assertValidDocumentId(documentId: string): void {
 	}
 }
 
-async function requireExistingDocument(project: ReturnType<typeof requireProject>, documentId: string) {
+async function requireExistingDocument(
+	project: ReturnType<typeof requireProject>,
+	documentId: string
+) {
 	const info = await project.getDocumentInfo(documentId);
 	if (!info.document) {
 		throw createError(
@@ -48,13 +51,13 @@ async function requireExistingDocument(project: ReturnType<typeof requireProject
 
 export const getDocumentInfoHandler: ToolDefinition = {
 	name: 'get_document_info',
-	description: 'Get detailed information about a document including parent hierarchy',
+	description: 'Get document metadata and parent path',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document',
+				description: 'Document UUID',
 			},
 		},
 		required: ['documentId'],
@@ -83,13 +86,13 @@ export const getDocumentInfoHandler: ToolDefinition = {
 
 export const readDocumentHandler: ToolDefinition = {
 	name: 'read_document',
-	description: 'Read the content of a specific document',
+	description: 'Read document content',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to read',
+				description: 'Document UUID',
 			},
 		},
 		required: ['documentId'],
@@ -148,11 +151,11 @@ export const writeDocumentHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to write',
+				description: 'Document UUID',
 			},
 			content: {
 				type: 'string',
-				description: 'Content to write to the document',
+				description: 'Content to write',
 			},
 		},
 		required: ['documentId', 'content'],
@@ -211,26 +214,26 @@ export const writeDocumentHandler: ToolDefinition = {
 
 export const createDocumentHandler: ToolDefinition = {
 	name: 'create_document',
-	description: 'Create a new document in the project',
+	description: 'Create a new document',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			title: {
 				type: 'string',
-				description: 'Title of the new document',
+				description: 'Document title',
 			},
 			content: {
 				type: 'string',
-				description: 'Initial content for the document',
+				description: 'Initial content',
 			},
 			parentId: {
 				type: 'string',
-				description: 'Parent folder UUID (optional, defaults to Draft folder)',
+				description: 'Parent folder UUID',
 			},
 			documentType: {
 				type: 'string',
 				enum: ['Text', 'Folder'],
-				description: 'Type of document to create',
+				description: 'Text or Folder',
 			},
 		},
 		required: ['title'],
@@ -309,13 +312,13 @@ export const createDocumentHandler: ToolDefinition = {
 
 export const deleteDocumentHandler: ToolDefinition = {
 	name: 'delete_document',
-	description: 'Delete a document (move to trash)',
+	description: 'Move document to trash',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to delete',
+				description: 'Document UUID',
 			},
 		},
 		required: ['documentId'],
@@ -350,11 +353,11 @@ export const renameDocumentHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to rename',
+				description: 'Document UUID',
 			},
 			newTitle: {
 				type: 'string',
-				description: 'New title for the document',
+				description: 'New title',
 			},
 		},
 		required: ['documentId', 'newTitle'],
@@ -384,21 +387,21 @@ export const renameDocumentHandler: ToolDefinition = {
 
 export const moveDocumentHandler: ToolDefinition = {
 	name: 'move_document',
-	description: 'Move a document to a different folder',
+	description: 'Move document to another folder',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to move',
+				description: 'Document UUID',
 			},
 			targetFolderId: {
 				type: 'string',
-				description: 'UUID of the target folder',
+				description: 'Target folder UUID',
 			},
 			position: {
 				type: 'number',
-				description: 'Position in the target folder (optional)',
+				description: 'Position in target folder',
 			},
 		},
 		required: ['documentId', 'targetFolderId'],
@@ -435,11 +438,11 @@ export const updateMetadataHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document',
+				description: 'Document UUID',
 			},
 			synopsis: {
 				type: 'string',
-				description: 'Document synopsis',
+				description: 'Synopsis text',
 			},
 			notes: {
 				type: 'string',
@@ -455,7 +458,7 @@ export const updateMetadataHandler: ToolDefinition = {
 			},
 			customMetadata: {
 				type: 'object',
-				description: 'Custom metadata key-value pairs',
+				description: 'Custom key-value pairs',
 				additionalProperties: { type: 'string' },
 			},
 		},
@@ -493,17 +496,17 @@ export const updateMetadataHandler: ToolDefinition = {
 
 export const getWordCountHandler: ToolDefinition = {
 	name: 'get_word_count',
-	description: 'Get word count for a document or folder',
+	description: 'Get word count for document or folder',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document or folder',
+				description: 'Document or folder UUID',
 			},
 			includeChildren: {
 				type: 'boolean',
-				description: 'Include child documents in count',
+				description: 'Count child documents too',
 			},
 		},
 	},
@@ -555,13 +558,13 @@ export const getWordCountHandler: ToolDefinition = {
 
 export const readFormattedHandler: ToolDefinition = {
 	name: 'read_document_formatted',
-	description: 'Read document with formatting preserved',
+	description: 'Read document preserving formatting',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document',
+				description: 'Document UUID',
 			},
 		},
 		required: ['documentId'],
@@ -585,22 +588,22 @@ export const readFormattedHandler: ToolDefinition = {
 
 export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
-	description: 'Search documents using semantic similarity with HHM',
+	description: 'Semantic similarity search via HHM',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			query: {
 				type: 'string',
-				description: 'Text query to search for semantically similar documents',
+				description: 'Search query text',
 			},
 			k: {
 				type: 'number',
-				description: 'Number of results to return (default: 10)',
+				description: 'Max results (default: 10)',
 				default: 10,
 			},
 			threshold: {
 				type: 'number',
-				description: 'Minimum similarity threshold (0-1, default: 0.3)',
+				description: 'Min similarity 0-1',
 				default: 0.3,
 			},
 		},
@@ -672,21 +675,21 @@ export const semanticSearchHandler: ToolDefinition = {
 
 export const findAnalogiesHandler: ToolDefinition = {
 	name: 'find_analogies',
-	description: 'Find analogical relationships using HHM (A:B :: C:?)',
+	description: 'Find analogies via HHM (A:B :: C:?)',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			a: {
 				type: 'string',
-				description: 'First term in analogy',
+				description: 'First term',
 			},
 			b: {
 				type: 'string',
-				description: 'Second term in analogy',
+				description: 'Second term',
 			},
 			c: {
 				type: 'string',
-				description: 'Third term in analogy',
+				description: 'Third term',
 			},
 		},
 		required: ['a', 'b', 'c'],

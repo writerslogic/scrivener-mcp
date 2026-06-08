@@ -12,6 +12,8 @@ import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async
 import {
 	executeHandler,
 	getAllTools,
+	registerExtendedTools,
+	registerAdvancedTools,
 	HandlerError,
 	validateHandlerArgs,
 	type HandlerContext,
@@ -98,13 +100,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 	const { name, arguments: args } = request.params;
 
 	try {
-		// Ensure context is initialized and HHM handlers registered
+		// Ensure context is initialized
 		if (!context) {
 			context = await contextPromise;
-			if (hhmInitialized) {
-				registerHHMHandlers(server as any); // MCP server has complex overloaded types
-				logger.info('HHM handlers registered');
-			}
 		}
 
 		// Validate arguments
@@ -112,6 +110,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 		// Execute handler
 		const result = await executeHandler(name, args || {}, context);
+
+		// After open_project succeeds, register extended tools and notify client
+		if (name === 'open_project' && context.project) {
+			const added = registerExtendedTools();
+			if (hhmInitialized) {
+				registerAdvancedTools();
+				registerHHMHandlers(server as any);
+			}
+			if (added) {
+				await server.sendToolListChanged();
+			}
+		}
 
 		// Return MCP-compliant format
 		return {

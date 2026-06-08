@@ -158,32 +158,32 @@ async function getFractalMemoryService(): Promise<FractalMemoryService> {
  */
 export const ingestDocumentHandler: ToolDefinition = {
 	name: 'ingest_document_fractal',
-	description: 'Ingest a document into the fractal narrative memory system',
+	description: 'Ingest document into fractal memory',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to ingest',
+				description: 'Document UUID',
 			},
 			chapterId: {
 				type: 'string',
-				description: 'Chapter identifier',
+				description: 'Chapter ID',
 			},
 			options: {
 				type: 'object',
 				properties: {
 					forceRebuild: {
 						type: 'boolean',
-						description: 'Force rebuild of indices',
+						description: 'Force rebuild indices',
 					},
 					extractEntities: {
 						type: 'boolean',
-						description: 'Extract entities and relationships',
+						description: 'Extract entities',
 					},
 					clusterMotifs: {
 						type: 'boolean',
-						description: 'Perform motif clustering',
+						description: 'Cluster motifs',
 					},
 				},
 			},
@@ -262,7 +262,7 @@ export const ingestDocumentHandler: ToolDefinition = {
  */
 export const fractalSearchHandler: ToolDefinition = {
 	name: 'fractal_search',
-	description: 'Search using multi-scale fractal retrieval with policy-based weighting',
+	description: 'Multi-scale fractal retrieval search',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -277,15 +277,15 @@ export const fractalSearchHandler: ToolDefinition = {
 			},
 			k: {
 				type: 'number',
-				description: 'Number of results',
+				description: 'Result count',
 			},
 			chapterId: {
 				type: 'string',
-				description: 'Limit to specific chapter',
+				description: 'Chapter filter',
 			},
 			includeGraph: {
 				type: 'boolean',
-				description: 'Include narrative graph data',
+				description: 'Include graph data',
 			},
 		},
 		required: ['query'],
@@ -371,7 +371,7 @@ export const fractalSearchHandler: ToolDefinition = {
  */
 export const findCoOccurrencesHandler: ToolDefinition = {
 	name: 'find_cooccurrences',
-	description: 'Find co-occurrences of entities, motifs, or other narrative elements',
+	description: 'Find entity/motif co-occurrences',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -380,7 +380,7 @@ export const findCoOccurrencesHandler: ToolDefinition = {
 				items: {
 					type: 'string',
 				},
-				description: 'Items to find co-occurrences for',
+				description: 'Items to find',
 			},
 			itemTypes: {
 				type: 'array',
@@ -388,15 +388,15 @@ export const findCoOccurrencesHandler: ToolDefinition = {
 					type: 'string',
 					enum: ['entity', 'motif'],
 				},
-				description: 'Types of items',
+				description: 'Item types',
 			},
 			minDistance: {
 				type: 'number',
-				description: 'Minimum token distance',
+				description: 'Min token distance',
 			},
 			maxDistance: {
 				type: 'number',
-				description: 'Maximum token distance',
+				description: 'Max token distance',
 			},
 		},
 		required: ['items'],
@@ -461,21 +461,21 @@ export const findCoOccurrencesHandler: ToolDefinition = {
  */
 export const checkContinuityHandler: ToolDefinition = {
 	name: 'check_character_continuity',
-	description: 'Check character continuity and identify gaps in appearances',
+	description: 'Check character continuity and gaps',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			characterName: {
 				type: 'string',
-				description: 'Character name to check',
+				description: 'Character name',
 			},
 			chapterId: {
 				type: 'string',
-				description: 'Specific chapter to check',
+				description: 'Chapter filter',
 			},
 			includeRelationships: {
 				type: 'boolean',
-				description: 'Include character relationships',
+				description: 'Include relationships',
 			},
 		},
 		required: ['characterName'],
@@ -551,22 +551,22 @@ export const checkContinuityHandler: ToolDefinition = {
  */
 export const trackMotifsHandler: ToolDefinition = {
 	name: 'track_motifs',
-	description: 'Track recurring motifs and thematic patterns across the narrative',
+	description: 'Track recurring motifs and patterns',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			chapterId: {
 				type: 'string',
-				description: 'Specific chapter',
+				description: 'Chapter filter',
 			},
 			minStrength: {
 				type: 'number',
-				description: 'Minimum motif strength',
+				description: 'Min motif strength',
 			},
 			patternType: {
 				type: 'string',
 				enum: ['theme', 'symbol', 'phrase', 'structure'],
-				description: 'Type of pattern',
+				description: 'Pattern type',
 			},
 		},
 	},
@@ -631,24 +631,24 @@ export const trackMotifsHandler: ToolDefinition = {
  */
 export const ingestProjectHandler: ToolDefinition = {
 	name: 'ingest_project_fractal',
-	description: 'Ingest entire project or folder into fractal memory system',
+	description: 'Ingest project into fractal memory',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			folderId: {
 				type: 'string',
-				description: 'Folder to ingest (default: Draft)',
+				description: 'Folder UUID (default: Draft)',
 			},
 			options: {
 				type: 'object',
 				properties: {
 					batchSize: {
 						type: 'number',
-						description: 'Documents per batch',
+						description: 'Batch size',
 					},
 					parallel: {
 						type: 'boolean',
-						description: 'Process in parallel',
+						description: 'Parallel processing',
 					},
 					extractEntities: {
 						type: 'boolean',
@@ -785,7 +785,7 @@ export const ingestProjectHandler: ToolDefinition = {
  */
 export const updatePolicyHandler: ToolDefinition = {
 	name: 'update_retrieval_policy',
-	description: 'Update or create custom retrieval policies for different use cases',
+	description: 'Create or update a retrieval policy',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -812,15 +812,15 @@ export const updatePolicyHandler: ToolDefinition = {
 						maximum: 1,
 					},
 				},
-				description: 'Scale weights (must sum to ~1.0)',
+				description: 'Weights summing to ~1.0',
 			},
 			entityBoost: {
 				type: 'number',
-				description: 'Entity relevance boost',
+				description: 'Entity boost factor',
 			},
 			motifBoost: {
 				type: 'number',
-				description: 'Motif relevance boost',
+				description: 'Motif boost factor',
 			},
 			recencyWeight: {
 				type: 'number',
@@ -893,21 +893,21 @@ export const updatePolicyHandler: ToolDefinition = {
  */
 export const getMemoryAnalyticsHandler: ToolDefinition = {
 	name: 'get_memory_analytics',
-	description: 'Get performance analytics and metrics for the fractal memory system',
+	description: 'Get fractal memory performance metrics',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			startDate: {
 				type: 'string',
-				description: 'Start date (ISO format)',
+				description: 'Start date (ISO)',
 			},
 			endDate: {
 				type: 'string',
-				description: 'End date (ISO format)',
+				description: 'End date (ISO)',
 			},
 			limit: {
 				type: 'number',
-				description: 'Limit results',
+				description: 'Max results',
 			},
 		},
 	},
@@ -970,29 +970,29 @@ export const getMemoryAnalyticsHandler: ToolDefinition = {
  */
 export const analyzeNarrativeHandler: ToolDefinition = {
 	name: 'analyze_narrative',
-	description: 'Analyze narrative structure, motifs, and relationships in a document',
+	description: 'Analyze narrative structure and motifs',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'Document UUID to analyze',
+				description: 'Document UUID',
 			},
 			analysisType: {
 				type: 'string',
 				enum: ['structure', 'motifs', 'relationships', 'all'],
-				description: 'Type of analysis to perform',
+				description: 'Analysis type',
 			},
 			options: {
 				type: 'object',
 				properties: {
 					includeVisualization: {
 						type: 'boolean',
-						description: 'Include visualization data',
+						description: 'Include visualization',
 					},
 					includeMetrics: {
 						type: 'boolean',
-						description: 'Include numerical metrics',
+						description: 'Include metrics',
 					},
 				},
 			},
@@ -1122,17 +1122,17 @@ export const analyzeNarrativeHandler: ToolDefinition = {
  */
 export const getMemoryStatsHandler: ToolDefinition = {
 	name: 'get_memory_stats',
-	description: 'Get statistics about fractal memory usage and performance',
+	description: 'Get fractal memory usage stats',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'Specific document to get stats for',
+				description: 'Document UUID filter',
 			},
 			includeDetails: {
 				type: 'boolean',
-				description: 'Include detailed breakdown',
+				description: 'Include detailed stats',
 			},
 		},
 	},

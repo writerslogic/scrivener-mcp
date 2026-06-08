@@ -55,13 +55,13 @@ import {
 
 export const analyzeDocumentHandler: ToolDefinition = {
 	name: 'analyze_document',
-	description: 'Analyze document content for style, themes, and improvements',
+	description: 'Analyze document style, themes, and quality',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to analyze',
+				description: 'Document UUID',
 			},
 			analysisTypes: {
 				type: 'array',
@@ -69,7 +69,7 @@ export const analyzeDocumentHandler: ToolDefinition = {
 					type: 'string',
 					enum: ['readability', 'sentiment', 'themes', 'characters', 'pacing', 'all'],
 				},
-				description: 'Types of analysis to perform',
+				description: 'Analysis types to run',
 			},
 		},
 		required: ['documentId'],
@@ -148,16 +148,16 @@ export const enhanceContentHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'Document to enhance',
+				description: 'Document UUID',
 			},
 			enhancementType: {
 				type: 'string',
 				enum: ['grammar', 'style', 'clarity', 'expand', 'summarize', 'creative'],
-				description: 'Type of enhancement',
+				description: 'Enhancement type',
 			},
 			options: {
 				type: 'object',
-				description: 'Enhancement-specific options',
+				description: 'Enhancement options',
 			},
 		},
 		required: ['documentId', 'enhancementType'],
@@ -251,7 +251,7 @@ export const enhanceContentHandler: ToolDefinition = {
 
 export const generateContentHandler: ToolDefinition = {
 	name: 'generate_content',
-	description: 'Generate new content based on context',
+	description: 'Generate content from prompt and context',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -266,7 +266,7 @@ export const generateContentHandler: ToolDefinition = {
 					characterIds: { type: 'array', items: { type: 'string' } },
 					style: { type: 'string' },
 				},
-				description: 'Context for generation',
+				description: 'Generation context',
 			},
 			length: {
 				type: 'number',
@@ -372,18 +372,18 @@ export const generateContentHandler: ToolDefinition = {
 
 export const updateMemoryHandler: ToolDefinition = {
 	name: 'update_memory',
-	description: 'Update AI memory with project information',
+	description: 'Update AI memory with project data',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			memoryType: {
 				type: 'string',
 				enum: ['characters', 'worldBuilding', 'plotThreads', 'styleGuide', 'all'],
-				description: 'Type of memory to update',
+				description: 'Memory type',
 			},
 			data: {
 				type: 'object',
-				description: 'Memory data to store',
+				description: 'Data to store',
 			},
 		},
 		required: ['memoryType', 'data'],
@@ -444,7 +444,7 @@ export const getMemoryHandler: ToolDefinition = {
 			memoryType: {
 				type: 'string',
 				enum: ['characters', 'worldBuilding', 'plotThreads', 'styleGuide', 'all'],
-				description: 'Type of memory to retrieve',
+				description: 'Memory type',
 			},
 		},
 	},
@@ -486,8 +486,7 @@ export const getMemoryHandler: ToolDefinition = {
 
 export const checkConsistencyHandler: ToolDefinition = {
 	name: 'check_consistency',
-	description:
-		'Check project for consistency issues across characters, timeline, locations, and plot threads',
+	description: 'Check consistency across project elements',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -497,7 +496,7 @@ export const checkConsistencyHandler: ToolDefinition = {
 					type: 'string',
 					enum: ['characters', 'timeline', 'locations', 'plotThreads', 'all'],
 				},
-				description: 'Types of consistency checks to perform',
+				description: 'Check types to run',
 			},
 		},
 	},
@@ -925,13 +924,13 @@ function createConsistencySummary(issues: ConsistencyIssue[]): string {
 // Advanced LangChain handlers
 export const multiAgentAnalysisHandler: ToolDefinition = {
 	name: 'multi_agent_analysis',
-	description: 'Collaborative analysis using multiple AI agent perspectives',
+	description: 'Multi-agent collaborative analysis',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to analyze',
+				description: 'Document UUID',
 			},
 			agents: {
 				type: 'array',
@@ -939,12 +938,12 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 					type: 'string',
 					enum: ['editor', 'critic', 'researcher', 'stylist', 'plotter', 'all'],
 				},
-				description: 'AI agents to include in analysis',
+				description: 'Agents to include',
 			},
 			collaborationMode: {
 				type: 'string',
 				enum: ['collaborative', 'workshop', 'review'],
-				description: 'Type of multi-agent collaboration',
+				description: 'Collaboration mode',
 			},
 		},
 		required: ['documentId'],
@@ -1020,21 +1019,21 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 
 export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
-	description: 'AI-powered semantic search across project documents',
+	description: 'Semantic search across project documents',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			query: {
 				type: 'string',
-				description: 'Search query in natural language',
+				description: 'Natural language query',
 			},
 			maxResults: {
 				type: 'number',
-				description: 'Maximum number of results to return',
+				description: 'Max results to return',
 			},
 			threshold: {
 				type: 'number',
-				description: 'Minimum similarity threshold (0-1)',
+				description: 'Min similarity 0-1',
 			},
 		},
 		required: ['query'],
@@ -1095,18 +1094,18 @@ export const semanticSearchHandler: ToolDefinition = {
 
 export const realtimeAssistanceHandler: ToolDefinition = {
 	name: 'start_realtime_assistance',
-	description: 'Start real-time AI writing assistance for a document',
+	description: 'Start real-time AI writing assistance',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document for assistance',
+				description: 'Document UUID',
 			},
 			assistanceType: {
 				type: 'string',
 				enum: ['writing', 'editing', 'brainstorming', 'research'],
-				description: 'Type of real-time assistance',
+				description: 'Assistance mode',
 			},
 		},
 		required: ['documentId'],
@@ -1168,23 +1167,23 @@ export const realtimeAssistanceHandler: ToolDefinition = {
 
 export const collectFeedbackHandler: ToolDefinition = {
 	name: 'collect_feedback',
-	description: 'Collect user feedback for continuous learning',
+	description: 'Submit feedback for learning',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			sessionId: {
 				type: 'string',
-				description: 'Session ID from previous operation',
+				description: 'Session ID',
 			},
 			rating: {
 				type: 'number',
 				minimum: 1,
 				maximum: 5,
-				description: 'User rating (1-5)',
+				description: 'Rating 1-5',
 			},
 			comments: {
 				type: 'string',
-				description: 'Optional user comments',
+				description: 'User comments',
 			},
 			operation: {
 				type: 'string',

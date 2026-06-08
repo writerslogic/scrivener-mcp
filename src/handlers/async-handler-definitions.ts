@@ -11,11 +11,11 @@ import type { ToolDefinition } from './types.js';
 export const asyncHandlerDefinitions: ToolDefinition[] = [
 	{
 		name: 'queue_document_analysis',
-		description: 'Queue a document for async analysis with advanced NLP features',
+		description: 'Queue document for async NLP analysis',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				documentId: { type: 'string', description: 'Document ID' },
+				documentId: { type: 'string', description: 'Document UUID' },
 				content: { type: 'string', description: 'Document content' },
 				options: {
 					type: 'object',
@@ -54,7 +54,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'queue_project_analysis',
-		description: 'Queue entire project for batch analysis',
+		description: 'Queue project for batch analysis',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -95,14 +95,14 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'generate_ai_suggestions',
-		description: 'Generate AI-powered writing suggestions with context',
+		description: 'Generate AI writing suggestions',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				prompt: { type: 'string', description: 'Prompt for suggestions' },
+				prompt: { type: 'string', description: 'Suggestion prompt' },
 				documentId: { type: 'string' },
 				useContext: { type: 'boolean', description: 'Use document context' },
-				async: { type: 'boolean', description: 'Process asynchronously' },
+				async: { type: 'boolean', description: 'Run async' },
 			},
 			required: ['prompt'],
 		},
@@ -127,13 +127,13 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'analyze_writing_style',
-		description: 'Analyze writing style using AI',
+		description: 'Analyze writing style via AI',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				samples: {
 					type: 'array',
-					description: 'Writing samples to analyze',
+					description: 'Writing samples',
 				},
 			},
 			required: ['samples'],
@@ -156,7 +156,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'check_plot_consistency',
-		description: 'Check for plot inconsistencies across documents',
+		description: 'Check plot consistency across documents',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -184,7 +184,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'get_job_status',
-		description: 'Get status of a queued job',
+		description: 'Get queued job status',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -252,7 +252,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'get_queue_stats',
-		description: 'Get statistics for job queues',
+		description: 'Get job queue statistics',
 		inputSchema: {
 			type: 'object',
 			properties: {

@@ -19,13 +19,13 @@ import {
 
 export const openProjectHandler: ToolDefinition = {
 	name: 'open_project',
-	description: 'Open a Scrivener project file',
+	description: 'Open a Scrivener project',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			path: {
 				type: 'string',
-				description: 'Path to the .scriv project folder',
+				description: 'Path to .scriv folder',
 			},
 		},
 		required: ['path'],
@@ -95,25 +95,25 @@ export const openProjectHandler: ToolDefinition = {
 
 export const getStructureHandler: ToolDefinition = {
 	name: 'get_structure',
-	description: 'Get the hierarchical structure of the project',
+	description: 'Get project hierarchy',
 	inputSchema: {
 		type: 'object',
 		properties: {
 			maxDepth: {
 				type: 'number',
-				description: 'Maximum depth to traverse (default: unlimited)',
+				description: 'Max traversal depth',
 			},
 			folderId: {
 				type: 'string',
-				description: 'Get structure for specific folder only',
+				description: 'Folder UUID',
 			},
 			includeTrash: {
 				type: 'boolean',
-				description: 'Include trash folder (default: false)',
+				description: 'Include trash',
 			},
 			summaryOnly: {
 				type: 'boolean',
-				description: 'Return summary with counts instead of full structure',
+				description: 'Summary with counts only',
 			},
 		},
 	},
@@ -157,7 +157,7 @@ export const getStructureHandler: ToolDefinition = {
 
 export const refreshProjectHandler: ToolDefinition = {
 	name: 'refresh_project',
-	description: 'Refresh the project data from disk',
+	description: 'Reload project from disk',
 	inputSchema: {
 		type: 'object',
 		properties: {},
