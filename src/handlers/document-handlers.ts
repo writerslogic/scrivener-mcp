@@ -17,6 +17,7 @@ import {
 	getStringArg,
 	requireProject,
 } from './types.js';
+import { SHARED_DEFS } from './shared-schemas.js';
 import {
 	documentContentSchema,
 	documentIdSchema,
@@ -51,14 +52,11 @@ async function requireExistingDocument(
 
 export const getDocumentInfoHandler: ToolDefinition = {
 	name: 'get_document_info',
-	description: 'Get document metadata and parent path',
+	description: 'Get document metadata',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
+			documentId: SHARED_DEFS.docId,
 		},
 		required: ['documentId'],
 	},
@@ -90,10 +88,9 @@ export const readDocumentHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
+			documentId: SHARED_DEFS.docId,
+			offset: { type: 'number', description: 'Start word index' },
+			limit: { type: 'number', description: 'Max words to return' },
 		},
 		required: ['documentId'],
 	},
@@ -101,6 +98,8 @@ export const readDocumentHandler: ToolDefinition = {
 		try {
 			const project = requireProject(_context);
 			const documentId = getStringArg(args, 'documentId');
+			const offset = getOptionalNumberArg(args, 'offset') || 0;
+			const limit = getOptionalNumberArg(args, 'limit');
 			assertValidDocumentId(documentId);
 			const docInfo = await requireExistingDocument(project, documentId);
 
@@ -128,11 +127,25 @@ export const readDocumentHandler: ToolDefinition = {
 				getLogger('document-handlers').debug('Failed to memorize in HHM', { error });
 			}
 
+			let text = result.result;
+			const words = text.split(/\s+/);
+			const totalWords = words.length;
+
+			if (offset > 0 || limit) {
+				const end = limit ? offset + limit : undefined;
+				text = words.slice(offset, end).join(' ');
+			}
+
+			const meta =
+				offset > 0 || limit
+					? ` [words ${offset}-${offset + text.split(/\s+/).length}/${totalWords}]`
+					: '';
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: result.result,
+						text: text + meta,
 					},
 				],
 			};
@@ -145,18 +158,12 @@ export const readDocumentHandler: ToolDefinition = {
 
 export const writeDocumentHandler: ToolDefinition = {
 	name: 'write_document',
-	description: 'Write content to a document',
+	description: 'Write document content',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			content: {
-				type: 'string',
-				description: 'Content to write',
-			},
+			documentId: SHARED_DEFS.docId,
+			content: SHARED_DEFS.content,
 		},
 		required: ['documentId', 'content'],
 	},
@@ -214,27 +221,14 @@ export const writeDocumentHandler: ToolDefinition = {
 
 export const createDocumentHandler: ToolDefinition = {
 	name: 'create_document',
-	description: 'Create a new document',
+	description: 'Create document or folder',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			title: {
-				type: 'string',
-				description: 'Document title',
-			},
-			content: {
-				type: 'string',
-				description: 'Initial content',
-			},
-			parentId: {
-				type: 'string',
-				description: 'Parent folder UUID',
-			},
-			documentType: {
-				type: 'string',
-				enum: ['Text', 'Folder'],
-				description: 'Text or Folder',
-			},
+			title: { type: 'string' },
+			content: SHARED_DEFS.content,
+			parentId: SHARED_DEFS.folderId,
+			documentType: { type: 'string', enum: ['Text', 'Folder'] },
 		},
 		required: ['title'],
 	},
@@ -316,10 +310,7 @@ export const deleteDocumentHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
+			documentId: SHARED_DEFS.docId,
 		},
 		required: ['documentId'],
 	},
@@ -351,14 +342,8 @@ export const renameDocumentHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			newTitle: {
-				type: 'string',
-				description: 'New title',
-			},
+			documentId: SHARED_DEFS.docId,
+			newTitle: { type: 'string' },
 		},
 		required: ['documentId', 'newTitle'],
 	},
@@ -387,22 +372,13 @@ export const renameDocumentHandler: ToolDefinition = {
 
 export const moveDocumentHandler: ToolDefinition = {
 	name: 'move_document',
-	description: 'Move document to another folder',
+	description: 'Move document to folder',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			targetFolderId: {
-				type: 'string',
-				description: 'Target folder UUID',
-			},
-			position: {
-				type: 'number',
-				description: 'Position in target folder',
-			},
+			documentId: SHARED_DEFS.docId,
+			targetFolderId: SHARED_DEFS.folderId,
+			position: { type: 'number' },
 		},
 		required: ['documentId', 'targetFolderId'],
 	},
@@ -436,31 +412,12 @@ export const updateMetadataHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
-			synopsis: {
-				type: 'string',
-				description: 'Synopsis text',
-			},
-			notes: {
-				type: 'string',
-				description: 'Document notes',
-			},
-			label: {
-				type: 'string',
-				description: 'Document label',
-			},
-			status: {
-				type: 'string',
-				description: 'Document status',
-			},
-			customMetadata: {
-				type: 'object',
-				description: 'Custom key-value pairs',
-				additionalProperties: { type: 'string' },
-			},
+			documentId: SHARED_DEFS.docId,
+			synopsis: { type: 'string' },
+			notes: { type: 'string' },
+			label: { type: 'string' },
+			status: { type: 'string' },
+			customMetadata: { type: 'object', additionalProperties: { type: 'string' } },
 		},
 		required: ['documentId'],
 	},
@@ -496,18 +453,12 @@ export const updateMetadataHandler: ToolDefinition = {
 
 export const getWordCountHandler: ToolDefinition = {
 	name: 'get_word_count',
-	description: 'Get word count for document or folder',
+	description: 'Get word count',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document or folder UUID',
-			},
-			includeChildren: {
-				type: 'boolean',
-				description: 'Count child documents too',
-			},
+			documentId: SHARED_DEFS.docId,
+			includeChildren: { type: 'boolean' },
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
@@ -558,14 +509,11 @@ export const getWordCountHandler: ToolDefinition = {
 
 export const readFormattedHandler: ToolDefinition = {
 	name: 'read_document_formatted',
-	description: 'Read document preserving formatting',
+	description: 'Read document with formatting',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: {
-				type: 'string',
-				description: 'Document UUID',
-			},
+			documentId: SHARED_DEFS.docId,
 		},
 		required: ['documentId'],
 	},
@@ -588,24 +536,13 @@ export const readFormattedHandler: ToolDefinition = {
 
 export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
-	description: 'Semantic similarity search via HHM',
+	description: 'Semantic similarity search',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			query: {
-				type: 'string',
-				description: 'Search query text',
-			},
-			k: {
-				type: 'number',
-				description: 'Max results (default: 10)',
-				default: 10,
-			},
-			threshold: {
-				type: 'number',
-				description: 'Min similarity 0-1',
-				default: 0.3,
-			},
+			query: SHARED_DEFS.query,
+			k: SHARED_DEFS.maxResults,
+			threshold: SHARED_DEFS.threshold,
 		},
 		required: ['query'],
 	},
@@ -675,22 +612,13 @@ export const semanticSearchHandler: ToolDefinition = {
 
 export const findAnalogiesHandler: ToolDefinition = {
 	name: 'find_analogies',
-	description: 'Find analogies via HHM (A:B :: C:?)',
+	description: 'Find analogies (A:B :: C:?)',
 	inputSchema: {
 		type: 'object',
 		properties: {
-			a: {
-				type: 'string',
-				description: 'First term',
-			},
-			b: {
-				type: 'string',
-				description: 'Second term',
-			},
-			c: {
-				type: 'string',
-				description: 'Third term',
-			},
+			a: { type: 'string' },
+			b: { type: 'string' },
+			c: { type: 'string' },
 		},
 		required: ['a', 'b', 'c'],
 	},
