@@ -8,6 +8,7 @@ import * as path from 'path';
 import { getLogger } from '../core/logger.js';
 import { FileUtils, PathUtils, AsyncUtils } from './shared-patterns.js';
 import { AppError, ErrorCode } from './common.js';
+import { findScrivxPath } from './scrivener-utils.js';
 
 const logger = getLogger('project-utils');
 
@@ -28,9 +29,8 @@ const _DEFAULT_CACHE_CONFIG: CacheConfig = {
  */
 async function isScrivenerProject(projectPath: string): Promise<boolean> {
 	try {
-		const projectFile = PathUtils.build(projectPath, 'project.scrivx');
-		const stats = await fs.stat(projectFile);
-		return stats.isFile();
+		await findScrivxPath(projectPath);
+		return true;
 	} catch {
 		return false;
 	}

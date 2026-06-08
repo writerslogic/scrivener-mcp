@@ -48,6 +48,7 @@ export interface ScrivenerProjectOptions {
 	autoBackup?: boolean;
 	cacheSize?: number;
 	syncInterval?: number;
+	scrivxPath?: string;
 	hhmSystem?: HolographicMemorySystem;
 }
 
@@ -81,6 +82,7 @@ export class ScrivenerProject {
 		this.documentManager = new DocumentManager(this.projectPath);
 		this.projectLoader = new ProjectLoader(this.projectPath, {
 			autoBackup: this.options.autoBackup,
+			scrivxPath: this.options.scrivxPath,
 		});
 		this.compilationService = new CompilationService();
 		this.metadataManager = new MetadataManager();

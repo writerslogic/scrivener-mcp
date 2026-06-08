@@ -5,13 +5,8 @@
 import * as path from 'path';
 import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
-import {
-	validateInput,
-	pathExists,
-	sanitizePath,
-	createError,
-	ErrorCode,
-} from '../utils/common.js';
+import { validateInput } from '../utils/common.js';
+import { resolveScrivenerProjectPath } from '../utils/scrivener-utils.js';
 import { DatabaseService } from './database/database-service.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -46,16 +41,7 @@ export const openProjectHandler: ToolDefinition = {
 		});
 
 		const rawPath = getStringArg(args, 'path');
-		const projectPath = sanitizePath(rawPath);
-
-		// Verify the path exists
-		if (!(await pathExists(projectPath))) {
-			throw createError(
-				ErrorCode.FILE_NOT_FOUND,
-				{ path: projectPath },
-				`Project path does not exist: ${projectPath}`
-			);
-		}
+		const { projectPath, scrivxPath } = await resolveScrivenerProjectPath(rawPath);
 
 		// Close existing project
 		if (context.project) {
@@ -65,6 +51,7 @@ export const openProjectHandler: ToolDefinition = {
 		// Initialize new project
 		const project = new ScrivenerProject(projectPath, {
 			hhmSystem: context.hhmSystem,
+			scrivxPath,
 		});
 		await project.loadProject();
 

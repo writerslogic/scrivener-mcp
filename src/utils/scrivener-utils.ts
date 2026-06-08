@@ -1,4 +1,6 @@
 import * as crypto from 'crypto';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import {
 	validateInput,
 	isValidUUID,
@@ -42,6 +44,167 @@ export const SCRIVENER_LIMITS = {
 	MAX_SYNOPSIS_LENGTH: 5000,
 	MAX_NOTES_LENGTH: 100000,
 } as const;
+
+export interface ResolvedScrivenerProjectPath {
+	projectPath: string;
+	scrivxPath: string;
+}
+
+// ============================================================================
+// Project Path Utilities
+// ============================================================================
+
+/**
+ * Normalize a project path while preserving native Windows drive-letter paths.
+ */
+export function normalizeScrivenerPath(inputPath: string): string {
+	if (!inputPath) {
+		throw new AppError('Project path is required', ErrorCode.INVALID_INPUT);
+	}
+
+	return path.resolve(path.normalize(inputPath.replace(/\0/g, '')));
+}
+
+/**
+ * Return the Scrivener project name without .scriv or .scrivx.
+ */
+export function getScrivenerProjectName(projectPath: string): string {
+	const normalizedPath = path.normalize(projectPath.replace(/\0/g, ''));
+	const extension = path.extname(normalizedPath);
+	const lowerExtension = extension.toLowerCase();
+
+	if (
+		lowerExtension === SCRIVENER_EXTENSIONS.PROJECT ||
+		lowerExtension === SCRIVENER_EXTENSIONS.XML
+	) {
+		return path.basename(normalizedPath, extension);
+	}
+
+	return path.basename(normalizedPath);
+}
+
+/**
+ * Build the default .scrivx path for a .scriv project directory.
+ */
+export function getDefaultScrivxPath(projectPath: string): string {
+	const normalizedPath = normalizeScrivenerPath(projectPath);
+
+	if (path.extname(normalizedPath).toLowerCase() === SCRIVENER_EXTENSIONS.XML) {
+		return normalizedPath;
+	}
+
+	return path.join(normalizedPath, `${getScrivenerProjectName(normalizedPath)}.scrivx`);
+}
+
+async function isFile(filePath: string): Promise<boolean> {
+	try {
+		return (await fs.stat(filePath)).isFile();
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Discover the .scrivx file inside a Scrivener project directory.
+ *
+ * Scrivener projects usually use <ProjectName>.scriv/<ProjectName>.scrivx, but
+ * migrated projects and case-different Windows folders can carry a different
+ * casing or a single alternate .scrivx file. Prefer explicit/default names and
+ * then fall back only when there is exactly one .scrivx candidate.
+ */
+export async function findScrivxPath(
+	projectPath: string,
+	preferredScrivxPath?: string
+): Promise<string> {
+	const normalizedProjectPath = normalizeScrivenerPath(projectPath);
+	const defaultScrivxPath = getDefaultScrivxPath(normalizedProjectPath);
+
+	if (preferredScrivxPath) {
+		const normalizedPreferredPath = normalizeScrivenerPath(preferredScrivxPath);
+		if (await isFile(normalizedPreferredPath)) {
+			return normalizedPreferredPath;
+		}
+	}
+
+	const entries = await fs.readdir(normalizedProjectPath, { withFileTypes: true });
+	const scrivxEntries = entries.filter(
+		(entry) =>
+			entry.isFile() && path.extname(entry.name).toLowerCase() === SCRIVENER_EXTENSIONS.XML
+	);
+
+	const defaultScrivxName = path.basename(defaultScrivxPath).toLowerCase();
+	const defaultEntry = scrivxEntries.find(
+		(entry) => entry.name.toLowerCase() === defaultScrivxName
+	);
+	if (defaultEntry) {
+		return path.join(normalizedProjectPath, defaultEntry.name);
+	}
+
+	const projectName = getScrivenerProjectName(normalizedProjectPath).toLowerCase();
+	const matchingEntry = scrivxEntries.find(
+		(entry) => path.basename(entry.name, path.extname(entry.name)).toLowerCase() === projectName
+	);
+	if (matchingEntry) {
+		return path.join(normalizedProjectPath, matchingEntry.name);
+	}
+
+	if (scrivxEntries.length === 1) {
+		return path.join(normalizedProjectPath, scrivxEntries[0].name);
+	}
+
+	throw new AppError(
+		`Scrivener project file not found at "${defaultScrivxPath}"`,
+		ErrorCode.NOT_FOUND,
+		{ projectPath: normalizedProjectPath, expectedScrivxPath: defaultScrivxPath }
+	);
+}
+
+/**
+ * Resolve either a .scriv directory or direct .scrivx file to both paths.
+ */
+export async function resolveScrivenerProjectPath(
+	inputPath: string
+): Promise<ResolvedScrivenerProjectPath> {
+	const normalizedPath = normalizeScrivenerPath(inputPath);
+	const stats = await fs.stat(normalizedPath).catch((error: unknown) => {
+		throw new AppError(
+			`Project path does not exist: ${normalizedPath}`,
+			ErrorCode.FILE_NOT_FOUND,
+			{
+				path: normalizedPath,
+				cause: error,
+			}
+		);
+	});
+
+	if (stats.isFile()) {
+		if (path.extname(normalizedPath).toLowerCase() !== SCRIVENER_EXTENSIONS.XML) {
+			throw new AppError(
+				`Expected a .scriv project folder or .scrivx file: ${normalizedPath}`,
+				ErrorCode.INVALID_INPUT,
+				{ path: normalizedPath }
+			);
+		}
+
+		return {
+			projectPath: path.dirname(normalizedPath),
+			scrivxPath: normalizedPath,
+		};
+	}
+
+	if (!stats.isDirectory()) {
+		throw new AppError(
+			`Expected a .scriv project folder or .scrivx file: ${normalizedPath}`,
+			ErrorCode.INVALID_INPUT,
+			{ path: normalizedPath }
+		);
+	}
+
+	return {
+		projectPath: normalizedPath,
+		scrivxPath: await findScrivxPath(normalizedPath),
+	};
+}
 
 // ============================================================================
 // Document Path Utilities
@@ -622,6 +785,13 @@ export default {
 	SCRIVENER_EXTENSIONS,
 	SCRIVENER_FOLDERS,
 	SCRIVENER_LIMITS,
+
+	// Project path utilities
+	normalizeScrivenerPath,
+	getScrivenerProjectName,
+	getDefaultScrivxPath,
+	findScrivxPath,
+	resolveScrivenerProjectPath,
 
 	// Path utilities
 	getDocumentPath,

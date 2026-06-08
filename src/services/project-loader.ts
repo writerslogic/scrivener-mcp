@@ -16,7 +16,8 @@ import {
 	safeWriteFile,
 	buildPath,
 } from '../utils/common.js';
-import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
+import { FileUtils } from '../utils/shared-patterns.js';
+import { findScrivxPath, getDefaultScrivxPath } from '../utils/scrivener-utils.js';
 
 const logger = getLogger('project-loader');
 
@@ -24,6 +25,7 @@ export interface ProjectLoaderOptions {
 	autoBackup?: boolean;
 	backupInterval?: number;
 	maxBackups?: number;
+	scrivxPath?: string;
 }
 
 export class ProjectLoader {
@@ -40,17 +42,9 @@ export class ProjectLoader {
 		}
 
 		this.projectPath = path.resolve(projectPath);
-
-		const ext = path.extname(this.projectPath).toLowerCase();
-		if (ext !== '.scriv') {
-			throw createError(
-				ErrorCode.INVALID_INPUT,
-				`Project path must have a .scriv extension, got "${ext || 'none'}"`
-			);
-		}
-
-		const projectName = path.basename(projectPath, path.extname(projectPath));
-		this.scrivxPath = PathUtils.build(this.projectPath, `${projectName}.scrivx`);
+		this.scrivxPath = options.scrivxPath
+			? path.resolve(options.scrivxPath)
+			: getDefaultScrivxPath(this.projectPath);
 		this.options = {
 			autoBackup: false,
 			backupInterval: 3600000, // 1 hour
@@ -63,6 +57,7 @@ export class ProjectLoader {
 	 * Load the project structure from disk
 	 */
 	async loadProject(): Promise<ProjectStructure> {
+		this.scrivxPath = await findScrivxPath(this.projectPath, this.scrivxPath);
 		logger.info(`Loading project from ${this.scrivxPath}`);
 
 		try {
