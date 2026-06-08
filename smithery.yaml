@@ -1,0 +1,19 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      openaiApiKey:
+        type: string
+        title: OpenAI API Key
+        description: Optional. Enables AI-powered analysis and enhancement features.
+    required: []
+  commandFunction:
+    |-
+    (config) => ({
+      command: 'npx',
+      args: ['scrivener-mcp'],
+      env: {
+        ...(config.openaiApiKey ? { OPENAI_API_KEY: config.openaiApiKey } : {}),
+      },
+    })

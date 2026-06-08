@@ -1,94 +1,127 @@
 #!/usr/bin/env node
-/* eslint-env node */
-/* eslint-disable no-console */
-/* eslint-disable @typescript-eslint/no-require-imports */
+/**
+ * Interactive setup: configure scrivener-mcp for your MCP client.
+ * Usage: npx scrivener-setup
+ */
 
 const { existsSync, readFileSync, writeFileSync, mkdirSync } = require('fs');
-const { homedir } = require('os');
-const { join } = require('path');
+const { homedir, platform } = require('os');
+const { join, dirname } = require('path');
+const readline = require('readline');
 
-console.log('\n🚀 Setting up Scrivener MCP for Claude Desktop...\n');
-
-// Possible config locations
-const configPaths = [
-  join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
-  join(homedir(), '.config', 'claude', 'claude_desktop_config.json'),
-  join(homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json')
-];
-
-// Find existing config
-let configPath = configPaths.find(p => existsSync(p));
-
-if (!configPath) {
-  // Try to create config in the most likely location based on platform
-  const platform = process.platform;
-  if (platform === 'darwin') {
-    configPath = configPaths[0];
-  } else if (platform === 'win32') {
-    configPath = configPaths[2];
-  } else {
-    configPath = configPaths[1];
-  }
-  
-  // Create directory if it doesn't exist
-  const dir = join(configPath, '..');
-  if (!existsSync(dir)) {
-    console.log(`📁 Creating config directory: ${dir}`);
-    mkdirSync(dir, { recursive: true });
-  }
-}
-
-// Read or create config
-let config = {};
-if (existsSync(configPath)) {
-  console.log(`📄 Found existing config at: ${configPath}`);
-  try {
-    config = JSON.parse(readFileSync(configPath, 'utf8'));
-  } catch (err) {
-    console.error('⚠️  Error reading config file:', err.message);
-    console.log('Creating new config...');
-  }
-} else {
-  console.log(`📝 Creating new config at: ${configPath}`);
-}
-
-// Ensure mcpServers exists
-if (!config.mcpServers) {
-  config.mcpServers = {};
-}
-
-// Check if scrivener is already configured
-if (config.mcpServers.scrivener) {
-  console.log('✅ Scrivener MCP is already configured!');
-  console.log('\nCurrent configuration:');
-  console.log(JSON.stringify(config.mcpServers.scrivener, null, 2));
-  
-  // For CommonJS, we can't use top-level await, so we'll make it simpler
-  console.log('\nTo update the configuration, please run setup again after deleting the current config.');
-  console.log('\n✨ Setup complete! Restart Claude Desktop to use Scrivener MCP.\n');
-  process.exit(0);
-}
-
-// Add scrivener configuration
-config.mcpServers.scrivener = {
-  command: 'npx',
-  args: ['scrivener-mcp']
+const SERVER_CONFIG = {
+	command: 'npx',
+	args: ['scrivener-mcp'],
 };
 
-// Write config
-try {
-  writeFileSync(configPath, JSON.stringify(config, null, 2));
-  console.log('\n✅ Successfully configured Scrivener MCP!');
-  console.log(`📍 Configuration saved to: ${configPath}`);
-  console.log('\n✨ Setup complete! Please restart Claude Desktop to use Scrivener MCP.\n');
-  console.log('📚 You can now ask Claude to:');
-  console.log('   - Open your Scrivener projects');
-  console.log('   - Read and analyze your manuscripts');
-  console.log('   - Help with writing and editing');
-  console.log('   - Manage document structure\n');
-} catch (err) {
-  console.error('❌ Error writing config:', err.message);
-  console.log('\n📋 Please manually add this to your claude_desktop_config.json:');
-  console.log(JSON.stringify({ mcpServers: { scrivener: config.mcpServers.scrivener } }, null, 2));
-  process.exit(1);
+// Known MCP client config locations
+const CLIENTS = {
+	'Claude Desktop': {
+		darwin: join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
+		win32: join(homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json'),
+		linux: join(homedir(), '.config', 'claude', 'claude_desktop_config.json'),
+	},
+	'Claude Code': {
+		all: join(homedir(), '.claude', 'settings.json'),
+	},
+	Cursor: {
+		darwin: join(homedir(), 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
+		win32: join(homedir(), 'AppData', 'Roaming', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
+		linux: join(homedir(), '.config', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
+	},
+};
+
+function getConfigPath(client) {
+	const paths = CLIENTS[client];
+	if (paths.all) return paths.all;
+	return paths[platform()] || paths.linux;
 }
+
+function detectClients() {
+	const found = [];
+	for (const [name, paths] of Object.entries(CLIENTS)) {
+		const configPath = paths.all || paths[platform()] || paths.linux;
+		if (existsSync(configPath) || existsSync(dirname(configPath))) {
+			found.push({ name, configPath, exists: existsSync(configPath) });
+		}
+	}
+	return found;
+}
+
+function configureClient(configPath) {
+	let config = {};
+	if (existsSync(configPath)) {
+		try {
+			config = JSON.parse(readFileSync(configPath, 'utf8'));
+		} catch {
+			console.log('  Warning: could not parse existing config, creating new one.');
+		}
+	} else {
+		mkdirSync(dirname(configPath), { recursive: true });
+	}
+
+	if (!config.mcpServers) config.mcpServers = {};
+
+	if (config.mcpServers.scrivener) {
+		console.log('  Already configured. Skipping.');
+		return false;
+	}
+
+	config.mcpServers.scrivener = SERVER_CONFIG;
+	writeFileSync(configPath, JSON.stringify(config, null, 2));
+	return true;
+}
+
+async function ask(rl, question) {
+	return new Promise((resolve) => rl.question(question, resolve));
+}
+
+async function main() {
+	console.log('\nScrivener MCP Setup\n');
+
+	const detected = detectClients();
+
+	if (detected.length === 0) {
+		console.log('No MCP clients detected. Add this to your client\'s MCP config:\n');
+		console.log(JSON.stringify({ mcpServers: { scrivener: SERVER_CONFIG } }, null, 2));
+		console.log('\nSee https://github.com/writerslogic/scrivener-mcp#install for details.\n');
+		return;
+	}
+
+	console.log('Detected MCP clients:\n');
+	detected.forEach((c, i) => {
+		console.log(`  ${i + 1}. ${c.name} ${c.exists ? '(config found)' : '(directory exists)'}`);
+	});
+
+	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+	const answer = await ask(rl, `\nConfigure all? (Y/n): `);
+	rl.close();
+
+	const configAll = !answer || answer.toLowerCase() !== 'n';
+	let configured = 0;
+
+	for (const client of detected) {
+		if (!configAll) continue;
+		console.log(`\n  Configuring ${client.name}...`);
+		try {
+			if (configureClient(client.configPath)) {
+				console.log(`  Done. Config: ${client.configPath}`);
+				configured++;
+			}
+		} catch (err) {
+			console.log(`  Failed: ${err.message}`);
+		}
+	}
+
+	if (configured > 0) {
+		console.log(`\nConfigured ${configured} client(s). Restart them to activate Scrivener MCP.\n`);
+	} else {
+		console.log('\nNo changes made.\n');
+	}
+}
+
+main().catch((err) => {
+	console.error('Setup failed:', err.message);
+	process.exit(1);
+});

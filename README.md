@@ -43,20 +43,32 @@ Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://d
 
 ## Install
 
+Pick the method that works for you. All of them auto-configure Claude Desktop on install.
+
+### npm (recommended)
+
 ```bash
 npm install -g scrivener-mcp
 ```
 
-That's it. Restart your AI client. The server auto-configures itself.
+Restart Claude Desktop. Done.
 
-No API keys required for core features. No Redis. No databases. Just install and go.
+### Smithery
 
-<details>
-<summary><strong>Manual client configuration</strong></summary>
+```bash
+npx -y @smithery/cli install scrivener-mcp --client claude
+```
 
-If auto-setup didn't work, add this to your client's MCP config:
+### npx (no install)
 
-**Claude Desktop** (`claude_desktop_config.json`):
+Use directly without installing globally:
+
+```bash
+npx scrivener-mcp
+```
+
+Or add to your Claude Desktop config manually:
+
 ```json
 {
   "mcpServers": {
@@ -68,18 +80,46 @@ If auto-setup didn't work, add this to your client's MCP config:
 }
 ```
 
-**Claude Code**: Works automatically after `npm install -g scrivener-mcp`.
+### GitHub
 
-**Other clients**: Point your MCP client at `npx scrivener-mcp` as a stdio server.
+Install directly from the repo (latest main):
 
-Or run the interactive setup: `npx scrivener-setup`
+```bash
+npm install -g writerslogic/scrivener-mcp
+```
+
+Or a specific release:
+
+```bash
+npm install -g writerslogic/scrivener-mcp#v0.4.3
+```
+
+### Docker
+
+```bash
+docker build -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
+docker run -i --rm -v /path/to/your/projects:/projects scrivener-mcp
+```
+
+<details>
+<summary><strong>Setup for other MCP clients</strong></summary>
+
+Run the interactive setup to auto-detect and configure your client:
+
+```bash
+npx scrivener-setup
+```
+
+This detects Claude Desktop, Claude Code, and Cursor, and writes the config for you.
+
+For other MCP clients, point them at `npx scrivener-mcp` as a stdio server.
 
 </details>
 
 <details>
 <summary><strong>Optional: AI-powered features</strong></summary>
 
-Core features (document management, analysis, search) work without any API key. For AI-powered enhancements, add your OpenAI key:
+Core features (document management, analysis, search) work without any API key. For AI-powered enhancements, set your OpenAI key:
 
 ```bash
 export OPENAI_API_KEY="sk-..."

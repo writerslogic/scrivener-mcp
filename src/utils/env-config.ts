@@ -3,6 +3,10 @@
  * Robust parsing and validation of environment variables
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { execFileSync } from 'child_process';
 import { getLogger } from '../core/logger.js';
 import { ValidationUtils, FileUtils, ProcessUtils } from './shared-patterns.js';
 
@@ -67,6 +71,58 @@ export function validateUrl(url: string | undefined, name: string): string | und
 }
 
 /**
+ * Discover OpenAI API key from common dotfiles and macOS Keychain.
+ * Returns undefined if not found. Never throws.
+ */
+function discoverOpenAIKey(): string | undefined {
+	const home = os.homedir();
+
+	// Check common dotfiles
+	const dotfiles = [
+		path.join(home, '.env'),
+		path.join(home, '.scrivener-mcp', '.env'),
+		path.join(home, '.config', 'openai', 'key'),
+		path.join(home, '.openai', 'key'),
+	];
+
+	for (const filepath of dotfiles) {
+		try {
+			if (!fs.existsSync(filepath)) continue;
+			const content = fs.readFileSync(filepath, 'utf-8');
+			// Look for OPENAI_API_KEY=sk-... or bare key
+			const match = content.match(
+				/(?:OPENAI_API_KEY\s*=\s*)?["']?(sk-[a-zA-Z0-9_-]{20,})["']?/
+			);
+			if (match) {
+				logger.debug('OpenAI key discovered from dotfile', { source: filepath });
+				return match[1];
+			}
+		} catch {
+			continue;
+		}
+	}
+
+	// macOS Keychain
+	if (process.platform === 'darwin') {
+		try {
+			const result = execFileSync(
+				'security',
+				['find-generic-password', '-s', 'openai-api-key', '-w'],
+				{ timeout: 3000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+			).trim();
+			if (result.startsWith('sk-')) {
+				logger.debug('OpenAI key discovered from macOS Keychain');
+				return result;
+			}
+		} catch {
+			// Not in keychain
+		}
+	}
+
+	return undefined;
+}
+
+/**
  * Get validated environment configuration
  */
 export function getEnvConfig(): EnvConfig {
@@ -75,7 +131,7 @@ export function getEnvConfig(): EnvConfig {
 		redisUrl: validateUrl(process.env.REDIS_URL, 'REDIS_URL'),
 		redisHost: process.env.REDIS_HOST || 'localhost',
 		redisPort: parseEnvInt(process.env.REDIS_PORT, 6379, 'REDIS_PORT'),
-		openaiApiKey: process.env.OPENAI_API_KEY?.trim(),
+		openaiApiKey: process.env.OPENAI_API_KEY?.trim() || discoverOpenAIKey(),
 		scrivenerQuiet: parseEnvBool(process.env.SCRIVENER_QUIET, false),
 		scrivenerSkipSetup: parseEnvBool(process.env.SCRIVENER_SKIP_SETUP, false),
 	};
