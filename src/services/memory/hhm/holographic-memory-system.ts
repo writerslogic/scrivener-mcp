@@ -1,7 +1,6 @@
 import { getLogger } from '../../../core/logger.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import * as path from 'path';
-import * as crypto from 'crypto';
 
 const logger = getLogger('holographic-memory-system');
 
@@ -51,14 +50,136 @@ interface VectorEntry {
 	text: string;
 }
 
+const STOP_WORDS = new Set([
+	'the',
+	'a',
+	'an',
+	'and',
+	'or',
+	'but',
+	'in',
+	'on',
+	'at',
+	'to',
+	'for',
+	'of',
+	'with',
+	'by',
+	'from',
+	'is',
+	'was',
+	'are',
+	'were',
+	'be',
+	'been',
+	'being',
+	'have',
+	'has',
+	'had',
+	'do',
+	'does',
+	'did',
+	'will',
+	'would',
+	'could',
+	'should',
+	'may',
+	'might',
+	'shall',
+	'can',
+	'need',
+	'dare',
+	'this',
+	'that',
+	'these',
+	'those',
+	'it',
+	'its',
+	'his',
+	'her',
+	'he',
+	'she',
+	'they',
+	'them',
+	'their',
+	'we',
+	'us',
+	'our',
+	'you',
+	'your',
+	'not',
+	'no',
+	'nor',
+	'as',
+	'if',
+	'then',
+	'than',
+	'too',
+	'very',
+	'just',
+	'about',
+	'above',
+	'after',
+	'again',
+	'all',
+	'also',
+	'any',
+	'because',
+	'before',
+	'between',
+	'both',
+	'each',
+	'few',
+	'get',
+	'got',
+	'how',
+	'into',
+	'more',
+	'most',
+	'new',
+	'now',
+	'only',
+	'other',
+	'out',
+	'over',
+	'own',
+	'same',
+	'some',
+	'such',
+	'there',
+	'here',
+	'what',
+	'when',
+	'where',
+	'which',
+	'while',
+	'who',
+	'whom',
+	'why',
+	'much',
+	'many',
+]);
+
+/**
+ * FNV-1a hash. Fast, good distribution, no crypto overhead.
+ */
+function fnv1a(str: string): number {
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < str.length; i++) {
+		hash ^= str.charCodeAt(i);
+		hash = (hash * 0x01000193) | 0;
+	}
+	return hash >>> 0;
+}
+
 /**
  * Pure JS vector engine used when @hms/native is not installed.
- * Uses TF-IDF-style term vectors with cosine similarity.
+ * Random-projection TF-IDF with cosine similarity.
  */
 class JSVectorEngine {
 	private entries: VectorEntry[] = [];
-	private vocabulary: Map<string, number> = new Map();
 	private idf: Map<string, number> = new Map();
+	private idfStale = true;
 	private dimensions: number;
 
 	constructor(dimensions: number) {
@@ -70,7 +191,24 @@ class JSVectorEngine {
 			.toLowerCase()
 			.replace(/[^\w\s]/g, ' ')
 			.split(/\s+/)
-			.filter((w) => w.length > 2);
+			.filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+	}
+
+	private rebuildIDF(): void {
+		if (!this.idfStale) return;
+		const docCount = this.entries.length || 1;
+		const termDocs = new Map<string, number>();
+		for (const entry of this.entries) {
+			const seen = new Set(this.tokenize(entry.text));
+			for (const term of seen) {
+				termDocs.set(term, (termDocs.get(term) || 0) + 1);
+			}
+		}
+		this.idf.clear();
+		for (const [term, count] of termDocs) {
+			this.idf.set(term, Math.log((docCount + 1) / (count + 1)) + 1);
+		}
+		this.idfStale = false;
 	}
 
 	private textToVector(text: string): Float64Array {
@@ -80,20 +218,23 @@ class JSVectorEngine {
 			tf.set(token, (tf.get(token) || 0) + 1);
 		}
 
-		// Hash-based projection into fixed dimensions
+		// Log-normalized TF
+		const maxTf = Math.max(...tf.values(), 1);
+
 		const vec = new Float64Array(this.dimensions);
 		for (const [term, count] of tf) {
 			const idfVal = this.idf.get(term) || 1;
-			const weight = count * idfVal;
-			// Deterministic hash to map term to dimension indices
-			const hash = this.hashTerm(term);
-			for (let i = 0; i < 3; i++) {
-				const idx = Math.abs((hash + i * 7919) % this.dimensions);
+			const weight = (1 + Math.log(count / maxTf + 1)) * idfVal;
+
+			// Project each term into 7 random dimensions (sign-alternating)
+			const h = fnv1a(term);
+			for (let i = 0; i < 7; i++) {
+				const idx = (h + i * 2654435761) % this.dimensions;
 				vec[idx] += weight * (i % 2 === 0 ? 1 : -1);
 			}
 		}
 
-		// Normalize
+		// L2 normalize
 		let norm = 0;
 		for (let i = 0; i < vec.length; i++) norm += vec[i] * vec[i];
 		norm = Math.sqrt(norm);
@@ -102,42 +243,23 @@ class JSVectorEngine {
 		return vec;
 	}
 
-	private hashTerm(term: string): number {
-		const hash = crypto.createHash('md5').update(term).digest();
-		return hash.readUInt32LE(0);
-	}
-
 	private cosine(a: Float64Array, b: Float64Array): number {
 		let dot = 0;
 		for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
-		return dot;
-	}
-
-	private rebuildIDF(): void {
-		const docCount = this.entries.length || 1;
-		const termDocs = new Map<string, number>();
-		for (const entry of this.entries) {
-			const seen = new Set(this.tokenize(entry.text));
-			for (const term of seen) {
-				termDocs.set(term, (termDocs.get(term) || 0) + 1);
-			}
-		}
-		for (const [term, count] of termDocs) {
-			this.idf.set(term, Math.log(docCount / count) + 1);
-		}
+		return dot; // Both pre-normalized, so dot = cosine
 	}
 
 	async memorizeText(id: string, text: string): Promise<void> {
-		// Remove existing entry with same id
 		this.entries = this.entries.filter((e) => e.id !== id);
+		this.idfStale = true;
+		this.rebuildIDF();
 		const vector = this.textToVector(text);
 		this.entries.push({ id, vector, text });
-		// Rebuild IDF periodically
-		if (this.entries.length % 10 === 0) this.rebuildIDF();
 	}
 
 	async query(text: string, k: number): Promise<Array<{ id: string; similarity: number }>> {
 		if (this.entries.length === 0) return [];
+		this.rebuildIDF();
 		const queryVec = this.textToVector(text);
 		const scored = this.entries.map((e) => ({
 			id: e.id,
@@ -152,14 +274,13 @@ class JSVectorEngine {
 		b: string,
 		c: string
 	): Promise<Array<{ id: string; similarity: number }>> {
-		// d = b - a + c
+		this.rebuildIDF();
 		const va = this.textToVector(a);
 		const vb = this.textToVector(b);
 		const vc = this.textToVector(c);
 		const vd = new Float64Array(this.dimensions);
 		for (let i = 0; i < this.dimensions; i++) vd[i] = vb[i] - va[i] + vc[i];
 
-		// Normalize
 		let norm = 0;
 		for (let i = 0; i < vd.length; i++) norm += vd[i] * vd[i];
 		norm = Math.sqrt(norm);
@@ -183,51 +304,95 @@ class JSVectorEngine {
 	> {
 		if (this.entries.length < 3) return [];
 
-		// Simple k-means-style clustering
+		// K-means++ initialization: spread centroids for better clusters
 		const k = Math.min(5, Math.ceil(this.entries.length / 3));
-		const centroids = this.entries.slice(0, k).map((e) => ({
-			vector: Float64Array.from(e.vector),
-			members: [] as string[],
-		}));
+		const centroidIndices: number[] = [Math.floor(Math.random() * this.entries.length)];
 
-		// Single pass assignment
+		while (centroidIndices.length < k) {
+			const distances = this.entries.map((e, i) => {
+				let minDist = Infinity;
+				for (const ci of centroidIndices) {
+					const sim = this.cosine(e.vector, this.entries[ci].vector);
+					const dist = 1 - sim;
+					if (dist < minDist) minDist = dist;
+				}
+				return minDist;
+			});
+			const totalDist = distances.reduce((a, b) => a + b, 0);
+			let r = Math.random() * totalDist;
+			for (let i = 0; i < distances.length; i++) {
+				r -= distances[i];
+				if (r <= 0) {
+					centroidIndices.push(i);
+					break;
+				}
+			}
+		}
+
+		const clusters: string[][] = centroidIndices.map(() => []);
+
+		// Assign each entry to nearest centroid
 		for (const entry of this.entries) {
 			let bestIdx = 0;
 			let bestSim = -1;
-			for (let i = 0; i < centroids.length; i++) {
-				const sim = this.cosine(entry.vector, centroids[i].vector);
+			for (let i = 0; i < centroidIndices.length; i++) {
+				const sim = this.cosine(entry.vector, this.entries[centroidIndices[i]].vector);
 				if (sim > bestSim) {
 					bestSim = sim;
 					bestIdx = i;
 				}
 			}
-			centroids[bestIdx].members.push(entry.id);
+			clusters[bestIdx].push(entry.id);
 		}
 
-		return centroids
-			.filter((c) => c.members.length >= 2)
-			.map((c) => ({
-				centroidId: c.members[0],
-				coherence: c.members.length / this.entries.length,
-				memberCount: c.members.length,
-				memberIds: c.members,
-			}));
+		return clusters
+			.filter((c) => c.length >= 2)
+			.map((members) => {
+				// Compute average intra-cluster similarity as coherence
+				let coherence = 0;
+				let pairs = 0;
+				for (let i = 0; i < Math.min(members.length, 10); i++) {
+					for (let j = i + 1; j < Math.min(members.length, 10); j++) {
+						const ei = this.entries.find((e) => e.id === members[i]);
+						const ej = this.entries.find((e) => e.id === members[j]);
+						if (ei && ej) {
+							coherence += this.cosine(ei.vector, ej.vector);
+							pairs++;
+						}
+					}
+				}
+				coherence = pairs > 0 ? coherence / pairs : 0;
+
+				return {
+					centroidId: members[0],
+					coherence,
+					memberCount: members.length,
+					memberIds: members,
+				};
+			});
 	}
 
 	clear(): void {
 		this.entries = [];
-		this.vocabulary.clear();
 		this.idf.clear();
+		this.idfStale = true;
 	}
 }
 
-// Try loading native HMS, fall back to JS engine
+// Try loading native HMS at module init
 let NativeHMS: any = null;
 try {
-	const native = require('@hms/native');
-	NativeHMS = native.HolographicMemorySystem;
-	logger.info('HMS using native Rust engine');
+	// Dynamic import for ESM compatibility; require as fallback
+	const native = await import('@hms/native').catch(() => null);
+	if (native?.HolographicMemorySystem) {
+		NativeHMS = native.HolographicMemorySystem;
+		logger.info('HMS using native Rust engine');
+	}
 } catch {
+	// Not available
+}
+
+if (!NativeHMS) {
 	logger.info('HMS using JS fallback engine (@hms/native not installed)');
 }
 
@@ -252,7 +417,7 @@ export class HolographicMemorySystem {
 
 		logger.info('HMS initialized', {
 			engine: this.engineType,
-			dimensions: this.dimensions,
+			dimensions: this.engineType === 'native' ? this.dimensions : 512,
 		});
 	}
 
@@ -321,8 +486,8 @@ export class HolographicMemorySystem {
 		if (this.native) {
 			await this.native.memorizeFile(id, filePath);
 		} else {
-			const fs = await import('fs');
-			const text = fs.readFileSync(filePath, 'utf-8');
+			const { readFileSync } = await import('fs');
+			const text = readFileSync(filePath, 'utf-8');
 			await this.jsEngine!.memorizeText(id, text);
 		}
 		this.memoryIndex.set(id, { modality: 'file', originalData: filePath });
@@ -405,7 +570,7 @@ export class HolographicMemorySystem {
 
 	getStats(): Record<string, unknown> {
 		return {
-			dimensions: this.dimensions,
+			dimensions: this.engineType === 'native' ? this.dimensions : 512,
 			engine: this.engineType === 'native' ? 'Rust Native v2.0' : 'JS Fallback',
 			totalMemories: this.memoryIndex.size,
 		};
