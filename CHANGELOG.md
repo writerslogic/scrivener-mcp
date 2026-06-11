@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Summary-first analysis**: `analyze_document` returns compact scores + top 3 issues instead of full JSON blob.
 - **Response formatter**: null stripping, error masking, large payload spill to disk with tracker IDs.
 - **Compilation disk spill**: compiled manuscripts over 4K chars write to temp file, return metadata + path.
+- **JS fallback vector engine**: semantic search, analogies, and dream mode work without `@hms/native`. Uses TF-IDF random-projection vectors with FNV-1a hashing, stopword filtering, log-normalized TF, k-means++ clustering. Native Rust engine is used transparently when available.
 - **API key auto-discovery**: checks `~/.env`, `~/.openai/key`, `~/.scrivener-mcp/.env`, and macOS Keychain.
 - **Multiple install methods**: npm, npx, Smithery, GitHub direct, Docker.
 - **Smithery registry support** (`smithery.yaml`).
