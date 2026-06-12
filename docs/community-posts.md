@@ -1,26 +1,48 @@
 # Community Post Drafts
 
-## Literature & Latte Forums (Third-Party Tools)
+## Literature & Latte Forums
 
-**Title:** Scrivener MCP -- Use Claude AI directly with your Scrivener projects
+**Best category:** Wish List (framing as features writers have wished for) or Scrivener for macOS/Windows (framing as workflow)
 
-I've built an open-source tool that connects Scrivener 3 to Claude (and other AI assistants) via the Model Context Protocol.
+**Title:** Two free tools for Scrivener writers -- manuscript analysis and authorship proof
 
-What it does:
-- Opens your .scriv projects and lets Claude read, edit, and organize documents
-- Analyzes your writing: readability, pacing, style, emotional arc, filter words
-- Enhances prose: 12 improvement types (show-don't-tell, verb strengthening, dialogue, etc.)
-- Remembers your characters, plot threads, and style guide across sessions
-- Semantic search: find passages by meaning, not just keywords
+I write fiction in Scrivener and kept running into two problems no plugin could solve. So I built tools for both. Sharing in case they're useful to others here.
 
-It doesn't change how Scrivener works. You keep writing in Scrivener. The AI reads and writes to the same .scriv files. Think of it as giving Claude a window into your project.
+---
 
-Install: `npm install -g scrivener-mcp`
-More info: https://github.com/writerslogic/scrivener-mcp
+**1. Manuscript analysis and semantic search** ([scrivener-mcp](https://github.com/writerslogic/scrivener-mcp))
 
-Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client. macOS, Windows, Linux.
+A companion tool that reads your .scriv project and gives you things Scrivener's built-in tools don't:
 
-Happy to hear what features writers would find most useful.
+- **Search by meaning.** "Find scenes where the protagonist feels trapped" works even if that word never appears. Useful for tracking themes across 80+ chapters.
+- **Character consistency checking.** Scans every document and flags contradictions. Found my protagonist "walking briskly" in Chapter 9 when I'd given him a limp in Chapter 2.
+- **Pacing analysis.** Identifies long stretches without dialogue or action, chapters that are 3x the length of others, filter word clusters.
+- **Readability per chapter.** Flesch-Kincaid, sentence variety, vocabulary complexity. Not prescriptive -- just data.
+- **Structural overview.** Word distribution across chapters, scene counts, binder summary. Spots the 8,000-word chapter when everything else is 3,000.
+
+It reads your .scriv files directly and doesn't modify anything unless you explicitly tell it to. Works with Claude Desktop, but the analytics and consistency checking run without any AI service.
+
+---
+
+**2. Prove you wrote it** ([WritersProof](https://writersproof.com))
+
+This one's for a different problem. With AI-generated text everywhere, publishers, agents, and contest judges increasingly want proof that a human actually wrote the manuscript.
+
+WritersProof captures cryptographic evidence of your writing process -- keystroke timing, editing patterns, revision history -- and timestamps it to a public transparency log. It doesn't read or store your text. It just proves that a human sat at a keyboard and wrote it, with a verifiable timestamp.
+
+Useful for:
+- Contest submissions that require proof of human authorship
+- Copyright disputes where you need to prove when you wrote something
+- Agents/publishers who ask about AI involvement
+- Your own peace of mind
+
+Free for individual writers. Works alongside Scrivener (doesn't require it).
+
+---
+
+Both tools are open source and built by a fellow Scrivener user. Not affiliated with Literature & Latte.
+
+Would love to hear what problems you run into with long manuscripts that a companion tool might help with.
 
 ---
 
