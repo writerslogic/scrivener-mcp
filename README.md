@@ -98,6 +98,12 @@ Or a specific release:
 npm install -g writerslogic/scrivener-mcp#v0.5.1
 ```
 
+### Homebrew (macOS)
+
+```bash
+brew install writerslogic/tap/scrivener-mcp
+```
+
 ### Docker
 
 ```bash
@@ -314,6 +320,23 @@ npm run build        # Compile TypeScript
 npm test             # Run tests
 npm run typecheck    # Type checking only
 ```
+
+## Why This One?
+
+Several Scrivener MCP servers exist. Here's how they compare:
+
+| Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
+|---------|:-:|:-:|:-:|:-:|
+| Document read/write | 60+ tools | 29 tools | read-only | basic |
+| Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
+| Content enhancement | 12 types (filter words, verbs, show-don't-tell...) | no | no | no |
+| Semantic search | vector search + analogies + dream mode | no | no | no |
+| Character/plot memory | persistent profiles, plot threads, style guide | no | no | no |
+| Multi-agent analysis | roundtable critique with specialized agents | no | no | no |
+| Windows support | full path handling + .scrivx discovery | partial | no | no |
+| Published to npm | yes (`npm i -g scrivener-mcp`) | no | no | no |
+| Active development | weekly | monthly | stale | stale |
+| Community | 27+ stars, 9 forks, 30+ issues | 6 stars | 4 stars | minimal |
 
 ## Contributing
 
