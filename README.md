@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-white.svg" alt="Scrivener MCP Logo" width="200"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-white.svg"/>
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-black.svg"/>
+    <img src="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-black.svg" alt="Scrivener MCP Logo" width="200"/>
+  </picture>
 </p>
 
 <h1 align="center">Scrivener MCP</h1>
