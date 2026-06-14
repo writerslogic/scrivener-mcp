@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/writerslogic-scrivener-mcp-badge.png)](https://mseep.ai/app/writerslogic-scrivener-mcp)
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-white.svg"/>
