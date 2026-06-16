@@ -141,7 +141,19 @@ For other MCP clients, point them at `npx scrivener-mcp` as a stdio server.
 <details>
 <summary><strong>Optional: AI-powered features</strong></summary>
 
-Core features (document management, analysis, search) work without any API key. For AI-powered enhancements, set your OpenAI key:
+Core features (document management, analysis, search) work without any API key. For AI-powered enhancements, the server automatically discovers your OpenAI key from common locations:
+
+- `OPENAI_API_KEY` environment variable
+- `~/.env`, `~/.scrivener-mcp/.env`, `~/.openai/key`
+- macOS Keychain (service name `openai-api-key`)
+
+To store your key in the macOS Keychain:
+
+```bash
+security add-generic-password -s openai-api-key -a openai -w sk-your-key-here
+```
+
+Or export it manually:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
@@ -201,7 +213,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 ## All Tools
 
-75+ tools organized by workflow. Click to expand.
+60+ tools organized by workflow. Click to expand.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, save</summary>

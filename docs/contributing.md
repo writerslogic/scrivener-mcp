@@ -154,3 +154,9 @@ Type declarations for `@hms/native` are stubbed in `src/types/hms-native.d.ts` s
 ## Good First Issues
 
 Check the [issue tracker](https://github.com/writerslogic/scrivener-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for issues tagged "good first issue".
+
+## License
+
+All contributions are licensed under **AGPL-3.0**. By submitting a pull request, you agree that your code will be distributed under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html).
+
+The project was previously licensed under MIT. It was relicensed to AGPL-3.0 in v0.5.0.

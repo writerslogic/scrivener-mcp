@@ -2,6 +2,16 @@
 
 This guide covers the AI-powered features that help you analyze, improve, and manage your writing. These features work best when you've set up project memory (character profiles, style guide) as described in [Getting Started](./getting-started.md).
 
+## Reading Large Documents
+
+The `read_document` tool supports `offset` and `limit` parameters for word-based sliding window reads. This is useful for large chapters that exceed your AI client's context window, or when you only need a specific section.
+
+> "Read the first 500 words of Chapter 12"
+
+> "Read words 500-1000 of that chapter"
+
+The response includes a marker like `[words 0-500/3200]` so you always know where you are in the document. To read an entire large chapter in pieces, start with an offset of 0 and a limit, then increase the offset to continue from where you left off.
+
 ## Analyzing Your Writing
 
 The server offers three levels of analysis, each progressively deeper.
@@ -11,6 +21,8 @@ The server offers three levels of analysis, each progressively deeper.
 > "Analyze chapter 3"
 
 Gives you a snapshot: readability score, word count, sentence count, average sentence length, and a handful of quick observations about style.
+
+> **Note:** `analyze_document` returns a compact summary -- readability score, pacing assessment, and the top 3 issues -- rather than a full JSON blob. This was changed to reduce token overhead. If you need the complete set of metrics, use `deep_analyze_content` instead.
 
 ### Deep Analysis
 
@@ -277,3 +289,7 @@ This is a brainstorming tool, not an analysis tool. Not every connection will be
 4. **Write your new content** -- Claude can draft, extend, or help with blocks
 5. **Quick analysis** of what you wrote today
 6. **Record your session** -- "Log 800 words in 30 minutes on chapter 4"
+
+## License
+
+Scrivener MCP is licensed under AGPL-3.0 for personal and open-source use. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](../COMMERCIAL_LICENSE.md).

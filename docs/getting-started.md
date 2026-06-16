@@ -51,10 +51,16 @@ npx -y @smithery/cli install scrivener-mcp --client claude
 
 # Direct from GitHub
 npm install -g writerslogic/scrivener-mcp
-
-# Docker
-docker build -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
 ```
+
+### Docker
+
+```bash
+docker build -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
+docker run -i --rm -v /path/to/projects:/projects scrivener-mcp
+```
+
+Mount your Scrivener projects directory so the server can access them. Inside the container, your projects will be available under `/projects`.
 
 ## Verifying the Connection
 
@@ -62,7 +68,21 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list `open_project`, `get_structure`, `list_skills`, and `use_skill`. These are the startup tools. More tools become available after you open a project or activate skill groups. If you don't see them, check the troubleshooting section below.
+Claude should list six tools: the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`) plus two meta-tools (`list_skills`, `use_skill`). If you don't see the six startup tools, check the troubleshooting section below.
+
+### How skills activate
+
+The server uses progressive tool loading to keep conversations fast by only loading what you need:
+
+1. **At startup:** 6 tools are available -- project management (`open_project`, `get_structure`, `refresh_project`, `close_project`) plus `list_skills` and `use_skill`.
+2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read, write, create, delete, move, rename, search, and find tools (roughly 18 more tools).
+3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load additional skill groups. Available on-demand skills:
+   - **analysis** -- writing quality, pacing, style, critique, character consistency
+   - **compilation** -- compile manuscripts, export, statistics
+   - **memory** -- semantic search, analogies, dream mode (HMS)
+   - **advanced** -- fractal memory, async job queue, batch operations
+
+You can see all available skills and which are active by asking Claude to call `list_skills`.
 
 ## Opening Your First Project
 
@@ -72,6 +92,12 @@ Tell Claude the path to your `.scriv` project:
 
 On macOS, a `.scriv` project appears as a single file in Finder but is actually a directory. On Windows, it shows as a normal folder. Either way, point to the top-level `.scriv` directory -- the server finds the `.scrivx` file inside automatically.
 
+**Windows paths** work natively -- no escaping or conversion needed:
+
+> "Open my novel at C:\Users\me\Documents\MyNovel.scriv"
+
+The server handles case-insensitive `.scrivx` file discovery, which is important for projects moved between Mac and Windows (where the filename casing may differ). You can pass either the `.scriv` folder or the `.scrivx` file directly.
+
 Once the project is open, it stays open for the duration of your conversation. You don't need to reopen it between tool calls.
 
 ## Working with Your Project
@@ -80,7 +106,13 @@ Once the project is open, it stays open for the duration of your conversation. Y
 
 > "Show me the project structure"
 
-Claude calls `get_structure` and returns your binder hierarchy in a compact format -- each entry shows the ID, title, type, and depth. Each document has a UUID that other tools use to identify it. You can also use `find_document` to search by title without browsing the full tree.
+Claude calls `get_structure` and returns your binder hierarchy in a compact format -- each entry shows the ID, title, type, and depth. Each document has a UUID that other tools use to identify it.
+
+You can also search for documents by title without browsing the full tree:
+
+> "Find the document called 'The Storm'"
+
+This uses `find_document` internally, which matches against document titles (case-insensitive) and returns up to 20 results with each document's ID, title, type, and path.
 
 You don't need to memorize UUIDs. Just describe what you want and Claude will find the right document:
 
@@ -129,6 +161,12 @@ This searches document content across the entire project (excluding trash). You 
 You can also set custom metadata fields:
 
 > "Add custom metadata to chapter 5: deadline = June 15, reviewer = Sarah"
+
+## Semantic Search
+
+Semantic search, analogies, and dream mode work out of the box without installing any native binary. A built-in JavaScript vector engine handles this automatically using TF-IDF with cosine similarity. You can search by meaning, find analogical relationships between concepts, and use dream mode to surface unexpected connections across your manuscript -- all with zero configuration.
+
+If the optional `@hms/native` package is installed, the server transparently upgrades to a faster Rust-based engine. You do not need to change any settings or commands; the upgrade is automatic. Most users will never need the native engine -- the JS fallback is fast enough for typical novel-length projects.
 
 ## Project Memory
 
@@ -179,6 +217,52 @@ These are all optional:
 
 All core Scrivener operations (read, write, search, structure, metadata) work without any API keys. The AI-powered features (deep analysis, content enhancement, critique) use them when available and fall back to local heuristics when they're not.
 
+### API key auto-discovery
+
+You do not need to manually export your OpenAI key in most cases. The server automatically checks the following locations, in order:
+
+1. The `OPENAI_API_KEY` environment variable (standard `export`)
+2. `~/.env`
+3. `~/.scrivener-mcp/.env`
+4. `~/.config/openai/key`
+5. `~/.openai/key`
+6. **macOS Keychain** (looks for a generic password with service name `openai-api-key`)
+
+To store your key in the macOS Keychain:
+
+```bash
+security add-generic-password -s openai-api-key -a openai -w sk-your-key-here
+```
+
+If none of these locations contain a key, you can always fall back to a manual export:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+## Optional: Neo4j
+
+Neo4j enables character relationship graphs and story structure analysis. It is completely optional -- all other features work without it.
+
+To install:
+
+```bash
+# macOS
+brew install neo4j
+
+# Other platforms: download from https://neo4j.com/download/
+```
+
+Set the following environment variables to connect:
+
+| Variable | Description |
+|----------|-------------|
+| `NEO4J_URI` | Connection URI (e.g., `bolt://localhost:7687`) |
+| `NEO4J_USER` | Neo4j username |
+| `NEO4J_PASSWORD` | Neo4j password |
+
+Tools that require Neo4j: `analyze_story_structure`, `find_character_relationships`, `create_relationship`. These tools will return an error if Neo4j is not configured.
+
 ## Troubleshooting
 
 **"No project is currently open"**
@@ -191,7 +275,7 @@ You're running an older version. Update to v0.4.0+ (`npm update -g scrivener-mcp
 Also a pre-v0.4.0 bug. The server was attaching data in a way that MCP clients couldn't read. Update to the latest version.
 
 **"HHM system not initialized"**
-The Holographic Memory System (semantic search, analogies, dream mode) requires the optional `@hms/native` Rust binary. All other features work without it. This is expected if you installed from npm without building the native module.
+The Holographic Memory System (semantic search, analogies, dream mode) works with a built-in JS engine by default. This error means the HMS has not been loaded yet -- activate the memory skill with `use_skill("memory")` or ask Claude to do so. If `@hms/native` is installed, it uses the faster Rust engine automatically, but the native module is not required.
 
 **Scrivener shows old content after writing**
 Scrivener caches document content in memory. Close and reopen the project in Scrivener, or switch away from the modified document and back, to see changes made by the MCP server.
@@ -204,3 +288,12 @@ The server writes changes to disk immediately when you use `write_document` or `
 - [Writing with AI](./writing-with-ai.md) -- analysis, enhancement, memory, and semantic search
 - [Architecture](./architecture.md) -- how the server works internally
 - [Contributing](./contributing.md) -- development setup and how to add features
+
+## More Resources
+
+- [Troubleshooting](./troubleshooting.md) -- solutions for JSON parse errors, project opening issues, missing tools, and other common problems
+- [Token Optimization](./token-optimization.md) -- how the server minimizes context window usage with progressive loading, compact responses, and sliding window reads
+
+## License
+
+Scrivener MCP is licensed under AGPL-3.0 for personal and open-source use. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](../COMMERCIAL_LICENSE.md).
