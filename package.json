@@ -101,7 +101,7 @@
     "typescript-eslint": "^8.56.1"
   },
   "optionalDependencies": {
-    "@writerslogic/hms-native": "file:../HMS"
+    "@writerslogic/hms-native": "^0.2.0"
   },
   "engines": {
     "node": ">=18.0.0"
