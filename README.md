@@ -1,5 +1,3 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/writerslogic-scrivener-mcp-badge.png)](https://mseep.ai/app/writerslogic-scrivener-mcp)
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-white.svg"/>
@@ -22,7 +20,10 @@
   <a href="https://github.com/writerslogic/scrivener-mcp/actions">
     <img src="https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build"/>
   </a>
-  <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp" alt="license"/>
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="license"/>
+  <a href="https://mseep.ai/app/writerslogic-scrivener-mcp">
+    <img src="https://img.shields.io/badge/MseeP-verified-green.svg" alt="MseeP verified"/>
+  </a>
 </p>
 
 <p align="center">
