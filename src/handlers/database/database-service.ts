@@ -11,6 +11,7 @@ import {
 	safeStringify,
 	safeWriteFile,
 } from '../../utils/common.js';
+import { RelationshipEngine } from '../../services/relationship-engine.js';
 import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';
@@ -58,6 +59,7 @@ export class DatabaseService {
 	private searchService: SearchService | null = null;
 	private writingAnalytics: WritingAnalytics | null = null;
 	private storyIntelligence: StoryIntelligence | null = null;
+	private relationshipEngine: RelationshipEngine | null = null;
 
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
@@ -496,6 +498,19 @@ export class DatabaseService {
 				properties
 			);
 		}
+
+		// Also write to RelationshipEngine for HMS-backed storage
+		if (this.relationshipEngine) {
+			await this.relationshipEngine.addRelationship({
+				id: `${fromType}:${fromId}--${relationshipType}--${toType}:${toId}`,
+				head: fromId,
+				headType: this.getNodeLabel(fromType),
+				relation: relationshipType,
+				tail: toId,
+				tailType: this.getNodeLabel(toType),
+				properties,
+			});
+		}
 	}
 
 	/**
@@ -845,6 +860,20 @@ export class DatabaseService {
 	 */
 	getStoryIntelligence(): StoryIntelligence | null {
 		return this.storyIntelligence;
+	}
+
+	/**
+	 * Set the HMS instance and create the RelationshipEngine
+	 */
+	setHMS(hms: any): void {
+		this.relationshipEngine = new RelationshipEngine(hms, this.neo4jManager);
+	}
+
+	/**
+	 * Get relationship engine
+	 */
+	getRelationshipEngine(): RelationshipEngine | null {
+		return this.relationshipEngine;
 	}
 
 	/**

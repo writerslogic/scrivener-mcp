@@ -14,6 +14,7 @@ import { analysisHandlers } from './analysis-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { fractalMemoryTools } from './fractal-memory-handlers.js';
 import { nativeHHMTools } from './memory-handlers.js';
+import { relationshipHandlers } from './relationship-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -53,6 +54,11 @@ const skills: Skill[] = [
 		name: 'memory',
 		description: 'Semantic search, analogies, and creative recombination via HMS',
 		tools: nativeHHMTools,
+	},
+	{
+		name: 'relationships',
+		description: 'Entity relationships, character networks, story graph',
+		tools: relationshipHandlers,
 	},
 	{
 		name: 'advanced',

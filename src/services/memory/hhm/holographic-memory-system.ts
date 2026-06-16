@@ -401,6 +401,7 @@ export class HolographicMemorySystem {
 	private native: any | null = null;
 	private jsEngine: JSVectorEngine | null = null;
 	private memoryIndex: Map<string, MemoryIndexEntry> = new Map();
+	private jsTriplets: Map<string, { head: string; relation: string; tail: string }> = new Map();
 	private engineType: 'native' | 'js';
 
 	constructor(config: HHMConfig = {}) {
@@ -568,11 +569,76 @@ export class HolographicMemorySystem {
 		);
 	}
 
+	async memorizeTriplet(id: string, head: string, relation: string, tail: string): Promise<void> {
+		if (this.native) {
+			await this.native.memorizeTriplet(id, head, relation, tail);
+		} else {
+			this.jsTriplets.set(id, { head, relation, tail });
+			await this.jsEngine!.memorizeText(id, `${head} ${relation} ${tail}`);
+		}
+	}
+
+	async queryTriplet(head: string, relation: string, k: number = 10): Promise<QueryResult[]> {
+		if (this.native) {
+			const results: Array<{ id: string; similarity: number }> =
+				await this.native.queryTriplet(head, relation, k);
+			return this.mapResults(results);
+		}
+
+		// JS fallback: exact match scan + vector query, merged and deduplicated
+		const exactMatches: Array<{ id: string; similarity: number }> = [];
+		for (const [id, triplet] of this.jsTriplets) {
+			const headMatch = !head || triplet.head === head;
+			const relationMatch = !relation || triplet.relation === relation;
+			if (headMatch && relationMatch) {
+				exactMatches.push({ id, similarity: 1.0 });
+			}
+		}
+
+		const vectorResults = await this.jsEngine!.query(`${head} ${relation}`, k);
+
+		const seen = new Set<string>();
+		const merged: Array<{ id: string; similarity: number }> = [];
+		for (const r of exactMatches) {
+			if (!seen.has(r.id)) {
+				seen.add(r.id);
+				merged.push(r);
+			}
+		}
+		for (const r of vectorResults) {
+			if (!seen.has(r.id)) {
+				seen.add(r.id);
+				merged.push(r);
+			}
+		}
+		merged.sort((a, b) => b.similarity - a.similarity);
+		return this.mapResults(merged.slice(0, k));
+	}
+
+	async memorizeSequence(id: string, sequence: string[]): Promise<void> {
+		if (this.native) {
+			await this.native.memorizeSequence(id, sequence);
+		} else {
+			await this.jsEngine!.memorizeText(id, sequence.join(' -> '));
+		}
+	}
+
+	async queryBatch(texts: string[], k: number): Promise<QueryResult[][]> {
+		if (this.native) {
+			const batchResults: Array<Array<{ id: string; similarity: number }>> =
+				await this.native.queryBatch(texts, k);
+			return batchResults.map((results) => this.mapResults(results));
+		}
+		const allResults = await Promise.all(texts.map((t) => this.jsEngine!.query(t, k)));
+		return allResults.map((results) => this.mapResults(results));
+	}
+
 	getStats(): Record<string, unknown> {
 		return {
 			dimensions: this.engineType === 'native' ? this.dimensions : 512,
 			engine: this.engineType === 'native' ? 'Rust Native v2.0' : 'JS Fallback',
 			totalMemories: this.memoryIndex.size,
+			totalTriplets: this.jsTriplets.size,
 		};
 	}
 
@@ -580,5 +646,6 @@ export class HolographicMemorySystem {
 		logger.info('Shutting down HMS Engine');
 		if (this.jsEngine) this.jsEngine.clear();
 		this.memoryIndex.clear();
+		this.jsTriplets.clear();
 	}
 }
