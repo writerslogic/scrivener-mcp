@@ -20,7 +20,16 @@
   <a href="https://github.com/writerslogic/scrivener-mcp/actions">
     <img src="https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build"/>
   </a>
-  <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="license"/>
+  <a href="https://github.com/writerslogic/scrivener-mcp/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp" alt="license"/>
+  </a>
+  <img src="https://img.shields.io/node/v/scrivener-mcp" alt="node version"/>
+  <a href="https://github.com/writerslogic/scrivener-mcp/issues">
+    <img src="https://img.shields.io/github/issues/writerslogic/scrivener-mcp" alt="issues"/>
+  </a>
+  <a href="https://github.com/writerslogic/scrivener-mcp/stargazers">
+    <img src="https://img.shields.io/github/stars/writerslogic/scrivener-mcp" alt="stars"/>
+  </a>
   <a href="https://mseep.ai/app/writerslogic-scrivener-mcp">
     <img src="https://img.shields.io/badge/MseeP-verified-green.svg" alt="MseeP verified"/>
   </a>
