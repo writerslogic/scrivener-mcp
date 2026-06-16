@@ -173,7 +173,7 @@ function fnv1a(str: string): number {
 }
 
 /**
- * Pure JS vector engine used when @hms/native is not installed.
+ * Pure JS vector engine used when @writerslogic/hms-native is not installed.
  * Random-projection TF-IDF with cosine similarity.
  */
 class JSVectorEngine {
@@ -383,7 +383,7 @@ class JSVectorEngine {
 let NativeHMS: any = null;
 try {
 	// Dynamic import for ESM compatibility; require as fallback
-	const native = await import('@hms/native').catch(() => null);
+	const native = await import('@writerslogic/hms-native').catch(() => null);
 	if (native?.HolographicMemorySystem) {
 		NativeHMS = native.HolographicMemorySystem;
 		logger.info('HMS using native Rust engine');
@@ -393,7 +393,7 @@ try {
 }
 
 if (!NativeHMS) {
-	logger.info('HMS using JS fallback engine (@hms/native not installed)');
+	logger.info('HMS using JS fallback engine (@writerslogic/hms-native not installed)');
 }
 
 export class HolographicMemorySystem {

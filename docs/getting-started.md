@@ -166,7 +166,7 @@ You can also set custom metadata fields:
 
 Semantic search, analogies, and dream mode work out of the box without installing any native binary. A built-in JavaScript vector engine handles this automatically using TF-IDF with cosine similarity. You can search by meaning, find analogical relationships between concepts, and use dream mode to surface unexpected connections across your manuscript -- all with zero configuration.
 
-If the optional `@hms/native` package is installed, the server transparently upgrades to a faster Rust-based engine. You do not need to change any settings or commands; the upgrade is automatic. Most users will never need the native engine -- the JS fallback is fast enough for typical novel-length projects.
+If the optional `@writerslogic/hms-native` package is installed, the server transparently upgrades to a faster Rust-based engine. You do not need to change any settings or commands; the upgrade is automatic. Most users will never need the native engine -- the JS fallback is fast enough for typical novel-length projects.
 
 ## Project Memory
 
@@ -275,7 +275,7 @@ You're running an older version. Update to v0.4.0+ (`npm update -g scrivener-mcp
 Also a pre-v0.4.0 bug. The server was attaching data in a way that MCP clients couldn't read. Update to the latest version.
 
 **"HHM system not initialized"**
-The Holographic Memory System (semantic search, analogies, dream mode) works with a built-in JS engine by default. This error means the HMS has not been loaded yet -- activate the memory skill with `use_skill("memory")` or ask Claude to do so. If `@hms/native` is installed, it uses the faster Rust engine automatically, but the native module is not required.
+The Holographic Memory System (semantic search, analogies, dream mode) works with a built-in JS engine by default. This error means the HMS has not been loaded yet -- activate the memory skill with `use_skill("memory")` or ask Claude to do so. If `@writerslogic/hms-native` is installed, it uses the faster Rust engine automatically, but the native module is not required.
 
 **Scrivener shows old content after writing**
 Scrivener caches document content in memory. Close and reopen the project in Scrivener, or switch away from the modified document and back, to see changes made by the MCP server.

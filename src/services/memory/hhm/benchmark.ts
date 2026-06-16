@@ -1,4 +1,4 @@
-import { HolographicMemorySystem as NativeHMS } from '@hms/native';
+import { HolographicMemorySystem as NativeHMS } from '@writerslogic/hms-native';
 import { getLogger } from '../../../core/logger.js';
 
 const logger = getLogger('hhm-benchmark');

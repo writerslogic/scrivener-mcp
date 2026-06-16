@@ -1,8 +1,8 @@
 /**
- * Type declarations for @hms/native
+ * Type declarations for @writerslogic/hms-native
  * Allows tsc to compile when the native binary is not available (CI, npm install)
  */
-declare module '@hms/native' {
+declare module '@writerslogic/hms-native' {
 	export interface TextMetrics {
 		wordCount: number;
 		sentenceCount: number;

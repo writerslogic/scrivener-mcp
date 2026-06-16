@@ -155,7 +155,7 @@ Core features (read, write, search, structure, metadata, analysis) work without 
 
 ## "HHM system not initialized"
 
-The Holographic Memory System (semantic search, analogies, dream mode) requires the optional `@hms/native` Rust binary. All other features work without it. This message is expected if you installed from npm without building the native module.
+The Holographic Memory System (semantic search, analogies, dream mode) requires the optional `@writerslogic/hms-native` Rust binary. All other features work without it. This message is expected if you installed from npm without building the native module.
 
 ## Neo4j connection errors
 
