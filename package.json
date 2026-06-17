@@ -101,7 +101,7 @@
     "typescript-eslint": "^8.56.1"
   },
   "optionalDependencies": {
-    "holographic-memory": "^0.3.0"
+    "holographic-memory": "^0.4.0"
   },
   "engines": {
     "node": ">=18.0.0"
