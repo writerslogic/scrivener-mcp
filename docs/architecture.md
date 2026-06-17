@@ -88,7 +88,7 @@ Applies targeted improvements to text (12+ enhancement types). Uses the style gu
 
 ### Holographic Memory System (`src/services/memory/hhm/`)
 
-TypeScript wrapper around the optional `@writerslogic/hms-native` Rust binary. A built-in JS fallback engine provides the same features without the native binary. The Rust engine implements Binary Spatter Code (BSC) in a 10,000-dimensional vector space for:
+TypeScript wrapper around the optional `holographic-memory` Rust binary. A built-in JS fallback engine provides the same features without the native binary. The Rust engine implements Binary Spatter Code (BSC) in a 10,000-dimensional vector space for:
 - Semantic encoding of text via character trigrams
 - Approximate nearest neighbor search
 - Analogical reasoning via vector arithmetic

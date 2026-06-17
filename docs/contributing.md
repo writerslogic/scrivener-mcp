@@ -141,7 +141,7 @@ Commit message prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:
 
 ## HMS Native Module
 
-The Holographic Memory System is a separate Rust crate (`@writerslogic/hms-native`). It's an optional dependency -- the server includes a JS fallback engine that provides semantic search, analogies, and dream mode without it. If you're working on HMS features:
+The Holographic Memory System is a separate Rust crate (`holographic-memory`). It's an optional dependency -- the server includes a JS fallback engine that provides semantic search, analogies, and dream mode without it. If you're working on HMS features:
 
 ```bash
 cd /path/to/HMS
@@ -149,7 +149,7 @@ cargo test          # Run Rust tests
 cargo build --features node-api  # Build napi bindings
 ```
 
-Type declarations for `@writerslogic/hms-native` are stubbed in `src/types/hms-native.d.ts` so TypeScript compiles without the binary.
+Type declarations for `holographic-memory` are stubbed in `src/types/hms-native.d.ts` so TypeScript compiles without the binary.
 
 ## Good First Issues
 
