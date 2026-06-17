@@ -94,7 +94,11 @@ TypeScript wrapper around the optional `holographic-memory` Rust binary. A built
 - Analogical reasoning via vector arithmetic
 - Concept synthesis via clustering
 
-The wrapper adds metadata tracking, result mapping, and typed interfaces.
+The wrapper adds metadata tracking, result mapping, typed interfaces, and triplet storage for entity relationships. When the native binary is not installed, a JS fallback engine using TF-IDF random-projection vectors provides the same API surface.
+
+### Relationship Engine (`src/services/relationship-engine.ts`)
+
+Dual-write relationship storage that writes to HMS (always) and Neo4j (when connected). HMS handles fast lookups via triplet queries. Neo4j adds advanced graph operations (PageRank, community detection, shortest path) when available. Relationships persist in the local triplet store and can be synced to Neo4j on demand.
 
 ### Database Service (`src/handlers/database/`)
 

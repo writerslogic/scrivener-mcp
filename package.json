@@ -1,7 +1,7 @@
 {
   "name": "scrivener-mcp",
   "version": "0.5.2",
-  "description": "MCP server for Scrivener - Read, analyze, and manipulate Scrivener writing projects. Features RTF parsing, document structure analysis, word counting, and AI-powered writing assistance for authors using Claude or other LLMs.",
+  "description": "MCP server for Scrivener - Read, write, analyze, and search manuscripts with semantic search, character/plot tracking, writing analysis, and content enhancement. Works with Claude, ChatGPT, and other AI assistants.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",

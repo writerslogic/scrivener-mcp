@@ -203,9 +203,15 @@ Store character profiles, plot threads, and style guides that persist with your 
 
 ### Search by Meaning
 
-Find passages by what they're about, not just keyword matching. "Find scenes where the protagonist feels isolated" works even if the word "isolated" never appears.
+Find passages by what they're about, not just keyword matching. "Find scenes where the protagonist feels isolated" works even if the word "isolated" never appears. Powered by the [Holographic Memory System](https://www.npmjs.com/package/holographic-memory) -- works offline, no API key needed.
 
 > **You:** Find all scenes where Elena and Marcus are alone together.
+
+### Track Relationships
+
+Store and query relationships between characters, locations, themes, and plot threads. No Neo4j required -- relationships live in the semantic memory engine and persist with your project.
+
+> **You:** Who is connected to Marcus? What plot threads involve the lighthouse?
 
 ### Compile and Export
 
@@ -304,6 +310,22 @@ Memory is stored within each .scriv project and travels with it.
 </details>
 
 <details>
+<summary><strong>Relationships</strong> -- entity connections and story graph</summary>
+
+| Tool | What it does |
+|------|-------------|
+| `add_relationship` | Store a relationship between characters, documents, themes, or plot threads |
+| `find_relationships` | Query entities related to a given character/theme/location |
+| `store_chapter_order` | Store the reading sequence of chapters/scenes |
+| `character_network` | Visualize character relationship network |
+| `discover_connections` | Find co-occurring entities across the manuscript |
+| `sync_to_neo4j` | Sync relationships to Neo4j (when available) |
+
+Works without Neo4j. Relationships are stored in the Holographic Memory System and available immediately. Neo4j adds advanced graph analysis (PageRank, shortest path, communities) when connected.
+
+</details>
+
+<details>
 <summary><strong>Database</strong> -- advanced queries and analytics</summary>
 
 | Tool | What it does |
@@ -322,6 +344,8 @@ SQLite is included and automatic. Neo4j is optional for graph-based story analys
 
 - **[Getting Started](./docs/getting-started.md)** -- Installation, configuration, your first session
 - **[Writing with AI](./docs/writing-with-ai.md)** -- Analysis workflows, enhancement strategies, memory management
+- **[Troubleshooting](./docs/troubleshooting.md)** -- Common issues and fixes
+- **[Token Optimization](./docs/token-optimization.md)** -- How the server minimizes context window usage
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
 - **[Contributing](./docs/contributing.md)** -- Development setup, code conventions, adding new tools
 
