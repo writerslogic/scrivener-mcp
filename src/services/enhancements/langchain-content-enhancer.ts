@@ -8,16 +8,78 @@ import { AdvancedLangChainFeatures } from '../ai/langchain-advanced-features.js'
 import { EnhancedLangChainService } from '../ai/langchain-service-enhanced.js';
 import type { EnhancementRequest, EnhancementResult, EnhancementType } from './content-enhancer.js';
 import { ContentEnhancer } from './content-enhancer.js';
-// Enterprise service foundation
-import { ObservabilityManager } from '../enterprise/observability.js';
-import { IntelligentCache, PerformanceProfiler } from '../enterprise/performance-optimizer.js';
-import {
-	BulkheadIsolation,
-	EnterpriseCircuitBreaker,
-	EnterpriseRateLimiter,
-	type BulkheadConfig,
-	type CircuitBreakerConfig,
-} from '../enterprise/service-foundation.js';
+// Minimal inline replacements for removed enterprise patterns
+class EnterpriseCircuitBreaker {
+	constructor(_name: string, _config: any) {}
+	on(_event: string, _handler: (...args: any[]) => void) {}
+	async execute<T>(fn: () => Promise<T>, _ctx?: any): Promise<T> {
+		return fn();
+	}
+	getState() {
+		return 'closed';
+	}
+	getMetrics() {
+		return {
+			state: 'closed',
+			failures: 0,
+			successes: 0,
+			circuitBreakerState: 'closed' as string,
+		};
+	}
+}
+
+class EnterpriseRateLimiter {
+	constructor(_config: any) {}
+	async checkLimit(_key?: Record<string, unknown>): Promise<{ allowed: boolean }> {
+		return { allowed: true };
+	}
+}
+
+class BulkheadIsolation {
+	constructor(_name: string, _config: any) {}
+	async execute<T>(fn: () => Promise<T>, _ctx?: any): Promise<T> {
+		return fn();
+	}
+}
+
+class ObservabilityManager {
+	constructor(_config?: any) {}
+	startSpan(_name: string, _ctx?: any, _attrs?: any) {
+		return { spanId: '', traceId: '' };
+	}
+	finishSpan(_span: any, _data?: any) {}
+	incrementCounter(_name: string, _value: number, _tags?: any) {}
+	setGauge(_name: string, _value: any) {}
+	recordHistogram(_name: string, _value: number) {}
+	getMetrics() {
+		return {};
+	}
+}
+
+class IntelligentCache<T> {
+	constructor(_config?: any) {}
+	async get(_key: string, _ctx?: any): Promise<T | null> {
+		return null;
+	}
+	async set(_key: string, _value: T, _opts?: any, _ctx?: any) {}
+	clear() {}
+	getMetrics() {
+		return { hitRate: 0 };
+	}
+}
+
+class PerformanceProfiler {
+	async profile<T>(_name: string, fn: () => Promise<T>, _ctx?: any): Promise<T> {
+		return fn();
+	}
+	getProfile(_name: string) {
+		return {};
+	}
+	reset() {}
+	getMetrics() {
+		return {};
+	}
+}
 
 interface EnhancementStrategy {
 	template: string;
@@ -120,7 +182,7 @@ export class LangChainContentEnhancer {
 
 	private initializeEnterpriseComponents(): void {
 		// Circuit breaker for LangChain API calls
-		const circuitBreakerConfig: CircuitBreakerConfig = {
+		const circuitBreakerConfig: any = {
 			failureThreshold: 5,
 			timeout: 60000, // 1 minute
 			resetTimeout: 300000, // 5 minutes
@@ -143,7 +205,7 @@ export class LangChainContentEnhancer {
 		});
 
 		// Bulkhead isolation for concurrent operations
-		const bulkheadConfig: BulkheadConfig = {
+		const bulkheadConfig: any = {
 			maxConcurrency: this.config.connectionPoolSize,
 			queueTimeout: 30000, // 30 seconds
 			rejectionStrategy: 'queue',
