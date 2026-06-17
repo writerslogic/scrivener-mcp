@@ -1,17 +1,25 @@
-import { HolographicMemorySystem as NativeHMS } from 'holographic-memory';
 import { getLogger } from '../../../core/logger.js';
 
 const logger = getLogger('hhm-benchmark');
 
 export async function quickBenchmark(dimensions: number = 10000): Promise<void> {
+	let NativeHMS;
+	try {
+		const mod = await import('holographic-memory');
+		NativeHMS = mod.HolographicMemorySystem;
+	} catch {
+		logger.warn('holographic-memory not installed, skipping benchmark');
+		return;
+	}
+
 	logger.info('Starting Native HMS Benchmark', { dimensions });
 
-	const hms = new NativeHMS(dimensions, undefined); // In-memory for benchmark
+	const hms = new NativeHMS(dimensions, undefined);
 	const iterations = 100;
 	const startTime = performance.now();
 
 	for (let i = 0; i < iterations; i++) {
-		hms.memorizeText(
+		await hms.memorizeText(
 			`id_${i}`,
 			`This is a sample text for benchmarking iteration ${i}. It needs to be long enough to be meaningful.`
 		);
@@ -20,7 +28,7 @@ export async function quickBenchmark(dimensions: number = 10000): Promise<void> 
 	const midTime = performance.now();
 
 	for (let i = 0; i < iterations; i++) {
-		hms.query('sample text for benchmarking', 5);
+		await hms.query('sample text for benchmarking', 5);
 	}
 
 	const endTime = performance.now();

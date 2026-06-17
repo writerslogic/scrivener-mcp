@@ -4,7 +4,6 @@
 
 import type { HHMConfig } from '../services/memory/hhm/holographic-memory-system.js';
 import { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
-import { quickBenchmark } from '../services/memory/hhm/benchmark.js';
 import { getLogger } from '../core/logger.js';
 import { compact } from '../core/response-formatter.js';
 import type { ScrivenerDocument } from '../types/index.js';
@@ -145,6 +144,7 @@ export const managementHandlers = {
 export const benchmarkHandlers = {
 	async runBenchmark(params: { dimensions?: number }): Promise<string> {
 		logger.info('Running HHM benchmark...');
+		const { quickBenchmark } = await import('../services/memory/hhm/benchmark.js');
 		await quickBenchmark(params.dimensions || 10000);
 		return 'Benchmark complete. Check console for results.';
 	},
