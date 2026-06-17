@@ -1,45 +1,43 @@
 /**
- * MCP handlers for HHM memory operations
+ * MCP handlers for HMS memory operations
  */
 
+import * as crypto from 'crypto';
 import type { HHMConfig } from '../services/memory/hhm/holographic-memory-system.js';
 import { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
 import { getLogger } from '../core/logger.js';
 import { compact } from '../core/response-formatter.js';
-import type { ScrivenerDocument } from '../types/index.js';
+import { formatError } from '../core/response-formatter.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import type { ToolDefinition } from './types.js';
 
 const logger = getLogger('memory-handlers');
 
-// Global HHM instance
 let hhmSystem: HolographicMemorySystem | null = null;
 
-/**
- * Initialize HHM system
- */
 export async function initializeHHM(config?: HHMConfig): Promise<HolographicMemorySystem> {
-	if (hhmSystem) {
-		await hhmSystem.destroy();
+	const old = hhmSystem;
+	hhmSystem = null;
+	if (old) {
+		try {
+			await old.destroy();
+		} catch (err) {
+			logger.warn('Failed to destroy previous HMS instance', { error: err });
+		}
 	}
-
 	hhmSystem = new HolographicMemorySystem(config || {});
 	return hhmSystem;
 }
 
-/**
- * Get HHM system instance
- */
 export function getHHMSystem(): HolographicMemorySystem {
 	if (!hhmSystem) {
-		throw new Error('HHM system not initialized. Call initializeHHM first.');
+		throw new Error(
+			'HMS not initialized. Open a project first, then activate the memory skill.'
+		);
 	}
 	return hhmSystem;
 }
 
-/**
- * Native HHM Tool Definitions
- */
 export const nativeHHMTools: ToolDefinition[] = [
 	{
 		name: 'semantic_search',
@@ -53,16 +51,20 @@ export const nativeHHMTools: ToolDefinition[] = [
 			required: ['query'],
 		},
 		handler: async (args) => {
-			const traceId = crypto.randomUUID();
-			const system = getHHMSystem();
-			const results = await system.queryText(
-				args.query as string,
-				(args.k as number) || 10,
-				traceId
-			);
-			return {
-				content: [{ type: 'text', text: compact(results) }],
-			};
+			try {
+				const query = String(args.query || '');
+				const k = Number(args.k) || 10;
+				const traceId = crypto.randomUUID();
+				const system = getHHMSystem();
+				const results = await system.queryText(query, k, traceId);
+				return {
+					content: [{ type: 'text', text: compact(results) }],
+				};
+			} catch (error) {
+				return {
+					content: [{ type: 'text', text: formatError(error, 'semantic_search') }],
+				};
+			}
 		},
 	},
 	{
@@ -78,17 +80,21 @@ export const nativeHHMTools: ToolDefinition[] = [
 			required: ['a', 'b', 'c'],
 		},
 		handler: async (args) => {
-			const traceId = crypto.randomUUID();
-			const system = getHHMSystem();
-			const results = await system.findAnalogy(
-				args.a as string,
-				args.b as string,
-				args.c as string,
-				traceId
-			);
-			return {
-				content: [{ type: 'text', text: compact(results) }],
-			};
+			try {
+				const a = String(args.a || '');
+				const b = String(args.b || '');
+				const c = String(args.c || '');
+				const traceId = crypto.randomUUID();
+				const system = getHHMSystem();
+				const results = await system.findAnalogy(a, b, c, traceId);
+				return {
+					content: [{ type: 'text', text: compact(results) }],
+				};
+			} catch (error) {
+				return {
+					content: [{ type: 'text', text: formatError(error, 'find_analogies') }],
+				};
+			}
 		},
 	},
 	{
@@ -99,59 +105,19 @@ export const nativeHHMTools: ToolDefinition[] = [
 			properties: {},
 		},
 		handler: async () => {
-			const system = getHHMSystem();
-			const results = await system.dream();
-			return {
-				content: [{ type: 'text', text: compact(results) }],
-			};
+			try {
+				const system = getHHMSystem();
+				const results = await system.dream();
+				return {
+					content: [{ type: 'text', text: compact(results) }],
+				};
+			} catch (error) {
+				return {
+					content: [{ type: 'text', text: formatError(error, 'hhm_dream') }],
+				};
+			}
 		},
 	},
 ];
 
-export const memoryHandlers = {
-	async memorizeText(params: { text: string; id?: string; traceId?: string }) {
-		const system = getHHMSystem();
-		return system.memorizeText(params.text, params.id, params.traceId);
-	},
-	async memorizeDocument(params: { document: ScrivenerDocument; traceId?: string }) {
-		const system = getHHMSystem();
-		return system.memorizeDocument(params.document, params.traceId);
-	},
-};
-
-export const retrievalHandlers = {
-	async queryText(params: { text: string; k?: number; traceId?: string }) {
-		const system = getHHMSystem();
-		return system.queryText(params.text, params.k || 10, params.traceId);
-	},
-	async findAnalogy(params: { a: string; b: string; c: string; traceId?: string }) {
-		const system = getHHMSystem();
-		return system.findAnalogy(params.a, params.b, params.c, params.traceId);
-	},
-};
-
-export const managementHandlers = {
-	async dreamMode() {
-		const system = getHHMSystem();
-		return system.dream();
-	},
-	async getStats(): Promise<Record<string, unknown>> {
-		const system = getHHMSystem();
-		return system.getStats();
-	},
-};
-
-export const benchmarkHandlers = {
-	async runBenchmark(params: { dimensions?: number }): Promise<string> {
-		logger.info('Running HHM benchmark...');
-		const { quickBenchmark } = await import('../services/memory/hhm/benchmark.js');
-		await quickBenchmark(params.dimensions || 10000);
-		return 'Benchmark complete. Check console for results.';
-	},
-};
-
-export function registerHHMHandlers(
-	_server: import('@modelcontextprotocol/sdk/server/index.js').Server
-): void {
-	logger.info('HHM handlers integrated with Native core');
-}
+export { HolographicMemorySystem };

@@ -8,7 +8,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { ContentAnalyzer } from './analysis/base-analyzer.js';
 import { getLogger } from './core/logger.js';
-import { formatError, compact, cleanupSpool } from './core/response-formatter.js';
+import { formatError, cleanupSpool } from './core/response-formatter.js';
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 import { HandlerError, type HandlerContext } from './handlers/index.js';
 import {
@@ -20,7 +20,7 @@ import {
 } from './handlers/skill-registry.js';
 import { LangChainContinuousLearningHandler } from './handlers/langchain-continuous-learning-handler.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
-import { initializeHHM, registerHHMHandlers } from './handlers/memory-handlers.js';
+import { initializeHHM } from './handlers/memory-handlers.js';
 
 const logger = getLogger('main');
 
@@ -121,7 +121,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			const changed = activateSkills('documents', 'search');
 			if (hhmInitialized) {
 				activateSkills('memory');
-				registerHHMHandlers(server as any);
 			}
 			if (changed) {
 				await server.sendToolListChanged();

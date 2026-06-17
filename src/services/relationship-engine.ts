@@ -16,12 +16,17 @@ export interface Relationship {
  */
 export class RelationshipEngine {
 	private logger = getLogger('relationship-engine');
+	private static readonly MAX_LOCAL_TRIPLETS = 10000;
 	private localTriplets: Map<string, Relationship> = new Map();
 
 	constructor(
 		private hms: any, // HolographicMemorySystem - use any to avoid circular deps
 		private neo4j: any | null // Neo4jManager - null when not connected
-	) {}
+	) {
+		if (!hms) {
+			throw new Error('RelationshipEngine requires an HMS instance');
+		}
+	}
 
 	/**
 	 * Generate a deterministic ID for a relationship.
@@ -37,8 +42,12 @@ export class RelationshipEngine {
 		const id = rel.id || this.generateId(rel);
 		const normalized: Relationship = { ...rel, id };
 
-		// Store in local index
+		// Store in local index with eviction
 		this.localTriplets.set(id, normalized);
+		if (this.localTriplets.size > RelationshipEngine.MAX_LOCAL_TRIPLETS) {
+			const oldest = this.localTriplets.keys().next().value;
+			if (oldest) this.localTriplets.delete(oldest);
+		}
 
 		// Store in HMS triplet memory if the method exists (native engine only)
 		if (typeof this.hms.memorizeTriplet === 'function') {
@@ -52,7 +61,7 @@ export class RelationshipEngine {
 			} catch (error) {
 				this.logger.warn('HMS memorizeTriplet failed, relationship stored locally only', {
 					id,
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		} else {
@@ -63,7 +72,7 @@ export class RelationshipEngine {
 			} catch (error) {
 				this.logger.warn('HMS memorizeText fallback failed', {
 					id,
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}
@@ -82,7 +91,7 @@ export class RelationshipEngine {
 			} catch (error) {
 				this.logger.warn('Neo4j createRelationship failed, HMS is primary store', {
 					id,
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}
@@ -116,7 +125,7 @@ export class RelationshipEngine {
 				} catch (error) {
 					this.logger.warn('HMS memorizeTriplet failed in batch', {
 						id,
-						error: (error as Error).message,
+						error: error instanceof Error ? error.message : String(error),
 					});
 				}
 			} else {
@@ -127,7 +136,7 @@ export class RelationshipEngine {
 				} catch (error) {
 					this.logger.warn('HMS memorizeText fallback failed in batch', {
 						id,
-						error: (error as Error).message,
+						error: error instanceof Error ? error.message : String(error),
 					});
 				}
 			}
@@ -147,7 +156,7 @@ export class RelationshipEngine {
 				} catch (error) {
 					this.logger.warn('Neo4j sync failed in batch', {
 						id,
-						error: (error as Error).message,
+						error: error instanceof Error ? error.message : String(error),
 					});
 				}
 			}
@@ -181,7 +190,7 @@ export class RelationshipEngine {
 					.filter((r: Relationship | null): r is Relationship => r !== null);
 			} catch (error) {
 				this.logger.warn('HMS queryTriplet failed, falling back to local index', {
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}
@@ -212,7 +221,7 @@ export class RelationshipEngine {
 			} catch (error) {
 				this.logger.warn('HMS memorizeSequence failed', {
 					id,
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		} else {
@@ -223,7 +232,7 @@ export class RelationshipEngine {
 			} catch (error) {
 				this.logger.warn('HMS memorizeText sequence fallback failed', {
 					id,
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}
@@ -263,7 +272,7 @@ export class RelationshipEngine {
 				return network;
 			} catch (error) {
 				this.logger.warn('Neo4j character network query failed, falling back to local', {
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}
@@ -322,7 +331,7 @@ export class RelationshipEngine {
 				}
 			} catch (error) {
 				this.logger.warn('HMS queryBatch failed for relationship discovery', {
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		} else {
@@ -339,8 +348,11 @@ export class RelationshipEngine {
 							});
 						}
 					}
-				} catch {
-					// Skip on error
+				} catch (error) {
+					this.logger.warn('HMS queryText failed for character', {
+						character,
+						error: error instanceof Error ? error.message : String(error),
+					});
 				}
 			}
 		}
@@ -381,7 +393,7 @@ export class RelationshipEngine {
 				errors++;
 				this.logger.warn('Failed to sync relationship to Neo4j', {
 					id: rel.id,
-					error: (error as Error).message,
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}

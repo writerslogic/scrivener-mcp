@@ -3,7 +3,7 @@
  * Tools for entity relationships, character networks, and story graph operations.
  */
 
-import { compact } from '../core/response-formatter.js';
+import { compact, formatError } from '../core/response-formatter.js';
 import type { RelationshipEngine } from '../services/relationship-engine.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { getStringArg, getOptionalStringArg, getOptionalNumberArg, getArrayArg } from './types.js';
@@ -24,6 +24,10 @@ function ok(data: unknown): HandlerResult {
 	return { content: [{ type: 'text', text: compact(data) }] };
 }
 
+function fail(error: unknown, op: string): HandlerResult {
+	return { content: [{ type: 'text', text: formatError(error, op) }] };
+}
+
 export const relationshipHandlers: ToolDefinition[] = [
 	{
 		name: 'add_relationship',
@@ -40,23 +44,27 @@ export const relationshipHandlers: ToolDefinition[] = [
 			required: ['head', 'headType', 'relation', 'tail', 'tailType'],
 		},
 		handler: async (args, context): Promise<HandlerResult> => {
-			const engine = requireRelationshipEngine(context);
-			const head = getStringArg(args, 'head');
-			const headType = getStringArg(args, 'headType');
-			const relation = getStringArg(args, 'relation');
-			const tail = getStringArg(args, 'tail');
-			const tailType = getStringArg(args, 'tailType');
+			try {
+				const engine = requireRelationshipEngine(context);
+				const head = getStringArg(args, 'head');
+				const headType = getStringArg(args, 'headType');
+				const relation = getStringArg(args, 'relation');
+				const tail = getStringArg(args, 'tail');
+				const tailType = getStringArg(args, 'tailType');
 
-			await engine.addRelationship({
-				id: '',
-				head,
-				headType,
-				relation,
-				tail,
-				tailType,
-			});
+				await engine.addRelationship({
+					id: '',
+					head,
+					headType,
+					relation,
+					tail,
+					tailType,
+				});
 
-			return ok({ stored: true, head, relation, tail });
+				return ok({ stored: true, head, relation, tail });
+			} catch (error) {
+				return fail(error, 'add_relationship');
+			}
 		},
 	},
 	{
@@ -72,13 +80,17 @@ export const relationshipHandlers: ToolDefinition[] = [
 			required: ['entity'],
 		},
 		handler: async (args, context): Promise<HandlerResult> => {
-			const engine = requireRelationshipEngine(context);
-			const entity = getStringArg(args, 'entity');
-			const relation = getOptionalStringArg(args, 'relation');
-			const k = getOptionalNumberArg(args, 'k');
+			try {
+				const engine = requireRelationshipEngine(context);
+				const entity = getStringArg(args, 'entity');
+				const relation = getOptionalStringArg(args, 'relation');
+				const k = getOptionalNumberArg(args, 'k');
 
-			const results = await engine.findRelated(entity, relation, k);
-			return ok(results);
+				const results = await engine.findRelated(entity, relation, k);
+				return ok(results);
+			} catch (error) {
+				return fail(error, 'find_relationships');
+			}
 		},
 	},
 	{
@@ -93,12 +105,16 @@ export const relationshipHandlers: ToolDefinition[] = [
 			required: ['sequenceId', 'chapters'],
 		},
 		handler: async (args, context): Promise<HandlerResult> => {
-			const engine = requireRelationshipEngine(context);
-			const sequenceId = getStringArg(args, 'sequenceId');
-			const chapters = getArrayArg<string>(args, 'chapters');
+			try {
+				const engine = requireRelationshipEngine(context);
+				const sequenceId = getStringArg(args, 'sequenceId');
+				const chapters = getArrayArg<string>(args, 'chapters');
 
-			await engine.storeSequence(sequenceId, chapters);
-			return ok({ stored: true, sequenceId, count: chapters.length });
+				await engine.storeSequence(sequenceId, chapters);
+				return ok({ stored: true, sequenceId, count: chapters.length });
+			} catch (error) {
+				return fail(error, 'store_chapter_order');
+			}
 		},
 	},
 	{
@@ -109,9 +125,13 @@ export const relationshipHandlers: ToolDefinition[] = [
 			properties: {},
 		},
 		handler: async (_args, context): Promise<HandlerResult> => {
-			const engine = requireRelationshipEngine(context);
-			const network = await engine.getCharacterNetwork();
-			return ok(network);
+			try {
+				const engine = requireRelationshipEngine(context);
+				const network = await engine.getCharacterNetwork();
+				return ok(network);
+			} catch (error) {
+				return fail(error, 'character_network');
+			}
 		},
 	},
 	{
@@ -124,11 +144,15 @@ export const relationshipHandlers: ToolDefinition[] = [
 			},
 		},
 		handler: async (args, context): Promise<HandlerResult> => {
-			const engine = requireRelationshipEngine(context);
-			const k = getOptionalNumberArg(args, 'k');
+			try {
+				const engine = requireRelationshipEngine(context);
+				const k = getOptionalNumberArg(args, 'k');
 
-			const discoveries = await engine.discoverRelationships(k);
-			return ok(discoveries);
+				const discoveries = await engine.discoverRelationships(k);
+				return ok(discoveries);
+			} catch (error) {
+				return fail(error, 'discover_connections');
+			}
 		},
 	},
 	{
@@ -139,9 +163,13 @@ export const relationshipHandlers: ToolDefinition[] = [
 			properties: {},
 		},
 		handler: async (_args, context): Promise<HandlerResult> => {
-			const engine = requireRelationshipEngine(context);
-			const result = await engine.syncToNeo4j();
-			return ok(result);
+			try {
+				const engine = requireRelationshipEngine(context);
+				const result = await engine.syncToNeo4j();
+				return ok(result);
+			} catch (error) {
+				return fail(error, 'sync_to_neo4j');
+			}
 		},
 	},
 ];
