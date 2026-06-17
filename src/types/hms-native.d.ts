@@ -1,8 +1,8 @@
 /**
- * Type declarations for @writerslogic/hms-native
+ * Type declarations for holographic-memory
  * Allows tsc to compile when the native binary is not available (CI, npm install)
  */
-declare module '@writerslogic/hms-native' {
+declare module 'holographic-memory' {
 	export interface TextMetrics {
 		wordCount: number;
 		sentenceCount: number;
