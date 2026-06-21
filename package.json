@@ -20,7 +20,7 @@
     "type": "git",
     "url": "https://github.com/writerslogic/scrivener-mcp.git"
   },
-  "homepage": "https://github.com/writerslogic/scrivener-mcp#readme",
+  "homepage": "https://writerslogic.com/scrivener-mcp",
   "bugs": {
     "url": "https://github.com/writerslogic/scrivener-mcp/issues"
   },
@@ -108,22 +108,22 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "scrivener",
     "claude",
+    "chatgpt",
+    "copilot",
+    "cursor",
     "writing",
-    "rtf",
-    "document-analysis",
+    "creative-writing",
+    "screenwriting",
     "manuscript",
     "novel",
-    "book",
-    "author",
-    "ai",
-    "gpt",
-    "llm",
-    "interface"
+    "semantic-search",
+    "ai-writing"
   ],
-  "author": "David Condrey <davidcondrey@me.com>",
+  "author": "David Condrey <david@writerslogic.com>",
   "license": "AGPL-3.0-only",
   "publishConfig": {
     "access": "public",
