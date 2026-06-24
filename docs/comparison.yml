@@ -1,0 +1,139 @@
+# Competitor comparison data for the "Why This One?" section in README.md
+# Static feature rows are maintained here manually.
+# Star counts, fork counts, and activity status are updated automatically by
+# .github/workflows/update-comparison.yml on a weekly schedule.
+#
+# To add a competitor: add an entry under `repos` and fill in the feature columns below.
+# To add a feature row: add an entry under `features` with the same competitor keys.
+
+repos:
+  scrivener-mcp:
+    github: writerslogic/scrivener-mcp
+    npm: scrivener-mcp
+    display: "**scrivener-mcp**"
+  jiayun:
+    github: jiayun-ai/scrivener-mcp
+    display: "jiayun"
+  zaphodsdad:
+    github: zaphodsdad/Scrivener-MCP
+    display: "zaphodsdad"
+  others:
+    github: null
+    display: "others"
+
+# Feature rows — edit these manually when capabilities change.
+# Values: free text, "yes", "no", "partial", "—"
+features:
+  - label: Document read/write
+    scrivener-mcp: "60+ tools"
+    jiayun: "29 tools"
+    zaphodsdad: "read-only"
+    others: "basic"
+
+  - label: RTF / rich text support
+    scrivener-mcp: "yes"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Writing analysis
+    scrivener-mcp: "readability, pacing, style, emotion"
+    jiayun: "basic metrics"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Content enhancement
+    scrivener-mcp: "12 types (filter words, verbs, show-don't-tell…)"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Semantic search (offline)
+    scrivener-mcp: "vector + analogies + dream mode"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Character consistency check
+    scrivener-mcp: "yes — finds contradictions across manuscript"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Character / plot memory
+    scrivener-mcp: "persistent profiles, plot threads, style guide"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Relationship graphs
+    scrivener-mcp: "HMS triplets + optional Neo4j"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Multi-agent analysis
+    scrivener-mcp: "roundtable critique with specialised agents"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Story structure analysis
+    scrivener-mcp: "yes (requires Neo4j)"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Token optimisation
+    scrivener-mcp: "progressive skill loading, compact JSON, sliding window reads"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Batch document operations
+    scrivener-mcp: "yes"
+    jiayun: "partial"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Export / compilation
+    scrivener-mcp: "yes — multiple formats"
+    jiayun: "basic"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Windows support
+    scrivener-mcp: "full path handling + .scrivx discovery"
+    jiayun: "partial"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: Install method
+    scrivener-mcp: "npm · Homebrew · Docker · Smithery"
+    jiayun: "manual clone"
+    zaphodsdad: "manual clone"
+    others: "varies"
+
+  - label: Published to npm
+    scrivener-mcp: "yes (`npm i -g scrivener-mcp`)"
+    jiayun: "no"
+    zaphodsdad: "no"
+    others: "no"
+
+  - label: License
+    scrivener-mcp: "AGPL-3.0 / commercial dual-license"
+    jiayun: "MIT"
+    zaphodsdad: "—"
+    others: "varies"
+
+  - label: Active development
+    scrivener-mcp: "weekly"
+    jiayun: "monthly"
+    zaphodsdad: "stale"
+    others: "stale"
+
+  - label: Community
+    scrivener-mcp: "⭐ _stars_ · _forks_ forks · _issues_ issues"
+    jiayun: "⭐ _stars_"
+    zaphodsdad: "⭐ _stars_"
+    others: "minimal"

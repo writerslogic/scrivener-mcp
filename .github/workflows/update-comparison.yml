@@ -1,0 +1,118 @@
+name: Update Comparison Table
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update comparison table
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, re, subprocess, urllib.request, urllib.error
+
+          token = os.environ.get('GH_TOKEN', '')
+          headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'}
+
+          def gh_api(path):
+              req = urllib.request.Request(f'https://api.github.com/{path}', headers=headers)
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      return json.load(r)
+              except urllib.error.HTTPError:
+                  return {}
+
+          def days_since(iso_date):
+              from datetime import datetime, timezone
+              if not iso_date:
+                  return 9999
+              dt = datetime.fromisoformat(iso_date.replace('Z', '+00:00'))
+              return (datetime.now(timezone.utc) - dt).days
+
+          def activity_label(days):
+              if days <= 14:   return 'weekly'
+              if days <= 60:   return 'monthly'
+              if days <= 365:  return 'occasional'
+              return 'stale'
+
+          repos = {
+              'scrivener-mcp': 'writerslogic/scrivener-mcp',
+              'jiayun':        'jiayun-ai/scrivener-mcp',
+              'zaphodsdad':    'zaphodsdad/Scrivener-MCP',
+          }
+
+          stats = {}
+          for key, slug in repos.items():
+              data = gh_api(f'repos/{slug}')
+              stars    = data.get('stargazers_count', '?')
+              forks    = data.get('forks_count', '?')
+              issues   = data.get('open_issues_count', '?')
+              pushed   = data.get('pushed_at', '')
+              activity = activity_label(days_since(pushed))
+              stats[key] = {'stars': stars, 'forks': forks, 'issues': issues, 'activity': activity}
+
+          s = stats.get('scrivener-mcp', {})
+          j = stats.get('jiayun', {})
+          z = stats.get('zaphodsdad', {})
+
+          table = f"""| Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
+          |---------|:-:|:-:|:-:|:-:|
+          | Document read/write | 60+ tools | 29 tools | read-only | basic |
+          | RTF / rich text support | yes | no | no | no |
+          | Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
+          | Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |
+          | Semantic search (offline) | vector + analogies + dream mode | no | no | no |
+          | Character consistency check | yes | no | no | no |
+          | Character / plot memory | persistent profiles, plot threads, style guide | no | no | no |
+          | Relationship graphs | HMS triplets + optional Neo4j | no | no | no |
+          | Multi-agent analysis | roundtable critique with specialised agents | no | no | no |
+          | Story structure analysis | yes (requires Neo4j) | no | no | no |
+          | Token optimisation | progressive skill loading, compact JSON | no | no | no |
+          | Batch document operations | yes | partial | no | no |
+          | Export / compilation | yes — multiple formats | basic | no | no |
+          | Windows support | full path handling + .scrivx discovery | partial | no | no |
+          | Install method | npm · Homebrew · Docker · Smithery | manual clone | manual clone | varies |
+          | Published to npm | yes (`npm i -g scrivener-mcp`) | no | no | no |
+          | License | AGPL-3.0 / commercial dual-license | MIT | — | varies |
+          | Active development | {s.get('activity', '?')} | {j.get('activity', '?')} | {z.get('activity', '?')} | stale |
+          | Community | ⭐ {s.get('stars', '?')} · {s.get('forks', '?')} forks · {s.get('issues', '?')} issues | ⭐ {j.get('stars', '?')} | ⭐ {z.get('stars', '?')} | minimal |"""
+
+          # Dedent the table (strip leading spaces from template literal)
+          lines = [line.lstrip() for line in table.splitlines()]
+          table = '\n'.join(lines)
+
+          readme = open('README.md').read()
+          new_readme = re.sub(
+              r'<!-- comparison-start -->.*?<!-- comparison-end -->',
+              f'<!-- comparison-start -->\n{table}\n<!-- comparison-end -->',
+              readme,
+              flags=re.DOTALL
+          )
+
+          if new_readme == readme:
+              print('No changes to comparison table.')
+          else:
+              open('README.md', 'w').write(new_readme)
+              print('Comparison table updated.')
+          PYEOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet README.md || (
+            git add README.md &&
+            git commit -m "chore: update comparison table stats" &&
+            git push
+          )

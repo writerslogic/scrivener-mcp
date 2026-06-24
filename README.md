@@ -373,18 +373,29 @@ npm run typecheck    # Type checking only
 
 Several Scrivener MCP servers exist. Here's how they compare:
 
+<!-- comparison-start -->
 | Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
 |---------|:-:|:-:|:-:|:-:|
 | Document read/write | 60+ tools | 29 tools | read-only | basic |
+| RTF / rich text support | yes | no | no | no |
 | Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
-| Content enhancement | 12 types (filter words, verbs, show-don't-tell...) | no | no | no |
-| Semantic search | vector search + analogies + dream mode | no | no | no |
-| Character/plot memory | persistent profiles, plot threads, style guide | no | no | no |
-| Multi-agent analysis | roundtable critique with specialized agents | no | no | no |
+| Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |
+| Semantic search (offline) | vector + analogies + dream mode | no | no | no |
+| Character consistency check | yes | no | no | no |
+| Character / plot memory | persistent profiles, plot threads, style guide | no | no | no |
+| Relationship graphs | HMS triplets + optional Neo4j | no | no | no |
+| Multi-agent analysis | roundtable critique with specialised agents | no | no | no |
+| Story structure analysis | yes (requires Neo4j) | no | no | no |
+| Token optimisation | progressive skill loading, compact JSON | no | no | no |
+| Batch document operations | yes | partial | no | no |
+| Export / compilation | yes — multiple formats | basic | no | no |
 | Windows support | full path handling + .scrivx discovery | partial | no | no |
+| Install method | npm · Homebrew · Docker · Smithery | manual clone | manual clone | varies |
 | Published to npm | yes (`npm i -g scrivener-mcp`) | no | no | no |
+| License | AGPL-3.0 / commercial dual-license | MIT | — | varies |
 | Active development | weekly | monthly | stale | stale |
-| Community | 27+ stars, 9 forks, 30+ issues | 6 stars | 4 stars | minimal |
+| Community | ⭐ 27+ · 9 forks · 30+ issues | ⭐ 6 | ⭐ 4 | minimal |
+<!-- comparison-end -->
 
 ## Contributing
 
