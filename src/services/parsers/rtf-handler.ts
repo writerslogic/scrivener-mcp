@@ -141,12 +141,14 @@ export class RTFHandler {
 	 */
 	async parseRTF(rtfString: string): Promise<RTFContent> {
 		try {
-			// Try using the RTF parser library first
-			const doc = (await parseRTFAsync(rtfString)) as RTFParserDocument;
-			return this.convertRTFDocument(doc);
-		} catch {
-			// Fall back to enhanced manual parsing
 			return this.enhancedRTFParse(rtfString);
+		} catch {
+			try {
+				const doc = (await parseRTFAsync(rtfString)) as RTFParserDocument;
+				return this.convertRTFDocument(doc);
+			} catch {
+				return { plainText: '', formattedText: [] };
+			}
 		}
 	}
 
@@ -400,8 +402,29 @@ export class RTFHandler {
 				// Control word or special character
 				const controlMatch = content.slice(i).match(/^\\([a-z]+)(-?\d*)\s?/i);
 				if (controlMatch) {
-					tokens.push({ type: 'control', value: controlMatch[0] });
-					i += controlMatch[0].length;
+					const wordName = controlMatch[1].toLowerCase();
+					const wordParam = controlMatch[2];
+					if (wordName === 'par' || wordName === 'line' || wordName === 'sect') {
+						tokens.push({ type: 'text', value: '\n' });
+						i += controlMatch[0].length;
+					} else if (wordName === 'u' && wordParam) {
+						let code = parseInt(wordParam, 10);
+						if (code < 0) code += 65536;
+						tokens.push({ type: 'text', value: String.fromCodePoint(code) });
+						i += controlMatch[0].length;
+						// Skip one ASCII fallback char (\uc1 assumed — near-universal in practice)
+						if (
+							i < content.length &&
+							content[i] !== '\\' &&
+							content[i] !== '{' &&
+							content[i] !== '}'
+						) {
+							i++;
+						}
+					} else {
+						tokens.push({ type: 'control', value: controlMatch[0] });
+						i += controlMatch[0].length;
+					}
 				} else if (content[i + 1] === "'") {
 					// Hex character
 					const hex = content.slice(i + 2, i + 4);
