@@ -1,8 +1,9 @@
-FROM node:22-slim
+FROM node:22.12.0-slim
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+# postinstall disabled via SCRIVENER_SKIP_POSTINSTALL; scripts skipped intentionally
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY . .
@@ -10,5 +11,7 @@ RUN npm run build
 
 ENV NODE_ENV=production
 ENV SCRIVENER_SKIP_POSTINSTALL=true
+
+USER node
 
 ENTRYPOINT ["node", "dist/index.js"]
