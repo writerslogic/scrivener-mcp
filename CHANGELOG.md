@@ -1,160 +1,178 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are generated from the commit history.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
+[Conventional Commits](https://www.conventionalcommits.org/).
+## [0.6.0] - 2026-06-24
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Added
+- Onboarding — discover_projects tool, startup capability log, writer-friendly errors
+- Atomic writes and pre-write backup for document safety
 
+### Changed
+- Remove 11.5K lines of dead code -- unused enterprise/, monitoring/, resilience/, openai-service-enhanced, duplicate handler exports
+
+### Documentation
+- Expand comparison table to 19 rows with weekly auto-update workflow
+- Feature HMS semantic search, relationship engine, and new guides in README and architecture
+
+### Fixed
+- Replace silent bare catches with debug logging across handlers
+- Embed full tool schemas in use_skill response for clients without tools/list_changed
+- RTF handler — preserve paragraph breaks and fix non-ASCII character doubling
+## [0.5.2] - 2026-06-17
+
+### Added
+- Dual-write relationship engine with HMS triplets and Neo4j, 6 new MCP tools
+- Add comparison table, Homebrew formula, community post drafts, registry submissions
+
+### Documentation
+- Update HMS references from @writerslogic/hms-native to holographic-memory
+- Fix 15 documentation issues -- accuracy, missing features, troubleshooting, token optimization guide
+- Rewrite forum post for L&L audience with WritersProof pairing
+
+### Fixed
+- Audit fixes for memory-handlers, relationship-handlers, relationship-engine -- error handling, null safety, dead code removal, memory cap
+- Guard holographic-memory import to prevent crash when native module not installed (#45)
+- Update HMS dependency from @writerslogic/hms-native to holographic-memory
+- Correct HMS package name to @writerslogic/hms-native, remove hardcoded dev paths
+- Restore dynamic license badge, add node version, issues, and stars badges
+- Replace broken license badge with static shield, move MseeP into badge row
+- Use theme-aware logo (black on light, white on dark)
+## [0.5.1] - 2026-06-11
+
+### Added
+- JS fallback vector engine when @hms/native is not installed
+
+### Documentation
+- Add JS fallback engine to changelog
+
+### Fixed
+- Improve JS fallback engine with FNV-1a hashing, stopwords, k-means++ clustering, ESM-safe import, fresh IDF on query
 ## [0.5.0] - 2026-06-08
 
-### Security
-- Fix 10 command injection vulnerabilities: shell exec replaced with execFile/execFileSync across auto-installer, adaptive-timeout, condition-waiter, shared-patterns, permission-manager, ai-config-wizard.
-- Fix 4 SQL/Cypher injection vulnerabilities: identifier escaping in query builders, FTS5 sanitization, Neo4j label/relationship validation.
-- Fix 5 path traversal vulnerabilities: validation in RTF handler, setup wizard, project loader.
-- Fix ReDoS in search service RegExp and RTF parser nested regex (replaced with iterative parser).
-- Fix unsafe JSON-LD deserialization with schema validation.
-- Restrict dashboard CORS from wildcard to localhost.
-- Add API key masking in log output.
-- Resolve all 31 npm dependency vulnerabilities (0 remaining).
-
 ### Added
-- **Skill-based progressive tool registration**: only 6 tools at startup instead of 58. Skills hydrate on demand via `list_skills` and `use_skill` meta-tools with `sendToolListChanged` notifications. ~94% reduction in initial token overhead.
-- **Sliding window reads**: `read_document` accepts `offset` and `limit` (word-based) for large manuscripts.
-- **Flattened binder output**: `get_structure` defaults to compact `[id, title, type, depth, wordCount, hasChildren]` array format.
-- **Paginated document listing**: `get_all_documents` with `offset`/`limit` (default 50).
-- **`find_document` tool**: search by title pattern without fetching the full binder tree.
-- **Summary-first analysis**: `analyze_document` returns compact scores + top 3 issues instead of full JSON blob.
-- **Response formatter**: null stripping, error masking, large payload spill to disk with tracker IDs.
-- **Compilation disk spill**: compiled manuscripts over 4K chars write to temp file, return metadata + path.
-- **JS fallback vector engine**: semantic search, analogies, and dream mode work without `holographic-memory`. Uses TF-IDF random-projection vectors with FNV-1a hashing, stopword filtering, log-normalized TF, k-means++ clustering. Native Rust engine is used transparently when available.
-- **API key auto-discovery**: checks `~/.env`, `~/.openai/key`, `~/.scrivener-mcp/.env`, and macOS Keychain.
-- **Multiple install methods**: npm, npx, Smithery, GitHub direct, Docker.
-- **Smithery registry support** (`smithery.yaml`).
-- **Dockerfile** for containerized deployment.
-- **`COMMERCIAL_LICENSE.md`** for dual-license (AGPL-3.0 + commercial).
-- **Windows Scrivener path discovery** (PR #17): case-insensitive .scrivx resolution, drive-letter path preservation.
-- **Actionable handler error messages** (PR #16): document-not-found guidance, .scrivx path acceptance.
+- Add sliding window (offset/limit) to read_document for large manuscript support
+- Token-optimized response formatting with null stripping, minification, large payload spill, and error masking
+- Progressive skill-based tool registration with list_skills and use_skill meta-tools
+- Add multiple install methods, API key auto-discovery, Smithery and Docker support
+- Add Windows Scrivener project path discovery (#17)
+
+### Documentation
+- Substantially expand getting-started and writing-with-ai guides
+- Add getting-started, writing-with-ai, architecture, and contributing guides
 
 ### Fixed
-- 88 audit findings across 67 files (25 critical, 63 high severity).
-- Race conditions: re-entrancy guards on scheduler, context-sync, memory-redis, singleton initialization, transaction state.
-- Lock-free structures: removed fake CAS loops, added iteration limits, resize guard.
-- Silent error handling: mock Math.random() recovery replaced with honest returns, floating promises caught, error context preserved.
-- Timer leaks: intervals stored and cleared on shutdown in adaptive-memory, enhanced-logger, langchain-continuous-learning.
-- N+1 queries: batched Neo4j queries, parallelized Redis operations, Promise.all for batch analysis and word counts.
-- Performance: busy-wait replaced with async sleep, O(n^2) algorithms replaced with map lookups, unbounded caches capped.
-- Stub implementations replaced: real disk/network metrics, real HTTP health checks, real document content reads.
-- `console.warn` on stdout in connection-pool replaced with stderr.
+- Remove blind JSON compaction from dispatcher to prevent prose mangling
+- Resolve duplicate tool names and ensure sendToolListChanged fires for all tiers
+- Replace console.warn with stderr in connection-pool; polish README
+- Improve handler setup error guidance (#16)
+- Combine release creation and tarball upload into single step
 
-### Changed
-- License changed from MIT to AGPL-3.0 with commercial dual-license option.
-- Tool descriptions trimmed to under 40 characters with shared schema definitions.
-- JSON outputs use `compact()` (no indentation, nulls stripped) for data responses.
-- Search results return 100-char snippets instead of full content.
-- `enhance_content` returns "No changes suggested" instead of echoing full text on no-op.
-- Postinstall auto-configures Claude Desktop silently (no wizard prompts).
-- Setup wizard detects Claude Desktop, Claude Code, and Cursor.
-- Dead tier-based registration code removed (handlers/index.ts: 149 lines to 7).
+### Performance
+- Compact JSON outputs, flatten structure, paginate documents, trim search, summary-first analysis, find_document tool, compilation spill, dead code cleanup
+- Shared schema defs, stripped self-evident descriptions, sub-40-char tool descriptions
+- Lazy tool registration with tiers and trimmed descriptions to reduce token overhead
 
+### Security
+- Fix 88 audit findings across 67 files; resolve all critical and high issues
+## [0.4.2] - 2026-06-03
+
+### Fixed
+- Restore NPM_TOKEN for npm publish auth with OIDC provenance
+## [0.4.1] - 2026-06-03
+
+### Fixed
+- Remove NPM_TOKEN override to allow OIDC trusted publishing; update repo URLs to writerslogic org
 ## [0.4.0] - 2026-06-03
 
+### Added
+- V0.4.0 - Rust-native HMS, critical bug fixes, repo cleanup
+- Replace simplified placeholders with production-ready AI and memory logic
+- Migrate HHM core to native Rust HMS crate for high-performance parallelism
+- Implement robust NLP-based enhancement logic using compromise
+- Integrate HHM semantic memory into core document lifecycle
+- Add Map and Set support to JSON serialization utilities
+- Implement holographic hyperdimensional memory system with LangChain integration
+
+### Changed
+- Remove deprecated TS HHM modules replaced by HMS native Rust engine
+- Remove legacy implementation artifacts
+
 ### Fixed
-- **Critical: Logging corrupts JSON-RPC stream** (#3, #6, #7, #8) - All logging now routes to stderr instead of stdout, which was causing Claude Desktop to fail with JSON parse errors and lose state between tool calls.
-- **Critical: Tool results invisible to MCP clients** (#7) - Handler responses were attaching structured payloads in a non-standard `data` property on text content blocks, which clients silently drop. All ~40 locations now serialize payloads into the `text` field per the MCP spec.
-- **`update_metadata` ignores custom metadata** (#5) - The `customMetadata` parameter is now accepted in the tool schema and wired through to `MetadataManager.updateCustomMetadata()`.
-- Circuit breaker fix in HMS native module.
-- SQL injection fix in database layer.
-- Stale import fixes and type cleanup removing `as any` casts.
+- Use npm trusted publishing with OIDC provenance
+- Remove test from prepublishOnly to prevent publish failure
+- Allow CI to pass with pre-existing test failures
+- Make @hms/native optional with type stub for CI builds
+- Add --legacy-peer-deps for CI peer dependency conflict
+- Resolve integration bugs and circular dependencies for native HMS
+- Prevent resource leak in DocumentManager by clearing interval
+- Eliminate TypeScript 'any' warnings and enhance LangChain integration
+- Eliminate all TypeScript 'unexpected any' warnings across codebase
+- Resolve CI test failures and TypeScript errors
+- Resolve all CI pipeline errors
+- Resolve CI pipeline failures and improve build stability
+- Resolve CI pipeline failures and improve build stability
+
+### Performance
+- Upgrade to HMS v2.0 with Rust-native semantic engine and persistence
+## [0.3.4] - 2025-09-09
 
 ### Added
-- **Rust-native Holographic Memory System (HMS) v2.0** with napi-rs bindings.
-  - `ts-rs` + `schemars` auto-generate TypeScript types and JSON schemas from Rust structs.
-  - Generated types: `ConceptCandidate`, `RetrievalResult`, `TextMetrics`, `MemorizeBatchItem`, `HmsError`.
-  - Batch memorize API (`memorizeBatch`) with rayon parallel encoding.
-  - Zero-copy Buffer ingestion (`memorizeTextBuffer`) avoiding UTF-8 copy at the napi boundary.
-  - File path shunting (`memorizeFile`) via memmap2.
-  - `thiserror`-based `HmsError` enum with JSON-RPC error codes.
-  - Structured `traceId` support on key napi methods with `tracing` crate instrumentation.
-- **Fractal Narrative Memory** - Multi-scale document segmentation (micro/meso/macro) with graph-boosted retrieval.
-- Generated JSON schemas loaded at startup for HMS-facing MCP tool definitions.
-- `memorizeTextBuffer` wrapper; document write handler uses zero-copy path for content > 10KB.
+- Replace static timeouts with intelligent condition-based waiting system
+## [0.3.3] - 2025-09-08
+
+### Added
+- Add complete auto-installation system for BullMQ and LangChain
+## [0.3.2] - 2025-09-07
+
+### Added
+- Integrate SQLite and Neo4j databases throughout application
+- Enhance writing prompts with intelligent context-aware generation
+- Integrate SQLite and Neo4j databases for enhanced project data management
 
 ### Changed
-- `indexSegments` calls `memorizeBatch` once per scale instead of looping `memorizeText` per segment.
-- 11 `args as unknown as XxxArgs` double casts in fractal-memory-handlers replaced with typed extractors (`getStringArg`, `getOptionalNumberArg`, etc.).
-- `readFileSync`/`writeFileSync` in config-manager, first-run, and ai-config-wizard converted to `fs/promises`.
-- 18 `Date.now()+Math.random()` ID patterns replaced with `crypto.randomUUID()`.
-- `RetrievalResult` renamed to `FractalRetrievalResult` in fractal-narrative-memory; `TextMetrics`/`getTextMetrics` renamed to `WritingTextMetrics`/`getWritingTextMetrics` in text-metrics to avoid collisions with generated HMS types.
-- `registerHHMHandlers(_server: any)` now properly typed with `Server` from `@modelcontextprotocol/sdk`.
+- Uniform utility usage and standardized error handling
 
-## [0.3.0] - 2024-01-04
+### Fixed
+- Resolve all critical ESLint errors and ensure clean TypeScript compilation
+## [0.3.1] - 2025-09-04
 
-### Added
-- **Memory Management System**
-  - Persistent project memory stored in `.ai-memory` folder within each project
-  - Character profiles with relationships and arc tracking
-  - Plot thread management with status tracking
-  - Style guide for maintaining consistent voice and tone
-  - Writing statistics and progress tracking
-  - Automatic backups with 7-day history
+### Documentation
+- Add comprehensive test coverage report
+- Add comprehensive feature demo guide
+- Comprehensive documentation for v0.3.0 features
 
-- **Advanced Content Analysis**
-  - Deep writing metrics (Flesch scores, readability grades)
-  - Style analysis (sentence variety, vocabulary complexity)
-  - Structure analysis (scene breaks, chapters, pacing)
-  - Quality indicators (clichés, filter words, repetitiveness)
-  - Emotional analysis and tension tracking
-  - Actionable writing suggestions
-
-- **Content Enhancement Engine**
-  - 12+ enhancement types for prose improvement
-  - Filter word elimination
-  - Verb strengthening
-  - Sentence variation
-  - Sensory detail enhancement
-  - Show don't tell conversions
-  - Pacing adjustments
-  - Content expansion/condensing
-
-- **New MCP Tools**
-  - `deep_analyze_content` - Comprehensive content analysis
-  - `enhance_content` - Apply writing improvements
-  - `save_character_profile` - Store character data
-  - `get_character_profiles` - Retrieve characters
-  - `update_style_guide` - Set writing preferences
-  - `get_style_guide` - Get style settings
-  - `save_plot_thread` - Track plot lines
-  - `get_plot_threads` - View plot threads
-  - `get_writing_stats` - Project statistics
-  - `export_project_memory` - Export all memory
-
-### Changed
-- `analyze_document` now uses the new ContentAnalyzer for deeper insights
-- `critique_document` provides more detailed, actionable feedback
-
-### Technical
-- Added TypeScript modules: `memory-manager.ts`, `content-analyzer.ts`, `content-enhancer.ts`
-- Memory data persists within Scrivener projects for portability
-- Automatic 5-minute save intervals for memory updates
-
-## [0.2.0] - 2024-01-04
+### Fixed
+- Achieve zero lint errors with proper test organization
+- Zero lint errors, 100% test coverage, full TypeScript compliance
+- Remove duplicate installation section in README
+## [0.3.0] - 2025-09-04
 
 ### Added
-- Automated Claude Desktop setup on installation
-- Postinstall script for automatic configuration
-- Setup and uninstall scripts for easy management
+- Add AI-powered content analysis, memory management, and writing enhancement
+## [0.2.0] - 2025-09-04
 
-## [0.1.x] - 2024-01-03
+### Added
+- Add automated Claude Desktop setup on install
 
-### Initial Release
-- Core Scrivener project operations
-- RTF parsing and generation
-- Basic content analysis
-- Document CRUD operations
-- Project structure navigation
+### Documentation
+- Add installation and configuration instructions
+- Improve package description
+## [0.1.4] - 2025-09-04
 
-[0.5.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/writerslogic/scrivener-mcp/compare/v0.1.0...v0.2.0
-[0.1.x]: https://github.com/writerslogic/scrivener-mcp/releases/tag/v0.1.0
+### Fixed
+- Change package name to scrivener-mcp for npm publishing
+## [0.1.3] - 2025-09-04
+
+### Fixed
+- Add --access public flag for scoped npm package publishing
+## [0.1.2] - 2025-09-04
+
+### Fixed
+- Remove package-lock.json from gitignore for CI/CD
+## [0.1.1] - 2025-09-04
+
+### Fixed
+- Resolve critical bugs and achieve zero lint errors
+
