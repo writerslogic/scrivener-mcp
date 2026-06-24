@@ -5,18 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
-### Added
-- Add opt-in eager skill registration via SCRIVENER_MCP_EAGER_TOOLS
-
 ### Documentation
-- Update changelog [skip ci]
-- Update changelog [skip ci]
-- Update changelog [skip ci]
-- Update changelog [skip ci]
 - Update changelog [skip ci]
 ## [0.6.0] - 2026-06-24
 
 ### Added
+- Add opt-in eager skill registration via SCRIVENER_MCP_EAGER_TOOLS
 - Onboarding — discover_projects tool, startup capability log, writer-friendly errors
 - Atomic writes and pre-write backup for document safety
 
@@ -24,6 +18,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Remove 11.5K lines of dead code -- unused enterprise/, monitoring/, resilience/, openai-service-enhanced, duplicate handler exports
 
 ### Documentation
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
 - Expand comparison table to 19 rows with weekly auto-update workflow
 - Feature HMS semantic search, relationship engine, and new guides in README and architecture
 
