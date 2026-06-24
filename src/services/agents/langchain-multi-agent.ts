@@ -11,12 +11,12 @@ import {
 	unique,
 	validateInput,
 } from '../../utils/common.js';
-import { AdvancedLangChainFeatures } from '../ai/langchain-advanced-features.js';
-import { EnhancedLangChainService } from '../ai/langchain-service-enhanced.js';
+import type { AdvancedLangChainFeatures } from '../ai/langchain-advanced-features.js';
+import type { EnhancedLangChainService } from '../ai/langchain-service-enhanced.js';
 
 // Import the specialized agents
+import type { SpecializedAgent } from './specialized/index.js';
 import {
-	SpecializedAgent,
 	WriterAgent,
 	EditorAgent,
 	ResearcherAgent,
@@ -78,10 +78,10 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 		this.advanced = advanced;
 		this.logger = Logger('multi-agent-orchestrator');
 		this.agents = new Map();
-		
+
 		// Initialize coordinator
 		this.coordinator = new CoordinatorAgent(langchain, advanced);
-		
+
 		// Initialize all specialized agents
 		this.initializeAgents();
 
@@ -92,12 +92,7 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 	}
 
 	private initializeAgents(): void {
-		const agentClasses = [
-			WriterAgent,
-			EditorAgent,
-			ResearcherAgent,
-			CriticAgent,
-		];
+		const agentClasses = [WriterAgent, EditorAgent, ResearcherAgent, CriticAgent];
 
 		for (const AgentClass of agentClasses) {
 			const agent = new AgentClass(this.langchain, this.advanced);
@@ -121,11 +116,14 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 		styleGuide?: StyleGuide
 	): Promise<CollaborativeResult> {
 		const startTime = performance.now();
-		
+
 		try {
-			validateInput({ document }, {
-				document: { type: 'object', required: true },
-			});
+			validateInput(
+				{ document },
+				{
+					document: { type: 'object', required: true },
+				}
+			);
 
 			const finalConfig: MultiAgentConfig = {
 				enabledAgents: config.enabledAgents || Array.from(this.agents.keys()),
@@ -183,18 +181,21 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 	): Promise<DiscussionRound[]> {
 		const rounds: DiscussionRound[] = [];
 		const activeAgents = config.enabledAgents
-			.map(name => this.agents.get(name))
+			.map((name) => this.agents.get(name))
 			.filter((a): a is SpecializedAgent => a !== undefined);
 
-		let sharedContext = `Initial findings for "${document.title}":\n` + 
-			analyses.map(a => `${a.agentId} suggests: ${a.reasoning}`).join('\n');
+		let sharedContext = `Initial findings for "${document.title}":\n${analyses
+			.map((a) => `${a.agentId} suggests: ${a.reasoning}`)
+			.join('\n')}`;
 
 		for (let r = 1; r <= config.maxDiscussionRounds; r++) {
 			this.logger.debug(`Starting Roundtable Round ${r}`);
-			
+
 			// Each agent contributes based on the current shared context (including previous round critiques)
 			const contributions = await Promise.all(
-				activeAgents.map(agent => agent.discussWithRoundtable(sharedContext, document.title))
+				activeAgents.map((agent) =>
+					agent.discussWithRoundtable(sharedContext, document.title)
+				)
 			);
 
 			const roundResult = await this.coordinator.analyzeRound(contributions, sharedContext);
@@ -226,9 +227,9 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 		styleGuide?: StyleGuide
 	): Promise<AgentAnalysis[]> {
 		const startTime = performance.now();
-		
+
 		const activeAgents = enabledAgentNames
-			.map(name => this.agents.get(name))
+			.map((name) => this.agents.get(name))
 			.filter((agent): agent is SpecializedAgent => agent !== undefined);
 
 		if (activeAgents.length === 0) {
@@ -237,7 +238,7 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 
 		this.logger.debug('Starting individual analysis phase', {
 			agentCount: activeAgents.length,
-			agentNames: activeAgents.map(a => a.persona.name),
+			agentNames: activeAgents.map((a) => a.persona.name),
 		});
 
 		const analysisPromises = activeAgents.map(async (agent) => {
@@ -284,15 +285,15 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 
 		// Each agent critiques others' analyses
 		const agents = Array.from(this.agents.values());
-		
+
 		for (let round = 1; round <= Math.min(maxRounds, 2); round++) {
 			const roundContributions = [];
-			
+
 			for (const agent of agents) {
 				for (const analysis of analyses) {
 					// Don't critique your own analysis
 					if (analysis.agentId === agent.persona.name) continue;
-					
+
 					try {
 						const critique = await agent.critique(analysis, document);
 						roundContributions.push({
@@ -303,7 +304,10 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 							timestamp: Date.now(),
 						});
 					} catch (error) {
-						this.logger.warn(`Critique failed for ${agent.persona.name} on ${analysis.agentId}`, { error });
+						this.logger.warn(
+							`Critique failed for ${agent.persona.name} on ${analysis.agentId}`,
+							{ error }
+						);
 					}
 				}
 			}
@@ -337,7 +341,7 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 	): Promise<DiscussionRound[]> {
 		const startTime = performance.now();
 		const agents = Array.from(this.agents.values());
-		
+
 		if (agents.length < 2) {
 			this.logger.warn('Not enough agents for discussion', { agentCount: agents.length });
 			return [];
@@ -352,23 +356,28 @@ export class MultiAgentLangChainOrchestrator extends EventEmitter {
 		const context = `
 Document: ${document.title}
 Initial Analyses Summary:
-${analyses.map(a => 
-	`${a.agentId}: Score ${a.overallScore}/100, Priority: ${a.priority}, Key findings: ${a.findings.slice(0, 2).map(f => f.aspect).join(', ')}`
-).join('\n')}
+${analyses
+	.map(
+		(a) =>
+			`${a.agentId}: Score ${a.overallScore}/100, Priority: ${a.priority}, Key findings: ${a.findings
+				.slice(0, 2)
+				.map((f) => f.aspect)
+				.join(', ')}`
+	)
+	.join('\n')}
 		`.trim();
 
 		// Facilitate discussion between pairs of agents
 		const discussionPromises: Promise<DiscussionRound[]>[] = [];
-		
+
 		for (let i = 0; i < agents.length - 1; i++) {
-			for (let j = i + 1; j < Math.min(agents.length, i + 3); j++) { // Limit pairs to prevent explosion
+			for (let j = i + 1; j < Math.min(agents.length, i + 3); j++) {
+				// Limit pairs to prevent explosion
 				const agent1 = agents[i];
 				const agent2 = agents[j];
-				
+
 				const topic = `Document analysis and improvement recommendations for "${document.title}"`;
-				discussionPromises.push(
-					agent1.discussWith(agent2, topic, context, maxRounds)
-				);
+				discussionPromises.push(agent1.discussWith(agent2, topic, context, maxRounds));
 			}
 		}
 
@@ -401,31 +410,38 @@ ${analyses.map(a =>
 		const individualPerspectives: CollaborativeResult['individualPerspectives'] = {};
 		for (const analysis of individualAnalyses) {
 			individualPerspectives[analysis.agentId] = {
-				uniqueInsights: analysis.findings.map(f => f.aspect),
-				specializedRecommendations: analysis.findings.flatMap(f => f.suggestions),
-				confidenceLevel: analysis.findings.reduce((sum, f) => sum + f.confidence, 0) / analysis.findings.length,
+				uniqueInsights: analysis.findings.map((f) => f.aspect),
+				specializedRecommendations: analysis.findings.flatMap((f) => f.suggestions),
+				confidenceLevel:
+					analysis.findings.reduce((sum, f) => sum + f.confidence, 0) /
+					analysis.findings.length,
 			};
 		}
 
 		// Calculate metadata
 		const participatingAgents = unique([
-			...individualAnalyses.map(a => a.agentId),
-			...discussionRounds.flatMap(r => r.contributions.map(c => c.agentId))
+			...individualAnalyses.map((a) => a.agentId),
+			...discussionRounds.flatMap((r) => r.contributions.map((c) => c.agentId)),
 		]);
 
-		const allAgreements = unique(discussionRounds.flatMap(r => r.agreements));
-		const consensusLevel = Math.min(allAgreements.length / Math.max(participatingAgents.length, 1), 1);
-		
+		const allAgreements = unique(discussionRounds.flatMap((r) => r.agreements));
+		const consensusLevel = Math.min(
+			allAgreements.length / Math.max(participatingAgents.length, 1),
+			1
+		);
+
 		const complexityScore = Math.min(
-			(individualAnalyses.length * 20 + discussionRounds.length * 15) / 100 * 100,
+			((individualAnalyses.length * 20 + discussionRounds.length * 15) / 100) * 100,
 			100
 		);
 
 		const result: CollaborativeResult = {
 			consensus: {
 				agreements: consensus,
-				sharedInsights: unique(discussionRounds.flatMap(r => r.newInsights)),
-				recommendedActions: synthesizedAnalysis.findings.flatMap(f => f.suggestions).slice(0, 10),
+				sharedInsights: unique(discussionRounds.flatMap((r) => r.newInsights)),
+				recommendedActions: synthesizedAnalysis.findings
+					.flatMap((f) => f.suggestions)
+					.slice(0, 10),
 			},
 			individualPerspectives,
 			conflictResolution: {
@@ -455,20 +471,26 @@ ${analyses.map(a =>
 	}
 
 	getAvailableAgents(): Array<{ name: string; role: string; expertise: string[] }> {
-		return Array.from(this.agents.values()).map(agent => ({
+		return Array.from(this.agents.values()).map((agent) => ({
 			name: agent.persona.name,
 			role: agent.persona.role,
 			expertise: agent.persona.expertise,
 		}));
 	}
 
-	getAgentPerformanceMetrics(): Record<string, Record<string, { avgTime: number; callCount: number; totalTime: number }>> {
-		const metrics: Record<string, Record<string, { avgTime: number; callCount: number; totalTime: number }>> = {};
-		
+	getAgentPerformanceMetrics(): Record<
+		string,
+		Record<string, { avgTime: number; callCount: number; totalTime: number }>
+	> {
+		const metrics: Record<
+			string,
+			Record<string, { avgTime: number; callCount: number; totalTime: number }>
+		> = {};
+
 		for (const [name, agent] of this.agents) {
 			metrics[name] = agent.getPerformanceMetrics();
 		}
-		
+
 		return metrics;
 	}
 }

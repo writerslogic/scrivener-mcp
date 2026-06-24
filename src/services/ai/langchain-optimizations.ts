@@ -4,7 +4,7 @@
  */
 
 import crypto from 'crypto';
-import { Document as LangchainDocument } from '@langchain/core/documents';
+import type { Document as LangchainDocument } from '@langchain/core/documents';
 import { getLogger } from '../../core/logger.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';

@@ -14,17 +14,24 @@ export class DialogueEnhancer {
 
 			// Analyze emotion in dialogue
 			const emotion = this.analyzeDialogueEmotion(dialogue);
-			
+
 			// Find and enhance dialogue tags
 			const contextBefore = content.substring(Math.max(0, match.index! - 50), match.index!);
-			const contextAfter = content.substring(match.index! + fullMatch.length, match.index! + fullMatch.length + 50);
-			
-			const enhancedTag = this.selectContextualDialogueTag(emotion, contextBefore, contextAfter);
-			
+			const contextAfter = content.substring(
+				match.index! + fullMatch.length,
+				match.index! + fullMatch.length + 50
+			);
+
+			const enhancedTag = this.selectContextualDialogueTag(
+				emotion,
+				contextBefore,
+				contextAfter
+			);
+
 			if (enhancedTag) {
 				const original = fullMatch + (contextAfter.match(/^\s*,?\s*\w+/) || [''])[0];
-				const replacement = fullMatch + ', ' + enhancedTag;
-				
+				const replacement = `${fullMatch}, ${enhancedTag}`;
+
 				changes.push({
 					type: 'dialogue-enhancement',
 					original,
@@ -32,7 +39,7 @@ export class DialogueEnhancer {
 					reason: `Enhanced dialogue tag based on ${emotion} emotion`,
 					location: { start: match.index!, end: match.index! + original.length },
 				});
-				
+
 				result = result.replace(original, replacement);
 			}
 		}
@@ -46,11 +53,11 @@ export class DialogueEnhancer {
 			sadness: [/sorry|sad|cry|tears|hurt/i, /\.\.\./],
 			excitement: [/wow|amazing|fantastic|great/i, /!/],
 			fear: [/scared|afraid|terrified|worried/i, /\?/],
-			neutral: [/.*/]
+			neutral: [/.*/],
 		};
 
 		for (const [emotion, patterns] of Object.entries(emotionPatterns)) {
-			if (patterns.some(pattern => pattern.test(dialogue))) {
+			if (patterns.some((pattern) => pattern.test(dialogue))) {
 				return emotion;
 			}
 		}
@@ -68,7 +75,7 @@ export class DialogueEnhancer {
 			sadness: ['he whispered', 'she murmured', 'he sighed', 'she sobbed'],
 			excitement: ['he exclaimed', 'she cheered', 'he shouted', 'she laughed'],
 			fear: ['he stammered', 'she trembled', 'he gulped', 'she shivered'],
-			neutral: ['he said', 'she replied', 'he noted', 'she observed']
+			neutral: ['he said', 'she replied', 'he noted', 'she observed'],
 		};
 
 		const tags = dialogueTags[emotion] || dialogueTags.neutral;

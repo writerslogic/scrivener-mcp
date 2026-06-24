@@ -74,7 +74,7 @@ export class RTFHandler {
 	 * Returns the content between the outermost braces, or null if not found.
 	 */
 	private findBraceGroup(input: string, keyword: string): string | null {
-		const idx = input.indexOf('{' + keyword);
+		const idx = input.indexOf(`{${keyword}`);
 		if (idx === -1) return null;
 
 		let depth = 0;
@@ -99,10 +99,10 @@ export class RTFHandler {
 	 */
 	private removeBraceGroup(input: string, keyword: string): string {
 		let result = input;
-		let searchFrom = 0;
-		// eslint-disable-next-line no-constant-condition
+		const searchFrom = 0;
+
 		while (true) {
-			const idx = result.indexOf('{' + keyword, searchFrom);
+			const idx = result.indexOf(`{${keyword}`, searchFrom);
 			if (idx === -1) break;
 
 			let depth = 0;

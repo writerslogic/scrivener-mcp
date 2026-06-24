@@ -115,7 +115,7 @@ export function formatError(error: unknown, operation?: string): string {
 		'[query]'
 	);
 	// Truncate
-	if (message.length > 200) message = message.slice(0, 197) + '...';
+	if (message.length > 200) message = `${message.slice(0, 197)}...`;
 
 	// Translate internal service names to writer-friendly language
 	const translations: [RegExp, string][] = [

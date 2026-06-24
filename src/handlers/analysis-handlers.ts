@@ -107,12 +107,11 @@ export const analyzeDocumentHandler: ToolDefinition = {
 						: ((i as Record<string, unknown>).description ?? JSON.stringify(i))
 				);
 
-			const summary =
-				`Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n` +
-				(topIssues.length > 0
+			const summary = `Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n${
+				topIssues.length > 0
 					? `Top issues:\n${topIssues.map((t: unknown) => `- ${t}`).join('\n')}\n`
-					: '') +
-				'[Full analysis available via deep_analyze_content]';
+					: ''
+			}[Full analysis available via deep_analyze_content]`;
 
 			return {
 				content: [
@@ -140,12 +139,11 @@ export const analyzeDocumentHandler: ToolDefinition = {
 						: ((i as Record<string, unknown>).description ?? JSON.stringify(i))
 				);
 
-			const summary =
-				`Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n` +
-				(topIssues.length > 0
+			const summary = `Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n${
+				topIssues.length > 0
 					? `Top issues:\n${topIssues.map((t: unknown) => `- ${t}`).join('\n')}\n`
-					: '') +
-				'[Full analysis available via deep_analyze_content]';
+					: ''
+			}[Full analysis available via deep_analyze_content]`;
 
 			return {
 				content: [
@@ -554,19 +552,16 @@ export const checkConsistencyHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text:
-							summary +
-							'\n\n' +
-							compact({
-								issues,
-								counts: {
-									total: issues.length,
-									errors: issues.filter((i) => i.severity === 'error').length,
-									warnings: issues.filter((i) => i.severity === 'warning').length,
-									info: issues.filter((i) => i.severity === 'info').length,
-								},
-								checkTypes,
-							}),
+						text: `${summary}\n\n${compact({
+							issues,
+							counts: {
+								total: issues.length,
+								errors: issues.filter((i) => i.severity === 'error').length,
+								warnings: issues.filter((i) => i.severity === 'warning').length,
+								info: issues.filter((i) => i.severity === 'info').length,
+							},
+							checkTypes,
+						})}`,
 					},
 				],
 			};
@@ -1046,11 +1041,11 @@ export const semanticSearchHandler: ToolDefinition = {
 					snippet:
 						typeof doc.content === 'string'
 							? doc.content.length > 100
-								? doc.content.slice(0, 100) + '...'
+								? `${doc.content.slice(0, 100)}...`
 								: doc.content
 							: typeof doc.text === 'string'
 								? doc.text.length > 100
-									? doc.text.slice(0, 100) + '...'
+									? `${doc.text.slice(0, 100)}...`
 									: doc.text
 								: '',
 					score: doc.score ?? doc.relevance ?? null,
@@ -1061,12 +1056,10 @@ export const semanticSearchHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text:
-							`Found ${trimmedResults.length} semantic matches\n\n` +
-							compact({
-								results: trimmedResults,
-								searchType: 'semantic',
-							}),
+						text: `Found ${trimmedResults.length} semantic matches\n\n${compact({
+							results: trimmedResults,
+							searchType: 'semantic',
+						})}`,
 					},
 				],
 			};
@@ -1123,15 +1116,13 @@ export const realtimeAssistanceHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text:
-							`Real-time ${assistanceType} assistance started\n\n` +
-							compact({
-								sessionId,
-								assistanceType,
-								documentId,
-								enhanced: true,
-								status: 'active',
-							}),
+						text: `Real-time ${assistanceType} assistance started\n\n${compact({
+							sessionId,
+							assistanceType,
+							documentId,
+							enhanced: true,
+							status: 'active',
+						})}`,
 					},
 				],
 			};

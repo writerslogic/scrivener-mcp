@@ -86,9 +86,9 @@ export const openProjectHandler: ToolDefinition = {
 			content: [
 				{
 					type: 'text',
-					text:
-						`Project opened: ${metadata.title || path.basename(projectPath)}\n\n` +
-						compact(metadata),
+					text: `Project opened: ${metadata.title || path.basename(projectPath)}\n\n${compact(
+						metadata
+					)}`,
 				},
 			],
 		};

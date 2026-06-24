@@ -278,8 +278,8 @@ export function cached<TArgs extends readonly unknown[], TReturn>(
 ) {
 	return function (
 		// Note: Using 'any' for decorator target - required for TypeScript decorator compatibility
-		_target: any, // Decorator target must be any per TypeScript spec 
-		_propertyKey: string, 
+		_target: any, // Decorator target must be any per TypeScript spec
+		_propertyKey: string,
 		descriptor: PropertyDescriptor
 	) {
 		const originalMethod = descriptor.value;

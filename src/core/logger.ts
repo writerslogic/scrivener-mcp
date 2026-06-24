@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Centralized logging system - utilizes common utilities
  */

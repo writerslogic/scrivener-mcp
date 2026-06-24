@@ -6,8 +6,8 @@ import {
 	type AgentPersona,
 	type DiscussionRound,
 } from './base-agent.js';
-import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
-import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
+import type { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
+import type { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
 import { truncate, unique } from '../../../utils/common.js';
 
 export class CoordinatorAgent extends SpecializedAgent {

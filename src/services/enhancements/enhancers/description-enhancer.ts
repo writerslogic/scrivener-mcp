@@ -1,5 +1,5 @@
 import nlp from 'compromise';
-import { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
+import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change } from '../content-enhancer.js';
 
@@ -37,7 +37,10 @@ export class DescriptionEnhancer {
 							reason: `Added descriptive adjective "${adjective}" to enhance "${noun.text}"`,
 							location: { start: 0, end: noun.text.length },
 						});
-						enhanced = enhanced.replace(new RegExp(`\\b${noun.text}\\b`, 'i'), enhanced_noun);
+						enhanced = enhanced.replace(
+							new RegExp(`\\b${noun.text}\\b`, 'i'),
+							enhanced_noun
+						);
 					}
 				}
 			}
@@ -81,11 +84,7 @@ export class DescriptionEnhancer {
 		return processedSentences.join(' ');
 	}
 
-	expandContent(
-		content: string,
-		changes: Change[],
-		targetLength?: number
-	): string {
+	expandContent(content: string, changes: Change[], targetLength?: number): string {
 		const sentences = splitIntoSentences(content);
 		const originalWordCount = content.split(/\s+/).length;
 		const target = targetLength || Math.floor(originalWordCount * 1.3);
@@ -120,7 +119,16 @@ export class DescriptionEnhancer {
 	}
 
 	private calculateGenericScore(noun: string): number {
-		const genericTerms = ['thing', 'stuff', 'item', 'object', 'place', 'area', 'spot', 'location'];
+		const genericTerms = [
+			'thing',
+			'stuff',
+			'item',
+			'object',
+			'place',
+			'area',
+			'spot',
+			'location',
+		];
 		let score = 0;
 
 		// Check for exact matches
@@ -150,37 +158,68 @@ export class DescriptionEnhancer {
 			person: {
 				positive: ['kind', 'gentle', 'wise', 'cheerful', 'confident'],
 				negative: ['stern', 'worried', 'tired', 'anxious', 'frustrated'],
-				neutral: ['tall', 'young', 'elderly', 'slender', 'robust']
+				neutral: ['tall', 'young', 'elderly', 'slender', 'robust'],
 			},
 			place: {
 				positive: ['beautiful', 'peaceful', 'bright', 'spacious', 'welcoming'],
 				negative: ['gloomy', 'cramped', 'abandoned', 'deteriorating', 'shadowy'],
-				neutral: ['large', 'small', 'distant', 'nearby', 'familiar']
+				neutral: ['large', 'small', 'distant', 'nearby', 'familiar'],
 			},
 			object: {
 				positive: ['pristine', 'elegant', 'valuable', 'useful', 'beautiful'],
 				negative: ['broken', 'worn', 'rusty', 'damaged', 'neglected'],
-				neutral: ['heavy', 'light', 'round', 'square', 'metallic']
+				neutral: ['heavy', 'light', 'round', 'square', 'metallic'],
 			},
 			default: {
 				positive: ['remarkable', 'impressive', 'wonderful', 'excellent', 'outstanding'],
 				negative: ['troublesome', 'difficult', 'problematic', 'concerning', 'unfortunate'],
-				neutral: ['typical', 'ordinary', 'common', 'regular', 'standard']
-			}
+				neutral: ['typical', 'ordinary', 'common', 'regular', 'standard'],
+			},
 		};
 
 		const categoryAdjectives = adjectiveMap[nounCategory] || adjectiveMap.default;
-		const moodAdjectives = categoryAdjectives[contextAnalysis.mood] || categoryAdjectives.neutral;
+		const moodAdjectives =
+			categoryAdjectives[contextAnalysis.mood] || categoryAdjectives.neutral;
 
 		return moodAdjectives[Math.floor(Math.random() * moodAdjectives.length)];
 	}
 
 	private categorizeNoun(noun: string): string {
 		const categories: Record<string, string[]> = {
-			person: ['man', 'woman', 'person', 'child', 'boy', 'girl', 'friend', 'stranger', 'neighbor'],
-			place: ['house', 'room', 'building', 'street', 'park', 'store', 'office', 'kitchen', 'garden'],
+			person: [
+				'man',
+				'woman',
+				'person',
+				'child',
+				'boy',
+				'girl',
+				'friend',
+				'stranger',
+				'neighbor',
+			],
+			place: [
+				'house',
+				'room',
+				'building',
+				'street',
+				'park',
+				'store',
+				'office',
+				'kitchen',
+				'garden',
+			],
 			object: ['car', 'book', 'table', 'chair', 'phone', 'computer', 'door', 'window', 'box'],
-			nature: ['tree', 'flower', 'mountain', 'river', 'sky', 'cloud', 'grass', 'stone', 'leaf']
+			nature: [
+				'tree',
+				'flower',
+				'mountain',
+				'river',
+				'sky',
+				'cloud',
+				'grass',
+				'stone',
+				'leaf',
+			],
 		};
 
 		for (const [category, words] of Object.entries(categories)) {
@@ -193,11 +232,19 @@ export class DescriptionEnhancer {
 
 	private analyzeContext(sentence: string): { mood: string; sceneType: string } {
 		const positiveWords = ['happy', 'bright', 'beautiful', 'wonderful', 'peaceful', 'joyful'];
-		const negativeWords = ['dark', 'sad', 'angry', 'frightened', 'worried', 'gloomy', 'terrible'];
+		const negativeWords = [
+			'dark',
+			'sad',
+			'angry',
+			'frightened',
+			'worried',
+			'gloomy',
+			'terrible',
+		];
 
 		const lowerSentence = sentence.toLowerCase();
-		const hasPositive = positiveWords.some(word => lowerSentence.includes(word));
-		const hasNegative = negativeWords.some(word => lowerSentence.includes(word));
+		const hasPositive = positiveWords.some((word) => lowerSentence.includes(word));
+		const hasNegative = negativeWords.some((word) => lowerSentence.includes(word));
 
 		let mood = 'neutral';
 		if (hasPositive && !hasNegative) mood = 'positive';
@@ -215,9 +262,9 @@ export class DescriptionEnhancer {
 
 		const lowerSentence = sentence.toLowerCase();
 
-		if (actionWords.some(word => lowerSentence.includes(word))) return 'action';
-		if (dialogueIndicators.some(indicator => sentence.includes(indicator))) return 'dialogue';
-		if (descriptionWords.some(word => lowerSentence.includes(word))) return 'description';
+		if (actionWords.some((word) => lowerSentence.includes(word))) return 'action';
+		if (dialogueIndicators.some((indicator) => sentence.includes(indicator))) return 'dialogue';
+		if (descriptionWords.some((word) => lowerSentence.includes(word))) return 'description';
 
 		return 'narrative';
 	}
@@ -239,20 +286,29 @@ export class DescriptionEnhancer {
 	private generateSensoryEnhancement(sceneType: string, context: { mood: string }): string {
 		const sensoryDetails: Record<string, Record<string, string[]>> = {
 			action: {
-				positive: [', his heart racing with excitement,', ', the wind rushing through his hair,'],
+				positive: [
+					', his heart racing with excitement,',
+					', the wind rushing through his hair,',
+				],
 				negative: [', his muscles aching with effort,', ', sweat stinging his eyes,'],
-				neutral: [', his footsteps echoing,', ', the sound of movement filling the air,']
+				neutral: [', his footsteps echoing,', ', the sound of movement filling the air,'],
 			},
 			dialogue: {
 				positive: [', her voice warm and melodic,', ', speaking in gentle tones,'],
-				negative: [', his voice tight with tension,', ', words spoken through gritted teeth,'],
-				neutral: [', her voice cutting through the silence,', ', speaking in measured tones,']
+				negative: [
+					', his voice tight with tension,',
+					', words spoken through gritted teeth,',
+				],
+				neutral: [
+					', her voice cutting through the silence,',
+					', speaking in measured tones,',
+				],
 			},
 			description: {
 				positive: [', bathed in golden sunlight,', ', the air fresh and clean,'],
 				negative: [', shrouded in shadow,', ', the air thick and oppressive,'],
-				neutral: [', lit by dim light,', ', the air still and quiet,']
-			}
+				neutral: [', lit by dim light,', ', the air still and quiet,'],
+			},
 		};
 
 		const sceneDetails = sensoryDetails[sceneType] || sensoryDetails.description;
@@ -290,20 +346,46 @@ export class DescriptionEnhancer {
 	private calculateSensoryScore(sentence: string): number {
 		const sensoryWords = [
 			// Sight
-			'bright', 'dark', 'colorful', 'shimmering', 'glowing', 'shadowy',
+			'bright',
+			'dark',
+			'colorful',
+			'shimmering',
+			'glowing',
+			'shadowy',
 			// Sound
-			'loud', 'quiet', 'echoing', 'whispered', 'roaring', 'crackling',
+			'loud',
+			'quiet',
+			'echoing',
+			'whispered',
+			'roaring',
+			'crackling',
 			// Smell
-			'fragrant', 'pungent', 'sweet', 'acrid', 'fresh', 'musty',
+			'fragrant',
+			'pungent',
+			'sweet',
+			'acrid',
+			'fresh',
+			'musty',
 			// Touch
-			'rough', 'smooth', 'cold', 'warm', 'soft', 'hard', 'wet', 'dry',
+			'rough',
+			'smooth',
+			'cold',
+			'warm',
+			'soft',
+			'hard',
+			'wet',
+			'dry',
 			// Taste
-			'sweet', 'bitter', 'sour', 'salty', 'spicy'
+			'sweet',
+			'bitter',
+			'sour',
+			'salty',
+			'spicy',
 		];
 
 		const words = sentence.toLowerCase().split(/\s+/);
-		const sensoryCount = words.filter(word => 
-			sensoryWords.some(sensory => word.includes(sensory))
+		const sensoryCount = words.filter((word) =>
+			sensoryWords.some((sensory) => word.includes(sensory))
 		).length;
 
 		return sensoryCount / words.length;
@@ -348,7 +430,7 @@ export class DescriptionEnhancer {
 			looked: ['gazed intently', 'glanced nervously', 'stared in wonder'],
 			turned: ['spun around quickly', 'rotated slowly', 'pivoted gracefully'],
 			opened: ['carefully unlocked', 'gently pushed open', 'forcefully threw open'],
-			closed: ['firmly shut', 'gently pulled closed', 'slammed shut']
+			closed: ['firmly shut', 'gently pulled closed', 'slammed shut'],
 		};
 
 		let result = sentence;

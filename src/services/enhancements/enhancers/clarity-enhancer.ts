@@ -1,5 +1,5 @@
 import nlp from 'compromise';
-import { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
+import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change, EnhancementOptions } from '../content-enhancer.js';
 
@@ -109,11 +109,11 @@ export class ClarityEnhancer {
 					changes.push({
 						type: 'flow-improvement',
 						original: sentence,
-						replacement: sentence + ' ' + transition,
+						replacement: `${sentence} ${transition}`,
 						reason: `Added transition "${transition}" to improve flow`,
 						location: { start: 0, end: sentence.length },
 					});
-					modifiedSentence = sentence + ' ' + transition;
+					modifiedSentence = `${sentence} ${transition}`;
 				}
 			}
 
@@ -248,13 +248,13 @@ export class ClarityEnhancer {
 				nextSentence.split(/\s+/).length < 12
 			) {
 				const combined = this.combineSentencesComplex(sentence, nextSentence);
-				if (combined && combined !== sentence + ' ' + nextSentence) {
+				if (combined && combined !== `${sentence} ${nextSentence}`) {
 					changes.push({
 						type: 'complexity-increase',
-						original: sentence + ' ' + nextSentence,
+						original: `${sentence} ${nextSentence}`,
 						replacement: combined,
 						reason: 'Combined sentences to increase complexity',
-						location: { start: 0, end: (sentence + ' ' + nextSentence).length },
+						location: { start: 0, end: `${sentence} ${nextSentence}`.length },
 					});
 					processedSentences.push(combined);
 					i++; // Skip next sentence as it's been combined
@@ -366,10 +366,10 @@ export class ClarityEnhancer {
 				const combined = this.combineTwoSentences(current, next);
 				changes.push({
 					type: 'sentence-combination',
-					original: current + ' ' + next,
+					original: `${current} ${next}`,
 					replacement: combined,
 					reason: 'Combined related sentences',
-					location: { start: 0, end: (current + ' ' + next).length },
+					location: { start: 0, end: `${current} ${next}`.length },
 				});
 				result.push(combined);
 				i++; // Skip next sentence
@@ -416,7 +416,7 @@ export class ClarityEnhancer {
 				const part2 = sentence.substring(index + breakPoint.length).trim();
 
 				if (part2) {
-					return part1 + '. ' + part2.charAt(0).toUpperCase() + part2.slice(1);
+					return `${part1}. ${part2.charAt(0).toUpperCase()}${part2.slice(1)}`;
 				}
 			}
 		}
@@ -449,7 +449,7 @@ export class ClarityEnhancer {
 		const conjunction =
 			COMBINATION_CONJUNCTIONS[Math.floor(Math.random() * COMBINATION_CONJUNCTIONS.length)];
 
-		return sentence1.replace(/\.$/, '') + ' ' + conjunction + ' ' + sentence2.toLowerCase();
+		return `${sentence1.replace(/\.$/, '')} ${conjunction} ${sentence2.toLowerCase()}`;
 	}
 
 	private breakCompoundSentences(sentence: string, changes: Change[]): string {
@@ -500,14 +500,9 @@ export class ClarityEnhancer {
 	private combineSentencesComplex(sentence1: string, sentence2: string): string | null {
 		const conjunction =
 			SUBORDINATE_CONJUNCTIONS[Math.floor(Math.random() * SUBORDINATE_CONJUNCTIONS.length)];
-		return (
-			conjunction.charAt(0).toUpperCase() +
-			conjunction.slice(1) +
-			' ' +
-			sentence1.toLowerCase().replace(/\.$/, '') +
-			', ' +
-			sentence2.toLowerCase()
-		);
+		return `${conjunction.charAt(0).toUpperCase() + conjunction.slice(1)} ${sentence1
+			.toLowerCase()
+			.replace(/\.$/, '')}, ${sentence2.toLowerCase()}`;
 	}
 
 	private enhanceVocabulary(sentence: string, changes: Change[]): string {

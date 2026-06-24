@@ -203,10 +203,15 @@ export class MLWordClassifierPro {
 		// Use compromise for advanced analysis
 		const doc = nlp(context);
 		const terms = doc.terms().json();
-		const wordIndex = this.findWordIndex(terms.map((t: any) => t.text), word, position);
+		const wordIndex = this.findWordIndex(
+			terms.map((t: any) => t.text),
+			word,
+			position
+		);
 
 		// Accurate POS tagging using compromise
-		const wordTag = wordIndex >= 0 && wordIndex < terms.length ? terms[wordIndex].tags[0] : 'Noun';
+		const wordTag =
+			wordIndex >= 0 && wordIndex < terms.length ? terms[wordIndex].tags[0] : 'Noun';
 
 		// Get sentiment score using our advanced nlpAnalyzer
 		const wordSentiment = this.sentimentAnalyzer.analyzeSentiment(word);
@@ -233,7 +238,11 @@ export class MLWordClassifierPro {
 			length: word.length,
 			syllables,
 			frequency,
-			position: (wordIndex === 0 ? 'start' : wordIndex === terms.length - 1 ? 'end' : 'middle') as 'start' | 'middle' | 'end',
+			position: (wordIndex === 0
+				? 'start'
+				: wordIndex === terms.length - 1
+					? 'end'
+					: 'middle') as 'start' | 'middle' | 'end',
 			precedingWord: wordIndex > 0 ? terms[wordIndex - 1].text : undefined,
 			followingWord: wordIndex < terms.length - 1 ? terms[wordIndex + 1].text : undefined,
 			sentenceLength: terms.length,

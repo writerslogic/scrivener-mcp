@@ -353,7 +353,7 @@ export class RedisClusterManager extends EventEmitter {
 		} = {}
 	): Promise<T> {
 		// Try to get from cache first
-		let cached = await this.get<T>(key);
+		const cached = await this.get<T>(key);
 
 		if (cached !== null) {
 			// Check if we need background refresh

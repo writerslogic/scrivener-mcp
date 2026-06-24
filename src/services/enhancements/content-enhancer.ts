@@ -126,7 +126,7 @@ export class ContentEnhancer {
 
 	async enhance(request: EnhancementRequest): Promise<EnhancementResult> {
 		const startTime = performance.now();
-		
+
 		if (!request.content || request.content.trim().length === 0) {
 			throw new AppError('Content cannot be empty', ErrorCode.VALIDATION_ERROR);
 		}
@@ -175,7 +175,11 @@ export class ContentEnhancer {
 					break;
 
 				case 'fix-pacing':
-					enhanced = this.pacingEnhancer.fixPacing(enhanced, changes, request.options || {});
+					enhanced = this.pacingEnhancer.fixPacing(
+						enhanced,
+						changes,
+						request.options || {}
+					);
 					break;
 
 				case 'condense':
@@ -183,7 +187,9 @@ export class ContentEnhancer {
 						enhanced,
 						changes,
 						request.options || {},
-						typeof request.options?.length === 'number' ? request.options.length : undefined
+						typeof request.options?.length === 'number'
+							? request.options.length
+							: undefined
 					);
 					break;
 
@@ -191,7 +197,9 @@ export class ContentEnhancer {
 					enhanced = this.descriptionEnhancer.expandContent(
 						enhanced,
 						changes,
-						typeof request.options?.length === 'number' ? request.options.length : undefined
+						typeof request.options?.length === 'number'
+							? request.options.length
+							: undefined
 					);
 					break;
 
@@ -200,7 +208,11 @@ export class ContentEnhancer {
 					break;
 
 				case 'fix-continuity':
-					enhanced = this.pacingEnhancer.fixContinuity(enhanced, changes, request.context);
+					enhanced = this.pacingEnhancer.fixContinuity(
+						enhanced,
+						changes,
+						request.context
+					);
 					break;
 
 				case 'match-style':
@@ -208,17 +220,28 @@ export class ContentEnhancer {
 					break;
 
 				default:
-					throw new AppError(`Unknown enhancement type: ${request.type}`, ErrorCode.VALIDATION_ERROR);
+					throw new AppError(
+						`Unknown enhancement type: ${request.type}`,
+						ErrorCode.VALIDATION_ERROR
+					);
 			}
 
 			// Apply complexity adjustments if specified
 			if (request.options?.complexity && request.options.complexity !== 'maintain') {
-				enhanced = this.applyComplexityAdjustment(enhanced, changes, request.options.complexity);
+				enhanced = this.applyComplexityAdjustment(
+					enhanced,
+					changes,
+					request.options.complexity
+				);
 			}
 
 			// Apply tense conversion if specified
 			if (request.options?.tense && request.options.tense !== 'maintain') {
-				enhanced = this.clarityEnhancer.convertTense(enhanced, request.options.tense, changes);
+				enhanced = this.clarityEnhancer.convertTense(
+					enhanced,
+					request.options.tense,
+					changes
+				);
 			}
 
 			const enhancedWordCount = enhanced.split(/\s+/).length;
@@ -290,25 +313,25 @@ export class ContentEnhancer {
 		let result = content;
 
 		const toneAdjustments: Record<string, Record<string, string>> = {
-			'lighter': {
-				'terrible': 'unpleasant',
-				'horrible': 'difficult',
-				'awful': 'challenging',
+			lighter: {
+				terrible: 'unpleasant',
+				horrible: 'difficult',
+				awful: 'challenging',
 			},
-			'darker': {
-				'difficult': 'terrible',
-				'challenging': 'grueling',
-				'unpleasant': 'horrifying',
+			darker: {
+				difficult: 'terrible',
+				challenging: 'grueling',
+				unpleasant: 'horrifying',
 			},
 			'more-serious': {
-				'fun': 'engaging',
-				'cool': 'impressive',
-				'awesome': 'remarkable',
+				fun: 'engaging',
+				cool: 'impressive',
+				awesome: 'remarkable',
 			},
 			'more-humorous': {
-				'serious': 'stuffy',
-				'important': 'earth-shattering',
-				'big': 'enormous',
+				serious: 'stuffy',
+				important: 'earth-shattering',
+				big: 'enormous',
 			},
 		};
 
@@ -335,8 +358,10 @@ export class ContentEnhancer {
 		const enhancedMetrics = this.calculateTextMetrics(enhanced);
 
 		// Simple readability comparison based on average sentence length and syllable count
-		const originalScore = originalMetrics.avgSentenceLength + originalMetrics.avgSyllablesPerWord;
-		const enhancedScore = enhancedMetrics.avgSentenceLength + enhancedMetrics.avgSyllablesPerWord;
+		const originalScore =
+			originalMetrics.avgSentenceLength + originalMetrics.avgSyllablesPerWord;
+		const enhancedScore =
+			enhancedMetrics.avgSentenceLength + enhancedMetrics.avgSyllablesPerWord;
 
 		return enhancedScore - originalScore; // Positive means more complex, negative means simpler
 	}
@@ -347,13 +372,13 @@ export class ContentEnhancer {
 		avgSentenceLength: number;
 		avgSyllablesPerWord: number;
 	} {
-		const words = text.split(/\s+/).filter(w => w.length > 0);
+		const words = text.split(/\s+/).filter((w) => w.length > 0);
 		const sentences = splitIntoSentences(text);
-		
+
 		const wordCount = words.length;
 		const sentenceCount = sentences.length;
 		const avgSentenceLength = wordCount / Math.max(sentenceCount, 1);
-		
+
 		// Calculate average syllables per word
 		const totalSyllables = words.reduce((total, word) => {
 			return total + this.countSyllablesAdvanced(word);
@@ -388,8 +413,10 @@ export class ContentEnhancer {
 
 		// Apply common rules
 		if (word.endsWith('e') && syllables > 1) syllables--;
-		if (word.endsWith('le') && word.length > 2 && !vowels.includes(word[word.length - 3])) syllables++;
-		if (word.endsWith('ed') && syllables > 1 && !vowels.includes(word[word.length - 3])) syllables--;
+		if (word.endsWith('le') && word.length > 2 && !vowels.includes(word[word.length - 3]))
+			syllables++;
+		if (word.endsWith('ed') && syllables > 1 && !vowels.includes(word[word.length - 3]))
+			syllables--;
 
 		// Ensure at least 1 syllable
 		return Math.max(syllables, 1);

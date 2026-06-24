@@ -1,24 +1,50 @@
 import type { StyleGuide } from '../../../memory-manager.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import { SpecializedAgent, type AgentAnalysis, type AgentPersona } from './base-agent.js';
-import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
-import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
+import type { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
+import type { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
 
 export class ResearcherAgent extends SpecializedAgent {
 	constructor(langchain: EnhancedLangChainService, advanced: AdvancedLangChainFeatures) {
 		const persona: AgentPersona = {
 			name: 'Researcher',
 			role: 'Research and Fact-Checking Specialist',
-			perspective: 'I focus on accuracy, evidence, research quality, and factual integrity. I evaluate content for credibility and information accuracy.',
-			expertise: ['fact-checking', 'research methodology', 'source verification', 'accuracy assessment', 'evidence evaluation', 'credibility analysis'],
+			perspective:
+				'I focus on accuracy, evidence, research quality, and factual integrity. I evaluate content for credibility and information accuracy.',
+			expertise: [
+				'fact-checking',
+				'research methodology',
+				'source verification',
+				'accuracy assessment',
+				'evidence evaluation',
+				'credibility analysis',
+			],
 			personality: 'Analytical, skeptical, focused on truth and accuracy',
-			focusAreas: ['factual accuracy', 'source credibility', 'research gaps', 'evidence quality', 'logical reasoning', 'information verification'],
-			communicationStyle: 'Objective and evidence-based, focuses on verification and accuracy',
-			biases: ['may prioritize facts over narrative flow', 'might be overly skeptical of creative elements'],
-			strengths: ['strong analytical skills', 'excellent fact-checking abilities', 'logical reasoning'],
-			limitations: ['may overlook creative license', 'could be too rigid about factual accuracy in fiction'],
+			focusAreas: [
+				'factual accuracy',
+				'source credibility',
+				'research gaps',
+				'evidence quality',
+				'logical reasoning',
+				'information verification',
+			],
+			communicationStyle:
+				'Objective and evidence-based, focuses on verification and accuracy',
+			biases: [
+				'may prioritize facts over narrative flow',
+				'might be overly skeptical of creative elements',
+			],
+			strengths: [
+				'strong analytical skills',
+				'excellent fact-checking abilities',
+				'logical reasoning',
+			],
+			limitations: [
+				'may overlook creative license',
+				'could be too rigid about factual accuracy in fiction',
+			],
 		};
-		
+
 		super(langchain, advanced, persona);
 	}
 
@@ -72,7 +98,7 @@ Review this analysis from a research and fact-checking perspective:
 Agent: ${analysis.agentId}
 Overall Score: ${analysis.overallScore}
 Priority: ${analysis.priority}
-Findings: ${analysis.findings.map(f => `${f.aspect}: ${f.assessment}`).join('; ')}
+Findings: ${analysis.findings.map((f) => `${f.aspect}: ${f.assessment}`).join('; ')}
 
 **Document Context**: ${document.title} (${(document.content || '').split(' ').length} words)
 

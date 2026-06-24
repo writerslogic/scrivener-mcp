@@ -3,4 +3,4 @@
 /**
  * Input item for batch memorization — a single id/text pair.
  */
-export type MemorizeBatchItem = { id: string, text: string, };
+export type MemorizeBatchItem = { id: string; text: string };

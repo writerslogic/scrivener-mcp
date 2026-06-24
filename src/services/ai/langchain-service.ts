@@ -9,7 +9,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
-import { Document as LangchainDocument } from '@langchain/core/documents';
+import type { Document as LangchainDocument } from '@langchain/core/documents';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { LangChainHMSVectorStore } from './hms-vector-store.js';
 import { createError, ErrorCode } from '../../core/errors.js';

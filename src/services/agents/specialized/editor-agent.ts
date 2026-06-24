@@ -1,8 +1,8 @@
 import type { StyleGuide } from '../../../memory-manager.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import { SpecializedAgent, type AgentAnalysis, type AgentPersona } from './base-agent.js';
-import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
-import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
+import type { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
+import type { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
 import { truncate } from '../../../utils/common.js';
 
 export class EditorAgent extends SpecializedAgent {

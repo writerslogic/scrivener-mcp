@@ -19,7 +19,7 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 import { ConversationalRetrievalQAChain } from '@langchain/classic/chains';
 import { createStuffDocumentsChain } from '@langchain/classic/chains/combine_documents';
 import { createRetrievalChain } from '@langchain/classic/chains/retrieval';
-import { Document as LangchainDocument } from '@langchain/core/documents';
+import type { Document as LangchainDocument } from '@langchain/core/documents';
 import { pull } from 'langchain/hub';
 import { BufferMemory, ConversationSummaryMemory } from '@langchain/classic/memory';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';

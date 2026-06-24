@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
-import { EnhancedLogger } from './enhanced-logger.js';
+import type { EnhancedLogger } from './enhanced-logger.js';
 import { AppError, ErrorCode } from '../utils/common.js';
 
 export interface ErrorContext {

@@ -1,6 +1,6 @@
 import nlp from 'compromise';
 import type { StyleGuide } from '../../../memory-manager.js';
-import { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
+import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change, EnhancementOptions } from '../content-enhancer.js';
 
@@ -42,9 +42,12 @@ export class StyleEnhancer {
 					changes.push({
 						type: 'filter-word-removal',
 						original: before + word.text + after,
-						replacement: replacement,
+						replacement,
 						reason: `Removed filter word "${word.text}" for more direct writing`,
-						location: { start: word.index || 0, end: (word.index || 0) + word.text.length },
+						location: {
+							start: word.index || 0,
+							end: (word.index || 0) + word.text.length,
+						},
 					});
 
 					result = result.replace(before + word.text + after, replacement);
@@ -72,7 +75,10 @@ export class StyleEnhancer {
 							original: verb.text,
 							replacement: strengthened,
 							reason: `Replaced weak verb "${verb.text}" with stronger "${strengthened}"`,
-							location: { start: verb.index || 0, end: (verb.index || 0) + verb.text.length },
+							location: {
+								start: verb.index || 0,
+								end: (verb.index || 0) + verb.text.length,
+							},
 						});
 
 						result = result.replace(verb.text, strengthened);
@@ -86,7 +92,7 @@ export class StyleEnhancer {
 
 	varySentences(content: string, changes: Change[]): string {
 		const sentences = splitIntoSentences(content);
-		let result = content;
+		const result = content;
 		const processedSentences: string[] = [];
 
 		for (let i = 0; i < sentences.length; i++) {
@@ -136,7 +142,7 @@ export class StyleEnhancer {
 			if (prevSentence && this.needsTransition(prevSentence, sentence)) {
 				const transition = this.selectTransition(prevSentence, sentence);
 				if (transition) {
-					const withTransition = transition + ' ' + modifiedSentence.toLowerCase();
+					const withTransition = `${transition} ${modifiedSentence.toLowerCase()}`;
 					changes.push({
 						type: 'transition-addition',
 						original: modifiedSentence,
@@ -226,15 +232,15 @@ export class StyleEnhancer {
 		const verbMappings: Record<string, string[]> = {
 			'is being': ['becomes', 'remains', 'appears'],
 			'was being': ['became', 'remained', 'appeared'],
-			'get': ['obtain', 'acquire', 'receive', 'fetch'],
-			'got': ['obtained', 'acquired', 'received', 'fetched'],
-			'make': ['create', 'craft', 'build', 'generate'],
-			'made': ['created', 'crafted', 'built', 'generated'],
-			'put': ['place', 'position', 'insert', 'set'],
-			'take': ['grab', 'seize', 'capture', 'select'],
-			'took': ['grabbed', 'seized', 'captured', 'selected'],
-			'go': ['travel', 'move', 'proceed', 'advance'],
-			'went': ['traveled', 'moved', 'proceeded', 'advanced'],
+			get: ['obtain', 'acquire', 'receive', 'fetch'],
+			got: ['obtained', 'acquired', 'received', 'fetched'],
+			make: ['create', 'craft', 'build', 'generate'],
+			made: ['created', 'crafted', 'built', 'generated'],
+			put: ['place', 'position', 'insert', 'set'],
+			take: ['grab', 'seize', 'capture', 'select'],
+			took: ['grabbed', 'seized', 'captured', 'selected'],
+			go: ['travel', 'move', 'proceed', 'advance'],
+			went: ['traveled', 'moved', 'proceeded', 'advanced'],
 		};
 
 		const options = verbMappings[verb.toLowerCase()];
@@ -280,16 +286,21 @@ export class StyleEnhancer {
 		const options = variations[firstWord];
 		if (options) {
 			const replacement = options[Math.floor(Math.random() * options.length)];
-			return replacement + ' ' + words.slice(1).join(' ');
+			return `${replacement} ${words.slice(1).join(' ')}`;
 		}
 
 		// Try to move an adverb or prepositional phrase to the beginning
 		for (let i = 1; i < words.length; i++) {
-			if (words[i].endsWith('ly') || ['in', 'on', 'at', 'by', 'with', 'during'].includes(words[i].toLowerCase())) {
+			if (
+				words[i].endsWith('ly') ||
+				['in', 'on', 'at', 'by', 'with', 'during'].includes(words[i].toLowerCase())
+			) {
 				// Move this word/phrase to beginning
 				const moved = words[i];
 				const remaining = [...words.slice(0, i), ...words.slice(i + 1)];
-				return moved.charAt(0).toUpperCase() + moved.slice(1) + ', ' + remaining.join(' ').toLowerCase();
+				return `${moved.charAt(0).toUpperCase() + moved.slice(1)}, ${remaining
+					.join(' ')
+					.toLowerCase()}`;
 			}
 		}
 
@@ -317,10 +328,20 @@ export class StyleEnhancer {
 	}
 
 	private detectTopicShift(sentence1: string, sentence2: string): number {
-		const words1 = new Set(sentence1.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-		const words2 = new Set(sentence2.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+		const words1 = new Set(
+			sentence1
+				.toLowerCase()
+				.split(/\s+/)
+				.filter((w) => w.length > 3)
+		);
+		const words2 = new Set(
+			sentence2
+				.toLowerCase()
+				.split(/\s+/)
+				.filter((w) => w.length > 3)
+		);
 
-		const intersection = new Set([...words1].filter(x => words2.has(x)));
+		const intersection = new Set([...words1].filter((x) => words2.has(x)));
 		const union = new Set([...words1, ...words2]);
 
 		if (union.size === 0) return 1;
@@ -351,11 +372,11 @@ export class StyleEnhancer {
 
 		// Check for contrast indicators
 		const contrastWords = ['but', 'however', 'although', 'despite', 'while', 'whereas'];
-		if (contrastWords.some(word => s2Lower.includes(word))) return 'contrast';
+		if (contrastWords.some((word) => s2Lower.includes(word))) return 'contrast';
 
 		// Check for causation
 		const causeWords = ['because', 'since', 'due to', 'as a result', 'therefore'];
-		if (causeWords.some(word => s2Lower.includes(word))) return 'cause';
+		if (causeWords.some((word) => s2Lower.includes(word))) return 'cause';
 
 		// Check for examples
 		if (s2Lower.includes('example') || s2Lower.includes('instance')) return 'example';
@@ -367,26 +388,26 @@ export class StyleEnhancer {
 	private breakLongSentence(sentence: string): string {
 		// Find natural break points (conjunctions, semicolons, etc.)
 		const breakPoints = [' and ', ' but ', ' or ', ' so ', '; ', ', which ', ', that '];
-		
+
 		for (const breakPoint of breakPoints) {
 			const index = sentence.indexOf(breakPoint);
 			if (index > 10 && index < sentence.length - 10) {
 				const part1 = sentence.substring(0, index).trim();
 				const part2 = sentence.substring(index + breakPoint.length).trim();
-				
+
 				if (part2) {
-					return part1 + '. ' + part2.charAt(0).toUpperCase() + part2.slice(1);
+					return `${part1}. ${part2.charAt(0).toUpperCase()}${part2.slice(1)}`;
 				}
 			}
 		}
-		
+
 		return sentence;
 	}
 
 	private expandSentence(sentence: string): string {
 		// Add descriptive elements to short sentences
 		const words = sentence.split(/\s+/);
-		
+
 		// Find verbs and add adverbs
 		for (let i = 0; i < words.length; i++) {
 			const word = words[i].toLowerCase();
@@ -398,22 +419,31 @@ export class StyleEnhancer {
 				}
 			}
 		}
-		
+
 		return words.join(' ');
 	}
 
 	private isActionVerb(word: string): boolean {
-		const actionVerbs = ['ran', 'walked', 'jumped', 'moved', 'spoke', 'looked', 'turned', 'went'];
+		const actionVerbs = [
+			'ran',
+			'walked',
+			'jumped',
+			'moved',
+			'spoke',
+			'looked',
+			'turned',
+			'went',
+		];
 		return actionVerbs.includes(word);
 	}
 
 	private selectAdverb(verb: string): string | null {
 		const adverbMappings: Record<string, string[]> = {
-			'ran': ['quickly', 'swiftly', 'desperately'],
-			'walked': ['slowly', 'carefully', 'purposefully'],
-			'jumped': ['suddenly', 'gracefully', 'frantically'],
-			'spoke': ['softly', 'firmly', 'hesitantly'],
-			'looked': ['intently', 'briefly', 'suspiciously'],
+			ran: ['quickly', 'swiftly', 'desperately'],
+			walked: ['slowly', 'carefully', 'purposefully'],
+			jumped: ['suddenly', 'gracefully', 'frantically'],
+			spoke: ['softly', 'firmly', 'hesitantly'],
+			looked: ['intently', 'briefly', 'suspiciously'],
 		};
 
 		const options = adverbMappings[verb];

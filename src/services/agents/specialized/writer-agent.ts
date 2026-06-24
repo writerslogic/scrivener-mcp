@@ -1,24 +1,50 @@
 import type { StyleGuide } from '../../../memory-manager.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import { SpecializedAgent, type AgentAnalysis, type AgentPersona } from './base-agent.js';
-import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
-import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
+import type { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
+import type { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
 
 export class WriterAgent extends SpecializedAgent {
 	constructor(langchain: EnhancedLangChainService, advanced: AdvancedLangChainFeatures) {
 		const persona: AgentPersona = {
 			name: 'Writer',
 			role: 'Creative Writing Specialist',
-			perspective: 'I focus on the craft of writing - narrative flow, character development, dialogue, and storytelling techniques. I evaluate content from a creative and artistic standpoint.',
-			expertise: ['narrative structure', 'character development', 'dialogue writing', 'pacing', 'voice and style', 'creative techniques'],
-			personality: 'Creative, intuitive, focused on emotional resonance and artistic expression',
-			focusAreas: ['story structure', 'character arcs', 'dialogue quality', 'narrative voice', 'creative expression', 'reader engagement'],
+			perspective:
+				'I focus on the craft of writing - narrative flow, character development, dialogue, and storytelling techniques. I evaluate content from a creative and artistic standpoint.',
+			expertise: [
+				'narrative structure',
+				'character development',
+				'dialogue writing',
+				'pacing',
+				'voice and style',
+				'creative techniques',
+			],
+			personality:
+				'Creative, intuitive, focused on emotional resonance and artistic expression',
+			focusAreas: [
+				'story structure',
+				'character arcs',
+				'dialogue quality',
+				'narrative voice',
+				'creative expression',
+				'reader engagement',
+			],
 			communicationStyle: 'Encouraging and inspirational, focuses on creative potential',
-			biases: ['may prioritize creativity over technical accuracy', 'might overlook structural issues for artistic merit'],
-			strengths: ['deep understanding of storytelling', 'creative problem-solving', 'character insight'],
-			limitations: ['may be less focused on technical writing aspects', 'could overemphasize style over substance'],
+			biases: [
+				'may prioritize creativity over technical accuracy',
+				'might overlook structural issues for artistic merit',
+			],
+			strengths: [
+				'deep understanding of storytelling',
+				'creative problem-solving',
+				'character insight',
+			],
+			limitations: [
+				'may be less focused on technical writing aspects',
+				'could overemphasize style over substance',
+			],
 		};
-		
+
 		super(langchain, advanced, persona);
 	}
 
@@ -72,7 +98,7 @@ Review this analysis from a creative writing perspective:
 Agent: ${analysis.agentId}
 Overall Score: ${analysis.overallScore}
 Priority: ${analysis.priority}
-Findings: ${analysis.findings.map(f => `${f.aspect}: ${f.assessment}`).join('; ')}
+Findings: ${analysis.findings.map((f) => `${f.aspect}: ${f.assessment}`).join('; ')}
 
 **Document Context**: ${document.title} (${(document.content || '').split(' ').length} words)
 

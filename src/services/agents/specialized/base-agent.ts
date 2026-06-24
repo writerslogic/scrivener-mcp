@@ -14,8 +14,8 @@ import {
 } from '../../../utils/common.js';
 import { formatStyleGuideContext } from '../../../utils/style-guide-formatter.js';
 import { getWritingTextMetrics as getTextMetrics } from '../../../utils/text-metrics.js';
-import { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
-import { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
+import type { AdvancedLangChainFeatures } from '../../ai/langchain-advanced-features.js';
+import type { EnhancedLangChainService } from '../../ai/langchain-service-enhanced.js';
 
 export interface AgentPersona {
 	name: string;

@@ -113,11 +113,11 @@ export const searchContentHandler: ToolDefinition = {
 					snippet:
 						typeof doc.content === 'string'
 							? doc.content.length > 100
-								? doc.content.slice(0, 100) + '...'
+								? `${doc.content.slice(0, 100)}...`
 								: doc.content
 							: typeof doc.text === 'string'
 								? doc.text.length > 100
-									? doc.text.slice(0, 100) + '...'
+									? `${doc.text.slice(0, 100)}...`
 									: doc.text
 								: '',
 					score: doc.score ?? doc.relevance ?? null,
@@ -151,11 +151,11 @@ export const searchContentHandler: ToolDefinition = {
 				snippet:
 					typeof r.content === 'string'
 						? r.content.length > 100
-							? r.content.slice(0, 100) + '...'
+							? `${r.content.slice(0, 100)}...`
 							: r.content
 						: typeof r.text === 'string'
 							? r.text.length > 100
-								? r.text.slice(0, 100) + '...'
+								? `${r.text.slice(0, 100)}...`
 								: r.text
 							: '',
 				score: r.score ?? null,
@@ -366,7 +366,7 @@ export const vectorSearchHandler: ToolDefinition = {
 					title: doc.metadata.title || 'Untitled',
 					snippet:
 						doc.pageContent.length > 100
-							? doc.pageContent.slice(0, 100) + '...'
+							? `${doc.pageContent.slice(0, 100)}...`
 							: doc.pageContent,
 					score,
 				}));
@@ -481,7 +481,7 @@ export const findMentionsHandler: ToolDefinition = {
 			const trimmedMentions = mentions.map((m) => ({
 				id: m.documentId,
 				title: m.title,
-				snippet: m.context.length > 100 ? m.context.slice(0, 100) + '...' : m.context,
+				snippet: m.context.length > 100 ? `${m.context.slice(0, 100)}...` : m.context,
 				score: null,
 			}));
 

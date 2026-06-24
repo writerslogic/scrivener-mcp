@@ -8,7 +8,7 @@ import { JsonOutputParser, StringOutputParser } from '@langchain/core/output_par
 import { ChatPromptTemplate, MessagesPlaceholder, PromptTemplate } from '@langchain/core/prompts';
 import { RunnableMap, RunnableSequence } from '@langchain/core/runnables';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
-import { Document as LangchainDocument } from '@langchain/core/documents';
+import type { Document as LangchainDocument } from '@langchain/core/documents';
 import { BufferWindowMemory } from '@langchain/classic/memory';
 import { StructuredOutputParser } from '@langchain/core/output_parsers';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';

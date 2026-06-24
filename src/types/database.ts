@@ -9,8 +9,10 @@ export interface Neo4jNode<T = Record<string, unknown>> extends Omit<Node, 'prop
 	properties: T;
 }
 
-export interface Neo4jRelationship<T = Record<string, unknown>>
-	extends Omit<Relationship, 'properties'> {
+export interface Neo4jRelationship<T = Record<string, unknown>> extends Omit<
+	Relationship,
+	'properties'
+> {
 	properties: T;
 }
 
