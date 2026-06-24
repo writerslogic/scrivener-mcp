@@ -208,6 +208,11 @@ export function initializeSkillRegistry(): void {
 	buildMetaTools();
 	// Always activate project skill (need open_project at minimum)
 	activateSkill('project');
+	// Opt-in: register every skill at startup for clients that do not honor
+	// notifications/tools/list_changed (e.g. some desktop / local-agent clients).
+	if (process.env.SCRIVENER_MCP_EAGER_TOOLS === '1') {
+		for (const s of skills) activateSkill(s.name);
+	}
 }
 
 /**
