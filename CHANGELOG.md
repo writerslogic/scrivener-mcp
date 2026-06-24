@@ -5,7 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Add opt-in eager skill registration via SCRIVENER_MCP_EAGER_TOOLS
+
 ### Documentation
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 ## [0.6.0] - 2026-06-24
 
