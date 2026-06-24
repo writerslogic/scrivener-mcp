@@ -3,6 +3,10 @@
  * Scrivener MCP Server - Refactored entry point
  */
 
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = _require('../package.json') as { version: string };
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -81,7 +85,7 @@ let context: HandlerContext;
 const server = new Server(
 	{
 		name: 'scrivener-mcp',
-		version: '0.3.1',
+		version: PKG_VERSION,
 	},
 	{
 		capabilities: {
@@ -166,6 +170,17 @@ async function main() {
 		logger.warn('Failed to initialize async services', { error });
 		// Continue without async features
 	}
+
+	// Capability summary — lets writers see what's active without reading docs
+	const resolvedCtx = await contextPromise;
+	const neo4jActive = !!process.env.NEO4J_URI;
+	const redisActive = !!process.env.REDIS_URL;
+	const hmsStatus = resolvedCtx.hhmSystem ? 'active' : 'not available';
+	logger.info(
+		`Core: ready | Semantic search (HMS): ${hmsStatus} | ` +
+			`Neo4j: ${neo4jActive ? 'configured' : 'not connected'} | ` +
+			`Redis: ${redisActive ? 'configured' : 'not connected'}`
+	);
 
 	cleanupSpool();
 	const transport = new StdioServerTransport();

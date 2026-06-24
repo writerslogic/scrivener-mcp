@@ -17,7 +17,7 @@ const SPOOL_DIR = path.join(os.tmpdir(), 'scrivener-mcp-spool');
 
 function ensureSpoolDir(): void {
 	if (!fs.existsSync(SPOOL_DIR)) {
-		fs.mkdirSync(SPOOL_DIR, { recursive: true });
+		fs.mkdirSync(SPOOL_DIR, { recursive: true, mode: 0o700 });
 	}
 }
 
@@ -116,6 +116,21 @@ export function formatError(error: unknown, operation?: string): string {
 	);
 	// Truncate
 	if (message.length > 200) message = message.slice(0, 197) + '...';
+
+	// Translate internal service names to writer-friendly language
+	const translations: [RegExp, string][] = [
+		[/\bHolographicMemorySystem\b|\bHMS\b/g, 'semantic search'],
+		[/\bhhmSystem\b|\bhhm\b/gi, 'semantic search'],
+		[/\bNeo4j\b/gi, 'character graph database'],
+		[/\bBullMQ\b/gi, 'background job queue'],
+		[/\bIORedis\b|\bRedis\b/gi, 'background job queue'],
+		[/\bLangChain\b/gi, 'AI writing assistant'],
+		[/\bHandlerContext\b/g, 'server context'],
+		[/\bOpenAI\b/g, 'AI service'],
+	];
+	for (const [pattern, replacement] of translations) {
+		message = message.replace(pattern, replacement);
+	}
 
 	const prefix = operation ? `${operation}: ` : '';
 	return `${prefix}${message.trim()}`;

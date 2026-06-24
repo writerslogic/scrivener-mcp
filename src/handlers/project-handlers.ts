@@ -2,6 +2,8 @@
  * Project management handlers - utilizes common utilities for validation and error handling
  */
 
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { MemoryManager } from '../memory-manager.js';
 import { ScrivenerProject } from '../scrivener-project.js';
@@ -235,9 +237,80 @@ export const closeProjectHandler: ToolDefinition = {
 	},
 };
 
+async function findScrivProjects(dir: string, depth: number): Promise<string[]> {
+	if (depth === 0) return [];
+	let results: string[] = [];
+	let entries: fs.Dirent[];
+	try {
+		entries = await fs.promises.readdir(dir, { withFileTypes: true });
+	} catch {
+		return [];
+	}
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		const full = path.join(dir, entry.name);
+		if (entry.name.endsWith('.scriv')) {
+			results.push(full);
+		} else if (!entry.name.startsWith('.')) {
+			results = results.concat(await findScrivProjects(full, depth - 1));
+		}
+	}
+	return results;
+}
+
+export const discoverProjectsHandler: ToolDefinition = {
+	name: 'discover_projects',
+	description: 'Scan common locations for Scrivener projects and return their paths',
+	inputSchema: {
+		type: 'object',
+		properties: {
+			searchPath: {
+				type: 'string',
+				description: 'Additional directory to search (optional)',
+			},
+		},
+	},
+	handler: async (args): Promise<HandlerResult> => {
+		const home = os.homedir();
+		const searchDirs = [
+			path.join(home, 'Documents'),
+			path.join(home, 'Desktop'),
+			path.join(home, 'Library', 'Mobile Documents'),
+		];
+		const extra = args.searchPath as string | undefined;
+		if (extra) searchDirs.push(extra);
+
+		const found: string[] = [];
+		for (const dir of searchDirs) {
+			const projects = await findScrivProjects(dir, 3);
+			found.push(...projects);
+		}
+
+		if (found.length === 0) {
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'No Scrivener projects found in common locations. Use open_project with the full path to your .scriv folder.',
+					},
+				],
+			};
+		}
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Found ${found.length} project(s):\n${found.map((p) => `• ${p}`).join('\n')}\n\nUse open_project with one of these paths.`,
+				},
+			],
+		};
+	},
+};
+
 export const projectHandlers = [
 	openProjectHandler,
 	getStructureHandler,
 	refreshProjectHandler,
 	closeProjectHandler,
+	discoverProjectsHandler,
 ];
