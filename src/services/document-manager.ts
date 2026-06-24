@@ -2,6 +2,7 @@
  * Document management service for Scrivener projects
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
 import { LRUCache } from '../core/cache.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
@@ -251,6 +252,15 @@ export class DocumentManager {
 				};
 			} else {
 				rtfContent = content;
+			}
+
+			// Backup existing content before overwrite
+			const backupDir = path.join(this.projectPath, '.scrivener-mcp-backup');
+			try {
+				await ensureDir(backupDir);
+				await fs.promises.copyFile(filePath, path.join(backupDir, `${documentId}.rtf`));
+			} catch {
+				// No existing file to back up — first write, or backup failed
 			}
 
 			await this.rtfHandler.writeRTF(filePath, rtfContent);

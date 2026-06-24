@@ -339,10 +339,17 @@ export async function safeWriteFile(
 	data: string | Buffer,
 	options?: fs.WriteFileOptions
 ): Promise<void> {
+	const tmpPath = `${filePath}.${process.pid}.tmp`;
 	try {
 		await ensureDir(path.dirname(filePath));
-		await fs.promises.writeFile(filePath, data, options);
+		await fs.promises.writeFile(tmpPath, data, options);
+		await fs.promises.rename(tmpPath, filePath);
 	} catch (e) {
+		try {
+			await fs.promises.unlink(tmpPath);
+		} catch {
+			/* best-effort cleanup */
+		}
 		throw handleError(e, `writeFile ${filePath}`);
 	}
 }
