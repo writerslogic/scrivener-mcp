@@ -480,7 +480,10 @@ export const getWordCountHandler: ToolDefinition = {
 				const allDocs = await project.getAllDocuments();
 				// Find all documents that are children of this document
 				const childDocs = allDocs.filter(
-					(doc) => doc.path && doc.path.includes(documentId) && doc.id !== documentId
+					(doc) =>
+						doc.path &&
+						doc.id !== documentId &&
+						String(doc.path).split('/').includes(documentId)
 				);
 
 				// Parallelize all child document reads

@@ -52,7 +52,7 @@ export const relationshipHandlers: ToolDefinition[] = [
 				const tail = getStringArg(args, 'tail');
 				const tailType = getStringArg(args, 'tailType');
 
-				await engine.addRelationship({
+				const id = await engine.addRelationship({
 					id: '',
 					head,
 					headType,
@@ -61,7 +61,7 @@ export const relationshipHandlers: ToolDefinition[] = [
 					tailType,
 				});
 
-				return ok({ stored: true, head, relation, tail });
+				return ok({ stored: true, id, head, relation, tail });
 			} catch (error) {
 				return fail(error, 'add_relationship');
 			}

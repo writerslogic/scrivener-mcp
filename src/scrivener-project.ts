@@ -315,8 +315,11 @@ export class ScrivenerProject {
 				try {
 					const content = await this.readDocument(result.documentId);
 					await documentIndexer.updateDocumentInIndex(result.documentId, content);
-				} catch {
-					// Skip if can't read
+				} catch (err) {
+					logger.debug('Skipped document index update', {
+						id: result.documentId,
+						error: err,
+					});
 				}
 			}
 
@@ -353,8 +356,11 @@ export class ScrivenerProject {
 					if (this.indexInitialized) {
 						await documentIndexer.updateDocumentInIndex(doc.id, content);
 					}
-				} catch {
-					// Skip documents that can't be read
+				} catch (err) {
+					logger.debug('Skipped document during content scan', {
+						id: doc.id,
+						error: err,
+					});
 				}
 			}
 		}
@@ -679,8 +685,8 @@ export class ScrivenerProject {
 						content,
 						metadata: {},
 					});
-				} catch {
-					// Skip
+				} catch (err) {
+					logger.debug('Skipped trash document during scan', { id: doc.id, error: err });
 				}
 			}
 		}
@@ -829,8 +835,8 @@ export class ScrivenerProject {
 						.filter((w) => w.length > 0);
 					wordCount = words.length;
 					characterCount = content.length;
-				} catch {
-					// Document might not have content yet
+				} catch (err) {
+					logger.debug('Document has no readable content', { id: doc.id, error: err });
 				}
 			}
 

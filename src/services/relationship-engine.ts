@@ -28,17 +28,26 @@ export class RelationshipEngine {
 		}
 	}
 
-	/**
-	 * Generate a deterministic ID for a relationship.
-	 */
+	private static encodeComponent(s: string): string {
+		return s.replace(/--/g, '‒‒');
+	}
+
+	private static decodeComponent(s: string): string {
+		return s.replace(/‒‒/g, '--');
+	}
+
+	static generateRelationshipId(rel: Omit<Relationship, 'id'>): string {
+		return `${rel.headType}:${RelationshipEngine.encodeComponent(rel.head)}--${RelationshipEngine.encodeComponent(rel.relation)}--${rel.tailType}:${RelationshipEngine.encodeComponent(rel.tail)}`;
+	}
+
 	private generateId(rel: Omit<Relationship, 'id'>): string {
-		return `${rel.headType}:${rel.head}--${rel.relation}--${rel.tailType}:${rel.tail}`;
+		return RelationshipEngine.generateRelationshipId(rel);
 	}
 
 	/**
 	 * Store a single relationship in HMS and optionally Neo4j.
 	 */
-	async addRelationship(rel: Relationship): Promise<void> {
+	async addRelationship(rel: Relationship): Promise<string> {
 		const id = rel.id || this.generateId(rel);
 		const normalized: Relationship = { ...rel, id };
 
@@ -95,6 +104,8 @@ export class RelationshipEngine {
 				});
 			}
 		}
+
+		return id;
 	}
 
 	/**
@@ -260,10 +271,22 @@ export class RelationshipEngine {
 					Array<{ target: string; relation: string; properties: Record<string, unknown> }>
 				> = {};
 				for (const record of result.records) {
-					const from = record.get('from') as string;
-					const to = record.get('to') as string;
-					const relation = record.get('relation') as string;
-					const props = record.get('props') as Record<string, unknown>;
+					const from = record.get('from');
+					const to = record.get('to');
+					const relation = record.get('relation');
+					if (
+						typeof from !== 'string' ||
+						typeof to !== 'string' ||
+						typeof relation !== 'string'
+					) {
+						this.logger.warn('Skipping malformed Neo4j record in character network', {
+							from,
+							to,
+							relation,
+						});
+						continue;
+					}
+					const props = (record.get('props') as Record<string, unknown>) || {};
 
 					if (!network[from]) network[from] = [];
 					network[from].push({ target: to, relation, properties: props || {} });
@@ -417,17 +440,16 @@ export class RelationshipEngine {
 	 * Parse a relationship from its deterministic ID format.
 	 */
 	private parseRelationshipId(id: string): Relationship | null {
-		// Format: headType:head--relation--tailType:tail
 		const match = id.match(/^([^:]+):(.+?)--(.+?)--([^:]+):(.+)$/);
 		if (!match) return null;
 
 		return {
 			id,
 			headType: match[1],
-			head: match[2],
-			relation: match[3],
+			head: RelationshipEngine.decodeComponent(match[2]),
+			relation: RelationshipEngine.decodeComponent(match[3]),
 			tailType: match[4],
-			tail: match[5],
+			tail: RelationshipEngine.decodeComponent(match[5]),
 		};
 	}
 }

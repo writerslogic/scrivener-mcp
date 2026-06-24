@@ -17,14 +17,16 @@ let hhmSystem: HolographicMemorySystem | null = null;
 
 export async function initializeHHM(config?: HHMConfig): Promise<HolographicMemorySystem> {
 	const old = hhmSystem;
-	hhmSystem = null;
 	if (old) {
 		try {
 			await old.destroy();
 		} catch (err) {
-			logger.warn('Failed to destroy previous HMS instance', { error: err });
+			logger.error('Failed to destroy previous HMS instance; resource leak possible', {
+				error: err,
+			});
 		}
 	}
+	hhmSystem = null;
 	hhmSystem = new HolographicMemorySystem(config || {});
 	return hhmSystem;
 }

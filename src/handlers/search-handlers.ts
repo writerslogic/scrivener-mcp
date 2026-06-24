@@ -3,6 +3,7 @@ import { LangChainHMSVectorStore } from '../services/ai/hms-vector-store.js';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { Document as LangchainDocument } from '@langchain/core/documents';
 import { validateInput } from '../utils/common.js';
+import { getLogger } from '../core/logger.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -13,6 +14,8 @@ import {
 	getStringArg,
 	requireProject,
 } from './types.js';
+const logger = getLogger('search-handlers');
+
 // Cached singleton instances to avoid re-instantiation per request
 let cachedSearchLearningHandler: LangChainContinuousLearningHandler | null = null;
 let cachedSemanticLayer: SemanticDatabaseLayer | null = null;
@@ -97,7 +100,7 @@ export const searchContentHandler: ToolDefinition = {
 			await learningHandler.collectImplicitFeedback(sessionId, 'search_content', {
 				timeSpent: 0,
 				userActions: ['search_content'],
-				documentsCount: semanticResults.documents.length,
+				documentsCount: semanticResults.documents?.length ?? 0,
 				enhancementType: 'search',
 				targetOptimization: query,
 			});
@@ -133,7 +136,7 @@ export const searchContentHandler: ToolDefinition = {
 				],
 			};
 		} catch (error) {
-			// Fallback to basic search if semantic search fails
+			logger.warn('Semantic search failed, falling back to basic search', { error });
 			const results = await project.searchContent(query, {
 				caseSensitive,
 				regex,
@@ -143,8 +146,8 @@ export const searchContentHandler: ToolDefinition = {
 
 			// Trim fallback results to compact snippets
 			const trimmedResults = results.map((r: Record<string, unknown>) => ({
-				id: r.id,
-				title: r.title || 'Untitled',
+				id: (r.id as string) || 'unknown',
+				title: (r.title as string) || 'Untitled',
 				snippet:
 					typeof r.content === 'string'
 						? r.content.length > 100
