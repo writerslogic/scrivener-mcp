@@ -134,11 +134,28 @@ function buildMetaTools(): void {
 				};
 			}
 			activateSkill(name);
+			const toolSummary = skill.tools
+				.map((t) => {
+					const required = (t.inputSchema.required as string[] | undefined) ?? [];
+					const props = t.inputSchema.properties as
+						| Record<string, { type?: string; description?: string }>
+						| undefined;
+					const params = props
+						? Object.entries(props)
+								.map(
+									([k, v]) =>
+										`${k}${required.includes(k) ? '*' : ''} (${v.type ?? 'any'}): ${v.description ?? ''}`
+								)
+								.join('; ')
+						: 'no parameters';
+					return `• ${t.name}: ${t.description}\n  params: ${params}`;
+				})
+				.join('\n');
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Activated "${name}". ${skill.tools.length} tools now available: ${skill.tools.map((t) => t.name).join(', ')}`,
+						text: `Activated "${name}" (${skill.tools.length} tools). If your client does not auto-refresh the tool list, call these tools directly using the schemas below:\n\n${toolSummary}`,
 					},
 				],
 			};
