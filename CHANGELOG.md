@@ -3,6 +3,10 @@
 All notable changes to this project are generated from the commit history.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
+## [Unreleased]
+
+### Documentation
+- Update changelog [skip ci]
 ## [0.6.0] - 2026-06-24
 
 ### Added
