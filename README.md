@@ -33,6 +33,9 @@
   <a href="https://mseep.ai/app/writerslogic-scrivener-mcp">
     <img src="https://img.shields.io/badge/MseeP-verified-green.svg" alt="MseeP verified"/>
   </a>
+  <a href="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp">
+    <img src="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp/badges/score.svg" alt="scrivener-mcp MCP server score"/>
+  </a>
 </p>
 
 <p align="center">
@@ -412,6 +415,12 @@ We welcome contributions of all sizes. Check the [issue tracker](https://github.
 AGPL-3.0 &copy; [WritersLogic, Inc.](https://github.com/writerslogic)
 
 Free for personal use and open-source projects. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](./COMMERCIAL_LICENSE.md) for details.
+
+<p align="center">
+  <a href="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp">
+    <img src="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp/badges/card.svg" alt="scrivener-mcp MCP server"/>
+  </a>
+</p>
 
 <p align="center">
   <a href="https://github.com/writerslogic/scrivener-mcp">GitHub</a> &middot;
