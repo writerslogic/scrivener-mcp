@@ -11,6 +11,9 @@ RUN npm run build
 
 ENV NODE_ENV=production
 ENV SCRIVENER_SKIP_POSTINSTALL=true
+# Advertise the full tool set on startup so registries/inspectors (Glama, MCP
+# Inspector) can introspect every tool without first opening a project.
+ENV SCRIVENER_MCP_EAGER_TOOLS=1
 
 USER node
 
