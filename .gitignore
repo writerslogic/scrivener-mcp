@@ -149,6 +149,12 @@ keydb.log
 # Documentation archives
 docs/archive/
 
+# Outreach and business documents (not for public repo)
+docs/letter-to-keith.md
+docs/outreach-plan.md
+docs/writersproof-outreach.csv
+scripts/create-gmail-drafts.py
+
 # Local development files
 *.local
 .tmp/
