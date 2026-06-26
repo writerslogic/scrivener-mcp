@@ -3,9 +3,10 @@
 All notable changes to this project are generated from the commit history.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
-## [Unreleased]
+## [0.7.0] - 2026-06-26
 
 ### Added
+- Progressive tool disclosure by default (7 tools at startup vs 45); eager opt-in via SCRIVENER_MCP_EAGER_TOOLS, baked into Docker image for registries
 - Tool-definition quality pass — annotations, titles, rich schemas (project group)
 - Register full tool set by default; opt into progressive disclosure via SCRIVENER_MCP_PROGRESSIVE_TOOLS
 
