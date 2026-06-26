@@ -264,11 +264,12 @@ export function initializeSkillRegistry(): void {
 	buildMetaTools();
 	// Always activate project skill (need open_project at minimum)
 	activateSkill('project');
-	// Eager by default: register every skill at startup so registries, inspectors,
-	// and clients that ignore notifications/tools/list_changed surface the full tool
-	// set. Opt into progressive disclosure (tools unlock as a project is opened) with
-	// SCRIVENER_MCP_PROGRESSIVE_TOOLS=1.
-	if (process.env.SCRIVENER_MCP_PROGRESSIVE_TOOLS !== '1') {
+	// Progressive by default: only the project group + meta-tools register at startup
+	// (~300 tokens). The rest activate on demand — documents/search on open_project,
+	// others via use_skill — so interactive clients pay only for tools they use.
+	// Opt into eager registration (full set at startup, for registries/inspectors and
+	// clients that ignore notifications/tools/list_changed) with SCRIVENER_MCP_EAGER_TOOLS=1.
+	if (process.env.SCRIVENER_MCP_EAGER_TOOLS === '1') {
 		for (const s of skills) activateSkill(s.name);
 	}
 }

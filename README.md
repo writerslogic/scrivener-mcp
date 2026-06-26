@@ -222,7 +222,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 ## All Tools
 
-45 tools organized by workflow. Most are available immediately; a few advanced groups activate on demand.
+45 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>

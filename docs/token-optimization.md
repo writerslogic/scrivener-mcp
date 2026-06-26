@@ -4,9 +4,7 @@ Scrivener projects can be massive -- hundreds of documents, deeply nested binder
 
 ## Skill-Based Registration
 
-Tools are grouped into skills (`project`, `documents`, `search`, `analysis`, `compilation`, `memory`, `relationships`). By default the full set is registered at startup so registries, inspectors, and clients that do not honor `notifications/tools/list_changed` see every capability.
-
-For token-sensitive interactive use, set `SCRIVENER_MCP_PROGRESSIVE_TOOLS=1` to enable **progressive disclosure**: only the `project` group and the `list_skills`/`use_skill` meta-tools register at startup (~300 tokens instead of the ~5,000 tokens of the full set), and the rest activate on demand:
+Tools are grouped into skills (`project`, `documents`, `search`, `analysis`, `compilation`, `memory`, `relationships`). By default the server uses **progressive disclosure**: only the `project` group and the `list_skills`/`use_skill` meta-tools register at startup (~300 tokens instead of the ~5,000 tokens of the full set), and the rest activate on demand:
 
 | Trigger | Skills activated |
 |---------|-----------------|
@@ -17,7 +15,7 @@ For token-sensitive interactive use, set `SCRIVENER_MCP_PROGRESSIVE_TOOLS=1` to 
 | `use_skill("relationships")` | Character network and entity relationships |
 | `list_skills` | Lists all groups and their activation status |
 
-In progressive mode the AI client only pays the token cost for tool definitions it actually uses in the current conversation.
+The AI client only pays the token cost for tool definitions it actually uses in the current conversation. Set `SCRIVENER_MCP_EAGER_TOOLS=1` to instead register the full set at startup — useful for registries, inspectors, and clients that do not honor `notifications/tools/list_changed` (the Docker image sets this by default).
 
 ## Compact Responses
 
