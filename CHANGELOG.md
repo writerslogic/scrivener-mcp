@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 
 ### Documentation
 - Add Glama badges and glama.json maintainer manifest
+
+### Fixed
+- Advertise full tool set in Docker image for registry introspection
+- Stop git-cliff from logging its own changelog auto-commits
 ## [0.6.0] - 2026-06-24
 
 ### Added
@@ -48,6 +52,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 
 ### Added
 - JS fallback vector engine when @hms/native is not installed
+
+### Documentation
+- Add JS fallback engine to changelog
+
+### Fixed
+- Improve JS fallback engine with FNV-1a hashing, stopwords, k-means++ clustering, ESM-safe import, fresh IDF on query
+## [0.5.0] - 2026-06-08
+
+### Added
 - Add sliding window (offset/limit) to read_document for large manuscript support
 - Token-optimized response formatting with null stripping, minification, large payload spill, and error masking
 - Progressive skill-based tool registration with list_skills and use_skill meta-tools
@@ -55,12 +68,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add Windows Scrivener project path discovery (#17)
 
 ### Documentation
-- Add JS fallback engine to changelog
 - Substantially expand getting-started and writing-with-ai guides
 - Add getting-started, writing-with-ai, architecture, and contributing guides
 
 ### Fixed
-- Improve JS fallback engine with FNV-1a hashing, stopwords, k-means++ clustering, ESM-safe import, fresh IDF on query
 - Remove blind JSON compaction from dispatcher to prevent prose mangling
 - Resolve duplicate tool names and ensure sendToolListChanged fires for all tiers
 - Replace console.warn with stderr in connection-pool; polish README
@@ -80,6 +91,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Restore NPM_TOKEN for npm publish auth with OIDC provenance
 ## [0.4.1] - 2026-06-03
 
+### Fixed
+- Remove NPM_TOKEN override to allow OIDC trusted publishing; update repo URLs to writerslogic org
+## [0.4.0] - 2026-06-03
+
 ### Added
 - V0.4.0 - Rust-native HMS, critical bug fixes, repo cleanup
 - Replace simplified placeholders with production-ready AI and memory logic
@@ -94,7 +109,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Remove legacy implementation artifacts
 
 ### Fixed
-- Remove NPM_TOKEN override to allow OIDC trusted publishing; update repo URLs to writerslogic org
 - Use npm trusted publishing with OIDC provenance
 - Remove test from prepublishOnly to prevent publish failure
 - Allow CI to pass with pre-existing test failures
