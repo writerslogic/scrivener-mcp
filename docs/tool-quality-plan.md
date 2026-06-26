@@ -127,9 +127,9 @@ attention.
 
 - [x] **Phase 0** — infrastructure: `ToolDefinition` carries title/annotations/outputSchema; list handler passes them through.
 - [x] **Phase 1** — project group to 5/5 (pilot, proves the template).
-- [ ] **Phase 2** — documents + trash group to 5/5 (non-breaking definition quality on keepers).
-- [ ] **Phase 3** — apply consolidation remap (BREAKING → 0.7.0): merge/rename/hide per table.
-- [ ] **Phase 4** — bring search, analysis, memory, relationships, compilation to 5/5 on the consolidated set.
+- [x] **Phase 2** — documents group consolidated 11→7 and to 5/5 (73 tests pass).
+- [~] **Phase 3** — consolidation (BREAKING → 0.7.0): hidden 13 internal tools (69→56); documents and search merges/renames done. Remaining: analysis, memory, relationships, compilation merges.
+- [~] **Phase 4** — 5/5 on consolidated set: project, documents, search done (search 9→5, 73 tests pass). Remaining: analysis (11→4), memory (8→3), relationships (8→4), compilation (5→3).
 - [ ] **Phase 5** — outputSchema + structuredContent across all tools; Completeness backed by machine-readable results.
 - [ ] **Phase 6** — verify: tsc/lint/tests green, re-introspect, README/CHANGELOG, re-run Glama build + score.
 
