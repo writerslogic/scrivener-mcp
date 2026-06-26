@@ -31,15 +31,45 @@ function fail(error: unknown, op: string): HandlerResult {
 export const relationshipHandlers: ToolDefinition[] = [
 	{
 		name: 'add_relationship',
-		description: 'Store entity relationship',
+		title: 'Add Relationship',
+		description:
+			'Record a typed, directed relationship between two story entities (e.g. a character ' +
+			'"mentors" another, or a character "appears in" a document) in the project story graph. ' +
+			'Returns the stored edge with its generated id. Use this to build the knowledge graph that ' +
+			'find_relationships, character_network, and discover_connections then query. Requires an ' +
+			'open project with the relationship engine initialized.',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				head: { type: 'string' },
-				headType: { type: 'string', enum: ENTITY_TYPES },
-				relation: { type: 'string' },
-				tail: { type: 'string' },
-				tailType: { type: 'string', enum: ENTITY_TYPES },
+				head: {
+					type: 'string',
+					description: 'Name of the source entity, e.g. a character name like "Elena".',
+				},
+				headType: {
+					type: 'string',
+					enum: ENTITY_TYPES,
+					description: 'Type of the source entity.',
+				},
+				relation: {
+					type: 'string',
+					description:
+						'The relationship verb/label from head to tail, e.g. "mentors", "appears_in".',
+				},
+				tail: {
+					type: 'string',
+					description: 'Name of the target entity the relationship points to.',
+				},
+				tailType: {
+					type: 'string',
+					enum: ENTITY_TYPES,
+					description: 'Type of the target entity.',
+				},
 			},
 			required: ['head', 'headType', 'relation', 'tail', 'tailType'],
 		},
@@ -69,13 +99,38 @@ export const relationshipHandlers: ToolDefinition[] = [
 	},
 	{
 		name: 'find_relationships',
-		description: 'Find related entities',
+		title: 'Find Relationships',
+		description:
+			'Query the story graph for entities related to a given entity, returning the connected ' +
+			'entities and the relationship types that link them. This covers cross-references and ' +
+			'discovered connections for a specific entity; use character_network for the whole-cast ' +
+			'graph, or discover_connections to surface co-occurring entities project-wide. Requires an ' +
+			'open project with the relationship engine initialized.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				entity: { type: 'string' },
-				relation: { type: 'string' },
-				k: { type: 'number' },
+				entity: {
+					type: 'string',
+					description:
+						'Name of the entity to find relationships for, e.g. a character name.',
+				},
+				relation: {
+					type: 'string',
+					description:
+						'Optional relationship type to filter by (e.g. "mentors"). Omit to return all ' +
+						'relationship types.',
+				},
+				k: {
+					type: 'number',
+					description:
+						'Maximum number of related entities to return. Omit for the engine default.',
+				},
 			},
 			required: ['entity'],
 		},
@@ -119,7 +174,18 @@ export const relationshipHandlers: ToolDefinition[] = [
 	},
 	{
 		name: 'character_network',
-		description: 'Analyze character relationships',
+		title: 'Character Network',
+		description:
+			'Return the full character relationship network for the project: every character and the ' +
+			'typed relationships connecting them, suitable for rendering a graph or analyzing the cast ' +
+			"structure. Use find_relationships instead when you only need one entity's connections. " +
+			'Requires an open project with the relationship engine initialized. Takes no parameters.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {},
@@ -136,11 +202,27 @@ export const relationshipHandlers: ToolDefinition[] = [
 	},
 	{
 		name: 'discover_connections',
-		description: 'Discover entity co-occurrences',
+		title: 'Discover Connections',
+		description:
+			'Surface previously unrecorded relationships across the project by analyzing entity ' +
+			'co-occurrence, returning candidate connections the story graph does not yet contain. Use ' +
+			'this to find latent links to confirm with add_relationship; use find_relationships for ' +
+			'known connections of a specific entity. Requires an open project with the relationship ' +
+			'engine initialized.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				k: { type: 'number' },
+				k: {
+					type: 'number',
+					description:
+						'Maximum number of candidate connections to return. Omit for the engine default.',
+				},
 			},
 		},
 		handler: async (args, context): Promise<HandlerResult> => {

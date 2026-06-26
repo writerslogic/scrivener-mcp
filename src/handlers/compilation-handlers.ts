@@ -42,58 +42,183 @@ function formatCompileResult(text: string, sectionCount: number): HandlerResult 
 
 export const compileDocumentsHandler: ToolDefinition = {
 	name: 'compile_documents',
-	description: 'Compile documents in order',
+	title: 'Compile Documents',
+	description:
+		"Compile the project's documents into a single continuous manuscript in the requested format " +
+		'and return the compiled text (large results are spooled to a file reference). In "standard" ' +
+		'mode it joins documents in binder order; in "intelligent" mode it uses AI to optimize the ' +
+		'output for a specific target such as an agent query or synopsis. To write a manuscript to ' +
+		'disk in a publishing format (EPUB, etc.) use export_project instead. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			format: { type: 'string', enum: ['text', 'markdown', 'html'] },
-			rootFolderId: SHARED_DEFS.folderId,
-			includeSynopsis: { type: 'boolean' },
-			includeNotes: { type: 'boolean' },
-			separator: { type: 'string' },
-			hierarchical: { type: 'boolean' },
+			mode: {
+				type: 'string',
+				enum: ['standard', 'intelligent'],
+				description:
+					'"standard" (default) joins documents in order; "intelligent" applies AI ' +
+					'optimization toward targetOptimization.',
+			},
+			format: {
+				type: 'string',
+				enum: ['text', 'markdown', 'html'],
+				description: 'Output format of the compiled manuscript. Default "text".',
+			},
+			rootFolderId: {
+				...SHARED_DEFS.folderId,
+				description:
+					'Optional binder folder id to compile only its descendants. Omit to compile all ' +
+					'text documents.',
+			},
+			documentIds: {
+				...SHARED_DEFS.documentIds,
+				description:
+					'Optional explicit list of document ids to compile, in order. Overrides rootFolderId ' +
+					'when provided; most useful with mode "intelligent".',
+			},
+			targetOptimization: {
+				type: 'string',
+				enum: [
+					'agent',
+					'submission',
+					'pitch_packet',
+					'synopsis',
+					'query_letter',
+					'general',
+				],
+				description:
+					'For mode "intelligent": what to optimize the compiled output for. Default "general".',
+			},
+			includeSynopsis: {
+				type: 'boolean',
+				description: "Include each document's synopsis in the output. Default false.",
+			},
+			includeNotes: {
+				type: 'boolean',
+				description: "Include each document's notes in the output. Default false.",
+			},
+			separator: {
+				type: 'string',
+				description:
+					'Text inserted between documents in the standard-mode fallback. Default "\\n\\n---\\n\\n".',
+			},
+			hierarchical: {
+				type: 'boolean',
+				description: 'Preserve the binder folder hierarchy as headings. Default false.',
+			},
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		validateInput(args, compileSchema);
 
-		// Get documents to compile
-		const documents = await project.getAllDocuments();
-		let documentsToCompile: Array<{ id: string; content: string; title: string }>;
-
-		const rootFolderId = getOptionalStringArg(args, 'rootFolderId');
-		if (rootFolderId) {
-			// Filter documents under the specified folder
-			documentsToCompile = documents
-				.filter((doc) => doc.path && doc.path.startsWith(rootFolderId))
-				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
-		} else {
-			// Use all text documents
-			documentsToCompile = documents
-				.filter((doc) => doc.type === 'Text')
-				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
-		}
-
+		const mode = getOptionalStringArg(args, 'mode') || 'standard';
 		const format =
 			(getOptionalStringArg(args, 'format') as 'text' | 'markdown' | 'html') || 'text';
 		const includeSynopsis = (args.includeSynopsis as boolean) || false;
 		const includeNotes = (args.includeNotes as boolean) || false;
 		const hierarchical = (args.hierarchical as boolean) || false;
+		const explicitIds = args.documentIds as string[] | undefined;
 
+		// Resolve the set of documents to compile.
+		const documents = await project.getAllDocuments();
+		let documentsToCompile: Array<{ id: string; content: string; title: string }>;
+		const rootFolderId = getOptionalStringArg(args, 'rootFolderId');
+		if (explicitIds && explicitIds.length > 0) {
+			const byId = new Map(documents.map((d) => [d.id, d]));
+			documentsToCompile = explicitIds
+				.map((id) => byId.get(id))
+				.filter((d): d is NonNullable<typeof d> => !!d)
+				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
+		} else if (rootFolderId) {
+			documentsToCompile = documents
+				.filter((doc) => doc.path && doc.path.startsWith(rootFolderId))
+				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
+		} else {
+			documentsToCompile = documents
+				.filter((doc) => doc.type === 'Text')
+				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
+		}
+
+		// Intelligent mode: AI-optimized compilation toward a target.
+		if (mode === 'intelligent') {
+			const targetOptimization =
+				getOptionalStringArg(args, 'targetOptimization') || 'general';
+			const targetMap: Record<string, string> = {
+				agent: 'agent-query',
+				query_letter: 'agent-query',
+				submission: 'submission',
+				pitch_packet: 'pitch-packet',
+				synopsis: 'synopsis',
+				general: 'general',
+			};
+			const target = targetMap[targetOptimization];
+			try {
+				if (documentsToCompile.length === 0) {
+					throw new Error('No valid documents found for compilation');
+				}
+				const langChainCompiler = new LangChainCompilationService();
+				await langChainCompiler.initialize();
+				const learningHandler = new LangChainContinuousLearningHandler();
+				await learningHandler.initialize();
+				const sessionId = `intelligent_compile_${Date.now()}`;
+				await learningHandler.startFeedbackSession(sessionId);
+
+				const compiled = await langChainCompiler.compileWithAI(documentsToCompile, {
+					outputFormat: format,
+					targetOptimization,
+					target: target as
+						| 'agent-query'
+						| 'submission'
+						| 'beta-readers'
+						| 'publication'
+						| 'pitch-packet'
+						| 'synopsis',
+					intelligentFormatting: true,
+					generateMarketingMaterials: targetOptimization !== 'general',
+					enhanceContent: true,
+					optimizeForTarget: !!target,
+				});
+
+				await learningHandler.collectImplicitFeedback(sessionId, 'compile_documents', {
+					timeSpent: compiled.metadata?.processingTime || 0,
+					userActions: ['compile_documents'],
+					targetOptimization,
+					documentsCount: documentsToCompile.length,
+				});
+
+				const text =
+					typeof compiled.content === 'string'
+						? compiled.content
+						: JSON.stringify(compiled.content);
+				return formatCompileResult(text, documentsToCompile.length);
+			} catch (error) {
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Intelligent compilation failed: ${(error as Error).message}`,
+						},
+					],
+				};
+			}
+		}
+
+		// Standard mode: join documents, with a plain-concatenation fallback.
 		try {
-			// Use LangChain compilation service for enhanced compilation
 			const langChainCompiler = new LangChainCompilationService();
 			await langChainCompiler.initialize();
-
-			// Initialize continuous learning for feedback collection
 			const learningHandler = new LangChainContinuousLearningHandler();
 			await learningHandler.initialize();
-
 			const sessionId = `compile_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
 
-			// Perform intelligent compilation using LangChain
 			const compiled = await langChainCompiler.compileWithAI(documentsToCompile, {
 				outputFormat: format,
 				targetOptimization: 'general',
@@ -104,7 +229,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 				enhanceContent: true,
 			});
 
-			// Collect implicit feedback based on compilation success
 			await learningHandler.collectImplicitFeedback(sessionId, 'compile_documents', {
 				timeSpent: compiled.metadata?.processingTime || 0,
 				userActions: ['compile_documents'],
@@ -117,7 +241,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 					: JSON.stringify(compiled.content);
 			return formatCompileResult(text, documentsToCompile.length);
 		} catch (error) {
-			// Fallback to basic compilation if LangChain fails
 			const separator = getOptionalStringArg(args, 'separator') || '\n\n---\n\n';
 			const documentIds = documentsToCompile.map((doc) => doc.id);
 			const compiled = await project.compileDocuments(documentIds, separator, format);
@@ -130,13 +253,36 @@ export const compileDocumentsHandler: ToolDefinition = {
 
 export const exportProjectHandler: ToolDefinition = {
 	name: 'export_project',
-	description: 'Export project to file',
+	title: 'Export Project To File',
+	description:
+		'Export the whole project to a file on disk in a publishing/interchange format (Markdown, ' +
+		'HTML, JSON, or EPUB) and return the output path and a summary. Use this to produce a ' +
+		'deliverable file; use compile_documents when you want the compiled text back in the response ' +
+		'rather than written to disk. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			format: { type: 'string', enum: ['markdown', 'html', 'json', 'epub'] },
-			outputPath: { type: 'string' },
-			options: { type: 'object' },
+			format: {
+				type: 'string',
+				enum: ['markdown', 'html', 'json', 'epub'],
+				description: 'Target file format to export to.',
+			},
+			outputPath: {
+				type: 'string',
+				description:
+					'Absolute or project-relative path to write the exported file. Omit to use a ' +
+					'default location.',
+			},
+			options: {
+				type: 'object',
+				description: 'Optional format-specific export options (e.g. metadata, styling).',
+			},
 		},
 		required: ['format'],
 	},
@@ -168,11 +314,25 @@ export const exportProjectHandler: ToolDefinition = {
 
 export const getStatisticsHandler: ToolDefinition = {
 	name: 'get_statistics',
-	description: 'Get project statistics',
+	title: 'Get Project Statistics',
+	description:
+		'Return project-wide statistics: total word and document counts, plus title and author. Use ' +
+		'this for a quick project overview; use get_structure for the per-document breakdown or ' +
+		'get_document_info for a single document. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			detailed: { type: 'boolean' },
+			detailed: {
+				type: 'boolean',
+				description:
+					'Include extended per-category statistics when available. Default false.',
+			},
 		},
 	},
 	handler: async (_args, context): Promise<HandlerResult> => {
@@ -199,147 +359,40 @@ export const getStatisticsHandler: ToolDefinition = {
 	},
 };
 
-// Advanced LangChain compilation handlers
-export const intelligentCompilationHandler: ToolDefinition = {
-	name: 'intelligent_compilation',
-	description: 'AI-optimized compilation',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentsIds: SHARED_DEFS.documentIds,
-			targetOptimization: {
-				type: 'string',
-				enum: [
-					'agent',
-					'submission',
-					'pitch_packet',
-					'synopsis',
-					'query_letter',
-					'general',
-				],
-			},
-			outputFormat: { type: 'string', enum: ['text', 'markdown', 'html', 'rtf'] },
-			contentOptimization: { description: 'Enable AI optimization' },
-		},
-		required: ['documentsIds', 'targetOptimization'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const documentIds = args.documentsIds as string[];
-		const targetOptimization = getStringArg(args, 'targetOptimization');
-		const outputFormat =
-			(args.outputFormat as 'html' | 'text' | 'json' | 'markdown' | 'latex') || 'text';
-		const contentOptimization = (args.contentOptimization as boolean) || true;
-
-		// Map targetOptimization to LangChain target types
-		const getTargetType = (optimization: string): string | undefined => {
-			const targetMap: Record<string, string> = {
-				'agent-query': 'agent-query',
-				submission: 'submission',
-				'beta-readers': 'beta-readers',
-				publication: 'publication',
-				'pitch-packet': 'pitch-packet',
-				synopsis: 'synopsis',
-				general: 'general', // No specific target optimization
-			};
-			return targetMap[optimization];
-		};
-
-		const target = getTargetType(targetOptimization);
-
-		try {
-			// Get documents for compilation
-			const documents = await Promise.all(
-				documentIds.map(async (id) => {
-					const doc = await project.getDocument(id);
-					return doc
-						? { id: doc.id, content: doc.content || '', title: doc.title || '' }
-						: null;
-				})
-			);
-
-			const validDocuments = documents.filter((doc) => doc !== null) as Array<{
-				id: string;
-				content: string;
-				title: string;
-			}>;
-
-			if (validDocuments.length === 0) {
-				throw new Error('No valid documents found for compilation');
-			}
-
-			// Initialize LangChain compilation service
-			const langChainCompiler = new LangChainCompilationService();
-			await langChainCompiler.initialize();
-
-			// Initialize continuous learning for feedback collection
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
-
-			const sessionId = `intelligent_compile_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
-			// Perform intelligent compilation using LangChain
-			const compiled = await langChainCompiler.compileWithAI(validDocuments, {
-				outputFormat,
-				targetOptimization,
-				target: target as
-					| 'agent-query'
-					| 'submission'
-					| 'beta-readers'
-					| 'publication'
-					| 'pitch-packet'
-					| 'synopsis',
-				intelligentFormatting: true,
-				generateMarketingMaterials: targetOptimization !== 'general',
-				enhanceContent: contentOptimization,
-				optimizeForTarget: contentOptimization && !!target,
-			});
-
-			// Collect implicit feedback
-			await learningHandler.collectImplicitFeedback(sessionId, 'intelligent_compilation', {
-				timeSpent: compiled.metadata?.processingTime || 0,
-				userActions: ['intelligent_compilation'],
-				targetOptimization,
-				documentsCount: validDocuments.length,
-			});
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text:
-							typeof compiled.content === 'string'
-								? compiled.content
-								: JSON.stringify(compiled.content),
-					},
-				],
-			};
-		} catch (error) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Intelligent compilation failed: ${(error as Error).message}`,
-					},
-				],
-			};
-		}
-	},
-};
-
 export const generateMarketingMaterialsHandler: ToolDefinition = {
 	name: 'generate_marketing_materials',
-	description: 'Generate marketing materials',
+	title: 'Generate Marketing Materials',
+	description:
+		'Generate a publishing/marketing artifact from the manuscript — a synopsis, query letter, ' +
+		'pitch packet, elevator pitch, or book blurb — using the project content as context, and ' +
+		'return the generated text. Use this for submission and pitching materials; use ' +
+		'compile_documents to assemble the manuscript itself. Requires an open project with text ' +
+		'content. Each call regenerates fresh output (not idempotent).',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			materialType: {
 				type: 'string',
 				enum: ['synopsis', 'query_letter', 'pitch_packet', 'elevator_pitch', 'book_blurb'],
+				description: 'Which marketing artifact to generate.',
 			},
-			length: { type: 'string', enum: ['short', 'medium', 'long'] },
-			targetAudience: { type: 'string' },
+			length: {
+				type: 'string',
+				enum: ['short', 'medium', 'long'],
+				description:
+					'Target length: short (~500 words), medium (~1000, default), or long (~2000).',
+			},
+			targetAudience: {
+				type: 'string',
+				description:
+					'Optional description of the intended audience or market (e.g. "YA fantasy readers").',
+			},
 		},
 		required: ['materialType'],
 	},
@@ -490,8 +543,6 @@ export const compilationHandlers = [
 	compileDocumentsHandler,
 	exportProjectHandler,
 	getStatisticsHandler,
-	// Advanced LangChain compilation handlers
-	intelligentCompilationHandler,
 	generateMarketingMaterialsHandler,
 	buildVectorStoreHandler,
 ];

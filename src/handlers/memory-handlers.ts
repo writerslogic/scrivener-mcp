@@ -8,7 +8,6 @@ import { HolographicMemorySystem } from '../services/memory/hhm/holographic-memo
 import { getLogger } from '../core/logger.js';
 import { compact } from '../core/response-formatter.js';
 import { formatError } from '../core/response-formatter.js';
-import { SHARED_DEFS } from './shared-schemas.js';
 import type { ToolDefinition } from './types.js';
 
 const logger = getLogger('memory-handlers');
@@ -41,34 +40,6 @@ export function getHHMSystem(): HolographicMemorySystem {
 }
 
 export const nativeHHMTools: ToolDefinition[] = [
-	{
-		name: 'semantic_search',
-		description: 'Native HMS semantic search',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				query: SHARED_DEFS.query,
-				k: SHARED_DEFS.maxResults,
-			},
-			required: ['query'],
-		},
-		handler: async (args) => {
-			try {
-				const query = String(args.query || '');
-				const k = Number(args.k) || 10;
-				const traceId = crypto.randomUUID();
-				const system = getHHMSystem();
-				const results = await system.queryText(query, k, traceId);
-				return {
-					content: [{ type: 'text', text: compact(results) }],
-				};
-			} catch (error) {
-				return {
-					content: [{ type: 'text', text: formatError(error, 'semantic_search') }],
-				};
-			}
-		},
-	},
 	{
 		name: 'find_analogies',
 		description: 'Find analogies (A:B :: C:?)',

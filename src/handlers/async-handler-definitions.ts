@@ -13,7 +13,18 @@ import type { ToolDefinition } from './types.js';
 export const asyncHandlerDefinitions: ToolDefinition[] = [
 	{
 		name: 'queue_document_analysis',
-		description: 'Queue async NLP analysis',
+		title: 'Queue Document Analysis',
+		description:
+			'Enqueue a background NLP analysis of one document (readability, entities, sentiment) and ' +
+			'return a job id immediately without blocking. Poll the job with get_job_status and stop it ' +
+			'with cancel_job. Use this for large documents where a synchronous analyze_document call ' +
+			'would be slow; use analyze_document directly for quick, inline results.',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -21,11 +32,26 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				content: SHARED_DEFS.content,
 				options: {
 					type: 'object',
+					description:
+						'Optional flags selecting which analyses to run and the job priority.',
 					properties: {
-						includeReadability: { type: 'boolean' },
-						includeEntities: { type: 'boolean' },
-						includeSentiment: { type: 'boolean' },
-						priority: { type: 'number' },
+						includeReadability: {
+							type: 'boolean',
+							description: 'Include readability scoring. Default false.',
+						},
+						includeEntities: {
+							type: 'boolean',
+							description:
+								'Include named-entity extraction (characters, places). Default false.',
+						},
+						includeSentiment: {
+							type: 'boolean',
+							description: 'Include sentiment analysis. Default false.',
+						},
+						priority: {
+							type: 'number',
+							description: 'Queue priority; higher runs sooner. Default 0.',
+						},
 					},
 				},
 			},
@@ -56,18 +82,48 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'queue_project_analysis',
-		description: 'Queue batch project analysis',
+		title: 'Queue Project Analysis',
+		description:
+			'Enqueue a background batch analysis across many documents at once and return a job id ' +
+			'immediately. Poll progress with get_job_status and stop it with cancel_job. Use this to ' +
+			'analyze a whole manuscript or large set of documents; for a single document prefer ' +
+			'queue_document_analysis or the synchronous analyze_document.',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				projectId: { type: 'string' },
-				documents: { type: 'array' },
+				projectId: {
+					type: 'string',
+					description: 'Identifier of the project the documents belong to.',
+				},
+				documents: {
+					type: 'array',
+					description:
+						'Array of documents (id and content) to include in the batch analysis.',
+				},
 				options: {
 					type: 'object',
+					description: 'Optional batch execution settings.',
 					properties: {
-						parallel: { type: 'boolean' },
-						batchSize: { type: 'number' },
-						priority: { type: 'number' },
+						parallel: {
+							type: 'boolean',
+							description:
+								'Process documents concurrently rather than sequentially. Default false.',
+						},
+						batchSize: {
+							type: 'number',
+							description:
+								'Number of documents per batch when processing in parallel.',
+						},
+						priority: {
+							type: 'number',
+							description: 'Queue priority; higher runs sooner. Default 0.',
+						},
 					},
 				},
 			},
@@ -96,15 +152,38 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		},
 	},
 	{
-		name: 'generate_ai_suggestions',
-		description: 'Generate writing suggestions',
+		name: 'suggest_improvements',
+		title: 'Suggest Improvements',
+		description:
+			'Generate AI writing suggestions for a prompt or a specific document — ideas for revision, ' +
+			'next steps, or alternatives. Returns suggestion text. Optionally grounds the suggestions in ' +
+			'a document\'s content. Use this for generative "how could this be better" help; use ' +
+			'analyze_document for structured metrics or check_consistency to find contradictions.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				prompt: { type: 'string' },
+				prompt: {
+					type: 'string',
+					description:
+						'What to get suggestions about, e.g. "tighten the opening paragraph".',
+				},
 				documentId: SHARED_DEFS.docId,
-				useContext: { type: 'boolean' },
-				async: { type: 'boolean' },
+				useContext: {
+					type: 'boolean',
+					description:
+						"Ground suggestions in the referenced document's content. Default false.",
+				},
+				async: {
+					type: 'boolean',
+					description:
+						'Run as a background job and return a job id instead of waiting. Default false.',
+				},
 			},
 			required: ['prompt'],
 		},
@@ -129,11 +208,26 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'analyze_writing_style',
-		description: 'Analyze writing style',
+		title: 'Analyze Writing Style',
+		description:
+			'Analyze the prose style of one or more text samples — sentence variety, tone, voice, ' +
+			'pacing, and other stylistic features — and return a structured style profile. Use this to ' +
+			'characterize how something is written; use analyze_document for document-level metrics or ' +
+			'check_plot_consistency for narrative coherence.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				samples: { type: 'array' },
+				samples: {
+					type: 'array',
+					description:
+						'Array of text samples (strings) to analyze. Provide one or more passages of prose.',
+				},
 			},
 			required: ['samples'],
 		},
@@ -155,12 +249,31 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'check_plot_consistency',
-		description: 'Check plot consistency',
+		title: 'Check Plot Consistency',
+		description:
+			'Scan a set of documents for plot-level inconsistencies — timeline conflicts, contradicted ' +
+			'facts, dropped threads — and return the issues found with the documents involved. Use this ' +
+			'for story/plot coherence across chapters; use check_consistency for general consistency ' +
+			'checks or analyze_writing_style for prose-level analysis.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				documents: { type: 'array' },
-				async: { type: 'boolean' },
+				documents: {
+					type: 'array',
+					description:
+						'Array of documents (id and content) to check together, e.g. the chapters of a manuscript.',
+				},
+				async: {
+					type: 'boolean',
+					description:
+						'Run as a background job and return a job id instead of waiting. Default false.',
+				},
 			},
 			required: ['documents'],
 		},
@@ -183,12 +296,24 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'get_job_status',
-		description: 'Get queued job status',
+		title: 'Get Job Status',
+		description:
+			'Look up the status and progress of a background job previously started by ' +
+			'queue_document_analysis, queue_project_analysis, or another async tool. Returns the job ' +
+			'state (queued, running, completed, failed), progress, and result when finished. Poll this ' +
+			'after enqueuing work; use cancel_job to stop a job.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
 				jobType: {
 					type: 'string',
+					description: 'The kind of job, as returned when the job was enqueued.',
 					enum: [
 						'analyze_document',
 						'analyze_project',
@@ -200,7 +325,10 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						'batch_analysis',
 					],
 				},
-				jobId: { type: 'string' },
+				jobId: {
+					type: 'string',
+					description: 'The job id returned when the job was enqueued.',
+				},
 			},
 			required: ['jobType', 'jobId'],
 		},
@@ -223,12 +351,28 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'cancel_job',
-		description: 'Cancel a queued job',
+		title: 'Cancel Job',
+		description:
+			'Cancel a queued or running background job by its type and id. Returns whether the ' +
+			'cancellation succeeded. Cancelling an already-finished or unknown job is harmless. Use ' +
+			'get_job_status first to check whether a job is still in progress.',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				jobType: { type: 'string' },
-				jobId: { type: 'string' },
+				jobType: {
+					type: 'string',
+					description: 'The kind of job, as returned when the job was enqueued.',
+				},
+				jobId: {
+					type: 'string',
+					description: 'The job id returned when the job was enqueued.',
+				},
 			},
 			required: ['jobType', 'jobId'],
 		},

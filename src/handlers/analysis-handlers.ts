@@ -57,7 +57,20 @@ import {
 
 export const analyzeDocumentHandler: ToolDefinition = {
 	name: 'analyze_document',
-	description: 'Analyze writing quality',
+	title: 'Analyze Document',
+	description:
+		'Analyze the writing quality of a single document and return a summary of readability, pacing, ' +
+		'and the top issues found. This is the general-purpose prose analyzer: narrow it with ' +
+		'analysisTypes to focus on style, structure, themes, characters, sentiment, or pacing. Use ' +
+		'check_consistency for project-wide continuity instead, or enhance_content to get rewritten ' +
+		'prose rather than a critique. Calls an external AI model. Requires an open project and a ' +
+		'valid document id.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -66,8 +79,21 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				type: 'array',
 				items: {
 					type: 'string',
-					enum: ['readability', 'sentiment', 'themes', 'characters', 'pacing', 'all'],
+					enum: [
+						'readability',
+						'sentiment',
+						'themes',
+						'characters',
+						'pacing',
+						'style',
+						'structure',
+						'all',
+					],
 				},
+				description:
+					'Aspects to focus the analysis on. Omit or use ["all"] for a broad analysis; ' +
+					'otherwise pick any of readability, sentiment, themes, characters, pacing, style, ' +
+					'structure.',
 			},
 		},
 		required: ['documentId'],
@@ -159,7 +185,19 @@ export const analyzeDocumentHandler: ToolDefinition = {
 
 export const enhanceContentHandler: ToolDefinition = {
 	name: 'enhance_content',
-	description: 'AI content enhancement',
+	title: 'Enhance Content',
+	description:
+		"Produce an AI-improved version of a document's text for a chosen goal (fix grammar, refine " +
+		'style, improve clarity, expand, summarize, or rework creatively) and return the suggested ' +
+		'rewrite. This does NOT modify the document; review the result and call write_document to ' +
+		'save it. Use analyze_document for a critique instead of a rewrite, or generate_content to ' +
+		'create new text from a prompt. Calls an external AI model. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -167,8 +205,14 @@ export const enhanceContentHandler: ToolDefinition = {
 			enhancementType: {
 				type: 'string',
 				enum: ['grammar', 'style', 'clarity', 'expand', 'summarize', 'creative'],
+				description:
+					'The improvement goal: "grammar" fixes errors, "style" refines voice, "clarity" ' +
+					'simplifies, "expand" lengthens, "summarize" condenses, "creative" reworks freely.',
 			},
-			options: { type: 'object' },
+			options: {
+				type: 'object',
+				description: 'Optional enhancement parameters passed through to the enhancer.',
+			},
 		},
 		required: ['documentId', 'enhancementType'],
 	},
@@ -267,20 +311,47 @@ export const enhanceContentHandler: ToolDefinition = {
 
 export const generateContentHandler: ToolDefinition = {
 	name: 'generate_content',
-	description: 'Generate content from prompt',
+	title: 'Generate Content',
+	description:
+		'Generate new prose from a natural-language prompt and return the generated text, optionally ' +
+		'steered by project context (a document, characters, or a target style) and a desired length. ' +
+		'This creates fresh text and does not modify any document. Use enhance_content to improve ' +
+		'existing text instead, or analyze_document to critique it. Calls an external AI model and ' +
+		'requires OPENAI_API_KEY; without it a placeholder is returned.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			prompt: { type: 'string' },
+			prompt: {
+				type: 'string',
+				description: 'Natural-language instruction describing the content to generate.',
+			},
 			context: {
 				type: 'object',
+				description: 'Optional project context to steer generation.',
 				properties: {
-					documentId: { type: 'string' },
-					characterIds: { type: 'array', items: { type: 'string' } },
-					style: { type: 'string' },
+					documentId: {
+						type: 'string',
+						description: 'Id of a document to use as surrounding context.',
+					},
+					characterIds: {
+						type: 'array',
+						items: { type: 'string' },
+						description:
+							'Ids of characters the generated content should be consistent with.',
+					},
+					style: { type: 'string', description: 'Target writing style or voice.' },
 				},
 			},
-			length: { type: 'number', description: 'Word count' },
+			length: {
+				type: 'number',
+				description: 'Approximate target length in words. Default 500.',
+			},
 		},
 		required: ['prompt'],
 	},
@@ -380,16 +451,35 @@ export const generateContentHandler: ToolDefinition = {
 };
 
 export const updateMemoryHandler: ToolDefinition = {
-	name: 'update_memory',
-	description: 'Update AI memory',
+	name: 'remember',
+	title: 'Remember Project Facts',
+	description:
+		"Store or update a fact in the project's persistent memory so later tools and sessions stay " +
+		'consistent: a character profile, world-building detail, plot thread, or style-guide entry. ' +
+		'Pass an id inside data to update an existing entry, or omit it to add a new one. Use recall ' +
+		'to read memory back. Requires an open project.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			memoryType: {
 				type: 'string',
 				enum: ['characters', 'worldBuilding', 'plotThreads', 'styleGuide', 'all'],
+				description:
+					'Which memory store to write to: "characters", "worldBuilding", "plotThreads", ' +
+					'"styleGuide", or "all" for arbitrary custom context.',
 			},
-			data: { type: 'object' },
+			data: {
+				type: 'object',
+				description:
+					'The entry to store. Include an "id" field to update an existing entry; omit it to ' +
+					'create a new one.',
+			},
 		},
 		required: ['memoryType', 'data'],
 	},
@@ -441,14 +531,26 @@ export const updateMemoryHandler: ToolDefinition = {
 };
 
 export const getMemoryHandler: ToolDefinition = {
-	name: 'get_memory',
-	description: 'Retrieve AI memory',
+	name: 'recall',
+	title: 'Recall Project Facts',
+	description:
+		"Read back the project's persistent memory: stored characters, world-building, plot threads, " +
+		'and style guide. Returns the requested store, or the full memory when memoryType is omitted ' +
+		'or "all". Use remember to write new facts. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			memoryType: {
 				type: 'string',
 				enum: ['characters', 'worldBuilding', 'plotThreads', 'styleGuide', 'all'],
+				description:
+					'Which memory store to read. Omit or use "all" to return the full project memory.',
 			},
 		},
 	},
@@ -490,7 +592,18 @@ export const getMemoryHandler: ToolDefinition = {
 
 export const checkConsistencyHandler: ToolDefinition = {
 	name: 'check_consistency',
-	description: 'Check project consistency',
+	title: 'Check Project Consistency',
+	description:
+		'Scan the whole project for continuity problems and return the issues found: character ' +
+		'contradictions, timeline conflicts, location mismatches, and dropped or inconsistent plot ' +
+		'threads. This is the project-wide continuity checker; use analyze_document to critique a ' +
+		"single document's prose instead. Narrow the scan with checkTypes. Requires an open project.",
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -500,6 +613,9 @@ export const checkConsistencyHandler: ToolDefinition = {
 					type: 'string',
 					enum: ['characters', 'timeline', 'locations', 'plotThreads', 'all'],
 				},
+				description:
+					'Continuity dimensions to check. Omit or use ["all"] for every check; otherwise ' +
+					'pick any of characters, timeline, locations, plotThreads.',
 			},
 		},
 	},
@@ -1002,13 +1118,30 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 
 export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
-	description: 'Semantic search',
+	title: 'Semantic Search',
+	description:
+		'Find passages by meaning rather than exact words, using embeddings over the project, and ' +
+		'return the most relevant documents with similarity scores and related entities. Use this ' +
+		'for conceptual "find passages about X" queries; use search for keyword/full-text matching ' +
+		'and find_mentions to locate every occurrence of a specific name or term. Calls an external ' +
+		'embedding model. Requires an open project with semantic indexing available.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			query: SHARED_DEFS.query,
 			maxResults: SHARED_DEFS.maxResults,
-			threshold: SHARED_DEFS.threshold,
+			threshold: {
+				...SHARED_DEFS.threshold,
+				description:
+					'Minimum similarity score (0-1) a result must meet to be returned. Default 0.5; ' +
+					'raise for stricter matches, lower for broader recall.',
+			},
 		},
 		required: ['query'],
 	},

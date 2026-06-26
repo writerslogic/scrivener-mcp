@@ -85,6 +85,9 @@ const HIDDEN_TOOLS = new Set<string>([
 	'get_queue_stats',
 	'start_realtime_assistance',
 	'collect_feedback',
+	// fractal_search is superseded by semantic_search; get_memory_analytics by get_memory_stats.
+	'fractal_search',
+	'get_memory_analytics',
 ]);
 
 function visibleTools(skill: Skill): ToolDefinition[] {
@@ -101,7 +104,18 @@ const metaTools: ToolDefinition[] = [];
 function buildMetaTools(): void {
 	const listSkills: ToolDefinition = {
 		name: 'list_skills',
-		description: 'List available tool groups and their contents',
+		title: 'List Skills',
+		description:
+			'List the available skills (tool groups) — project, documents, search, analysis, ' +
+			'compilation, memory, relationships — with a description, the tool count, whether the skill ' +
+			'is already active, and its tool names. Use this to discover capabilities, then call ' +
+			'use_skill to activate a group whose tools you need. Takes no parameters.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {},
@@ -126,13 +140,27 @@ function buildMetaTools(): void {
 
 	const useSkill: ToolDefinition = {
 		name: 'use_skill',
-		description: 'Activate a skill to register its tools',
+		title: 'Activate Skill',
+		description:
+			"Activate a skill so its tools become available to call. Returns the activated skill's tool " +
+			'names and their schemas; clients that support tools/list_changed will also see the new ' +
+			'tools appear automatically. Call list_skills first to see the available skill names. Tools ' +
+			'are progressively disclosed, so activate the skill you need before using its tools (most ' +
+			'tools are pre-activated by default).',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
 				name: {
 					type: 'string',
-					description: 'Skill name from list_skills',
+					description:
+						'The skill to activate, e.g. "documents", "search", or "analysis". Get valid ' +
+						'names from list_skills.',
 				},
 			},
 			required: ['name'],

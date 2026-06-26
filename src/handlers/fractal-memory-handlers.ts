@@ -412,13 +412,36 @@ export const findCoOccurrencesHandler: ToolDefinition = {
  */
 export const checkContinuityHandler: ToolDefinition = {
 	name: 'check_character_continuity',
-	description: 'Check character continuity',
+	title: 'Check Character Continuity',
+	description:
+		'Scan the manuscript for continuity problems with a single character — contradictions in how ' +
+		'they are described, named, or portrayed across documents (e.g. eye color or role changing ' +
+		'between chapters). Returns a continuity report listing each appearance and any detected ' +
+		'inconsistencies. Use this for one character in depth; use check_consistency for project-wide ' +
+		'plot/character checks. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			characterName: { type: 'string' },
-			chapterId: SHARED_DEFS.chapterId,
-			includeRelationships: { type: 'boolean' },
+			characterName: {
+				type: 'string',
+				description: 'Exact name of the character to audit, e.g. "Elena".',
+			},
+			chapterId: {
+				...SHARED_DEFS.chapterId,
+				description: 'Optional chapter/folder id to limit the check to a single chapter.',
+			},
+			includeRelationships: {
+				type: 'boolean',
+				description:
+					"When true, also report continuity of the character's relationships with others. " +
+					'Default false.',
+			},
 		},
 		required: ['characterName'],
 	},
@@ -493,13 +516,39 @@ export const checkContinuityHandler: ToolDefinition = {
  */
 export const trackMotifsHandler: ToolDefinition = {
 	name: 'track_motifs',
-	description: 'Track recurring motifs',
+	title: 'Track Motifs',
+	description:
+		'Trace recurring motifs across the manuscript — themes, symbols, repeated phrases, or ' +
+		'structural patterns — and report where each recurs and how strongly. Returns the detected ' +
+		'motifs ranked by strength with their occurrences. Use this for thematic/symbolic patterns; ' +
+		'use find_mentions for literal occurrences of a specific word. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			chapterId: SHARED_DEFS.chapterId,
-			minStrength: { type: 'number' },
-			patternType: { type: 'string', enum: ['theme', 'symbol', 'phrase', 'structure'] },
+			chapterId: {
+				...SHARED_DEFS.chapterId,
+				description:
+					'Optional chapter/folder id to limit motif tracking to a single chapter.',
+			},
+			minStrength: {
+				type: 'number',
+				description:
+					'Minimum recurrence strength (0–1) a motif must reach to be reported. Higher values ' +
+					'return only the most prominent motifs. Omit for no threshold.',
+			},
+			patternType: {
+				type: 'string',
+				enum: ['theme', 'symbol', 'phrase', 'structure'],
+				description:
+					'Restrict to one motif kind: "theme", "symbol", "phrase", or "structure". Omit to ' +
+					'track all kinds.',
+			},
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
@@ -851,17 +900,44 @@ export const getMemoryAnalyticsHandler: ToolDefinition = {
  */
 export const analyzeNarrativeHandler: ToolDefinition = {
 	name: 'analyze_narrative',
-	description: 'Analyze narrative structure',
+	title: 'Analyze Narrative Structure',
+	description:
+		'Analyze the narrative structure of a document — its arc, recurring motifs, and entity ' +
+		'relationships — and return a structured report, optionally with metrics and visualization ' +
+		'data. Use this for structural/arc analysis of one document; use analyze_document for prose ' +
+		'quality and check_consistency for contradiction detection. Requires an open project and a ' +
+		'valid document id.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
-			analysisType: { type: 'string', enum: ['structure', 'motifs', 'relationships', 'all'] },
+			analysisType: {
+				type: 'string',
+				enum: ['structure', 'motifs', 'relationships', 'all'],
+				description:
+					'Which facet to analyze: "structure" (arc/beats), "motifs", "relationships", or ' +
+					'"all" (default).',
+			},
 			options: {
 				type: 'object',
+				description: 'Optional output toggles.',
 				properties: {
-					includeVisualization: { type: 'boolean' },
-					includeMetrics: { type: 'boolean' },
+					includeVisualization: {
+						type: 'boolean',
+						description:
+							'Include graph/visualization data in the result. Default false.',
+					},
+					includeMetrics: {
+						type: 'boolean',
+						description:
+							'Include quantitative narrative metrics in the result. Default false.',
+					},
 				},
 			},
 		},
@@ -990,12 +1066,32 @@ export const analyzeNarrativeHandler: ToolDefinition = {
  */
 export const getMemoryStatsHandler: ToolDefinition = {
 	name: 'get_memory_stats',
-	description: 'Get memory usage stats',
+	title: 'Get Memory Stats',
+	description:
+		"Return statistics about the project's memory subsystem (the holographic/fractal memory that " +
+		'powers semantic search and continuity): how much has been ingested, index size, and related ' +
+		'metrics. This is the single source for memory metrics. Optionally scope to one document or ' +
+		'include a detailed breakdown. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			documentId: SHARED_DEFS.docId,
-			includeDetails: { type: 'boolean' },
+			documentId: {
+				...SHARED_DEFS.docId,
+				description:
+					'Optional document id to report memory stats for a single document instead of the ' +
+					'whole project.',
+			},
+			includeDetails: {
+				type: 'boolean',
+				description:
+					'Include a per-component breakdown rather than summary totals. Default false.',
+			},
 		},
 	},
 	handler: async (args: Record<string, unknown>): Promise<HandlerResult> => {
