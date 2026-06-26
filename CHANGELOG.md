@@ -16,12 +16,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Hide internal/experimental tools from public surface (69->56)
 
 ### Documentation
+- Sync all docs to the consolidated 45-tool surface (rewrite README tools table, fix stale tool names, correct registration/token-optimization docs for eager default)
 - Tool quality plan — phases 0-4 done, 69->44 tools all at 5/5
 - Update tool quality plan progress (project/documents/search done)
 - Add tool quality and consolidation plan (69 to ~33, 5/5 TDQS target)
 - Add Glama badges and glama.json maintainer manifest
 
 ### Fixed
+- Register semantic_search (was defined but missing from analysisHandlers array)
 - Declare @langchain/classic and domhandler — phantom deps broke pnpm build
 - Advertise full tool set in Docker image for registry introspection
 - Stop git-cliff from logging its own changelog auto-commits
