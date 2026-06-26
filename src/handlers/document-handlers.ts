@@ -31,7 +31,7 @@ function assertValidDocumentId(documentId: string): void {
 		throw createError(
 			ErrorCode.INVALID_INPUT,
 			{ documentId },
-			`Invalid document ID format: "${documentId}". Use get_structure or get_all_documents to find a valid Scrivener UUID.`
+			`Invalid document ID format: "${documentId}". Use get_structure to find a valid Scrivener UUID.`
 		);
 	}
 }
@@ -45,7 +45,7 @@ async function requireExistingDocument(
 		throw createError(
 			ErrorCode.DOCUMENT_NOT_FOUND,
 			{ documentId },
-			`Document "${documentId}" was not found in the open project. Use get_structure or get_all_documents to choose a valid document ID.`
+			`Document "${documentId}" was not found in the open project. Use get_structure to choose a valid document ID.`
 		);
 	}
 	return info;
@@ -53,7 +53,18 @@ async function requireExistingDocument(
 
 export const getDocumentInfoHandler: ToolDefinition = {
 	name: 'get_document_info',
-	description: 'Get document metadata',
+	title: 'Get Document Info',
+	description:
+		'Return metadata for a single document without its body text: title, type, word count, ' +
+		'synopsis, label, status, parent, and custom metadata. Use this to inspect a document or to ' +
+		'read its word count cheaply; call read_document when you need the actual prose, or ' +
+		'get_structure for the whole binder. Requires an open project and a valid document id.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -85,13 +96,41 @@ export const getDocumentInfoHandler: ToolDefinition = {
 
 export const readDocumentHandler: ToolDefinition = {
 	name: 'read_document',
-	description: 'Read document content',
+	title: 'Read Document',
+	description:
+		'Read the text of a single document. By default returns plain text; set format to "formatted" ' +
+		'to get rich text with styling and structure preserved. Use offset and limit to page through ' +
+		'long documents by word range instead of returning the whole thing. Use get_document_info ' +
+		'when you only need metadata, or search/semantic_search to find content across many documents. ' +
+		'Requires an open project and a valid document id.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
-			offset: { type: 'number', description: 'Start word index' },
-			limit: { type: 'number', description: 'Max words to return' },
+			format: {
+				type: 'string',
+				enum: ['plain', 'formatted'],
+				description:
+					'"plain" (default) returns unstyled text and supports offset/limit paging. ' +
+					'"formatted" returns rich text with styling and structure preserved (paged ' +
+					'reading does not apply).',
+			},
+			offset: {
+				type: 'number',
+				description:
+					'Zero-based word index to start reading from. Default 0. Plain format only.',
+			},
+			limit: {
+				type: 'number',
+				description:
+					'Maximum number of words to return from offset. Omit to read to the end.',
+			},
 		},
 		required: ['documentId'],
 	},
@@ -99,10 +138,18 @@ export const readDocumentHandler: ToolDefinition = {
 		try {
 			const project = requireProject(_context);
 			const documentId = getStringArg(args, 'documentId');
+			const format = getOptionalStringArg(args, 'format') || 'plain';
 			const offset = getOptionalNumberArg(args, 'offset') || 0;
 			const limit = getOptionalNumberArg(args, 'limit');
 			assertValidDocumentId(documentId);
 			const docInfo = await requireExistingDocument(project, documentId);
+
+			if (format === 'formatted') {
+				const formatted = await project.readDocumentFormatted(documentId);
+				return {
+					content: [{ type: 'text', text: compact(formatted) }],
+				};
+			}
 
 			const result = await measureExecution(() => project.readDocument(documentId));
 
@@ -159,7 +206,18 @@ export const readDocumentHandler: ToolDefinition = {
 
 export const writeDocumentHandler: ToolDefinition = {
 	name: 'write_document',
-	description: 'Write document content',
+	title: 'Write Document',
+	description:
+		'Replace the entire text of an existing document with new content. This overwrites the body; ' +
+		'a backup of the previous version is taken first and the write is atomic. To change only the ' +
+		'title or metadata use update_document; to add a new document use create_document. Requires an ' +
+		'open project and a valid document id.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -222,14 +280,32 @@ export const writeDocumentHandler: ToolDefinition = {
 
 export const createDocumentHandler: ToolDefinition = {
 	name: 'create_document',
-	description: 'Create document or folder',
+	title: 'Create Document',
+	description:
+		'Create a new text document or folder in the binder and return its new id. Optionally set the ' +
+		'initial body content and the parent folder; if no parent is given the item is added at the ' +
+		'top level. Each call creates a distinct item (not idempotent). Use write_document to change ' +
+		'content afterward. Requires an open project.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			title: { type: 'string' },
+			title: {
+				type: 'string',
+				description: 'Title for the new document or folder. Truncated to 255 characters.',
+			},
 			content: SHARED_DEFS.content,
 			parentId: SHARED_DEFS.folderId,
-			documentType: { type: 'string', enum: ['Text', 'Folder'] },
+			documentType: {
+				type: 'string',
+				enum: ['Text', 'Folder'],
+				description: 'Whether to create a "Text" document (default) or a "Folder".',
+			},
 		},
 		required: ['title'],
 	},
@@ -307,7 +383,18 @@ export const createDocumentHandler: ToolDefinition = {
 
 export const deleteDocumentHandler: ToolDefinition = {
 	name: 'delete_document',
-	description: 'Move document to trash',
+	title: 'Delete Document',
+	description:
+		'Move a document to the project trash. This is reversible: the document can be listed with ' +
+		'list_trash and brought back with restore_document until the trash is emptied in Scrivener. ' +
+		'Deleting an already-trashed document is a no-op. Requires an open project and a valid ' +
+		'document id.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -337,49 +424,30 @@ export const deleteDocumentHandler: ToolDefinition = {
 	},
 };
 
-export const renameDocumentHandler: ToolDefinition = {
-	name: 'rename_document',
-	description: 'Rename a document',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentId: SHARED_DEFS.docId,
-			newTitle: { type: 'string' },
-		},
-		required: ['documentId', 'newTitle'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		try {
-			const project = requireProject(context);
-			validateInput(args, documentTitleSchema);
-
-			const documentId = getStringArg(args, 'documentId');
-			const newTitle = getStringArg(args, 'newTitle');
-			await project.renameDocument(documentId, newTitle);
-			return {
-				content: [
-					{
-						type: 'text',
-						text: 'Document renamed successfully',
-					},
-				],
-			};
-		} catch (error) {
-			const appError = handleError(error, 'renameDocument');
-			throw appError;
-		}
-	},
-};
-
 export const moveDocumentHandler: ToolDefinition = {
 	name: 'move_document',
-	description: 'Move document to folder',
+	title: 'Move Document',
+	description:
+		'Move a document or folder to a different parent folder in the binder, optionally at a specific ' +
+		"position among the target folder's children. Changes only the location, not the content. " +
+		'Requires an open project, a valid document id, and a valid target folder id.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
 			targetFolderId: SHARED_DEFS.folderId,
-			position: { type: 'number' },
+			position: {
+				type: 'number',
+				description:
+					"Zero-based index at which to insert the item among the target folder's children. " +
+					'Omit to append at the end.',
+			},
 		},
 		required: ['documentId', 'targetFolderId'],
 	},
@@ -407,18 +475,46 @@ export const moveDocumentHandler: ToolDefinition = {
 	},
 };
 
-export const updateMetadataHandler: ToolDefinition = {
-	name: 'update_metadata',
-	description: 'Update document metadata',
+export const updateDocumentHandler: ToolDefinition = {
+	name: 'update_document',
+	title: 'Update Document Title & Metadata',
+	description:
+		"Update a document's title and/or its metadata (synopsis, notes, label, status, and custom " +
+		'fields) in a single call. Pass only the fields you want to change; omitted fields are left ' +
+		'untouched. To change the body text use write_document; to move it use move_document. Requires ' +
+		'an open project and a valid document id.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
-			synopsis: { type: 'string' },
-			notes: { type: 'string' },
-			label: { type: 'string' },
-			status: { type: 'string' },
-			customMetadata: { type: 'object', additionalProperties: { type: 'string' } },
+			title: {
+				type: 'string',
+				description: 'New title for the document. Omit to leave the title unchanged.',
+			},
+			synopsis: {
+				type: 'string',
+				description: 'Synopsis / index-card text shown in the Scrivener outliner.',
+			},
+			notes: { type: 'string', description: 'Document notes (the inspector Notes pane).' },
+			label: {
+				type: 'string',
+				description: 'Label name (e.g. a POV character or chapter color label).',
+			},
+			status: {
+				type: 'string',
+				description: 'Status name (e.g. "To Do", "First Draft", "Done").',
+			},
+			customMetadata: {
+				type: 'object',
+				additionalProperties: { type: 'string' },
+				description: 'Map of custom metadata field names to string values.',
+			},
 		},
 		required: ['documentId'],
 	},
@@ -427,148 +523,37 @@ export const updateMetadataHandler: ToolDefinition = {
 		validateInput(args, documentIdSchema);
 
 		const documentId = getStringArg(args, 'documentId');
+		const title = getOptionalStringArg(args, 'title');
 		const synopsis = getOptionalStringArg(args, 'synopsis');
 		const notes = getOptionalStringArg(args, 'notes');
 		const label = getOptionalStringArg(args, 'label');
 		const status = getOptionalStringArg(args, 'status');
 		const customMetadata = args.customMetadata as Record<string, string> | undefined;
 
-		await project.updateDocumentMetadata(documentId, {
-			synopsis,
-			notes,
-			label,
-			status,
-			customMetadata,
-		});
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Metadata updated successfully',
-				},
-			],
-		};
-	},
-};
-
-export const getWordCountHandler: ToolDefinition = {
-	name: 'get_word_count',
-	description: 'Get word count',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentId: SHARED_DEFS.docId,
-			includeChildren: { type: 'boolean' },
-		},
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-
-		const documentId = getOptionalStringArg(args, 'documentId');
-		const includeChildren = getOptionalBooleanArg(args, 'includeChildren') ?? false;
-
-		let count = 0;
-
-		if (documentId) {
-			// Get word count for the specific document
-			const docCount = await project.getWordCount(documentId);
-			count = docCount.words;
-
-			// If includeChildren is true, also count all child documents
-			if (includeChildren) {
-				const allDocs = await project.getAllDocuments();
-				// Find all documents that are children of this document
-				const childDocs = allDocs.filter(
-					(doc) =>
-						doc.path &&
-						doc.id !== documentId &&
-						String(doc.path).split('/').includes(documentId)
-				);
-
-				// Parallelize all child document reads
-				const childCounts = await Promise.all(
-					childDocs.map(async (doc) => {
-						const childCount = await project.getWordCount(doc.id);
-						return childCount.words;
-					})
-				);
-				count += childCounts.reduce((sum, words) => sum + words, 0);
-			}
-		} else {
-			// No documentId provided, count all documents
-			count = await project.getTotalWordCount();
+		if (title !== undefined) {
+			await project.renameDocument(documentId, title);
+		}
+		if (
+			synopsis !== undefined ||
+			notes !== undefined ||
+			label !== undefined ||
+			status !== undefined ||
+			customMetadata !== undefined
+		) {
+			await project.updateDocumentMetadata(documentId, {
+				synopsis,
+				notes,
+				label,
+				status,
+				customMetadata,
+			});
 		}
 
 		return {
 			content: [
 				{
 					type: 'text',
-					text: JSON.stringify({ wordCount: count }),
-				},
-			],
-		};
-	},
-};
-
-export const readFormattedHandler: ToolDefinition = {
-	name: 'read_document_formatted',
-	description: 'Read document with formatting',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentId: SHARED_DEFS.docId,
-		},
-		required: ['documentId'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, documentIdSchema);
-
-		const documentId = getStringArg(args, 'documentId');
-		const formatted = await project.readDocumentFormatted(documentId);
-		return {
-			content: [
-				{
-					type: 'text',
-					text: compact(formatted),
-				},
-			],
-		};
-	},
-};
-
-export const getAllDocumentsHandler: ToolDefinition = {
-	name: 'get_all_documents',
-	description: 'Paginated flat list of all documents',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			offset: { type: 'number', description: 'Start index' },
-			limit: { type: 'number', description: 'Max items (default 50)' },
-			includeTrash: SHARED_DEFS.includeTrash,
-		},
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const offset = getOptionalNumberArg(args, 'offset') || 0;
-		const limit = getOptionalNumberArg(args, 'limit') || 50;
-		const includeTrash = getOptionalBooleanArg(args, 'includeTrash') || false;
-
-		const allDocs = await project.getAllDocuments(includeTrash);
-		const total = allDocs.length;
-		const items = allDocs.slice(offset, offset + limit);
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: JSON.stringify({
-						items,
-						total,
-						offset,
-						hasMore: offset + limit < total,
-					}),
+					text: 'Document updated successfully',
 				},
 			],
 		};
@@ -581,10 +566,6 @@ export const documentHandlers = [
 	writeDocumentHandler,
 	createDocumentHandler,
 	deleteDocumentHandler,
-	renameDocumentHandler,
 	moveDocumentHandler,
-	updateMetadataHandler,
-	getWordCountHandler,
-	readFormattedHandler,
-	getAllDocumentsHandler,
+	updateDocumentHandler,
 ];

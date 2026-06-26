@@ -2,7 +2,10 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
-import { getDocumentInfoHandler, readDocumentHandler } from '../../src/handlers/document-handlers.js';
+import {
+	getDocumentInfoHandler,
+	readDocumentHandler,
+} from '../../src/handlers/document-handlers.js';
 import { openProjectHandler } from '../../src/handlers/project-handlers.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
 import { DatabaseService } from '../../src/handlers/database/database-service.js';
@@ -75,10 +78,7 @@ describe('handler error messages', () => {
 		await fs.mkdir(projectDir, { recursive: true });
 		await fs.writeFile(scrivxPath, '<ScrivenerProject><Binder /></ScrivenerProject>');
 
-		await openProjectHandler.handler(
-			{ path: scrivxPath },
-			createContext(null)
-		);
+		await openProjectHandler.handler({ path: scrivxPath }, createContext(null));
 
 		expect(ScrivenerProject).toHaveBeenCalledWith(
 			projectDir,
@@ -111,7 +111,7 @@ describe('handler error messages', () => {
 			readDocumentHandler.handler({ documentId: 'not-a-uuid' }, context)
 		).rejects.toMatchObject({
 			code: ErrorCode.INVALID_INPUT,
-			message: expect.stringContaining('get_structure or get_all_documents'),
+			message: expect.stringContaining('get_structure'),
 		});
 	});
 
@@ -129,7 +129,7 @@ describe('handler error messages', () => {
 			getDocumentInfoHandler.handler({ documentId: validDocumentId }, context)
 		).rejects.toMatchObject({
 			code: ErrorCode.DOCUMENT_NOT_FOUND,
-			message: expect.stringContaining('Use get_structure or get_all_documents'),
+			message: expect.stringContaining('Use get_structure'),
 		});
 	});
 
