@@ -16,6 +16,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Hide internal/experimental tools from public surface (69->56)
 
 ### Documentation
+- Tool quality plan — phases 0-4 done, 69->44 tools all at 5/5
 - Update tool quality plan progress (project/documents/search done)
 - Add tool quality and consolidation plan (69 to ~33, 5/5 TDQS target)
 - Add Glama badges and glama.json maintainer manifest
