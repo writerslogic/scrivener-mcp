@@ -1,7 +1,4 @@
 import { SemanticDatabaseLayer } from '../handlers/database/langchain-semantic-layer.js';
-import { LangChainHMSVectorStore } from '../services/ai/hms-vector-store.js';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { Document as LangchainDocument } from '@langchain/core/documents';
 import { validateInput } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
@@ -48,20 +45,55 @@ import {
 	documentDetailsSchema,
 	moveDocumentSchema,
 	searchContentSchema,
-	searchTrashSchema,
 } from './validation-schemas.js';
 
 export const searchContentHandler: ToolDefinition = {
-	name: 'search_content',
-	description: 'Search across all documents',
+	name: 'search',
+	title: 'Search Documents',
+	description:
+		'Search the open project and return matching documents with relevance-ranked snippets. By ' +
+		'default performs an intelligent full-text/semantic search of document content; set field to ' +
+		'"title" for a fast case-insensitive title lookup, or scope to "trash" to search only trashed ' +
+		'documents. For meaning-based "find passages about X" queries use semantic_search; to find ' +
+		'every occurrence of a specific name or term use find_mentions. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			query: SHARED_DEFS.query,
-			caseSensitive: { type: 'boolean' },
-			regex: { type: 'boolean' },
-			includeTrash: SHARED_DEFS.includeTrash,
-			searchIn: { type: 'array', items: { type: 'string' }, description: 'Fields to search' },
+			field: {
+				type: 'string',
+				enum: ['content', 'title'],
+				description:
+					'"content" (default) searches document body text; "title" matches document titles ' +
+					'only (fast, case-insensitive substring).',
+			},
+			scope: {
+				type: 'string',
+				enum: ['active', 'trash'],
+				description:
+					'"active" (default) searches the live binder; "trash" searches only trashed documents.',
+			},
+			caseSensitive: {
+				type: 'boolean',
+				description: 'Match case exactly. Default false. Applies to content search.',
+			},
+			regex: {
+				type: 'boolean',
+				description:
+					'Treat the query as a regular expression. Default false. Content search only.',
+			},
+			searchIn: {
+				type: 'array',
+				items: { type: 'string' },
+				description:
+					'Additional metadata fields to include in content search, e.g. "synopsis", "notes".',
+			},
 		},
 		required: ['query'],
 	},
@@ -74,6 +106,39 @@ export const searchContentHandler: ToolDefinition = {
 		const regex = getOptionalBooleanArg(args, 'regex') || false;
 		const includeTrash = getOptionalBooleanArg(args, 'includeTrash') || false;
 		const searchIn = getOptionalObjectArg(args, 'searchIn') as string[];
+		const field = getOptionalStringArg(args, 'field') || 'content';
+		const scope = getOptionalStringArg(args, 'scope') || 'active';
+
+		// Trash scope: search only trashed documents.
+		if (scope === 'trash') {
+			const trashResults = await project.searchTrash(query, { caseSensitive, regex });
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Found ${trashResults.length} matches in trash\n${compact(trashResults)}`,
+					},
+				],
+			};
+		}
+
+		// Title field: fast case-insensitive title lookup.
+		if (field === 'title') {
+			const documents = await project.getAllDocuments();
+			const patternLower = query.toLowerCase();
+			const matches = documents
+				.filter((doc) => doc.title?.toLowerCase().includes(patternLower))
+				.slice(0, 20)
+				.map((doc) => ({ id: doc.id, title: doc.title, type: doc.type, path: doc.path }));
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Found ${matches.length} document(s) with title matching "${query}"\n${JSON.stringify(matches, null, 2)}`,
+					},
+				],
+			};
+		}
 
 		try {
 			// Try semantic search first for enhanced results
@@ -177,7 +242,17 @@ export const searchContentHandler: ToolDefinition = {
 
 export const listTrashHandler: ToolDefinition = {
 	name: 'list_trash',
-	description: 'List trashed documents',
+	title: 'List Trash',
+	description:
+		'List all documents currently in the project trash, with their ids and titles. Use this to ' +
+		'see what can be brought back with restore_document, or to confirm a delete_document call. ' +
+		'Requires an open project. Takes no parameters.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {},
@@ -197,48 +272,28 @@ export const listTrashHandler: ToolDefinition = {
 	},
 };
 
-export const searchTrashHandler: ToolDefinition = {
-	name: 'search_trash',
-	description: 'Search trashed documents',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			query: SHARED_DEFS.query,
-			searchType: { type: 'string', enum: ['title', 'content', 'both'] },
-		},
-		required: ['query'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, searchTrashSchema);
-
-		const query = getStringArg(args, 'query');
-		const caseSensitive = getOptionalBooleanArg(args, 'caseSensitive') || false;
-		const regex = getOptionalBooleanArg(args, 'regex') || false;
-		const results = await project.searchTrash(query, {
-			caseSensitive,
-			regex,
-		});
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: `Found ${results.length} matches in trash\n${compact(results)}`,
-				},
-			],
-		};
-	},
-};
-
 export const recoverDocumentHandler: ToolDefinition = {
-	name: 'recover_document',
-	description: 'Restore from trash',
+	name: 'restore_document',
+	title: 'Restore Document From Trash',
+	description:
+		'Restore a trashed document back into the binder, optionally into a specific target folder ' +
+		'(otherwise it returns to a default location). Use list_trash to find the document id first. ' +
+		'This is the inverse of delete_document. Requires an open project and a valid document id.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
-			targetFolderId: SHARED_DEFS.folderId,
+			targetFolderId: {
+				...SHARED_DEFS.folderId,
+				description:
+					'Optional id of the folder to restore into. Omit to restore to a default location.',
+			},
 		},
 		required: ['documentId'],
 	},
@@ -262,14 +317,30 @@ export const recoverDocumentHandler: ToolDefinition = {
 };
 
 export const getAnnotationsHandler: ToolDefinition = {
-	name: 'get_document_annotations',
-	description: 'Get annotations and footnotes',
+	name: 'read_annotations',
+	title: 'Read Document Annotations',
+	description:
+		'Return the inline comments and footnotes attached to a document, grouped by type. Use this ' +
+		'to review editorial notes and references without reading the full body; use read_document ' +
+		'for the prose itself. Requires an open project and a valid document id.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
-			includeComments: { type: 'boolean' },
-			includeFootnotes: { type: 'boolean' },
+			includeComments: {
+				type: 'boolean',
+				description: 'Include inline comments. Default true.',
+			},
+			includeFootnotes: {
+				type: 'boolean',
+				description: 'Include footnotes. Default true.',
+			},
 		},
 		required: ['documentId'],
 	},
@@ -296,122 +367,34 @@ export const getAnnotationsHandler: ToolDefinition = {
 };
 
 // Advanced LangChain search handlers
-export const vectorSearchHandler: ToolDefinition = {
-	name: 'vector_search',
-	description: 'Semantic vector search',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			query: SHARED_DEFS.query,
-			maxResults: SHARED_DEFS.maxResults,
-			threshold: SHARED_DEFS.threshold,
-			searchType: { type: 'string', enum: ['semantic', 'hybrid', 'keyword'] },
-		},
-		required: ['query'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const query = getStringArg(args, 'query');
-		const maxResults = getOptionalNumberArg(args, 'maxResults') || 10;
-		const threshold = getOptionalNumberArg(args, 'threshold') || 0.5;
-		const searchType = (args.searchType as string) || 'semantic';
-
-		try {
-			// Initialize HMS-backed vector store
-			const embeddings = new OpenAIEmbeddings();
-			const vectorStore = new LangChainHMSVectorStore(embeddings);
-
-			// Initialize continuous learning for feedback collection
-			const learningHandler = await getSearchLearningHandler();
-
-			const sessionId = `vector_search_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
-			// In HMS context, we should ensure documents are loaded
-			// For this tool, we'll load all documents if the store is effectively empty
-			const documents = await project.getAllDocuments();
-			const langchainDocs = documents
-				.filter((doc) => doc.content)
-				.map(
-					(doc) =>
-						new LangchainDocument({
-							pageContent: doc.content || '',
-							metadata: {
-								id: doc.id,
-								title: doc.title,
-								type: doc.type,
-								wordCount: doc.content ? doc.content.split(' ').length : 0,
-							},
-						})
-				);
-
-			await vectorStore.addDocuments(langchainDocs);
-
-			let results;
-			if (searchType === 'semantic' || searchType === 'hybrid') {
-				// HMS natively handles semantic search
-				results = await vectorStore.similaritySearchWithScore(query, maxResults);
-			} else {
-				// Keyword search fallback - simple filter for now as HMS is semantic-first
-				results = (await vectorStore.similaritySearchWithScore(query, maxResults)).filter(
-					([doc]) => doc.pageContent.toLowerCase().includes(query.toLowerCase())
-				);
-			}
-
-			// Format results to match the expected SearchResult interface
-			const formattedResults = results
-				.filter(([, score]) => score >= threshold)
-				.map(([doc, score]) => ({
-					id: doc.metadata.id,
-					title: doc.metadata.title || 'Untitled',
-					snippet:
-						doc.pageContent.length > 100
-							? `${doc.pageContent.slice(0, 100)}...`
-							: doc.pageContent,
-					score,
-				}));
-
-			// Collect implicit feedback
-			await learningHandler.collectImplicitFeedback(sessionId, 'vector_search', {
-				timeSpent: 0,
-				userActions: ['vector_search'],
-				documentsCount: formattedResults.length,
-				enhancementType: 'vector_search',
-				targetOptimization: query,
-			});
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Found ${formattedResults.length} ${searchType} matches\n${compact({
-							results: formattedResults,
-							searchType,
-						})}`,
-					},
-				],
-			};
-		} catch (error) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Vector search failed: ${(error as Error).message}`,
-					},
-				],
-			};
-		}
-	},
-};
-
 export const findMentionsHandler: ToolDefinition = {
 	name: 'find_mentions',
-	description: 'Find entity mentions',
+	title: 'Find Entity Mentions',
+	description:
+		'Find every occurrence of a specific name or term (a character, place, or keyword) across all ' +
+		'documents, returning each hit with surrounding context and its document. Use this for exact ' +
+		'"where does X appear" lookups; use search for relevance-ranked results or semantic_search for ' +
+		'meaning-based matches. Returns up to 50 mentions. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			entity: { type: 'string' },
-			contextLength: { type: 'number', description: 'Context chars' },
+			entity: {
+				type: 'string',
+				description:
+					'The exact name or term to locate, e.g. a character name like "Elena".',
+			},
+			contextLength: {
+				type: 'number',
+				description:
+					'Number of characters of surrounding context to include on each side of a match. ' +
+					'Default 100.',
+			},
 		},
 		required: ['entity'],
 	},
@@ -508,153 +491,10 @@ export const findMentionsHandler: ToolDefinition = {
 	},
 };
 
-export const crossReferenceHandler: ToolDefinition = {
-	name: 'cross_reference_analysis',
-	description: 'Cross-reference related content',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentId: SHARED_DEFS.docId,
-			analysisType: {
-				type: 'string',
-				enum: ['characters', 'themes', 'plot_points', 'locations', 'all'],
-			},
-			maxConnections: SHARED_DEFS.maxResults,
-		},
-		required: ['documentId'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const documentId = getStringArg(args, 'documentId');
-		const analysisType = (args.analysisType as string) || 'all';
-		const maxConnections = getOptionalNumberArg(args, 'maxConnections') || 10;
-
-		const document = await project.getDocument(documentId);
-		if (!document) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: 'Document not found',
-					},
-				],
-			};
-		}
-
-		try {
-			// Initialize semantic database layer
-			if (!context.databaseService) {
-				throw new Error('Database service not available for entity analysis');
-			}
-
-			const semanticLayer = await getSemanticLayer(context.databaseService!);
-
-			// Initialize continuous learning for feedback collection
-			const learningHandler = await getSearchLearningHandler();
-
-			const sessionId = `cross_reference_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
-			// Perform cross-reference analysis
-			const analysis = await semanticLayer.crossReferenceAnalysis(
-				document.content || document.title
-			);
-
-			// Collect implicit feedback
-			await learningHandler.collectImplicitFeedback(sessionId, 'cross_reference_analysis', {
-				timeSpent: analysis.processingTime || 0,
-				userActions: ['cross_reference_analysis'],
-				enhancementType: 'cross_reference_analysis',
-				documentsCount: analysis.connections?.length || 0,
-			});
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Cross-reference analysis complete for ${document.title}\n${compact({
-							...analysis,
-							enhanced: true,
-							analysisType,
-							maxConnections,
-							sessionId,
-						})}`,
-					},
-				],
-			};
-		} catch (error) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Cross-reference analysis failed: ${(error as Error).message}`,
-					},
-				],
-			};
-		}
-	},
-};
-
-export const findDocumentHandler: ToolDefinition = {
-	name: 'find_document',
-	description: 'Find documents by title',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			pattern: {
-				type: 'string',
-				description: 'Substring to match against document titles (case-insensitive)',
-			},
-			type: {
-				type: 'string',
-				enum: ['Text', 'Folder', 'any'],
-				description: 'Filter by document type',
-			},
-		},
-		required: ['pattern'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const pattern = getStringArg(args, 'pattern');
-		const typeFilter = getOptionalStringArg(args, 'type') || 'any';
-
-		const documents = await project.getAllDocuments();
-		const patternLower = pattern.toLowerCase();
-
-		const matches = documents
-			.filter((doc) => {
-				if (!doc.title?.toLowerCase().includes(patternLower)) return false;
-				if (typeFilter !== 'any' && doc.type !== typeFilter) return false;
-				return true;
-			})
-			.slice(0, 20)
-			.map((doc) => ({
-				id: doc.id,
-				title: doc.title,
-				type: doc.type,
-				path: doc.path,
-			}));
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: `Found ${matches.length} document(s) matching "${pattern}"\n${JSON.stringify(matches, null, 2)}`,
-				},
-			],
-		};
-	},
-};
-
 export const searchHandlers = [
 	searchContentHandler,
 	listTrashHandler,
-	searchTrashHandler,
 	recoverDocumentHandler,
 	getAnnotationsHandler,
-	// Advanced LangChain search handlers
-	vectorSearchHandler,
 	findMentionsHandler,
-	crossReferenceHandler,
-	findDocumentHandler,
 ];
