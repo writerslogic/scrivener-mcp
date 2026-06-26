@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import {
 	compileDocumentsHandler,
-	intelligentCompilationHandler,
 	generateMarketingMaterialsHandler,
 	buildVectorStoreHandler,
 } from '../../../src/handlers/compilation-handlers.js';
@@ -188,7 +187,7 @@ describe('Compilation Handlers', () => {
 		});
 	});
 
-	describe('intelligentCompilationHandler', () => {
+	describe('compileDocumentsHandler', () => {
 		it('should perform intelligent compilation', async () => {
 			const args = {
 				documentsIds: ['doc1'],
@@ -197,7 +196,7 @@ describe('Compilation Handlers', () => {
 				contentOptimization: true,
 			};
 
-			const result = await intelligentCompilationHandler.handler(args, mockContext);
+			const result = await compileDocumentsHandler.handler(args, mockContext);
 
 			expect(result.content[0].text).toBe('Compiled with AI');
 			expect((result.content[0] as any).data.enhanced).toBe(true);
@@ -222,7 +221,7 @@ describe('Compilation Handlers', () => {
 					outputFormat: 'text',
 				};
 
-				const result = await intelligentCompilationHandler.handler(args, mockContext);
+				const result = await compileDocumentsHandler.handler(args, mockContext);
 				expect((result.content[0] as any).data.targetOptimization).toBe(target);
 			}
 		});
@@ -234,7 +233,7 @@ describe('Compilation Handlers', () => {
 				outputFormat: 'text',
 			};
 
-			const result = await intelligentCompilationHandler.handler(args, mockContext);
+			const result = await compileDocumentsHandler.handler(args, mockContext);
 
 			expect(result.content[0].text).toContain('No valid documents found');
 			expect((result.content[0] as any).data.error).toBe(true);
@@ -259,7 +258,7 @@ describe('Compilation Handlers', () => {
 				outputFormat: 'text',
 			};
 
-			const result = await intelligentCompilationHandler.handler(args, mockContext);
+			const result = await compileDocumentsHandler.handler(args, mockContext);
 
 			expect(result.content[0].text).toContain('Intelligent compilation failed');
 			expect((result.content[0] as any).data.error).toBe(true);
@@ -296,7 +295,7 @@ describe('Compilation Handlers', () => {
 				outputFormat: 'text',
 			};
 
-			await intelligentCompilationHandler.handler(args, mockContext);
+			await compileDocumentsHandler.handler(args, mockContext);
 
 			expect(mockCompileWithAI).toHaveBeenCalledWith(
 				expect.anything(),
@@ -494,8 +493,8 @@ describe('Compilation Handlers', () => {
 		});
 
 		it('should require documentsIds and targetOptimization for intelligent compilation', () => {
-			expect(intelligentCompilationHandler.inputSchema.required).toContain('documentsIds');
-			expect(intelligentCompilationHandler.inputSchema.required).toContain(
+			expect(compileDocumentsHandler.inputSchema.required).toContain('documentsIds');
+			expect(compileDocumentsHandler.inputSchema.required).toContain(
 				'targetOptimization'
 			);
 		});
@@ -532,7 +531,7 @@ describe('Compilation Handlers', () => {
 				outputFormat: 'text',
 			};
 
-			await intelligentCompilationHandler.handler(args, mockContext);
+			await compileDocumentsHandler.handler(args, mockContext);
 
 			expect(mockCollectFeedback).toHaveBeenCalledWith(
 				expect.any(String),
