@@ -6,9 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Tool-definition quality pass — annotations, titles, rich schemas (project group)
 - Register full tool set by default; opt into progressive disclosure via SCRIVENER_MCP_PROGRESSIVE_TOOLS
 
+### Changed
+- Hide internal/experimental tools from public surface (69->56)
+
 ### Documentation
+- Add tool quality and consolidation plan (69 to ~33, 5/5 TDQS target)
 - Add Glama badges and glama.json maintainer manifest
 
 ### Fixed
