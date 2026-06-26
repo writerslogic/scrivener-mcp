@@ -221,11 +221,24 @@ export function initializeSkillRegistry(): void {
  * Get all currently registered tool definitions.
  */
 export function getRegisteredTools() {
-	return Array.from(handlerMap.values()).map((h) => ({
-		name: h.name,
-		description: h.description,
-		inputSchema: h.inputSchema,
-	}));
+	return Array.from(handlerMap.values()).map((h) => {
+		const tool: {
+			name: string;
+			title?: string;
+			description: string;
+			inputSchema: ToolDefinition['inputSchema'];
+			outputSchema?: ToolDefinition['outputSchema'];
+			annotations?: ToolDefinition['annotations'];
+		} = {
+			name: h.name,
+			description: h.description,
+			inputSchema: h.inputSchema,
+		};
+		if (h.title) tool.title = h.title;
+		if (h.outputSchema) tool.outputSchema = h.outputSchema;
+		if (h.annotations) tool.annotations = h.annotations;
+		return tool;
+	});
 }
 
 /**

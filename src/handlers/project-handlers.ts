@@ -24,11 +24,28 @@ import {
 
 export const openProjectHandler: ToolDefinition = {
 	name: 'open_project',
-	description: 'Open a Scrivener project',
+	title: 'Open Scrivener Project',
+	description:
+		'Open a Scrivener project and make it the active project for this session. Every document, ' +
+		'structure, search, and analysis tool operates on the project opened here, so call this first. ' +
+		'Accepts the path to a .scriv folder or the .scrivx file inside it and resolves the project ' +
+		'automatically. Returns the project title, author, and metadata. Opening a project closes any ' +
+		'project already open. If you do not know the path, call discover_projects first.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			path: { type: 'string', description: 'Path to .scriv' },
+			path: {
+				type: 'string',
+				description:
+					'Path to the Scrivener project: either the .scriv folder (e.g. ' +
+					'"~/Documents/My Novel.scriv") or the .scrivx file inside it. Absolute or ~-relative.',
+			},
 		},
 		required: ['path'],
 	},
@@ -97,15 +114,43 @@ export const openProjectHandler: ToolDefinition = {
 
 export const getStructureHandler: ToolDefinition = {
 	name: 'get_structure',
-	description: 'Get project hierarchy',
+	title: 'Get Project Structure',
+	description:
+		'Return the binder hierarchy of the open project: its folders and documents in tree order, ' +
+		'each with id, title, type, depth, and word count. Use this to understand the manuscript ' +
+		'layout and to obtain the document ids that read_document, write_document, and the analysis ' +
+		'tools require. By default returns a compact flat array of [id, title, type, depth, wordCount, ' +
+		'hasChildren] tuples to save tokens; set summaryOnly for just project-level counts. Requires an ' +
+		'open project (call open_project first).',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
-			maxDepth: { type: 'number', description: 'Max depth' },
+			maxDepth: {
+				type: 'number',
+				description:
+					'Maximum depth to descend into the binder tree, starting at 0 for top-level items. ' +
+					'Omit to return the full hierarchy.',
+			},
 			folderId: SHARED_DEFS.folderId,
 			includeTrash: SHARED_DEFS.includeTrash,
-			summaryOnly: { type: 'boolean', description: 'Counts only' },
-			flat: { type: 'boolean', description: 'Compact array format (default true)' },
+			summaryOnly: {
+				type: 'boolean',
+				description:
+					'When true, skip the tree and return only project-level counts (documents, words) ' +
+					'plus title and author. Default false.',
+			},
+			flat: {
+				type: 'boolean',
+				description:
+					'When true (default), return a compact flat array of [id, title, type, depth, ' +
+					'wordCount, hasChildren] tuples. When false, return the nested tree object.',
+			},
 		},
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
@@ -188,7 +233,17 @@ export const getStructureHandler: ToolDefinition = {
 
 export const refreshProjectHandler: ToolDefinition = {
 	name: 'refresh_project',
-	description: 'Reload project from disk',
+	title: 'Reload Project From Disk',
+	description:
+		'Reload the open project from disk, discarding the in-memory cache. Use this when the project ' +
+		'has been changed by the Scrivener app or another process while open here, so that subsequent ' +
+		'reads reflect the latest saved state. Requires an open project. Takes no parameters.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {},
@@ -210,7 +265,18 @@ export const refreshProjectHandler: ToolDefinition = {
 
 export const closeProjectHandler: ToolDefinition = {
 	name: 'close_project',
-	description: 'Close the current project',
+	title: 'Close Project',
+	description:
+		'Close the currently open project, flush any pending memory/auto-save state, and clear the ' +
+		'active session. After this, document and analysis tools have no project to act on until ' +
+		'open_project is called again. Use this to switch projects cleanly or release file handles ' +
+		'at the end of a session. Requires an open project. Takes no parameters.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {},
@@ -260,13 +326,27 @@ async function findScrivProjects(dir: string, depth: number): Promise<string[]> 
 
 export const discoverProjectsHandler: ToolDefinition = {
 	name: 'discover_projects',
-	description: 'Scan common locations for Scrivener projects and return their paths',
+	title: 'Discover Scrivener Projects',
+	description:
+		'Scan common locations (Documents, Desktop, and iCloud Mobile Documents) for Scrivener ' +
+		'projects and return the paths of every .scriv folder found, searching up to three levels ' +
+		'deep. Use this when the user refers to their project by name rather than path ("open my ' +
+		'novel"): present the results and pass the chosen path to open_project. Does not open ' +
+		'anything itself. Returns a list of project paths, or a message if none are found.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	inputSchema: {
 		type: 'object',
 		properties: {
 			searchPath: {
 				type: 'string',
-				description: 'Additional directory to search (optional)',
+				description:
+					'Optional extra directory to search in addition to the default locations, e.g. an ' +
+					'external drive or a custom projects folder. Absolute or ~-relative path.',
 			},
 		},
 	},

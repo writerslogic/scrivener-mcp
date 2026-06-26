@@ -38,14 +38,38 @@ export type ToolHandler = (
 	context: HandlerContext
 ) => Promise<HandlerResult>;
 
+/**
+ * MCP behavior hints. Let a client reason about a tool before calling it:
+ * whether it mutates state, can be safely retried, or reaches outside the project.
+ */
+export interface ToolAnnotations {
+	/** Human-readable title shown in client UIs. */
+	title?: string;
+	/** Tool does not modify any state (pure read). */
+	readOnlyHint?: boolean;
+	/** Tool may perform irreversible or data-losing updates. */
+	destructiveHint?: boolean;
+	/** Repeated identical calls have the same effect as one call. */
+	idempotentHint?: boolean;
+	/** Tool interacts with state outside the open project (filesystem, network, external DB). */
+	openWorldHint?: boolean;
+}
+
+export interface ToolSchema {
+	type: 'object';
+	properties: Record<string, JSONValue>;
+	required?: string[];
+}
+
 export interface ToolDefinition {
 	name: string;
+	/** Human-readable title; defaults to a prettified name when omitted. */
+	title?: string;
 	description: string;
-	inputSchema: {
-		type: 'object';
-		properties: Record<string, JSONValue>;
-		required?: string[];
-	};
+	inputSchema: ToolSchema;
+	/** Shape of the structured result, when the tool returns one. */
+	outputSchema?: ToolSchema;
+	annotations?: ToolAnnotations;
 	handler: ToolHandler;
 }
 
