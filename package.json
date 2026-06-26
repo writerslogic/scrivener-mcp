@@ -1,6 +1,6 @@
 {
   "name": "scrivener-mcp",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "MCP server for Scrivener - Read, write, analyze, and search manuscripts with semantic search, character/plot tracking, writing analysis, and content enhancement. Works with Claude, ChatGPT, and other AI assistants.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
