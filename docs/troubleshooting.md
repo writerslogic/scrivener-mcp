@@ -185,7 +185,7 @@ Changes are written to disk immediately by `write_document` -- this is a Scriven
 
 ## Changes aren't saved
 
-The server writes changes to disk immediately when you use `write_document` or `update_metadata`. If you want to be certain, ask Claude to "save the project" which explicitly flushes all pending changes.
+The server writes changes to disk immediately when you use `write_document` or `update_document`. If you want to be certain, ask Claude to "save the project" which explicitly flushes all pending changes.
 
 ## Getting more help
 

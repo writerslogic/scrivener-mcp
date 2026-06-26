@@ -222,19 +222,18 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 ## All Tools
 
-60+ tools organized by workflow. Click to expand.
+45 tools organized by workflow. Most are available immediately; a few advanced groups activate on demand.
 
 <details>
-<summary><strong>Project</strong> -- open, browse, save</summary>
+<summary><strong>Project</strong> -- open, browse, manage</summary>
 
 | Tool | What it does |
 |------|-------------|
-| `open_project` | Open a .scriv project (accepts .scriv folders or .scrivx files) |
-| `get_structure` | Browse the binder hierarchy |
-| `get_document_info` | Document metadata, parent path, location |
-| `get_all_documents` | Flat list of every document |
-| `save_project` | Save pending changes |
-| `is_project_modified` | Check for unsaved work |
+| `open_project` | Open a .scriv project (accepts .scriv folders or .scrivx files) and make it active |
+| `discover_projects` | Scan common locations for Scrivener projects when you don't know the path |
+| `get_structure` | Browse the binder hierarchy (folders, documents, word counts) |
+| `refresh_project` | Reload from disk after external edits |
+| `close_project` | Close the active project and flush pending changes |
 
 </details>
 
@@ -243,70 +242,70 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 | Tool | What it does |
 |------|-------------|
-| `read_document` | Read document content |
-| `write_document` | Write or replace content |
-| `create_document` | Create a new document or folder |
-| `delete_document` | Move to trash |
-| `move_document` | Reorganize in the binder |
-| `rename_document` | Change title |
-| `get_word_count` | Word and character counts |
-| `get_document_annotations` | Read Scrivener annotations and footnotes |
+| `get_document_info` | Metadata for one document (title, type, word count, synopsis, label, status) |
+| `read_document` | Read content; `format: "formatted"` for rich text, `offset`/`limit` to page long docs |
+| `write_document` | Replace a document's content (atomic, with pre-write backup) |
+| `create_document` | Create a new text document or folder |
+| `update_document` | Change title and/or metadata (synopsis, notes, label, status, custom fields) |
+| `move_document` | Reorganize within the binder |
+| `delete_document` | Move to trash (reversible) |
 
 </details>
 
 <details>
-<summary><strong>Metadata & Search</strong> -- synopses, labels, status, search</summary>
+<summary><strong>Search</strong> -- find content, passages, and mentions</summary>
 
 | Tool | What it does |
 |------|-------------|
-| `update_metadata` | Update synopsis, notes, label, status, custom metadata |
-| `batch_update_synopsis_notes` | Update multiple documents at once |
-| `search_content` | Full-text search across all documents |
-| `semantic_search` | Find passages by meaning, not just keywords |
-| `find_analogies` | Analogical reasoning (A is to B as C is to ?) |
-| `list_trash` / `search_trash` | Browse and search trashed documents |
-| `recover_document` | Restore from trash |
+| `search` | Keyword/full-text search; `field: "title"` for titles, `scope: "trash"` for trash |
+| `semantic_search` | Find passages by meaning using embeddings, with similarity scores |
+| `find_mentions` | Locate every occurrence of a specific name or term, with context |
+| `list_trash` | List trashed documents |
+| `restore_document` | Restore a document from trash |
+| `read_annotations` | Read a document's comments and footnotes |
 
 </details>
 
 <details>
-<summary><strong>Analysis</strong> -- readability, pacing, style, feedback</summary>
+<summary><strong>Analysis</strong> -- quality, consistency, structure</summary>
 
 | Tool | What it does |
 |------|-------------|
-| `analyze_document` | AI-powered writing analysis |
-| `deep_analyze_content` | Comprehensive metrics (readability, pacing, emotion, style) |
-| `critique_document` | Constructive feedback on specific focus areas |
-| `check_character_consistency` | Find contradictions across the manuscript |
-| `analyze_story_structure` | Plot arc and structure analysis (requires Neo4j) |
-
-</details>
-
-<details>
-<summary><strong>Enhancement</strong> -- improve your prose</summary>
-
-| Tool | What it does |
-|------|-------------|
-| `enhance_content` | Apply a specific improvement to a document |
-| `compile_documents` | Combine documents with formatting |
+| `analyze_document` | AI writing analysis; focus with `aspects` (structure, style, pacing, themes...) |
+| `check_consistency` | Project-wide continuity check; `scope` for plot, characters, or timeline |
+| `analyze_writing_style` | Style-focused analysis |
+| `check_plot_consistency` | Plot-thread consistency check |
+| `check_character_continuity` | Detect contradictions in how a character is portrayed |
+| `analyze_narrative` | Narrative structure and arc analysis |
+| `track_motifs` | Trace recurring motifs, themes, and symbols |
+| `suggest_improvements` | AI-generated improvement suggestions |
+| `enhance_content` | Suggest a specific improvement to a document |
+| `generate_content` | Generate new prose from a prompt and context |
 
 **Enhancement types:** `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
 
 </details>
 
 <details>
-<summary><strong>Memory</strong> -- characters, plot, style</summary>
+<summary><strong>Compile & Export</strong> -- assemble and ship the manuscript</summary>
 
 | Tool | What it does |
 |------|-------------|
-| `save_character_profile` | Store character details that persist across sessions |
-| `get_character_profiles` | Retrieve all saved characters |
-| `save_plot_thread` | Track plot lines and their status |
-| `get_plot_threads` | View all plot threads |
-| `update_style_guide` | Set tone, voice, POV, tense preferences |
-| `get_style_guide` | View current style guide |
-| `get_writing_stats` | Word counts, session history, progress |
-| `export_project_memory` / `import_memory` | Backup and restore project memory |
+| `compile_documents` | Combine documents with formatting; `mode: "intelligent"` for AI-optimized output |
+| `export_project` | Write the manuscript to disk in a target format |
+| `get_statistics` | Project-level word/document/character counts |
+| `generate_marketing_materials` | Draft synopsis, query letter, pitch, and related materials |
+
+</details>
+
+<details>
+<summary><strong>Memory</strong> -- persistent project knowledge</summary>
+
+| Tool | What it does |
+|------|-------------|
+| `remember` | Store information that persists across sessions with the project |
+| `recall` | Retrieve previously stored memory |
+| `get_memory_stats` | Metrics about the project's memory subsystem |
 
 Memory is stored within each .scriv project and travels with it.
 
@@ -317,29 +316,34 @@ Memory is stored within each .scriv project and travels with it.
 
 | Tool | What it does |
 |------|-------------|
-| `add_relationship` | Store a relationship between characters, documents, themes, or plot threads |
+| `add_relationship` | Store a relationship between characters, locations, themes, or plot threads |
 | `find_relationships` | Query entities related to a given character/theme/location |
-| `store_chapter_order` | Store the reading sequence of chapters/scenes |
-| `character_network` | Visualize character relationship network |
 | `discover_connections` | Find co-occurring entities across the manuscript |
-| `sync_to_neo4j` | Sync relationships to Neo4j (when available) |
+| `character_network` | The character relationship network |
 
-Works without Neo4j. Relationships are stored in the Holographic Memory System and available immediately. Neo4j adds advanced graph analysis (PageRank, shortest path, communities) when connected.
+Works without Neo4j -- relationships live in the Holographic Memory System and are available immediately. Neo4j adds advanced graph analysis when connected.
 
 </details>
 
 <details>
-<summary><strong>Database</strong> -- advanced queries and analytics</summary>
+<summary><strong>Background Jobs</strong> -- long-running analysis</summary>
 
 | Tool | What it does |
 |------|-------------|
-| `query_database` | Run custom SELECT queries on project data |
-| `get_writing_statistics` | Writing stats over a time period |
-| `find_character_relationships` | Character relationship graph (Neo4j) |
-| `create_relationship` | Define relationships between entities |
-| `backup_databases` | Backup project databases |
+| `queue_document_analysis` | Enqueue an async analysis of one document; returns a job id |
+| `queue_project_analysis` | Enqueue an async analysis of the whole project |
+| `get_job_status` | Poll progress/results for a queued job |
+| `cancel_job` | Cancel a queued or running job |
 
-SQLite is included and automatic. Neo4j is optional for graph-based story analysis.
+</details>
+
+<details>
+<summary><strong>Discovery</strong> -- explore capabilities</summary>
+
+| Tool | What it does |
+|------|-------------|
+| `list_skills` | List the available tool groups and their tools |
+| `use_skill` | Activate a tool group (most are pre-activated by default) |
 
 </details>
 
@@ -379,7 +383,7 @@ Several Scrivener MCP servers exist. Here's how they compare:
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
 |---------|:-:|:-:|:-:|:-:|
-| Document read/write | 60+ tools | 29 tools | read-only | basic |
+| Document read/write | 45 tools | 29 tools | read-only | basic |
 | RTF / rich text support | yes | no | no | no |
 | Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
 | Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |

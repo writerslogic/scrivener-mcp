@@ -2,22 +2,22 @@
 
 Scrivener projects can be massive -- hundreds of documents, deeply nested binders, and chapters exceeding 10,000 words. Without optimization, a single tool call could consume the entire context window. The scrivener-mcp server uses several strategies to keep token usage minimal while preserving full access to project data.
 
-## Progressive Skill Loading
+## Skill-Based Registration
 
-At startup, only 6 tools are registered: the `project` skill group (`open_project`, `get_structure`, `refresh_project`, `close_project`) plus two meta-tools (`list_skills`, `use_skill`). This consumes roughly 300 tokens of tool definitions instead of the 5,000+ tokens that all 60+ tools would require.
+Tools are grouped into skills (`project`, `documents`, `search`, `analysis`, `compilation`, `memory`, `relationships`). By default the full set is registered at startup so registries, inspectors, and clients that do not honor `notifications/tools/list_changed` see every capability.
 
-Skills activate on demand:
+For token-sensitive interactive use, set `SCRIVENER_MCP_PROGRESSIVE_TOOLS=1` to enable **progressive disclosure**: only the `project` group and the `list_skills`/`use_skill` meta-tools register at startup (~300 tokens instead of the ~5,000 tokens of the full set), and the rest activate on demand:
 
 | Trigger | Skills activated |
 |---------|-----------------|
 | `open_project` (automatic) | `documents`, `search` |
-| `use_skill("analysis")` | Analysis tools (document analysis, consistency checks) |
-| `use_skill("compilation")` | Compilation tools (manuscript export, format conversion) |
-| `use_skill("memory")` | Project memory (character profiles, plot threads, style guide) |
-| `use_skill("advanced")` | Advanced tools (semantic search, graph analysis) |
-| `list_skills` | Lists all available groups and their activation status |
+| `use_skill("analysis")` | Document analysis, consistency checks, motif tracking |
+| `use_skill("compilation")` | Manuscript compile and export |
+| `use_skill("memory")` | Project memory (`remember`, `recall`, `get_memory_stats`) |
+| `use_skill("relationships")` | Character network and entity relationships |
+| `list_skills` | Lists all groups and their activation status |
 
-This means the AI client only pays the token cost for tool definitions it actually uses in the current conversation.
+In progressive mode the AI client only pays the token cost for tool definitions it actually uses in the current conversation.
 
 ## Compact Responses
 
@@ -64,17 +64,17 @@ To get the full nested tree (useful for programmatic traversal), pass `flat=fals
 get_structure(flat=false)
 ```
 
-## Paginated Listings
+## Scaling to Large Binders
 
-`get_all_documents` returns 50 items per page with `offset`/`limit` pagination:
+`get_structure` is tuned for large projects rather than paginating:
 
 ```
-First page:    offset=0,  limit=50
-Second page:   offset=50, limit=50
-Third page:    offset=100, limit=50
+summaryOnly=true   counts only (documents, words) -- cheapest
+maxDepth=1         top-level items only, then drill in
+flat=true          compact [id, title, type, depth, wordCount, hasChildren] tuples (default)
 ```
 
-For most conversations, the first page is sufficient -- the AI client can search or filter rather than paginating through the entire binder.
+Start with `summaryOnly` or a shallow `maxDepth`, then read specific documents by id. To locate a document without listing the whole binder, use `search` (with `field: "title"`) or `find_mentions` instead of walking the tree.
 
 ## Design Principles
 

@@ -261,7 +261,7 @@ Set the following environment variables to connect:
 | `NEO4J_USER` | Neo4j username |
 | `NEO4J_PASSWORD` | Neo4j password |
 
-Tools that require Neo4j: `analyze_story_structure`, `find_character_relationships`, `create_relationship`. These tools will return an error if Neo4j is not configured.
+Neo4j is optional. The relationship tools (`add_relationship`, `find_relationships`, `discover_connections`, `character_network`) work without it -- relationships are stored in the Holographic Memory System and available immediately. Connecting Neo4j adds advanced graph analysis (PageRank, shortest path, communities).
 
 ## Troubleshooting
 
@@ -281,7 +281,7 @@ The Holographic Memory System (semantic search, analogies, dream mode) works wit
 Scrivener caches document content in memory. Close and reopen the project in Scrivener, or switch away from the modified document and back, to see changes made by the MCP server.
 
 **Changes aren't saved**
-The server writes changes to disk immediately when you use `write_document` or `update_metadata`. If you want to be certain, ask Claude to "save the project" which explicitly flushes all pending changes.
+The server writes changes to disk immediately when you use `write_document` or `update_document`. If you want to be certain, ask Claude to "save the project" which explicitly flushes all pending changes.
 
 ## Next Steps
 

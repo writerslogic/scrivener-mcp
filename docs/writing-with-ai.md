@@ -22,7 +22,7 @@ The server offers three levels of analysis, each progressively deeper.
 
 Gives you a snapshot: readability score, word count, sentence count, average sentence length, and a handful of quick observations about style.
 
-> **Note:** `analyze_document` returns a compact summary -- readability score, pacing assessment, and the top 3 issues -- rather than a full JSON blob. This was changed to reduce token overhead. If you need the complete set of metrics, use `deep_analyze_content` instead.
+> **Note:** `analyze_document` returns a compact summary -- readability score, pacing assessment, and the top 3 issues -- rather than a full JSON blob. This was changed to reduce token overhead. If you need the complete set of metrics, use `analyze_document` instead.
 
 ### Deep Analysis
 
@@ -146,7 +146,7 @@ Works best on setting descriptions and action sequences where the reader needs t
 
 **Apply incrementally.** Don't run five enhancements at once. Apply one, read the result, then decide what's next. Sometimes one enhancement is enough.
 
-**Combine with analysis.** Run `deep_analyze_content` before and after to see measurable improvement. If filter word count drops from 47 to 3, you know it worked.
+**Combine with analysis.** Run `analyze_document` before and after to see measurable improvement. If filter word count drops from 47 to 3, you know it worked.
 
 **Use condense after expand.** Content that gets expanded to meet a word count often benefits from a condensing pass to tighten the added material.
 

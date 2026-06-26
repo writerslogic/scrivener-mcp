@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 60+ tools over the Model Context Protocol via progressive skill-based registration.
+Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 45 tools over the Model Context Protocol via skill-based registration (the full set is advertised by default; progressive disclosure is opt-in).
 
 ```
 Claude Desktop / Claude Code
@@ -26,26 +26,28 @@ Entry point. Creates the MCP `Server` instance, initializes the skill registry, 
 
 ### Skill Registry (`src/handlers/skill-registry.ts`)
 
-Tools are organized into skills that load progressively to minimize token overhead:
+Tools are organized into skills. By default every skill is registered at startup; with `SCRIVENER_MCP_PROGRESSIVE_TOOLS=1` they load on demand to minimize token overhead.
 
-| Skill | Tools | When Loaded |
+| Skill | Tools | Progressive load |
 |-------|-------|-------------|
-| `project` | open_project, get_structure, refresh, close | Startup (always) |
-| `documents` | read, write, create, delete, move, rename, metadata, word count | After open_project |
-| `search` | search, trash, annotations, mentions, find_document | After open_project |
-| `analysis` | analyze, enhance, generate, consistency, multi-agent | On demand via use_skill |
-| `compilation` | compile, export, statistics | On demand via use_skill |
-| `memory` | semantic search, analogies, dream | On demand via use_skill |
-| `advanced` | fractal memory, async queue, batch ops | On demand via use_skill |
+| `project` | open_project, discover_projects, get_structure, refresh_project, close_project | Startup (always) |
+| `documents` | get_document_info, read_document, write_document, create_document, update_document, move_document, delete_document | After open_project |
+| `search` | search, semantic_search, find_mentions, list_trash, restore_document, read_annotations | After open_project |
+| `analysis` | analyze_document, check_consistency, analyze_writing_style, check_plot_consistency, check_character_continuity, analyze_narrative, track_motifs, suggest_improvements, enhance_content, generate_content | On demand |
+| `compilation` | compile_documents, export_project, get_statistics, generate_marketing_materials | On demand |
+| `memory` | remember, recall, get_memory_stats | On demand |
+| `relationships` | add_relationship, find_relationships, discover_connections, character_network | On demand |
 
-Two meta-tools (`list_skills`, `use_skill`) are always available. When a skill is activated, `sendToolListChanged` notifies the client to re-fetch the tool list.
+Two meta-tools (`list_skills`, `use_skill`) are always available. In progressive mode, activating a skill triggers `sendToolListChanged` to notify the client to re-fetch the tool list.
 
 ### Handlers (`src/handlers/`)
 
 Each handler file defines a set of MCP tools as `ToolDefinition` objects with:
 - `name` -- tool name exposed to the client
-- `description` -- concise (<40 char) description
-- `inputSchema` -- JSON Schema with shared definitions from `shared-schemas.ts`
+- `title` -- human-readable display name
+- `description` -- structured description: what it does, what it returns, when to use it vs related tools, and preconditions
+- `inputSchema` -- JSON Schema with a described parameter for each input (shared definitions in `shared-schemas.ts`)
+- `annotations` -- MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)
 - `handler` -- async function that executes the tool
 
 Arguments are validated using typed extractors (`getStringArg`, `getOptionalNumberArg`, etc.) from `src/handlers/types.ts`.
