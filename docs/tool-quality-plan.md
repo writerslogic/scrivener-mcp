@@ -128,9 +128,12 @@ attention.
 - [x] **Phase 0** — infrastructure: `ToolDefinition` carries title/annotations/outputSchema; list handler passes them through.
 - [x] **Phase 1** — project group to 5/5 (pilot, proves the template).
 - [x] **Phase 2** — documents group consolidated 11→7 and to 5/5 (73 tests pass).
-- [~] **Phase 3** — consolidation (BREAKING → 0.7.0): hidden 13 internal tools (69→56); documents and search merges/renames done. Remaining: analysis, memory, relationships, compilation merges.
-- [~] **Phase 4** — 5/5 on consolidated set: project, documents, search done (search 9→5, 73 tests pass). Remaining: analysis (11→4), memory (8→3), relationships (8→4), compilation (5→3).
+- [x] **Phase 3** — consolidation (BREAKING → 0.7.0): hidden 15 internal tools; merged read-formatting, rename+metadata, trash/title search, intelligent_compilation, deduped semantic_search, hid fractal_search/get_memory_analytics. **69 → 44 tools.**
+- [x] **Phase 4** — 5/5 on the consolidated set: every registered tool (44/44) now carries title + structured description + per-param docs + annotations. Verified via registry probe (missing_5_5 = none) and tsc/build/test green. Five handler files done in parallel via subagents.
 - [ ] **Phase 5** — outputSchema + structuredContent across all tools; Completeness backed by machine-readable results.
+
+### Deferred (optional, lower-impact)
+A few tools were brought to 5/5 instead of cross-file-merged (analyze_writing_style, check_plot_consistency, analyze_narrative, discover_connections, get_statistics). Merging them would take 44 → ~37 and lift the coherence "tool count" metric further, but involves cross-file logic surgery with real regression risk. Per-tool TDQS (the dominant failing metric) is already maxed at 5/5 across all 44, so this is a judgment call, not a blocker.
 - [ ] **Phase 6** — verify: tsc/lint/tests green, re-introspect, README/CHANGELOG, re-run Glama build + score.
 
 Non-breaking work (Phases 1, 2, 5 on kept tools) ships continuously. The breaking
