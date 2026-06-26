@@ -67,6 +67,30 @@ const skills: Skill[] = [
 	},
 ];
 
+// Tools kept out of the public surface: internal plumbing, experimental
+// features, or capabilities now folded into a consolidated tool. Their handlers
+// stay available for internal callers; they are simply not advertised or
+// dispatchable as MCP tools.
+const HIDDEN_TOOLS = new Set<string>([
+	'find_analogies',
+	'build_vector_store',
+	'multi_agent_analysis',
+	'find_cooccurrences',
+	'update_retrieval_policy',
+	'hhm_dream',
+	'ingest_document_fractal',
+	'ingest_project_fractal',
+	'store_chapter_order',
+	'sync_to_neo4j',
+	'get_queue_stats',
+	'start_realtime_assistance',
+	'collect_feedback',
+]);
+
+function visibleTools(skill: Skill): ToolDefinition[] {
+	return skill.tools.filter((t) => !HIDDEN_TOOLS.has(t.name));
+}
+
 // Handler map for dispatch
 const handlerMap = new Map<string, ToolDefinition>();
 const activatedSkills = new Set<string>();
@@ -84,13 +108,16 @@ function buildMetaTools(): void {
 			required: [],
 		},
 		handler: async (): Promise<HandlerResult> => {
-			const index = skills.map((s) => ({
-				name: s.name,
-				description: s.description,
-				tools: s.tools.length,
-				activated: activatedSkills.has(s.name),
-				tool_names: s.tools.map((t) => t.name),
-			}));
+			const index = skills.map((s) => {
+				const visible = visibleTools(s);
+				return {
+					name: s.name,
+					description: s.description,
+					tools: visible.length,
+					activated: activatedSkills.has(s.name),
+					tool_names: visible.map((t) => t.name),
+				};
+			});
 			return {
 				content: [{ type: 'text', text: JSON.stringify(index, null, 2) }],
 			};
@@ -123,18 +150,19 @@ function buildMetaTools(): void {
 					],
 				};
 			}
+			const visible = visibleTools(skill);
 			if (activatedSkills.has(name)) {
 				return {
 					content: [
 						{
 							type: 'text',
-							text: `Skill "${name}" already active. Tools: ${skill.tools.map((t) => t.name).join(', ')}`,
+							text: `Skill "${name}" already active. Tools: ${visible.map((t) => t.name).join(', ')}`,
 						},
 					],
 				};
 			}
 			activateSkill(name);
-			const toolSummary = skill.tools
+			const toolSummary = visible
 				.map((t) => {
 					const required = (t.inputSchema.required as string[] | undefined) ?? [];
 					const props = t.inputSchema.properties as
@@ -155,7 +183,7 @@ function buildMetaTools(): void {
 				content: [
 					{
 						type: 'text',
-						text: `Activated "${name}" (${skill.tools.length} tools). If your client does not auto-refresh the tool list, call these tools directly using the schemas below:\n\n${toolSummary}`,
+						text: `Activated "${name}" (${visible.length} tools). If your client does not auto-refresh the tool list, call these tools directly using the schemas below:\n\n${toolSummary}`,
 					},
 				],
 			};
@@ -176,7 +204,7 @@ export function activateSkill(name: string): boolean {
 	const skill = skills.find((s) => s.name === name);
 	if (!skill) return false;
 
-	for (const tool of skill.tools) {
+	for (const tool of visibleTools(skill)) {
 		handlerMap.set(tool.name, tool);
 	}
 	activatedSkills.add(name);
