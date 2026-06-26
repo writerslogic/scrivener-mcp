@@ -159,3 +159,6 @@ scripts/create-gmail-drafts.py
 *.local
 .tmp/
 scratch/
+
+# Runtime state (job queue, etc.) written next to the server at runtime
+data/
