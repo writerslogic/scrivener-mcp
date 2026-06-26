@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add Glama badges and glama.json maintainer manifest
 
 ### Fixed
+- Declare @langchain/classic and domhandler — phantom deps broke pnpm build
 - Advertise full tool set in Docker image for registry introspection
 - Stop git-cliff from logging its own changelog auto-commits
 ## [0.6.0] - 2026-06-24
