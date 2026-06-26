@@ -1341,6 +1341,7 @@ export const analysisHandlers = [
 	updateMemoryHandler,
 	getMemoryHandler,
 	checkConsistencyHandler,
+	semanticSearchHandler,
 	// Advanced LangChain handlers
 	multiAgentAnalysisHandler,
 	realtimeAssistanceHandler,
