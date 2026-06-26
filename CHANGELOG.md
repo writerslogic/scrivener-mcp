@@ -10,9 +10,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Register full tool set by default; opt into progressive disclosure via SCRIVENER_MCP_PROGRESSIVE_TOOLS
 
 ### Changed
+- Consolidate search tools 9->5 and bring to 5/5 (search absorbs trash+title, drop vector/cross-ref/find_document, rename restore/read_annotations)
+- Consolidate documents tools 11->7 and bring to 5/5 (merge read formatting, rename+metadata into update_document)
 - Hide internal/experimental tools from public surface (69->56)
 
 ### Documentation
+- Update tool quality plan progress (project/documents/search done)
 - Add tool quality and consolidation plan (69 to ~33, 5/5 TDQS target)
 - Add Glama badges and glama.json maintainer manifest
 
