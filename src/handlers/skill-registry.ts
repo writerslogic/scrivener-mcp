@@ -208,9 +208,11 @@ export function initializeSkillRegistry(): void {
 	buildMetaTools();
 	// Always activate project skill (need open_project at minimum)
 	activateSkill('project');
-	// Opt-in: register every skill at startup for clients that do not honor
-	// notifications/tools/list_changed (e.g. some desktop / local-agent clients).
-	if (process.env.SCRIVENER_MCP_EAGER_TOOLS === '1') {
+	// Eager by default: register every skill at startup so registries, inspectors,
+	// and clients that ignore notifications/tools/list_changed surface the full tool
+	// set. Opt into progressive disclosure (tools unlock as a project is opened) with
+	// SCRIVENER_MCP_PROGRESSIVE_TOOLS=1.
+	if (process.env.SCRIVENER_MCP_PROGRESSIVE_TOOLS !== '1') {
 		for (const s of skills) activateSkill(s.name);
 	}
 }
