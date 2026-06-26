@@ -8,11 +8,22 @@ import * as os from 'os';
 
 // Test data directory
 export const TEST_DATA_DIR = path.join(__dirname, 'fixtures');
-export const TEMP_DIR = path.join(os.tmpdir(), 'scrivener-mcp-tests');
+// Per-worker temp dir: jest runs test files across parallel workers, so a single
+// shared path races (one file's afterAll cleanup deletes the dir another worker is
+// still using → ENOENT). Scoping to JEST_WORKER_ID isolates each worker.
+export const TEMP_DIR = path.join(
+	os.tmpdir(),
+	`scrivener-mcp-tests-${process.env.JEST_WORKER_ID ?? '1'}`
+);
 
-// Setup before all tests
+// Setup before each test file
 beforeAll(async () => {
-	// Create temp directory
+	// Create temp directory (idempotent)
+	await fs.mkdir(TEMP_DIR, { recursive: true });
+});
+
+// Ensure the temp dir exists before each test, in case a sibling cleanup removed it
+beforeEach(async () => {
 	await fs.mkdir(TEMP_DIR, { recursive: true });
 });
 
