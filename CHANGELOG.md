@@ -3,6 +3,13 @@
 All notable changes to this project are generated from the commit history.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
+## [Unreleased]
+
+### Documentation
+- Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
+
+### Fixed
+- Stop masking missing tests with passWithNoTests (#56)
 ## [0.7.0] - 2026-06-26
 
 ### Added
