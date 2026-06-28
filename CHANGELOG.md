@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Migrate analyze_document to direct-SDK Claude analyzer (ripout step 3)
 - Migrate enhance_content to direct-SDK Claude enhancer (ripout step 2)
 - Add direct-SDK AIClient with Claude default (langchain ripout step 1)
 
