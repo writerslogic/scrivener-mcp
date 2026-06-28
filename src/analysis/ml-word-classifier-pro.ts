@@ -28,6 +28,298 @@ const tokenizer = {
 	},
 };
 
+/** Lowercase a token and strip surrounding punctuation for robust list lookup. */
+function normalizeToken(word: string): string {
+	return word.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+}
+
+// Intensifiers, hedges, and crutch adverbs that weaken prose. Curated rather than
+// POS-derived because the value is the closed, hand-vetted set: tagging every
+// adverb as a filler would flag legitimate ones.
+const FILTER_WORDS: ReadonlySet<string> = new Set([
+	'really',
+	'very',
+	'quite',
+	'just',
+	'basically',
+	'actually',
+	'literally',
+	'definitely',
+	'certainly',
+	'probably',
+	'maybe',
+	'perhaps',
+	'possibly',
+	'somewhat',
+	'rather',
+	'fairly',
+	'pretty',
+	'simply',
+	'totally',
+	'completely',
+	'absolutely',
+	'essentially',
+	'virtually',
+	'generally',
+	'typically',
+	'usually',
+	'truly',
+	'honestly',
+	'frankly',
+	'clearly',
+	'obviously',
+	'surely',
+	'arguably',
+	'presumably',
+	'seemingly',
+	'apparently',
+	'relatively',
+	'slightly',
+	'extremely',
+	'incredibly',
+	'remarkably',
+	'particularly',
+	'especially',
+	'almost',
+	'nearly',
+	'somehow',
+	'practically',
+	'supposedly',
+	'admittedly',
+]);
+
+// Linking/light verbs with low semantic content.
+const LIGHT_VERBS: ReadonlySet<string> = new Set([
+	'be',
+	'am',
+	'is',
+	'are',
+	'was',
+	'were',
+	'been',
+	'being',
+	'have',
+	'has',
+	'had',
+	'having',
+	'do',
+	'does',
+	'did',
+	'doing',
+	'make',
+	'makes',
+	'made',
+	'making',
+	'take',
+	'takes',
+	'took',
+	'taking',
+	'taken',
+	'get',
+	'gets',
+	'got',
+	'getting',
+	'gotten',
+	'give',
+	'gives',
+	'gave',
+	'giving',
+	'given',
+	'put',
+	'puts',
+	'putting',
+	'seem',
+	'seems',
+	'seemed',
+	'seeming',
+	'appear',
+	'appears',
+	'appeared',
+	'become',
+	'becomes',
+	'became',
+	'becoming',
+	'feel',
+	'feels',
+	'felt',
+	'feeling',
+	'keep',
+	'keeps',
+	'kept',
+	'set',
+	'sets',
+	'setting',
+	'hold',
+	'holds',
+	'held',
+]);
+
+// Generic, overused action verbs that usually have a stronger, more specific alternative.
+const GENERIC_VERBS: ReadonlySet<string> = new Set([
+	'go',
+	'goes',
+	'went',
+	'gone',
+	'going',
+	'come',
+	'comes',
+	'came',
+	'coming',
+	'move',
+	'moves',
+	'moved',
+	'moving',
+	'walk',
+	'walks',
+	'walked',
+	'walking',
+	'say',
+	'says',
+	'said',
+	'saying',
+	'look',
+	'looks',
+	'looked',
+	'looking',
+	'run',
+	'runs',
+	'ran',
+	'running',
+	'see',
+	'sees',
+	'saw',
+	'seen',
+	'seeing',
+	'know',
+	'knows',
+	'knew',
+	'known',
+	'knowing',
+	'think',
+	'thinks',
+	'thought',
+	'thinking',
+	'want',
+	'wants',
+	'wanted',
+	'wanting',
+	'use',
+	'uses',
+	'used',
+	'using',
+	'find',
+	'finds',
+	'found',
+	'finding',
+	'tell',
+	'tells',
+	'told',
+	'telling',
+	'ask',
+	'asks',
+	'asked',
+	'asking',
+	'work',
+	'works',
+	'worked',
+	'working',
+	'try',
+	'tries',
+	'tried',
+	'trying',
+	'leave',
+	'leaves',
+	'left',
+	'leaving',
+	'turn',
+	'turns',
+	'turned',
+	'turning',
+	'start',
+	'starts',
+	'started',
+	'starting',
+	'begin',
+	'begins',
+	'began',
+	'begun',
+	'beginning',
+]);
+
+// Single-word business/writing clichés.
+const CLICHE_WORDS: ReadonlySet<string> = new Set([
+	'synergy',
+	'leverage',
+	'paradigm',
+	'holistic',
+	'robust',
+	'innovative',
+	'disruptive',
+	'scalable',
+	'sustainable',
+	'agile',
+	'pivot',
+	'ecosystem',
+	'bandwidth',
+	'deliverable',
+	'deliverables',
+	'actionable',
+	'optimize',
+	'streamline',
+	'empower',
+	'impactful',
+	'turnkey',
+	'seamless',
+	'frictionless',
+	'touchpoint',
+	'ideate',
+	'operationalize',
+	'incentivize',
+	'monetize',
+	'gamify',
+	'onboard',
+	'repurpose',
+	'synergize',
+]);
+
+// Two- and three-word clichés, matched against the bigram/trigram window.
+const CLICHE_PHRASES: ReadonlySet<string> = new Set([
+	'time flies',
+	'crystal clear',
+	'stark contrast',
+	'perfect storm',
+	'low hanging',
+	'silver lining',
+	'thinking outside',
+	'at the end',
+	'bottom line',
+	'move forward',
+	'going forward',
+	'circle back',
+	'deep dive',
+	'value add',
+	'game changer',
+	'best practice',
+	'best practices',
+	'win win',
+	'touch base',
+	'big picture',
+	'secret sauce',
+	'north star',
+	'table stakes',
+	'paradigm shift',
+	'thought leadership',
+	'low hanging fruit',
+	'move the needle',
+	'take it offline',
+	'think outside box',
+	'push the envelope',
+	'raise the bar',
+	'boil the ocean',
+	'open the kimono',
+	'peel the onion',
+]);
+
 export interface WordFeatures {
 	word: string;
 	length: number;
@@ -341,10 +633,8 @@ export class MLWordClassifierPro {
 	private detectFilterWord(features: WordFeatures): number {
 		let score = 0;
 
-		// Specific patterns for known filter words - highest weight
-		const filterPatterns =
-			/^(really|very|quite|just|basically|actually|literally|definitely|certainly|probably|maybe|perhaps|possibly|somewhat|rather|fairly|pretty)$/i;
-		if (filterPatterns.test(features.word)) {
+		// Known filter words - highest weight
+		if (FILTER_WORDS.has(normalizeToken(features.word))) {
 			score += 0.7; // Strong indicator
 		}
 
@@ -413,16 +703,13 @@ export class MLWordClassifierPro {
 		}
 
 		// Light verbs (low semantic content)
-		const lightVerbs =
-			/^(be|am|is|are|was|were|been|being|have|has|had|do|does|did|make|makes|made|take|takes|took|get|gets|got|give|gives|gave|put|puts)$/;
-		if (lightVerbs.test(word)) {
+		const normalized = normalizeToken(word);
+		if (LIGHT_VERBS.has(normalized)) {
 			score += 0.4;
 		}
 
 		// Generic action verbs
-		const genericVerbs =
-			/^(go|goes|went|gone|going|come|comes|came|coming|move|moves|moved|moving|walk|walks|walked|walking|say|says|said|saying|look|looks|looked|looking)$/;
-		if (genericVerbs.test(word)) {
+		if (GENERIC_VERBS.has(normalized)) {
 			score += 0.3;
 		}
 
@@ -451,24 +738,16 @@ export class MLWordClassifierPro {
 		const trigram =
 			precedingWord && followingWord ? `${precedingWord} ${word} ${followingWord}` : '';
 
-		// Common cliché patterns
-		const clicheBigrams =
-			/\b(time flies|crystal clear|stark contrast|perfect storm|low hanging|silver lining|thinking outside|at the end|bottom line|move forward|going forward|circle back)\b/i;
-		const clicheTrigrams =
-			/\b(at the end of the day|think outside the box|low hanging fruit|move the needle|take it offline|drill down into)\b/i;
-
-		if (bigram && clicheBigrams.test(bigram)) {
+		if (bigram && CLICHE_PHRASES.has(bigram.toLowerCase())) {
 			score += 0.5;
 		}
 
-		if (trigram && clicheTrigrams.test(trigram)) {
+		if (trigram && CLICHE_PHRASES.has(trigram.toLowerCase())) {
 			score += 0.7;
 		}
 
 		// Individual cliché words
-		const clicheWords =
-			/^(synergy|leverage|paradigm|holistic|robust|innovative|disruptive|scalable|sustainable|agile|pivot|ecosystem)$/i;
-		if (clicheWords.test(word)) {
+		if (CLICHE_WORDS.has(normalizeToken(word))) {
 			score += 0.4;
 		}
 

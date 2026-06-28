@@ -18,6 +18,22 @@ describe('MLWordClassifierPro', () => {
 		).toBe(true);
 	});
 
+	it('detects expanded filler words from the curated list', () => {
+		for (const w of ['simply', 'totally', 'absolutely', 'essentially']) {
+			const result = classifier.classify(w, `The plan was ${w} ready for review.`, 3);
+			expect(result.isFilterWord).toBe(true);
+		}
+	});
+
+	it('does not flag strong, specific words as fillers or weak verbs (no false positives)', () => {
+		const a = classifier.classify('sprinted', 'She sprinted across the muddy field.', 1);
+		expect(a.isWeakVerb).toBe(false);
+		expect(a.isFilterWord).toBe(false);
+		const b = classifier.classify('mountain', 'The mountain loomed over the valley.', 1);
+		expect(b.isFilterWord).toBe(false);
+		expect(b.isCliche).toBe(false);
+	});
+
 	it('does NOT flag a proper-noun client name that collides with a buzzword (NER guard)', () => {
 		const result = classifier.classify(
 			'Robust',
