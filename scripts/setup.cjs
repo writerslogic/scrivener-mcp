@@ -22,7 +22,12 @@ const CLIENTS = {
 		linux: join(homedir(), '.config', 'claude', 'claude_desktop_config.json'),
 	},
 	'Claude Code': {
-		all: join(homedir(), '.claude', 'settings.json'),
+		// Claude Code reads MCP servers from ~/.claude.json (top-level mcpServers),
+		// NOT ~/.claude/settings.json which is for permissions/hooks only.
+		all: join(homedir(), '.claude.json'),
+		// dirname(~/.claude.json) is the home dir (always exists), so detection
+		// must key off a real install marker instead.
+		detect: join(homedir(), '.claude'),
 	},
 	Cursor: {
 		darwin: join(homedir(), 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
@@ -41,7 +46,11 @@ function detectClients() {
 	const found = [];
 	for (const [name, paths] of Object.entries(CLIENTS)) {
 		const configPath = paths.all || paths[platform()] || paths.linux;
-		if (existsSync(configPath) || existsSync(dirname(configPath))) {
+		// A client is "installed" if its config file already exists, or a marker
+		// directory does. Prefer an explicit `detect` marker; otherwise fall back
+		// to the config's parent dir (valid only when it is client-specific).
+		const marker = paths.detect || dirname(configPath);
+		if (existsSync(configPath) || existsSync(marker)) {
 			found.push({ name, configPath, exists: existsSync(configPath) });
 		}
 	}
