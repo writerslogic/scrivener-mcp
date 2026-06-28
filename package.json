@@ -50,6 +50,7 @@
     "uninstall": "node scripts/uninstall.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@langchain/classic": "^1.0.34",
     "@langchain/community": "^1.1.19",
     "@langchain/core": "^1.2.1",
