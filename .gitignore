@@ -162,3 +162,6 @@ scratch/
 
 # Runtime state (job queue, etc.) written next to the server at runtime
 data/
+# Confidential anti-piracy provenance fingerprints — never commit (public repo).
+# Also covered by a global core.excludesFile; pinned here so the guard travels with the repo.
+PROVENANCE.md
