@@ -350,6 +350,7 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 ## Guides
 
 - **[Getting Started](./docs/getting-started.md)** -- Installation, configuration, your first session
+- **[MCP Client Setup](./docs/CLIENT_SETUP.md)** -- Copy-paste config for Claude Desktop, Claude Code, Cursor, and VS Code
 - **[Writing with AI](./docs/writing-with-ai.md)** -- Analysis workflows, enhancement strategies, memory management
 - **[Troubleshooting](./docs/troubleshooting.md)** -- Common issues and fixes
 - **[Token Optimization](./docs/token-optimization.md)** -- How the server minimizes context window usage

@@ -18,22 +18,7 @@ The installer automatically detects Claude Desktop and writes the MCP configurat
 
 ### Manual Configuration
 
-If the automatic setup didn't work, or you're using a different MCP client, add scrivener-mcp to your client's configuration file.
-
-**Claude Desktop** config locations:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "scrivener": {
-      "command": "npx",
-      "args": ["scrivener-mcp"]
-    }
-  }
-}
-```
+If the automatic setup didn't work, or you're using a different MCP client, add scrivener-mcp to your client's configuration file. See **[MCP Client Setup](./CLIENT_SETUP.md)** for tested, copy-paste snippets for Claude Desktop, Claude Code, Cursor, and VS Code (Copilot), including config file paths and verification steps.
 
 You can also run the interactive setup wizard:
 
