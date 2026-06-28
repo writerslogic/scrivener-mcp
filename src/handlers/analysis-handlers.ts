@@ -12,20 +12,19 @@ import type {
 	StyleGuide,
 } from '../memory-manager.js';
 import type { EnhancementType } from '../services/enhancements/content-enhancer.js';
-import { LangChainContentEnhancer } from '../services/enhancements/langchain-content-enhancer.js';
+import { AIContentEnhancer } from '../services/enhancements/ai-content-enhancer.js';
 import { OpenAIService } from '../services/openai-service.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 
 // Cached singleton instances to avoid re-instantiation per request
-let cachedContentEnhancer: LangChainContentEnhancer | null = null;
+let cachedContentEnhancer: AIContentEnhancer | null = null;
 let cachedAnalysisLearningHandler: LangChainContinuousLearningHandler | null = null;
 
-async function getContentEnhancer(): Promise<LangChainContentEnhancer> {
+async function getContentEnhancer(): Promise<AIContentEnhancer> {
 	if (!cachedContentEnhancer) {
-		cachedContentEnhancer = new LangChainContentEnhancer();
-		await cachedContentEnhancer.initialize();
+		cachedContentEnhancer = new AIContentEnhancer();
 	}
 	return cachedContentEnhancer;
 }
