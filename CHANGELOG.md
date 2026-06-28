@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
 
 ### Fixed
+- Point Claude Code config at ~/.claude.json, not ~/.claude/settings.json
 - Stop masking missing tests with passWithNoTests (#56)
 ## [0.7.0] - 2026-06-26
 
