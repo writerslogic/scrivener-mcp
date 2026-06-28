@@ -5,10 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Changed
+- Delete dead langchain compat shim and example (703 LOC)
+- Delete 3 dead cache/analyzer modules (2835 LOC, zero imports)
+- Expand and harden word lists; Set lookup over regex
+- Delete 4 dead modules (4786 LOC, zero imports)
+
 ### Documentation
 - Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
 
 ### Fixed
+- Repair dead POS path and add NER entity guard
+- Make stdout console writes a hard error in server paths
+- Harden core data path against manuscript loss and RTF corruption
 - Point Claude Code config at ~/.claude.json, not ~/.claude/settings.json
 - Stop masking missing tests with passWithNoTests (#56)
 ## [0.7.0] - 2026-06-26
