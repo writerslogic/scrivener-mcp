@@ -37,8 +37,10 @@ export default tseslint.config(
 					prefer: 'type-imports',
 				},
 			],
+			// In a stdio MCP server only stdout (console.log/info/debug) corrupts the
+			// JSON-RPC stream; stderr (console.warn/error) is the correct log channel.
 			'no-console': [
-				'warn',
+				'error',
 				{
 					allow: ['warn', 'error'],
 				},
@@ -61,14 +63,9 @@ export default tseslint.config(
 		},
 	},
 	{
-		files: [
-			'**/auto-installer.ts',
-			'**/database-setup.ts',
-			'**/setup-wizard.ts',
-			'scripts/**/*',
-		],
+		files: ['**/setup-wizard.ts', 'src/examples/**', 'scripts/**/*'],
 		rules: {
-			'no-console': 'off', // These are CLI/setup files that need console output
+			'no-console': 'off', // Standalone CLI/example files with their own stdout
 		},
 	},
 	{
