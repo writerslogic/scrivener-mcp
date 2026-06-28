@@ -100,7 +100,7 @@ If a tool you expect isn't available, check which skills are active and activate
 npx scrivener-setup
 ```
 
-The wizard detects Claude Desktop, Claude Code, and Cursor automatically.
+The wizard detects Claude Desktop, Claude Code, and Cursor automatically. For manual copy-paste configs per client, see [MCP Client Setup](./CLIENT_SETUP.md).
 
 **Verify the connection** by asking Claude:
 
