@@ -13,7 +13,6 @@ jest.mock('../../src/services/compilation-service.js');
 jest.mock('../../src/services/metadata-manager.js');
 jest.mock('../../src/services/project-loader.js');
 jest.mock('../../src/handlers/database/database-service.js');
-jest.mock('../../src/content-analyzer.js');
 jest.mock('../../src/utils/common.js', () => ({
 	...jest.requireActual('../../src/utils/common.js'),
 	CleanupManager: jest.fn().mockImplementation(() => ({
@@ -79,7 +78,9 @@ describe('ScrivenerProject', () => {
 			const error = new Error('Document not found in trash');
 			mockDocumentManager.recoverFromTrash = jest.fn().mockRejectedValue(error);
 
-			await expect(project.recoverFromTrash('doc1')).rejects.toThrow('Document not found in trash');
+			await expect(project.recoverFromTrash('doc1')).rejects.toThrow(
+				'Document not found in trash'
+			);
 		});
 	});
 
@@ -102,7 +103,9 @@ describe('ScrivenerProject', () => {
 		});
 
 		it('should return empty map on error', async () => {
-			mockDocumentManager.readDocumentRaw = jest.fn().mockRejectedValue(new Error('File not found'));
+			mockDocumentManager.readDocumentRaw = jest
+				.fn()
+				.mockRejectedValue(new Error('File not found'));
 
 			const result = await project.getDocumentAnnotations('doc1');
 
@@ -123,7 +126,15 @@ describe('ScrivenerProject', () => {
 	describe('searchContent', () => {
 		it('should search across documents with metadata', async () => {
 			const mockDocuments = [
-				{ id: 'doc1', title: 'Test', content: 'Test content', type: 'Text', synopsis: 'Test synopsis', notes: undefined, keywords: undefined },
+				{
+					id: 'doc1',
+					title: 'Test',
+					content: 'Test content',
+					type: 'Text',
+					synopsis: 'Test synopsis',
+					notes: undefined,
+					keywords: undefined,
+				},
 			];
 			const mockSearchResults = [
 				{ documentId: 'doc1', title: 'Test', matches: ['Test content'], wordCount: 2 },
@@ -172,21 +183,27 @@ describe('ScrivenerProject', () => {
 			];
 			const mockContents = [
 				{ plainText: 'Content 1', formattedText: [], metadata: {} },
-				{ plainText: 'Content 2', formattedText: [], metadata: {} }
+				{ plainText: 'Content 2', formattedText: [], metadata: {} },
 			];
 			const mockResult = 'Compiled content';
 
 			// Mock readDocumentFormatted and getDocumentInfo
-			mockDocumentManager.readDocumentFormatted = jest.fn()
+			mockDocumentManager.readDocumentFormatted = jest
+				.fn()
 				.mockResolvedValueOnce(mockContents[0])
 				.mockResolvedValueOnce(mockContents[1]);
-			(project as any).getDocumentInfo = jest.fn()
+			(project as any).getDocumentInfo = jest
+				.fn()
 				.mockResolvedValueOnce(mockDocs[0])
 				.mockResolvedValueOnce(mockDocs[1]);
 			mockCompilationService.compileDocuments = jest.fn().mockResolvedValue(mockResult);
 
 			// compileDocuments now takes separator and outputFormat as separate params
-			const result = await project.compileDocuments(['doc1', 'doc2'], '\n\n---\n\n', 'markdown');
+			const result = await project.compileDocuments(
+				['doc1', 'doc2'],
+				'\n\n---\n\n',
+				'markdown'
+			);
 
 			expect(mockCompilationService.compileDocuments).toHaveBeenCalledWith(
 				expect.arrayContaining([
@@ -211,10 +228,13 @@ describe('ScrivenerProject', () => {
 			];
 
 			// Mock readDocumentFormatted and getDocumentInfo
-			mockDocumentManager.readDocumentFormatted = jest.fn().mockResolvedValue({ 
-				plainText: 'Content', formattedText: [], metadata: {} 
+			mockDocumentManager.readDocumentFormatted = jest.fn().mockResolvedValue({
+				plainText: 'Content',
+				formattedText: [],
+				metadata: {},
 			});
-			(project as any).getDocumentInfo = jest.fn()
+			(project as any).getDocumentInfo = jest
+				.fn()
 				.mockResolvedValueOnce(mockDocs[0])
 				.mockResolvedValueOnce(mockDocs[1]);
 			mockCompilationService.compileDocuments = jest.fn().mockResolvedValue('');
@@ -242,7 +262,9 @@ describe('ScrivenerProject', () => {
 			mockCompilationService.exportProject = jest.fn().mockResolvedValue(mockExportResult);
 
 			// exportProject takes format, outputPath, options
-			const result = await project.exportProject('markdown', undefined, { includeMetadata: true });
+			const result = await project.exportProject('markdown', undefined, {
+				includeMetadata: true,
+			});
 
 			expect(mockCompilationService.exportProject).toHaveBeenCalledWith(
 				mockStructure,
@@ -336,9 +358,12 @@ describe('ScrivenerProject', () => {
 		it('should return summary when summaryOnly is true', async () => {
 			const structure = [
 				{ id: '1', title: 'Doc1', type: 'Text', children: [] },
-				{ id: '2', title: 'Folder', type: 'Folder', children: [
-					{ id: '3', title: 'Doc2', type: 'Text', children: [] },
-				]},
+				{
+					id: '2',
+					title: 'Folder',
+					type: 'Folder',
+					children: [{ id: '3', title: 'Doc2', type: 'Text', children: [] }],
+				},
 			];
 
 			mockDocumentManager.getProjectStructure = jest.fn().mockResolvedValue(structure);
