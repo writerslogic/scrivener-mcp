@@ -1047,31 +1047,15 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 		}
 
 		try {
-			const { EnhancedLangChainService } =
-				await import('../services/ai/langchain-service-enhanced.js');
-			const { AdvancedLangChainFeatures } =
-				await import('../services/ai/langchain-advanced-features.js');
-			const { MultiAgentLangChainOrchestrator } =
-				await import('../services/agents/langchain-multi-agent.js');
+			const { AICollaboration } = await import('../services/agents/ai-collaboration.js');
 
-			// Initialize services
-			const langchainService = new EnhancedLangChainService();
-			const advancedFeatures = new AdvancedLangChainFeatures();
-			const multiAgentSystem = new MultiAgentLangChainOrchestrator(
-				langchainService,
-				advancedFeatures
-			);
-
-			// Use collaborateOnDocument method
-			const result = await multiAgentSystem.collaborateOnDocument(document, {
+			const collaboration = new AICollaboration();
+			const result = await collaboration.collaborateOnDocument(document, {
 				enabledAgents: agents.includes('all')
 					? ['Writer', 'Editor', 'Researcher', 'Critic', 'Coordinator']
 					: agents,
 				enableCritique: collaborationMode === 'workshop',
 				enableSynthesis: true,
-				maxDiscussionRounds: collaborationMode === 'workshop' ? 3 : 2,
-				consensusThreshold: 0.7,
-				timeoutMs: 300000, // 5 minutes
 			});
 
 			return {
