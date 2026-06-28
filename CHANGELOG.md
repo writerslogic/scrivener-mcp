@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Add Claude-backed semantic extractor (entities/relationships)
 - Migrate multi_agent_analysis to direct-SDK Claude critique (ripout step 4)
 - Migrate analyze_document to direct-SDK Claude analyzer (ripout step 3)
 - Migrate enhance_content to direct-SDK Claude enhancer (ripout step 2)
