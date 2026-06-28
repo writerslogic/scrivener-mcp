@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Migrate enhance_content to direct-SDK Claude enhancer (ripout step 2)
+- Add direct-SDK AIClient with Claude default (langchain ripout step 1)
+
 ### Changed
 - Delete dead langchain compat shim and example (703 LOC)
 - Delete 3 dead cache/analyzer modules (2835 LOC, zero imports)
