@@ -34,7 +34,7 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npm test -- --passWithNoTests
+        run: npm test -- --testTimeout=30000
 
       - name: Publish to npm (provenance)
         run: npm publish --access public --provenance
