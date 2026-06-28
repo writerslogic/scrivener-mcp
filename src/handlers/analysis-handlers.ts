@@ -2,7 +2,7 @@
  * Content analysis and AI enhancement handlers
  */
 
-import { LangChainAnalyticsPipeline } from '../analysis/langchain-analytics-pipeline.js';
+import { AIDocumentAnalyzer } from '../analysis/ai-document-analyzer.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type {
 	CharacterProfile,
@@ -110,31 +110,16 @@ export const analyzeDocumentHandler: ToolDefinition = {
 		}
 
 		try {
-			// Initialize LangChain analytics pipeline
-			const analyticsPipeline = new LangChainAnalyticsPipeline();
-			await analyticsPipeline.initialize();
+			// Perform qualitative analysis with Claude (direct SDK)
+			const analyzer = new AIDocumentAnalyzer();
+			const analysis = await analyzer.analyzeDocument(document.content || '');
 
-			// Perform comprehensive analysis using LangChain
-			const analysis = await analyticsPipeline.analyzeDocument(document.content || '', {
-				depth: 'detailed',
-				includeMetrics: true,
-			});
-
-			const a = analysis as Record<string, unknown>;
-			const readability = a.readability ?? a.readabilityScore ?? '?';
-			const pacing = a.pacing ?? '?';
-			const issues = Array.isArray(a.issues) ? a.issues : [];
-			const topIssues = issues
-				.slice(0, 3)
-				.map((i: unknown) =>
-					typeof i === 'string'
-						? i
-						: ((i as Record<string, unknown>).description ?? JSON.stringify(i))
-				);
+			const { readability, pacing, issues } = analysis;
+			const topIssues = issues.slice(0, 3).map((i) => i.description);
 
 			const summary = `Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n${
 				topIssues.length > 0
-					? `Top issues:\n${topIssues.map((t: unknown) => `- ${t}`).join('\n')}\n`
+					? `Top issues:\n${topIssues.map((t) => `- ${t}`).join('\n')}\n`
 					: ''
 			}[Full analysis available via deep_analyze_content]`;
 
