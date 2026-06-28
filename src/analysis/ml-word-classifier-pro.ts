@@ -45,6 +45,7 @@ export interface WordFeatures {
 	morphology?: string;
 	sentiment?: number;
 	stem?: string;
+	isProperNoun?: boolean;
 }
 
 export interface ClassificationResult {
@@ -209,9 +210,18 @@ export class MLWordClassifierPro {
 			position
 		);
 
-		// Accurate POS tagging using compromise
-		const wordTag =
-			wordIndex >= 0 && wordIndex < terms.length ? terms[wordIndex].tags[0] : 'Noun';
+		// Accurate POS tagging using compromise. In compromise v14, terms().json()
+		// returns phrase wrappers; the per-term tags live under .terms[0].tags.
+		const wordTags: string[] =
+			wordIndex >= 0 && wordIndex < terms.length
+				? (terms[wordIndex]?.terms?.[0]?.tags ?? [])
+				: [];
+		const wordTag = wordTags[0] ?? 'Noun';
+		// Named-entity detection in context: proper nouns (character/place names)
+		// must not be treated as filler, weak, common, or cliche words.
+		const isProperNoun = wordTags.some((t) =>
+			['ProperNoun', 'Person', 'Place', 'Organization'].includes(t)
+		);
 
 		// Get sentiment score using our advanced nlpAnalyzer
 		const wordSentiment = this.sentimentAnalyzer.analyzeSentiment(word);
@@ -262,6 +272,7 @@ export class MLWordClassifierPro {
 							: 'other',
 			sentiment: wordSentiment.score,
 			stem,
+			isProperNoun,
 		};
 
 		// Cache the extracted features
@@ -282,6 +293,21 @@ export class MLWordClassifierPro {
 	 * Perform classification using professional algorithms
 	 */
 	private performProfessionalClassification(features: WordFeatures): ClassificationResult {
+		// Named entities (character/place names) are content, not weak words.
+		// Detecting them via NER prevents misclassifying a name like "Pretty"
+		// or "Justice" as a filler or cliche.
+		if (features.isProperNoun) {
+			return {
+				isFilterWord: false,
+				isCommonWord: false,
+				isWeakVerb: false,
+				isCliche: false,
+				confidence: 0,
+				sentiment: features.sentiment,
+				complexity: this.calculateComplexity(features),
+			};
+		}
+
 		// Use multiple signals for classification
 		const filterWordScore = this.detectFilterWord(features);
 		const commonWordScore = this.detectCommonWord(features);
