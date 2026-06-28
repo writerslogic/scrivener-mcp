@@ -143,6 +143,13 @@ export class ProjectLoader {
 
 		try {
 			const xml = builder.buildObject(cleanStructure);
+			// Guard against writing empty or truncated XML over a valid project file.
+			if (!xml || !xml.trimStart().startsWith('<?xml')) {
+				throw createError(
+					ErrorCode.PROJECT_INVALID,
+					`Refusing to write malformed project XML to ${this.scrivxPath}`
+				);
+			}
 			await safeWriteFile(this.scrivxPath, xml);
 			logger.info('Project saved successfully');
 		} catch (error) {

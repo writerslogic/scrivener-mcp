@@ -340,10 +340,31 @@ export async function safeWriteFile(
 	options?: fs.WriteFileOptions
 ): Promise<void> {
 	const tmpPath = `${filePath}.${process.pid}.tmp`;
+	const dir = path.dirname(filePath);
 	try {
-		await ensureDir(path.dirname(filePath));
-		await fs.promises.writeFile(tmpPath, data, options);
+		await ensureDir(dir);
+		// Write to a temp file and fsync it before the atomic rename, so a crash
+		// or power loss cannot leave a truncated or non-durable target file.
+		const handle = await fs.promises.open(tmpPath, 'w');
+		try {
+			await handle.writeFile(data, options);
+			await handle.sync();
+		} finally {
+			await handle.close();
+		}
 		await fs.promises.rename(tmpPath, filePath);
+		// fsync the directory so the rename itself is durable. Not supported on
+		// every platform (e.g. Windows), so this is best-effort.
+		try {
+			const dirHandle = await fs.promises.open(dir, 'r');
+			try {
+				await dirHandle.sync();
+			} finally {
+				await dirHandle.close();
+			}
+		} catch {
+			/* directory fsync unsupported on this platform — best-effort */
+		}
 	} catch (e) {
 		try {
 			await fs.promises.unlink(tmpPath);

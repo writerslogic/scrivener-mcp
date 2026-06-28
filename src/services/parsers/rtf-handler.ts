@@ -188,7 +188,7 @@ export class RTFHandler {
 	 * Build RTF header with optional metadata
 	 */
 	private buildRTFHeader(metadata?: RTFContent['metadata']): string {
-		const parts: string[] = ['{\\rtf1\\ansi\\deff0\\uc0'];
+		const parts: string[] = ['{\\rtf1\\ansi\\deff0\\uc1'];
 
 		// Generator identification
 		parts.push('{\\*\\generator WritersLogic Scrivener MCP;}');
@@ -259,11 +259,16 @@ export class RTFHandler {
 		// Extract metadata
 		result.metadata = this.extractMetadata(rtfString);
 
+		// Capture the document's \uc fallback count from the header before it is
+		// stripped (Scrivener uses \uc0), then parse the body with it.
+		const ucMatch = rtfString.match(/\\uc(\d+)/);
+		const documentUc = ucMatch ? Math.max(0, parseInt(ucMatch[1], 10)) : 1;
+
 		// Remove header sections
 		const content = this.stripRTFHeaders(rtfString);
 
 		// Parse formatting and content
-		const segments = this.parseRTFSegments(content);
+		const segments = this.parseRTFSegments(content, documentUc);
 
 		// Build plain text and formatted text
 		const plainTextParts: string[] = [];
@@ -334,14 +339,17 @@ export class RTFHandler {
 	/**
 	 * Parse RTF content into text segments with formatting
 	 */
-	private parseRTFSegments(content: string): Array<{ text: string; style?: RTFStyle }> {
+	private parseRTFSegments(
+		content: string,
+		documentUc = 1
+	): Array<{ text: string; style?: RTFStyle }> {
 		const segments: Array<{ text: string; style?: RTFStyle }> = [];
 		const stack: RTFStyle[] = [{}];
 		let currentText = '';
 		let currentStyle = { ...stack[0] };
 
 		// Enhanced tokenization
-		const tokens = this.tokenizeRTF(content);
+		const tokens = this.tokenizeRTF(content, documentUc);
 
 		for (const token of tokens) {
 			if (token.type === 'control') {
@@ -391,9 +399,13 @@ export class RTFHandler {
 	/**
 	 * Tokenize RTF content for easier parsing
 	 */
-	private tokenizeRTF(content: string): Array<{ type: string; value: string }> {
+	private tokenizeRTF(content: string, initialUc = 1): Array<{ type: string; value: string }> {
 		const tokens: Array<{ type: string; value: string }> = [];
 		let i = 0;
+		// Number of fallback characters that follow each \u escape (RTF \uc, default 1).
+		// Genuine Scrivener files use \uc0 (no fallback); honoring it prevents dropping
+		// the real character that follows a Unicode escape.
+		let uc = initialUc;
 
 		while (i < content.length) {
 			const char = content[i];
@@ -407,19 +419,26 @@ export class RTFHandler {
 					if (wordName === 'par' || wordName === 'line' || wordName === 'sect') {
 						tokens.push({ type: 'text', value: '\n' });
 						i += controlMatch[0].length;
+					} else if (wordName === 'uc') {
+						const n = parseInt(wordParam, 10);
+						uc = Number.isNaN(n) ? 1 : Math.max(0, n);
+						i += controlMatch[0].length;
 					} else if (wordName === 'u' && wordParam) {
 						let code = parseInt(wordParam, 10);
 						if (code < 0) code += 65536;
 						tokens.push({ type: 'text', value: String.fromCodePoint(code) });
 						i += controlMatch[0].length;
-						// Skip one ASCII fallback char (\uc1 assumed — near-universal in practice)
-						if (
-							i < content.length &&
-							content[i] !== '\\' &&
-							content[i] !== '{' &&
-							content[i] !== '}'
-						) {
-							i++;
+						// Skip the `uc` fallback units that follow the \u escape. A unit is a
+						// \'xx hex escape or a single literal character; stop at group braces.
+						for (let skipped = 0; skipped < uc && i < content.length; skipped++) {
+							if (content[i] === '{' || content[i] === '}') break;
+							if (content[i] === '\\' && content[i + 1] === "'") {
+								i += 4;
+							} else if (content[i] === '\\') {
+								break;
+							} else {
+								i++;
+							}
 						}
 					} else {
 						tokens.push({ type: 'control', value: controlMatch[0] });

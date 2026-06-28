@@ -254,13 +254,22 @@ export class DocumentManager {
 				rtfContent = content;
 			}
 
-			// Backup existing content before overwrite
+			// Backup existing content before overwrite. If the document already
+			// exists but cannot be backed up, fail closed rather than risk an
+			// unrecoverable overwrite of the writer's manuscript.
 			const backupDir = path.join(this.projectPath, '.scrivener-mcp-backup');
 			try {
 				await ensureDir(backupDir);
 				await fs.promises.copyFile(filePath, path.join(backupDir, `${documentId}.rtf`));
-			} catch {
-				// No existing file to back up — first write, or backup failed
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+					throw createError(
+						ErrorCode.FILE_WRITE_ERROR,
+						{ documentId, error: (err as Error).message },
+						`Refusing to overwrite document ${documentId}: could not back up existing content first`
+					);
+				}
+				// ENOENT: no existing file to back up (first write) — safe to proceed.
 			}
 
 			await this.rtfHandler.writeRTF(filePath, rtfContent);
