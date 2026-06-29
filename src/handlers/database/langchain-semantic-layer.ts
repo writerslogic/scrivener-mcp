@@ -1,6 +1,6 @@
 import type { DatabaseService } from './database-service.js';
 import { EnhancedLangChainService } from '../../services/ai/langchain-service-enhanced.js';
-import { AdvancedLangChainFeatures } from '../../services/ai/langchain-advanced-features.js';
+import { AISemanticExtractor } from '../../services/ai/ai-semantic-extractor.js';
 import { LangChainHMSVectorStore } from '../../services/ai/hms-vector-store.js';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { Document as LangchainDocument } from '@langchain/core/documents';
@@ -136,7 +136,7 @@ export interface EntityAnalysis {
 export class SemanticDatabaseLayer {
 	private databaseService: DatabaseService;
 	private langchain: EnhancedLangChainService;
-	private advanced: AdvancedLangChainFeatures;
+	private extractor: AISemanticExtractor;
 	private vectorStore: LangChainHMSVectorStore;
 	private logger: ReturnType<typeof getLogger>;
 	private knowledgeGraphCache: KnowledgeGraph | null = null;
@@ -146,7 +146,7 @@ export class SemanticDatabaseLayer {
 	constructor(databaseService: DatabaseService) {
 		this.databaseService = databaseService;
 		this.langchain = new EnhancedLangChainService();
-		this.advanced = new AdvancedLangChainFeatures();
+		this.extractor = new AISemanticExtractor();
 		const embeddings = new OpenAIEmbeddings();
 		this.vectorStore = new LangChainHMSVectorStore(embeddings);
 		this.logger = getLogger('SemanticDatabaseLayer');
@@ -473,7 +473,7 @@ Provide a brief, clear explanation (1-2 sentences) of why this document matches 
 	> {
 		try {
 			const combinedContent = results.map((r) => r.content).join('\n\n');
-			const entities = await this.advanced.extractEntities(combinedContent);
+			const entities = await this.extractor.extractEntities(combinedContent);
 
 			return entities.map((entity) => ({
 				name: entity.name,
@@ -521,13 +521,14 @@ Provide a brief, clear explanation (1-2 sentences) of why this document matches 
 
 		try {
 			const combinedContent = results.map((r) => r.content).join('\n\n');
-			const relationships = await this.advanced.analyzeRelationships(
+			const relationships = await this.extractor.analyzeRelationships(
 				entities.map((e) => ({
 					name: e.name,
 					type: e.type as 'character' | 'location' | 'organization' | 'event' | 'object',
 					context: combinedContent,
 					mentions: 1,
-				}))
+				})),
+				combinedContent
 			);
 
 			return relationships.map((rel) => ({
@@ -643,7 +644,7 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 			try {
 				// Extract entities from document
-				const entities = await this.advanced.extractEntities(doc.content);
+				const entities = await this.extractor.extractEntities(doc.content);
 
 				// Create nodes for entities
 				for (const entity of entities) {
@@ -673,7 +674,7 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 				// Extract relationships
 				if (entities.length > 1) {
-					const relationships = await this.advanced.analyzeRelationships(
+					const relationships = await this.extractor.analyzeRelationships(
 						entities.map((e) => ({
 							name: e.name,
 							type: e.type as
@@ -684,7 +685,8 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 								| 'object',
 							context: doc.content || '',
 							mentions: 1,
-						}))
+						})),
+						doc.content || ''
 					);
 
 					for (const rel of relationships) {
@@ -925,7 +927,7 @@ Return only the numeric score.`;
 	): Promise<EntityAnalysis['relationships']> {
 		try {
 			const contexts = mentions.map((m) => m.context).join('\n\n');
-			const relationships = await this.advanced.analyzeRelationships([
+			const relationships = await this.extractor.analyzeRelationships([
 				{
 					name: entity,
 					type: 'object',
