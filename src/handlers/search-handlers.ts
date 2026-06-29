@@ -1,4 +1,4 @@
-import { SemanticDatabaseLayer } from '../handlers/database/langchain-semantic-layer.js';
+import { SemanticDatabaseLayer } from '../handlers/database/semantic-database-layer.js';
 import { validateInput } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';

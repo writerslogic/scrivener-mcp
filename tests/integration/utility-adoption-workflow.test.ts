@@ -3,7 +3,7 @@ import { generateScrivenerUUID, parseMetadata, findBinderItem } from '../../src/
 import { ensureProjectDataDirectory, getQueueStatePath, getCacheDirectory } from '../../src/utils/project-utils.js';
 import { isTransientDatabaseError, toDatabaseError } from '../../src/utils/database.js';
 import { ApplicationError as AppError, ErrorCode } from '../../src/core/errors.js';
-import { LangChainCompilationService } from '../../src/services/compilation/langchain-compiler.js';
+import { AICompilationService } from '../../src/services/compilation/ai-compiler.js';
 import { compileDocumentsHandler } from '../../src/handlers/compilation-handlers.js';
 
 // Mock file system operations
@@ -183,8 +183,8 @@ describe('Utility Adoption Workflow Integration', () => {
       });
 
       // Mock compilation service to use utilities
-      jest.mock('../../src/services/compilation/langchain-compiler.js', () => ({
-        LangChainCompilationService: jest.fn(() => ({
+      jest.mock('../../src/services/compilation/ai-compiler.js', () => ({
+        AICompilationService: jest.fn(() => ({
           initialize: jest.fn(),
           compileWithAI: mockCompileWithAI,
         })),

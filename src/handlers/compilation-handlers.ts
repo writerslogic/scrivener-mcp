@@ -1,4 +1,4 @@
-import { LangChainCompilationService } from '../services/compilation/langchain-compiler.js';
+import { AICompilationService } from '../services/compilation/ai-compiler.js';
 import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import { compact, formatPayload } from '../core/response-formatter.js';
@@ -163,14 +163,14 @@ export const compileDocumentsHandler: ToolDefinition = {
 				if (documentsToCompile.length === 0) {
 					throw new Error('No valid documents found for compilation');
 				}
-				const langChainCompiler = new LangChainCompilationService();
-				await langChainCompiler.initialize();
+				const aiCompiler = new AICompilationService();
+				await aiCompiler.initialize();
 				const learningHandler = new LangChainContinuousLearningHandler();
 				await learningHandler.initialize();
 				const sessionId = `intelligent_compile_${Date.now()}`;
 				await learningHandler.startFeedbackSession(sessionId);
 
-				const compiled = await langChainCompiler.compileWithAI(documentsToCompile, {
+				const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
 					outputFormat: format,
 					targetOptimization,
 					target: target as
@@ -212,14 +212,14 @@ export const compileDocumentsHandler: ToolDefinition = {
 
 		// Standard mode: join documents, with a plain-concatenation fallback.
 		try {
-			const langChainCompiler = new LangChainCompilationService();
-			await langChainCompiler.initialize();
+			const aiCompiler = new AICompilationService();
+			await aiCompiler.initialize();
 			const learningHandler = new LangChainContinuousLearningHandler();
 			await learningHandler.initialize();
 			const sessionId = `compile_${Date.now()}`;
 			await learningHandler.startFeedbackSession(sessionId);
 
-			const compiled = await langChainCompiler.compileWithAI(documentsToCompile, {
+			const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
 				outputFormat: format,
 				targetOptimization: 'general',
 				includeSynopsis,
@@ -414,9 +414,9 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 				throw new Error('No text documents found in project');
 			}
 
-			// Initialize LangChain compilation service
-			const langChainCompiler = new LangChainCompilationService();
-			await langChainCompiler.initialize();
+			// Initialize AI compilation service
+			const aiCompiler = new AICompilationService();
+			await aiCompiler.initialize();
 
 			// Initialize continuous learning for feedback collection
 			const learningHandler = new LangChainContinuousLearningHandler();
@@ -426,7 +426,7 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 			await learningHandler.startFeedbackSession(sessionId);
 
 			// Generate marketing materials
-			const result = await langChainCompiler.generateMarketingMaterials(textDocuments, {
+			const result = await aiCompiler.generateMarketingMaterials(textDocuments, {
 				materialType,
 				length,
 				targetAudience,
@@ -499,20 +499,14 @@ export const buildVectorStoreHandler: ToolDefinition = {
 			}
 
 			// Initialize HMS-backed vector store
-			const { LangChainHMSVectorStore } = await import('../services/ai/hms-vector-store.js');
-			const { OpenAIEmbeddings } = await import('@langchain/openai');
-			const { Document } = await import('@langchain/core/documents');
+			const { HMSVectorStore } = await import('../services/ai/hms-vector-store.js');
 
-			const docs = vectorDocuments.map(
-				(doc) =>
-					new Document({
-						pageContent: doc.content,
-						metadata: { id: doc.id, ...doc.metadata },
-					})
-			);
+			const docs = vectorDocuments.map((doc) => ({
+				pageContent: doc.content,
+				metadata: { id: doc.id, ...doc.metadata },
+			}));
 
-			const embeddings = new OpenAIEmbeddings();
-			await LangChainHMSVectorStore.fromDocuments(docs, embeddings);
+			await HMSVectorStore.fromDocuments(docs);
 
 			return {
 				content: [

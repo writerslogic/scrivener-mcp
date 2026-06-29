@@ -164,7 +164,9 @@ export class AISemanticExtractor {
 	async generateWithTemplate(
 		_taskType: string,
 		prompt: string,
-		options: { customPrompt?: string; format?: string } = {}
+		// Only customPrompt and format are read; the index signature lets callers
+		// pass extra task hints (style, genre, maxLength, ...) without a type error.
+		options: { customPrompt?: string; format?: string; [key: string]: unknown } = {}
 	): Promise<{ content: string }> {
 		const effectivePrompt = options.customPrompt ?? prompt;
 		const system =

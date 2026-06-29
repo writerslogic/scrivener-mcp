@@ -1124,7 +1124,7 @@ export const semanticSearchHandler: ToolDefinition = {
 			}
 
 			const { SemanticDatabaseLayer } =
-				await import('../handlers/database/langchain-semantic-layer.js');
+				await import('../handlers/database/semantic-database-layer.js');
 			const semanticLayer = new SemanticDatabaseLayer(context.databaseService);
 			await semanticLayer.initialize();
 
@@ -1170,69 +1170,6 @@ export const semanticSearchHandler: ToolDefinition = {
 					{
 						type: 'text',
 						text: `Semantic search failed: ${(error as Error).message}`,
-					},
-				],
-			};
-		}
-	},
-};
-
-export const realtimeAssistanceHandler: ToolDefinition = {
-	name: 'start_realtime_assistance',
-	description: 'Start real-time writing assist',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentId: SHARED_DEFS.docId,
-			assistanceType: {
-				type: 'string',
-				enum: ['writing', 'editing', 'brainstorming', 'research'],
-			},
-		},
-		required: ['documentId'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const documentId = getStringArg(args, 'documentId');
-		const assistanceType = (args.assistanceType as string) || 'writing';
-
-		const document = await project.getDocument(documentId);
-		if (!document) {
-			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
-		}
-
-		try {
-			const { RealtimeWritingAssistant } =
-				await import('../services/realtime/langchain-writing-assistant.js');
-			const assistant = new RealtimeWritingAssistant();
-			await assistant.initialize();
-
-			const sessionId = await assistant.startSession(document, {
-				assistanceType,
-				streamingEnabled: true,
-				contextWindow: 2000,
-			});
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Real-time ${assistanceType} assistance started\n\n${compact({
-							sessionId,
-							assistanceType,
-							documentId,
-							enhanced: true,
-							status: 'active',
-						})}`,
-					},
-				],
-			};
-		} catch (error) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Failed to start real-time assistance: ${(error as Error).message}`,
 					},
 				],
 			};
@@ -1312,6 +1249,5 @@ export const analysisHandlers = [
 	semanticSearchHandler,
 	// Advanced LangChain handlers
 	multiAgentAnalysisHandler,
-	realtimeAssistanceHandler,
 	collectFeedbackHandler,
 ];

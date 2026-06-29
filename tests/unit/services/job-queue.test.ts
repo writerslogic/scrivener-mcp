@@ -40,8 +40,8 @@ jest.mock('../../../src/analysis/base-analyzer', () => ({
 	})),
 }));
 
-jest.mock('../../../src/services/ai/langchain-service', () => ({
-	LangChainService: jest.fn(() => ({
+jest.mock('../../../src/services/ai/ai-writing-service', () => ({
+	AIWritingService: jest.fn(() => ({
 		generateWithContext: jest.fn(() => Promise.resolve('AI suggestion')),
 		buildVectorStore: jest.fn(() => Promise.resolve()),
 		semanticSearch: jest.fn(() => Promise.resolve([])),
@@ -193,10 +193,10 @@ describe('JobQueueService v2', () => {
 			});
 
 			// Check services were initialized
-			const { LangChainService } = require('../../../src/services/ai/langchain-service');
+			const { AIWritingService } = require('../../../src/services/ai/ai-writing-service');
 			const { DatabaseService } = require('../../../src/database/database-service');
 			
-			expect(LangChainService).toHaveBeenCalledWith('test-api-key');
+			expect(AIWritingService).toHaveBeenCalledWith('test-api-key');
 			expect(DatabaseService).toHaveBeenCalledWith('./test.db');
 		});
 	});

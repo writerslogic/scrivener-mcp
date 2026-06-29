@@ -5,12 +5,6 @@ export default {
 	extensionsToTreatAsEsm: ['.ts'],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
-		'^@langchain/core/(.*)$': '<rootDir>/node_modules/@langchain/core/$1.js',
-		'^@langchain/openai$': '<rootDir>/node_modules/@langchain/openai/dist/index.js',
-		'^@langchain/community/(.*)$': '<rootDir>/node_modules/@langchain/community/$1.js',
-		'^@langchain/textsplitters$':
-			'<rootDir>/node_modules/@langchain/textsplitters/dist/index.js',
-		'^@langchain/classic/(.*)$': '<rootDir>/node_modules/@langchain/classic/$1.js',
 	},
 	transform: {
 		'^.+\\.tsx?$': [
@@ -27,7 +21,7 @@ export default {
 		],
 	},
 	transformIgnorePatterns: [
-		'/node_modules/(?!(@langchain|langchain|@modelcontextprotocol|chalk|cheerio|syllable|turndown|compromise|compromise-dates|compromise-numbers|compromise-adjectives)/)',
+		'/node_modules/(?!(@modelcontextprotocol|chalk|cheerio|syllable|turndown|compromise|compromise-dates|compromise-numbers|compromise-adjectives)/)',
 	],
 	roots: ['<rootDir>/src', '<rootDir>/tests'],
 	testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
@@ -45,18 +39,13 @@ export default {
 		'tests/unit/core/errors\\.test\\.ts',
 		'tests/unit/core/validation\\.test\\.ts',
 		'tests/unit/handler-error-messages\\.test\\.ts',
-		'tests/unit/handlers/async-handlers\\.test\\.ts',
-		'tests/unit/handlers/compilation-handlers\\.test\\.ts',
 		'tests/unit/handlers/database/migrations\\.test\\.ts',
 		'tests/unit/handlers/database/neo4j-manager\\.test\\.ts',
 		'tests/unit/services/auto-setup\\.test\\.ts',
 		'tests/unit/services/compilation-service\\.test\\.ts',
-		'tests/unit/services/compilation/langchain-compiler\\.test\\.ts',
 		'tests/unit/services/document-manager\\.test\\.ts',
-		'tests/unit/services/enhancements/langchain-content-enhancer\\.test\\.ts',
 		'tests/unit/services/job-queue\\.test\\.ts',
 		'tests/unit/services/keydb-installer\\.test\\.ts',
-		'tests/unit/services/langchain-service\\.test\\.ts',
 		'tests/unit/utils/common-new\\.test\\.ts',
 		'tests/unit/utils/database-utils\\.test\\.ts',
 		'tests/unit/utils/scrivener-utils\\.test\\.ts',

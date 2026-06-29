@@ -1,9 +1,6 @@
 import type { DatabaseService } from './database-service.js';
-import { EnhancedLangChainService } from '../../services/ai/langchain-service-enhanced.js';
 import { AISemanticExtractor } from '../../services/ai/ai-semantic-extractor.js';
-import { LangChainHMSVectorStore } from '../../services/ai/hms-vector-store.js';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { Document as LangchainDocument } from '@langchain/core/documents';
+import { HMSVectorStore, type HMSDocument } from '../../services/ai/hms-vector-store.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 import { getLogger } from '../../core/logger.js';
 import { toDatabaseError } from '../../utils/database.js';
@@ -135,9 +132,8 @@ export interface EntityAnalysis {
 
 export class SemanticDatabaseLayer {
 	private databaseService: DatabaseService;
-	private langchain: EnhancedLangChainService;
 	private extractor: AISemanticExtractor;
-	private vectorStore: LangChainHMSVectorStore;
+	private vectorStore: HMSVectorStore;
 	private logger: ReturnType<typeof getLogger>;
 	private knowledgeGraphCache: KnowledgeGraph | null = null;
 	private cacheTimeout = 30 * 60 * 1000; // 30 minutes
@@ -145,10 +141,8 @@ export class SemanticDatabaseLayer {
 
 	constructor(databaseService: DatabaseService) {
 		this.databaseService = databaseService;
-		this.langchain = new EnhancedLangChainService();
 		this.extractor = new AISemanticExtractor();
-		const embeddings = new OpenAIEmbeddings();
-		this.vectorStore = new LangChainHMSVectorStore(embeddings);
+		this.vectorStore = new HMSVectorStore();
 		this.logger = getLogger('SemanticDatabaseLayer');
 	}
 
@@ -240,7 +234,7 @@ Extract:
 
 Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 
-		const result = await this.langchain.generateWithTemplate('query_parsing', query, {
+		const result = await this.extractor.generateWithTemplate('query_parsing', query, {
 			format: 'json',
 			customPrompt: prompt,
 		});
@@ -442,7 +436,7 @@ Content Preview: ${result.content.slice(0, 200)}...
 Provide a brief, clear explanation (1-2 sentences) of why this document matches the query.`;
 
 		try {
-			const explanation = await this.langchain.generateWithTemplate(
+			const explanation = await this.extractor.generateWithTemplate(
 				'result_explanation',
 				result.content,
 				{
@@ -571,7 +565,7 @@ Provide:
 Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 		try {
-			const result = await this.langchain.generateWithTemplate('insight_generation', query, {
+			const result = await this.extractor.generateWithTemplate('insight_generation', query, {
 				format: 'json',
 				customPrompt: prompt,
 			});
@@ -766,21 +760,18 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 	private async updateVectorStore(documents: ScrivenerDocument[]): Promise<void> {
 		try {
-			const langchainDocs = documents.map(
-				(doc) =>
-					new LangchainDocument({
-						pageContent: doc.content || '',
-						metadata: {
-							id: doc.id,
-							title: doc.title,
-							type: doc.type,
-							wordCount: doc.wordCount,
-							synopsis: doc.synopsis,
-						},
-					})
-			);
+			const vectorDocs: HMSDocument[] = documents.map((doc) => ({
+				pageContent: doc.content || '',
+				metadata: {
+					id: doc.id,
+					title: doc.title,
+					type: doc.type,
+					wordCount: doc.wordCount,
+					synopsis: doc.synopsis,
+				},
+			}));
 
-			await this.vectorStore.addDocuments(langchainDocs);
+			await this.vectorStore.addDocuments(vectorDocs);
 		} catch (error) {
 			this.logger.warn('Vector store update failed', { error: (error as Error).message });
 		}
@@ -874,7 +865,7 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 Return a sentiment score from -1.0 (very negative) to 1.0 (very positive), with 0 being neutral.
 Return only the numeric score.`;
 
-			const result = await this.langchain.generateWithTemplate(
+			const result = await this.extractor.generateWithTemplate(
 				'sentiment_analysis',
 				context,
 				{
@@ -905,7 +896,7 @@ Consider:
 Return importance score from 0.0 (trivial mention) to 1.0 (crucial plot point).
 Return only the numeric score.`;
 
-			const result = await this.langchain.generateWithTemplate(
+			const result = await this.extractor.generateWithTemplate(
 				'importance_analysis',
 				context,
 				{
@@ -970,7 +961,7 @@ Return only the numeric score.`;
 			Describe how the entity changes or is revealed further at each point. 
 			Return a JSON array of objects with keys: chapter (index), development (string), significance (0-1).`;
 
-			const result = await this.langchain.generateWithTemplate(
+			const result = await this.extractor.generateWithTemplate(
 				'character_arc_analysis',
 				entity,
 				{
@@ -1019,7 +1010,7 @@ Provide insights as JSON:
 }`;
 
 		try {
-			const result = await this.langchain.generateWithTemplate('entity_insights', entity, {
+			const result = await this.extractor.generateWithTemplate('entity_insights', entity, {
 				format: 'json',
 				customPrompt: prompt,
 			});
@@ -1136,7 +1127,7 @@ Return JSON with fields:
 Only use tables and columns defined in the schema.`;
 
 		try {
-			const result = await this.langchain.generateWithTemplate('nl2sql', naturalLanguage, {
+			const result = await this.extractor.generateWithTemplate('nl2sql', naturalLanguage, {
 				format: 'json',
 				customPrompt: prompt,
 			});

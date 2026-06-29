@@ -1,8 +1,10 @@
 import * as crypto from 'crypto';
-import { VectorStore } from '@langchain/core/vectorstores';
-import { Document } from '@langchain/core/documents';
-import type { EmbeddingsInterface } from '@langchain/core/embeddings';
 import { HolographicMemorySystem } from '../memory/hhm/holographic-memory-system.js';
+
+export interface HMSDocument {
+	pageContent: string;
+	metadata: Record<string, unknown>;
+}
 
 export interface HMSVectorStoreArgs {
 	hms?: HolographicMemorySystem;
@@ -11,17 +13,16 @@ export interface HMSVectorStoreArgs {
 }
 
 /**
- * LangChain VectorStore implementation powered by the Rust-native HMS Engine
+ * Text-native vector store backed by the Rust HMS engine. Retrieval is
+ * HolographicMemorySystem.queryText (no embeddings): the engine encodes and
+ * queries from text directly. The previous LangChain VectorStore wrapper only
+ * ever used this text path -- its addVectors / similaritySearchVectorWithScore
+ * methods always threw -- so dropping the embeddings dependency loses nothing.
  */
-export class LangChainHMSVectorStore extends VectorStore {
+export class HMSVectorStore {
 	private hms: HolographicMemorySystem;
 
-	_vectorstoreType(): string {
-		return 'hms_native';
-	}
-
-	constructor(embeddings: EmbeddingsInterface, args: HMSVectorStoreArgs = {}) {
-		super(embeddings, args);
+	constructor(args: HMSVectorStoreArgs = {}) {
 		this.hms =
 			args.hms ||
 			new HolographicMemorySystem({
@@ -30,15 +31,7 @@ export class LangChainHMSVectorStore extends VectorStore {
 			});
 	}
 
-	async addVectors(_vectors: number[][], _documents: Document[]): Promise<void> {
-		// HMS handles its own encoding/vectorization from text
-		// We use addDocuments instead to let the Rust engine do the work
-		throw new Error(
-			'Use addDocuments instead of addVectors for HMSVectorStore to leverage native encoding.'
-		);
-	}
-
-	async addDocuments(documents: Document[]): Promise<void> {
+	async addDocuments(documents: HMSDocument[]): Promise<void> {
 		const items = documents.map((doc) => ({
 			id: (doc.metadata?.id || doc.metadata?.documentId || crypto.randomUUID()) as string,
 			text: doc.pageContent,
@@ -46,68 +39,42 @@ export class LangChainHMSVectorStore extends VectorStore {
 		await this.hms.memorizeBatch(items);
 	}
 
-	async similaritySearchVectorWithScore(
-		_query: number[],
-		_k: number
-	): Promise<[Document, number][]> {
-		throw new Error(
-			'HMSVectorStore uses native text-based querying. Use similaritySearch instead.'
-		);
-	}
-
-	async similaritySearch(query: string, k: number = 4): Promise<Document[]> {
+	async similaritySearch(query: string, k: number = 4): Promise<HMSDocument[]> {
 		const results = await this.hms.queryText(query, k);
-		return results.map(
-			(r) =>
-				new Document({
-					pageContent: (r.reconstructed as string) || '',
-					metadata: {
-						id: r.id,
-						similarity: r.similarity,
-						...(r.entry.metadata || {}),
-					},
-				})
-		);
+		return results.map((r) => ({
+			pageContent: (r.reconstructed as string) || '',
+			metadata: {
+				id: r.id,
+				similarity: r.similarity,
+				...(r.entry.metadata || {}),
+			},
+		}));
 	}
 
-	async similaritySearchWithScore(query: string, k: number = 4): Promise<[Document, number][]> {
+	async similaritySearchWithScore(
+		query: string,
+		k: number = 4
+	): Promise<[HMSDocument, number][]> {
 		const results = await this.hms.queryText(query, k);
 		return results.map((r) => [
-			new Document({
+			{
 				pageContent: (r.reconstructed as string) || '',
 				metadata: {
 					id: r.id,
 					similarity: r.similarity,
 					...(r.entry.metadata || {}),
 				},
-			}),
+			},
 			r.similarity,
 		]);
 	}
 
 	static async fromDocuments(
-		docs: Document[],
-		embeddings: EmbeddingsInterface,
-		dbConfig?: HMSVectorStoreArgs
-	): Promise<LangChainHMSVectorStore> {
-		const instance = new LangChainHMSVectorStore(embeddings, dbConfig);
+		docs: HMSDocument[],
+		args?: HMSVectorStoreArgs
+	): Promise<HMSVectorStore> {
+		const instance = new HMSVectorStore(args);
 		await instance.addDocuments(docs);
 		return instance;
-	}
-
-	static async fromTexts(
-		texts: string[],
-		metadatas: object[] | object,
-		embeddings: EmbeddingsInterface,
-		dbConfig?: HMSVectorStoreArgs
-	): Promise<LangChainHMSVectorStore> {
-		const docs = texts.map(
-			(text, i) =>
-				new Document({
-					pageContent: text,
-					metadata: Array.isArray(metadatas) ? metadatas[i] : metadatas,
-				})
-		);
-		return LangChainHMSVectorStore.fromDocuments(docs, embeddings, dbConfig);
 	}
 }

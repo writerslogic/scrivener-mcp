@@ -83,7 +83,6 @@ const HIDDEN_TOOLS = new Set<string>([
 	'store_chapter_order',
 	'sync_to_neo4j',
 	'get_queue_stats',
-	'start_realtime_assistance',
 	'collect_feedback',
 	// fractal_search is superseded by semantic_search; get_memory_analytics by get_memory_stats.
 	'fractal_search',

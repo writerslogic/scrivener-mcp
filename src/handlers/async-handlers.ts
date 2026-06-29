@@ -5,7 +5,8 @@
 
 import type { Job } from 'bullmq';
 import { getLogger } from '../core/logger.js';
-import { LangChainService } from '../services/ai/langchain-service.js';
+import { AIClient } from '../services/ai/ai-client.js';
+import { AIWritingService } from '../services/ai/ai-writing-service.js';
 import { JobQueueService, JobType } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import {
@@ -20,7 +21,7 @@ import {
 } from '../utils/common.js';
 
 let jobQueueService: JobQueueService | null = null;
-let langchainService: LangChainService | null = null;
+let aiWritingService: AIWritingService | null = null;
 const logger = getLogger('async-handlers');
 
 /**
@@ -57,11 +58,13 @@ export async function initializeAsyncServices(
 				`Job queue service initialized with ${connectionInfo.type} connection in ${formatDuration(initResult.ms)}`
 			);
 
-			// Initialize LangChain service if API key is available
-			const apiKey = options.openaiApiKey || getEnv('OPENAI_API_KEY');
-			if (apiKey) {
-				langchainService = new LangChainService(apiKey);
-				logger.info('LangChain service initialized');
+			// Initialize the AI writing service when a provider key is available.
+			const aiClient = new AIClient({
+				openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
+			});
+			if (aiClient.isAvailable) {
+				aiWritingService = new AIWritingService(aiClient);
+				logger.info('AI writing service initialized');
 			}
 		});
 
@@ -177,16 +180,16 @@ export async function buildVectorStore(params: {
 		};
 	}
 
-	// Otherwise, process synchronously with LangChain
-	if (!langchainService) {
-		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
+	// Otherwise, process synchronously with the AI writing service
+	if (!aiWritingService) {
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 	}
 
 	if (params.rebuild) {
-		langchainService.clearMemory();
+		aiWritingService.clearMemory();
 	}
 
-	await langchainService.buildVectorStore(params.documents);
+	await aiWritingService.buildVectorStore(params.documents);
 
 	return {
 		message: `Vector store built with ${params.documents.length} documents`,
@@ -205,11 +208,11 @@ export async function semanticSearch(params: { query: string; topK?: number }): 
 }> {
 	validateInput(params, { query: { required: true } });
 
-	if (!langchainService) {
-		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
+	if (!aiWritingService) {
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 	}
 
-	const results = await langchainService.semanticSearch(params.query, params.topK || 5);
+	const results = await aiWritingService.semanticSearch(params.query, params.topK || 5);
 
 	return {
 		results: results.map((doc) => ({
@@ -248,13 +251,13 @@ export async function generateSuggestions(params: {
 	}
 
 	// Otherwise, process synchronously
-	if (!langchainService) {
-		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
+	if (!aiWritingService) {
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 	}
 
 	const suggestions = params.useContext
-		? await langchainService.generateWithContext(params.prompt)
-		: await langchainService.generateWithContext(params.prompt, { topK: 0 });
+		? await aiWritingService.generateWithContext(params.prompt)
+		: await aiWritingService.generateWithContext(params.prompt, { topK: 0 });
 
 	return { suggestions };
 }
@@ -267,11 +270,11 @@ export async function analyzeWritingStyle(params: {
 }): Promise<{ analysis: Record<string, unknown> }> {
 	validateInput(params, { samples: { required: true } });
 
-	if (!langchainService) {
-		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
+	if (!aiWritingService) {
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 	}
 
-	const analysis = await langchainService.analyzeWritingStyle(params.samples);
+	const analysis = await aiWritingService.analyzeWritingStyle(params.samples);
 
 	return { analysis };
 }
@@ -309,11 +312,11 @@ export async function checkPlotConsistency(params: {
 	}
 
 	// Otherwise, process synchronously
-	if (!langchainService) {
-		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'LangChain service not available');
+	if (!aiWritingService) {
+		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 	}
 
-	const issues = await langchainService.checkPlotConsistency(params.documents);
+	const issues = await aiWritingService.checkPlotConsistency(params.documents);
 
 	return { issues };
 }
@@ -454,9 +457,9 @@ export async function shutdownAsyncServices(): Promise<void> {
 		jobQueueService = null;
 	}
 
-	if (langchainService) {
-		langchainService.clearMemory();
-		langchainService = null;
+	if (aiWritingService) {
+		aiWritingService.clearMemory();
+		aiWritingService = null;
 	}
 
 	logger.info('Async services shutdown complete');

@@ -12,7 +12,8 @@ import { getLogger } from '../../core/logger.js';
 import { getQueueStatePath } from '../../utils/project-utils.js';
 import { DatabaseService } from '../../handlers/database/database-service.js';
 import { getEnvConfig } from '../../utils/env-config.js';
-import { LangChainService } from '../ai/langchain-service.js';
+import { AIClient } from '../ai/ai-client.js';
+import { AIWritingService } from '../ai/ai-writing-service.js';
 import { createBullMQConnection, detectConnection } from './keydb-detector.js';
 import { MemoryRedis } from './memory-redis.js';
 
@@ -89,7 +90,7 @@ export class JobQueueService {
 
 	// Services
 	private contentAnalyzer: ContentAnalyzer | null = null;
-	private langchainService: LangChainService | null = null;
+	private aiWritingService: AIWritingService | null = null;
 	private databaseService: DatabaseService | null = null;
 
 	// State
@@ -148,11 +149,12 @@ export class JobQueueService {
 
 			// Step 2: Initialize services
 			const envConfig = getEnvConfig();
-			if (options.langchainApiKey || envConfig.openaiApiKey) {
-				this.langchainService = new LangChainService(
-					options.langchainApiKey || envConfig.openaiApiKey
-				);
-				this.logger.info('LangChain service initialized');
+			const aiClient = new AIClient({
+				openaiApiKey: options.langchainApiKey || envConfig.openaiApiKey,
+			});
+			if (aiClient.isAvailable) {
+				this.aiWritingService = new AIWritingService(aiClient);
+				this.logger.info('AI writing service initialized');
 			}
 
 			if (options.databasePath) {
@@ -376,8 +378,8 @@ export class JobQueueService {
 	private async processGenerateSuggestions(
 		data: GenerateSuggestionsJob
 	): Promise<Record<string, unknown>> {
-		if (!this.langchainService) {
-			throw new Error('LangChain service not initialized');
+		if (!this.aiWritingService) {
+			throw new Error('AI writing service not initialized');
 		}
 
 		// Generate suggestions using LangChain's RAG capabilities
@@ -394,7 +396,7 @@ export class JobQueueService {
 
 			for (const promptType of promptTypes) {
 				const fullPrompt = `${data.prompt}\n\nSpecific focus: ${promptType}\n\nContent:\n${data.content.substring(0, 3000)}`;
-				const suggestion = await this.langchainService.generateWithContext(fullPrompt, {
+				const suggestion = await this.aiWritingService.generateWithContext(fullPrompt, {
 					topK: 3,
 					temperature: 0.7,
 				});
@@ -421,15 +423,15 @@ export class JobQueueService {
 	private async processBuildVectorStore(
 		data: BuildVectorStoreJob
 	): Promise<Record<string, unknown>> {
-		if (!this.langchainService) {
-			throw new Error('LangChain service not initialized');
+		if (!this.aiWritingService) {
+			throw new Error('AI writing service not initialized');
 		}
 
 		// Build or rebuild the vector store with the provided documents
 		try {
 			// Clear existing vector store if rebuilding
 			if (data.rebuild) {
-				this.langchainService.clearMemory();
+				this.aiWritingService.clearMemory();
 			}
 
 			// Convert documents to the format expected by LangChain
@@ -442,7 +444,7 @@ export class JobQueueService {
 			}));
 
 			// Build the vector store
-			await this.langchainService.buildVectorStore(scrivenerDocs);
+			await this.aiWritingService.buildVectorStore(scrivenerDocs);
 
 			this.logger.info('Vector store built successfully', {
 				documentCount: data.documents.length,
@@ -628,8 +630,8 @@ export class JobQueueService {
 
 		try {
 			// Use AI to detect spatial and location inconsistencies
-			if (this.langchainService) {
-				const response = await this.langchainService.generateWithContext(
+			if (this.aiWritingService) {
+				const response = await this.aiWritingService.generateWithContext(
 					`Analyze these manuscript excerpts for location and spatial inconsistencies.
 					Look for characters being in two places at once, distances changing, or layout contradictions.`
 				);
@@ -664,8 +666,8 @@ export class JobQueueService {
 		}> = [];
 
 		try {
-			if (this.langchainService) {
-				const response = await this.langchainService.checkPlotConsistency(
+			if (this.aiWritingService) {
+				const response = await this.aiWritingService.checkPlotConsistency(
 					documents.map((d) => ({
 						...d,
 						title: (d as any).metadata?.title || `Document ${d.id}`,
