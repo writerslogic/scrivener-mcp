@@ -384,7 +384,7 @@ Several Scrivener MCP servers exist. Here's how they compare:
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
 |---------|:-:|:-:|:-:|:-:|
-| Document read/write | 45 tools | 29 tools | read-only | basic |
+| Document read/write | 60+ tools | 29 tools | read-only | basic |
 | RTF / rich text support | yes | no | no | no |
 | Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
 | Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |
@@ -401,8 +401,8 @@ Several Scrivener MCP servers exist. Here's how they compare:
 | Install method | npm · Homebrew · Docker · Smithery | manual clone | manual clone | varies |
 | Published to npm | yes (`npm i -g scrivener-mcp`) | no | no | no |
 | License | AGPL-3.0 / commercial dual-license | MIT | — | varies |
-| Active development | weekly | monthly | stale | stale |
-| Community | ⭐ 27+ · 9 forks · 30+ issues | ⭐ 6 | ⭐ 4 | minimal |
+| Active development | weekly | stale | occasional | stale |
+| Community | ⭐ 30 · 13 forks · 29 issues | ⭐ ? | ⭐ 4 | minimal |
 <!-- comparison-end -->
 
 ## Contributing
