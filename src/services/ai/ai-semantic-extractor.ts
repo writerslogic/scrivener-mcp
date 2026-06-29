@@ -6,7 +6,6 @@
 
 import { AIClient } from './ai-client.js';
 import { getLogger } from '../../core/logger.js';
-import { ErrorCode, createError } from '../../utils/common.js';
 
 const logger = getLogger('ai-semantic-extractor');
 
@@ -29,14 +28,30 @@ export interface ExtractedRelationship {
 
 const ENTITY_TYPES: EntityType[] = ['character', 'location', 'organization', 'event', 'object'];
 
+/**
+ * Best-effort parse of a model reply to JSON. Returns null (never throws) when the
+ * reply has no JSON or is malformed, so a flaky completion degrades to an empty
+ * extraction instead of crashing the pipeline feeding the semantic layer.
+ */
 function parseJsonValue(raw: string): unknown {
 	const withoutFences = raw.replace(/```(?:json)?/gi, '').trim();
 	const firstBrace = withoutFences.search(/[[{]/);
 	if (firstBrace === -1) {
-		throw createError(ErrorCode.INVALID_FORMAT, null, 'Model reply contained no JSON');
+		logger.warn('Model reply contained no JSON; treating as empty result', {
+			preview: raw.slice(0, 120),
+		});
+		return null;
 	}
 	const lastBrace = Math.max(withoutFences.lastIndexOf(']'), withoutFences.lastIndexOf('}'));
-	return JSON.parse(withoutFences.slice(firstBrace, lastBrace + 1));
+	try {
+		return JSON.parse(withoutFences.slice(firstBrace, lastBrace + 1));
+	} catch (error) {
+		logger.warn('Model reply was not valid JSON; treating as empty result', {
+			preview: raw.slice(0, 120),
+			error: error instanceof Error ? error.message : String(error),
+		});
+		return null;
+	}
 }
 
 function clamp01(value: unknown): number {
@@ -97,9 +112,15 @@ export class AISemanticExtractor {
 		return entities;
 	}
 
-	async analyzeRelationships(entities: ExtractedEntity[]): Promise<ExtractedRelationship[]> {
+	async analyzeRelationships(
+		entities: ExtractedEntity[],
+		sourceText?: string
+	): Promise<ExtractedRelationship[]> {
 		if (entities.length < 2) return [];
-		const context = entities[0]?.context ?? '';
+		// Prefer the actual source passage; fall back to the first entity's context
+		// phrase only when no passage is supplied. Inferring links from names alone
+		// loses the very text that establishes them.
+		const context = (sourceText?.trim() || entities[0]?.context || '').slice(0, 4000);
 		const names = entities.map((e) => e.name).join(', ');
 
 		const prompt =

@@ -112,9 +112,14 @@ describe('AISemanticExtractor — deterministic parsing (stubbed client)', () =>
 			expect(await ex.extractEntities('text')).toEqual([]);
 		});
 
-		it('throws when the reply contains no JSON (current contract)', async () => {
+		it('returns [] (does not throw) when the reply contains no JSON', async () => {
 			const { ex } = stub('I could not find anything to extract.');
-			await expect(ex.extractEntities('text')).rejects.toThrow();
+			expect(await ex.extractEntities('text')).toEqual([]);
+		});
+
+		it('returns [] (does not throw) when the JSON is malformed', async () => {
+			const { ex } = stub('[{"name":"A", broken');
+			expect(await ex.extractEntities('text')).toEqual([]);
 		});
 	});
 
@@ -144,6 +149,12 @@ describe('AISemanticExtractor — deterministic parsing (stubbed client)', () =>
 				'[{"entity1":"A","entity2":"B"},{"entity1":"A","relationship":"r"},{"entity2":"B","relationship":"r"}]'
 			);
 			expect(await ex.analyzeRelationships([entity('A'), entity('B')])).toEqual([]);
+		});
+
+		it('puts the source passage in the prompt when provided', async () => {
+			const { ex, lastPrompt } = stub('[]');
+			await ex.analyzeRelationships([entity('A'), entity('B')], 'A betrayed B at dawn.');
+			expect(lastPrompt()).toContain('A betrayed B at dawn.');
 		});
 	});
 
