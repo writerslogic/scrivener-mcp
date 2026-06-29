@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add direct-SDK AIClient with Claude default (langchain ripout step 1)
 
 ### Changed
+- Remove all @langchain dependencies, migrate remaining tools to direct-SDK Claude
 - Delete dead langchain compat shim and example (703 LOC)
 - Delete 3 dead cache/analyzer modules (2835 LOC, zero imports)
 - Expand and harden word lists; Set lookup over regex
