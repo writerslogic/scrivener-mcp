@@ -22,6 +22,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
 
 ### Fixed
+- Resilient extractor parsing, source-aware relationships, wire into semantic layer (#60)
 - Repair dead POS path and add NER entity guard
 - Make stdout console writes a hard error in server paths
 - Harden core data path against manuscript loss and RTF corruption
