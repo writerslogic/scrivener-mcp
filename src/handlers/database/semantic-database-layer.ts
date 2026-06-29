@@ -4,6 +4,7 @@ import { HMSVectorStore, type HMSDocument } from '../../services/ai/hms-vector-s
 import type { ScrivenerDocument } from '../../types/index.js';
 import { getLogger } from '../../core/logger.js';
 import { toDatabaseError } from '../../utils/database.js';
+import { formatRetrievedContext } from './retrieved-context.js';
 
 export interface VectorSearchResult {
 	id: string;
@@ -420,6 +421,23 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 		return Array.from(resultMap.values()).sort((a, b) => b.relevanceScore - a.relevanceScore);
 	}
 
+	/**
+	 * Retrieve fuller relevant passages from the vector store to ground a generation
+	 * prompt. Resilient: returns '' on empty or error so a retrieval failure never
+	 * breaks the calling feature.
+	 */
+	private async retrieveContext(query: string, topK = 5): Promise<string> {
+		try {
+			const hits = await this.vectorStore.similaritySearchWithScore(query, topK);
+			return formatRetrievedContext(hits);
+		} catch (error) {
+			this.logger.warn('Context retrieval failed; proceeding without it', {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return '';
+		}
+	}
+
 	private async generateResultExplanation(
 		result: { title: string; content: string; relevanceScore: number },
 		query: { intent: string; entities: string[] }
@@ -431,7 +449,7 @@ Query Entities: ${query.entities.join(', ')}
 Document: "${result.title}"
 Relevance Score: ${result.relevanceScore.toFixed(2)}
 
-Content Preview: ${result.content.slice(0, 200)}...
+Content: ${result.content.slice(0, 800)}${result.content.length > 800 ? '...' : ''}
 
 Provide a brief, clear explanation (1-2 sentences) of why this document matches the query.`;
 
@@ -565,9 +583,15 @@ Provide:
 Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 		try {
+			// Ground the cross-document synthesis with fuller retrieved passages; the
+			// inline summary above truncates each result to 100 chars.
+			const retrieved = await this.retrieveContext(query);
+			const groundedPrompt = retrieved
+				? `${prompt}\n\nAdditional relevant excerpts:\n${retrieved}`
+				: prompt;
 			const result = await this.extractor.generateWithTemplate('insight_generation', query, {
 				format: 'json',
-				customPrompt: prompt,
+				customPrompt: groundedPrompt,
 			});
 
 			const insights = JSON.parse(result.content);
