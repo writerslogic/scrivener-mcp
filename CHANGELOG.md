@@ -25,6 +25,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
 
 ### Fixed
+- Close injection/ReDoS/pollution findings and repair low-scoring components
 - Bound and fence untrusted text in LLM prompts (RP-SYS-001, #24)
 - Resolve ripout-surface audit findings — crashes, dead code, hardening
 - Resilient extractor parsing, source-aware relationships, wire into semantic layer (#60)
