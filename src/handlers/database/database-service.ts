@@ -664,6 +664,9 @@ export class DatabaseService {
 
 		const QUERY_TIMEOUT_MS = 10000;
 		const sqliteManager = this.sqliteManager;
+		// Clamp to a safe integer; this value is interpolated into SQL date math
+		// (SQLite can't parametrize the "-N days" modifier), so it must not be raw.
+		const safeDays = Math.max(1, Math.min(3650, Math.floor(Number(days) || 30)));
 
 		const queryPromise = new Promise<{
 			totalWords: number;
@@ -677,7 +680,7 @@ export class DatabaseService {
 					SUM(words_written) as total_words,
 					COUNT(*) as total_sessions
 				FROM writing_sessions
-				WHERE date >= date('now', '-${days} days')
+				WHERE date >= date('now', '-${safeDays} days')
 			`) as { total_words: number; total_sessions: number } | undefined;
 
 			// Get daily stats
@@ -688,7 +691,7 @@ export class DatabaseService {
 					COUNT(*) as sessions,
 					SUM(duration_minutes) as duration
 				FROM writing_sessions
-				WHERE date >= date('now', '-${days} days')
+				WHERE date >= date('now', '-${safeDays} days')
 				GROUP BY date
 				ORDER BY date DESC
 			`) as Array<{

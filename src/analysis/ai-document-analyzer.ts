@@ -7,6 +7,7 @@
 import { AIClient } from '../services/ai/ai-client.js';
 import { getLogger } from '../core/logger.js';
 import { ErrorCode, createError } from '../utils/common.js';
+import { clip, untrustedBlock } from '../utils/prompt-input.js';
 
 const logger = getLogger('ai-document-analyzer');
 
@@ -64,7 +65,7 @@ export class AIDocumentAnalyzer {
 	}
 
 	async analyzeDocument(content: string): Promise<DocumentAnalysis> {
-		const passage = content.trim();
+		const passage = clip(content.trim(), 12000, logger, 'analyze_document');
 		if (!passage) {
 			return { readability: 'n/a', pacing: 'n/a', issues: [] };
 		}
@@ -73,7 +74,7 @@ export class AIDocumentAnalyzer {
 			'Analyze the passage for readability, pacing, and craft issues. Return JSON with exactly ' +
 			'this shape: {"readability":"easy|moderate|complex - one-line reason","pacing":"slow|' +
 			'steady|fast - one-line reason","issues":[{"description":"...","severity":"low|medium|' +
-			`high"}]}\n\nPassage:\n${passage}`;
+			`high"}]}\n\nPassage:\n${untrustedBlock(passage)}`;
 
 		const raw = await this.ai.chat(prompt, {
 			system: SYSTEM_PROMPT,

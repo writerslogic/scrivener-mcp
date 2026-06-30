@@ -317,10 +317,13 @@ export class SearchService {
 			return [];
 		}
 
+		// Variable-length path bounds can't be parametrized in Cypher; clamp to a
+		// safe integer so this value can never carry an injection.
+		const safeMaxHops = Math.max(1, Math.min(10, Math.floor(Number(maxHops) || 3)));
 		const result = await this.neo4jManager.query(
 			`
 			MATCH path = shortestPath(
-				(start)-[*..${maxHops}]-(end)
+				(start)-[*..${safeMaxHops}]-(end)
 			)
 			WHERE (start.name = $entity1 OR start.id = $entity1)
 			AND (end.name = $entity2 OR end.id = $entity2)

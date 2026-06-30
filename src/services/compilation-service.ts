@@ -259,6 +259,18 @@ export class CompilationService {
 
 				if (doc.type === DOCUMENT_TYPES.FOLDER) {
 					stats.totalFolders++;
+				} else {
+					const text = doc.content || '';
+					stats.totalWords += doc.wordCount ?? getAccurateWordCount(text);
+					stats.totalCharacters += text.length;
+					if (doc.status) {
+						stats.documentsByStatus[doc.status] =
+							(stats.documentsByStatus[doc.status] || 0) + 1;
+					}
+					if (doc.label) {
+						stats.documentsByLabel[doc.label] =
+							(stats.documentsByLabel[doc.label] || 0) + 1;
+					}
 				}
 
 				stats.documentsByType[doc.type] = (stats.documentsByType[doc.type] || 0) + 1;
@@ -327,13 +339,47 @@ export class CompilationService {
 	}
 
 	private compileToHtml(
-		_contents: RTFContent[],
-		_separator: string,
-		_documents: Array<{ title: string }>
+		contents: RTFContent[],
+		separator: string,
+		documents: Array<{ title: string }>
 	): string {
-		const parts: string[] = ['<!DOCTYPE html><html><body>'];
+		const parts: string[] = ['<!DOCTYPE html>', '<html>', '<body>'];
 
-		parts.push('</body></html>');
+		for (let i = 0; i < contents.length; i++) {
+			const content = contents[i];
+			const doc = documents[i];
+
+			if (!content.plainText?.trim()) {
+				continue;
+			}
+
+			parts.push(`<h1>${this.escapeHtml(doc.title)}</h1>`);
+
+			if (content.formattedText) {
+				let html = '';
+				for (const part of content.formattedText) {
+					let text = this.escapeHtml(part.text);
+					if (part.style?.bold) {
+						text = `<strong>${text}</strong>`;
+					}
+					if (part.style?.italic) {
+						text = `<em>${text}</em>`;
+					}
+					html += text;
+				}
+				// Map blank lines to paragraph breaks and single newlines to <br/>.
+				const body = html.replace(/\n{2,}/g, '</p>\n<p>').replace(/\n/g, '<br/>');
+				parts.push(`<p>${body}</p>`);
+			} else {
+				parts.push(`<p>${this.escapeHtml(content.plainText)}</p>`);
+			}
+
+			if (separator && i < contents.length - 1) {
+				parts.push('<hr/>');
+			}
+		}
+
+		parts.push('</body>', '</html>');
 		return parts.join('\n');
 	}
 

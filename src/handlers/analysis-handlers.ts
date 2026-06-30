@@ -36,7 +36,7 @@ async function getAnalysisLearningHandler(): Promise<LangChainContinuousLearning
 	}
 	return cachedAnalysisLearningHandler;
 }
-import { compact } from '../core/response-formatter.js';
+import { compact, formatError } from '../core/response-formatter.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getObjectArg,
@@ -285,7 +285,7 @@ export const enhanceContentHandler: ToolDefinition = {
 						text: compact({
 							...enhanced,
 							enhanced: false,
-							fallbackReason: (error as Error).message,
+							fallbackReason: formatError(error),
 						}),
 					},
 				],
@@ -671,7 +671,7 @@ export const checkConsistencyHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Error performing consistency check: ${(error as Error).message}`,
+						text: `Error performing consistency check: ${formatError(error)}`,
 					},
 				],
 			};
@@ -1077,7 +1077,7 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Multi-agent analysis failed: ${(error as Error).message}`,
+						text: `Multi-agent analysis failed: ${formatError(error)}`,
 					},
 				],
 			};
@@ -1170,7 +1170,7 @@ export const semanticSearchHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Semantic search failed: ${(error as Error).message}`,
+						text: `Semantic search failed: ${formatError(error)}`,
 					},
 				],
 			};
@@ -1232,7 +1232,7 @@ export const collectFeedbackHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: `Failed to collect feedback: ${(error as Error).message}`,
+						text: `Failed to collect feedback: ${formatError(error)}`,
 					},
 				],
 			};

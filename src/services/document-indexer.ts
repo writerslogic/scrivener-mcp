@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '../core/logger.js';
-import { generateHash } from '../utils/common.js';
+import { createError, ErrorCode, generateHash } from '../utils/common.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { splitIntoWords } from '../utils/text-metrics.js';
 
@@ -350,7 +350,18 @@ export class DocumentIndexer {
 		const results: SearchResult[] = [];
 		const maxResults = options.limit || Infinity;
 		const flags = options.caseSensitive ? '' : 'i';
-		const regex = new RegExp(pattern, flags);
+		// The caller supplies the pattern deliberately; surface an invalid one as an
+		// actionable error rather than letting a raw SyntaxError escape.
+		let regex: RegExp;
+		try {
+			regex = new RegExp(pattern, flags);
+		} catch (error) {
+			throw createError(
+				ErrorCode.INVALID_INPUT,
+				error as Error,
+				`Invalid search pattern: ${(error as Error).message}`
+			);
+		}
 
 		for (const [docId, docInfo] of this.documentIndex.entries()) {
 			if (results.length >= maxResults) break;

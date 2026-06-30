@@ -191,6 +191,9 @@ export class WritingAnalytics {
 			throw toDatabaseError(new Error('SQLite not available'), 'database operations');
 		}
 
+		// Clamp before interpolating into SQLite date math (the "-N days" modifier
+		// can't be parametrized), so the value can never carry SQL.
+		const safeDays = Math.max(1, Math.min(3650, Math.floor(Number(days) || 30)));
 		const trends = this.sqliteManager.query(`
 			SELECT
 				date,
@@ -199,7 +202,7 @@ export class WritingAnalytics {
 				AVG(words_written / NULLIF(duration_minutes, 0)) as efficiency,
 				(SELECT COUNT(*) FROM document_revisions WHERE DATE(created_at) = DATE(ws.date)) as revisions
 			FROM writing_sessions ws
-			WHERE date >= datetime('now', '-${days} days')
+			WHERE date >= datetime('now', '-${safeDays} days')
 			GROUP BY DATE(date)
 			ORDER BY date
 		`) as TrendData[];

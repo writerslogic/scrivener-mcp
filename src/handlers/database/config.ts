@@ -28,10 +28,10 @@ export const DEFAULT_DATABASE_CONFIG: Omit<DatabaseConfig, 'sqlite' | 'neo4j'> &
 		enabled: true,
 	},
 	neo4j: {
-		user: 'neo4j',
-		password: 'scrivener-mcp',
+		user: process.env.NEO4J_USER || 'neo4j',
+		password: process.env.NEO4J_PASSWORD || 'scrivener-mcp',
 		enabled: true,
-		database: 'scrivener',
+		database: process.env.NEO4J_DATABASE || 'scrivener',
 	},
 };
 

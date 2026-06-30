@@ -1,4 +1,5 @@
 import { getLogger } from '../core/logger.js';
+import { escapeRegExp } from '../utils/regex.js';
 import type { DatabaseService } from '../handlers/database/database-service.js';
 import {
 	formatBytes,
@@ -356,7 +357,7 @@ export class ContextAnalyzer {
 		char: { id: string; name: string; role: string },
 		content: string
 	): ChapterContext['characters'][0] | null {
-		const regex = new RegExp(`\\b${char.name}\\b`, 'gi');
+		const regex = new RegExp(`\\b${escapeRegExp(char.name)}\\b`, 'gi');
 		const matches = content.match(regex);
 
 		if (matches && matches.length > 0) {
@@ -447,7 +448,8 @@ export class ContextAnalyzer {
 			const plotThreads = this.databaseService.getSQLite().query(
 				`SELECT id, name, status, developments
 				 FROM plot_threads
-				 WHERE json_extract(documents_involved, '$') LIKE '%${documentId}%'`
+				 WHERE json_extract(documents_involved, '$') LIKE '%' || ? || '%'`,
+				[documentId]
 			) as Array<{ id: string; name: string; status: string; developments: string }>;
 
 			for (const thread of plotThreads) {

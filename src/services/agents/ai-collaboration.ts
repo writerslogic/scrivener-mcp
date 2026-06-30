@@ -8,6 +8,7 @@
 import { AIClient } from '../ai/ai-client.js';
 import { getLogger } from '../../core/logger.js';
 import { ErrorCode, createError } from '../../utils/common.js';
+import { clip, untrustedBlock } from '../../utils/prompt-input.js';
 
 const logger = getLogger('ai-collaboration');
 
@@ -75,7 +76,7 @@ export class AICollaboration {
 		document: CollaborationDocument,
 		options: CollaborationOptions = {}
 	): Promise<CollaborationResult> {
-		const passage = (document.content ?? '').trim();
+		const passage = clip((document.content ?? '').trim(), 12000, logger, 'multi_agent');
 		if (!passage) {
 			return { perspectives: [], synthesis: '', consensus: '' };
 		}
@@ -89,7 +90,7 @@ export class AICollaboration {
 			'Then synthesize the feedback and state the consensus on what to change first. ' +
 			'Return JSON with exactly this shape: {"perspectives":[{"role":"Editor",' +
 			'"feedback":"..."}],"synthesis":"...","consensus":"..."}\n\n' +
-			`Passage:\n${passage}`;
+			`Passage:\n${untrustedBlock(passage)}`;
 
 		const raw = await this.ai.chat(prompt, {
 			system: SYSTEM_PROMPT,

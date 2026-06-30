@@ -711,6 +711,10 @@ export function getNested(obj: Record<string, unknown>, path: string, def?: unkn
 /** Set nested property safely */
 export function setNested(obj: Record<string, unknown>, path: string, value: unknown): void {
 	const keys = path.split('.');
+	// Reject prototype-pollution keys so a crafted path can't reach Object.prototype.
+	if (keys.some((k) => k === '__proto__' || k === 'constructor' || k === 'prototype')) {
+		throw createError(ErrorCode.INVALID_INPUT, null, `Unsafe property path: ${path}`);
+	}
 	let cur = obj;
 	for (let i = 0; i < keys.length - 1; i++) {
 		const key = keys[i];

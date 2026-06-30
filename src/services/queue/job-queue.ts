@@ -348,10 +348,11 @@ export class JobQueueService {
 		// Store results in database if available
 		if (this.databaseService) {
 			try {
-				// Store the analysis results using the storeContentAnalysis method
+				// Store the analysis results. Arg 2 is the analysisType label, not the
+				// document body (passing data.content here stored the whole text as the type).
 				await this.databaseService.storeContentAnalysis(
 					data.documentId,
-					data.content,
+					'document',
 					results
 				);
 				this.logger.debug('Analysis results stored in database', {

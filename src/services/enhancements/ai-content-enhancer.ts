@@ -7,6 +7,7 @@
 import { AIClient } from '../ai/ai-client.js';
 import { getLogger } from '../../core/logger.js';
 import type { EnhancementRequest, EnhancementResult } from './content-enhancer.js';
+import { clip, untrustedBlock } from '../../utils/prompt-input.js';
 
 const logger = getLogger('ai-content-enhancer');
 
@@ -60,7 +61,7 @@ export class AIContentEnhancer {
 		const instruction = INSTRUCTIONS[request.type] ?? DEFAULT_INSTRUCTION;
 		const contextLine = request.context ?? request.options?.context;
 		const contextBlock = contextLine ? `Context: ${contextLine}\n\n` : '';
-		const prompt = `${instruction}\n\n${contextBlock}Passage:\n${original}`;
+		const prompt = `${instruction}\n\n${contextBlock}Passage:\n${untrustedBlock(clip(original, 12000, logger, 'enhance_content'))}`;
 
 		const result = await this.ai.chat(prompt, {
 			system: SYSTEM_PROMPT,
