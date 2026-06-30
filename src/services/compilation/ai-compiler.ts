@@ -12,6 +12,7 @@ import type { ProjectStatistics } from '../../types/index.js';
 import { AppError, ErrorCode } from '../../utils/common.js';
 import { AISemanticExtractor } from '../ai/ai-semantic-extractor.js';
 import { parseModelJson } from '../../utils/json-parse.js';
+import { clip, untrustedBlock } from '../../utils/prompt-input.js';
 import type { CompilationOptions } from '../compilation-service.js';
 import { CompilationService } from '../compilation-service.js';
 import type { RTFContent } from '../parsers/rtf-handler.js';
@@ -194,7 +195,7 @@ export class AICompilationService extends CompilationService {
 			`Write ${description} for this ${options.genre || 'fiction'} manuscript.\n` +
 			`Target length: approximately ${length} words.${
 				options.targetAudience ? ` Target audience: ${options.targetAudience}.` : ''
-			}\n\nManuscript:\n${source}\n\nReturn only the ${materialType.replace(/_/g, ' ')} text.`;
+			}\n\nManuscript:\n${untrustedBlock(source)}\n\nReturn only the ${materialType.replace(/_/g, ' ')} text.`;
 
 		const result = await this.ai.generateWithTemplate(materialType, prompt, {
 			customPrompt: prompt,
@@ -244,7 +245,8 @@ export class AICompilationService extends CompilationService {
 		const optimizations: string[] = [];
 		let optimized = content;
 		try {
-			const prompt = `${intent.instruction}\n\nGenre: ${options.genre || 'fiction'}\n\nContent:\n${content}\n\nReturn only the resulting text.`;
+			const boundedContent = clip(content, 12000, this.logger, `optimize_${target} content`);
+			const prompt = `${intent.instruction}\n\nGenre: ${options.genre || 'fiction'}\n\nContent:\n${untrustedBlock(boundedContent)}\n\nReturn only the resulting text.`;
 			const result = await this.ai.generateWithTemplate(`optimize_${target}`, prompt, {
 				customPrompt: prompt,
 				style: config.style,
@@ -270,9 +272,10 @@ export class AICompilationService extends CompilationService {
 	}
 
 	private async condenseToLength(content: string, maxWords: number): Promise<string> {
+		const boundedContent = clip(content, 12000, this.logger, 'condense content');
 		const prompt =
 			`Condense this content to at most ${maxWords} words while preserving the essential ` +
-			`information and a professional tone:\n\n${content}`;
+			`information and a professional tone:\n\n${untrustedBlock(boundedContent)}`;
 		const result = await this.ai.generateWithTemplate('condense', prompt, {
 			customPrompt: prompt,
 		});
@@ -283,10 +286,11 @@ export class AICompilationService extends CompilationService {
 		content: string,
 		options: AICompilationOptions
 	): Promise<{ content: string; optimizations: string[] }> {
+		const boundedContent = clip(content, 12000, this.logger, 'enhance content');
 		const prompt =
 			`Enhance this ${options.genre || 'fiction'} content for publication quality: improve clarity ` +
 			'and flow, strengthen word choice, and preserve the author’s voice. Make minimal but ' +
-			`impactful edits.\n\nContent:\n${content}\n\nReturn only the enhanced text.`;
+			`impactful edits.\n\nContent:\n${untrustedBlock(boundedContent)}\n\nReturn only the enhanced text.`;
 		try {
 			const result = await this.ai.generateWithTemplate('enhance', prompt, {
 				customPrompt: prompt,

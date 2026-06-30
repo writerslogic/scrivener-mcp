@@ -7,6 +7,7 @@
 import { AIClient } from './ai-client.js';
 import { getLogger } from '../../core/logger.js';
 import { parseModelJson } from '../../utils/json-parse.js';
+import { clip, untrustedBlock } from '../../utils/prompt-input.js';
 
 const logger = getLogger('ai-semantic-extractor');
 
@@ -46,12 +47,13 @@ export class AISemanticExtractor {
 		const passage = text.trim();
 		if (!passage) return [];
 
+		const bounded = clip(passage, 12000, logger, 'extractEntities passage');
 		const prompt =
 			'Extract the named entities from the passage. For each, give name, type (one of ' +
 			'character, location, organization, event, object), a short context phrase, and an ' +
 			'integer mention count. Return a JSON array: ' +
 			'[{"name":"...","type":"character","context":"...","mentions":1}]\n\n' +
-			`Passage:\n${passage}`;
+			`Passage:\n${untrustedBlock(bounded)}`;
 
 		const raw = await this.ai.chat(prompt, {
 			system: 'You are an information-extraction engine. Respond with STRICT JSON only.',

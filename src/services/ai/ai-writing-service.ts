@@ -10,6 +10,7 @@ import { AIClient } from './ai-client.js';
 import type { HMSVectorStore, HMSDocument } from './hms-vector-store.js';
 import { getLogger } from '../../core/logger.js';
 import { parseModelJson } from '../../utils/json-parse.js';
+import { untrustedBlock } from '../../utils/prompt-input.js';
 import { ErrorCode, createError } from '../../utils/common.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 
@@ -51,6 +52,35 @@ function chunkText(text: string, chunkSize = 2000): string[] {
 	}
 	if (current.trim()) chunks.push(current.trim());
 	return chunks.filter(Boolean);
+}
+
+/**
+ * Join `parts` with `separator` up to `maxChars`, accumulating incrementally so the
+ * full untrusted string is never materialized. Logs once when input is truncated so
+ * the bound is transparent rather than silent.
+ */
+function accumulateToLimit(
+	parts: string[],
+	separator: string,
+	maxChars: number,
+	label: string
+): string {
+	let result = '';
+	let truncated = false;
+	for (const part of parts) {
+		const sep = result ? separator : '';
+		if (result.length + sep.length + part.length <= maxChars) {
+			result += sep + part;
+		} else {
+			result += (sep + part).slice(0, maxChars - result.length);
+			truncated = true;
+			break;
+		}
+	}
+	if (truncated) {
+		logger.warn('Truncated untrusted input before embedding into prompt', { label, maxChars });
+	}
+	return result;
 }
 
 export class AIWritingService {
@@ -137,11 +167,16 @@ export class AIWritingService {
 
 	/** Analyze writing style from samples, returning a structured analysis object. */
 	async analyzeWritingStyle(samples: string[]): Promise<Record<string, unknown>> {
-		const joined = samples.join('\n\n---\n\n').slice(0, 8000);
+		const joined = accumulateToLimit(
+			samples,
+			'\n\n---\n\n',
+			8000,
+			'analyzeWritingStyle samples'
+		);
 		const prompt =
 			'Analyze the writing style of these samples and return JSON with fields: voice, tone, ' +
 			'sentenceStructure, vocabularyComplexity, pacing, strengths (array), improvements (array).\n\n' +
-			`Samples:\n${joined}`;
+			`Samples:\n${untrustedBlock(joined)}`;
 
 		const raw = await this.ai.chat(prompt, {
 			system: 'You are a writing-style analyst. Respond with STRICT JSON only.',
@@ -158,16 +193,19 @@ export class AIWritingService {
 
 	/** Check plot consistency across documents, returning structured issues. */
 	async checkPlotConsistency(documents: ScrivenerDocument[]): Promise<ConsistencyIssue[]> {
-		const manuscript = documents
-			.map((d) => `## ${d.title || d.id}\n${d.content || ''}`)
-			.join('\n\n')
-			.slice(0, 16000);
+		const sections = documents.map((d) => `## ${d.title || d.id}\n${d.content || ''}`);
+		const manuscript = accumulateToLimit(
+			sections,
+			'\n\n',
+			16000,
+			'checkPlotConsistency manuscript'
+		);
 
 		const prompt =
 			'Analyze this manuscript for plot, character, and timeline inconsistencies. Return a JSON ' +
 			'array of issues: [{"issue":"...","severity":"low|medium|high","locations":["Chapter 1"],' +
 			'"suggestion":"..."}]. Return [] if none found.\n\n' +
-			`Manuscript:\n${manuscript}`;
+			`Manuscript:\n${untrustedBlock(manuscript)}`;
 
 		const raw = await this.ai.chat(prompt, {
 			system: 'You are a developmental editor. Respond with STRICT JSON only.',
