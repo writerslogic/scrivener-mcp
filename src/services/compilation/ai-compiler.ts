@@ -11,6 +11,7 @@ import { getLogger } from '../../core/logger.js';
 import type { ProjectStatistics } from '../../types/index.js';
 import { AppError, ErrorCode } from '../../utils/common.js';
 import { AISemanticExtractor } from '../ai/ai-semantic-extractor.js';
+import { parseModelJson } from '../../utils/json-parse.js';
 import type { CompilationOptions } from '../compilation-service.js';
 import { CompilationService } from '../compilation-service.js';
 import type { RTFContent } from '../parsers/rtf-handler.js';
@@ -115,8 +116,16 @@ export class AICompilationService extends CompilationService {
 
 			const quality = await this.assessQuality(content, options.target);
 
+			// In JSON mode, keep the raw text if it does not parse rather than
+			// silently collapsing the compiled output to an empty object.
+			let resultContent: string | object = content;
+			if (options.outputFormat === 'json') {
+				const parsed = parseModelJson(content, this.logger);
+				resultContent = parsed && typeof parsed === 'object' ? parsed : content;
+			}
+
 			return {
-				content: options.outputFormat === 'json' ? safeParse(content) : content,
+				content: resultContent,
 				metadata: {
 					format: options.outputFormat || 'text',
 					wordCount: content.split(/\s+/).filter(Boolean).length,
@@ -306,7 +315,10 @@ export class AICompilationService extends CompilationService {
 				customPrompt: prompt,
 				format: 'json',
 			});
-			const assessment = safeParse(result.content) as {
+			const parsedAssessment = parseModelJson(result.content, this.logger);
+			const assessment = (
+				parsedAssessment && typeof parsedAssessment === 'object' ? parsedAssessment : {}
+			) as {
 				score?: number;
 				suggestions?: unknown;
 				issues?: unknown;
@@ -330,18 +342,5 @@ export class AICompilationService extends CompilationService {
 				issues: ['Automated assessment unavailable'],
 			};
 		}
-	}
-}
-
-function safeParse(raw: string): Record<string, unknown> {
-	const withoutFences = raw.replace(/```(?:json)?/gi, '').trim();
-	const start = withoutFences.search(/[[{]/);
-	const end = Math.max(withoutFences.lastIndexOf(']'), withoutFences.lastIndexOf('}'));
-	if (start === -1 || end === -1) return {};
-	try {
-		const parsed = JSON.parse(withoutFences.slice(start, end + 1));
-		return parsed && typeof parsed === 'object' ? parsed : {};
-	} catch {
-		return {};
 	}
 }

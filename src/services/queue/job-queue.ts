@@ -108,7 +108,7 @@ export class JobQueueService {
 	 */
 	async initialize(
 		options: {
-			langchainApiKey?: string;
+			openaiApiKey?: string;
 			databasePath?: string;
 			neo4jUri?: string;
 		} = {}
@@ -150,7 +150,7 @@ export class JobQueueService {
 			// Step 2: Initialize services
 			const envConfig = getEnvConfig();
 			const aiClient = new AIClient({
-				openaiApiKey: options.langchainApiKey || envConfig.openaiApiKey,
+				openaiApiKey: options.openaiApiKey || envConfig.openaiApiKey,
 			});
 			if (aiClient.isAvailable) {
 				this.aiWritingService = new AIWritingService(aiClient);
@@ -182,6 +182,13 @@ export class JobQueueService {
 				error: (error as Error).message,
 				stack: (error as Error).stack,
 			});
+			// Tear down any queues/workers/connections created before the failure so
+			// a retry starts clean instead of orphaning the partial state.
+			await this.shutdown().catch((cleanupError) => {
+				this.logger.warn('Cleanup after failed initialization also failed', {
+					error: (cleanupError as Error).message,
+				});
+			});
 			throw createError(
 				ErrorCode.INITIALIZATION_ERROR,
 				error as Error,
@@ -195,7 +202,7 @@ export class JobQueueService {
 	 */
 	private createQueue(jobType: JobType): void {
 		if (!this.connection) {
-			throw new Error('Connection not initialized');
+			throw createError(ErrorCode.INVALID_STATE, null, 'Connection not initialized');
 		}
 		const queue = new Queue(jobType, {
 			connection: this.connection as ConnectionOptions,
@@ -317,7 +324,7 @@ export class JobQueueService {
 		data: AnalyzeDocumentJob
 	): Promise<Record<string, unknown>> {
 		if (!this.contentAnalyzer) {
-			throw new Error('Content analyzer not initialized');
+			throw createError(ErrorCode.INVALID_STATE, null, 'Content analyzer not initialized');
 		}
 
 		const results: Record<string, unknown> = {
@@ -379,11 +386,12 @@ export class JobQueueService {
 		data: GenerateSuggestionsJob
 	): Promise<Record<string, unknown>> {
 		if (!this.aiWritingService) {
-			throw new Error('AI writing service not initialized');
+			throw createError(ErrorCode.INVALID_STATE, null, 'AI writing service not initialized');
 		}
 
-		// Generate suggestions using LangChain's RAG capabilities
+		// Generate suggestions using the AI writing service's RAG capabilities
 		const suggestions: Array<{ type: string; suggestion: string; timestamp: string }> = [];
+		let lastError: Error | undefined;
 
 		try {
 			// Generate different types of suggestions based on the prompt
@@ -395,7 +403,7 @@ export class JobQueueService {
 			];
 
 			for (const promptType of promptTypes) {
-				const fullPrompt = `${data.prompt}\n\nSpecific focus: ${promptType}\n\nContent:\n${data.content.substring(0, 3000)}`;
+				const fullPrompt = `${data.prompt}\n\nSpecific focus: ${promptType}\n\nContent:\n${(data.content || '').substring(0, 3000)}`;
 				const suggestion = await this.aiWritingService.generateWithContext(fullPrompt, {
 					topK: 3,
 					temperature: 0.7,
@@ -407,10 +415,17 @@ export class JobQueueService {
 				});
 			}
 		} catch (error) {
+			lastError = error instanceof Error ? error : new Error(String(error));
 			this.logger.error('Failed to generate suggestions', {
 				documentId: data.documentId,
-				error: error instanceof Error ? error.message : String(error),
+				error: lastError.message,
 			});
+		}
+
+		// Don't report success with zero results when generation actually failed;
+		// surface the error so the job is marked failed instead of silently empty.
+		if (suggestions.length === 0 && lastError) {
+			throw lastError;
 		}
 
 		return {
@@ -424,7 +439,7 @@ export class JobQueueService {
 		data: BuildVectorStoreJob
 	): Promise<Record<string, unknown>> {
 		if (!this.aiWritingService) {
-			throw new Error('AI writing service not initialized');
+			throw createError(ErrorCode.INVALID_STATE, null, 'AI writing service not initialized');
 		}
 
 		// Build or rebuild the vector store with the provided documents
@@ -670,7 +685,7 @@ export class JobQueueService {
 				const response = await this.aiWritingService.checkPlotConsistency(
 					documents.map((d) => ({
 						...d,
-						title: (d as any).metadata?.title || `Document ${d.id}`,
+						title: `Document ${d.id}`,
 						type: 'Text' as const,
 						path: '',
 					}))
@@ -692,7 +707,7 @@ export class JobQueueService {
 
 	private async processSyncDatabase(data: SyncDatabaseJob): Promise<Record<string, unknown>> {
 		if (!this.databaseService) {
-			throw new Error('Database service not initialized');
+			throw createError(ErrorCode.INVALID_STATE, null, 'Database service not initialized');
 		}
 
 		// Sync documents to database

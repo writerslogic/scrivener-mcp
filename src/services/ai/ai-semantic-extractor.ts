@@ -6,6 +6,7 @@
 
 import { AIClient } from './ai-client.js';
 import { getLogger } from '../../core/logger.js';
+import { parseModelJson } from '../../utils/json-parse.js';
 
 const logger = getLogger('ai-semantic-extractor');
 
@@ -27,32 +28,6 @@ export interface ExtractedRelationship {
 }
 
 const ENTITY_TYPES: EntityType[] = ['character', 'location', 'organization', 'event', 'object'];
-
-/**
- * Best-effort parse of a model reply to JSON. Returns null (never throws) when the
- * reply has no JSON or is malformed, so a flaky completion degrades to an empty
- * extraction instead of crashing the pipeline feeding the semantic layer.
- */
-function parseJsonValue(raw: string): unknown {
-	const withoutFences = raw.replace(/```(?:json)?/gi, '').trim();
-	const firstBrace = withoutFences.search(/[[{]/);
-	if (firstBrace === -1) {
-		logger.warn('Model reply contained no JSON; treating as empty result', {
-			preview: raw.slice(0, 120),
-		});
-		return null;
-	}
-	const lastBrace = Math.max(withoutFences.lastIndexOf(']'), withoutFences.lastIndexOf('}'));
-	try {
-		return JSON.parse(withoutFences.slice(firstBrace, lastBrace + 1));
-	} catch (error) {
-		logger.warn('Model reply was not valid JSON; treating as empty result', {
-			preview: raw.slice(0, 120),
-			error: error instanceof Error ? error.message : String(error),
-		});
-		return null;
-	}
-}
 
 function clamp01(value: unknown): number {
 	const n = typeof value === 'number' ? value : Number(value);
@@ -83,7 +58,7 @@ export class AISemanticExtractor {
 			temperature: 0.1,
 			maxTokens: 1500,
 		});
-		const parsed = parseJsonValue(raw);
+		const parsed = parseModelJson(raw, logger);
 		if (!Array.isArray(parsed)) return [];
 
 		const entities = parsed
@@ -135,7 +110,7 @@ export class AISemanticExtractor {
 			temperature: 0.1,
 			maxTokens: 1500,
 		});
-		const parsed = parseJsonValue(raw);
+		const parsed = parseModelJson(raw, logger);
 		if (!Array.isArray(parsed)) return [];
 
 		return parsed

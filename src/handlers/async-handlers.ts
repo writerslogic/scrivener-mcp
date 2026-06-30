@@ -46,7 +46,7 @@ export async function initializeAsyncServices(
 			await retry(
 				() =>
 					jobQueueService!.initialize({
-						langchainApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
+						openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
 						databasePath: options.databasePath,
 						neo4jUri: options.neo4jUri || getEnv('NEO4J_URI'),
 					}),
@@ -255,9 +255,9 @@ export async function generateSuggestions(params: {
 		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 	}
 
-	const suggestions = params.useContext
-		? await aiWritingService.generateWithContext(params.prompt)
-		: await aiWritingService.generateWithContext(params.prompt, { topK: 0 });
+	const suggestions = await aiWritingService.generateWithContext(params.prompt, {
+		topK: params.useContext ? 3 : 0,
+	});
 
 	return { suggestions };
 }

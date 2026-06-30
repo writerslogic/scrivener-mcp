@@ -9,6 +9,7 @@
 import { AIClient } from './ai-client.js';
 import type { HMSVectorStore, HMSDocument } from './hms-vector-store.js';
 import { getLogger } from '../../core/logger.js';
+import { parseModelJson } from '../../utils/json-parse.js';
 import { ErrorCode, createError } from '../../utils/common.js';
 import type { ScrivenerDocument } from '../../types/index.js';
 
@@ -50,18 +51,6 @@ function chunkText(text: string, chunkSize = 2000): string[] {
 	}
 	if (current.trim()) chunks.push(current.trim());
 	return chunks.filter(Boolean);
-}
-
-function parseJsonLoose(raw: string): unknown {
-	const withoutFences = raw.replace(/```(?:json)?/gi, '').trim();
-	const start = withoutFences.search(/[[{]/);
-	if (start === -1) return null;
-	const end = Math.max(withoutFences.lastIndexOf(']'), withoutFences.lastIndexOf('}'));
-	try {
-		return JSON.parse(withoutFences.slice(start, end + 1));
-	} catch {
-		return null;
-	}
 }
 
 export class AIWritingService {
@@ -159,7 +148,7 @@ export class AIWritingService {
 			temperature: 0.2,
 			maxTokens: 1200,
 		});
-		const parsed = parseJsonLoose(raw);
+		const parsed = parseModelJson(raw, logger);
 		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
 			return parsed as Record<string, unknown>;
 		}
@@ -185,7 +174,7 @@ export class AIWritingService {
 			temperature: 0.2,
 			maxTokens: 1500,
 		});
-		const parsed = parseJsonLoose(raw);
+		const parsed = parseModelJson(raw, logger);
 		if (!Array.isArray(parsed)) return [];
 
 		const severities = ['low', 'medium', 'high'];

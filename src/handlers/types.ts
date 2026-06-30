@@ -201,6 +201,22 @@ export function getArrayArg<T>(args: Record<string, unknown>, key: string): T[] 
 	return value as T[];
 }
 
+export function getOptionalArrayArg<T>(
+	args: Record<string, unknown>,
+	key: string
+): T[] | undefined {
+	const value = args[key];
+	if (value === undefined || value === null) return undefined;
+	if (!Array.isArray(value)) {
+		throw createError(
+			ErrorCode.TYPE_MISMATCH,
+			{ key, value, expectedType: 'array', actualType: typeof value },
+			`Expected array for ${key}, got ${typeof value}`
+		);
+	}
+	return value as T[];
+}
+
 export function getObjectArg<T>(args: Record<string, unknown>, key: string): T {
 	const value = args[key];
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {

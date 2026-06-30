@@ -2,6 +2,7 @@ import { AICompilationService } from '../services/compilation/ai-compiler.js';
 import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import { compact, formatPayload } from '../core/response-formatter.js';
+import { getLogger } from '../core/logger.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -12,6 +13,8 @@ import {
 } from './types.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import { compileSchema, exportSchema } from './validation-schemas.js';
+
+const logger = getLogger('compilation-handlers');
 
 function formatCompileResult(text: string, sectionCount: number): HandlerResult {
 	const charCount = text.length;
@@ -199,11 +202,14 @@ export const compileDocumentsHandler: ToolDefinition = {
 						: JSON.stringify(compiled.content);
 				return formatCompileResult(text, documentsToCompile.length);
 			} catch (error) {
+				logger.error('Intelligent compilation failed', {
+					error: (error as Error).message,
+				});
 				return {
 					content: [
 						{
 							type: 'text',
-							text: `Intelligent compilation failed: ${(error as Error).message}`,
+							text: 'Intelligent compilation failed; details are in the server logs. Try standard mode or check document content.',
 						},
 					],
 				};
@@ -453,11 +459,14 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 				],
 			};
 		} catch (error) {
+			logger.error('Marketing material generation failed', {
+				error: (error as Error).message,
+			});
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Marketing material generation failed: ${(error as Error).message}`,
+						text: 'Marketing material generation failed; details are in the server logs.',
 					},
 				],
 			};
@@ -470,13 +479,10 @@ export const buildVectorStoreHandler: ToolDefinition = {
 	description: 'Build search index',
 	inputSchema: {
 		type: 'object',
-		properties: {
-			rebuild: { type: 'boolean' },
-		},
+		properties: {},
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
-		const rebuild = (args.rebuild as boolean) || false;
 
 		try {
 			// Get all project documents
@@ -506,6 +512,8 @@ export const buildVectorStoreHandler: ToolDefinition = {
 				metadata: { id: doc.id, ...doc.metadata },
 			}));
 
+			// The HMS store persists to its shared on-disk index, which semantic_search
+			// queries; the returned instance is intentionally not retained here.
 			await HMSVectorStore.fromDocuments(docs);
 
 			return {
@@ -515,17 +523,18 @@ export const buildVectorStoreHandler: ToolDefinition = {
 						text: compact({
 							vectorIndexed: true,
 							documentsIndexed: vectorDocuments.length,
-							status: rebuild ? 'rebuilt' : 'updated',
+							status: 'indexed',
 						}),
 					},
 				],
 			};
 		} catch (error) {
+			logger.error('Vector store build failed', { error: (error as Error).message });
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Vector store build failed: ${(error as Error).message}`,
+						text: 'Vector store build failed. Ensure documents have content; details are in the server logs.',
 					},
 				],
 			};

@@ -40,6 +40,7 @@ import { compact } from '../core/response-formatter.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getObjectArg,
+	getOptionalArrayArg,
 	getOptionalNumberArg,
 	getOptionalObjectArg,
 	getStringArg,
@@ -607,7 +608,7 @@ export const checkConsistencyHandler: ToolDefinition = {
 		const project = requireProject(_context);
 		const memoryManager = requireMemoryManager(_context);
 
-		const checkTypes = (getOptionalObjectArg(args, 'checkTypes') as string[]) || ['all'];
+		const checkTypes = getOptionalArrayArg<string>(args, 'checkTypes') || ['all'];
 		const issues: ConsistencyIssue[] = [];
 
 		try {
