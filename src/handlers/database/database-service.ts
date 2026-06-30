@@ -35,6 +35,42 @@ import { WritingAnalytics } from './writing-analytics.js';
 
 const logger = getLogger('database');
 
+/** A writing goal row as stored in the `writing_goals` table (camelCase). */
+export interface WritingGoalRecord {
+	id: string;
+	type: string;
+	targetWords: number;
+	targetDate: string | null;
+	actualWords: number;
+	status: string;
+	createdAt: string;
+	completedAt: string | null;
+}
+
+interface RawWritingGoalRow {
+	id: string;
+	type: string;
+	target_words: number | null;
+	target_date: string | null;
+	actual_words: number | null;
+	status: string;
+	created_at: string;
+	completed_at: string | null;
+}
+
+function mapWritingGoalRow(row: RawWritingGoalRow): WritingGoalRecord {
+	return {
+		id: row.id,
+		type: row.type,
+		targetWords: row.target_words ?? 0,
+		targetDate: row.target_date,
+		actualWords: row.actual_words ?? 0,
+		status: row.status,
+		createdAt: row.created_at,
+		completedAt: row.completed_at,
+	};
+}
+
 interface TransactionLog {
 	id: string;
 	timestamp: Date;
@@ -979,6 +1015,77 @@ export class DatabaseService {
 				summary || 'Auto-saved version',
 			]
 		);
+	}
+
+	/**
+	 * Create or update the active writing goal of the given type.
+	 *
+	 * At most one goal per type is kept active: if an active goal of `input.type`
+	 * already exists it is updated in place, otherwise a new goal is inserted.
+	 * The returned record reflects the stored row (camelCase fields).
+	 */
+	async setWritingGoal(input: {
+		type: string;
+		targetWords: number;
+		targetDate?: string | null;
+	}): Promise<WritingGoalRecord> {
+		if (!this.sqliteManager) {
+			throw new AppError(
+				'SQLite not initialized. Call initialize() first.',
+				ErrorCode.DATABASE_ERROR
+			);
+		}
+
+		const targetDate = input.targetDate ?? null;
+		const existing = this.sqliteManager.queryOne(
+			`SELECT id FROM writing_goals WHERE type = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+			[input.type]
+		) as { id: string } | undefined;
+
+		let id: string;
+		if (existing) {
+			id = existing.id;
+			this.sqliteManager.execute(
+				`UPDATE writing_goals SET target_words = ?, target_date = ?, status = 'active', completed_at = NULL WHERE id = ?`,
+				[input.targetWords, targetDate, id]
+			);
+		} else {
+			id = generateScrivenerUUID();
+			this.sqliteManager.execute(
+				`INSERT INTO writing_goals (id, type, target_words, target_date, status) VALUES (?, ?, ?, ?, 'active')`,
+				[id, input.type, input.targetWords, targetDate]
+			);
+		}
+
+		const row = this.sqliteManager.queryOne(
+			`SELECT id, type, target_words, target_date, actual_words, status, created_at, completed_at FROM writing_goals WHERE id = ?`,
+			[id]
+		) as RawWritingGoalRow | undefined;
+		if (!row) {
+			throw new AppError('Failed to persist writing goal', ErrorCode.DATABASE_ERROR);
+		}
+		return mapWritingGoalRow(row);
+	}
+
+	/**
+	 * List writing goals, most recent first. Pass `status` to filter
+	 * (e.g. 'active'); omit it to return goals of every status.
+	 */
+	async getWritingGoals(status?: string): Promise<WritingGoalRecord[]> {
+		if (!this.sqliteManager) {
+			return [];
+		}
+
+		let sql = `SELECT id, type, target_words, target_date, actual_words, status, created_at, completed_at FROM writing_goals`;
+		const params: unknown[] = [];
+		if (status) {
+			sql += ` WHERE status = ?`;
+			params.push(status);
+		}
+		sql += ` ORDER BY created_at DESC`;
+
+		const rows = this.sqliteManager.query(sql, params) as RawWritingGoalRow[];
+		return rows.map(mapWritingGoalRow);
 	}
 
 	/**

@@ -355,6 +355,7 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 - **[Troubleshooting](./docs/troubleshooting.md)** -- Common issues and fixes
 - **[Token Optimization](./docs/token-optimization.md)** -- How the server minimizes context window usage
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
+- **[Scrivener Compatibility](./docs/SCRIVENER_COMPATIBILITY.md)** -- Supported Scrivener versions, platforms, and format coverage
 - **[Contributing](./docs/contributing.md)** -- Development setup, code conventions, adding new tools
 
 ## Requirements

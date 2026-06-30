@@ -15,6 +15,8 @@ import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { fractalMemoryTools } from './fractal-memory-handlers.js';
 import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
+import { integrityHandlers } from './integrity-handlers.js';
+import { goalsHandlers } from './goals-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -27,8 +29,8 @@ export interface Skill {
 const skills: Skill[] = [
 	{
 		name: 'project',
-		description: 'Open, browse, save, and close Scrivener projects',
-		tools: projectHandlers,
+		description: 'Open, browse, save, close, and verify Scrivener projects',
+		tools: [...projectHandlers, ...integrityHandlers],
 	},
 	{
 		name: 'documents',
@@ -42,8 +44,8 @@ const skills: Skill[] = [
 	},
 	{
 		name: 'analysis',
-		description: 'Analyze writing quality, enhance prose, check consistency',
-		tools: analysisHandlers,
+		description: 'Analyze writing quality, enhance prose, check consistency, track goals',
+		tools: [...analysisHandlers, ...goalsHandlers],
 	},
 	{
 		name: 'compilation',
