@@ -13,7 +13,7 @@ import type {
 } from '../memory-manager.js';
 import type { EnhancementType } from '../services/enhancements/content-enhancer.js';
 import { AIContentEnhancer } from '../services/enhancements/ai-content-enhancer.js';
-import { OpenAIService } from '../services/openai-service.js';
+import { AIClient } from '../services/ai/ai-client.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
@@ -347,19 +347,18 @@ export const generateContentHandler: ToolDefinition = {
 			// Extract prompt first
 			const prompt = getStringArg(args, 'prompt');
 
-			// Get OpenAI API key from environment
-			const apiKey = process.env.OPENAI_API_KEY;
+			const ai = new AIClient();
 
-			if (!apiKey) {
-				// Return enhanced placeholder when no API key is available
+			if (!ai.isAvailable) {
+				// Return enhanced placeholder when no AI provider is configured.
 				const length = getOptionalNumberArg(args, 'length') || 500;
 				const context = getOptionalObjectArg(args, 'context');
 				const generated = {
-					content: `AI-Generated Content for: "${prompt}"\n\nThis is placeholder content. To enable actual AI content generation, please configure your OpenAI API key in the environment variables.\n\nThe generated content would be tailored to your specifications:\n- Length: ${length} words\n- Context: ${context ? JSON.stringify(context, null, 2) : 'None provided'}`,
+					content: `AI-Generated Content for: "${prompt}"\n\nThis is placeholder content. To enable actual AI content generation, set ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY in the environment.\n\nThe generated content would be tailored to your specifications:\n- Length: ${length} words\n- Context: ${context ? JSON.stringify(context, null, 2) : 'None provided'}`,
 					wordCount: Math.max(50, Math.floor(length * 0.3)),
 					type: 'creative',
 					suggestions: [
-						'Configure OpenAI API key to enable AI content generation',
+						'Set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable AI content generation',
 						'Consider expanding on character motivations',
 						'Add more sensory details to enhance immersion',
 					],
@@ -379,11 +378,8 @@ export const generateContentHandler: ToolDefinition = {
 				};
 			}
 
-			// Initialize OpenAI service
-			const openaiService = new OpenAIService({ apiKey });
-
 			// Extract context information
-			const length = getOptionalNumberArg(args, 'length');
+			const length = getOptionalNumberArg(args, 'length') || 500;
 			const contextData = (getOptionalObjectArg(args, 'context') || {}) as {
 				style?: string;
 				documentId?: string;
@@ -391,15 +387,29 @@ export const generateContentHandler: ToolDefinition = {
 			};
 			const style = contextData.style || 'creative';
 			const contextInfo = contextData.documentId
-				? `Document context: ${contextData.documentId}\nCharacters: ${(contextData.characterIds || []).join(', ')}`
+				? `\n\nMaintain consistency with document ${contextData.documentId}${
+						contextData.characterIds?.length
+							? ` and characters: ${contextData.characterIds.join(', ')}`
+							: ''
+					}`
 				: '';
 
-			// Generate content using AI
-			const generated = await openaiService.generateContent(prompt, {
-				length,
-				style: style as 'narrative' | 'dialogue' | 'descriptive' | 'academic' | 'creative',
-				context: contextInfo,
+			// Generate content using the direct-SDK AIClient (Claude default).
+			const system =
+				`You are a creative writing assistant. Write ${style} prose of approximately ` +
+				`${length} words in response to the request. Return only the prose, no preamble.${contextInfo}`;
+			const content = await ai.chat(prompt, {
+				system,
+				temperature: 0.8,
+				maxTokens: Math.min(4096, Math.max(256, Math.round(length * 2))),
 			});
+			const generated = {
+				content,
+				wordCount: content.split(/\s+/).filter(Boolean).length,
+				type: 'creative',
+				suggestions: [],
+				alternativeVersions: [],
+			};
 
 			return {
 				content: [

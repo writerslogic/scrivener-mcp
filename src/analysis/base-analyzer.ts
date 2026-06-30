@@ -1,12 +1,6 @@
 // import type { ScrivenerDocument } from '../scrivener-project.js';
 import { cached, caches } from '../core/cache.js';
 import { getLogger } from '../core/logger.js';
-import type {
-	CharacterAnalysis as OpenAICharacterAnalysis,
-	PlotAnalysis as OpenAIPlotAnalysis,
-	StyleAnalysis as OpenAIStyleAnalysis,
-} from '../services/openai-service.js';
-import { openaiService } from '../services/openai-service.js';
 import { webContentParser } from '../services/web-content-parser.js';
 import type {
 	ContentExtractionOptions,
@@ -491,92 +485,6 @@ export class ContentAnalyzer {
 	}
 
 	/**
-	 * Get AI-powered writing suggestions using OpenAI
-	 */
-	async getAISuggestions(
-		content: string,
-		context?: { genre?: string; targetAudience?: string; style?: string }
-	): Promise<WritingSuggestion[]> {
-		if (!openaiService.isConfigured()) {
-			return [];
-		}
-
-		try {
-			return await openaiService.getWritingSuggestions(content, context);
-		} catch (error) {
-			logger.error('AI suggestions error', { error });
-			return [];
-		}
-	}
-
-	/**
-	 * Analyze writing style using AI
-	 */
-	@cached(
-		(...args: unknown[]) => {
-			const content = args[0] as string;
-			return `ai-style:${content.substring(0, 100)}:${content.length}`;
-		},
-		caches.analysis,
-		600_000 // Cache for 10 minutes
-	)
-	async analyzeStyleWithAI(content: string): Promise<OpenAIStyleAnalysis | null> {
-		if (!openaiService.isConfigured()) {
-			return null;
-		}
-
-		try {
-			return await openaiService.analyzeStyle(content);
-		} catch (error) {
-			logger.error('AI style analysis error', { error });
-			return null;
-		}
-	}
-
-	/**
-	 * Analyze characters using AI
-	 */
-	async analyzeCharactersWithAI(
-		content: string,
-		characterNames?: string[]
-	): Promise<OpenAICharacterAnalysis[]> {
-		if (!openaiService.isConfigured()) {
-			return [];
-		}
-
-		try {
-			return await openaiService.analyzeCharacters(content, characterNames);
-		} catch (error) {
-			logger.error('AI character analysis error', { error });
-			return [];
-		}
-	}
-
-	/**
-	 * Analyze plot structure using AI
-	 */
-	@cached(
-		(...args: unknown[]) => {
-			const content = args[0] as string;
-			return `ai-plot:${content.substring(0, 100)}:${content.length}`;
-		},
-		caches.analysis,
-		600_000 // Cache for 10 minutes
-	)
-	async analyzePlotWithAI(content: string): Promise<OpenAIPlotAnalysis | null> {
-		if (!openaiService.isConfigured()) {
-			return null;
-		}
-
-		try {
-			return await openaiService.analyzePlot(content);
-		} catch (error) {
-			logger.error('AI plot analysis error', { error });
-			return null;
-		}
-	}
-
-	/**
 	 * Parse HTML content and extract text
 	 */
 	parseWebContent(
@@ -602,82 +510,6 @@ export class ContentAnalyzer {
 	 */
 	extractResearchData(parsedContent: ParsedWebContent, keywords?: string[]): ResearchData {
 		return webContentParser.extractResearchData(parsedContent, keywords);
-	}
-
-	/**
-	 * Configure OpenAI service
-	 */
-	configureOpenAI(config: {
-		apiKey?: string;
-		model?: string;
-		maxTokens?: number;
-		temperature?: number;
-	}): void {
-		openaiService.configure(config);
-	}
-
-	/**
-	 * Check if OpenAI is configured
-	 */
-	isOpenAIConfigured(): boolean {
-		return openaiService.isConfigured();
-	}
-
-	/**
-	 * Generate writing prompts using AI
-	 */
-	async generateWritingPrompts(
-		options: {
-			genre?: string;
-			theme?: string;
-			count?: number;
-			complexity?: 'simple' | 'moderate' | 'complex';
-			promptType?: 'scene' | 'character' | 'dialogue' | 'description' | 'conflict' | 'mixed';
-			existingCharacters?: string[];
-			currentPlotPoints?: string[];
-			storyContext?: string;
-			targetWordCount?: number;
-			writingStyle?: string;
-			mood?: string;
-		} = {}
-	): Promise<{
-		prompts: Array<{
-			prompt: string;
-			type: string;
-			difficulty: string;
-			estimatedWords: number;
-			tips: string[];
-			relatedCharacters?: string[];
-			suggestedTechniques?: string[];
-		}>;
-		overallTheme: string;
-		writingGoals: string[];
-	}> {
-		if (!openaiService.isConfigured()) {
-			return {
-				prompts: [],
-				overallTheme: 'Creative Writing',
-				writingGoals: [],
-			};
-		}
-
-		try {
-			return await openaiService.generateWritingPrompts(options);
-		} catch (error) {
-			logger.error('AI prompt generation error', { error });
-			return {
-				prompts: [],
-				overallTheme: 'Creative Writing',
-				writingGoals: [],
-			};
-		}
-	}
-
-	/**
-	 * Get the OpenAI service instance
-	 */
-	getOpenAIService() {
-		return openaiService;
 	}
 
 	// Advanced performance monitoring and optimization methods
