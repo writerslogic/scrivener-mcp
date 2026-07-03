@@ -15,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add direct-SDK AIClient with Claude default (langchain ripout step 1)
 
 ### Changed
+- Remove the non-functional fractal-memory subsystem
 - Delete dead redis-cluster-manager, consolidate openai-service into AIClient
 - Remove all @langchain dependencies, migrate remaining tools to direct-SDK Claude
 - Delete dead langchain compat shim and example (703 LOC)
