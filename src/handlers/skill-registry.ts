@@ -12,7 +12,6 @@ import { searchHandlers } from './search-handlers.js';
 import { compilationHandlers } from './compilation-handlers.js';
 import { analysisHandlers } from './analysis-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
-import { fractalMemoryTools } from './fractal-memory-handlers.js';
 import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
 import { integrityHandlers } from './integrity-handlers.js';
@@ -64,8 +63,8 @@ const skills: Skill[] = [
 	},
 	{
 		name: 'advanced',
-		description: 'Fractal memory, async job queue, batch operations',
-		tools: [...asyncHandlerDefinitions, ...fractalMemoryTools],
+		description: 'Async job queue and batch operations',
+		tools: [...asyncHandlerDefinitions],
 	},
 ];
 
@@ -77,18 +76,11 @@ const HIDDEN_TOOLS = new Set<string>([
 	'find_analogies',
 	'build_vector_store',
 	'multi_agent_analysis',
-	'find_cooccurrences',
-	'update_retrieval_policy',
 	'hhm_dream',
-	'ingest_document_fractal',
-	'ingest_project_fractal',
 	'store_chapter_order',
 	'sync_to_neo4j',
 	'get_queue_stats',
 	'collect_feedback',
-	// fractal_search is superseded by semantic_search; get_memory_analytics by get_memory_stats.
-	'fractal_search',
-	'get_memory_analytics',
 ]);
 
 function visibleTools(skill: Skill): ToolDefinition[] {
