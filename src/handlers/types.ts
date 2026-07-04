@@ -6,9 +6,10 @@ import type { ContentAnalyzer } from '../analysis/base-analyzer.js';
 import type { MemoryManager } from '../memory-manager.js';
 import type { ScrivenerProject } from '../scrivener-project.js';
 import type { ContentEnhancer } from '../services/enhancements/content-enhancer.js';
-import type { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { DatabaseService } from './database/database-service.js';
 import type { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
+import { PersonalizationService as PersonalizationServiceImpl } from '../services/personalization/personalization-service.js';
+import type { PersonalizationService } from '../services/personalization/personalization-service.js';
 import type { JSONValue } from '../types/index.js';
 import { ErrorCode, createError } from '../utils/common.js';
 
@@ -17,8 +18,8 @@ export interface HandlerContext {
 	memoryManager: MemoryManager | null;
 	contentAnalyzer: ContentAnalyzer;
 	contentEnhancer: ContentEnhancer;
-	learningHandler?: LangChainContinuousLearningHandler;
 	databaseService?: DatabaseService;
+	personalization?: PersonalizationService;
 	hhmSystem?: HolographicMemorySystem;
 }
 
@@ -99,10 +100,15 @@ export function requireMemoryManager(context: HandlerContext): MemoryManager {
 	return context.memoryManager;
 }
 
-export function getLearningHandler(
-	context: HandlerContext
-): LangChainContinuousLearningHandler | null {
-	return context.learningHandler || null;
+/**
+ * Return the personalization service. Falls back to a database-less instance
+ * (which degrades cleanly) when the context has none wired yet.
+ */
+export function getPersonalization(context: HandlerContext): PersonalizationService {
+	if (context.personalization) {
+		return context.personalization;
+	}
+	return new PersonalizationServiceImpl(context.databaseService ?? null);
 }
 
 export function getStringArg(args: Record<string, unknown>, key: string): string {

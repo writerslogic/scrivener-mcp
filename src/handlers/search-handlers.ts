@@ -1,7 +1,6 @@
 import { SemanticDatabaseLayer } from '../handlers/database/semantic-database-layer.js';
 import { validateInput } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
-import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getOptionalBooleanArg,
@@ -14,17 +13,8 @@ import {
 const logger = getLogger('search-handlers');
 
 // Cached singleton instances to avoid re-instantiation per request
-let cachedSearchLearningHandler: LangChainContinuousLearningHandler | null = null;
 let cachedSemanticLayer: SemanticDatabaseLayer | null = null;
 let cachedSemanticLayerDbService: unknown = null;
-
-async function getSearchLearningHandler(): Promise<LangChainContinuousLearningHandler> {
-	if (!cachedSearchLearningHandler) {
-		cachedSearchLearningHandler = new LangChainContinuousLearningHandler();
-		await cachedSearchLearningHandler.initialize();
-	}
-	return cachedSearchLearningHandler;
-}
 
 async function getSemanticLayer(
 	databaseService: NonNullable<unknown>
@@ -141,12 +131,6 @@ export const searchContentHandler: ToolDefinition = {
 		}
 
 		try {
-			// Try semantic search first for enhanced results
-			const learningHandler = await getSearchLearningHandler();
-
-			const sessionId = `search_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
 			// Use semantic database layer for intelligent search if available
 			if (!context.databaseService) {
 				throw new Error('Database service not available for semantic search');
@@ -159,15 +143,6 @@ export const searchContentHandler: ToolDefinition = {
 				maxResults: 20,
 				includeEntities: true,
 				includeRelationships: true,
-			});
-
-			// Collect implicit feedback
-			await learningHandler.collectImplicitFeedback(sessionId, 'search_content', {
-				timeSpent: 0,
-				userActions: ['search_content'],
-				documentsCount: semanticResults.documents?.length ?? 0,
-				enhancementType: 'search',
-				targetOptimization: query,
 			});
 
 			// Trim results to compact snippets
@@ -366,7 +341,7 @@ export const getAnnotationsHandler: ToolDefinition = {
 	},
 };
 
-// Advanced LangChain search handlers
+// Advanced search handlers
 export const findMentionsHandler: ToolDefinition = {
 	name: 'find_mentions',
 	title: 'Find Entity Mentions',
@@ -445,21 +420,6 @@ export const findMentionsHandler: ToolDefinition = {
 					position += entity.length;
 				}
 			}
-
-			// Initialize continuous learning for feedback collection
-			const learningHandler = await getSearchLearningHandler();
-
-			const sessionId = `find_mentions_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
-			// Collect implicit feedback
-			await learningHandler.collectImplicitFeedback(sessionId, 'find_mentions', {
-				timeSpent: 0,
-				userActions: ['find_mentions'],
-				documentsCount: mentions.length,
-				enhancementType: 'find_mentions',
-				targetOptimization: entity,
-			});
 
 			const trimmedMentions = mentions.map((m) => ({
 				id: m.documentId,

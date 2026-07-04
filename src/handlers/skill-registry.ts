@@ -16,6 +16,7 @@ import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
 import { integrityHandlers } from './integrity-handlers.js';
 import { goalsHandlers } from './goals-handlers.js';
+import { personalizationHandlers } from './personalization-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -43,8 +44,9 @@ const skills: Skill[] = [
 	},
 	{
 		name: 'analysis',
-		description: 'Analyze writing quality, enhance prose, check consistency, track goals',
-		tools: [...analysisHandlers, ...goalsHandlers],
+		description:
+			'Analyze writing quality, enhance prose, check consistency, track goals, tune writing preferences',
+		tools: [...analysisHandlers, ...goalsHandlers, ...personalizationHandlers],
 	},
 	{
 		name: 'compilation',
@@ -80,7 +82,6 @@ const HIDDEN_TOOLS = new Set<string>([
 	'store_chapter_order',
 	'sync_to_neo4j',
 	'get_queue_stats',
-	'collect_feedback',
 ]);
 
 function visibleTools(skill: Skill): ToolDefinition[] {

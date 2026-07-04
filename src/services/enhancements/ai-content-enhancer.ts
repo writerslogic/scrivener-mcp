@@ -63,8 +63,11 @@ export class AIContentEnhancer {
 		const contextBlock = contextLine ? `Context: ${contextLine}\n\n` : '';
 		const prompt = `${instruction}\n\n${contextBlock}Passage:\n${untrustedBlock(clip(original, 12000, logger, 'enhance_content'))}`;
 
+		const directive = request.preferenceDirective?.trim();
+		const system = directive ? `${SYSTEM_PROMPT}\n\n${directive}` : SYSTEM_PROMPT;
+
 		const result = await this.ai.chat(prompt, {
-			system: SYSTEM_PROMPT,
+			system,
 			temperature: 0.4,
 			maxTokens: 4096,
 		});

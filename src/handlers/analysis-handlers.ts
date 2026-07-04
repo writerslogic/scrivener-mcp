@@ -16,11 +16,9 @@ import { AIContentEnhancer } from '../services/enhancements/ai-content-enhancer.
 import { AIClient } from '../services/ai/ai-client.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
-import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 
 // Cached singleton instances to avoid re-instantiation per request
 let cachedContentEnhancer: AIContentEnhancer | null = null;
-let cachedAnalysisLearningHandler: LangChainContinuousLearningHandler | null = null;
 
 async function getContentEnhancer(): Promise<AIContentEnhancer> {
 	if (!cachedContentEnhancer) {
@@ -29,13 +27,6 @@ async function getContentEnhancer(): Promise<AIContentEnhancer> {
 	return cachedContentEnhancer;
 }
 
-async function getAnalysisLearningHandler(): Promise<LangChainContinuousLearningHandler> {
-	if (!cachedAnalysisLearningHandler) {
-		cachedAnalysisLearningHandler = new LangChainContinuousLearningHandler();
-		await cachedAnalysisLearningHandler.initialize();
-	}
-	return cachedAnalysisLearningHandler;
-}
 import { compact, formatError } from '../core/response-formatter.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
@@ -43,6 +34,7 @@ import {
 	getOptionalArrayArg,
 	getOptionalNumberArg,
 	getOptionalObjectArg,
+	getPersonalization,
 	getStringArg,
 	requireMemoryManager,
 	requireProject,
@@ -133,7 +125,7 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				],
 			};
 		} catch (error) {
-			// Fallback to basic analysis if LangChain fails
+			// Fallback to basic analysis if AI enhancement fails
 			const fallbackAnalysis = await context.contentAnalyzer.analyzeContent(
 				document.content || '',
 				documentId
@@ -215,19 +207,18 @@ export const enhanceContentHandler: ToolDefinition = {
 		}
 
 		try {
-			// Initialize LangChain content enhancer
-			const langChainEnhancer = await getContentEnhancer();
+			// Initialize AI content enhancer
+			const enhancer = await getContentEnhancer();
 
-			// Initialize continuous learning for feedback collection
-			const learningHandler = await getAnalysisLearningHandler();
+			// Apply author writing preferences to the AI prompt
+			const personalization = getPersonalization(context);
+			const preferenceDirective = await personalization.buildDirective('enhance_content');
 
-			const sessionId = `enhance_${documentId}_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
-			// Perform enhanced content improvement using LangChain
-			const enhanced = await langChainEnhancer.enhance({
+			// Perform enhanced content improvement
+			const enhanced = await enhancer.enhance({
 				content: document.content || '',
 				type: enhancementType,
+				preferenceDirective,
 				options: {
 					...(options || {}),
 					documentId,
@@ -235,15 +226,10 @@ export const enhanceContentHandler: ToolDefinition = {
 				},
 			});
 
-			// Collect implicit feedback based on enhancement success
-			await learningHandler.collectImplicitFeedback(sessionId, 'enhance_content', {
-				timeSpent: enhanced.metrics?.processingTime || 0,
-				userActions: ['enhance_content'],
-				enhancementType,
-			});
-
 			const originalContent = document.content || '';
-			if (enhanced.enhanced === originalContent) {
+			const changed = enhanced.enhanced !== originalContent;
+			await personalization.recordImplicitFeedback('enhance_content', changed);
+			if (!changed) {
 				return {
 					content: [{ type: 'text', text: 'No changes suggested.' }],
 				};
@@ -256,15 +242,13 @@ export const enhanceContentHandler: ToolDefinition = {
 						text: compact({
 							...enhanced,
 							enhanced: true,
-							langChainProcessed: true,
-							sessionId,
 							qualityScore: enhanced.qualityValidation?.overallScore,
 						}),
 					},
 				],
 			};
 		} catch (error) {
-			// Fallback to basic enhancement if LangChain fails
+			// Fallback to basic enhancement if AI enhancement fails
 			const enhanced = await context.contentEnhancer.enhance({
 				content: document.content || '',
 				type: enhancementType,
@@ -340,7 +324,7 @@ export const generateContentHandler: ToolDefinition = {
 		},
 		required: ['prompt'],
 	},
-	handler: async (args, _context): Promise<HandlerResult> => {
+	handler: async (args, context): Promise<HandlerResult> => {
 		validateInput(args, promptSchema);
 
 		try {
@@ -395,9 +379,11 @@ export const generateContentHandler: ToolDefinition = {
 				: '';
 
 			// Generate content using the direct-SDK AIClient (Claude default).
+			const directive = await getPersonalization(context).buildDirective('generate_content');
+			const directiveSuffix = directive ? `\n\n${directive}` : '';
 			const system =
 				`You are a creative writing assistant. Write ${style} prose of approximately ` +
-				`${length} words in response to the request. Return only the prose, no preamble.${contextInfo}`;
+				`${length} words in response to the request. Return only the prose, no preamble.${contextInfo}${directiveSuffix}`;
 			const content = await ai.chat(prompt, {
 				system,
 				temperature: 0.8,
@@ -1027,7 +1013,7 @@ function createConsistencySummary(issues: ConsistencyIssue[]): string {
 	return summary;
 }
 
-// Advanced LangChain handlers
+// Advanced analysis handlers
 export const multiAgentAnalysisHandler: ToolDefinition = {
 	name: 'multi_agent_analysis',
 	description: 'Multi-agent analysis',
@@ -1188,68 +1174,6 @@ export const semanticSearchHandler: ToolDefinition = {
 	},
 };
 
-export const collectFeedbackHandler: ToolDefinition = {
-	name: 'collect_feedback',
-	description: 'Submit feedback',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			sessionId: { type: 'string' },
-			rating: { type: 'number', minimum: 1, maximum: 5 },
-			comments: { type: 'string' },
-			operation: { type: 'string' },
-		},
-		required: ['sessionId', 'rating', 'operation'],
-	},
-	handler: async (args): Promise<HandlerResult> => {
-		const sessionId = getStringArg(args, 'sessionId');
-		const rating = args.rating as number;
-		const comments = args.comments as string | undefined;
-		const operation = getStringArg(args, 'operation');
-
-		try {
-			const learningHandler = await getAnalysisLearningHandler();
-
-			await learningHandler.collectFeedback({
-				sessionId,
-				operation,
-				input: {},
-				output: {},
-				userRating: rating,
-				userComments: comments,
-				timestamp: new Date(),
-				context: {
-					operation,
-					sessionId,
-				},
-			});
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: compact({
-							sessionId,
-							rating,
-							operation,
-							learningEnabled: true,
-						}),
-					},
-				],
-			};
-		} catch (error) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Failed to collect feedback: ${formatError(error)}`,
-					},
-				],
-			};
-		}
-	},
-};
-
 export const analysisHandlers = [
 	analyzeDocumentHandler,
 	enhanceContentHandler,
@@ -1258,7 +1182,5 @@ export const analysisHandlers = [
 	getMemoryHandler,
 	checkConsistencyHandler,
 	semanticSearchHandler,
-	// Advanced LangChain handlers
 	multiAgentAnalysisHandler,
-	collectFeedbackHandler,
 ];

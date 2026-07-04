@@ -22,14 +22,11 @@ import {
 	validateRegisteredArgs,
 	activateSkills,
 } from './handlers/skill-registry.js';
-import { LangChainContinuousLearningHandler } from './handlers/langchain-continuous-learning-handler.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
+import { PersonalizationService } from './services/personalization/personalization-service.js';
 import { initializeHHM } from './handlers/memory-handlers.js';
 
 const logger = getLogger('main');
-
-// Initialize learning handler
-let learningHandler: LangChainContinuousLearningHandler | undefined;
 
 // Initialize HHM system
 let hhmInitialized = false;
@@ -37,18 +34,6 @@ let hhmInitialized = false;
 // Initialize context
 async function initializeContext(): Promise<HandlerContext> {
 	let hhmSystem;
-
-	try {
-		// Initialize learning handler
-		learningHandler = new LangChainContinuousLearningHandler();
-		await learningHandler.initialize();
-		logger.info('LangChain continuous learning handler initialized');
-	} catch (error) {
-		logger.warn('Failed to initialize learning handler, continuing without it', {
-			error: (error as Error).message,
-		});
-		learningHandler = undefined;
-	}
 
 	// Initialize HHM system
 	try {
@@ -72,7 +57,7 @@ async function initializeContext(): Promise<HandlerContext> {
 		memoryManager: null,
 		contentAnalyzer: new ContentAnalyzer(),
 		contentEnhancer: new ContentEnhancer(),
-		learningHandler,
+		personalization: new PersonalizationService(null),
 		hhmSystem,
 	};
 }

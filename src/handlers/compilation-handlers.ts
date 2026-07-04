@@ -3,7 +3,6 @@ import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
 import { compact, formatPayload } from '../core/response-formatter.js';
 import { getLogger } from '../core/logger.js';
-import { LangChainContinuousLearningHandler } from './langchain-continuous-learning-handler.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getOptionalObjectArg,
@@ -168,10 +167,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 				}
 				const aiCompiler = new AICompilationService();
 				await aiCompiler.initialize();
-				const learningHandler = new LangChainContinuousLearningHandler();
-				await learningHandler.initialize();
-				const sessionId = `intelligent_compile_${Date.now()}`;
-				await learningHandler.startFeedbackSession(sessionId);
 
 				const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
 					outputFormat: format,
@@ -187,13 +182,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 					generateMarketingMaterials: targetOptimization !== 'general',
 					enhanceContent: true,
 					optimizeForTarget: !!target,
-				});
-
-				await learningHandler.collectImplicitFeedback(sessionId, 'compile_documents', {
-					timeSpent: compiled.metadata?.processingTime || 0,
-					userActions: ['compile_documents'],
-					targetOptimization,
-					documentsCount: documentsToCompile.length,
 				});
 
 				const text =
@@ -220,10 +208,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 		try {
 			const aiCompiler = new AICompilationService();
 			await aiCompiler.initialize();
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
-			const sessionId = `compile_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
 
 			const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
 				outputFormat: format,
@@ -233,12 +217,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 				hierarchical,
 				intelligentFormatting: true,
 				enhanceContent: true,
-			});
-
-			await learningHandler.collectImplicitFeedback(sessionId, 'compile_documents', {
-				timeSpent: compiled.metadata?.processingTime || 0,
-				userActions: ['compile_documents'],
-				documentsCount: documentsToCompile.length,
 			});
 
 			const text =
@@ -424,13 +402,6 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 			const aiCompiler = new AICompilationService();
 			await aiCompiler.initialize();
 
-			// Initialize continuous learning for feedback collection
-			const learningHandler = new LangChainContinuousLearningHandler();
-			await learningHandler.initialize();
-
-			const sessionId = `marketing_${materialType}_${Date.now()}`;
-			await learningHandler.startFeedbackSession(sessionId);
-
 			// Generate marketing materials
 			const result = await aiCompiler.generateMarketingMaterials(textDocuments, {
 				materialType,
@@ -438,17 +409,6 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 				targetAudience,
 				includeGenreAnalysis: true,
 			});
-
-			// Collect implicit feedback
-			await learningHandler.collectImplicitFeedback(
-				sessionId,
-				'generate_marketing_materials',
-				{
-					timeSpent: result.processingTime || 0,
-					userActions: ['generate_marketing_materials'],
-					materialType,
-				}
-			);
 
 			return {
 				content: [

@@ -11,6 +11,7 @@ import { validateInput, createError, ErrorCode } from '../utils/common.js';
 import { compact } from '../core/response-formatter.js';
 import { resolveScrivenerProjectPath } from '../utils/scrivener-utils.js';
 import { DatabaseService } from './database/database-service.js';
+import { PersonalizationService } from '../services/personalization/personalization-service.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import type { DocumentInfo } from '../types/index.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
@@ -97,6 +98,8 @@ export const openProjectHandler: ToolDefinition = {
 		// Update context
 		context.project = project;
 		context.memoryManager = memoryManager;
+		context.databaseService = project.getDatabaseService();
+		context.personalization = new PersonalizationService(context.databaseService);
 
 		const metadata = await project.getProjectMetadata();
 		return {
@@ -291,6 +294,8 @@ export const closeProjectHandler: ToolDefinition = {
 
 		context.project = null;
 		context.memoryManager = null;
+		context.databaseService = undefined;
+		context.personalization = new PersonalizationService(null);
 
 		return {
 			content: [

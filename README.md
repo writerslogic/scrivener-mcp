@@ -281,6 +281,9 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | `suggest_improvements` | AI-generated improvement suggestions |
 | `enhance_content` | Suggest a specific improvement to a document |
 | `generate_content` | Generate new prose from a prompt and context |
+| `set_writing_preferences` | Set author preferences (tone, complexity, length, POV, style guide) that steer AI output |
+| `get_writing_preferences` | Show current preferences plus feedback insights and suggestions |
+| `collect_feedback` | Record a rating/comment on an AI operation to inform those insights |
 
 **Enhancement types:** `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
 

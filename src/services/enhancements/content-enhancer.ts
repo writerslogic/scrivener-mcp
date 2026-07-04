@@ -49,6 +49,8 @@ export interface EnhancementRequest {
 	options?: EnhancementOptions;
 	styleGuide?: StyleGuide;
 	context?: string;
+	/** Author-preference directive appended to the AI system prompt. */
+	preferenceDirective?: string;
 }
 
 export interface EnhancementResult {

@@ -32,6 +32,12 @@ import type {
 import { StoryIntelligence } from './story-intelligence.js';
 import type { ProductivityTrend, WritingPattern } from './writing-analytics.js';
 import { WritingAnalytics } from './writing-analytics.js';
+import type {
+	FeedbackInput,
+	FeedbackRecord,
+	WritingPreferences,
+} from '../../services/personalization/types.js';
+import { DEFAULT_PREFERENCES } from '../../services/personalization/types.js';
 
 const logger = getLogger('database');
 
@@ -68,6 +74,62 @@ function mapWritingGoalRow(row: RawWritingGoalRow): WritingGoalRecord {
 		status: row.status,
 		createdAt: row.created_at,
 		completedAt: row.completed_at,
+	};
+}
+
+/** A writing-preferences row as stored in the `writing_preferences` table. */
+interface RawPreferencesRow {
+	enabled: number;
+	tone: string;
+	complexity: string;
+	length: string;
+	point_of_view: string | null;
+	style_guides: string | null;
+	custom_instructions: string | null;
+	updated_at: string | null;
+}
+
+function mapPreferencesRow(row: RawPreferencesRow): WritingPreferences {
+	let styleGuides: string[] = [];
+	if (row.style_guides) {
+		try {
+			const parsed: unknown = JSON.parse(row.style_guides);
+			if (Array.isArray(parsed))
+				styleGuides = parsed.filter((g): g is string => typeof g === 'string');
+		} catch {
+			styleGuides = [];
+		}
+	}
+	return {
+		enabled: row.enabled !== 0,
+		tone: row.tone as WritingPreferences['tone'],
+		complexity: row.complexity as WritingPreferences['complexity'],
+		length: row.length as WritingPreferences['length'],
+		pointOfView: row.point_of_view ?? undefined,
+		styleGuides,
+		customInstructions: row.custom_instructions ?? undefined,
+		updatedAt: row.updated_at ?? undefined,
+	};
+}
+
+/** A feedback row as stored in the `writing_feedback` table. */
+interface RawFeedbackRow {
+	id: string;
+	operation: string;
+	rating: number | null;
+	accepted: number | null;
+	comment: string | null;
+	created_at: string;
+}
+
+function mapFeedbackRow(row: RawFeedbackRow): FeedbackRecord {
+	return {
+		id: row.id,
+		operation: row.operation,
+		rating: row.rating ?? undefined,
+		accepted: row.accepted === null ? undefined : row.accepted !== 0,
+		comment: row.comment ?? undefined,
+		createdAt: row.created_at,
 	};
 }
 
@@ -1089,6 +1151,90 @@ export class DatabaseService {
 
 		const rows = this.sqliteManager.query(sql, params) as RawWritingGoalRow[];
 		return rows.map(mapWritingGoalRow);
+	}
+
+	/**
+	 * Read the single per-project writing-preferences profile. Returns the
+	 * defaults when none has been saved yet.
+	 */
+	async getWritingPreferences(): Promise<WritingPreferences> {
+		if (!this.sqliteManager) {
+			return { ...DEFAULT_PREFERENCES };
+		}
+		const row = this.sqliteManager.queryOne(
+			`SELECT enabled, tone, complexity, length, point_of_view, style_guides, custom_instructions, updated_at FROM writing_preferences WHERE id = 1`
+		) as RawPreferencesRow | undefined;
+		return row ? mapPreferencesRow(row) : { ...DEFAULT_PREFERENCES };
+	}
+
+	/**
+	 * Upsert the single writing-preferences profile. Callers pass a fully
+	 * resolved profile (merge partial updates before calling).
+	 */
+	async saveWritingPreferences(prefs: WritingPreferences): Promise<WritingPreferences> {
+		if (!this.sqliteManager) {
+			throw new AppError(
+				'SQLite not initialized. Open a project before setting writing preferences.',
+				ErrorCode.DATABASE_ERROR
+			);
+		}
+		this.sqliteManager.execute(
+			`INSERT INTO writing_preferences (id, enabled, tone, complexity, length, point_of_view, style_guides, custom_instructions, updated_at)
+				VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+				ON CONFLICT(id) DO UPDATE SET
+					enabled = excluded.enabled, tone = excluded.tone, complexity = excluded.complexity,
+					length = excluded.length, point_of_view = excluded.point_of_view,
+					style_guides = excluded.style_guides, custom_instructions = excluded.custom_instructions,
+					updated_at = CURRENT_TIMESTAMP`,
+			[
+				prefs.enabled ? 1 : 0,
+				prefs.tone,
+				prefs.complexity,
+				prefs.length,
+				prefs.pointOfView ?? null,
+				safeStringify(prefs.styleGuides) ?? '[]',
+				prefs.customInstructions ?? null,
+			]
+		);
+		return this.getWritingPreferences();
+	}
+
+	/** Record one feedback event for an AI operation. */
+	async recordFeedback(input: FeedbackInput): Promise<FeedbackRecord> {
+		if (!this.sqliteManager) {
+			throw new AppError(
+				'SQLite not initialized. Open a project before recording feedback.',
+				ErrorCode.DATABASE_ERROR
+			);
+		}
+		const id = generateScrivenerUUID();
+		const accepted = input.accepted === undefined ? null : input.accepted ? 1 : 0;
+		const rating = input.rating ?? null;
+		this.sqliteManager.execute(
+			`INSERT INTO writing_feedback (id, operation, rating, accepted, comment) VALUES (?, ?, ?, ?, ?)`,
+			[id, input.operation, rating, accepted, input.comment ?? null]
+		);
+		const row = this.sqliteManager.queryOne(
+			`SELECT id, operation, rating, accepted, comment, created_at FROM writing_feedback WHERE id = ?`,
+			[id]
+		) as RawFeedbackRow | undefined;
+		if (!row) {
+			throw new AppError('Failed to persist feedback', ErrorCode.DATABASE_ERROR);
+		}
+		return mapFeedbackRow(row);
+	}
+
+	/** Return recorded feedback, most recent first. */
+	async getFeedbackRecords(limit = 500): Promise<FeedbackRecord[]> {
+		if (!this.sqliteManager) {
+			return [];
+		}
+		const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 5000);
+		const rows = this.sqliteManager.query(
+			`SELECT id, operation, rating, accepted, comment, created_at FROM writing_feedback ORDER BY created_at DESC LIMIT ?`,
+			[safeLimit]
+		) as RawFeedbackRow[];
+		return rows.map(mapFeedbackRow);
 	}
 
 	/**

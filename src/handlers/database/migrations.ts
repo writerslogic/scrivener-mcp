@@ -230,6 +230,38 @@ export class MigrationManager {
 					}
 				},
 			},
+			{
+				version: 9,
+				name: 'add_writing_personalization',
+				sql: `
+						CREATE TABLE IF NOT EXISTS writing_preferences (
+							id INTEGER PRIMARY KEY CHECK (id = 1), -- single-row profile
+							enabled INTEGER DEFAULT 1,
+							tone TEXT DEFAULT 'neutral',
+							complexity TEXT DEFAULT 'balanced',
+							length TEXT DEFAULT 'balanced',
+							point_of_view TEXT,
+							style_guides TEXT DEFAULT '[]', -- JSON array
+							custom_instructions TEXT,
+							updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+						);
+						CREATE TABLE IF NOT EXISTS writing_feedback (
+							id TEXT PRIMARY KEY,
+							operation TEXT NOT NULL,
+							rating INTEGER, -- 1-5, nullable
+							accepted INTEGER, -- 0/1, nullable
+							comment TEXT,
+							created_at TEXT DEFAULT CURRENT_TIMESTAMP
+						);
+						CREATE INDEX IF NOT EXISTS idx_feedback_operation ON writing_feedback (operation);
+						CREATE INDEX IF NOT EXISTS idx_feedback_created ON writing_feedback (created_at);
+				`,
+				up: async (sqlite) => {
+					if (sqlite) {
+						sqlite.getDatabase().exec(this.migrations[8].sql!);
+					}
+				},
+			},
 		];
 	}
 
