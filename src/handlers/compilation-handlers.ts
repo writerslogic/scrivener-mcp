@@ -7,6 +7,7 @@ import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getOptionalObjectArg,
 	getOptionalStringArg,
+	getPersonalization,
 	getStringArg,
 	requireProject,
 } from './types.js';
@@ -167,6 +168,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 				}
 				const aiCompiler = new AICompilationService();
 				await aiCompiler.initialize();
+				const preferenceDirective = await getPersonalization(context).buildDirective();
 
 				const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
 					outputFormat: format,
@@ -182,6 +184,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 					generateMarketingMaterials: targetOptimization !== 'general',
 					enhanceContent: true,
 					optimizeForTarget: !!target,
+					preferenceDirective,
 				});
 
 				const text =
@@ -403,11 +406,13 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 			await aiCompiler.initialize();
 
 			// Generate marketing materials
+			const preferenceDirective = await getPersonalization(context).buildDirective();
 			const result = await aiCompiler.generateMarketingMaterials(textDocuments, {
 				materialType,
 				length,
 				targetAudience,
 				includeGenreAnalysis: true,
+				preferenceDirective,
 			});
 
 			return {

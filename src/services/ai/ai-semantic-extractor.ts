@@ -146,10 +146,17 @@ export class AISemanticExtractor {
 		options: { customPrompt?: string; format?: string; [key: string]: unknown } = {}
 	): Promise<{ content: string }> {
 		const effectivePrompt = options.customPrompt ?? prompt;
-		const system =
+		// Author preferences steer prose generation only, never structured
+		// (JSON) analysis tasks.
+		const directive =
+			options.format !== 'json' && typeof options.preferenceDirective === 'string'
+				? options.preferenceDirective.trim()
+				: '';
+		const baseSystem =
 			options.format === 'json'
 				? 'Respond with STRICT JSON only -- no prose, no markdown code fences.'
 				: 'You are a precise writing analyst.';
+		const system = directive ? `${baseSystem}\n\n${directive}` : baseSystem;
 		const content = await this.ai.chat(effectivePrompt, {
 			system,
 			temperature: 0.2,

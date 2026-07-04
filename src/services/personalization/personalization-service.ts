@@ -84,11 +84,8 @@ export class PersonalizationService {
 	 * Build the preference directive to append to an AI system prompt. Returns
 	 * '' when personalization is unavailable, disabled, or has no active
 	 * preferences -- so callers can concatenate unconditionally.
-	 *
-	 * The `operation` parameter is reserved for future per-operation tuning; it
-	 * currently does not change the directive.
 	 */
-	async buildDirective(_operation?: string): Promise<string> {
+	async buildDirective(): Promise<string> {
 		if (!this.db) {
 			return '';
 		}
@@ -177,25 +174,6 @@ export class PersonalizationService {
 			}
 		}
 		return this.db.recordFeedback(input);
-	}
-
-	/**
-	 * Record implicit feedback without throwing: used on AI hot paths where a
-	 * failure to log must never break the operation. Silently no-ops when
-	 * unavailable.
-	 */
-	async recordImplicitFeedback(operation: string, accepted: boolean): Promise<void> {
-		if (!this.db) {
-			return;
-		}
-		try {
-			await this.db.recordFeedback({ operation, accepted });
-		} catch (error) {
-			logger.debug('Implicit feedback not recorded', {
-				operation,
-				error: (error as Error).message,
-			});
-		}
 	}
 
 	/** Aggregate the feedback log into insights and non-binding suggestions. */

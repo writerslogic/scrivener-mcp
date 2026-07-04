@@ -212,7 +212,7 @@ export const enhanceContentHandler: ToolDefinition = {
 
 			// Apply author writing preferences to the AI prompt
 			const personalization = getPersonalization(context);
-			const preferenceDirective = await personalization.buildDirective('enhance_content');
+			const preferenceDirective = await personalization.buildDirective();
 
 			// Perform enhanced content improvement
 			const enhanced = await enhancer.enhance({
@@ -227,9 +227,7 @@ export const enhanceContentHandler: ToolDefinition = {
 			});
 
 			const originalContent = document.content || '';
-			const changed = enhanced.enhanced !== originalContent;
-			await personalization.recordImplicitFeedback('enhance_content', changed);
-			if (!changed) {
+			if (enhanced.enhanced === originalContent) {
 				return {
 					content: [{ type: 'text', text: 'No changes suggested.' }],
 				};
@@ -379,7 +377,7 @@ export const generateContentHandler: ToolDefinition = {
 				: '';
 
 			// Generate content using the direct-SDK AIClient (Claude default).
-			const directive = await getPersonalization(context).buildDirective('generate_content');
+			const directive = await getPersonalization(context).buildDirective();
 			const directiveSuffix = directive ? `\n\n${directive}` : '';
 			const system =
 				`You are a creative writing assistant. Write ${style} prose of approximately ` +

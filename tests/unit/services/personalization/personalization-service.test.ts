@@ -143,20 +143,6 @@ describe('PersonalizationService.recordFeedback', () => {
 	});
 });
 
-describe('PersonalizationService.recordImplicitFeedback', () => {
-	it('no-ops without a database and does not throw', async () => {
-		await expect(
-			svc(null).recordImplicitFeedback('enhance_content', true)
-		).resolves.toBeUndefined();
-	});
-
-	it('records acceptance when a database is present', async () => {
-		const db = new FakeDb();
-		await svc(db).recordImplicitFeedback('enhance_content', false);
-		expect(db.feedback[0]).toMatchObject({ operation: 'enhance_content', accepted: false });
-	});
-});
-
 describe('PersonalizationService.getInsights', () => {
 	it('returns an empty view with no feedback', async () => {
 		const insights = await svc(new FakeDb()).getInsights();

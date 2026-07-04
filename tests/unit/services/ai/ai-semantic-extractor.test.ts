@@ -82,6 +82,46 @@ describe('AISemanticExtractor', () => {
 	});
 });
 
+describe('AISemanticExtractor.generateWithTemplate — preference directive', () => {
+	function systemCapturingStub() {
+		let lastSystem = '';
+		const ai = {
+			provider: 'anthropic',
+			chat: async (_prompt: string, options?: { system?: string }) => {
+				lastSystem = options?.system ?? '';
+				return 'ok';
+			},
+		} as unknown as AIClient;
+		return { ex: new AISemanticExtractor(ai), lastSystem: () => lastSystem };
+	}
+
+	it('appends the directive to prose generations', async () => {
+		const { ex, lastSystem } = systemCapturingStub();
+		await ex.generateWithTemplate('synopsis', 'Write a synopsis', {
+			preferenceDirective:
+				'Author preferences to honour:\n- Write in a formal, polished tone.',
+		});
+		expect(lastSystem()).toContain('formal, polished tone');
+	});
+
+	it('never applies the directive to JSON (analysis) tasks', async () => {
+		const { ex, lastSystem } = systemCapturingStub();
+		await ex.generateWithTemplate('quality_assessment', 'Assess', {
+			format: 'json',
+			preferenceDirective:
+				'Author preferences to honour:\n- Write in a formal, polished tone.',
+		});
+		expect(lastSystem()).not.toContain('formal, polished tone');
+		expect(lastSystem()).toContain('STRICT JSON');
+	});
+
+	it('leaves the system prompt unchanged with no directive', async () => {
+		const { ex, lastSystem } = systemCapturingStub();
+		await ex.generateWithTemplate('synopsis', 'Write a synopsis', {});
+		expect(lastSystem()).toBe('You are a precise writing analyst.');
+	});
+});
+
 describe('AISemanticExtractor — deterministic parsing (stubbed client)', () => {
 	describe('extractEntities', () => {
 		it('parses a fenced JSON array and normalizes fields', async () => {

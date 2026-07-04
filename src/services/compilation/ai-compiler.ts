@@ -36,6 +36,8 @@ export interface AICompilationOptions extends CompilationOptions {
 	targetOptimization?: string;
 	intelligentFormatting?: boolean;
 	generateMarketingMaterials?: boolean;
+	/** Author-preference directive appended to prose-generation prompts. */
+	preferenceDirective?: string;
 }
 
 export interface CompiledDocument {
@@ -200,6 +202,7 @@ export class AICompilationService extends CompilationService {
 		const result = await this.ai.generateWithTemplate(materialType, prompt, {
 			customPrompt: prompt,
 			genre: options.genre,
+			preferenceDirective: options.preferenceDirective,
 		});
 		return { content: result.content, processingTime: Date.now() - start };
 	}
@@ -251,6 +254,7 @@ export class AICompilationService extends CompilationService {
 				customPrompt: prompt,
 				style: config.style,
 				genre: options.genre,
+				preferenceDirective: options.preferenceDirective,
 			});
 			optimized = result.content;
 			optimizations.push(...intent.optimizations);
@@ -295,6 +299,7 @@ export class AICompilationService extends CompilationService {
 			const result = await this.ai.generateWithTemplate('enhance', prompt, {
 				customPrompt: prompt,
 				genre: options.genre,
+				preferenceDirective: options.preferenceDirective,
 			});
 			return {
 				content: result.content,
