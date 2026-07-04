@@ -588,40 +588,6 @@ export interface ExportResult {
 	};
 }
 
-// AI and LangChain types
-export interface LangChainConfig {
-	provider: 'openai' | 'anthropic' | 'local' | 'azure';
-	model: string;
-	temperature?: number;
-	maxTokens?: number;
-	apiKey?: string;
-	endpoint?: string;
-	timeout?: number;
-	retries?: number;
-}
-
-export interface LangChainRequest {
-	prompt: string;
-	systemMessage?: string;
-	context?: string[];
-	parameters?: LangChainConfig;
-	streaming?: boolean;
-}
-
-export interface LangChainResponse {
-	content: string;
-	usage?: {
-		promptTokens: number;
-		completionTokens: number;
-		totalTokens: number;
-	};
-	metadata?: {
-		model: string;
-		finishReason: string;
-		processingTime: number;
-	};
-}
-
 // Queue and job types
 export interface JobDefinition {
 	id: string;

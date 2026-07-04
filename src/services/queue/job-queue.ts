@@ -450,7 +450,7 @@ export class JobQueueService {
 				this.aiWritingService.clearMemory();
 			}
 
-			// Convert documents to the format expected by LangChain
+			// Convert documents to the format expected by the AI writing service
 			const scrivenerDocs = data.documents.map((doc) => ({
 				id: doc.id,
 				content: doc.content,

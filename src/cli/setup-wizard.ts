@@ -485,7 +485,7 @@ export class SetupWizard {
 
 		console.log('This will set up:');
 		console.log(chalk.cyan('  • Embedded queue system (automatic)'));
-		console.log(chalk.cyan('  • AI services configuration (LangChain)'));
+		console.log(chalk.cyan('  • AI services configuration'));
 		console.log(chalk.cyan('  • Neo4j graph database'));
 		console.log(chalk.cyan('  • All required dependencies\n'));
 

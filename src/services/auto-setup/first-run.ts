@@ -131,7 +131,7 @@ export class FirstRunManager {
 		logger.info('Available features:');
 		logger.info('  • Neo4j graph database for relationships');
 		logger.info('  • Redis + BullMQ for background processing');
-		logger.info('  • LangChain AI integration for writing assistance\n');
+		logger.info('  • AI integration for writing assistance\n');
 
 		// Import readline for prompt
 		const readline = await import('readline/promises');

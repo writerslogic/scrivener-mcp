@@ -105,19 +105,6 @@ export interface EnvironmentConfig {
 			maxTokens: number;
 			temperature: number;
 		};
-		langchain: {
-			enabled: boolean;
-			vectorStore: {
-				provider: string;
-				dimensions: number;
-				similarity: string;
-			};
-			llm: {
-				provider: string;
-				model: string;
-				maxTokens: number;
-			};
-		};
 	};
 }
 

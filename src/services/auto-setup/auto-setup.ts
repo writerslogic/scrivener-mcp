@@ -1,6 +1,6 @@
 /**
  * Main auto-setup orchestrator for AI services
- * Coordinates configuration of AI components (LangChain, etc.)
+ * Coordinates configuration of AI components
  * Note: Queue system now uses embedded storage, no Redis setup needed
  */
 

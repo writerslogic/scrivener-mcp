@@ -1,5 +1,5 @@
 /**
- * AI Configuration Wizard for LangChain setup
+ * AI Configuration Wizard
  * Handles API key management and model configuration
  */
 
@@ -217,7 +217,7 @@ export class AIConfigWizard {
 	 */
 	async runWizard(): Promise<AIConfig> {
 		logger.info('🤖 AI Configuration Wizard for Scrivener MCP');
-		logger.info('This wizard will help you set up AI features powered by LangChain.');
+		logger.info('This wizard will help you set up AI features.');
 
 		const config = await this.loadConfig();
 
