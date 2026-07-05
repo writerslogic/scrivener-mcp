@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Honest feedback + compile personalization
+- Writing personalization replacing the removed learning subsystem
 - Word-count goals + project-integrity tools, Scrivener compatibility doc
 - Targeted RAG context for the two truncated generateWithTemplate sites (#64)
 - Add Claude-backed semantic extractor (entities/relationships)
