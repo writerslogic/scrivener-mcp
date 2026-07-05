@@ -1176,9 +1176,10 @@ export const analysisHandlers = [
 	analyzeDocumentHandler,
 	enhanceContentHandler,
 	generateContentHandler,
-	updateMemoryHandler,
-	getMemoryHandler,
 	checkConsistencyHandler,
-	semanticSearchHandler,
 	multiAgentAnalysisHandler,
 ];
+
+// remember/recall are the persistent-memory tools; they belong to the `memory`
+// skill (see skill-registry) even though they are defined in this file.
+export const memoryHandlers = [updateMemoryHandler, getMemoryHandler];

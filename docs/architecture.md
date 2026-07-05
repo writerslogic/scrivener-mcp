@@ -30,13 +30,14 @@ Tools are organized into skills that load progressively by default to minimize t
 
 | Skill | Tools | Progressive load |
 |-------|-------|-------------|
-| `project` | open_project, discover_projects, get_structure, refresh_project, close_project | Startup (always) |
+| `project` | open_project, discover_projects, get_structure, refresh_project, close_project, verify_project_integrity | Startup (always) |
 | `documents` | get_document_info, read_document, write_document, create_document, update_document, move_document, delete_document | After open_project |
 | `search` | search, semantic_search, find_mentions, list_trash, restore_document, read_annotations | After open_project |
-| `analysis` | analyze_document, check_consistency, analyze_writing_style, check_plot_consistency, check_character_continuity, analyze_narrative, track_motifs, suggest_improvements, enhance_content, generate_content | On demand |
+| `analysis` | analyze_document, check_consistency, enhance_content, generate_content, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback | On demand |
 | `compilation` | compile_documents, export_project, get_statistics, generate_marketing_materials | On demand |
-| `memory` | remember, recall, get_memory_stats | On demand |
+| `memory` | remember, recall | On demand |
 | `relationships` | add_relationship, find_relationships, discover_connections, character_network | On demand |
+| `advanced` | queue_document_analysis, queue_project_analysis, suggest_improvements, analyze_writing_style, check_plot_consistency, get_job_status, cancel_job | On demand |
 
 Two meta-tools (`list_skills`, `use_skill`) are always available. In progressive mode, activating a skill triggers `sendToolListChanged` to notify the client to re-fetch the tool list.
 

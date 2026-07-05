@@ -10,7 +10,7 @@ import { projectHandlers } from './project-handlers.js';
 import { documentHandlers } from './document-handlers.js';
 import { searchHandlers } from './search-handlers.js';
 import { compilationHandlers } from './compilation-handlers.js';
-import { analysisHandlers } from './analysis-handlers.js';
+import { analysisHandlers, memoryHandlers, semanticSearchHandler } from './analysis-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
@@ -39,8 +39,8 @@ const skills: Skill[] = [
 	},
 	{
 		name: 'search',
-		description: 'Full-text search, trash, annotations, mentions',
-		tools: searchHandlers,
+		description: 'Full-text and semantic search, trash, annotations, mentions',
+		tools: [...searchHandlers, semanticSearchHandler],
 	},
 	{
 		name: 'analysis',
@@ -55,8 +55,8 @@ const skills: Skill[] = [
 	},
 	{
 		name: 'memory',
-		description: 'Semantic search, analogies, and creative recombination via HMS',
-		tools: nativeHHMTools,
+		description: 'Store and recall persistent project facts (characters, world, plot, style)',
+		tools: [...memoryHandlers, ...nativeHHMTools],
 	},
 	{
 		name: 'relationships',

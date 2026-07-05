@@ -9,9 +9,9 @@ Tools are grouped into skills (`project`, `documents`, `search`, `analysis`, `co
 | Trigger | Skills activated |
 |---------|-----------------|
 | `open_project` (automatic) | `documents`, `search` |
-| `use_skill("analysis")` | Document analysis, consistency checks, motif tracking |
+| `use_skill("analysis")` | Document analysis, consistency checks, writing goals and preferences |
 | `use_skill("compilation")` | Manuscript compile and export |
-| `use_skill("memory")` | Project memory (`remember`, `recall`, `get_memory_stats`) |
+| `use_skill("memory")` | Project memory (`remember`, `recall`) |
 | `use_skill("relationships")` | Character network and entity relationships |
 | `list_skills` | Lists all groups and their activation status |
 

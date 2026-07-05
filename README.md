@@ -234,6 +234,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | `get_structure` | Browse the binder hierarchy (folders, documents, word counts) |
 | `refresh_project` | Reload from disk after external edits |
 | `close_project` | Close the active project and flush pending changes |
+| `verify_project_integrity` | Read-only scan for structural problems (missing/duplicate UUIDs, unreadable content) |
 
 </details>
 
@@ -275,12 +276,11 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | `check_consistency` | Project-wide continuity check; `scope` for plot, characters, or timeline |
 | `analyze_writing_style` | Style-focused analysis |
 | `check_plot_consistency` | Plot-thread consistency check |
-| `check_character_continuity` | Detect contradictions in how a character is portrayed |
-| `analyze_narrative` | Narrative structure and arc analysis |
-| `track_motifs` | Trace recurring motifs, themes, and symbols |
 | `suggest_improvements` | AI-generated improvement suggestions |
 | `enhance_content` | Suggest a specific improvement to a document |
 | `generate_content` | Generate new prose from a prompt and context |
+| `set_writing_goal` | Set a word-count goal (daily, weekly, or whole project) with an optional target date |
+| `get_writing_goals` | List goals with progress -- percent complete, words remaining, on-pace status |
 | `set_writing_preferences` | Set author preferences (tone, complexity, length, POV, style guide) that steer AI output |
 | `get_writing_preferences` | Show current preferences plus feedback insights and suggestions |
 | `collect_feedback` | Record a rating/comment on an AI operation to inform those insights |
@@ -308,7 +308,6 @@ Combine chapters into a single manuscript with configurable formatting, separato
 |------|-------------|
 | `remember` | Store information that persists across sessions with the project |
 | `recall` | Retrieve previously stored memory |
-| `get_memory_stats` | Metrics about the project's memory subsystem |
 
 Memory is stored within each .scriv project and travels with it.
 

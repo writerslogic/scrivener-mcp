@@ -97,7 +97,7 @@ You can also search for documents by title without browsing the full tree:
 
 > "Find the document called 'The Storm'"
 
-This uses `find_document` internally, which matches against document titles (case-insensitive) and returns up to 20 results with each document's ID, title, type, and path.
+This uses `search` with `field: "title"`, which matches against document titles (case-insensitive) and returns matching documents with each document's ID, title, type, and path.
 
 You don't need to memorize UUIDs. Just describe what you want and Claude will find the right document:
 
