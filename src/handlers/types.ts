@@ -31,6 +31,9 @@ export interface HandlerResult {
 		// Handler responses often contain nested objects, class instances, and complex data structures
 		data?: unknown;
 	}>;
+	// Machine-readable result matching the tool's outputSchema, when it declares one.
+	// Returned alongside the human-readable text content for backward compatibility.
+	structuredContent?: Record<string, unknown>;
 	isError?: boolean;
 }
 

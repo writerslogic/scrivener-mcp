@@ -116,7 +116,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			}
 		}
 
-		return { content: result.content };
+		return result.structuredContent !== undefined
+			? { content: result.content, structuredContent: result.structuredContent }
+			: { content: result.content };
 	} catch (error) {
 		logger.error('Tool error', { tool: name, error });
 		return {

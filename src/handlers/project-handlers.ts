@@ -156,6 +156,36 @@ export const getStructureHandler: ToolDefinition = {
 			},
 		},
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			documents: {
+				type: 'array',
+				description:
+					'Flat list of binder items in tree order (present unless summaryOnly).',
+				items: {
+					type: 'object',
+					properties: {
+						id: { type: 'string' },
+						title: { type: 'string' },
+						type: { type: 'string' },
+						depth: { type: 'number' },
+						wordCount: { type: 'number' },
+						hasChildren: { type: 'boolean' },
+					},
+				},
+			},
+			summary: {
+				type: 'object',
+				description:
+					'Project-level counts plus title and author (present when summaryOnly).',
+			},
+			structure: {
+				type: 'object',
+				description: 'Nested binder tree (present when flat is false).',
+			},
+		},
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 
@@ -174,6 +204,7 @@ export const getStructureHandler: ToolDefinition = {
 						text: compact(summary),
 					},
 				],
+				structuredContent: { summary },
 			};
 		}
 
@@ -213,6 +244,14 @@ export const getStructureHandler: ToolDefinition = {
 			if (structure.research) flatten(structure.research, 0);
 			if (structure.trash) flatten(structure.trash, 0);
 
+			const documents = rows.map(([id, title, type, depth, wordCount, hasChildren]) => ({
+				id,
+				title,
+				type,
+				depth,
+				wordCount,
+				hasChildren,
+			}));
 			return {
 				content: [
 					{
@@ -220,6 +259,7 @@ export const getStructureHandler: ToolDefinition = {
 						text: JSON.stringify(rows),
 					},
 				],
+				structuredContent: { documents },
 			};
 		}
 
@@ -230,6 +270,7 @@ export const getStructureHandler: ToolDefinition = {
 					text: compact(structure),
 				},
 			],
+			structuredContent: { structure: structure as unknown as Record<string, unknown> },
 		};
 	},
 };
@@ -355,6 +396,18 @@ export const discoverProjectsHandler: ToolDefinition = {
 			},
 		},
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			projects: {
+				type: 'array',
+				description: 'Absolute paths of the .scriv projects found.',
+				items: { type: 'string' },
+			},
+			count: { type: 'number', description: 'Number of projects found.' },
+		},
+		required: ['projects', 'count'],
+	},
 	handler: async (args): Promise<HandlerResult> => {
 		const home = os.homedir();
 		const searchDirs = [
@@ -379,6 +432,7 @@ export const discoverProjectsHandler: ToolDefinition = {
 						text: 'No Scrivener projects found in common locations. Use open_project with the full path to your .scriv folder.',
 					},
 				],
+				structuredContent: { projects: [], count: 0 },
 			};
 		}
 		return {
@@ -388,6 +442,7 @@ export const discoverProjectsHandler: ToolDefinition = {
 					text: `Found ${found.length} project(s):\n${found.map((p) => `• ${p}`).join('\n')}\n\nUse open_project with one of these paths.`,
 				},
 			],
+			structuredContent: { projects: found, count: found.length },
 		};
 	},
 };
