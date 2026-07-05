@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Add outputSchema + structuredContent to all data-returning tools
+- Add structuredContent plumbing + outputSchema for project tools
 - Document shared tool-param schemas + add registry 5/5 gate
 - Honest feedback + compile personalization
 - Writing personalization replacing the removed learning subsystem
