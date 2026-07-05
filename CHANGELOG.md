@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Document shared tool-param schemas + add registry 5/5 gate
 - Honest feedback + compile personalization
 - Writing personalization replacing the removed learning subsystem
 - Word-count goals + project-integrity tools, Scrivener compatibility doc
