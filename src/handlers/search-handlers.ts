@@ -87,6 +87,51 @@ export const searchContentHandler: ToolDefinition = {
 		},
 		required: ['query'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			results: {
+				type: 'array',
+				description:
+					'Matching documents. Field set varies by search mode: content/semantic ' +
+					'searches return id/title/snippet/score; title search returns id/title/type/path; ' +
+					'trash search returns documentId/title/matches.',
+				items: {
+					type: 'object',
+					properties: {
+						id: { type: 'string', description: 'Document id.' },
+						documentId: {
+							type: 'string',
+							description: 'Document id (trash-scope results).',
+						},
+						title: { type: 'string', description: 'Document title.' },
+						type: {
+							type: 'string',
+							description: 'Binder item type (title-field results).',
+						},
+						path: {
+							type: 'string',
+							description: 'Binder path (title-field results).',
+						},
+						snippet: {
+							type: 'string',
+							description: 'Relevance snippet (content/semantic results).',
+						},
+						score: {
+							type: ['number', 'null'],
+							description: 'Relevance score, or null when unranked.',
+						},
+						matches: {
+							type: 'array',
+							description: 'Matched excerpts (trash-scope results).',
+							items: { type: 'string' },
+						},
+					},
+				},
+			},
+		},
+		required: ['results'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		validateInput(args, searchContentSchema);
@@ -109,6 +154,7 @@ export const searchContentHandler: ToolDefinition = {
 						text: `Found ${trashResults.length} matches in trash\n${compact(trashResults)}`,
 					},
 				],
+				structuredContent: { results: trashResults },
 			};
 		}
 
@@ -127,6 +173,7 @@ export const searchContentHandler: ToolDefinition = {
 						text: `Found ${matches.length} document(s) with title matching "${query}"\n${JSON.stringify(matches, null, 2)}`,
 					},
 				],
+				structuredContent: { results: matches },
 			};
 		}
 
@@ -174,6 +221,7 @@ export const searchContentHandler: ToolDefinition = {
 						})}`,
 					},
 				],
+				structuredContent: { results: trimmedResults },
 			};
 		} catch (error) {
 			logger.warn('Semantic search failed, falling back to basic search', { error });
@@ -210,6 +258,7 @@ export const searchContentHandler: ToolDefinition = {
 						})}`,
 					},
 				],
+				structuredContent: { results: trimmedResults },
 			};
 		}
 	},
@@ -232,6 +281,29 @@ export const listTrashHandler: ToolDefinition = {
 		type: 'object',
 		properties: {},
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			items: {
+				type: 'array',
+				description: 'Documents currently in the project trash, in binder order.',
+				items: {
+					type: 'object',
+					properties: {
+						id: { type: 'string', description: 'Document id.' },
+						title: { type: 'string', description: 'Document title.' },
+						type: {
+							type: 'string',
+							description: 'Binder item type (Text, Folder, or Other).',
+						},
+						path: { type: 'string', description: 'Binder path of the item.' },
+						wordCount: { type: 'number', description: 'Word count, when known.' },
+					},
+				},
+			},
+		},
+		required: ['items'],
+	},
 	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		const trashItems = await project.getTrashDocuments();
@@ -243,6 +315,7 @@ export const listTrashHandler: ToolDefinition = {
 					text: `${trashItems.length} items in trash\n${compact(trashItems)}`,
 				},
 			],
+			structuredContent: { items: trashItems },
 		};
 	},
 };
@@ -319,6 +392,32 @@ export const getAnnotationsHandler: ToolDefinition = {
 		},
 		required: ['documentId'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			comments: {
+				type: 'array',
+				description:
+					'Inline comments as [key, value] pairs, where key identifies the comment ' +
+					'and value is its text.',
+				items: {
+					type: 'array',
+					items: { type: 'string' },
+				},
+			},
+			footnotes: {
+				type: 'array',
+				description:
+					'Footnotes as [key, value] pairs, where key identifies the footnote ' +
+					'and value is its text.',
+				items: {
+					type: 'array',
+					items: { type: 'string' },
+				},
+			},
+		},
+		required: ['comments', 'footnotes'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		validateInput(args, documentDetailsSchema);
@@ -337,6 +436,7 @@ export const getAnnotationsHandler: ToolDefinition = {
 					text: `Found ${formattedAnnotations.comments?.length || 0} comments and ${formattedAnnotations.footnotes?.length || 0} footnotes\n${compact(formattedAnnotations)}`,
 				},
 			],
+			structuredContent: formattedAnnotations,
 		};
 	},
 };
@@ -372,6 +472,35 @@ export const findMentionsHandler: ToolDefinition = {
 			},
 		},
 		required: ['entity'],
+	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			mentions: {
+				type: 'array',
+				description: 'Occurrences of the entity, up to 50, each with surrounding context.',
+				items: {
+					type: 'object',
+					properties: {
+						id: {
+							type: 'string',
+							description: 'Id of the document containing the match.',
+						},
+						title: { type: 'string', description: 'Title of the document.' },
+						snippet: {
+							type: 'string',
+							description: 'Context around the match, truncated to 100 characters.',
+						},
+						score: {
+							type: 'null',
+							description: 'Always null; mentions are unranked.',
+						},
+					},
+					required: ['id', 'title', 'snippet'],
+				},
+			},
+		},
+		required: ['mentions'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
@@ -437,6 +566,7 @@ export const findMentionsHandler: ToolDefinition = {
 						})}`,
 					},
 				],
+				structuredContent: { mentions: trimmedMentions },
 			};
 		} catch (error) {
 			return {
@@ -446,6 +576,7 @@ export const findMentionsHandler: ToolDefinition = {
 						text: `Mention search failed: ${(error as Error).message}`,
 					},
 				],
+				structuredContent: { mentions: [] },
 			};
 		}
 	},

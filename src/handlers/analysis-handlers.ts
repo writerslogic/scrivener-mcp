@@ -90,6 +90,37 @@ export const analyzeDocumentHandler: ToolDefinition = {
 		},
 		required: ['documentId'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			readability: {
+				type: 'string',
+				description:
+					'Readability assessment of the passage (e.g. easy/moderate/complex with a brief reason).',
+			},
+			pacing: {
+				type: 'string',
+				description:
+					'Pacing assessment of the passage (e.g. slow/steady/fast with a brief reason).',
+			},
+			issues: {
+				type: 'array',
+				description: 'Craft issues found in the document.',
+				items: {
+					type: 'object',
+					properties: {
+						description: { type: 'string', description: 'What the issue is.' },
+						severity: {
+							type: 'string',
+							description: 'Issue severity when known (low/medium/high).',
+						},
+					},
+					required: ['description'],
+				},
+			},
+		},
+		required: ['readability', 'pacing', 'issues'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		validateInput(args, analysisSchema);
@@ -123,6 +154,7 @@ export const analyzeDocumentHandler: ToolDefinition = {
 						text: summary,
 					},
 				],
+				structuredContent: { readability, pacing, issues },
 			};
 		} catch (error) {
 			// Fallback to basic analysis if AI enhancement fails
@@ -155,6 +187,20 @@ export const analyzeDocumentHandler: ToolDefinition = {
 						text: summary,
 					},
 				],
+				structuredContent: {
+					readability: String(readability),
+					pacing: String(pacing),
+					issues: issues.map((i: unknown) =>
+						typeof i === 'string'
+							? { description: i }
+							: {
+									description: String(
+										(i as Record<string, unknown>).description ??
+											JSON.stringify(i)
+									),
+								}
+					),
+				},
 			};
 		}
 	},
@@ -533,6 +579,19 @@ export const getMemoryHandler: ToolDefinition = {
 			},
 		},
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			memory: {
+				description:
+					'The requested memory store. For "all" (or omitted) this is the full project ' +
+					'memory object (characters, worldBuilding, plotThreads, styleGuide, and more); ' +
+					'for a specific memoryType it is that store: an array for characters and ' +
+					'plotThreads, an object for styleGuide and worldBuilding.',
+			},
+		},
+		required: ['memory'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const memoryManager = requireMemoryManager(context);
 
@@ -565,6 +624,7 @@ export const getMemoryHandler: ToolDefinition = {
 					text: compact(memory),
 				},
 			],
+			structuredContent: { memory },
 		};
 	},
 };
@@ -597,6 +657,57 @@ export const checkConsistencyHandler: ToolDefinition = {
 					'pick any of characters, timeline, locations, plotThreads.',
 			},
 		},
+	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			issues: {
+				type: 'array',
+				description: 'Continuity issues found, sorted by severity.',
+				items: {
+					type: 'object',
+					properties: {
+						type: {
+							type: 'string',
+							description:
+								'Issue category (character, timeline, worldbuilding, plot, or location).',
+						},
+						severity: {
+							type: 'string',
+							description: 'Severity: error, warning, or info.',
+						},
+						documentId: {
+							type: 'string',
+							description:
+								'Id of the document the issue relates to, when applicable.',
+						},
+						description: { type: 'string', description: 'What the issue is.' },
+						suggestion: {
+							type: 'string',
+							description: 'Recommended action to resolve the issue, when available.',
+						},
+					},
+					required: ['type', 'severity', 'description'],
+				},
+			},
+			counts: {
+				type: 'object',
+				description: 'Issue tallies by severity.',
+				properties: {
+					total: { type: 'number', description: 'Total issues found.' },
+					errors: { type: 'number', description: 'Number of error-severity issues.' },
+					warnings: { type: 'number', description: 'Number of warning-severity issues.' },
+					info: { type: 'number', description: 'Number of info-severity issues.' },
+				},
+				required: ['total', 'errors', 'warnings', 'info'],
+			},
+			checkTypes: {
+				type: 'array',
+				description: 'The continuity dimensions that were checked.',
+				items: { type: 'string' },
+			},
+		},
+		required: ['issues', 'counts', 'checkTypes'],
 	},
 	handler: async (args, _context): Promise<HandlerResult> => {
 		const project = requireProject(_context);
@@ -643,22 +754,25 @@ export const checkConsistencyHandler: ToolDefinition = {
 
 			const summary = createConsistencySummary(issues);
 
+			const report = {
+				issues,
+				counts: {
+					total: issues.length,
+					errors: issues.filter((i) => i.severity === 'error').length,
+					warnings: issues.filter((i) => i.severity === 'warning').length,
+					info: issues.filter((i) => i.severity === 'info').length,
+				},
+				checkTypes,
+			};
+
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `${summary}\n\n${compact({
-							issues,
-							counts: {
-								total: issues.length,
-								errors: issues.filter((i) => i.severity === 'error').length,
-								warnings: issues.filter((i) => i.severity === 'warning').length,
-								info: issues.filter((i) => i.severity === 'info').length,
-							},
-							checkTypes,
-						})}`,
+						text: `${summary}\n\n${compact(report)}`,
 					},
 				],
+				structuredContent: report,
 			};
 		} catch (error) {
 			return {
@@ -668,6 +782,11 @@ export const checkConsistencyHandler: ToolDefinition = {
 						text: `Error performing consistency check: ${formatError(error)}`,
 					},
 				],
+				structuredContent: {
+					issues: [],
+					counts: { total: 0, errors: 0, warnings: 0, info: 0 },
+					checkTypes,
+				},
 			};
 		}
 	},
@@ -1108,6 +1227,35 @@ export const semanticSearchHandler: ToolDefinition = {
 		},
 		required: ['query'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			results: {
+				type: 'array',
+				description: 'Documents most relevant to the query, ordered by similarity.',
+				items: {
+					type: 'object',
+					properties: {
+						id: { type: 'string', description: 'Document id.' },
+						title: { type: 'string', description: 'Document title.' },
+						snippet: {
+							type: 'string',
+							description: 'Leading excerpt of the matched document.',
+						},
+						score: {
+							type: 'number',
+							description: 'Similarity score, or null when unavailable.',
+						},
+					},
+				},
+			},
+			searchType: {
+				type: 'string',
+				description: "Search mode used; always 'semantic' for this tool.",
+			},
+		},
+		required: ['results'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const query = getStringArg(args, 'query');
 		const maxResults = getOptionalNumberArg(args, 'maxResults') || 10;
@@ -1158,6 +1306,7 @@ export const semanticSearchHandler: ToolDefinition = {
 						})}`,
 					},
 				],
+				structuredContent: { results: trimmedResults, searchType: 'semantic' },
 			};
 		} catch (error) {
 			return {
@@ -1167,6 +1316,7 @@ export const semanticSearchHandler: ToolDefinition = {
 						text: `Semantic search failed: ${formatError(error)}`,
 					},
 				],
+				structuredContent: { results: [], searchType: 'semantic' },
 			};
 		}
 	},

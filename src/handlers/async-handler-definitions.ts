@@ -57,6 +57,16 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			},
 			required: ['documentId', 'content'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				jobId: {
+					type: 'string',
+					description: 'Identifier of the queued job; poll it with get_job_status.',
+				},
+			},
+			required: ['jobId'],
+		},
 		handler: async (args) => {
 			const result = await asyncHandlers.queueDocumentAnalysis(
 				args as {
@@ -77,6 +87,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
+				structuredContent: { jobId: result.jobId },
 			};
 		},
 	},
@@ -129,6 +140,16 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			},
 			required: ['projectId', 'documents'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				jobId: {
+					type: 'string',
+					description: 'Identifier of the queued batch job; poll it with get_job_status.',
+				},
+			},
+			required: ['jobId'],
+		},
 		handler: async (args) => {
 			const result = await asyncHandlers.queueProjectAnalysis(
 				args as {
@@ -148,6 +169,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
+				structuredContent: { jobId: result.jobId },
 			};
 		},
 	},
@@ -231,6 +253,17 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			},
 			required: ['samples'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				analysis: {
+					type: 'object',
+					description:
+						'Structured style profile of the samples (sentence variety, tone, voice, pacing, and other stylistic features).',
+				},
+			},
+			required: ['analysis'],
+		},
 		handler: async (args) => {
 			const result = await asyncHandlers.analyzeWritingStyle(
 				args as {
@@ -244,6 +277,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
+				structuredContent: { analysis: result.analysis },
 			};
 		},
 	},
@@ -277,6 +311,46 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			},
 			required: ['documents'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				issues: {
+					type: 'array',
+					description: 'Plot-level inconsistencies found (present for synchronous runs).',
+					items: {
+						type: 'object',
+						properties: {
+							issue: {
+								type: 'string',
+								description: 'Description of the inconsistency.',
+							},
+							severity: {
+								type: 'string',
+								description: 'Severity of the issue.',
+								enum: ['low', 'medium', 'high'],
+							},
+							locations: {
+								type: 'array',
+								description: 'Document ids involved in the issue.',
+								items: { type: 'string' },
+							},
+							suggestion: {
+								type: 'string',
+								description: 'Suggested way to resolve the issue.',
+							},
+						},
+					},
+				},
+				jobId: {
+					type: 'string',
+					description: 'Identifier of the queued job (present when run asynchronously).',
+				},
+				message: {
+					type: 'string',
+					description: 'Human-readable status message.',
+				},
+			},
+		},
 		handler: async (args) => {
 			const result = await asyncHandlers.checkPlotConsistency(
 				args as {
@@ -291,6 +365,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
+				structuredContent: result as Record<string, unknown>,
 			};
 		},
 	},
@@ -332,6 +407,28 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			},
 			required: ['jobType', 'jobId'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				state: {
+					type: 'string',
+					description:
+						'Current job state (e.g. queued, running, completed, failed, not_found).',
+				},
+				progress: {
+					type: 'number',
+					description: 'Completion progress of the job.',
+				},
+				result: {
+					description: 'Job result when the job has completed.',
+				},
+				error: {
+					type: 'string',
+					description: 'Failure reason when the job failed or was not found.',
+				},
+			},
+			required: ['state', 'progress'],
+		},
 		handler: async (args) => {
 			const result = await asyncHandlers.getJobStatus(
 				args as {
@@ -346,6 +443,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
+				structuredContent: result as Record<string, unknown>,
 			};
 		},
 	},

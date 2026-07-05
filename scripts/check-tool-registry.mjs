@@ -65,12 +65,46 @@ for (const t of tools) {
 	}
 }
 
+// Tools that intentionally return only human-readable text or an action ack, so
+// they legitimately carry no outputSchema (MCP makes outputSchema optional).
+const TEXT_ONLY = new Set([
+	'open_project',
+	'refresh_project',
+	'close_project',
+	'read_document',
+	'write_document',
+	'delete_document',
+	'move_document',
+	'update_document',
+	'restore_document',
+	'enhance_content',
+	'generate_content',
+	'remember',
+	'suggest_improvements',
+	'generate_marketing_materials',
+	'add_relationship',
+	'set_writing_goal',
+	'set_writing_preferences',
+	'collect_feedback',
+	'cancel_job',
+	'use_skill',
+]);
+for (const t of tools) {
+	const dataTool = !TEXT_ONLY.has(t.name);
+	if (dataTool && !t.outputSchema) problems.push(`${t.name}: data tool missing outputSchema`);
+	if (!dataTool && t.outputSchema) {
+		problems.push(`${t.name}: text-only tool unexpectedly declares outputSchema`);
+	}
+}
+
 const out = (line) => process.stdout.write(`${line}\n`);
-out(`Registry: ${tools.length} tools, ${dupes.length} duplicate names.`);
+const dataCount = tools.filter((t) => !TEXT_ONLY.has(t.name)).length;
+out(`Registry: ${tools.length} tools, ${dupes.length} duplicate names, ${dataCount} data tools.`);
 if (problems.length) {
 	out(`FAIL — ${problems.length} problem(s):`);
 	for (const p of problems) out(`  - ${p}`);
 	process.exit(1);
 }
-out('OK — every registered tool is 5/5 (title, annotations, description, param docs).');
+out('OK — every registered tool is 5/5 (title, annotations, description, param docs) and');
+out('    every data tool declares an outputSchema.');
 process.exit(0);

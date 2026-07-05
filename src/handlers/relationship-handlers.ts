@@ -134,6 +134,36 @@ export const relationshipHandlers: ToolDefinition[] = [
 			},
 			required: ['entity'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				relationships: {
+					type: 'array',
+					description:
+						'Stored relationships in which the queried entity is the head or tail.',
+					items: {
+						type: 'object',
+						properties: {
+							id: { type: 'string', description: 'Deterministic relationship id.' },
+							head: { type: 'string', description: 'Source entity name.' },
+							headType: { type: 'string', description: 'Type of the source entity.' },
+							relation: {
+								type: 'string',
+								description: 'Relationship label from head to tail.',
+							},
+							tail: { type: 'string', description: 'Target entity name.' },
+							tailType: { type: 'string', description: 'Type of the target entity.' },
+							properties: {
+								type: 'object',
+								description: 'Optional edge properties, when present.',
+							},
+						},
+						required: ['id', 'head', 'headType', 'relation', 'tail', 'tailType'],
+					},
+				},
+			},
+			required: ['relationships'],
+		},
 		handler: async (args, context): Promise<HandlerResult> => {
 			try {
 				const engine = requireRelationshipEngine(context);
@@ -142,7 +172,10 @@ export const relationshipHandlers: ToolDefinition[] = [
 				const k = getOptionalNumberArg(args, 'k');
 
 				const results = await engine.findRelated(entity, relation, k);
-				return ok(results);
+				return {
+					content: [{ type: 'text', text: compact(results) }],
+					structuredContent: { relationships: results },
+				};
 			} catch (error) {
 				return fail(error, 'find_relationships');
 			}
@@ -190,11 +223,48 @@ export const relationshipHandlers: ToolDefinition[] = [
 			type: 'object',
 			properties: {},
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				network: {
+					type: 'object',
+					description:
+						"Map keyed by source character name; each value is that character's outgoing edges.",
+					additionalProperties: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								target: {
+									type: 'string',
+									description: 'Name of the connected character.',
+								},
+								relation: {
+									type: 'string',
+									description:
+										'Relationship label from the source to the target.',
+								},
+								properties: {
+									type: 'object',
+									description:
+										'Optional edge properties (present via the Neo4j backend).',
+								},
+							},
+							required: ['target', 'relation'],
+						},
+					},
+				},
+			},
+			required: ['network'],
+		},
 		handler: async (_args, context): Promise<HandlerResult> => {
 			try {
 				const engine = requireRelationshipEngine(context);
 				const network = await engine.getCharacterNetwork();
-				return ok(network);
+				return {
+					content: [{ type: 'text', text: compact(network) }],
+					structuredContent: { network },
+				};
 			} catch (error) {
 				return fail(error, 'character_network');
 			}
@@ -225,13 +295,47 @@ export const relationshipHandlers: ToolDefinition[] = [
 				},
 			},
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				connections: {
+					type: 'array',
+					description:
+						'Candidate connections inferred from entity co-occurrence, not yet in the graph.',
+					items: {
+						type: 'object',
+						properties: {
+							entity1: {
+								type: 'string',
+								description:
+									'Name of the first entity in the candidate connection.',
+							},
+							entity2: {
+								type: 'string',
+								description:
+									'Name of the second entity in the candidate connection.',
+							},
+							strength: {
+								type: 'number',
+								description: 'Similarity score for the candidate connection (0-1).',
+							},
+						},
+						required: ['entity1', 'entity2', 'strength'],
+					},
+				},
+			},
+			required: ['connections'],
+		},
 		handler: async (args, context): Promise<HandlerResult> => {
 			try {
 				const engine = requireRelationshipEngine(context);
 				const k = getOptionalNumberArg(args, 'k');
 
 				const discoveries = await engine.discoverRelationships(k);
-				return ok(discoveries);
+				return {
+					content: [{ type: 'text', text: compact(discoveries) }],
+					structuredContent: { connections: discoveries },
+				};
 			} catch (error) {
 				return fail(error, 'discover_connections');
 			}

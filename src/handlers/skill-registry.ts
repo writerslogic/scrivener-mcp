@@ -115,6 +115,39 @@ function buildMetaTools(): void {
 			properties: {},
 			required: [],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				skills: {
+					type: 'array',
+					description: 'The available skills (tool groups).',
+					items: {
+						type: 'object',
+						properties: {
+							name: {
+								type: 'string',
+								description: 'Skill identifier passed to use_skill.',
+							},
+							description: { type: 'string', description: 'What the skill covers.' },
+							tools: {
+								type: 'number',
+								description: 'Number of visible tools in the skill.',
+							},
+							activated: {
+								type: 'boolean',
+								description: 'Whether the skill is already active this session.',
+							},
+							tool_names: {
+								type: 'array',
+								description: 'Names of the visible tools in the skill.',
+								items: { type: 'string' },
+							},
+						},
+					},
+				},
+			},
+			required: ['skills'],
+		},
 		handler: async (): Promise<HandlerResult> => {
 			const index = skills.map((s) => {
 				const visible = visibleTools(s);
@@ -128,6 +161,7 @@ function buildMetaTools(): void {
 			});
 			return {
 				content: [{ type: 'text', text: JSON.stringify(index, null, 2) }],
+				structuredContent: { skills: index },
 			};
 		},
 	};

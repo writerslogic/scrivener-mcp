@@ -16,13 +16,20 @@ import { compileSchema, exportSchema } from './validation-schemas.js';
 
 const logger = getLogger('compilation-handlers');
 
-function formatCompileResult(text: string, sectionCount: number): HandlerResult {
+function formatCompileResult(text: string, sectionCount: number, format: string): HandlerResult {
 	const charCount = text.length;
 	const wordCount = text.split(/\s+/).filter(Boolean).length;
 
 	if (charCount <= 4000) {
 		return {
 			content: [{ type: 'text', text }],
+			structuredContent: {
+				format,
+				text,
+				wordCount,
+				charCount,
+				sections: sectionCount,
+			},
 		};
 	}
 
@@ -40,6 +47,13 @@ function formatCompileResult(text: string, sectionCount: number): HandlerResult 
 				}),
 			},
 		],
+		structuredContent: {
+			format,
+			file: ref._file,
+			wordCount,
+			charCount,
+			sections: sectionCount,
+		},
 	};
 }
 
@@ -117,6 +131,38 @@ export const compileDocumentsHandler: ToolDefinition = {
 			},
 		},
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			format: {
+				type: 'string',
+				description: 'Format the manuscript was compiled to (text, markdown, or html).',
+			},
+			text: {
+				type: 'string',
+				description:
+					'The compiled manuscript text. Present for small results; large results spool to a file instead.',
+			},
+			file: {
+				type: 'string',
+				description:
+					'File reference the compiled text was spooled to. Present only when the result was too large to inline.',
+			},
+			wordCount: {
+				type: 'number',
+				description: 'Word count of the compiled manuscript.',
+			},
+			charCount: {
+				type: 'number',
+				description: 'Character count of the compiled manuscript.',
+			},
+			sections: {
+				type: 'number',
+				description: 'Number of documents compiled into the manuscript.',
+			},
+		},
+		required: ['format', 'wordCount', 'charCount', 'sections'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		validateInput(args, compileSchema);
@@ -191,7 +237,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 					typeof compiled.content === 'string'
 						? compiled.content
 						: JSON.stringify(compiled.content);
-				return formatCompileResult(text, documentsToCompile.length);
+				return formatCompileResult(text, documentsToCompile.length, format);
 			} catch (error) {
 				logger.error('Intelligent compilation failed', {
 					error: (error as Error).message,
@@ -226,14 +272,14 @@ export const compileDocumentsHandler: ToolDefinition = {
 				typeof compiled.content === 'string'
 					? compiled.content
 					: JSON.stringify(compiled.content);
-			return formatCompileResult(text, documentsToCompile.length);
+			return formatCompileResult(text, documentsToCompile.length, format);
 		} catch (error) {
 			const separator = getOptionalStringArg(args, 'separator') || '\n\n---\n\n';
 			const documentIds = documentsToCompile.map((doc) => doc.id);
 			const compiled = await project.compileDocuments(documentIds, separator, format);
 
 			const text = typeof compiled === 'string' ? compiled : JSON.stringify(compiled);
-			return formatCompileResult(text, documentsToCompile.length);
+			return formatCompileResult(text, documentsToCompile.length, format);
 		}
 	},
 };
@@ -273,6 +319,25 @@ export const exportProjectHandler: ToolDefinition = {
 		},
 		required: ['format'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			format: {
+				type: 'string',
+				description: 'Format the project was exported to (markdown, html, json, or epub).',
+			},
+			content: {
+				type: 'string',
+				description: 'The exported document content.',
+			},
+			metadata: {
+				type: 'object',
+				description:
+					'Export metadata: exportDate, format, and documentCount (number of documents exported).',
+			},
+		},
+		required: ['format', 'content', 'metadata'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		validateInput(args, exportSchema);
@@ -282,11 +347,11 @@ export const exportProjectHandler: ToolDefinition = {
 		const outputPath = getOptionalStringArg(args, 'outputPath');
 		const options = getOptionalObjectArg(args, 'options') as Partial<ExportOptions> | undefined;
 
-		const result = await project.exportProject(
+		const result = (await project.exportProject(
 			format,
 			outputPath,
 			options as Partial<ExportOptions> | undefined
-		);
+		)) as { format: string; content: string; metadata: Record<string, unknown> };
 
 		return {
 			content: [
@@ -295,6 +360,11 @@ export const exportProjectHandler: ToolDefinition = {
 					text: compact(result),
 				},
 			],
+			structuredContent: {
+				format: result.format,
+				content: result.content,
+				metadata: result.metadata,
+			},
 		};
 	},
 };
@@ -322,6 +392,79 @@ export const getStatisticsHandler: ToolDefinition = {
 			},
 		},
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			totalDocuments: {
+				type: 'number',
+				description: 'Total number of items in the project.',
+			},
+			totalFolders: { type: 'number', description: 'Number of folder items.' },
+			totalWords: { type: 'number', description: 'Total word count across all documents.' },
+			totalCharacters: {
+				type: 'number',
+				description: 'Total character count across all documents.',
+			},
+			draftDocuments: { type: 'number', description: 'Number of documents in the Draft.' },
+			researchDocuments: {
+				type: 'number',
+				description: 'Number of documents in Research.',
+			},
+			trashedDocuments: { type: 'number', description: 'Number of trashed documents.' },
+			metadata: { type: 'object', description: 'Project metadata.' },
+			documentsByType: {
+				type: 'object',
+				description: 'Count of documents keyed by type.',
+			},
+			documentsByStatus: {
+				type: 'object',
+				description: 'Count of documents keyed by status.',
+			},
+			documentsByLabel: {
+				type: 'object',
+				description: 'Count of documents keyed by label.',
+			},
+			averageDocumentLength: {
+				type: 'number',
+				description: 'Average word count per text document.',
+			},
+			longestDocument: {
+				type: 'object',
+				description: 'The longest document, or null if none.',
+			},
+			shortestDocument: {
+				type: 'object',
+				description: 'The shortest document, or null if none.',
+			},
+			recentlyModified: {
+				type: 'array',
+				description: 'Recently modified documents.',
+			},
+			title: { type: 'string', description: 'Project title (defaults to "Untitled").' },
+			author: { type: 'string', description: 'Project author, if set.' },
+			lastModified: {
+				type: 'string',
+				description: 'ISO timestamp of when these statistics were generated.',
+			},
+		},
+		required: [
+			'totalDocuments',
+			'totalFolders',
+			'totalWords',
+			'totalCharacters',
+			'draftDocuments',
+			'researchDocuments',
+			'trashedDocuments',
+			'metadata',
+			'documentsByType',
+			'documentsByStatus',
+			'documentsByLabel',
+			'averageDocumentLength',
+			'recentlyModified',
+			'title',
+			'lastModified',
+		],
+	},
 	handler: async (_args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 
@@ -342,6 +485,7 @@ export const getStatisticsHandler: ToolDefinition = {
 					text: compact(fullStats),
 				},
 			],
+			structuredContent: { ...fullStats },
 		};
 	},
 };

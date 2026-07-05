@@ -72,6 +72,71 @@ export const getDocumentInfoHandler: ToolDefinition = {
 		},
 		required: ['documentId'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			document: {
+				type: 'object',
+				description: 'The document metadata (body text excluded).',
+				properties: {
+					id: { type: 'string', description: 'Scrivener UUID of the document.' },
+					title: { type: 'string', description: 'Document title.' },
+					type: {
+						type: 'string',
+						description: 'Item type: "Text", "Folder", or "Other".',
+					},
+					path: { type: 'string', description: 'Binder path of the document.' },
+					synopsis: {
+						type: 'string',
+						description: 'Synopsis / index-card text, if set.',
+					},
+					notes: { type: 'string', description: 'Inspector notes, if set.' },
+					label: { type: 'string', description: 'Label name, if set.' },
+					status: { type: 'string', description: 'Status name, if set.' },
+					wordCount: {
+						type: 'number',
+						description: 'Word count of the document body.',
+					},
+					includeInCompile: {
+						type: 'boolean',
+						description: 'Whether the document is included in compile.',
+					},
+					keywords: {
+						type: 'array',
+						description: 'Keywords assigned to the document.',
+						items: { type: 'string' },
+					},
+					customMetadata: {
+						type: 'object',
+						description: 'Map of custom metadata field names to string values.',
+					},
+				},
+				required: ['id', 'title', 'type', 'path'],
+			},
+			path: {
+				type: 'array',
+				description: 'Ancestor chain from the binder root to the document.',
+				items: {
+					type: 'object',
+					properties: {
+						id: { type: 'string' },
+						title: { type: 'string' },
+						type: { type: 'string' },
+					},
+				},
+			},
+			metadata: {
+				type: 'object',
+				description:
+					'Derived metadata map (synopsis, notes, keywords, status, label) as strings.',
+			},
+			location: {
+				type: 'string',
+				description: 'Where the document lives: "active", "trash", or "unknown".',
+			},
+		},
+		required: ['document', 'path', 'metadata', 'location'],
+	},
 	handler: async (args, _context): Promise<HandlerResult> => {
 		try {
 			const project = requireProject(_context);
@@ -86,6 +151,12 @@ export const getDocumentInfoHandler: ToolDefinition = {
 						text: compact(info.result),
 					},
 				],
+				structuredContent: {
+					document: info.result.document,
+					path: info.result.path,
+					metadata: info.result.metadata,
+					location: info.result.location,
+				},
 			};
 		} catch (error) {
 			const appError = handleError(error, 'getDocumentInfo');
@@ -309,6 +380,16 @@ export const createDocumentHandler: ToolDefinition = {
 		},
 		required: ['title'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			documentId: {
+				type: 'string',
+				description: 'Scrivener UUID of the newly created document or folder.',
+			},
+		},
+		required: ['documentId'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		try {
 			const project = requireProject(context);
@@ -373,6 +454,7 @@ export const createDocumentHandler: ToolDefinition = {
 						text: `Document created with ID: ${result.result}`,
 					},
 				],
+				structuredContent: { documentId: result.result },
 			};
 		} catch (error) {
 			const appError = handleError(error, 'createDocument');

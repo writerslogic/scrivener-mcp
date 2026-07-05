@@ -122,6 +122,102 @@ export const getWritingPreferencesHandler: ToolDefinition = {
 		properties: {},
 		required: [],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			preferences: {
+				type: 'object',
+				description: 'The active author writing-preference profile.',
+				properties: {
+					enabled: {
+						type: 'boolean',
+						description: 'When false, preferences are not applied to AI output.',
+					},
+					tone: {
+						type: 'string',
+						description: 'Desired tone: "neutral", "formal", "casual", or "creative".',
+					},
+					complexity: {
+						type: 'string',
+						description: 'Language complexity: "balanced", "simple", or "advanced".',
+					},
+					length: {
+						type: 'string',
+						description: 'Verbosity: "balanced", "concise", or "comprehensive".',
+					},
+					pointOfView: {
+						type: 'string',
+						description: 'Narrative point of view, when set.',
+					},
+					styleGuides: {
+						type: 'array',
+						items: { type: 'string' },
+						description: 'Style guides to honour, e.g. ["Chicago"].',
+					},
+					customInstructions: {
+						type: 'string',
+						description:
+							'Free-form instruction appended to the AI directive, when set.',
+					},
+					updatedAt: {
+						type: 'string',
+						description: 'ISO timestamp of the last preference update, when known.',
+					},
+				},
+				required: ['enabled', 'tone', 'complexity', 'length', 'styleGuides'],
+			},
+			insights: {
+				type: 'object',
+				description: 'Aggregated feedback view plus non-binding suggestions.',
+				properties: {
+					totalFeedback: {
+						type: 'number',
+						description: 'Number of feedback events recorded.',
+					},
+					overallAverageRating: {
+						type: ['number', 'null'],
+						description: 'Mean of all provided ratings, or null when none were rated.',
+					},
+					byOperation: {
+						type: 'array',
+						description: 'Per-operation feedback aggregates.',
+						items: {
+							type: 'object',
+							properties: {
+								operation: {
+									type: 'string',
+									description: 'The operation the aggregate is for.',
+								},
+								count: {
+									type: 'number',
+									description: 'Number of feedback events for this operation.',
+								},
+								averageRating: {
+									type: ['number', 'null'],
+									description:
+										'Mean rating for this operation, or null when none rated.',
+								},
+								acceptanceRate: {
+									type: ['number', 'null'],
+									description:
+										'Fraction of events accepted, or null when none recorded acceptance.',
+								},
+							},
+							required: ['operation', 'count', 'averageRating', 'acceptanceRate'],
+						},
+					},
+					suggestions: {
+						type: 'array',
+						items: { type: 'string' },
+						description:
+							'Human-readable, non-binding suggestions derived from feedback.',
+					},
+				},
+				required: ['totalFeedback', 'overallAverageRating', 'byOperation', 'suggestions'],
+			},
+		},
+		required: ['preferences', 'insights'],
+	},
 	handler: async (_args, context: HandlerContext): Promise<HandlerResult> => {
 		const personalization = getPersonalization(context);
 		const preferences = await personalization.getPreferences();
@@ -134,6 +230,7 @@ export const getWritingPreferencesHandler: ToolDefinition = {
 					text: compact({ preferences, insights }),
 				},
 			],
+			structuredContent: { preferences, insights } as unknown as Record<string, unknown>,
 		};
 	},
 };

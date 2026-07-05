@@ -166,6 +166,52 @@ export const verifyProjectIntegrityHandler: ToolDefinition = {
 		},
 		required: [],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			ok: {
+				type: 'boolean',
+				description: 'True when no error-severity issues were found.',
+			},
+			checked: {
+				type: 'number',
+				description: 'Number of binder items inspected.',
+			},
+			issues: {
+				type: 'array',
+				description: 'Every integrity problem found; empty when the project is clean.',
+				items: {
+					type: 'object',
+					properties: {
+						severity: {
+							type: 'string',
+							description: 'Issue severity: "error" or "warning".',
+						},
+						kind: {
+							type: 'string',
+							description:
+								'Stable machine-readable problem category, e.g. "missing_id", ' +
+								'"duplicate_id", "empty_content".',
+						},
+						id: {
+							type: 'string',
+							description: 'Scrivener UUID of the offending item, when known.',
+						},
+						detail: {
+							type: 'string',
+							description: 'Human-readable explanation including title/path context.',
+						},
+					},
+					required: ['severity', 'kind', 'detail'],
+				},
+			},
+			summary: {
+				type: 'string',
+				description: 'One-line human-readable summary of the check.',
+			},
+		},
+		required: ['ok', 'checked', 'issues', 'summary'],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		try {
 			const project = requireProject(context);
@@ -191,6 +237,7 @@ export const verifyProjectIntegrityHandler: ToolDefinition = {
 
 			return {
 				content: [{ type: 'text', text: compact(report) }],
+				structuredContent: report as unknown as Record<string, unknown>,
 			};
 		} catch (error) {
 			throw handleError(error, 'verifyProjectIntegrity');

@@ -228,6 +228,72 @@ export const getWritingGoalsHandler: ToolDefinition = {
 		},
 		required: [],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			goals: {
+				type: 'array',
+				description: 'Goals with computed progress; empty when none match the filter.',
+				items: {
+					type: 'object',
+					properties: {
+						id: { type: 'string', description: 'Goal identifier.' },
+						type: {
+							type: 'string',
+							description: 'Goal cadence: "daily", "weekly", or "project".',
+						},
+						targetWords: {
+							type: 'number',
+							description: 'Target word count for the goal.',
+						},
+						targetDate: {
+							type: ['string', 'null'],
+							description: 'ISO deadline, or null for an open-ended goal.',
+						},
+						status: {
+							type: 'string',
+							description: 'Goal status, e.g. "active", "completed", "missed".',
+						},
+						achievedWords: {
+							type: 'number',
+							description:
+								'Words counted toward the goal (live project words for ' +
+								'"project" goals, recorded words otherwise).',
+						},
+						progressPercent: {
+							type: 'number',
+							description: 'Percent complete, clamped to 0-100.',
+						},
+						wordsRemaining: {
+							type: 'number',
+							description: 'Words left to reach the target, never negative.',
+						},
+						onTrack: {
+							type: 'boolean',
+							description:
+								'Whether achieved words meet the pace implied by the target date.',
+						},
+					},
+					required: [
+						'id',
+						'type',
+						'targetWords',
+						'targetDate',
+						'status',
+						'achievedWords',
+						'progressPercent',
+						'wordsRemaining',
+						'onTrack',
+					],
+				},
+			},
+			projectWords: {
+				type: 'number',
+				description: 'Current total word count of the open project.',
+			},
+		},
+		required: ['goals', 'projectWords'],
+	},
 	handler: async (args, context: HandlerContext): Promise<HandlerResult> => {
 		if (!context.databaseService) {
 			return databaseUnavailable();
@@ -247,6 +313,7 @@ export const getWritingGoalsHandler: ToolDefinition = {
 					text: `${progress.length} goal(s), project at ${currentWords} words\n${compact(progress)}`,
 				},
 			],
+			structuredContent: { goals: progress, projectWords: currentWords },
 		};
 	},
 };
