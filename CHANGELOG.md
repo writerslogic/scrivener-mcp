@@ -30,6 +30,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Delete 4 dead modules (4786 LOC, zero imports)
 
 ### Documentation
+- Mark Phase 5 complete and Phase 6 docs/verify done in tool-quality-plan
 - Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
 
 ### Fixed
