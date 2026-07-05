@@ -1,0 +1,76 @@
+/**
+ * Tool-registry gate. tsc and eslint cannot see these problems: duplicate tool
+ * names, a hidden tool leaking into the public surface, or a tool missing its
+ * 5/5 metadata (title, annotations with all four behavior hints, a substantive
+ * description, and a description on every input parameter).
+ *
+ * Runs against the built output (the registry pulls in the HMS module, which
+ * uses top-level await and so cannot be loaded by the CommonJS test runner):
+ *
+ *   npm run build && node scripts/check-tool-registry.mjs
+ *
+ * Exits 0 when the surface is clean, 1 (with a report) when it is not.
+ */
+import {
+	initializeSkillRegistry,
+	activateSkills,
+	getRegisteredTools,
+} from '../dist/handlers/skill-registry.js';
+
+const HINT_KEYS = ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'];
+const HIDDEN = [
+	'find_analogies',
+	'hhm_dream',
+	'build_vector_store',
+	'multi_agent_analysis',
+	'store_chapter_order',
+	'sync_to_neo4j',
+	'get_queue_stats',
+];
+
+initializeSkillRegistry();
+activateSkills(
+	'project',
+	'documents',
+	'search',
+	'analysis',
+	'compilation',
+	'memory',
+	'relationships',
+	'advanced'
+);
+
+const tools = getRegisteredTools();
+const names = tools.map((t) => t.name);
+const problems = [];
+
+const dupes = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))];
+if (dupes.length) problems.push(`duplicate names: ${dupes.join(', ')}`);
+
+const leaked = HIDDEN.filter((n) => names.includes(n));
+if (leaked.length) problems.push(`hidden tools exposed: ${leaked.join(', ')}`);
+
+for (const t of tools) {
+	if (!t.title) problems.push(`${t.name}: missing title`);
+	if ((t.description ?? '').length < 60) problems.push(`${t.name}: description too thin`);
+	const anno = t.annotations ?? {};
+	if (!t.annotations || HINT_KEYS.some((k) => typeof anno[k] !== 'boolean')) {
+		problems.push(`${t.name}: annotations missing a behavior hint`);
+	}
+	const props = t.inputSchema?.properties ?? {};
+	for (const [param, schema] of Object.entries(props)) {
+		if (!(typeof schema.description === 'string' && schema.description.length > 0)) {
+			problems.push(`${t.name}.${param}: undocumented parameter`);
+		}
+	}
+}
+
+const out = (line) => process.stdout.write(`${line}\n`);
+out(`Registry: ${tools.length} tools, ${dupes.length} duplicate names.`);
+if (problems.length) {
+	out(`FAIL — ${problems.length} problem(s):`);
+	for (const p of problems) out(`  - ${p}`);
+	process.exit(1);
+}
+out('OK — every registered tool is 5/5 (title, annotations, description, param docs).');
+process.exit(0);

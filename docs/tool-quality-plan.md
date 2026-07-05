@@ -129,7 +129,7 @@ attention.
 - [x] **Phase 1** — project group to 5/5 (pilot, proves the template).
 - [x] **Phase 2** — documents group consolidated 11→7 and to 5/5 (73 tests pass).
 - [x] **Phase 3** — consolidation (BREAKING → 0.7.0): hidden 15 internal tools; merged read-formatting, rename+metadata, trash/title search, intelligent_compilation, deduped semantic_search, hid fractal_search/get_memory_analytics. **69 → 44 tools.**
-- [x] **Phase 4** — 5/5 on the consolidated set: every registered tool (44/44) now carries title + structured description + per-param docs + annotations. Verified via registry probe (missing_5_5 = none) and tsc/build/test green. Five handler files done in parallel via subagents.
+- [x] **Phase 4** — 5/5 on the consolidated set: every registered tool now carries title + structured description + per-param docs + annotations. Current surface is **47 public tools** (the `remember`/`recall` memory tools live in the analysis skill; goals + personalization tools were added after the original 44 count). Hidden tools (`find_analogies`, `hhm_dream`, `build_vector_store`, `multi_agent_analysis`, `store_chapter_order`, `sync_to_neo4j`, `get_queue_stats`) are excluded from the public list via `HIDDEN_TOOLS` in skill-registry. Final param-doc gap (16 tools whose `documentId`/`content`/`query`/`maxResults`/`folderId`/`includeTrash` came from description-less `SHARED_DEFS` fragments) closed by documenting those shared fragments. Gate: `npm run check:tools` (registry probe — dup names, hidden-tool leaks, and 5/5 coverage; tsc/eslint miss all three).
 - [ ] **Phase 5** — outputSchema + structuredContent across all tools; Completeness backed by machine-readable results.
 
 ### Deferred (optional, lower-impact)
