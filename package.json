@@ -45,6 +45,7 @@
     "format:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
     "check:tools": "npm run build && node scripts/check-tool-registry.mjs",
+    "check:conformance": "npm run build && node scripts/check-output-conformance.mjs",
     "prepublishOnly": "npm run clean && npm run build",
     "prepare": "test -n \"$CI\" || npm run build",
     "postinstall": "node scripts/postinstall.cjs",

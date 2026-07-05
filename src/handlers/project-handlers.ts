@@ -166,12 +166,30 @@ export const getStructureHandler: ToolDefinition = {
 				items: {
 					type: 'object',
 					properties: {
-						id: { type: 'string' },
-						title: { type: 'string' },
-						type: { type: 'string' },
-						depth: { type: 'number' },
-						wordCount: { type: 'number' },
-						hasChildren: { type: 'boolean' },
+						id: {
+							type: 'string',
+							description: 'Document/folder UUID for read_document etc.',
+						},
+						title: {
+							type: 'string',
+							description: 'Item title as shown in the binder.',
+						},
+						type: {
+							type: 'string',
+							description: 'Item type, e.g. "Text" or "Folder".',
+						},
+						depth: {
+							type: 'number',
+							description: 'Nesting depth, 0 for top-level items.',
+						},
+						wordCount: {
+							type: 'number',
+							description: 'Word count of the item (0 for folders).',
+						},
+						hasChildren: {
+							type: 'boolean',
+							description: 'Whether the item contains nested items.',
+						},
 					},
 				},
 			},

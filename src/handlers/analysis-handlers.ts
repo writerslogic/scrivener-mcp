@@ -1243,7 +1243,7 @@ export const semanticSearchHandler: ToolDefinition = {
 							description: 'Leading excerpt of the matched document.',
 						},
 						score: {
-							type: 'number',
+							type: ['number', 'null'],
 							description: 'Similarity score, or null when unavailable.',
 						},
 					},

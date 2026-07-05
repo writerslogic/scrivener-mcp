@@ -429,11 +429,11 @@ export const getStatisticsHandler: ToolDefinition = {
 				description: 'Average word count per text document.',
 			},
 			longestDocument: {
-				type: 'object',
+				type: ['object', 'null'],
 				description: 'The longest document, or null if none.',
 			},
 			shortestDocument: {
-				type: 'object',
+				type: ['object', 'null'],
 				description: 'The shortest document, or null if none.',
 			},
 			recentlyModified: {

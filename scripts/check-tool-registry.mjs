@@ -89,11 +89,36 @@ const TEXT_ONLY = new Set([
 	'cancel_job',
 	'use_skill',
 ]);
+// Every declared property in an outputSchema — at any depth (object properties,
+// array items, additionalProperties) — must carry a description, so the schema is
+// substantive rather than a hollow shell that games "outputSchema present".
+function schemaDescriptionGaps(schema, path, gaps) {
+	if (!schema || typeof schema !== 'object') return;
+	if (schema.properties && Object.keys(schema.properties).length === 0) {
+		gaps.push(`${path}: empty properties`);
+	}
+	for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+		if (!(typeof sub.description === 'string' && sub.description.length > 0)) {
+			gaps.push(`${path}.${key}: undescribed`);
+		}
+		schemaDescriptionGaps(sub, `${path}.${key}`, gaps);
+	}
+	if (schema.items) schemaDescriptionGaps(schema.items, `${path}[]`, gaps);
+	if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+		schemaDescriptionGaps(schema.additionalProperties, `${path}{}`, gaps);
+	}
+}
+
 for (const t of tools) {
 	const dataTool = !TEXT_ONLY.has(t.name);
 	if (dataTool && !t.outputSchema) problems.push(`${t.name}: data tool missing outputSchema`);
 	if (!dataTool && t.outputSchema) {
 		problems.push(`${t.name}: text-only tool unexpectedly declares outputSchema`);
+	}
+	if (t.outputSchema) {
+		const gaps = [];
+		schemaDescriptionGaps(t.outputSchema, `${t.name}.outputSchema`, gaps);
+		for (const g of gaps) problems.push(g);
 	}
 }
 

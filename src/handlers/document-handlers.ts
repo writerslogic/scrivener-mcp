@@ -119,9 +119,9 @@ export const getDocumentInfoHandler: ToolDefinition = {
 				items: {
 					type: 'object',
 					properties: {
-						id: { type: 'string' },
-						title: { type: 'string' },
-						type: { type: 'string' },
+						id: { type: 'string', description: 'UUID of the ancestor binder item.' },
+						title: { type: 'string', description: 'Title of the ancestor item.' },
+						type: { type: 'string', description: 'Type of the ancestor item.' },
 					},
 				},
 			},
