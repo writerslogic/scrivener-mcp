@@ -1,6 +1,5 @@
 import { getWritingTextMetrics as getTextMetrics } from '../../utils/text-metrics.js';
 import { simdTextProcessor } from '../../utils/simd-text-processor.js';
-import { wasmAccelerator } from '../../utils/wasm-accelerator.js';
 import { generateHash } from '../../utils/common.js';
 import type { PredictiveCacheFactory } from '../../utils/predictive-cache.js';
 
@@ -17,8 +16,6 @@ export interface WritingMetrics {
 
 export class MetricsAnalyzer {
 	private readonly simdProcessor = simdTextProcessor;
-	private readonly wasmProcessor = wasmAccelerator;
-	private isWasmInitialized = false;
 
 	constructor(
 		private predictiveMetricsCache: ReturnType<
@@ -28,10 +25,6 @@ export class MetricsAnalyzer {
 		private getResourceFromPool: <T>(type: string, creator: () => T) => T,
 		private returnResourceToPool: <T>(type: string, resource: T) => void
 	) {}
-
-	setWasmInitialized(initialized: boolean): void {
-		this.isWasmInitialized = initialized;
-	}
 
 	async calculateMetrics(
 		content: string,
@@ -67,12 +60,12 @@ export class MetricsAnalyzer {
 			words.length = 0; // Clear the array
 			words.push(...content.split(/\s+/).filter((w) => w.length > 0));
 
-			// Calculate readability scores using WASM acceleration when available
-			const readabilityResult = this.isWasmInitialized
-				? await this.calculateReadabilityWithWasm(content, correctedMetrics)
-				: this.calculateReadabilityWithSIMD(content, correctedMetrics, words);
-
-			const { fleschReadingEase, fleschKincaidGrade } = readabilityResult;
+			// Calculate readability scores from vectorized text metrics
+			const { fleschReadingEase, fleschKincaidGrade } = this.calculateReadabilityWithSIMD(
+				content,
+				correctedMetrics,
+				words
+			);
 
 			// Return word array to pool
 			this.returnResourceToPool('word-array', words);
@@ -136,22 +129,6 @@ export class MetricsAnalyzer {
 			fleschReadingEase: Math.max(0, Math.min(100, fleschReadingEase)),
 			fleschKincaidGrade: Math.max(0, fleschKincaidGrade),
 		};
-	}
-
-	private async calculateReadabilityWithWasm(
-		content: string,
-		metrics: { wordCount: number; sentenceCount: number }
-	): Promise<{ fleschReadingEase: number; fleschKincaidGrade: number }> {
-		try {
-			// Use WASM for ultra-fast readability calculation
-			const result = await this.wasmProcessor.calculateReadabilityWasm(content);
-			return {
-				fleschReadingEase: result.fleschReadingEase,
-				fleschKincaidGrade: result.fleschKincaidGrade,
-			};
-		} catch {
-			return this.fallbackReadabilityCalculation(metrics);
-		}
 	}
 
 	private calculateReadabilityWithSIMD(

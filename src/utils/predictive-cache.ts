@@ -4,7 +4,6 @@
  */
 
 import { getLogger } from '../core/logger.js';
-import { LockFreeHashMap, LockFreeQueue } from './lockfree-structures.js';
 
 const logger = getLogger('predictive-cache');
 
@@ -50,9 +49,9 @@ interface PrefetchCandidate {
  * Learns from access patterns to predict future cache needs
  */
 export class PredictiveCache<T> {
-	private cache = new LockFreeHashMap<string, CacheEntry<T>>(512);
-	private accessHistory = new LockFreeQueue<AccessPattern>();
-	private prefetchQueue = new LockFreeQueue<PrefetchCandidate>();
+	private cache = new Map<string, CacheEntry<T>>();
+	private accessHistory: AccessPattern[] = [];
+	private prefetchQueue: PrefetchCandidate[] = [];
 
 	private readonly maxCacheSize: number;
 	private readonly maxHistorySize = 10000;
@@ -236,7 +235,7 @@ export class PredictiveCache<T> {
 	 * Clear entire cache
 	 */
 	clear(): void {
-		this.cache = new LockFreeHashMap<string, CacheEntry<T>>(512);
+		this.cache = new Map<string, CacheEntry<T>>();
 		this.currentCacheSize = 0;
 		logger.info('Cache cleared');
 	}
@@ -262,7 +261,7 @@ export class PredictiveCache<T> {
 			prefetchHitRate,
 			size: this.currentCacheSize,
 			maxSize: this.maxCacheSize,
-			entryCount: this.cache.getSize(),
+			entryCount: this.cache.size,
 			modelAccuracy: this.model.accuracy,
 			predictions: this.model.trainingSize,
 			totalAccesses: this.totalAccesses,
@@ -289,7 +288,7 @@ export class PredictiveCache<T> {
 
 		// Drain prefetch queue up to limit
 		for (let i = 0; i < limit; i++) {
-			const candidate = this.prefetchQueue.dequeue();
+			const candidate = this.prefetchQueue.shift();
 			if (!candidate || processed.has(candidate.key)) continue;
 
 			processed.add(candidate.key);
@@ -313,11 +312,11 @@ export class PredictiveCache<T> {
 	}
 
 	private recordAccessPattern(pattern: AccessPattern): void {
-		this.accessHistory.enqueue(pattern);
+		this.accessHistory.push(pattern);
 
 		// Limit history size
-		while (this.accessHistory.getSize() > this.maxHistorySize) {
-			this.accessHistory.dequeue();
+		while (this.accessHistory.length > this.maxHistorySize) {
+			this.accessHistory.shift();
 		}
 	}
 
@@ -344,20 +343,20 @@ export class PredictiveCache<T> {
 	}
 
 	private async updateModel(): Promise<void> {
-		if (this.accessHistory.getSize() < 100) return; // Need minimum training data
+		if (this.accessHistory.length < 100) return; // Need minimum training data
 
 		const trainingData: Array<{ features: number[]; label: number }> = [];
 		const patterns: AccessPattern[] = [];
 
 		// Collect training patterns
-		let pattern = this.accessHistory.dequeue();
+		let pattern = this.accessHistory.shift();
 		while (pattern && patterns.length < 1000) {
 			patterns.push(pattern);
-			pattern = this.accessHistory.dequeue();
+			pattern = this.accessHistory.shift();
 		}
 
 		// Re-queue patterns
-		patterns.forEach((p) => this.accessHistory.enqueue(p));
+		patterns.forEach((p) => this.accessHistory.push(p));
 
 		// Generate training examples
 		for (let i = 0; i < patterns.length - 1; i++) {
@@ -483,7 +482,7 @@ export class PredictiveCache<T> {
 				const confidence = this.predictNextAccess(candidateKey, context, userSession);
 
 				if (confidence > this.prefetchThreshold) {
-					this.prefetchQueue.enqueue({
+					this.prefetchQueue.push({
 						key: candidateKey,
 						priority,
 						confidence,
@@ -502,7 +501,7 @@ export class PredictiveCache<T> {
 			// Find least valuable item to evict
 			let leastValuable: { key: string; score: number } | null = null;
 
-			const cacheKeys = this.cache.keys();
+			const cacheKeys = [...this.cache.keys()];
 			for (const key of cacheKeys) {
 				const entry = this.cache.get(key);
 				if (!entry) continue;
@@ -581,7 +580,7 @@ export class PredictiveCache<T> {
 			const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
 			const keysToDelete: string[] = [];
-			const cacheKeys = this.cache.keys();
+			const cacheKeys = [...this.cache.keys()];
 
 			for (const key of cacheKeys) {
 				const entry = this.cache.get(key);

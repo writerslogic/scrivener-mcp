@@ -11,10 +11,7 @@ import type {
 	ResearchData,
 	WritingSuggestion,
 } from '../types/analysis.js';
-import { LockFreeFactory, lockFreeMonitor } from '../utils/lockfree-structures.js';
 import { PredictiveCacheFactory } from '../utils/predictive-cache.js';
-import { simdTextProcessor } from '../utils/simd-text-processor.js';
-import { wasmAccelerator } from '../utils/wasm-accelerator.js';
 import { advancedReadabilityService } from './advanced-readability.js';
 import { classifier as wordClassifier } from './ml-word-classifier-pro.js';
 // Import missing utility functions
@@ -75,22 +72,15 @@ export type {
 };
 
 export class ContentAnalyzer {
-	// Advanced caching and optimization features with lock-free structures
-	private readonly memoizedCalculations = LockFreeFactory.createHashMap<string, unknown>(
-		128,
-		'high'
-	);
-	private readonly performanceMetrics = LockFreeFactory.createHashMap<string, number[]>(
-		64,
-		'medium'
-	);
-	private readonly resourcePool = LockFreeFactory.createHashMap<string, unknown[]>(32, 'low');
-	private readonly analysisQueue = LockFreeFactory.createQueue<{
+	// Caching and resource-reuse structures
+	private readonly memoizedCalculations = new Map<string, unknown>();
+	private readonly resourcePool = new Map<string, unknown[]>();
+	private readonly analysisQueue: Array<{
 		content: string;
 		documentId: string;
 		resolve: (value: ContentAnalysis) => void;
 		reject: (error: Error) => void;
-	}>('high');
+	}> = [];
 
 	// ML-powered predictive caches for intelligent prefetching
 	private readonly predictiveAnalysisCache =
@@ -100,13 +90,8 @@ export class ContentAnalyzer {
 	private readonly predictiveStyleCache =
 		PredictiveCacheFactory.createMetadataCache<StyleAnalysis>();
 	private isProcessingQueue = false;
-	private maxCacheSize = 1000;
+	private readonly maxCacheSize = 1000;
 	private readonly maxPoolSize = 50;
-
-	// Advanced optimization modules
-	private readonly simdProcessor = simdTextProcessor;
-	private readonly wasmProcessor = wasmAccelerator;
-	private isWasmInitialized = false;
 
 	// Analyzer instances
 	private readonly metricsAnalyzer: MetricsAnalyzer;
@@ -142,66 +127,22 @@ export class ContentAnalyzer {
 		this.suggestionGenerator = new SuggestionGenerator();
 	}
 
-	/**
-	 * Initialize advanced optimization modules
-	 */
-	async initializeOptimizations(): Promise<void> {
-		try {
-			// Initialize WebAssembly accelerator
-			await this.wasmProcessor.initialize();
-			await this.wasmProcessor.warmup();
-			this.isWasmInitialized = true;
-			this.metricsAnalyzer.setWasmInitialized(true);
-			logger.info('WASM accelerator initialized successfully');
-		} catch (error) {
-			logger.warn('WASM accelerator initialization failed, falling back to JS/SIMD', {
-				error,
-			});
-		}
-
-		// Warm up SIMD processor
-		const testText = 'The quick brown fox jumps over the lazy dog. '.repeat(100);
-		this.simdProcessor.countWordsVectorized(testText);
-		this.simdProcessor.analyzeCharacterDistributionVectorized(testText);
-		logger.info('SIMD text processor warmed up successfully');
-	}
-
 	private async memoizeAsync<T>(key: string, calculator: () => Promise<T>): Promise<T> {
 		const cached = this.memoizedCalculations.get(key);
 		if (cached !== undefined) {
-			lockFreeMonitor.recordOperation('async-cache-hit');
 			return cached as T;
 		}
 
 		// Clean cache if too large
-		if (this.memoizedCalculations.getSize() >= this.maxCacheSize) {
-			const keys = this.memoizedCalculations.keys();
+		if (this.memoizedCalculations.size >= this.maxCacheSize) {
+			const keys = [...this.memoizedCalculations.keys()];
 			const toDelete = keys.slice(0, Math.floor(this.maxCacheSize * 0.2));
 			toDelete.forEach((k) => this.memoizedCalculations.delete(k));
-			lockFreeMonitor.recordOperation('async-cache-cleanup');
 		}
 
 		const result = await calculator();
 		this.memoizedCalculations.set(key, result);
-		lockFreeMonitor.recordOperation('async-cache-miss');
 		return result;
-	}
-
-	private trackPerformance(operation: string, duration: number): void {
-		const existing = this.performanceMetrics.get(operation);
-		const metrics = existing || [];
-
-		if (!existing) {
-			this.performanceMetrics.set(operation, metrics);
-		}
-
-		metrics.push(duration);
-		lockFreeMonitor.recordOperation('performance-tracking');
-
-		// Keep only recent metrics
-		if (metrics.length > 100) {
-			metrics.splice(0, metrics.length - 100);
-		}
 	}
 
 	private getResourceFromPool<T>(type: string, creator: () => T): T {
@@ -213,11 +154,9 @@ export class ContentAnalyzer {
 		}
 
 		if (pool.length > 0) {
-			lockFreeMonitor.recordOperation('resource-pool-hit');
 			return pool.pop() as T;
 		}
 
-		lockFreeMonitor.recordOperation('resource-pool-miss');
 		return creator();
 	}
 
@@ -231,12 +170,11 @@ export class ContentAnalyzer {
 
 		if (pool.length < this.maxPoolSize) {
 			pool.push(resource);
-			lockFreeMonitor.recordOperation('resource-pool-return');
 		}
 	}
 
 	private async processAnalysisQueue(): Promise<void> {
-		if (this.isProcessingQueue || this.analysisQueue.isEmpty()) {
+		if (this.isProcessingQueue || this.analysisQueue.length === 0) {
 			return;
 		}
 
@@ -254,14 +192,12 @@ export class ContentAnalyzer {
 
 			// Dequeue items into batch
 			for (let i = 0; i < batchSize; i++) {
-				const item = this.analysisQueue.dequeue();
+				const item = this.analysisQueue.shift();
 				if (!item) break;
 				batch.push(item);
 			}
 
 			if (batch.length > 0) {
-				lockFreeMonitor.recordOperation('queue-batch-process');
-
 				await Promise.all(
 					batch.map(async ({ content, documentId, resolve, reject }) => {
 						try {
@@ -274,7 +210,7 @@ export class ContentAnalyzer {
 				);
 
 				// Continue processing if there are more items
-				if (!this.analysisQueue.isEmpty()) {
+				if (this.analysisQueue.length > 0) {
 					setImmediate(() => this.processAnalysisQueue());
 				}
 			}
@@ -284,15 +220,7 @@ export class ContentAnalyzer {
 	}
 
 	private async performAnalysis(content: string, documentId: string): Promise<ContentAnalysis> {
-		const startTime = performance.now();
-
-		try {
-			// Use existing analysis logic
-			return await this.analyzeContentDirect(content, documentId);
-		} finally {
-			const duration = performance.now() - startTime;
-			this.trackPerformance('content-analysis', duration);
-		}
+		return this.analyzeContentDirect(content, documentId);
 	}
 
 	// Enhanced analyze method with intelligent queuing and optimization
@@ -304,8 +232,7 @@ export class ContentAnalyzer {
 		if (isLargeContent) {
 			// Queue large content for batch processing using lock-free queue
 			return new Promise((resolve, reject) => {
-				this.analysisQueue.enqueue({ content, documentId, resolve, reject });
-				lockFreeMonitor.recordOperation('queue-enqueue');
+				this.analysisQueue.push({ content, documentId, resolve, reject });
 				this.processAnalysisQueue().catch(reject);
 			});
 		}
@@ -512,79 +439,6 @@ export class ContentAnalyzer {
 		return webContentParser.extractResearchData(parsedContent, keywords);
 	}
 
-	// Advanced performance monitoring and optimization methods
-	getPerformanceMetrics(): {
-		[operation: string]: { avg: number; min: number; max: number; count: number };
-	} {
-		const result: {
-			[operation: string]: { avg: number; min: number; max: number; count: number };
-		} = {};
-
-		// Get all performance data from lock-free hashmap
-		const operations = this.performanceMetrics.keys();
-		for (const operation of operations) {
-			const durations = this.performanceMetrics.get(operation);
-			if (durations && durations.length > 0) {
-				const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
-				const min = Math.min(...durations);
-				const max = Math.max(...durations);
-				result[operation] = { avg, min, max, count: durations.length };
-			}
-		}
-
-		// Include lock-free monitor stats
-		const lockFreeStats = lockFreeMonitor.getStats();
-		result['lock-free-operations'] = {
-			avg: 0,
-			min: 0,
-			max: 0,
-			count: Object.values(lockFreeStats.operations).reduce((a, b) => a + b, 0),
-		};
-
-		return result;
-	}
-
-	getCacheEfficiency(): {
-		hitRate: number;
-		size: number;
-		maxSize: number;
-		lockFreeStats: {
-			operations: Record<string, number>;
-			contentions: Record<string, number>;
-			throughput: Record<string, number>;
-			uptime: number;
-		};
-	} {
-		const lockFreeStats = lockFreeMonitor.getStats();
-		const hits = lockFreeStats.operations['cache-hit'] || 0;
-		const misses = lockFreeStats.operations['cache-miss'] || 0;
-		const total = hits + misses;
-
-		return {
-			hitRate: total > 0 ? hits / total : 0,
-			size: this.memoizedCalculations.getSize(),
-			maxSize: this.maxCacheSize,
-			lockFreeStats,
-		};
-	}
-
-	getResourcePoolStatus(): { [type: string]: { used: number; max: number } } {
-		const result: { [type: string]: { used: number; max: number } } = {};
-
-		const poolTypes = this.resourcePool.keys();
-		for (const type of poolTypes) {
-			const pool = this.resourcePool.get(type);
-			if (pool) {
-				result[type] = {
-					used: pool.length,
-					max: this.maxPoolSize,
-				};
-			}
-		}
-
-		return result;
-	}
-
 	// Intelligent content streaming for very large documents
 	async *analyzeContentStream(
 		content: string,
@@ -681,292 +535,6 @@ export class ContentAnalyzer {
 			averageParagraphLength: totals.averageParagraphLength / metricsArray.length,
 			fleschReadingEase: totals.fleschReadingEase / metricsArray.length,
 			fleschKincaidGrade: totals.fleschKincaidGrade / metricsArray.length,
-		};
-	}
-
-	// Performance optimization with intelligent scheduling
-	optimizeForPerformance(): void {
-		const metrics = this.getPerformanceMetrics();
-
-		// Adjust cache size based on performance
-		if (metrics['content-analysis']?.avg > 1000) {
-			// >1 second average
-			// Increase cache size for better hit rates
-			this.maxCacheSize = Math.min(this.maxCacheSize * 1.5, 2000);
-			logger.info('Increased cache size for better performance', {
-				newCacheSize: this.maxCacheSize,
-			});
-		}
-
-		// Adjust resource pool size based on usage
-		const poolStatus = this.getResourcePoolStatus();
-		for (const [type, status] of Object.entries(poolStatus)) {
-			if (status.used === status.max) {
-				// Pool is frequently full, increase size
-				const pool = this.resourcePool.get(type);
-				if (pool) {
-					logger.info('Expanding resource pool', {
-						type,
-						oldMax: status.max,
-						newMax: status.max * 1.2,
-					});
-				}
-			}
-		}
-	}
-
-	// Enhanced text processing with intelligent optimization selection
-	async analyzeWithOptimalStrategy(
-		content: string,
-		documentId: string
-	): Promise<ContentAnalysis> {
-		// Initialize optimizations if not already done
-		if (!this.isWasmInitialized) {
-			await this.initializeOptimizations();
-		}
-
-		const contentSize = content.length;
-
-		// Strategy selection based on content size and available optimizations
-		if (contentSize > 100000 && this.isWasmInitialized) {
-			// Large content: Use WASM for maximum performance
-			logger.debug('Using WASM acceleration for large content', { contentSize, documentId });
-			return this.analyzeContentWithWasm(content, documentId);
-		} else if (contentSize > 10000) {
-			// Medium content: Use SIMD vectorization
-			logger.debug('Using SIMD optimization for medium content', { contentSize, documentId });
-			return this.analyzeContentWithSIMD(content, documentId);
-		} else {
-			// Small content: Use standard analysis
-			return this.analyzeContentDirect(content, documentId);
-		}
-	}
-
-	private async analyzeContentWithWasm(
-		content: string,
-		documentId: string
-	): Promise<ContentAnalysis> {
-		// Leverage WASM for CPU-intensive operations
-		const startTime = performance.now();
-
-		try {
-			const [, _wasmSentiment] = await Promise.all([
-				Promise.resolve(content),
-				this.wasmProcessor.analyzeSentimentWasm(content),
-			]);
-
-			// Use vectorized text processing for additional metrics
-			const sentenceBoundaries = this.simdProcessor.findSentenceBoundariesVectorized(content);
-
-			// Get readability from WASM if available
-			const wasmReadability = await this.wasmProcessor.calculateReadabilityWasm(content);
-
-			// Combine optimized results with standard analysis
-			const baseAnalysis = await this.analyzeContentDirect(content, documentId);
-
-			// Enhanced metrics with WASM results
-			baseAnalysis.metrics = {
-				...baseAnalysis.metrics,
-				wordCount: this.simdProcessor.countWordsVectorized(content),
-				sentenceCount: sentenceBoundaries.length,
-				fleschReadingEase: wasmReadability.fleschReadingEase,
-				fleschKincaidGrade: wasmReadability.fleschKincaidGrade,
-			};
-
-			const duration = performance.now() - startTime;
-			this.trackPerformance('wasm-analysis', duration);
-
-			logger.debug('WASM-accelerated analysis completed', {
-				documentId: truncate(documentId, 50),
-				duration: formatDuration(duration),
-				performanceGain: 'up to 10x faster',
-			});
-
-			return baseAnalysis;
-		} catch (error) {
-			logger.warn('WASM analysis failed, falling back to standard', { error, documentId });
-			return this.analyzeContentDirect(content, documentId);
-		}
-	}
-
-	private async analyzeContentWithSIMD(
-		content: string,
-		documentId: string
-	): Promise<ContentAnalysis> {
-		// Leverage SIMD for vectorized text processing
-		const startTime = performance.now();
-
-		try {
-			// Use SIMD for all possible optimizations
-			const simdMetrics = this.simdProcessor.calculateReadabilityMetricsVectorized(content);
-			const sentenceBoundaries = this.simdProcessor.findSentenceBoundariesVectorized(content);
-
-			// Get base analysis and enhance with SIMD results
-			const baseAnalysis = await this.analyzeContentDirect(content, documentId);
-
-			baseAnalysis.metrics = {
-				...baseAnalysis.metrics,
-				wordCount: this.simdProcessor.countWordsVectorized(content),
-				sentenceCount: sentenceBoundaries.length,
-				fleschReadingEase: simdMetrics.fleschReadingEase,
-				fleschKincaidGrade: simdMetrics.fleschKincaidGrade,
-				averageSentenceLength: simdMetrics.averageWordsPerSentence,
-			};
-
-			const duration = performance.now() - startTime;
-			this.trackPerformance('simd-analysis', duration);
-
-			logger.debug('SIMD-optimized analysis completed', {
-				documentId: truncate(documentId, 50),
-				duration: formatDuration(duration),
-				throughput: `${Math.round((content.length / duration) * 1000)} chars/sec`,
-			});
-
-			return baseAnalysis;
-		} catch (error) {
-			logger.warn('SIMD analysis failed, falling back to standard', { error, documentId });
-			return this.analyzeContentDirect(content, documentId);
-		}
-	}
-
-	/**
-	 * Get predictive cache statistics
-	 */
-	getPredictiveCacheStats(): {
-		analysisCache: {
-			hitRate: number;
-			prefetchHitRate: number;
-			size: number;
-			maxSize: number;
-			entryCount: number;
-		};
-		metricsCache: {
-			hitRate: number;
-			prefetchHitRate: number;
-			size: number;
-			maxSize: number;
-			entryCount: number;
-		};
-		styleCache: {
-			hitRate: number;
-			prefetchHitRate: number;
-			size: number;
-			maxSize: number;
-			entryCount: number;
-		};
-		totalHitRate: number;
-		totalPrefetchRate: number;
-	} {
-		const analysisStats = this.predictiveAnalysisCache.getStats();
-		const metricsStats = this.predictiveMetricsCache.getStats();
-		const styleStats = this.predictiveStyleCache.getStats();
-
-		const totalHits = analysisStats.hitRate + metricsStats.hitRate + styleStats.hitRate;
-		const totalPrefetches =
-			analysisStats.prefetchHitRate +
-			metricsStats.prefetchHitRate +
-			styleStats.prefetchHitRate;
-
-		return {
-			analysisCache: analysisStats,
-			metricsCache: metricsStats,
-			styleCache: styleStats,
-			totalHitRate: totalHits / 3,
-			totalPrefetchRate: totalPrefetches / 3,
-		};
-	}
-
-	/**
-	 * Get optimization status and performance comparison
-	 */
-	getOptimizationStatus(): {
-		wasmEnabled: boolean;
-		simdEnabled: boolean;
-		lockFreeEnabled: boolean;
-		predictiveCacheEnabled: boolean;
-		performanceComparison: Record<string, unknown>;
-		optimizationRecommendations: string[];
-		lockFreeStats: {
-			operations: Record<string, number>;
-			contentions: Record<string, number>;
-			throughput: Record<string, number>;
-			uptime: number;
-		};
-		predictiveCacheStats: {
-			analysisCache: {
-				hitRate: number;
-				prefetchHitRate: number;
-				size: number;
-				maxSize: number;
-				entryCount: number;
-			};
-			metricsCache: {
-				hitRate: number;
-				prefetchHitRate: number;
-				size: number;
-				maxSize: number;
-				entryCount: number;
-			};
-			styleCache: {
-				hitRate: number;
-				prefetchHitRate: number;
-				size: number;
-				maxSize: number;
-				entryCount: number;
-			};
-			totalHitRate: number;
-			totalPrefetchRate: number;
-		};
-	} {
-		const wasmComparison = this.isWasmInitialized
-			? this.wasmProcessor.getPerformanceComparison()
-			: null;
-		const simdStats = this.simdProcessor.getPerformanceStats();
-		const lockFreeStats = lockFreeMonitor.getStats();
-		const predictiveCacheStats = this.getPredictiveCacheStats();
-
-		const recommendations: string[] = [];
-		if (!this.isWasmInitialized) {
-			recommendations.push(
-				'Enable WebAssembly for 5-10x performance improvement on large documents'
-			);
-		}
-		recommendations.push(
-			`SIMD optimization active - processing at ${simdStats.estimatedThroughput}`
-		);
-		recommendations.push('Lock-free data structures active - eliminating thread contention');
-		recommendations.push(
-			`Predictive caching active - ${(predictiveCacheStats.totalHitRate * 100).toFixed(1)}% hit rate`
-		);
-
-		const totalLockFreeOps = Object.values(lockFreeStats.operations).reduce((a, b) => a + b, 0);
-		if (totalLockFreeOps > 1000) {
-			recommendations.push(
-				`High-performance achieved: ${totalLockFreeOps} lock-free operations completed`
-			);
-		}
-
-		if (predictiveCacheStats.totalPrefetchRate > 0.3) {
-			recommendations.push(
-				`Intelligent prefetching: ${(predictiveCacheStats.totalPrefetchRate * 100).toFixed(1)}% of cache hits were prefetched`
-			);
-		}
-
-		return {
-			wasmEnabled: this.isWasmInitialized,
-			simdEnabled: true,
-			lockFreeEnabled: true,
-			predictiveCacheEnabled: true,
-			performanceComparison: {
-				wasm: wasmComparison,
-				simd: simdStats,
-				lockFree: lockFreeStats,
-				predictiveCache: predictiveCacheStats,
-				standard: this.getPerformanceMetrics(),
-			},
-			optimizationRecommendations: recommendations,
-			lockFreeStats,
-			predictiveCacheStats,
 		};
 	}
 
