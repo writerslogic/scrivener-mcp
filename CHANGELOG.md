@@ -34,6 +34,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add MCP client setup guide for Claude, Cursor, and VS Code (#57)
 
 ### Fixed
+- Get_structure (and export/trash/doc-lookup) returned empty for real binders
 - Correct tool-skill grouping and reconcile all docs to the registry
 - Close injection/ReDoS/pollution findings and repair low-scoring components
 - Bound and fence untrusted text in LLM prompts (RP-SYS-001, #24)
