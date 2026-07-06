@@ -428,10 +428,7 @@ export class MemoryManager {
 				id: String(c.id),
 				name: String(c.name),
 				role: String(c.role || 'supporting') as
-					| 'protagonist'
-					| 'antagonist'
-					| 'supporting'
-					| 'minor',
+					'protagonist' | 'antagonist' | 'supporting' | 'minor',
 				description: String(c.description || ''),
 				traits: c.traits ? safeParse(String(c.traits), []) : [],
 				arc: String(c.arc || ''),
@@ -447,10 +444,7 @@ export class MemoryManager {
 				id: String(p.id),
 				name: String(p.name),
 				status: String(p.status || 'development') as
-					| 'setup'
-					| 'development'
-					| 'climax'
-					| 'resolution',
+					'setup' | 'development' | 'climax' | 'resolution',
 				description: String(p.description || ''),
 				documents: p.related_documents ? safeParse(String(p.related_documents), []) : [],
 				keyEvents: p.developments
@@ -491,10 +485,7 @@ export class MemoryManager {
 			this.memory.worldBuilding = worldElements.map((w) => ({
 				id: String(w.id),
 				type: String(w.type || 'location') as
-					| 'object'
-					| 'location'
-					| 'concept'
-					| 'organization',
+					'object' | 'location' | 'concept' | 'organization',
 				name: String(w.name),
 				description: String(w.description || ''),
 				details: w.details ? safeParse(String(w.details), {}) : {},

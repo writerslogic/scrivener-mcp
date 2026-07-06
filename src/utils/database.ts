@@ -158,8 +158,7 @@ export function nodeToObject(node: unknown): Record<string, unknown> {
 
 	// Neo4j nodes have properties object
 	const nodeWithProps = node as
-		| { properties?: Record<string, unknown> }
-		| Record<string, unknown>;
+		{ properties?: Record<string, unknown> } | Record<string, unknown>;
 	const props =
 		nodeWithProps && typeof nodeWithProps === 'object' && 'properties' in nodeWithProps
 			? nodeWithProps.properties
