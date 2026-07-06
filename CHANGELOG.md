@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Document cross-reference graph query tools (#27)
+- Expose compile settings and project taxonomy (#14)
+- Export manuscript to DOCX, EPUB, and PDF (#37)
+
+### Documentation
+- Reverse-engineered .scriv format reference and stability posture (#40)
+
 ### Fixed
 - Log when project-backup listing fails instead of silently returning none
 - Make logged errors debuggable and stop silently dropping unparseable RTF
