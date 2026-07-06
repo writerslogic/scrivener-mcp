@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Export manuscript to DOCX, EPUB, and PDF (#37)
 
 ### Documentation
+- Sync README and architecture with new tools (#14, #27, #37)
 - Reverse-engineered .scriv format reference and stability posture (#40)
 
 ### Fixed
