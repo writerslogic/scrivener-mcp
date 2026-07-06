@@ -288,10 +288,11 @@ export const exportProjectHandler: ToolDefinition = {
 	name: 'export_project',
 	title: 'Export Project To File',
 	description:
-		'Export the whole project to a file on disk in a publishing/interchange format (Markdown, ' +
-		'HTML, JSON, or EPUB) and return the output path and a summary. Use this to produce a ' +
-		'deliverable file; use compile_documents when you want the compiled text back in the response ' +
-		'rather than written to disk. Requires an open project.',
+		'Export the whole project to a publishing/interchange format. Markdown, HTML, and JSON ' +
+		'are returned inline; DOCX (agent/editor submission), EPUB (e-readers), and PDF (print/' +
+		'review) are written to a file on disk and the path is returned. Use this to produce a ' +
+		'deliverable file; use compile_documents when you want the compiled text back in the ' +
+		'response rather than written to disk. Requires an open project.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -303,14 +304,17 @@ export const exportProjectHandler: ToolDefinition = {
 		properties: {
 			format: {
 				type: 'string',
-				enum: ['markdown', 'html', 'json', 'epub'],
-				description: 'Target file format to export to.',
+				enum: ['markdown', 'html', 'json', 'docx', 'epub', 'pdf'],
+				description:
+					'Target file format. Text formats (markdown, html, json) return their content ' +
+					'inline; binary formats (docx, epub, pdf) are written to a file and return its path.',
 			},
 			outputPath: {
 				type: 'string',
 				description:
 					'Absolute or project-relative path to write the exported file. Omit to use a ' +
-					'default location.',
+					'default location (the working directory, named after the project title). ' +
+					'Required in effect only if you want a specific location for docx/epub/pdf.',
 			},
 			options: {
 				type: 'object',
@@ -324,11 +328,20 @@ export const exportProjectHandler: ToolDefinition = {
 		properties: {
 			format: {
 				type: 'string',
-				description: 'Format the project was exported to (markdown, html, json, or epub).',
+				description:
+					'Format the project was exported to (markdown, html, json, docx, epub, or pdf).',
 			},
 			content: {
 				type: 'string',
-				description: 'The exported document content.',
+				description: 'The exported document content (text formats only).',
+			},
+			path: {
+				type: 'string',
+				description: 'Path of the written file (binary formats: docx, epub, pdf).',
+			},
+			bytes: {
+				type: 'number',
+				description: 'Size of the written file in bytes (binary formats only).',
 			},
 			metadata: {
 				type: 'object',
@@ -336,7 +349,7 @@ export const exportProjectHandler: ToolDefinition = {
 					'Export metadata: exportDate, format, and documentCount (number of documents exported).',
 			},
 		},
-		required: ['format', 'content', 'metadata'],
+		required: ['format', 'metadata'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
@@ -351,7 +364,13 @@ export const exportProjectHandler: ToolDefinition = {
 			format,
 			outputPath,
 			options as Partial<ExportOptions> | undefined
-		)) as { format: string; content: string; metadata: Record<string, unknown> };
+		)) as {
+			format: string;
+			content?: string;
+			path?: string;
+			bytes?: number;
+			metadata: Record<string, unknown>;
+		};
 
 		return {
 			content: [
@@ -362,7 +381,9 @@ export const exportProjectHandler: ToolDefinition = {
 			],
 			structuredContent: {
 				format: result.format,
-				content: result.content,
+				...(result.content !== undefined ? { content: result.content } : {}),
+				...(result.path !== undefined ? { path: result.path } : {}),
+				...(result.bytes !== undefined ? { bytes: result.bytes } : {}),
 				metadata: result.metadata,
 			},
 		};
