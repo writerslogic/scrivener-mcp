@@ -2,12 +2,14 @@ import * as path from 'path';
 import parseRTF from 'rtf-parser';
 import { promisify } from 'util';
 import { safeReadFile, safeWriteFile } from '../../utils/common.js';
+import { getLogger } from '../../core/logger.js';
 import type {
 	RTFParserDocument,
 	RTFParserContent,
 	RTFParserContentNode,
 } from '../../types/internal.js';
 
+const logger = getLogger('rtf-handler');
 const parseRTFAsync = promisify(parseRTF.string);
 
 export interface RTFStyle {
@@ -146,7 +148,11 @@ export class RTFHandler {
 			try {
 				const doc = (await parseRTFAsync(rtfString)) as RTFParserDocument;
 				return this.convertRTFDocument(doc);
-			} catch {
+			} catch (error) {
+				logger.warn('RTF parsing failed with both parsers; returning empty content', {
+					error,
+					length: rtfString.length,
+				});
 				return { plainText: '', formattedText: [] };
 			}
 		}

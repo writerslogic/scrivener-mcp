@@ -14,6 +14,24 @@ export enum LogLevel {
 	FATAL = 4,
 }
 
+/**
+ * JSON.stringify replacer that renders Error values usefully. Error's message
+ * and stack are non-enumerable, so a plain stringify of `{ error }` yields
+ * `{"error":{}}` — hiding the failure. This surfaces name/message/stack (and any
+ * cause chain), so logged errors are actually debuggable.
+ */
+function serializeErrors(_key: string, value: unknown): unknown {
+	if (value instanceof Error) {
+		return {
+			name: value.name,
+			message: value.message,
+			stack: value.stack,
+			...(value.cause !== undefined ? { cause: value.cause } : {}),
+		};
+	}
+	return value;
+}
+
 class Logger {
 	private level: LogLevel;
 	private readonly name: string;
@@ -34,7 +52,7 @@ class Logger {
 			if (level === LogLevel.DEBUG && !isDevelopment()) {
 				return;
 			}
-			const ctx = context ? ` ${JSON.stringify(context)}` : '';
+			const ctx = context ? ` ${JSON.stringify(context, serializeErrors)}` : '';
 			process.stderr.write(`${prefix} ${message}${ctx}\n`);
 		});
 	}
