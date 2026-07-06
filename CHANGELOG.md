@@ -20,6 +20,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Add direct-SDK AIClient with Claude default (langchain ripout step 1)
 
 ### Changed
+- Delete dead gpu-accelerator theater + its webgpu type stub
 - Remove 43 dead vars/imports and preserve error cause on 2 throws
 - Remove wasm/lockfree acceleration theater
 - Remove the non-functional fractal-memory subsystem
