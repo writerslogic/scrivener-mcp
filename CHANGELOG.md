@@ -3,7 +3,7 @@
 All notable changes to this project are generated from the commit history.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
-## [Unreleased]
+## [0.8.1] - 2026-07-06
 
 ### Added
 - Add outputSchema + structuredContent to all data-returning tools
