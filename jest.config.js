@@ -35,9 +35,6 @@ export default {
 		'tests/integration/project\\.test\\.ts',
 		'tests/integration/scrivener-project-roundtrip\\.test\\.ts',
 		'tests/integration/utility-adoption-workflow\\.test\\.ts',
-		'tests/unit/core/cache\\.test\\.ts',
-		'tests/unit/core/errors\\.test\\.ts',
-		'tests/unit/core/validation\\.test\\.ts',
 		'tests/unit/handler-error-messages\\.test\\.ts',
 		'tests/unit/handlers/database/migrations\\.test\\.ts',
 		'tests/unit/handlers/database/neo4j-manager\\.test\\.ts',
@@ -46,6 +43,12 @@ export default {
 		'tests/unit/services/document-manager\\.test\\.ts',
 		'tests/unit/services/job-queue\\.test\\.ts',
 		'tests/unit/services/keydb-installer\\.test\\.ts',
+		// Still disabled: real drift needing per-case judgment (errors: removed
+		// ApplicationError.isRetryable/toJSON + ErrorMessages; common-new: text
+		// tokenization output changed; project-utils: paths moved to .scrivener-mcp
+		// and a project-validity check was added; scrivener-utils/database-utils
+		// fail to load). Re-enabled so far: core/cache, core/validation.
+		'tests/unit/core/errors\\.test\\.ts',
 		'tests/unit/utils/common-new\\.test\\.ts',
 		'tests/unit/utils/database-utils\\.test\\.ts',
 		'tests/unit/utils/scrivener-utils\\.test\\.ts',
