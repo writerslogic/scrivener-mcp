@@ -28,6 +28,7 @@ import { integrityHandlers } from '../dist/handlers/integrity-handlers.js';
 import { analysisHandlers } from '../dist/handlers/analysis-handlers.js';
 import { compilationHandlers } from '../dist/handlers/compilation-handlers.js';
 import { relationshipHandlers } from '../dist/handlers/relationship-handlers.js';
+import { documentGraphHandlers } from '../dist/handlers/document-graph-handlers.js';
 
 const out = (l) => process.stdout.write(`${l}\n`);
 const ajv = new Ajv({ strict: false, allErrors: true });
@@ -42,6 +43,7 @@ const all = [
 	...analysisHandlers,
 	...compilationHandlers,
 	...relationshipHandlers,
+	...documentGraphHandlers,
 ];
 const byName = new Map(all.map((h) => [h.name, h]));
 
@@ -63,6 +65,10 @@ const PLAN = [
 	['get_structure', {}],
 	['get_statistics', {}],
 	['get_compile_settings', {}],
+	['find_orphaned_entities', {}],
+	['get_document_references', 'NEEDS_DOC'],
+	['get_referencing_documents', { entity: 'storm' }],
+	['suggest_connections', 'NEEDS_DOC'],
 	['verify_project_integrity', {}],
 	['list_trash', {}],
 	['search', { query: 'storm', field: 'title' }],

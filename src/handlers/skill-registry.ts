@@ -14,6 +14,7 @@ import { analysisHandlers, memoryHandlers, semanticSearchHandler } from './analy
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
+import { documentGraphHandlers } from './document-graph-handlers.js';
 import { integrityHandlers } from './integrity-handlers.js';
 import { goalsHandlers } from './goals-handlers.js';
 import { personalizationHandlers } from './personalization-handlers.js';
@@ -61,7 +62,7 @@ const skills: Skill[] = [
 	{
 		name: 'relationships',
 		description: 'Entity relationships, character networks, story graph',
-		tools: relationshipHandlers,
+		tools: [...relationshipHandlers, ...documentGraphHandlers],
 	},
 	{
 		name: 'advanced',
