@@ -46,8 +46,9 @@ const all = [
 const byName = new Map(all.map((h) => [h.name, h]));
 
 // Read-only, non-AI, non-mutating data tools we can exercise against the fixture.
-// SKIPPED (documented, not hidden): analyze_document, analyze_writing_style,
-// check_plot_consistency, semantic_search, check_consistency (Claude credits);
+// analyze_document is exercised via its no-AI fallback (keys unset below).
+// SKIPPED (documented, not hidden): analyze_writing_style, check_plot_consistency,
+// semantic_search, check_consistency (Claude credits / embeddings);
 // queue_document_analysis, queue_project_analysis, get_job_status (async jobs);
 // create_document, compile_documents, export_project (mutate/write);
 // find_relationships, character_network, discover_connections, recall (graph/HMS
@@ -67,6 +68,7 @@ const PLAN = [
 	['find_mentions', { entity: 'storm' }],
 	['get_writing_goals', {}],
 	['get_writing_preferences', {}],
+	['analyze_document', 'NEEDS_DOC'],
 	['create_document', { title: 'Conformance Probe', content: 'A sample paragraph about a storm.' }],
 	['get_document_info', 'NEEDS_DOC'],
 	['read_annotations', 'NEEDS_DOC'],
@@ -83,6 +85,12 @@ function copyDir(src, dst) {
 }
 
 async function main() {
+	// Run credit-independent: with no provider key, AI tools take their fallback
+	// path, so we validate the degraded-mode structuredContent without spending
+	// (or depending on) Claude credits.
+	delete process.env.ANTHROPIC_API_KEY;
+	delete process.env.OPENAI_API_KEY;
+
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scriv-conf-'));
 	const projPath = path.join(tmp, 'sample-project.scriv');
 	copyDir(path.join(process.cwd(), 'tests', 'sample-project.scriv'), projPath);
