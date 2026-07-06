@@ -62,6 +62,7 @@ const byName = new Map(all.map((h) => [h.name, h]));
 const PLAN = [
 	['get_structure', {}],
 	['get_statistics', {}],
+	['get_compile_settings', {}],
 	['verify_project_integrity', {}],
 	['list_trash', {}],
 	['search', { query: 'storm', field: 'title' }],

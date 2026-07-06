@@ -10,7 +10,7 @@ import { getLogger } from './core/logger.js';
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 import { DatabaseService } from './handlers/database/index.js';
 import { ContextSyncService, type SyncStatus } from './sync/context-sync.js';
-import { CleanupManager, safeWriteFile } from './utils/common.js';
+import { CleanupManager, safeReadFile, safeWriteFile } from './utils/common.js';
 import { ensureProjectDataDirectory } from './utils/project-utils.js';
 import { findBinderItem } from './utils/scrivener-utils.js';
 
@@ -21,6 +21,7 @@ import { DocumentManager } from './services/document-manager.js';
 import { MetadataManager } from './services/metadata-manager.js';
 import { ProjectLoader } from './services/project-loader.js';
 import { exportBinary, type ExportSection } from './services/export/manuscript-exporters.js';
+import { buildCompileMetadata, type CompileMetadata } from './services/compile-settings.js';
 import {
 	createDocument as createDocumentUtil,
 	type DocumentOperationContext,
@@ -523,6 +524,31 @@ export class ScrivenerProject {
 			return {};
 		}
 		return this.metadataManager.getProjectMetadata(structure);
+	}
+
+	/**
+	 * Read Scrivener's compile-format definitions (Settings/compile.xml) and the
+	 * project taxonomy (labels, statuses, collections, section types) as
+	 * read-only metadata. Absent or unreadable compile.xml degrades to
+	 * `hasCompileSettings: false` with taxonomy still populated from the .scrivx.
+	 */
+	async getCompileMetadata(): Promise<CompileMetadata> {
+		const structure = this.projectLoader.getProjectStructure();
+		const scrivenerProject = structure?.ScrivenerProject;
+
+		let compileXml: string | undefined;
+		try {
+			compileXml = await safeReadFile(
+				path.join(this.projectPath, 'Settings', 'compile.xml'),
+				'utf-8'
+			);
+		} catch (error) {
+			logger.warn('compile.xml not readable; returning taxonomy only', {
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+
+		return buildCompileMetadata(scrivenerProject, compileXml);
 	}
 
 	// Project management
