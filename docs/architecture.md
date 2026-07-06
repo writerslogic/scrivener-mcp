@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 45 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
+Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 52 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
 
 ```
 Claude Desktop / Claude Code
@@ -30,13 +30,13 @@ Tools are organized into skills that load progressively by default to minimize t
 
 | Skill | Tools | Progressive load |
 |-------|-------|-------------|
-| `project` | open_project, discover_projects, get_structure, refresh_project, close_project, verify_project_integrity | Startup (always) |
+| `project` | open_project, discover_projects, get_structure, refresh_project, close_project, verify_project_integrity, get_compile_settings | Startup (always) |
 | `documents` | get_document_info, read_document, write_document, create_document, update_document, move_document, delete_document | After open_project |
 | `search` | search, semantic_search, find_mentions, list_trash, restore_document, read_annotations | After open_project |
 | `analysis` | analyze_document, check_consistency, enhance_content, generate_content, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback | On demand |
 | `compilation` | compile_documents, export_project, get_statistics, generate_marketing_materials | On demand |
 | `memory` | remember, recall | On demand |
-| `relationships` | add_relationship, find_relationships, discover_connections, character_network | On demand |
+| `relationships` | add_relationship, find_relationships, discover_connections, character_network, get_document_references, get_referencing_documents, find_orphaned_entities, suggest_connections | On demand |
 | `advanced` | queue_document_analysis, queue_project_analysis, suggest_improvements, analyze_writing_style, check_plot_consistency, get_job_status, cancel_job | On demand |
 
 Two meta-tools (`list_skills`, `use_skill`) are always available. In progressive mode, activating a skill triggers `sendToolListChanged` to notify the client to re-fetch the tool list.
@@ -106,6 +106,18 @@ Dual-write relationship storage that writes to HMS (always) and Neo4j (when conn
 ### Database Service (`src/handlers/database/`)
 
 SQLite for structured data (writing sessions, content analysis history, entity relationships). Optional Neo4j for graph queries (character relationships, story structure, theme progression).
+
+### Cross-Reference Engine (`src/services/document-references.ts`)
+
+Pure, deterministic detection of which documents mention the project's registered characters and locations, via exact whole-word case-insensitive matching -- no Neo4j or AI. Backs `get_document_references`, `get_referencing_documents`, `find_orphaned_entities`, and `suggest_connections` (which infers missing links from cross-document co-occurrence), so those tools work with no external services.
+
+### Compile Settings (`src/services/compile-settings.ts`)
+
+Defensive reader for Scrivener's undocumented `Settings/compile.xml` and the `.scrivx` taxonomy (labels/statuses with colors, collections, section types), surfaced read-only via `get_compile_settings`. Degrades to taxonomy-only when `compile.xml` is absent.
+
+### Manuscript Exporters (`src/services/export/manuscript-exporters.ts`)
+
+Pure-JS binary export of the compiled manuscript to DOCX (`docx`), EPUB (`epub-gen-memory`), and PDF (`pdf-lib`), used by `export_project` alongside the inline Markdown/HTML/JSON paths.
 
 ## Data Flow
 

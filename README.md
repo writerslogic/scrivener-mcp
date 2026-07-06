@@ -218,11 +218,11 @@ Store and query relationships between characters, locations, themes, and plot th
 
 ### Compile and Export
 
-Combine chapters into a single manuscript with configurable formatting, separators, and structure preservation.
+Combine chapters into a single manuscript with configurable formatting, separators, and structure preservation. Export the result inline as Markdown, HTML, or JSON, or write a DOCX, EPUB, or PDF file to disk for submission, e-readers, or print.
 
 ## All Tools
 
-45 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
+52 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
@@ -235,6 +235,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | `refresh_project` | Reload from disk after external edits |
 | `close_project` | Close the active project and flush pending changes |
 | `verify_project_integrity` | Read-only scan for structural problems (missing/duplicate UUIDs, unreadable content) |
+| `get_compile_settings` | Read the project's compile formats and taxonomy -- labels/statuses (with colors), collections, section types |
 
 </details>
 
@@ -295,7 +296,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | Tool | What it does |
 |------|-------------|
 | `compile_documents` | Combine documents with formatting; `mode: "intelligent"` for AI-optimized output |
-| `export_project` | Write the manuscript to disk in a target format |
+| `export_project` | Write the manuscript to disk -- Markdown, HTML, JSON inline, or DOCX, EPUB, PDF as a file |
 | `get_statistics` | Project-level word/document/character counts |
 | `generate_marketing_materials` | Draft synopsis, query letter, pitch, and related materials |
 
@@ -322,8 +323,12 @@ Memory is stored within each .scriv project and travels with it.
 | `find_relationships` | Query entities related to a given character/theme/location |
 | `discover_connections` | Find co-occurring entities across the manuscript |
 | `character_network` | The character relationship network |
+| `get_document_references` | List the registered characters/locations a document mentions, with counts and positions |
+| `get_referencing_documents` | Find every document that mentions a given character or location, ranked by count |
+| `find_orphaned_entities` | List registered characters/locations that no document actually mentions |
+| `suggest_connections` | Suggest entities a document may be missing, inferred from cross-document co-occurrence |
 
-Works without Neo4j -- relationships live in the Holographic Memory System and are available immediately. Neo4j adds advanced graph analysis when connected.
+Works without Neo4j -- relationships live in the Holographic Memory System and are available immediately. The document cross-reference tools are fully deterministic (exact whole-word matching, no AI) and need no external services; Neo4j adds advanced graph analysis when connected.
 
 </details>
 
@@ -358,6 +363,7 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 - **[Token Optimization](./docs/token-optimization.md)** -- How the server minimizes context window usage
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
 - **[Scrivener Compatibility](./docs/SCRIVENER_COMPATIBILITY.md)** -- Supported Scrivener versions, platforms, and format coverage
+- **[Scrivener File Format](./docs/scrivener-format.md)** -- The reverse-engineered `.scriv` format, what we read vs. infer, and safe-modification guidance
 - **[Contributing](./docs/contributing.md)** -- Development setup, code conventions, adding new tools
 
 ## Requirements

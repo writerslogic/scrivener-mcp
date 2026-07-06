@@ -55,7 +55,7 @@ After months of work, I'm sharing an open-source tool that lets Claude AI work d
 Instead of copy-pasting chapters into ChatGPT, you just say "open my novel and analyze Chapter 12" and Claude reads it from your .scriv file, analyzes it, and can even apply improvements back.
 
 Features:
-- 45 tools: read/write/create/delete/move documents, browse binder, search
+- 52 tools: read/write/create/delete/move documents, browse binder, search
 - Writing analysis: readability scores, pacing, filter words, cliches, emotional arc
 - 12 enhancement types: eliminate filter words, strengthen verbs, show-don't-tell, fix pacing
 - Character memory: stores profiles, plot threads, and style guides inside your project
@@ -75,7 +75,7 @@ What would you want an AI assistant to do with your Scrivener project?
 
 **Title:** MCP server for Scrivener -- full manuscript management from Claude
 
-Built an MCP server that gives Claude deep access to Scrivener 3 writing projects. 45 tools, semantic search, writing analysis, content enhancement, and persistent character/plot memory.
+Built an MCP server that gives Claude deep access to Scrivener 3 writing projects. 52 tools, semantic search, writing analysis, content enhancement, and persistent character/plot memory.
 
 Key differentiator from other writing MCP tools: it works with Scrivener's native .scriv format directly. No export/import. Your manuscript stays in Scrivener.
 
