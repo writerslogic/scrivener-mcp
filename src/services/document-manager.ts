@@ -609,21 +609,31 @@ export class DocumentManager {
 			}
 			(targetParent.Children.BinderItem as BinderItem[]).push(recoveredItem);
 		} else {
-			// Restore to root level
+			// Restore into the Draft/Manuscript folder, or at the binder top level if
+			// there is none. (This previously assumed binderItems[0] was the container
+			// and threw whenever the binder led with a leaf document — the common case,
+			// since real projects open with a template/front-matter doc.)
 			const binderItems = Array.isArray(binder.BinderItem)
 				? binder.BinderItem
 				: binder.BinderItem
 					? [binder.BinderItem]
 					: [];
 
-			if (!binderItems[0]?.Children?.BinderItem) {
-				throw createError(ErrorCode.INVALID_STATE, undefined, 'Root container not found');
+			const draftFolder = binderItems.find((it) => it.Type === 'DraftFolder');
+			if (draftFolder) {
+				if (!draftFolder.Children) {
+					draftFolder.Children = { BinderItem: [] };
+				}
+				if (!draftFolder.Children.BinderItem) {
+					draftFolder.Children.BinderItem = [];
+				} else if (!Array.isArray(draftFolder.Children.BinderItem)) {
+					draftFolder.Children.BinderItem = [draftFolder.Children.BinderItem];
+				}
+				(draftFolder.Children.BinderItem as BinderItem[]).push(recoveredItem);
+			} else {
+				binderItems.push(recoveredItem);
+				binder.BinderItem = binderItems;
 			}
-			// Ensure BinderItem is an array
-			if (!Array.isArray(binderItems[0].Children.BinderItem)) {
-				binderItems[0].Children.BinderItem = [binderItems[0].Children.BinderItem];
-			}
-			(binderItems[0].Children.BinderItem as BinderItem[]).push(recoveredItem);
 		}
 
 		logger.info(

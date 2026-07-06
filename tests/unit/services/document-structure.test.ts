@@ -81,3 +81,68 @@ describe('DocumentManager.getProjectStructure', () => {
 		expect(withTrash).toContain('Trash');
 	});
 });
+
+describe('DocumentManager.recoverFromTrash', () => {
+	let dm: DocumentManager;
+
+	// Fresh binder per test (recoverFromTrash mutates it). Leads with a leaf doc,
+	// then a DraftFolder and a plain folder; trash lives in SearchResults.
+	const makeStructure = (): ProjectStructure => ({
+		ScrivenerProject: {
+			Binder: {
+				BinderItem: [
+					{ UUID: 'leaf-1', Title: 'Novel Format', Type: 'Text' },
+					{
+						UUID: 'draft-1',
+						Title: 'Manuscript',
+						Type: 'DraftFolder',
+						Children: {
+							BinderItem: [{ UUID: 'ch-1', Title: 'Chapter 1', Type: 'Text' }],
+						},
+					},
+					{ UUID: 'folder-1', Title: 'Characters', Type: 'Folder' },
+				],
+				SearchResults: {
+					Children: {
+						BinderItem: [{ UUID: 'del-1', Title: 'Deleted Scene', Type: 'Text' }],
+					},
+				},
+			},
+		},
+	});
+
+	beforeEach(() => {
+		dm = new DocumentManager('/tmp/nonexistent-recover-test');
+		dm.setProjectStructure(makeStructure());
+	});
+
+	afterEach(async () => {
+		await dm.close();
+	});
+
+	it('restores a trashed item into the draft folder when the binder leads with a leaf', async () => {
+		// Used to throw "Root container not found" because it assumed binderItems[0]
+		// was the container to restore into.
+		await expect(dm.recoverFromTrash('del-1')).resolves.toBeUndefined();
+		const draft = (await dm.getProjectStructure()).find((d) => d.title === 'Manuscript');
+		expect(draft?.children?.map((c) => c.title)).toContain('Deleted Scene');
+	});
+
+	it('removes the recovered item from the trash', async () => {
+		await dm.recoverFromTrash('del-1');
+		const trashTitles = (await dm.getProjectStructure(true))
+			.filter((d) => typeof d.path === 'string' && d.path.startsWith('Trash'))
+			.map((d) => d.title);
+		expect(trashTitles).not.toContain('Deleted Scene');
+	});
+
+	it('restores into an explicit target folder when one is given', async () => {
+		await dm.recoverFromTrash('del-1', 'folder-1');
+		const characters = (await dm.getProjectStructure()).find((d) => d.title === 'Characters');
+		expect(characters?.children?.map((c) => c.title)).toContain('Deleted Scene');
+	});
+
+	it('throws a clear error for a document that is not in the trash', async () => {
+		await expect(dm.recoverFromTrash('nonexistent')).rejects.toThrow(/not found in trash/);
+	});
+});
