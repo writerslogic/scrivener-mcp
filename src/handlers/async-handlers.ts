@@ -54,9 +54,7 @@ export async function initializeAsyncServices(
 			);
 
 			const connectionInfo = jobQueueService.getConnectionInfo();
-			logger.info(
-				`Job queue service initialized with ${connectionInfo.type} connection in ${formatDuration(initResult.ms)}`
-			);
+			logger.info(`Job queue service initialized with ${connectionInfo.type} connection`);
 
 			// Initialize the AI writing service when a provider key is available.
 			const aiClient = new AIClient({
