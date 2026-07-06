@@ -19,12 +19,7 @@ import type { RTFContent } from '../parsers/rtf-handler.js';
 
 export interface AICompilationOptions extends CompilationOptions {
 	target?:
-		| 'agent-query'
-		| 'submission'
-		| 'beta-readers'
-		| 'publication'
-		| 'pitch-packet'
-		| 'synopsis';
+		'agent-query' | 'submission' | 'beta-readers' | 'publication' | 'pitch-packet' | 'synopsis';
 	audience?: 'agents' | 'editors' | 'readers' | 'publishers' | 'writing-group';
 	genre?: string;
 	materialType?: string;

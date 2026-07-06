@@ -222,8 +222,7 @@ function buildMetaTools(): void {
 				.map((t) => {
 					const required = (t.inputSchema.required as string[] | undefined) ?? [];
 					const props = t.inputSchema.properties as
-						| Record<string, { type?: string; description?: string }>
-						| undefined;
+						Record<string, { type?: string; description?: string }> | undefined;
 					const params = props
 						? Object.entries(props)
 								.map(

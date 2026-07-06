@@ -958,8 +958,7 @@ export class ContextAnalyzer {
 			const result = this.databaseService
 				.getSQLite()
 				.queryOne(`SELECT value FROM project_metadata WHERE key = 'story_context'`) as
-				| { value: string }
-				| undefined;
+				{ value: string } | undefined;
 
 			if (result) {
 				const data = safeParse(result.value, {

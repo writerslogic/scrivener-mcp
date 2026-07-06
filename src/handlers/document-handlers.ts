@@ -402,8 +402,7 @@ export const createDocumentHandler: ToolDefinition = {
 			const content = getOptionalStringArg(args, 'content') || '';
 			const parentId = getOptionalStringArg(args, 'parentId');
 			const documentType = (getOptionalStringArg(args, 'documentType') || 'Text') as
-				| 'Text'
-				| 'Folder';
+				'Text' | 'Folder';
 
 			// Validate parent ID if provided
 			if (parentId && !isValidUUID(parentId)) {

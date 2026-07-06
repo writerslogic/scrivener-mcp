@@ -663,11 +663,7 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 						entities.map((e) => ({
 							name: e.name,
 							type: e.type as
-								| 'character'
-								| 'location'
-								| 'organization'
-								| 'event'
-								| 'object',
+								'character' | 'location' | 'organization' | 'event' | 'object',
 							context: doc.content || '',
 							mentions: 1,
 						})),
