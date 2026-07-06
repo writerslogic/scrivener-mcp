@@ -284,7 +284,8 @@ export class ProjectLoader {
 			// Sort by date, newest first
 			backups.sort((a, b) => b.date.getTime() - a.date.getTime());
 			return backups;
-		} catch {
+		} catch (error) {
+			logger.debug('Failed to list project backups; returning none', { error });
 			return [];
 		}
 	}
