@@ -483,7 +483,7 @@ export class ErrorHandler extends EventEmitter {
 			canRecover: (error, context) => {
 				return context.operation?.includes('cache') || false;
 			},
-			recover: async (error, context) => {
+			recover: async (_error, _context) => {
 				this.logger.info('Attempting cache fallback recovery');
 
 				// Try to recover from cache failure by using alternative caching

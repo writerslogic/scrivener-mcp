@@ -5,7 +5,6 @@
 import type { JobType } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { compact } from '../core/response-formatter.js';
-import { safeStringify } from '../utils/common.js';
 import * as asyncHandlers from './async-handlers.js';
 import { SHARED_DEFS } from './shared-schemas.js';
 import type { ToolDefinition } from './types.js';

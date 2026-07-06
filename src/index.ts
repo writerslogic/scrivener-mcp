@@ -14,7 +14,7 @@ import { ContentAnalyzer } from './analysis/base-analyzer.js';
 import { getLogger } from './core/logger.js';
 import { formatError, cleanupSpool } from './core/response-formatter.js';
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
-import { HandlerError, type HandlerContext } from './handlers/index.js';
+import { type HandlerContext } from './handlers/index.js';
 import {
 	initializeSkillRegistry,
 	getRegisteredTools,

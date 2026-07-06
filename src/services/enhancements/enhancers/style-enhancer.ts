@@ -2,7 +2,7 @@ import nlp from 'compromise';
 import type { StyleGuide } from '../../../memory-manager.js';
 import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
-import type { Change, EnhancementOptions } from '../content-enhancer.js';
+import type { Change } from '../content-enhancer.js';
 
 export class StyleEnhancer {
 	private classifier: MLWordClassifierPro;
@@ -92,7 +92,6 @@ export class StyleEnhancer {
 
 	varySentences(content: string, changes: Change[]): string {
 		const sentences = splitIntoSentences(content);
-		const result = content;
 		const processedSentences: string[] = [];
 
 		for (let i = 0; i < sentences.length; i++) {
@@ -164,7 +163,6 @@ export class StyleEnhancer {
 		if (!styleGuide) return content;
 
 		let result = content;
-		const doc = nlp(content);
 
 		// Apply vocabulary preferences (check if extended style guide has vocabulary)
 		const extendedStyleGuide = styleGuide as any;
@@ -367,7 +365,6 @@ export class StyleEnhancer {
 	}
 
 	private analyzeTransitionType(sentence1: string, sentence2: string): string {
-		const s1Lower = sentence1.toLowerCase();
 		const s2Lower = sentence2.toLowerCase();
 
 		// Check for contrast indicators

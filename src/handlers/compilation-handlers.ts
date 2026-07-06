@@ -273,7 +273,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 					? compiled.content
 					: JSON.stringify(compiled.content);
 			return formatCompileResult(text, documentsToCompile.length, format);
-		} catch (error) {
+		} catch {
 			const separator = getOptionalStringArg(args, 'separator') || '\n\n---\n\n';
 			const documentIds = documentsToCompile.map((doc) => doc.id);
 			const compiled = await project.compileDocuments(documentIds, separator, format);

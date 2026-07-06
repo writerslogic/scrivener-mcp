@@ -631,18 +631,13 @@ export class JobQueueService {
 		return issues;
 	}
 
-	private async checkLocationConsistency(documents: Array<{ id: string; content: string }>) {
+	private async checkLocationConsistency(_documents: Array<{ id: string; content: string }>) {
 		const issues: Array<{
 			type: string;
 			severity: string;
 			description: string;
 			details: unknown;
 		}> = [];
-
-		const content = documents
-			.slice(0, 5)
-			.map((d) => d.content)
-			.join('\n\n');
 
 		try {
 			// Use AI to detect spatial and location inconsistencies

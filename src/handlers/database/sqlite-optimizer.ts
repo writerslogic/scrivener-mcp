@@ -3,11 +3,9 @@
  * Provides intelligent query analysis, optimization, and performance monitoring
  */
 
-import type { RunResult } from 'better-sqlite3';
-import Database from 'better-sqlite3';
 import * as crypto from 'crypto';
 import { getLogger } from '../../core/logger.js';
-import { formatBytes, formatDuration, measureExecution } from '../../utils/common.js';
+import { formatDuration, measureExecution } from '../../utils/common.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 
 const logger = getLogger('sqlite-optimizer');
@@ -128,7 +126,7 @@ export class SQLiteOptimizer {
 		// Analyze all stored queries for index opportunities
 		const recommendations = new Map<string, IndexRecommendation>();
 
-		for (const [hash, stats] of this.queryStats) {
+		for (const [, stats] of this.queryStats) {
 			if (!stats.isOptimized && stats.executionCount > 5) {
 				const queryRecs = await this.generateIndexRecommendations(
 					stats.query,

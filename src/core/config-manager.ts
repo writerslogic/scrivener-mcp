@@ -825,7 +825,7 @@ export class ConfigManager extends EventEmitter {
 		for (const configPath of this.configPaths) {
 			if (fs.existsSync(configPath)) {
 				try {
-					const stats = fs.statSync(configPath);
+					fs.statSync(configPath);
 					// Store and compare modification times
 					// This is simplified - you'd want to track actual modification times
 				} catch (error) {

@@ -1,5 +1,4 @@
 // import type { ScrivenerDocument } from '../scrivener-project.js';
-import { cached, caches } from '../core/cache.js';
 import { getLogger } from '../core/logger.js';
 import { webContentParser } from '../services/web-content-parser.js';
 import type {
@@ -9,7 +8,6 @@ import type {
 	ReadabilityMetrics,
 	ReadabilityTrends,
 	ResearchData,
-	WritingSuggestion,
 } from '../types/analysis.js';
 import { PredictiveCacheFactory } from '../utils/predictive-cache.js';
 import { advancedReadabilityService } from './advanced-readability.js';
@@ -23,10 +21,7 @@ import {
 	formatDuration,
 	measureExecution,
 } from '../utils/common.js';
-import {
-	getWritingTextMetrics as getTextMetrics,
-	splitIntoSentences,
-} from '../utils/text-metrics.js';
+import { getWritingTextMetrics as getTextMetrics } from '../utils/text-metrics.js';
 
 // Import the new modular analyzers
 import {
@@ -361,7 +356,9 @@ export class ContentAnalyzer {
 
 			return executionResult.result;
 		} catch (error) {
-			throw new Error(`ContentAnalyzer.analyzeContent failed: ${(error as Error).message}`);
+			throw new Error(`ContentAnalyzer.analyzeContent failed: ${(error as Error).message}`, {
+				cause: error,
+			});
 		}
 	}
 

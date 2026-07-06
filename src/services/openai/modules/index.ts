@@ -4,9 +4,6 @@
  */
 
 import OpenAI from 'openai';
-import { getLogger } from '../../../core/logger.js';
-
-const logger = getLogger('openai-modules');
 
 /**
  * Direct text generation using OpenAI's latest models

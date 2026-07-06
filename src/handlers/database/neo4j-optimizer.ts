@@ -3,7 +3,7 @@
  * Provides intelligent query profiling, batching, and performance optimization
  */
 
-import type { Driver, ManagedTransaction, QueryResult, Record as Neo4jRecord } from 'neo4j-driver';
+import type { Driver, ManagedTransaction, QueryResult } from 'neo4j-driver';
 import { getLogger } from '../../core/logger.js';
 import { formatDuration, measureExecution } from '../../utils/common.js';
 import type { QueryParameters } from '../../types/database.js';

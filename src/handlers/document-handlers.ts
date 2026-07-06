@@ -12,7 +12,6 @@ import { getHHMSystem } from './memory-handlers.js';
 import { getLogger } from '../core/logger.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
-	getOptionalBooleanArg,
 	getOptionalNumberArg,
 	getOptionalStringArg,
 	getStringArg,
@@ -23,7 +22,6 @@ import {
 	documentContentSchema,
 	documentIdSchema,
 	documentMoveSchema,
-	documentTitleSchema,
 } from './validation-schemas.js';
 
 function assertValidDocumentId(documentId: string): void {
@@ -314,7 +312,7 @@ export const writeDocumentHandler: ToolDefinition = {
 				);
 			}
 
-			const result = await measureExecution(() => project.writeDocument(documentId, content));
+			await measureExecution(() => project.writeDocument(documentId, content));
 
 			// Update HHM memory with new content
 			try {

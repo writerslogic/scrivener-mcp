@@ -2,7 +2,7 @@ import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change, EnhancementOptions } from '../content-enhancer.js';
 
 export class PacingEnhancer {
-	fixPacing(content: string, changes: Change[], options: EnhancementOptions): string {
+	fixPacing(content: string, changes: Change[], _options: EnhancementOptions): string {
 		const sentences = splitIntoSentences(content);
 		const processedSentences: string[] = [];
 

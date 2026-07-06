@@ -92,7 +92,7 @@ export async function ensureDirectory(dirPath: string, mode: number = 0o755): Pr
 		try {
 			const stats = await fs.stat(dirPath);
 			if (!stats.isDirectory()) {
-				throw new Error(`Path exists but is not a directory: ${dirPath}`);
+				throw new Error(`Path exists but is not a directory: ${dirPath}`, { cause: error });
 			}
 		} catch {
 			throw error;

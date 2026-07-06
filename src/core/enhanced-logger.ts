@@ -730,7 +730,7 @@ export class LoggerMiddleware {
 	 * Error handling middleware with logging
 	 */
 	errorMiddleware() {
-		return (err: Error, req: any, res: any, next: any) => {
+		return (err: Error, req: any, res: any, _next: any) => {
 			const context = EnhancedLogger.getContext();
 
 			this.logger.error('Request error', err, {

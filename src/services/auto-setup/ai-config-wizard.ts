@@ -8,7 +8,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import * as readline from 'readline';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { getLogger } from '../../core/logger.js';
 import { writeJSON, getEnv } from '../../utils/common.js';
 

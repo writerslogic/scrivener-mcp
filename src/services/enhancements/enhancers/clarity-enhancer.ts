@@ -129,7 +129,6 @@ export class ClarityEnhancer {
 		options: EnhancementOptions,
 		targetLength?: number
 	): string {
-		const sentences = splitIntoSentences(content);
 		const originalWordCount = content.split(/\s+/).length;
 		const target = targetLength || Math.floor(originalWordCount * 0.8);
 
@@ -154,7 +153,7 @@ export class ClarityEnhancer {
 		return result;
 	}
 
-	fixPacing(content: string, changes: Change[], options: EnhancementOptions): string {
+	fixPacing(content: string, changes: Change[], _options: EnhancementOptions): string {
 		const sentences = splitIntoSentences(content);
 		const processedSentences: string[] = [];
 
@@ -331,7 +330,7 @@ export class ClarityEnhancer {
 		return 1 - intersection.size / union.size;
 	}
 
-	private selectTransition(sentence1: string, sentence2: string): string {
+	private selectTransition(_sentence1: string, _sentence2: string): string {
 		return FLOW_TRANSITIONS[Math.floor(Math.random() * FLOW_TRANSITIONS.length)];
 	}
 
@@ -452,7 +451,7 @@ export class ClarityEnhancer {
 		return `${sentence1.replace(/\.$/, '')} ${conjunction} ${sentence2.toLowerCase()}`;
 	}
 
-	private breakCompoundSentences(sentence: string, changes: Change[]): string {
+	private breakCompoundSentences(sentence: string, _changes: Change[]): string {
 		// Similar to breakLongSentence but specifically for compound structures
 		return this.breakLongSentence(sentence);
 	}
@@ -573,7 +572,7 @@ export class ClarityEnhancer {
 		return (LESS_ESSENTIAL_ADJECTIVES as readonly string[]).includes(adjective.toLowerCase());
 	}
 
-	private isVerbPattern(word: string, words: string[], index: number): boolean {
+	private isVerbPattern(word: string, _words: string[], _index: number): boolean {
 		return (
 			(COMMON_VERBS as readonly string[]).includes(word) ||
 			VERB_ENDINGS.some((ending) => word.endsWith(ending))

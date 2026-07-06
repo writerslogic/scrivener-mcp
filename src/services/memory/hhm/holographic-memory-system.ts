@@ -309,7 +309,7 @@ class JSVectorEngine {
 		const centroidIndices: number[] = [Math.floor(Math.random() * this.entries.length)];
 
 		while (centroidIndices.length < k) {
-			const distances = this.entries.map((e, i) => {
+			const distances = this.entries.map((e) => {
 				let minDist = Infinity;
 				for (const ci of centroidIndices) {
 					const sim = this.cosine(e.vector, this.entries[ci].vector);

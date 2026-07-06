@@ -85,7 +85,6 @@ export class DescriptionEnhancer {
 	}
 
 	expandContent(content: string, changes: Change[], targetLength?: number): string {
-		const sentences = splitIntoSentences(content);
 		const originalWordCount = content.split(/\s+/).length;
 		const target = targetLength || Math.floor(originalWordCount * 1.3);
 
@@ -423,7 +422,6 @@ export class DescriptionEnhancer {
 	}
 
 	private generateActionExpansion(sentence: string): string {
-		const actionVerbs = ['walked', 'ran', 'looked', 'turned', 'opened', 'closed'];
 		const expansions: Record<string, string[]> = {
 			walked: ['strolled leisurely', 'hurried quickly', 'wandered aimlessly'],
 			ran: ['sprinted desperately', 'jogged steadily', 'dashed frantically'],

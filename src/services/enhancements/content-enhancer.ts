@@ -1,4 +1,3 @@
-import nlp from 'compromise';
 import type { StyleGuide } from '../../memory-manager.js';
 import { MLWordClassifierPro } from '../../analysis/ml-word-classifier-pro.js';
 import { AppError, ErrorCode } from '../../utils/common.js';

@@ -126,7 +126,6 @@ export const analyzeDocumentHandler: ToolDefinition = {
 		validateInput(args, analysisSchema);
 
 		const documentId = getStringArg(args, 'documentId');
-		const analysisTypes = (args.analysisTypes as string[]) || ['all'];
 
 		const document = await project.getDocument(documentId);
 		if (!document) {
@@ -156,7 +155,7 @@ export const analyzeDocumentHandler: ToolDefinition = {
 				],
 				structuredContent: { readability, pacing, issues },
 			};
-		} catch (error) {
+		} catch {
 			// Fallback to basic analysis if AI enhancement fails
 			const fallbackAnalysis = await context.contentAnalyzer.analyzeContent(
 				document.content || '',

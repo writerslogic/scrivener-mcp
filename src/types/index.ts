@@ -322,15 +322,6 @@ export interface CacheEntry<T> {
 	size?: number;
 }
 
-// Legacy error types (replaced by enhanced version below)
-interface LegacyErrorDetails {
-	code: string;
-	message: string;
-	details?: Record<string, JSONValue> | string | number | Error;
-	stack?: string;
-	timestamp: Date;
-}
-
 // Legacy validation types (replaced by enhanced version below)
 interface LegacyValidationRule {
 	type: 'string' | 'number' | 'boolean' | 'array' | 'object';

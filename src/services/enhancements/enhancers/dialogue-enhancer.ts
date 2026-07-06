@@ -1,4 +1,3 @@
-import nlp from 'compromise';
 import type { Change } from '../content-enhancer.js';
 
 export class DialogueEnhancer {

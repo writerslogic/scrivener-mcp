@@ -1,4 +1,3 @@
-import nlp from 'compromise';
 import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change } from '../content-enhancer.js';
