@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Fixed
+- Log when project-backup listing fails instead of silently returning none
 - Make logged errors debuggable and stop silently dropping unparseable RTF
 ## [0.8.1] - 2026-07-06
 
