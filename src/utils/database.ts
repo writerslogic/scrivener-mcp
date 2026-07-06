@@ -94,7 +94,8 @@ export function isTransientDatabaseError(error: unknown): boolean {
  */
 export function toDatabaseError(error: unknown, context?: string): AppError {
 	const type = classifyDatabaseError(error);
-	const err = error as Error & { code?: string };
+	const originalMessage =
+		error instanceof Error ? error.message : String(error ?? 'unknown error');
 
 	const errorMessages: Record<DatabaseErrorType, string> = {
 		[DatabaseErrorType.CONNECTION]: 'Database connection failed',
@@ -119,7 +120,7 @@ export function toDatabaseError(error: unknown, context?: string): AppError {
 	return new AppError(
 		`${errorMessages[type]}${context ? ` in ${context}` : ''}`,
 		errorCodes[type],
-		{ originalError: err.message, type }
+		{ originalError: originalMessage, type }
 	);
 }
 

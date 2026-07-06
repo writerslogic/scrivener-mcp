@@ -3,12 +3,13 @@ import {
 	generateScrivenerUUID,
 	parseMetadata,
 	findBinderItem,
+	clearBinderCache,
 	getDocumentPath,
 	getSynopsisPath,
 	getNotesPath,
 	traverseBinder,
 } from '../../../src/utils/scrivener-utils.js';
-import type { BinderItem } from '../../../src/types/internal.js';
+import type { BinderItem, BinderContainer } from '../../../src/types/internal.js';
 
 describe('Scrivener Utils', () => {
 	describe('generateScrivenerUUID', () => {
@@ -33,9 +34,9 @@ describe('Scrivener Utils', () => {
 	describe('parseMetadata', () => {
 		it('should parse simple metadata items', () => {
 			const metaDataItems = [
-				{ key: 'author', value: 'John Doe' },
-				{ key: 'genre', value: 'Science Fiction' },
-				{ key: 'year', value: '2024' },
+				{ ID: 'author', Value: 'John Doe' },
+				{ ID: 'genre', Value: 'Science Fiction' },
+				{ ID: 'year', Value: '2024' },
 			];
 
 			const result = parseMetadata(metaDataItems);
@@ -57,14 +58,14 @@ describe('Scrivener Utils', () => {
 		});
 
 		it('should handle null metadata', () => {
-			const result = parseMetadata(null);
+			const result = parseMetadata(null as unknown as undefined);
 			expect(result).toEqual({});
 		});
 
 		it('should override duplicate keys with last value', () => {
 			const metaDataItems = [
-				{ key: 'author', value: 'First Author' },
-				{ key: 'author', value: 'Second Author' },
+				{ ID: 'author', Value: 'First Author' },
+				{ ID: 'author', Value: 'Second Author' },
 			];
 
 			const result = parseMetadata(metaDataItems);
@@ -75,8 +76,8 @@ describe('Scrivener Utils', () => {
 
 		it('should handle special characters in keys and values', () => {
 			const metaDataItems = [
-				{ key: 'special-key_123', value: 'Value with spaces & symbols!' },
-				{ key: 'unicode-key', value: 'Café résumé naïve' },
+				{ ID: 'special-key_123', Value: 'Value with spaces & symbols!' },
+				{ ID: 'unicode-key', Value: 'Café résumé naïve' },
 			];
 
 			const result = parseMetadata(metaDataItems);
@@ -88,92 +89,100 @@ describe('Scrivener Utils', () => {
 	});
 
 	describe('findBinderItem', () => {
-		let mockBinder: BinderItem;
+		let mockBinder: BinderContainer;
 
 		beforeEach(() => {
+			clearBinderCache();
 			mockBinder = {
-				id: 'root',
-				title: 'Root',
-				type: 'Folder',
-				children: [
-					{
-						id: 'chapter-1',
-						title: 'Chapter 1',
-						type: 'Text',
-						children: [
+				BinderItem: {
+					UUID: 'root',
+					Title: 'Root',
+					Type: 'Folder',
+					Children: {
+						BinderItem: [
 							{
-								id: 'scene-1-1',
-								title: 'Scene 1',
-								type: 'Text',
-								children: [],
+								UUID: 'chapter-1',
+								Title: 'Chapter 1',
+								Type: 'Text',
+								Children: {
+									BinderItem: [
+										{
+											UUID: 'scene-1-1',
+											Title: 'Scene 1',
+											Type: 'Text',
+										},
+									],
+								},
+							},
+							{
+								UUID: 'chapter-2',
+								Title: 'Chapter 2',
+								Type: 'Text',
+							},
+							{
+								UUID: 'research',
+								Title: 'Research',
+								Type: 'Folder',
+								Children: {
+									BinderItem: [
+										{
+											UUID: 'character-notes',
+											Title: 'Character Notes',
+											Type: 'Text',
+										},
+									],
+								},
 							},
 						],
 					},
-					{
-						id: 'chapter-2',
-						title: 'Chapter 2',
-						type: 'Text',
-						children: [],
-					},
-					{
-						id: 'research',
-						title: 'Research',
-						type: 'Folder',
-						children: [
-							{
-								id: 'character-notes',
-								title: 'Character Notes',
-								type: 'Text',
-								children: [],
-							},
-						],
-					},
-				],
+				},
 			};
 		});
 
 		it('should find a top-level item', () => {
 			const result = findBinderItem(mockBinder, 'chapter-1');
 			expect(result).toBeDefined();
-			expect(result?.id).toBe('chapter-1');
-			expect(result?.title).toBe('Chapter 1');
+			expect(result?.UUID).toBe('chapter-1');
+			expect(result?.Title).toBe('Chapter 1');
 		});
 
 		it('should find a nested item', () => {
 			const result = findBinderItem(mockBinder, 'scene-1-1');
 			expect(result).toBeDefined();
-			expect(result?.id).toBe('scene-1-1');
-			expect(result?.title).toBe('Scene 1');
+			expect(result?.UUID).toBe('scene-1-1');
+			expect(result?.Title).toBe('Scene 1');
 		});
 
 		it('should find a deeply nested item', () => {
 			const result = findBinderItem(mockBinder, 'character-notes');
 			expect(result).toBeDefined();
-			expect(result?.id).toBe('character-notes');
-			expect(result?.title).toBe('Character Notes');
+			expect(result?.UUID).toBe('character-notes');
+			expect(result?.Title).toBe('Character Notes');
 		});
 
-		it('should return undefined for non-existent item', () => {
+		it('should return null for non-existent item', () => {
 			const result = findBinderItem(mockBinder, 'non-existent');
-			expect(result).toBeUndefined();
+			expect(result).toBeNull();
 		});
 
 		it('should find the root item itself', () => {
 			const result = findBinderItem(mockBinder, 'root');
 			expect(result).toBeDefined();
-			expect(result?.id).toBe('root');
-			expect(result?.title).toBe('Root');
+			expect(result?.UUID).toBe('root');
+			expect(result?.Title).toBe('Root');
 		});
 
 		it('should handle empty binder', () => {
-			const emptyBinder: BinderItem = {
-				id: 'empty',
-				title: 'Empty',
-				type: 'Folder',
-				children: [],
+			const emptyBinder: BinderContainer = {
+				BinderItem: {
+					UUID: 'empty',
+					Title: 'Empty',
+					Type: 'Folder',
+					Children: { BinderItem: [] },
+				},
 			};
 			const result = findBinderItem(emptyBinder, 'non-existent');
-			expect(result).toBeUndefined();
+			expect(result).toBeNull();
 		});
 	});
 
@@ -213,47 +222,50 @@ describe('Scrivener Utils', () => {
 	});
 
 	describe('traverseBinder', () => {
-		let mockBinder: BinderItem;
+		let mockBinder: BinderContainer;
 		let visitedItems: BinderItem[];
 
 		beforeEach(() => {
 			visitedItems = [];
 			mockBinder = {
-				id: 'root',
-				title: 'Root',
-				type: 'Folder',
-				children: [
-					{
-						id: 'chapter-1',
-						title: 'Chapter 1',
-						type: 'Text',
-						children: [
+				BinderItem: {
+					UUID: 'root',
+					Title: 'Root',
+					Type: 'Folder',
+					Children: {
+						BinderItem: [
 							{
-								id: 'scene-1-1',
-								title: 'Scene 1',
-								type: 'Text',
-								children: [],
+								UUID: 'chapter-1',
+								Title: 'Chapter 1',
+								Type: 'Text',
+								Children: {
+									BinderItem: [
+										{
+											UUID: 'scene-1-1',
+											Title: 'Scene 1',
+											Type: 'Text',
+										},
+									],
+								},
+							},
+							{
+								UUID: 'chapter-2',
+								Title: 'Chapter 2',
+								Type: 'Text',
 							},
 						],
 					},
-					{
-						id: 'chapter-2',
-						title: 'Chapter 2',
-						type: 'Text',
-						children: [],
-					},
-				],
+				},
 			};
 		});
 
 		it('should visit all items in depth-first order', () => {
 			traverseBinder(mockBinder, (item) => {
 				visitedItems.push(item);
-				return false; // Continue traversal
 			});
 
 			expect(visitedItems).toHaveLength(4);
-			expect(visitedItems.map((item) => item.id)).toEqual([
+			expect(visitedItems.map((item) => item.UUID)).toEqual([
 				'root',
 				'chapter-1',
 				'scene-1-1',
@@ -261,31 +273,37 @@ describe('Scrivener Utils', () => {
 			]);
 		});
 
-		it('should stop traversal when callback returns true', () => {
+		it('should visit every item regardless of callback return value', () => {
 			traverseBinder(mockBinder, (item) => {
 				visitedItems.push(item);
-				return item.id === 'chapter-1'; // Stop at chapter-1
+				return item.UUID === 'chapter-1'; // return value is ignored
 			});
 
-			expect(visitedItems).toHaveLength(2);
-			expect(visitedItems.map((item) => item.id)).toEqual(['root', 'chapter-1']);
+			expect(visitedItems).toHaveLength(4);
+			expect(visitedItems.map((item) => item.UUID)).toEqual([
+				'root',
+				'chapter-1',
+				'scene-1-1',
+				'chapter-2',
+			]);
 		});
 
 		it('should handle empty binder', () => {
-			const emptyBinder: BinderItem = {
-				id: 'empty',
-				title: 'Empty',
-				type: 'Folder',
-				children: [],
+			const emptyBinder: BinderContainer = {
+				BinderItem: {
+					UUID: 'empty',
+					Title: 'Empty',
+					Type: 'Folder',
+					Children: { BinderItem: [] },
+				},
 			};
 
 			traverseBinder(emptyBinder, (item) => {
 				visitedItems.push(item);
-				return false;
 			});
 
 			expect(visitedItems).toHaveLength(1);
-			expect(visitedItems[0].id).toBe('empty');
+			expect(visitedItems[0].UUID).toBe('empty');
 		});
 
 		it('should provide correct depth information', () => {

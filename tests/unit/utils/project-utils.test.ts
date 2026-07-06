@@ -1,59 +1,73 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { existsSync, mkdirSync, rmSync } from 'fs';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
 import {
 	ensureProjectDataDirectory,
 	getQueueStatePath,
 	getCacheDirectory,
 } from '../../../src/utils/project-utils.js';
 
+/**
+ * Create a minimal valid Scrivener project directory (a `.scriv` folder that
+ * contains a `.scrivx` file) so that ensureProjectDataDirectory's
+ * project-validity check passes.
+ */
+function createValidScrivProject(projectPath: string): void {
+	mkdirSync(projectPath, { recursive: true });
+	const projectName = projectPath
+		.split('/')
+		.pop()!
+		.replace(/\.scriv$/, '');
+	writeFileSync(
+		join(projectPath, `${projectName}.scrivx`),
+		'<?xml version="1.0"?><ScrivenerProject></ScrivenerProject>'
+	);
+}
+
 describe('Project Utils', () => {
-	const testProjectPath = '/tmp/test-project.scriv';
-	const testDataPath = join(testProjectPath, 'data');
+	let tmpBase: string;
+	let testProjectPath: string;
+	// Runtime state now lives under `.scrivener-mcp`, not `data`.
+	let mcpDir: string;
 
 	beforeEach(() => {
-		// Clean up any existing test data
-		if (existsSync(testDataPath)) {
-			rmSync(testDataPath, { recursive: true, force: true });
-		}
+		tmpBase = join(tmpdir(), `scrivener-mcp-test-${randomUUID()}`);
+		testProjectPath = join(tmpBase, 'test-project.scriv');
+		mcpDir = join(testProjectPath, '.scrivener-mcp');
+		createValidScrivProject(testProjectPath);
 	});
 
 	afterEach(() => {
-		// Clean up test data
-		if (existsSync(testDataPath)) {
-			rmSync(testDataPath, { recursive: true, force: true });
+		if (existsSync(tmpBase)) {
+			rmSync(tmpBase, { recursive: true, force: true });
 		}
 	});
 
 	describe('ensureProjectDataDirectory', () => {
 		it('should create data directory if it does not exist', async () => {
-			expect(existsSync(testDataPath)).toBe(false);
+			expect(existsSync(mcpDir)).toBe(false);
 
 			await ensureProjectDataDirectory(testProjectPath);
 
-			expect(existsSync(testDataPath)).toBe(true);
+			expect(existsSync(mcpDir)).toBe(true);
 		});
 
 		it('should not throw if directory already exists', async () => {
-			mkdirSync(testDataPath, { recursive: true });
-			expect(existsSync(testDataPath)).toBe(true);
+			mkdirSync(mcpDir, { recursive: true });
+			expect(existsSync(mcpDir)).toBe(true);
 
 			await expect(ensureProjectDataDirectory(testProjectPath)).resolves.not.toThrow();
 		});
 
 		it('should handle nested path creation', async () => {
-			const nestedProjectPath = '/tmp/nested/deep/project.scriv';
-			const nestedDataPath = join(nestedProjectPath, 'data');
+			const nestedProjectPath = join(tmpBase, 'nested', 'deep', 'project.scriv');
+			const nestedMcpDir = join(nestedProjectPath, '.scrivener-mcp');
+			createValidScrivProject(nestedProjectPath);
 
-			try {
-				await ensureProjectDataDirectory(nestedProjectPath);
-				expect(existsSync(nestedDataPath)).toBe(true);
-			} finally {
-				// Cleanup nested structure
-				if (existsSync('/tmp/nested')) {
-					rmSync('/tmp/nested', { recursive: true, force: true });
-				}
-			}
+			await ensureProjectDataDirectory(nestedProjectPath);
+			expect(existsSync(nestedMcpDir)).toBe(true);
 		});
 
 		it('should handle project path with trailing slash', async () => {
@@ -61,45 +75,45 @@ describe('Project Utils', () => {
 
 			await ensureProjectDataDirectory(projectPathWithSlash);
 
-			expect(existsSync(testDataPath)).toBe(true);
+			expect(existsSync(mcpDir)).toBe(true);
 		});
 	});
 
 	describe('getQueueStatePath', () => {
 		it('should return correct queue state path', () => {
 			const result = getQueueStatePath(testProjectPath);
-			expect(result).toBe(join(testProjectPath, 'data', 'queue-state.json'));
+			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
 		});
 
 		it('should handle project path with trailing slash', () => {
 			const projectPathWithSlash = testProjectPath + '/';
 			const result = getQueueStatePath(projectPathWithSlash);
-			expect(result).toBe(join(testProjectPath, 'data', 'queue-state.json'));
+			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
 		});
 
 		it('should work with different project paths', () => {
 			const differentProject = '/home/user/novel.scriv';
 			const result = getQueueStatePath(differentProject);
-			expect(result).toBe('/home/user/novel.scriv/data/queue-state.json');
+			expect(result).toBe('/home/user/novel.scriv/.scrivener-mcp/queue-state.json');
 		});
 	});
 
 	describe('getCacheDirectory', () => {
 		it('should return correct cache directory path', () => {
 			const result = getCacheDirectory(testProjectPath);
-			expect(result).toBe(join(testProjectPath, 'data', 'cache'));
+			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
 		});
 
 		it('should handle project path with trailing slash', () => {
 			const projectPathWithSlash = testProjectPath + '/';
 			const result = getCacheDirectory(projectPathWithSlash);
-			expect(result).toBe(join(testProjectPath, 'data', 'cache'));
+			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
 		});
 
 		it('should work with different project paths', () => {
 			const differentProject = '/home/user/story.scriv';
 			const result = getCacheDirectory(differentProject);
-			expect(result).toBe('/home/user/story.scriv/data/cache');
+			expect(result).toBe('/home/user/story.scriv/.scrivener-mcp/cache');
 		});
 	});
 
@@ -113,7 +127,7 @@ describe('Project Utils', () => {
 		it('should handle relative paths', () => {
 			const relativePath = './my-project.scriv';
 			const result = getCacheDirectory(relativePath);
-			expect(result).toContain('data');
+			expect(result).toContain('.scrivener-mcp');
 			expect(result).toContain('cache');
 		});
 	});

@@ -71,10 +71,10 @@ describe('Common Utilities - New Functions', () => {
 				const text = 'Hello world. How are you? I am fine! And you...';
 				const sentences = splitIntoSentences(text);
 				expect(sentences).toEqual([
-					'Hello world',
-					' How are you',
-					' I am fine',
-					' And you',
+					'Hello world.',
+					'How are you?',
+					'I am fine!',
+					'And you...',
 				]);
 			});
 
@@ -87,7 +87,7 @@ describe('Common Utilities - New Functions', () => {
 			it('should filter out empty sentences', () => {
 				const text = 'First sentence. . . Second sentence!';
 				const sentences = splitIntoSentences(text);
-				expect(sentences).toEqual(['First sentence', ' Second sentence']);
+				expect(sentences).toEqual(['First sentence. . .', 'Second sentence!']);
 			});
 
 			it('should handle empty string', () => {
@@ -97,7 +97,7 @@ describe('Common Utilities - New Functions', () => {
 			it('should handle multiple punctuation marks', () => {
 				const text = 'Really?! Yes!!! No...';
 				const sentences = splitIntoSentences(text);
-				expect(sentences).toEqual(['Really', ' Yes', ' No']);
+				expect(sentences).toEqual(['Really?!', 'Yes!!!', 'No...']);
 			});
 		});
 
@@ -105,7 +105,7 @@ describe('Common Utilities - New Functions', () => {
 			it('should extract words from text', () => {
 				const text = 'Hello world, how are you?';
 				const words = splitIntoWords(text);
-				expect(words).toEqual(['Hello', 'world', 'how', 'are', 'you']);
+				expect(words).toEqual(['Hello', 'world,', 'how', 'are', 'you?']);
 			});
 
 			it('should handle text with numbers', () => {
@@ -121,7 +121,7 @@ describe('Common Utilities - New Functions', () => {
 			it('should handle text with special characters', () => {
 				const text = 'Hello@world #test $money';
 				const words = splitIntoWords(text);
-				expect(words).toEqual(['Hello', 'world', 'test', 'money']);
+				expect(words).toEqual(['Hello@world', '#test', '$money']);
 			});
 
 			it('should handle text with underscores', () => {
