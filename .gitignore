@@ -87,6 +87,10 @@ scrivener-cache.db
 scrivener.db
 *.scriv/Settings/compile.xml
 *.scriv/Settings/recents.txt
+# Runtime state written next to a project when it is opened (DB, backups) — must
+# never be committed, including when a test opens the sample-project fixture.
+.scrivener-databases/
+.scrivener-mcp-backup/
 
 # Logs
 logs/
