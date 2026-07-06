@@ -257,10 +257,10 @@ export const getStructureHandler: ToolDefinition = {
 				}
 			};
 
-			// Flatten each top-level section
-			if (structure.draft) flatten(structure.draft, 0);
-			if (structure.research) flatten(structure.research, 0);
-			if (structure.trash) flatten(structure.trash, 0);
+			// Flatten every top-level binder item (root is a synthetic wrapper over them).
+			for (const node of structure.root?.children ?? []) {
+				flatten(node, 0);
+			}
 
 			const documents = rows.map(([id, title, type, depth, wordCount, hasChildren]) => ({
 				id,

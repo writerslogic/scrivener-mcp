@@ -114,6 +114,13 @@ async function main() {
 		const docs = structure.structuredContent?.documents ?? [];
 		anyDocId = docs.find((d) => d.type !== 'Folder')?.id ?? docs[0]?.id ?? null;
 		out(`project open; ${docs.length} binder items; sample doc id: ${anyDocId ?? 'none'}`);
+		// Regression guard: get_structure must not collapse a non-empty binder to []
+		// (it did when the tree builder only descended the first top-level item).
+		record({
+			name: 'get_structure(non-empty)',
+			status: docs.length > 0 ? 'PASS' : 'FAIL',
+			detail: docs.length > 0 ? undefined : 'returned 0 items for a non-empty project',
+		});
 
 		for (const [name, argsSpec] of PLAN) {
 			const tool = byName.get(name);

@@ -707,8 +707,10 @@ export class ScrivenerProject {
 	}): Promise<ProjectStructure> {
 		const structure = await this.getProjectStructure(options?.includeTrash);
 
-		// Convert ScrivenerDocument[] to ProjectStructure format
-		const root = structure[0] || {
+		// Convert ScrivenerDocument[] to ProjectStructure format. Root is a synthetic
+		// wrapper over every top-level item, not just structure[0] — otherwise the
+		// binder collapses to its first entry.
+		const root = {
 			id: 'root',
 			title: 'Project Root',
 			type: 'Folder' as const,

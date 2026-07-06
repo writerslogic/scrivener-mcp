@@ -767,8 +767,21 @@ export class DocumentManager {
 				? [binder.BinderItem]
 				: [];
 
-		if (binderItems[0]?.Children?.BinderItem) {
-			this.buildDocumentTree(binderItems[0].Children, documents, '');
+		// Walk every top-level binder item (each becomes a document, folders recurse
+		// into their children), not just the first one — real binders lead with
+		// template/front-matter docs and spread content across several top-level
+		// folders (Draft/Manuscript, Research, ...). A top-level trash folder is only
+		// surfaced when includeTrash, with a "Trash/" path prefix.
+		for (const item of binderItems) {
+			const isTrash = item.Type === 'TrashFolder';
+			if (isTrash && !includeTrash) continue;
+			const prefix = isTrash ? 'Trash/' : '';
+			const doc = this.binderItemToDocument(item, prefix);
+			documents.push(doc);
+			if (item.Children?.BinderItem) {
+				doc.children = [];
+				this.buildDocumentTree(item.Children, doc.children, prefix || `${item.Title}/`);
+			}
 		}
 
 		if (includeTrash) {
