@@ -45,11 +45,17 @@ To migrate a Scrivener 2 project, open and re-save it in Scrivener 3 first
 | Binder structure (folders/documents, order, nesting) | ✅ | ✅ | |
 | Document RTF content | ✅ | ✅ | via the RTF handler |
 | Synopsis, notes, keywords | ✅ | ✅ | |
-| Label / status | ✅ (as text) | ✅ | Color *mappings* are not yet surfaced — see issue #14. |
-| Collections | ➖ | ➖ | Not yet exposed — see issue #14. |
-| Snapshots | ➖ | ➖ | Not yet exposed — see issue #14. |
-| Compile format settings | ➖ | ➖ | Not yet exposed — see issue #14. |
-| Project/manuscript export (Markdown, HTML, JSON) | — | ✅ | EPUB/DOCX/PDF are not yet implemented — see issue #37. |
+| Label / status | ✅ | ✅ | Colors surfaced (raw + hex) via `get_compile_settings`. |
+| Collections | ✅ | ➖ | Read-only via `get_compile_settings` (id, title, type, color). |
+| Compile format settings | ✅ | ➖ | Read-only via `get_compile_settings` (formats, section-layout counts, front matter, options). Not applied during compile. |
+| Section types | ✅ | ➖ | Read-only via `get_compile_settings`. |
+| Snapshots | ➖ | ➖ | Not yet exposed. |
+| Project/manuscript export (Markdown, HTML, JSON) | — | ✅ | Inline. |
+| Project/manuscript export (DOCX, EPUB, PDF) | — | ✅ | Written to disk via `export_project` — see issue #37. |
+
+For the on-disk format itself — element and file layout, what we read vs. infer,
+the RTF dialect, and safe-modification guidance — see
+[`scrivener-format.md`](./scrivener-format.md).
 
 ## No stability guarantee
 
