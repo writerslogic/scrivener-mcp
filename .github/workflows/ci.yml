@@ -36,5 +36,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Tool registry gate
+        run: node scripts/check-tool-registry.mjs
+
+      - name: Output-schema conformance gate
+        run: node scripts/check-output-conformance.mjs
+
       - name: Test
         run: npm test -- --testTimeout=30000
