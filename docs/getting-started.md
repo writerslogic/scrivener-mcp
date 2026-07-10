@@ -14,7 +14,7 @@ This guide walks you through installing scrivener-mcp, connecting it to Claude, 
 npm install -g scrivener-mcp
 ```
 
-The installer automatically detects Claude Desktop and writes the MCP configuration for you. Restart Claude Desktop after installation.
+The installer automatically configures **Claude Desktop** only, then restart Claude Desktop. **Claude Code** and other clients are not configured by the install step -- run `npx scrivener-setup` (below) or add the server manually.
 
 ### Manual Configuration
 
@@ -53,13 +53,13 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list six tools: the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`) plus two meta-tools (`list_skills`, `use_skill`). If you don't see the six startup tools, check the troubleshooting section below.
+Claude should list ten tools: the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`) plus two meta-tools (`list_skills`, `use_skill`). If you don't see the startup tools, check the troubleshooting section below.
 
 ### How skills activate
 
 The server uses progressive tool loading to keep conversations fast by only loading what you need:
 
-1. **At startup:** 6 tools are available -- project management (`open_project`, `get_structure`, `refresh_project`, `close_project`) plus `list_skills` and `use_skill`.
+1. **At startup:** 10 tools are available -- the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`) plus `list_skills` and `use_skill`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read, write, create, delete, move, rename, search, and find tools (roughly 18 more tools).
 3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load additional skill groups. Available on-demand skills:
    - **analysis** -- writing quality, pacing, style, critique, character consistency

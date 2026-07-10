@@ -76,7 +76,7 @@ You need to call `open_project` with a path before using document tools. The pro
 
 ## "Unknown tool" errors
 
-Tools load progressively to minimize token overhead. At startup, only 6 tools are registered (project management + meta-tools).
+Tools load progressively to minimize token overhead. At startup, only 10 tools are registered (the `project` skill + meta-tools).
 
 - Call `list_skills` to see all available skill groups and which are currently active
 - Call `use_skill("analysis")` to activate analysis tools
@@ -84,6 +84,22 @@ Tools load progressively to minimize token overhead. At startup, only 6 tools ar
 - The `documents` and `search` skill groups auto-activate after `open_project`
 
 If a tool you expect isn't available, check which skills are active and activate the appropriate group.
+
+**If activating a skill doesn't help** -- e.g. `create_document` keeps returning "No such tool available" even right after the `documents` skill activates -- your client isn't refreshing its tool list when the server adds tools. The server sends a `tools/list_changed` notification, but some clients (and older builds of this server) don't act on it. Force everything to register at startup instead:
+
+```json
+{
+  "mcpServers": {
+    "scrivener": {
+      "command": "npx",
+      "args": ["scrivener-mcp"],
+      "env": { "SCRIVENER_MCP_EAGER_TOOLS": "1" }
+    }
+  }
+}
+```
+
+Restart the client. All tools are then present from the start, with no progressive activation.
 
 ## Claude doesn't see scrivener-mcp
 
@@ -110,7 +126,7 @@ or
 
 > "What Scrivener tools do you have?"
 
-You should see at least six tools: `open_project`, `get_structure`, `refresh_project`, `close_project`, `list_skills`, and `use_skill`.
+You should see ten tools: `open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`, `list_skills`, and `use_skill`.
 
 **Related issues:** [#2](https://github.com/writerslogic/scrivener-mcp/issues/2)
 

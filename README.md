@@ -48,7 +48,7 @@
 
 ---
 
-Scrivener MCP lets your AI assistant open, read, edit, analyze, and search your Scrivener projects directly. No copy-pasting. No exporting. Just open your novel and start working.
+Scrivener MCP lets your AI assistant open, read, edit, analyze, and search your Scrivener projects directly. No copy-pasting. No exporting. Tell your assistant which project to open, and start working.
 
 > **You:** Open my novel and analyze the pacing in Chapter 12.
 >
@@ -62,7 +62,7 @@ Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://d
 
 ## Install
 
-Pick the method that works for you. All of them auto-configure Claude Desktop on install.
+Pick the method that works for you. Most auto-configure **Claude Desktop** on install. **Claude Code** and other clients need one extra step -- see [Claude Code](#claude-code) below.
 
 ### npm (recommended)
 
@@ -71,6 +71,22 @@ npm install -g scrivener-mcp
 ```
 
 Restart Claude Desktop. Done.
+
+### Claude Code
+
+Installing the npm package does **not** register the server with Claude Code -- the install-time auto-config only writes Claude Desktop's config. After installing, register the server:
+
+```bash
+npx scrivener-setup
+```
+
+This detects Claude Code (along with Claude Desktop and Cursor) and writes the config for you. To register it manually instead:
+
+```bash
+claude mcp add -s user scrivener -- npx scrivener-mcp
+```
+
+Then restart Claude Code (or run `/mcp` to reconnect) and Scrivener MCP appears in the server list. Drop `-s user` to scope it to the current project instead of all projects.
 
 ### Smithery
 
@@ -168,6 +184,8 @@ This enables: content enhancement, semantic search, multi-agent analysis, charac
 
 ## What You Can Do
 
+> **First, open a project.** The server acts on whatever `.scriv` project you point it at -- it has no link to the Scrivener app and can't see what you have open there. Start a conversation with *"Open my Scrivener project at `~/Documents/My Novel.scriv`"* (or *"Discover my Scrivener projects"* if you don't know the path), then give your commands. On macOS you can also just say *"Use the project I have open in Scrivener"* -- it detects the open project and opens it (the first time, macOS asks you to allow controlling Scrivener). Do this once at the start of each conversation; the examples below all assume a project is open. If the same project is also open and unsaved in the Scrivener app, save or close it there first to avoid conflicting writes.
+
 ### Manage Your Manuscript
 
 Open any Scrivener project and work with it naturally. Read chapters, create new scenes, reorganize the binder, update synopses -- all through conversation.
@@ -222,7 +240,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 ## All Tools
 
-52 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
+53 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
@@ -231,6 +249,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 |------|-------------|
 | `open_project` | Open a .scriv project (accepts .scriv folders or .scrivx files) and make it active |
 | `discover_projects` | Scan common locations for Scrivener projects when you don't know the path |
+| `detect_open_project` | Detect the project currently open in the Scrivener app (macOS) so you don't need a path |
 | `get_structure` | Browse the binder hierarchy (folders, documents, word counts) |
 | `refresh_project` | Reload from disk after external edits |
 | `close_project` | Close the active project and flush pending changes |
@@ -393,7 +412,7 @@ Several Scrivener MCP servers exist. Here's how they compare:
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
 |---------|:-:|:-:|:-:|:-:|
-| Document read/write | 60+ tools | 29 tools | read-only | basic |
+| Document read/write | 53 tools | 29 tools | read-only | basic |
 | RTF / rich text support | yes | no | no | no |
 | Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
 | Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 52 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
+Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 53 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
 
 ```
 Claude Desktop / Claude Code
