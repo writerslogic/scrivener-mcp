@@ -159,6 +159,10 @@ docs/outreach-plan.md
 docs/writersproof-outreach.csv
 scripts/create-gmail-drafts.py
 
+# Internal planning and marketing drafts (not for public repo)
+docs/tool-quality-plan.md
+docs/community-posts.md
+
 # Local development files
 *.local
 .tmp/
