@@ -22,6 +22,7 @@ import {
 	validateRegisteredArgs,
 	activateSkills,
 } from './handlers/skill-registry.js';
+import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
 import { PersonalizationService } from './services/personalization/personalization-service.js';
 import { initializeHHM } from './handlers/memory-handlers.js';
@@ -73,9 +74,7 @@ const server = new Server(
 		version: PKG_VERSION,
 	},
 	{
-		capabilities: {
-			tools: {},
-		},
+		capabilities: SERVER_CAPABILITIES,
 	}
 );
 
@@ -103,26 +102,50 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		// Execute handler
 		const result = await executeRegisteredHandler(name, args || {}, context);
 
-		// After use_skill or open_project, notify client of new tools
-		if (name === 'use_skill') {
-			await server.sendToolListChanged();
-		} else if (name === 'open_project' && context.project) {
-			const changed = activateSkills('documents', 'search');
-			if (hhmInitialized) {
-				activateSkills('memory');
-			}
-			if (changed) {
+		// After use_skill or open_project, notify the client that new tools are
+		// available. This is a side effect: a notification failure must not turn a
+		// successful tool call into an error, so it is isolated from the result.
+		try {
+			if (name === 'use_skill') {
 				await server.sendToolListChanged();
+			} else if (name === 'open_project' && context.project) {
+				const changed = activateSkills('documents', 'search');
+				if (hhmInitialized) {
+					activateSkills('memory');
+				}
+				if (changed) {
+					await server.sendToolListChanged();
+				}
 			}
+		} catch (notifyError) {
+			logger.warn('Failed to send tools/list_changed notification', {
+				tool: name,
+				error: notifyError,
+			});
 		}
 
-		return result.structuredContent !== undefined
-			? { content: result.content, structuredContent: result.structuredContent }
-			: { content: result.content };
+		// Preserve isError so the client can tell a failed tool call (e.g. a
+		// handler reporting an unavailable database) from a successful one;
+		// dropping it makes error text read as a normal result.
+		const response: {
+			content: typeof result.content;
+			structuredContent?: Record<string, unknown>;
+			isError?: boolean;
+		} = { content: result.content };
+		if (result.structuredContent !== undefined) {
+			response.structuredContent = result.structuredContent;
+		}
+		if (result.isError) {
+			response.isError = true;
+		}
+		return response;
 	} catch (error) {
 		logger.error('Tool error', { tool: name, error });
+		// Mark thrown handler errors (unknown tool, validation, etc.) as errors
+		// so the caller does not treat the failure text as a successful result.
 		return {
 			content: [{ type: 'text', text: formatError(error, name) }],
+			isError: true,
 		};
 	}
 });
