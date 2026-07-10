@@ -6,15 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Detect the currently open Scrivener project (macOS)
 - Document cross-reference graph query tools (#27)
 - Expose compile settings and project taxonomy (#14)
 - Export manuscript to DOCX, EPUB, and PDF (#37)
 
 ### Documentation
+- Clarify Claude Code setup, project-open model, and tool counts
 - Sync README and architecture with new tools (#14, #27, #37)
 - Reverse-engineered .scriv format reference and stability posture (#40)
 
 ### Fixed
+- Advertise tools/list_changed and preserve isError in dispatch
 - Log when project-backup listing fails instead of silently returning none
 - Make logged errors debuggable and stop silently dropping unparseable RTF
 ## [0.8.1] - 2026-07-06
