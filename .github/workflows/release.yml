@@ -41,13 +41,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create tarball
-        run: npm pack
-
+      # No .tgz asset: this repo uses immutable releases, so assets cannot be
+      # attached after the release is published. The package tarball is already
+      # distributed via npm (npm install pulls the identical artifact), so a
+      # GitHub-release copy is redundant.
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           generateReleaseNotes: true
           draft: false
           prerelease: false
-          artifacts: '*.tgz'
