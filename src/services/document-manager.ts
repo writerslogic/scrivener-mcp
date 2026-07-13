@@ -28,7 +28,6 @@ import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
 import {
 	addBinderItem,
 	findBinderItemById,
-	iterateBinderItems,
 	removeBinderItem,
 	validateProjectStructure,
 } from './document-manager-helpers.js';
@@ -719,36 +718,37 @@ export class DocumentManager {
 			await this.getProjectStructure(includeTrash);
 			const flatList: ScrivenerDocument[] = [];
 
-			// Use utility function to iterate through binder items
 			if (this.projectStructure?.ScrivenerProject?.Binder) {
 				const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 
-				// Iterate through all binder items using utility function
-				const generator = iterateBinderItems(binder);
-				let result = generator.next();
-				while (!result.done) {
-					const item = result.value;
-					const doc = this.binderItemToDocument(item, '');
-					flatList.push(doc);
-					result = generator.next();
+				// Recurse into every top-level item so nested documents (the normal
+				// case: Draft/Part/Chapter) are included, not just the top-level
+				// folders. Skip the trash folder unless includeTrash; give trashed
+				// items a "Trash/" path prefix.
+				const topItems = Array.isArray(binder.BinderItem)
+					? binder.BinderItem
+					: binder.BinderItem
+						? [binder.BinderItem]
+						: [];
+
+				for (const item of topItems) {
+					const isTrash = item.Type === 'TrashFolder';
+					if (isTrash && !includeTrash) continue;
+					this.collectDocuments(item, isTrash ? 'Trash/' : '', flatList);
 				}
 
-				// Include trash if requested
+				// Alternate trash representation: a SearchResults container.
 				if (includeTrash && binder.SearchResults) {
 					const searchResults = Array.isArray(binder.SearchResults)
 						? binder.SearchResults
 						: [binder.SearchResults];
 
 					for (const searchResult of searchResults) {
-						if (searchResult.Children) {
-							const trashGenerator = iterateBinderItems(searchResult.Children);
-							let trashResult = trashGenerator.next();
-							while (!trashResult.done) {
-								const item = trashResult.value;
-								const doc = this.binderItemToDocument(item, 'Trash/');
-								flatList.push(doc);
-								trashResult = trashGenerator.next();
-							}
+						const children = searchResult.Children?.BinderItem;
+						if (!children) continue;
+						const items = Array.isArray(children) ? children : [children];
+						for (const child of items) {
+							this.collectDocuments(child, 'Trash/', flatList);
 						}
 					}
 				}
@@ -757,6 +757,35 @@ export class DocumentManager {
 			return flatList;
 		} catch (error) {
 			throw handleError(error, 'getAllDocuments');
+		}
+	}
+
+	/**
+	 * Flat list of every document beneath the folder with the given id
+	 * (descendants only, not the folder itself), each with its path threaded.
+	 * Returns an empty list when the id is unknown or names a leaf document.
+	 */
+	async getDocumentsUnderFolder(folderId: string): Promise<ScrivenerDocument[]> {
+		try {
+			await this.getProjectStructure();
+			const out: ScrivenerDocument[] = [];
+
+			const binder = this.projectStructure?.ScrivenerProject?.Binder as
+				BinderContainer | undefined;
+			if (!binder) return out;
+
+			const folder = findBinderItemById(binder, folderId);
+			const children = folder?.Children?.BinderItem;
+			if (!children) return out;
+
+			const basePath = `${folder?.Title ?? ''}/`;
+			const items = Array.isArray(children) ? children : [children];
+			for (const child of items) {
+				this.collectDocuments(child, basePath, out);
+			}
+			return out;
+		} catch (error) {
+			throw handleError(error, 'getDocumentsUnderFolder');
 		}
 	}
 
@@ -835,6 +864,23 @@ export class DocumentManager {
 	}
 
 	// Private helper methods
+
+	/**
+	 * Recursively append an item and all its descendants to a flat list,
+	 * threading the folder path so each document's path reflects its ancestry.
+	 */
+	private collectDocuments(item: BinderItem, parentPath: string, out: ScrivenerDocument[]): void {
+		out.push(this.binderItemToDocument(item, parentPath));
+
+		const children = item.Children?.BinderItem;
+		if (!children) return;
+		const childPath = `${parentPath}${item.Title}/`;
+		const items = Array.isArray(children) ? children : [children];
+		for (const child of items) {
+			this.collectDocuments(child, childPath, out);
+		}
+	}
+
 	private buildDocumentTree(
 		container: BinderContainer,
 		documents: ScrivenerDocument[],

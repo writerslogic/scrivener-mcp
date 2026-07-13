@@ -176,23 +176,40 @@ export const compileDocumentsHandler: ToolDefinition = {
 		const explicitIds = args.documentIds as string[] | undefined;
 
 		// Resolve the set of documents to compile.
-		const documents = await project.getAllDocuments();
+		const toEntry = (doc: { id: string; content?: string; title?: string }) => ({
+			id: doc.id,
+			content: doc.content || '',
+			title: doc.title || '',
+		});
 		let documentsToCompile: Array<{ id: string; content: string; title: string }>;
 		const rootFolderId = getOptionalStringArg(args, 'rootFolderId');
 		if (explicitIds && explicitIds.length > 0) {
-			const byId = new Map(documents.map((d) => [d.id, d]));
+			const byId = new Map((await project.getAllDocuments()).map((d) => [d.id, d]));
 			documentsToCompile = explicitIds
 				.map((id) => byId.get(id))
 				.filter((d): d is NonNullable<typeof d> => !!d)
-				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
+				.map(toEntry);
 		} else if (rootFolderId) {
-			documentsToCompile = documents
-				.filter((doc) => doc.path && doc.path.startsWith(rootFolderId))
-				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
-		} else {
-			documentsToCompile = documents
+			documentsToCompile = (await project.getDocumentsUnderFolder(rootFolderId))
 				.filter((doc) => doc.type === 'Text')
-				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
+				.map(toEntry);
+		} else {
+			documentsToCompile = (await project.getAllDocuments())
+				.filter((doc) => doc.type === 'Text')
+				.map(toEntry);
+		}
+
+		// A filter that matches nothing is an error, not an empty success: an empty
+		// manuscript previously masked bugs where the documents were never found.
+		if (documentsToCompile.length === 0) {
+			const scope = explicitIds?.length
+				? `document ids ${explicitIds.join(', ')}`
+				: rootFolderId
+					? `folder ${rootFolderId}`
+					: 'this project';
+			throw new Error(
+				`No documents to compile for ${scope}. Check the id(s) with get_structure, or confirm the folder contains text documents.`
+			);
 		}
 
 		// Intelligent mode: AI-optimized compilation toward a target.
@@ -209,9 +226,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 			};
 			const target = targetMap[targetOptimization];
 			try {
-				if (documentsToCompile.length === 0) {
-					throw new Error('No valid documents found for compilation');
-				}
 				const aiCompiler = new AICompilationService();
 				await aiCompiler.initialize();
 				const preferenceDirective = await getPersonalization(context).buildDirective();

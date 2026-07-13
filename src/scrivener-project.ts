@@ -170,6 +170,10 @@ export class ScrivenerProject {
 		return await this.documentManager.getAllDocuments(includeTrash);
 	}
 
+	async getDocumentsUnderFolder(folderId: string): Promise<ScrivenerDocument[]> {
+		return await this.documentManager.getDocumentsUnderFolder(folderId);
+	}
+
 	// Document operations
 	async readDocument(documentId: string): Promise<string> {
 		return await this.documentManager.readDocument(documentId);
