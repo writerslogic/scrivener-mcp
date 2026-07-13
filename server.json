@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.writerslogic/scrivener-mcp",
-  "description": "The definitive MCP server for Scrivener - read, write, analyze, and search your novels, screenplays, and manuscripts with semantic search, writing analysis, content enhancement, and character/plot tracking.",
+  "description": "MCP server for Scrivener: read, write, analyze, and search your manuscripts with AI assistants.",
   "repository": {
     "url": "https://github.com/writerslogic/scrivener-mcp",
     "source": "github"
