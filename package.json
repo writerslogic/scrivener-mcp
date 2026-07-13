@@ -52,7 +52,7 @@
     "uninstall": "node scripts/uninstall.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
+    "@anthropic-ai/sdk": "^0.111.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.11.1",
     "bullmq": "^5.79.1",
