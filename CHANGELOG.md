@@ -17,6 +17,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Reverse-engineered .scriv format reference and stability posture (#40)
 
 ### Fixed
+- Recurse into folders when listing and compiling documents (#66)
 - Advertise tools/list_changed and preserve isError in dispatch
 - Log when project-backup listing fails instead of silently returning none
 - Make logged errors debuggable and stop silently dropping unparseable RTF
