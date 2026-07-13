@@ -41,6 +41,19 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # Publish metadata to the official MCP Registry so downstream directories
+      # (mcp.so, PulseMCP, ...) pick it up. Authenticates with the workflow's
+      # OIDC token (needs id-token: write, above) for the io.github.writerslogic
+      # namespace. server.json is stamped to the released version so it always
+      # matches the npm package the registry verifies against.
+      - name: Publish to MCP Registry
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync('server.json'));s.version='${VERSION}';s.packages.forEach(p=>p.version='${VERSION}');fs.writeFileSync('server.json',JSON.stringify(s,null,2)+'\n')"
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
       # No .tgz asset: this repo uses immutable releases, so assets cannot be
       # attached after the release is published. The package tarball is already
       # distributed via npm (npm install pulls the identical artifact), so a
