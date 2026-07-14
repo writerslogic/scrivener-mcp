@@ -25,7 +25,7 @@ repos:
 # Values: free text, "yes", "no", "partial", "—"
 features:
   - label: Document read/write
-    scrivener-mcp: "60+ tools"
+    scrivener-mcp: "53 tools"
     jiayun: "29 tools"
     zaphodsdad: "read-only"
     others: "basic"

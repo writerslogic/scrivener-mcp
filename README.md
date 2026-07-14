@@ -58,7 +58,7 @@ Scrivener MCP lets your AI assistant open, read, edit, analyze, and search your 
 > the momentum you built in the confrontation scene. Consider cutting it to a single
 > paragraph and moving the backstory to Chapter 8 where Elena is first introduced.
 
-Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), VS Code (Copilot/Continue), Cursor, and any MCP-compatible client. Scrivener 3 on macOS, Windows, and Linux.
+Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), VS Code (Copilot/Continue), Cursor, and any MCP-compatible client. Scrivener 3 on macOS, Windows, and Linux. Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.writerslogic/scrivener-mcp`.
 
 ## Install
 
@@ -412,7 +412,7 @@ Several Scrivener MCP servers exist. Here's how they compare:
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
 |---------|:-:|:-:|:-:|:-:|
-| Document read/write | 60+ tools | 29 tools | read-only | basic |
+| Document read/write | 53 tools | 29 tools | read-only | basic |
 | RTF / rich text support | yes | no | no | no |
 | Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
 | Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |
