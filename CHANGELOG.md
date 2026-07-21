@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Documentation
+- Standardize badges (add OpenSSF Scorecard; consistent order/format)
 - Correct tool count to 53 and note official MCP registry listing
 ## [0.9.3] - 2026-07-13
 
