@@ -5,6 +5,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Changed
+- Remove dead code — unused error-handler, enhanced-logger, validation modules (~1.6k lines)
+
 ### Documentation
 - Add Security section linking SECURITY.md
 - Standardize badges (add OpenSSF Scorecard; consistent order/format)
