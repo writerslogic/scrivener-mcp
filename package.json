@@ -125,7 +125,7 @@
     "semantic-search",
     "ai-writing"
   ],
-  "author": "David Condrey <david@writerslogic.com>",
+  "author": "WritersLogic, Inc. <david@writerslogic.com>",
   "license": "AGPL-3.0-only",
   "publishConfig": {
     "access": "public",
