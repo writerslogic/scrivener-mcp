@@ -1,19 +1,25 @@
 # Security Policy
 
+## Supported Versions
+
+Security fixes are applied to `main`; there is no long-term support branch yet.
+
 ## Reporting a Vulnerability
 
-scrivener-mcp is an MCP server that reads and writes a user's manuscript project, so
-issues that could corrupt project data, escape the project directory, or expose
-content are in scope. Please do not open a public issue for security problems.
+**Please do not report security vulnerabilities through public GitHub issues.**
 
-Report vulnerabilities by:
-- Opening a [draft security advisory](https://github.com/writerslogic/scrivener-mcp/security/advisories/new) on GitHub
-- Contacting security@writerslogic.com
+Open a private advisory via
+[GitHub Security Advisories](https://github.com/writerslogic/scrivener-mcp/security/advisories/new),
+or email **admin@writerslogic.com**.
 
-We will acknowledge your report within 48 hours.
+Please include a description of the vulnerability and its impact, steps to reproduce (without real
+secrets or credentials), and the affected version/commit. You can expect an initial response within a
+few days; coordinated disclosure is appreciated — please give a reasonable window to ship a fix before
+publishing details.
 
-## Of particular interest
-- **Path traversal / project escape.** Any way for a tool call to read or write files
-  outside the intended Scrivener project.
-- **Content exposure.** Any path that sends manuscript content somewhere the user did
-  not intend.
+## Supply-chain security
+
+- All GitHub Actions are pinned to full commit SHAs.
+- **OpenSSF Scorecard**, **Dependency Review**, and **Dependabot** run in CI.
+- Releases are published with build provenance where the package registry supports it (see the badges
+  and the release workflow).
