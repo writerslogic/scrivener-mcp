@@ -20,6 +20,7 @@
   <a href="https://github.com/writerslogic/scrivener-mcp/actions">
     <img src="https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build"/>
   </a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/writerslogic/scrivener-mcp"><img src="https://api.securityscorecards.dev/projects/github.com/writerslogic/scrivener-mcp/badge" alt="OpenSSF Scorecard"></a>
   <a href="https://github.com/writerslogic/scrivener-mcp/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp" alt="license"/>
   </a>
