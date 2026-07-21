@@ -444,6 +444,10 @@ We welcome contributions of all sizes. Check the [issue tracker](https://github.
 - Scrivener 2 compatibility testing
 - Documentation improvements ([#25](https://github.com/writerslogic/scrivener-mcp/issues/25))
 
+## Security
+
+Found a vulnerability? Please report it privately — see [SECURITY.md](./SECURITY.md).
+
 ## License
 
 AGPL-3.0 &copy; [WritersLogic, Inc.](https://github.com/writerslogic)
