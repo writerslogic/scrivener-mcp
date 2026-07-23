@@ -5,6 +5,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Snapshots, manuscript briefing, structured compile, and correctness fixes
+
 ### Changed
 - Remove dead code — unused error-handler, enhanced-logger, validation modules (~1.6k lines)
 
