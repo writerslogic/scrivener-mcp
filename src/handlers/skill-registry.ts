@@ -268,6 +268,22 @@ export function activateSkill(name: string): boolean {
 }
 
 /**
+ * Activate the skill that owns `toolName` if it is not dispatchable yet.
+ * Returns true when a skill was newly activated (the caller should then emit
+ * tools/list_changed). Hidden and genuinely-unknown tools are left alone — a
+ * stray call must not make an unadvertised tool dispatchable.
+ */
+export function activateSkillForTool(toolName: string): boolean {
+	if (handlerMap.has(toolName)) return false;
+	for (const skill of skills) {
+		if (visibleTools(skill).some((t) => t.name === toolName)) {
+			return activateSkill(skill.name);
+		}
+	}
+	return false;
+}
+
+/**
  * Activate multiple skills at once.
  */
 export function activateSkills(...names: string[]): boolean {
@@ -334,11 +350,14 @@ export async function executeRegisteredHandler(
 	args: Record<string, unknown>,
 	context: HandlerContext
 ): Promise<HandlerResult> {
+	// The dispatcher auto-activates a tool's skill on demand, so a miss here is a
+	// genuinely unknown (or intentionally hidden) tool, not a not-yet-activated one.
+	activateSkillForTool(toolName);
 	const handler = handlerMap.get(toolName);
 
 	if (!handler) {
 		throw new HandlerError(
-			`Unknown tool: ${toolName}. Call list_skills and use_skill to activate tool groups.`,
+			`Unknown tool: ${toolName}. Call list_skills to see available tool groups.`,
 			'UNKNOWN_TOOL'
 		);
 	}

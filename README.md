@@ -241,7 +241,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 ## All Tools
 
-53 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
+56 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically, or calls them directly and the owning skill activates on the fly). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
@@ -256,6 +256,10 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | `close_project` | Close the active project and flush pending changes |
 | `verify_project_integrity` | Read-only scan for structural problems (missing/duplicate UUIDs, unreadable content) |
 | `get_compile_settings` | Read the project's compile formats and taxonomy -- labels/statuses (with colors), collections, section types |
+| `get_manuscript_briefing` | One "where am I?" snapshot: words vs. target (% to goal), document/status/label counts, longest/shortest documents |
+| `list_snapshots` | List Scrivener snapshots (title, date) for one document or the whole project |
+| `read_snapshot` | Read a snapshot's text as plain text, with word count |
+| `compare_snapshot` | Diff a snapshot against the current document (or another snapshot): paragraphs added/removed and net word change |
 
 </details>
 
@@ -315,7 +319,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 | Tool | What it does |
 |------|-------------|
-| `compile_documents` | Combine documents with formatting; `mode: "intelligent"` for AI-optimized output |
+| `compile_documents` | Combine documents; `mode: "structured"` compiles the Draft folder with the binder hierarchy as headings and honors "Include in Compile" (no AI), `mode: "intelligent"` for AI-optimized output |
 | `export_project` | Write the manuscript to disk -- Markdown, HTML, JSON inline, or DOCX, EPUB, PDF as a file |
 | `get_statistics` | Project-level word/document/character counts |
 | `generate_marketing_materials` | Draft synopsis, query letter, pitch, and related materials |
@@ -343,8 +347,7 @@ Memory is stored within each .scriv project and travels with it.
 | `find_relationships` | Query entities related to a given character/theme/location |
 | `discover_connections` | Find co-occurring entities across the manuscript |
 | `character_network` | The character relationship network |
-| `get_document_references` | List the registered characters/locations a document mentions, with counts and positions |
-| `get_referencing_documents` | Find every document that mentions a given character or location, ranked by count |
+| `get_entity_references` | Trace the reference graph in either direction: entities a document mentions (by documentId), or documents mentioning an entity (by entity) |
 | `find_orphaned_entities` | List registered characters/locations that no document actually mentions |
 | `suggest_connections` | Suggest entities a document may be missing, inferred from cross-document co-occurrence |
 

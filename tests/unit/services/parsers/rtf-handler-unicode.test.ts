@@ -50,4 +50,19 @@ describe('RTFHandler Unicode (\\uc) handling', () => {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
 	});
+
+	it('strips embedded image data (\\pict/\\shppict) instead of emitting hex as text', async () => {
+		// A real Scrivener doc with an inline JPEG: the \pict body is raw hex that
+		// must never surface as document text (it also bloated the parser badly).
+		const hex = 'ffd8ffe000104a464946'.repeat(50);
+		const rtf =
+			`{\\rtf1\\ansi\\deff0\\uc0${FONT}\\f0\\fs24 Before image ` +
+			`{\\*\\shppict{\\pict\\jpegblip ${hex}}}` +
+			` after image}`;
+		const result = await handler.parseRTF(rtf);
+		expect(result.plainText).toContain('Before image');
+		expect(result.plainText).toContain('after image');
+		expect(result.plainText).not.toContain('ffd8');
+		expect(result.plainText).not.toMatch(/[0-9a-f]{40,}/);
+	});
 });

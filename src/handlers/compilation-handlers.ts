@@ -77,10 +77,13 @@ export const compileDocumentsHandler: ToolDefinition = {
 		properties: {
 			mode: {
 				type: 'string',
-				enum: ['standard', 'intelligent'],
+				enum: ['standard', 'structured', 'intelligent'],
 				description:
-					'"standard" (default) joins documents in order; "intelligent" applies AI ' +
-					'optimization toward targetOptimization.',
+					'"standard" (default) joins documents in order; "structured" compiles the Draft/' +
+					'Manuscript folder (like Scrivener) with the binder hierarchy as headings and a ' +
+					'scene separator between documents, honoring each document\'s "Include in Compile" ' +
+					'flag — deterministic, no AI; "intelligent" applies AI optimization toward ' +
+					'targetOptimization.',
 			},
 			format: {
 				type: 'string',
@@ -124,6 +127,23 @@ export const compileDocumentsHandler: ToolDefinition = {
 				type: 'string',
 				description:
 					'Text inserted between documents in the standard-mode fallback. Default "\\n\\n---\\n\\n".',
+			},
+			sceneSeparator: {
+				type: 'string',
+				description:
+					'For mode "structured": text placed between consecutive sibling documents ' +
+					'(e.g. "#" or "* * *"). Default empty (a blank line).',
+			},
+			includeTitles: {
+				type: 'boolean',
+				description:
+					'For mode "structured": emit each document title as a heading. Default true.',
+			},
+			includeExcluded: {
+				type: 'boolean',
+				description:
+					'For mode "structured": include documents whose "Include in Compile" flag is off. ' +
+					'Default false (excluded documents are omitted, matching Scrivener).',
 			},
 			hierarchical: {
 				type: 'boolean',
@@ -210,6 +230,18 @@ export const compileDocumentsHandler: ToolDefinition = {
 			throw new Error(
 				`No documents to compile for ${scope}. Check the id(s) with get_structure, or confirm the folder contains text documents.`
 			);
+		}
+
+		// Structured mode: deterministic, binder-hierarchy-aware compile with no AI.
+		if (mode === 'structured') {
+			const text = await project.compileStructured({
+				rootFolderId,
+				outputFormat: format,
+				sceneSeparator: getOptionalStringArg(args, 'sceneSeparator') ?? '',
+				includeTitles: (args.includeTitles as boolean) ?? true,
+				includeExcluded: (args.includeExcluded as boolean) ?? false,
+			});
+			return formatCompileResult(text, documentsToCompile.length, format);
 		}
 
 		// Intelligent mode: AI-optimized compilation toward a target.

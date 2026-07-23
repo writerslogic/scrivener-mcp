@@ -49,7 +49,7 @@ To migrate a Scrivener 2 project, open and re-save it in Scrivener 3 first
 | Collections | ✅ | ➖ | Read-only via `get_compile_settings` (id, title, type, color). |
 | Compile format settings | ✅ | ➖ | Read-only via `get_compile_settings` (formats, section-layout counts, front matter, options). Not applied during compile. |
 | Section types | ✅ | ➖ | Read-only via `get_compile_settings`. |
-| Snapshots | ➖ | ➖ | Not yet exposed. |
+| Snapshots | ✅ | ➖ | Read-only via `list_snapshots` / `read_snapshot` (title, date, text). |
 | Project/manuscript export (Markdown, HTML, JSON) | — | ✅ | Inline. |
 | Project/manuscript export (DOCX, EPUB, PDF) | — | ✅ | Written to disk via `export_project` — see issue #37. |
 

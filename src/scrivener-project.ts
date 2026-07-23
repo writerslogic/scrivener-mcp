@@ -15,13 +15,18 @@ import { ensureProjectDataDirectory } from './utils/project-utils.js';
 import { findBinderItem } from './utils/scrivener-utils.js';
 
 // Import service modules
-import { CompilationService } from './services/compilation-service.js';
+import { CompilationService, type StructuredEntry } from './services/compilation-service.js';
 import { documentIndexer, type SearchResult } from './services/document-indexer.js';
 import { DocumentManager } from './services/document-manager.js';
 import { MetadataManager } from './services/metadata-manager.js';
 import { ProjectLoader } from './services/project-loader.js';
 import { exportBinary, type ExportSection } from './services/export/manuscript-exporters.js';
 import { buildCompileMetadata, type CompileMetadata } from './services/compile-settings.js';
+import { listAllSnapshots, listDocumentSnapshots, findSnapshot } from './services/snapshots.js';
+import { RTFHandler } from './services/parsers/rtf-handler.js';
+import { getAccurateWordCount } from './utils/text-metrics.js';
+import { diffParagraphs, diffWordCounts } from './utils/text-diff.js';
+import { isProjectOpenInScrivener } from './utils/scrivener-app.js';
 import {
 	createDocument as createDocumentUtil,
 	type DocumentOperationContext,
@@ -54,6 +59,82 @@ export interface ScrivenerProjectOptions {
 	hhmSystem?: HolographicMemorySystem;
 }
 
+/** A document and its snapshots, as returned by `listSnapshots`. */
+export interface DocumentSnapshots {
+	documentId: string;
+	documentTitle?: string;
+	snapshots: Array<{ snapshotId: string; title: string; date: string }>;
+}
+
+/** A single snapshot's metadata and text, as returned by `readSnapshot`. */
+export interface SnapshotContent {
+	documentId: string;
+	snapshotId: string;
+	title: string;
+	date: string;
+	text: string;
+	wordCount: number;
+}
+
+/** A "where am I?" orientation of the manuscript, from `getManuscriptBriefing`. */
+export interface ManuscriptBriefing {
+	title?: string;
+	author?: string;
+	words: {
+		total: number;
+		draftTarget?: number;
+		percentToTarget?: number;
+		deadline?: string;
+	};
+	documents: { total: number; folders: number; textDocuments: number };
+	averageDocumentLength: number;
+	byStatus: Record<string, number>;
+	byLabel: Record<string, number>;
+	longest: { id: string; title: string; wordCount: number } | null;
+	shortest: { id: string; title: string; wordCount: number } | null;
+}
+
+/** A paragraph-level comparison between a snapshot and current/another snapshot. */
+export interface SnapshotComparison {
+	documentId: string;
+	from: { snapshotId: string; title: string; date: string; wordCount: number };
+	to: { snapshotId: string; wordCount: number };
+	wordDelta: number;
+	wordsAdded: number;
+	wordsRemoved: number;
+	addedParagraphs: string[];
+	removedParagraphs: string[];
+	unchangedParagraphs: number;
+}
+
+/** Depth-first search for a node by id in a nested binder tree. */
+function findSubtree(nodes: ScrivenerDocument[], id: string): ScrivenerDocument | undefined {
+	for (const node of nodes) {
+		if (node.id === id) return node;
+		if (node.children?.length) {
+			const found = findSubtree(node.children, id);
+			if (found) return found;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Find the Draft/Manuscript folder (BinderItem Type "DraftFolder") — the root of
+ * the compilable manuscript. Returns undefined when the project has none (rare;
+ * some templates rename or omit it), so callers can fall back to the whole binder.
+ */
+function findDraftFolder(nodes: ScrivenerDocument[]): ScrivenerDocument | undefined {
+	for (const node of nodes) {
+		if ((node.type as string) === 'DraftFolder') return node;
+		if (node.children?.length) {
+			const found = findDraftFolder(node.children);
+			if (found) return found;
+		}
+	}
+	return undefined;
+}
+
 export class ScrivenerProject {
 	private projectPath: string;
 	private documentManager: DocumentManager;
@@ -68,6 +149,9 @@ export class ScrivenerProject {
 	private options: ScrivenerProjectOptions;
 	private indexInitialized = false;
 	private hhmSystem?: HolographicMemorySystem;
+	/** Short-lived cache of the "open in Scrivener" probe, to avoid spawning an
+	 * osascript per write in a batch. */
+	private openStateCache?: { state: 'open' | 'closed' | 'unknown'; expiresAt: number };
 
 	constructor(projectPath: string, options: ScrivenerProjectOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
@@ -183,6 +267,32 @@ export class ScrivenerProject {
 		return await this.documentManager.readDocumentFormatted(documentId);
 	}
 
+	/**
+	 * Guard against writing while the project is open in Scrivener. Scrivener
+	 * holds the manuscript in memory and rewrites it on save, so an external edit
+	 * to a live project can be silently clobbered. Throws when the project is
+	 * detected open and `force` is false; allows the write when detection is
+	 * unavailable or ambiguous (never a false positive). The probe result is
+	 * cached briefly so a batch of writes spawns at most one detection call.
+	 */
+	async ensureWritable(force = false): Promise<void> {
+		if (force) return;
+		const now = Date.now();
+		if (!this.openStateCache || this.openStateCache.expiresAt <= now) {
+			const state = await isProjectOpenInScrivener(this.projectPath);
+			this.openStateCache = { state, expiresAt: now + 5000 };
+		}
+		if (this.openStateCache.state === 'open') {
+			throw createError(
+				ErrorCode.INVALID_STATE,
+				{ projectPath: this.projectPath },
+				'This project is currently open in Scrivener. Editing it now risks your changes ' +
+					'being overwritten when Scrivener next saves. Close the project in Scrivener, ' +
+					'or pass force: true to write anyway.'
+			);
+		}
+	}
+
 	async writeDocument(documentId: string, content: string | RTFContent): Promise<void> {
 		await this.documentManager.writeDocument(documentId, content);
 		this.markDocumentChanged(documentId);
@@ -296,6 +406,66 @@ export class ScrivenerProject {
 		return await this.compilationService.compileDocuments(documents, {
 			separator,
 			outputFormat,
+		});
+	}
+
+	/**
+	 * Deterministically compile the binder into a structured manuscript, applying
+	 * the binder hierarchy as headings and a scene separator between sibling
+	 * documents. Needs no AI/API key. Optionally scoped to a folder's descendants.
+	 * Reflects the binder structure, not Scrivener's compile-format section layouts.
+	 */
+	async compileStructured(
+		options: {
+			rootFolderId?: string;
+			outputFormat?: 'text' | 'markdown' | 'html';
+			sceneSeparator?: string;
+			includeTitles?: boolean;
+			includeExcluded?: boolean;
+		} = {}
+	): Promise<string> {
+		// Walk the nested binder tree so heading depth comes from actual structure,
+		// not from splitting the title-joined path (titles may contain "/"). Honor
+		// Scrivener's per-document "Include in Compile" flag unless includeExcluded.
+		const tree = await this.documentManager.getProjectStructure();
+		// Default to the Draft/Manuscript folder like Scrivener's own compile — not
+		// the whole binder, which would pull in Research (images), Trash, character
+		// sheets, and templates. Fall back to the whole binder only if no draft exists.
+		const scope = options.rootFolderId
+			? findSubtree(tree, options.rootFolderId)
+			: findDraftFolder(tree);
+		const roots = scope ? (scope.children ?? []) : tree;
+
+		const entries: StructuredEntry[] = [];
+		const includeExcluded = options.includeExcluded ?? false;
+		const walk = async (nodes: ScrivenerDocument[], depth: number): Promise<void> => {
+			for (const node of nodes) {
+				// Only 'Text' items carry compilable body content; every container type
+				// (Folder, DraftFolder, ResearchFolder, ...) is treated as a heading.
+				const isText = node.type === DOCUMENT_TYPES.TEXT;
+				const excluded = node.includeInCompile === false;
+				if (isText && excluded && !includeExcluded) continue;
+
+				let content = '';
+				if (isText) {
+					try {
+						content = await this.readDocument(node.id);
+					} catch (error) {
+						logger.warn(`Structured compile: failed to read ${node.id}`, {
+							error: error instanceof Error ? error.message : String(error),
+						});
+					}
+				}
+				entries.push({ title: node.title, content, depth, isFolder: !isText });
+				if (node.children?.length) await walk(node.children, depth + 1);
+			}
+		};
+		await walk(roots, 1);
+
+		return this.compilationService.compileStructured(entries, {
+			outputFormat: options.outputFormat ?? 'text',
+			sceneSeparator: options.sceneSeparator ?? '',
+			includeTitles: options.includeTitles ?? true,
 		});
 	}
 
@@ -455,8 +625,102 @@ export class ScrivenerProject {
 	}
 
 	async getStatistics(): Promise<ProjectStatistics> {
-		const documents = await this.getAllDocuments();
-		return this.compilationService.getStatistics(documents);
+		// getAllDocuments carries neither content nor a word count, so statistics over
+		// it report zero words. Read content into the tree first, then aggregate.
+		const tree = await this.documentManager.getProjectStructure();
+		await this.annotateWordCounts(tree);
+		return this.compilationService.getStatistics(tree);
+	}
+
+	/**
+	 * Read each Text node's content and set its wordCount in place, so statistics
+	 * over the tree reflect real prose (the binder tree stores no counts). Content
+	 * is capped per document as defense against any binary/outlier; embedded images
+	 * are already stripped by the RTF handler. Unreadable documents count as zero.
+	 */
+	private async annotateWordCounts(nodes: ScrivenerDocument[]): Promise<void> {
+		const CONTENT_CAP = 2_000_000;
+		for (const node of nodes) {
+			if (node.type === DOCUMENT_TYPES.TEXT) {
+				try {
+					const text = await this.readDocument(node.id);
+					node.wordCount = getAccurateWordCount(
+						text.length > CONTENT_CAP ? text.slice(0, CONTENT_CAP) : text
+					);
+				} catch {
+					node.wordCount = 0;
+				}
+			}
+			if (node.children?.length) await this.annotateWordCounts(node.children);
+		}
+	}
+
+	/**
+	 * A single "where am I?" orientation of the manuscript: total words against
+	 * the project's draft target (with percent-to-goal and deadline), document and
+	 * folder counts, the per-status and per-label breakdown, and the longest and
+	 * shortest documents. Composes getStatistics with the project's word targets so
+	 * a caller does not have to stitch several tools together after open_project.
+	 */
+	async getManuscriptBriefing(): Promise<ManuscriptBriefing> {
+		// Scope to the Draft/Manuscript folder (like Scrivener) and count words from
+		// document content (annotateWordCounts), since the binder tree stores none.
+		const tree = await this.documentManager.getProjectStructure();
+		const draft = findDraftFolder(tree);
+		const scopeNodes = draft?.children ?? tree;
+		await this.annotateWordCounts(scopeNodes);
+
+		const stats = this.compilationService.getStatistics(scopeNodes);
+		const meta = await this.getProjectMetadata();
+
+		// Label and Status are stored on documents as taxonomy ids; resolve them to
+		// human names via the compile metadata so the breakdown is readable.
+		const taxonomy = await this.getCompileMetadata().catch(() => null);
+		const nameById = (
+			defs: Array<{ id: string; title: string }> | undefined
+		): Map<string, string> => new Map((defs ?? []).map((d) => [d.id, d.title]));
+		const labelNames = nameById(taxonomy?.labels);
+		const statusNames = nameById(taxonomy?.statuses);
+		const relabel = (counts: Record<string, number>, names: Map<string, string>) => {
+			const out: Record<string, number> = {};
+			for (const [key, n] of Object.entries(counts)) out[names.get(key) ?? key] = n;
+			return out;
+		};
+
+		// A project with no draft target parses to NaN/undefined; treat only a finite
+		// positive number as a real goal so percent-to-target isn't NaN.
+		const rawTarget = meta.projectTargets?.draft;
+		const draftTarget =
+			typeof rawTarget === 'number' && Number.isFinite(rawTarget) && rawTarget > 0
+				? rawTarget
+				: undefined;
+		const slim = (d: DocumentInfo | null) =>
+			d ? { id: d.id, title: d.title, wordCount: d.wordCount ?? 0 } : null;
+
+		return {
+			// Many projects store no ProjectTitle (Scrivener shows the .scriv filename);
+			// fall back to the package basename so the briefing is never nameless.
+			title: meta.title || path.basename(this.projectPath, '.scriv'),
+			author: meta.author,
+			words: {
+				total: stats.totalWords,
+				draftTarget,
+				percentToTarget: draftTarget
+					? Math.round((stats.totalWords / draftTarget) * 100)
+					: undefined,
+				deadline: meta.projectTargets?.deadline,
+			},
+			documents: {
+				total: stats.totalDocuments,
+				folders: stats.totalFolders,
+				textDocuments: stats.totalDocuments - stats.totalFolders,
+			},
+			averageDocumentLength: stats.averageDocumentLength,
+			byStatus: relabel(stats.documentsByStatus, statusNames),
+			byLabel: relabel(stats.documentsByLabel, labelNames),
+			longest: slim(stats.longestDocument),
+			shortest: slim(stats.shortestDocument),
+		};
 	}
 
 	// Metadata operations
@@ -553,6 +817,114 @@ export class ScrivenerProject {
 		}
 
 		return buildCompileMetadata(scrivenerProject, compileXml);
+	}
+
+	/**
+	 * List document snapshots stored in the project's `Snapshots/` directory,
+	 * for one document (`documentId`) or the whole project. Read-only metadata:
+	 * each entry carries the owning document's id and title, the snapshot id
+	 * (used by `readSnapshot`), its recorded title, and its date. Returns an
+	 * empty array when the project or document has no snapshots.
+	 */
+	async listSnapshots(documentId?: string): Promise<DocumentSnapshots[]> {
+		const entries = documentId
+			? await listDocumentSnapshots(this.projectPath, documentId)
+			: await listAllSnapshots(this.projectPath);
+		if (entries.length === 0) return [];
+
+		const titles = new Map<string, string>();
+		for (const doc of await this.getAllDocuments(true)) {
+			titles.set(doc.id, doc.title);
+		}
+
+		const grouped = new Map<string, DocumentSnapshots>();
+		for (const entry of entries) {
+			let group = grouped.get(entry.documentId);
+			if (!group) {
+				group = {
+					documentId: entry.documentId,
+					documentTitle: titles.get(entry.documentId),
+					snapshots: [],
+				};
+				grouped.set(entry.documentId, group);
+			}
+			group.snapshots.push({
+				snapshotId: entry.snapshotId,
+				title: entry.title,
+				date: entry.date,
+			});
+		}
+		return Array.from(grouped.values());
+	}
+
+	/**
+	 * Read the text of a single snapshot. `snapshotId` must name an actual
+	 * snapshot of `documentId` (as returned by `listSnapshots`); unknown ids
+	 * throw NOT_FOUND rather than reading outside the snapshot set. Returns the
+	 * snapshot's title, date, plain text, and word count.
+	 */
+	async readSnapshot(documentId: string, snapshotId: string): Promise<SnapshotContent> {
+		const found = await findSnapshot(this.projectPath, documentId, snapshotId);
+		if (!found) {
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				{ documentId, snapshotId },
+				`No snapshot "${snapshotId}" for document ${documentId}`
+			);
+		}
+
+		const { plainText } = await new RTFHandler().readRTF(found.rtfPath);
+		const text = plainText ?? '';
+		return {
+			documentId,
+			snapshotId,
+			title: found.entry.title,
+			date: found.entry.date,
+			text,
+			wordCount: getAccurateWordCount(text),
+		};
+	}
+
+	/**
+	 * Compare a snapshot against the document's current text, or against another
+	 * snapshot when `againstSnapshotId` is given. Returns a paragraph-level diff
+	 * (added/removed paragraphs) and the net word-count change — the "what did I
+	 * change since this version?" question snapshots exist to answer.
+	 */
+	async compareSnapshot(
+		documentId: string,
+		snapshotId: string,
+		againstSnapshotId?: string
+	): Promise<SnapshotComparison> {
+		const from = await this.readSnapshot(documentId, snapshotId);
+
+		let toLabel: string;
+		let toText: string;
+		let toWordCount: number;
+		if (againstSnapshotId) {
+			const to = await this.readSnapshot(documentId, againstSnapshotId);
+			toLabel = againstSnapshotId;
+			toText = to.text;
+			toWordCount = to.wordCount;
+		} else {
+			toLabel = 'current';
+			toText = await this.readDocument(documentId);
+			toWordCount = getAccurateWordCount(toText);
+		}
+
+		const diff = diffParagraphs(from.text, toText);
+		const words = diffWordCounts(from.text, toText);
+		return {
+			documentId,
+			from: { snapshotId, title: from.title, date: from.date, wordCount: from.wordCount },
+			to: { snapshotId: toLabel, wordCount: toWordCount },
+			wordDelta: toWordCount - from.wordCount,
+			wordsAdded: words.added,
+			wordsRemoved: words.removed,
+			addedParagraphs: diff.added,
+			removedParagraphs: diff.removed,
+			unchangedParagraphs: diff.unchanged,
+		};
 	}
 
 	// Project management

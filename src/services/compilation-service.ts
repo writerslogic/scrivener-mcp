@@ -6,7 +6,12 @@ import { DOCUMENT_TYPES } from '../core/constants.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
 import { getAccurateWordCount } from '../utils/text-metrics.js';
-import type { ProjectMetadata, ProjectStatistics, ScrivenerDocument } from '../types/index.js';
+import type {
+	DocumentInfo,
+	ProjectMetadata,
+	ProjectStatistics,
+	ScrivenerDocument,
+} from '../types/index.js';
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
 
@@ -18,6 +23,24 @@ export interface CompilationOptions {
 	includeSynopsis?: boolean;
 	includeNotes?: boolean;
 	hierarchical?: boolean;
+}
+
+/** One binder item to render in a structured compile. */
+export interface StructuredEntry {
+	title: string;
+	/** Plain-text body (empty for folders). */
+	content: string;
+	/** 1-based binder depth, used as the heading level (top-level = 1). */
+	depth: number;
+	isFolder: boolean;
+}
+
+export interface StructuredCompileOptions {
+	outputFormat?: 'text' | 'markdown' | 'html';
+	/** Text inserted between consecutive sibling documents (e.g. "#" or "* * *"). */
+	sceneSeparator?: string;
+	/** Emit each document's title as a heading. Default true. */
+	includeTitles?: boolean;
 }
 
 export interface SearchOptions {
@@ -94,6 +117,50 @@ export class CompilationService {
 					`Unsupported output format: ${outputFormat}`
 				);
 		}
+	}
+
+	/**
+	 * Deterministically compile an ordered, depth-tagged list of binder items into
+	 * a structured manuscript: folder titles become headings at their binder depth,
+	 * document titles optionally become headings, and a scene separator is inserted
+	 * between consecutive sibling documents. Unlike compile_documents' AI path this
+	 * needs no API key and is fully reproducible. It reflects the *binder*
+	 * structure; it does not reproduce Scrivener's compile-format section layouts
+	 * (those definitions are not stored in the project — see docs/scrivener-format.md).
+	 */
+	compileStructured(entries: StructuredEntry[], options: StructuredCompileOptions = {}): string {
+		const { outputFormat = 'text', sceneSeparator = '', includeTitles = true } = options;
+
+		const heading = (title: string, depth: number): string => {
+			const level = Math.min(Math.max(depth, 1), 6);
+			if (outputFormat === 'markdown') return `${'#'.repeat(level)} ${title}`;
+			if (outputFormat === 'html') return `<h${level}>${this.escapeHtml(title)}</h${level}>`;
+			// Plain text: underline the top two levels, upper-case deeper ones.
+			if (level === 1) return `${title}\n${'='.repeat(title.length)}`;
+			if (level === 2) return `${title}\n${'-'.repeat(title.length)}`;
+			return title.toUpperCase();
+		};
+
+		const parts: string[] = [];
+		let prevWasDocument = false;
+		for (const entry of entries) {
+			const level = Math.max(1, entry.depth);
+			if (entry.isFolder) {
+				parts.push(heading(entry.title, level));
+				prevWasDocument = false;
+				continue;
+			}
+			if (prevWasDocument && sceneSeparator) parts.push(sceneSeparator);
+			const seg: string[] = [];
+			if (includeTitles && entry.title) seg.push(heading(entry.title, level));
+			const body = entry.content.trim();
+			if (body) seg.push(body);
+			if (seg.length > 0) parts.push(seg.join('\n\n'));
+			prevWasDocument = true;
+		}
+
+		const joined = parts.join('\n\n');
+		return outputFormat === 'html' ? `<article>\n${joined}\n</article>` : joined;
 	}
 
 	/**
@@ -253,6 +320,9 @@ export class CompilationService {
 			recentlyModified: [],
 		};
 
+		let longest: { doc: ScrivenerDocument; words: number } | null = null;
+		let shortest: { doc: ScrivenerDocument; words: number } | null = null;
+
 		const processDocuments = (docs: ScrivenerDocument[]) => {
 			for (const doc of docs) {
 				stats.totalDocuments++;
@@ -261,7 +331,8 @@ export class CompilationService {
 					stats.totalFolders++;
 				} else {
 					const text = doc.content || '';
-					stats.totalWords += doc.wordCount ?? getAccurateWordCount(text);
+					const words = doc.wordCount ?? getAccurateWordCount(text);
+					stats.totalWords += words;
 					stats.totalCharacters += text.length;
 					if (doc.status) {
 						stats.documentsByStatus[doc.status] =
@@ -271,6 +342,8 @@ export class CompilationService {
 						stats.documentsByLabel[doc.label] =
 							(stats.documentsByLabel[doc.label] || 0) + 1;
 					}
+					if (!longest || words > longest.words) longest = { doc, words };
+					if (!shortest || words < shortest.words) shortest = { doc, words };
 				}
 
 				stats.documentsByType[doc.type] = (stats.documentsByType[doc.type] || 0) + 1;
@@ -282,6 +355,16 @@ export class CompilationService {
 		};
 
 		processDocuments(documents);
+
+		const toInfo = (entry: { doc: ScrivenerDocument; words: number }): DocumentInfo => ({
+			id: entry.doc.id,
+			title: entry.doc.title,
+			type: entry.doc.type,
+			wordCount: entry.words,
+			path: [],
+		});
+		if (longest) stats.longestDocument = toInfo(longest);
+		if (shortest) stats.shortestDocument = toInfo(shortest);
 
 		const textDocs = stats.totalDocuments - stats.totalFolders;
 		if (textDocs > 0) {

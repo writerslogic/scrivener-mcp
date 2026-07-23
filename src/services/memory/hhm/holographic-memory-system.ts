@@ -1,6 +1,7 @@
 import { getLogger } from '../../../core/logger.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import * as path from 'path';
+import { createRequire } from 'module';
 
 const logger = getLogger('holographic-memory-system');
 
@@ -379,21 +380,32 @@ class JSVectorEngine {
 	}
 }
 
-// Try loading native HMS at module init
+// Optional native HMS engine, loaded lazily on first construction. This is done
+// with a synchronous require (not a top-level `await import`) so that importing
+// this module never forces top-level await on consumers — which breaks CJS and
+// ts-jest transpilation of the whole handler graph.
 let NativeHMS: any = null;
-try {
-	// Dynamic import for ESM compatibility; require as fallback
-	const native = await import('holographic-memory').catch(() => null);
-	if (native?.HolographicMemorySystem) {
-		NativeHMS = native.HolographicMemorySystem;
-		logger.info('HMS using native Rust engine');
+let nativeLoadAttempted = false;
+function loadNativeHMS(): void {
+	if (nativeLoadAttempted) return;
+	nativeLoadAttempted = true;
+	try {
+		// Seed createRequire from a filesystem path (not import.meta) so this module
+		// compiles under any TS `module` setting; node_modules resolves from cwd,
+		// which is the project root for the packaged server. Native HMS is optional,
+		// so a resolution miss simply falls back to the JS engine below.
+		const requireFn = createRequire(path.join(process.cwd(), 'package.json'));
+		const native = requireFn('holographic-memory');
+		if (native?.HolographicMemorySystem) {
+			NativeHMS = native.HolographicMemorySystem;
+			logger.info('HMS using native Rust engine');
+		}
+	} catch {
+		// Optional native module not installed.
 	}
-} catch {
-	// Not available
-}
-
-if (!NativeHMS) {
-	logger.info('HMS using JS fallback engine (holographic-memory native not installed)');
+	if (!NativeHMS) {
+		logger.info('HMS using JS fallback engine (holographic-memory native not installed)');
+	}
 }
 
 export class HolographicMemorySystem {
@@ -408,6 +420,7 @@ export class HolographicMemorySystem {
 		this.dimensions = config.dimensions || 10000;
 		const storagePath = config.storagePath || path.join(process.cwd(), '.scrivener-hms.db');
 
+		loadNativeHMS();
 		if (NativeHMS) {
 			this.native = new NativeHMS(this.dimensions, storagePath);
 			this.engineType = 'native';

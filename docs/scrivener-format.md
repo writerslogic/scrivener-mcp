@@ -79,8 +79,9 @@ see the version note below). Elements we read:
 the raw string and a `#RRGGBB` conversion (`scrivColorToHex`).
 
 Fields present in real `.scrivx` files that we **do not** currently interpret:
-snapshots, per-item `TextSettings`, revision markers, and the trash's internal
-ordering beyond identifying the `TrashFolder`/`SearchResults` container.
+per-item `TextSettings`, revision markers, and the trash's internal ordering
+beyond identifying the `TrashFolder`/`SearchResults` container. (Snapshots live
+outside the `.scrivx`, in a top-level `Snapshots/` directory — see below.)
 
 ## Document content: `Files/Data/<UUID>/content.rtf`
 
@@ -123,7 +124,30 @@ Root `<CompileSettings>`. `get_compile_settings` exposes a read-only summary
 
 Everything below `Options` (PDF/Ebook/Scriptwriting sub-trees) and the exact
 section-layout → format mapping is present in the file but **not surfaced** — it
-is deeply undocumented and version-specific.
+is deeply undocumented and version-specific. The layout *definitions* (separators,
+title prefixes, page breaks) are not stored in the project at all for built-in
+formats, only the section-type → layout-id assignment table, so a byte-faithful
+format replay is not possible from project files. `compile_documents mode:
+"structured"` therefore reproduces the binder **structure** (Draft folder,
+hierarchy as headings, `IncludeInCompile` honored) rather than a specific compile
+format.
+
+## `Snapshots/<UUID>.snapshots/`
+
+Snapshots are stored per document in a top-level `Snapshots/` directory, one
+subfolder named `<document-UUID>.snapshots` per document that has any.
+`list_snapshots` / `read_snapshot` expose them read-only
+(`src/services/snapshots.ts`); we never write or restore snapshots.
+
+| Path | Meaning | Exposed as |
+|------|---------|-----------|
+| `Snapshots/<UUID>.snapshots/index.xml` → `Snapshots` → `Snapshot` → `Title`, `Date` | Per-snapshot metadata, in chronological order | `title`, `date` |
+| `Snapshots/<UUID>.snapshots/<timestamp>.rtf` | One RTF per snapshot; filename (`YYYY-MM-DD-HH-MM-SS-ZZZZ`) is the `snapshotId` | snapshot text (`read_snapshot`) |
+| `Snapshots/<UUID>.snapshots/snapshot.indexes` | Binary search index | ignored |
+
+The RTF files are the ground truth for which snapshots exist; `index.xml`
+supplies title/date, zipped in chronological order. A missing or shorter
+`index.xml` degrades to the RTF filename as both id and date rather than failing.
 
 ## Version and platform notes
 

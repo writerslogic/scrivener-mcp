@@ -138,3 +138,27 @@ export function resolveProjectNames(names: string[], projectPaths: string[]): Na
 	}
 	return { resolved, unresolved };
 }
+
+/**
+ * Probe whether a specific project is currently open in Scrivener. Returns
+ * `'open'` only on a positive window-title match, `'closed'` when Scrivener is
+ * running but this project has no window, and `'unknown'` when detection is
+ * unavailable (non-macOS, app not running, permission denied, or timeout). The
+ * ambiguous cases return `'unknown'` — never a false `'open'` — so callers can
+ * treat only a definite `'open'` as a reason to hold back a write.
+ */
+export async function isProjectOpenInScrivener(
+	projectPath: string
+): Promise<'open' | 'closed' | 'unknown'> {
+	const detection = await detectOpenScrivenerProjects();
+	if (
+		!detection.supported ||
+		!detection.running ||
+		detection.permissionDenied ||
+		detection.timedOut
+	) {
+		return 'unknown';
+	}
+	const { resolved } = resolveProjectNames(detection.names, [projectPath]);
+	return resolved.length > 0 ? 'open' : 'closed';
+}

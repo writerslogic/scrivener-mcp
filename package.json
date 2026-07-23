@@ -1,6 +1,6 @@
 {
   "name": "scrivener-mcp",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "mcpName": "io.github.writerslogic/scrivener-mcp",
   "description": "MCP server for Scrivener - Read, write, analyze, and search manuscripts with semantic search, character/plot tracking, writing analysis, and content enhancement. Works with Claude, ChatGPT, and other AI assistants.",
   "main": "dist/index.js",

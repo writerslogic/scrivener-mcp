@@ -927,6 +927,20 @@ export class DocumentManager {
 				doc.notes = metadata.Notes;
 			}
 
+			if (metadata.Label) {
+				doc.label = metadata.Label;
+			}
+
+			if (metadata.Status) {
+				doc.status = metadata.Status;
+			}
+
+			// Absent IncludeInCompile means "include" in Scrivener; only an explicit
+			// "No" excludes. Populate the field so compile and stats can honor it.
+			if (metadata.IncludeInCompile !== undefined) {
+				doc.includeInCompile = metadata.IncludeInCompile !== 'No';
+			}
+
 			if (metadata.Keywords) {
 				doc.keywords =
 					typeof metadata.Keywords === 'string' ? [metadata.Keywords] : metadata.Keywords;

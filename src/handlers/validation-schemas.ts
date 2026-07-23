@@ -99,6 +99,9 @@ export const compileSchema: ValidationSchema = {
 	includeSynopsis: { type: 'boolean', required: false },
 	includeNotes: { type: 'boolean', required: false },
 	separator: { type: 'string', required: false },
+	sceneSeparator: { type: 'string', required: false },
+	includeTitles: { type: 'boolean', required: false },
+	includeExcluded: { type: 'boolean', required: false },
 	hierarchical: { type: 'boolean', required: false },
 };
 

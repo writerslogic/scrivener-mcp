@@ -34,4 +34,10 @@ export const SHARED_DEFS = {
 		type: 'boolean' as const,
 		description: 'Set true to include trashed items in the result. Default false.',
 	},
+	force: {
+		type: 'boolean' as const,
+		description:
+			'Write even if the project appears open in Scrivener. Default false, which refuses ' +
+			'the write to protect against your changes being overwritten by Scrivener on save.',
+	},
 } as const;

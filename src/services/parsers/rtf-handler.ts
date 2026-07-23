@@ -322,7 +322,10 @@ export class RTFHandler {
 		// Remove RTF declaration
 		content = content.replace(/^\{\\rtf\d+[^}]*/, '');
 
-		// Remove various table definitions using brace-balanced scanning (avoids ReDoS)
+		// Remove various table definitions using brace-balanced scanning (avoids ReDoS).
+		// Image destinations (\*\shppict, \pict) are dropped too: their bodies are
+		// raw hex image data (\jpegblip/\pngblip) that must never surface as document
+		// text — and a long hex run with no delimiters otherwise bloats the parser.
 		const tableKeywords = [
 			'\\fonttbl',
 			'\\colortbl',
@@ -330,6 +333,8 @@ export class RTFHandler {
 			'\\listtable',
 			'\\listoverridetable',
 			'\\info',
+			'\\*\\shppict',
+			'\\pict',
 		];
 
 		tableKeywords.forEach((keyword) => {

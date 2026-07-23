@@ -342,6 +342,7 @@ export const recoverDocumentHandler: ToolDefinition = {
 				description:
 					'Optional id of the folder to restore into. Omit to restore to a default location.',
 			},
+			force: SHARED_DEFS.force,
 		},
 		required: ['documentId'],
 	},
@@ -351,6 +352,7 @@ export const recoverDocumentHandler: ToolDefinition = {
 
 		const documentId = getStringArg(args, 'documentId');
 		const targetFolderId = getOptionalStringArg(args, 'targetFolderId');
+		await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 		await project.recoverFromTrash(documentId, targetFolderId);
 
 		return {

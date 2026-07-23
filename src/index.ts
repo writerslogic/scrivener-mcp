@@ -21,6 +21,7 @@ import {
 	executeRegisteredHandler,
 	validateRegisteredArgs,
 	activateSkills,
+	activateSkillForTool,
 } from './handlers/skill-registry.js';
 import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
@@ -96,6 +97,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			context = await contextPromise;
 		}
 
+		// Progressive disclosure: if the model calls a tool whose skill is not
+		// active yet, activate it on demand instead of dead-ending on "unknown
+		// tool". Genuinely unknown/hidden tools are left to fail validation below.
+		const autoActivated = activateSkillForTool(name);
+
 		// Validate arguments
 		validateRegisteredArgs(name, args || {});
 
@@ -106,6 +112,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		// available. This is a side effect: a notification failure must not turn a
 		// successful tool call into an error, so it is isolated from the result.
 		try {
+			if (autoActivated) {
+				await server.sendToolListChanged();
+			}
 			if (name === 'use_skill') {
 				await server.sendToolListChanged();
 			} else if (name === 'open_project' && context.project) {

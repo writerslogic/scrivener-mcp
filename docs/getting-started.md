@@ -57,9 +57,9 @@ Claude should list ten tools: the `project` skill (`open_project`, `get_structur
 
 ### How skills activate
 
-The server uses progressive tool loading to keep conversations fast by only loading what you need:
+The server uses progressive tool loading to keep conversations fast by only loading what you need. If the model calls a tool whose skill is not active yet, the server activates that skill on the fly, so a valid call never dead-ends:
 
-1. **At startup:** 10 tools are available -- the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`) plus `list_skills` and `use_skill`.
+1. **At startup:** the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`, `get_manuscript_briefing`, `list_snapshots`, `read_snapshot`, `compare_snapshot`) plus `list_skills` and `use_skill`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read, write, create, delete, move, rename, search, and find tools (roughly 18 more tools).
 3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load additional skill groups. Available on-demand skills:
    - **analysis** -- writing quality, pacing, style, critique, character consistency

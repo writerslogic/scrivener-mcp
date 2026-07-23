@@ -2,7 +2,9 @@
  * Tests for ScrivenerProject class
  */
 
+import * as path from 'path';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
+import { isProjectOpenInScrivener } from '../../src/utils/scrivener-app.js';
 import { DocumentManager } from '../../src/services/document-manager.js';
 import { CompilationService } from '../../src/services/compilation-service.js';
 import { DatabaseService } from '../../src/handlers/database/database-service.js';
@@ -23,6 +25,9 @@ jest.mock('../../src/utils/common.js', () => ({
 }));
 jest.mock('../../src/utils/project-utils.js', () => ({
 	ensureProjectDataDirectory: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../src/utils/scrivener-app.js', () => ({
+	isProjectOpenInScrivener: jest.fn().mockResolvedValue('unknown'),
 }));
 jest.mock('../../src/handlers/async-handlers.js', () => ({
 	initializeAsyncServices: jest.fn().mockResolvedValue(undefined),
@@ -378,6 +383,324 @@ describe('ScrivenerProject', () => {
 			// The actual implementation returns ProjectStructure
 			expect(result).toBeDefined();
 			expect(result.root).toBeDefined();
+		});
+	});
+
+	// These exercise the real snapshot reader (services/snapshots + RTFHandler are
+	// not mocked) against the on-disk fixture, mocking only getAllDocuments for the
+	// binder-title enrichment. It avoids the heavy loadProject() path (job queue /
+	// context sync) that keeps the full round-trip suite out of CI.
+	describe('snapshots', () => {
+		const FIXTURE = path.join(process.cwd(), 'tests', 'sample-project.scriv');
+		const SNAPSHOT_DOC = '684ADA52-4D45-48D2-B03D-5ECB784963EE';
+		let fixtureProject: ScrivenerProject;
+
+		beforeEach(() => {
+			fixtureProject = new ScrivenerProject(FIXTURE);
+			(fixtureProject as any).documentManager.getAllDocuments = jest
+				.fn()
+				.mockResolvedValue([{ id: SNAPSHOT_DOC, title: 'Title Page' }]);
+		});
+
+		it('lists a document’s snapshots with the binder title enriched', async () => {
+			const groups = await fixtureProject.listSnapshots(SNAPSHOT_DOC);
+			expect(groups).toHaveLength(1);
+			expect(groups[0]).toMatchObject({
+				documentId: SNAPSHOT_DOC,
+				documentTitle: 'Title Page',
+			});
+			expect(groups[0].snapshots.map((s) => s.title)).toEqual([
+				'First draft',
+				'Before rewrite',
+			]);
+		});
+
+		it('lists all snapshots when no document id is given', async () => {
+			const groups = await fixtureProject.listSnapshots();
+			expect(groups.some((g) => g.documentId === SNAPSHOT_DOC)).toBe(true);
+		});
+
+		it('reads a snapshot as plain text with an accurate word count', async () => {
+			const snap = await fixtureProject.readSnapshot(
+				SNAPSHOT_DOC,
+				'2025-10-27-02-20-40-0700'
+			);
+			expect(snap.title).toBe('First draft');
+			expect(snap.text).toContain('first draft of this scene');
+			expect(snap.wordCount).toBeGreaterThan(0);
+		});
+
+		it('throws NOT_FOUND for an unknown snapshot id', async () => {
+			await expect(fixtureProject.readSnapshot(SNAPSHOT_DOC, 'nope')).rejects.toThrow();
+		});
+
+		it('compares a snapshot against the current document text', async () => {
+			(fixtureProject as any).documentManager.readDocument = jest
+				.fn()
+				.mockResolvedValue(
+					'The first draft of this scene had five sentences.\n\nA new closing line.'
+				);
+
+			const cmp = await fixtureProject.compareSnapshot(
+				SNAPSHOT_DOC,
+				'2025-10-27-02-20-40-0700'
+			);
+			expect(cmp.to.snapshotId).toBe('current');
+			expect(cmp.addedParagraphs).toEqual(['A new closing line.']);
+			expect(cmp.removedParagraphs).toEqual([]);
+			expect(cmp.wordDelta).toBeGreaterThan(0);
+		});
+
+		it('compares one snapshot against another', async () => {
+			const cmp = await fixtureProject.compareSnapshot(
+				SNAPSHOT_DOC,
+				'2025-10-27-02-20-40-0700',
+				'2025-10-27-09-15-12-0700'
+			);
+			expect(cmp.to.snapshotId).toBe('2025-10-27-09-15-12-0700');
+			expect(cmp.removedParagraphs.join(' ')).toContain('first draft');
+			expect(cmp.addedParagraphs.join(' ')).toContain('later revision');
+		});
+	});
+
+	describe('ensureWritable (open-in-Scrivener guard)', () => {
+		const mockedProbe = isProjectOpenInScrivener as jest.MockedFunction<
+			typeof isProjectOpenInScrivener
+		>;
+
+		beforeEach(() => {
+			mockedProbe.mockReset();
+			project = new ScrivenerProject(projectPath);
+		});
+
+		it('throws when the project is detected open in Scrivener', async () => {
+			mockedProbe.mockResolvedValue('open');
+			await expect(project.ensureWritable()).rejects.toThrow(/open in Scrivener/i);
+		});
+
+		it('allows the write when force is set, without probing', async () => {
+			await project.ensureWritable(true);
+			expect(mockedProbe).not.toHaveBeenCalled();
+		});
+
+		it('allows the write when detection is unknown or the project is closed', async () => {
+			mockedProbe.mockResolvedValue('unknown');
+			await expect(project.ensureWritable()).resolves.toBeUndefined();
+			mockedProbe.mockResolvedValue('closed');
+			project = new ScrivenerProject(projectPath);
+			await expect(project.ensureWritable()).resolves.toBeUndefined();
+		});
+
+		it('caches the probe result across calls within the TTL', async () => {
+			mockedProbe.mockResolvedValue('closed');
+			await project.ensureWritable();
+			await project.ensureWritable();
+			expect(mockedProbe).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('getStatistics', () => {
+		it('reads document content into the tree so word counts are non-zero', async () => {
+			const tree = [
+				{
+					id: 'f1',
+					title: 'Manuscript',
+					type: 'Folder',
+					children: [{ id: 'd1', title: 'Ch1', type: 'Text' }],
+				},
+			];
+			(project as any).documentManager.getProjectStructure = jest
+				.fn()
+				.mockResolvedValue(tree);
+			(project as any).documentManager.readDocument = jest
+				.fn()
+				.mockResolvedValue('one two three four five');
+			let received: any;
+			(project as any).compilationService.getStatistics = jest.fn((docs: unknown) => {
+				received = docs;
+				return { totalWords: 0 };
+			});
+
+			await project.getStatistics();
+			// annotateWordCounts must have populated wordCount on the Text node before
+			// aggregation — otherwise totalWords is always zero for real projects.
+			expect(received[0].children[0].wordCount).toBe(5);
+		});
+	});
+
+	describe('getManuscriptBriefing', () => {
+		function stub(stats: Record<string, unknown>, meta: Record<string, unknown>) {
+			(project as any).documentManager.getProjectStructure = jest
+				.fn()
+				.mockResolvedValue([{ id: 'd1', title: 'Ch', type: 'Text' }]);
+			(project as any).documentManager.readDocument = jest.fn().mockResolvedValue('a b c');
+			(project as any).compilationService.getStatistics = jest.fn().mockReturnValue(stats);
+			jest.spyOn(project, 'getProjectMetadata').mockResolvedValue(meta);
+			jest.spyOn(project, 'getCompileMetadata').mockResolvedValue({
+				hasCompileSettings: false,
+				compileFormats: [],
+				labels: [],
+				statuses: [],
+			} as any);
+		}
+
+		it('composes stats, targets, and percent-to-goal into one briefing', async () => {
+			stub(
+				{
+					totalWords: 2500,
+					totalDocuments: 12,
+					totalFolders: 2,
+					averageDocumentLength: 250,
+					documentsByStatus: { 'To Do': 7, Done: 3 },
+					documentsByLabel: { 'POV: Ana': 5 },
+					longestDocument: { id: 'd2', title: 'Long', wordCount: 800 },
+					shortestDocument: { id: 'd1', title: 'Short', wordCount: 40 },
+				},
+				{
+					title: 'My Novel',
+					author: 'Ana',
+					projectTargets: { draft: 5000, deadline: '2026-12-01' },
+				}
+			);
+
+			const b = await project.getManuscriptBriefing();
+			expect(b.title).toBe('My Novel');
+			expect(b.words).toEqual({
+				total: 2500,
+				draftTarget: 5000,
+				percentToTarget: 50,
+				deadline: '2026-12-01',
+			});
+			expect(b.documents).toEqual({ total: 12, folders: 2, textDocuments: 10 });
+			expect(b.byStatus).toEqual({ 'To Do': 7, Done: 3 });
+			expect(b.longest).toEqual({ id: 'd2', title: 'Long', wordCount: 800 });
+		});
+
+		it('resolves label/status ids to names via the taxonomy', async () => {
+			(project as any).documentManager.getProjectStructure = jest
+				.fn()
+				.mockResolvedValue([{ id: 'd1', title: 'Ch', type: 'Text' }]);
+			(project as any).documentManager.readDocument = jest.fn().mockResolvedValue('a b');
+			(project as any).compilationService.getStatistics = jest.fn().mockReturnValue({
+				totalWords: 10,
+				totalDocuments: 1,
+				totalFolders: 0,
+				averageDocumentLength: 10,
+				documentsByStatus: { '2': 4 },
+				documentsByLabel: {},
+				longestDocument: null,
+				shortestDocument: null,
+			});
+			jest.spyOn(project, 'getProjectMetadata').mockResolvedValue({});
+			jest.spyOn(project, 'getCompileMetadata').mockResolvedValue({
+				hasCompileSettings: false,
+				compileFormats: [],
+				labels: [],
+				statuses: [{ id: '2', title: 'Done' }],
+			} as any);
+
+			const b = await project.getManuscriptBriefing();
+			expect(b.byStatus).toEqual({ Done: 4 });
+		});
+
+		it('omits percent-to-goal for a missing or non-numeric draft target', async () => {
+			stub(
+				{
+					totalWords: 100,
+					totalDocuments: 1,
+					totalFolders: 0,
+					averageDocumentLength: 100,
+					documentsByStatus: {},
+					documentsByLabel: {},
+					longestDocument: null,
+					shortestDocument: null,
+				},
+				{ projectTargets: { draft: NaN } }
+			);
+
+			const b = await project.getManuscriptBriefing();
+			expect(b.words.percentToTarget).toBeUndefined();
+			expect(b.words.draftTarget).toBeUndefined();
+			expect(b.longest).toBeNull();
+		});
+	});
+
+	describe('compileStructured', () => {
+		beforeEach(() => {
+			(project as any).readDocument = jest.fn().mockResolvedValue('Body text.');
+			(project as any).compilationService.compileStructured = jest
+				.fn()
+				.mockReturnValue('rendered');
+		});
+
+		function entriesFrom(): unknown {
+			return (project as any).compilationService.compileStructured.mock.calls[0][0];
+		}
+
+		it('assigns heading depth from tree structure and reads only Text bodies', async () => {
+			(project as any).documentManager.getProjectStructure = jest.fn().mockResolvedValue([
+				{
+					id: 'f1',
+					title: 'Manuscript',
+					type: 'Folder',
+					children: [{ id: 'd1', title: 'Chapter 1', type: 'Text' }],
+				},
+			]);
+
+			const out = await project.compileStructured({ outputFormat: 'markdown' });
+			expect(out).toBe('rendered');
+			expect(entriesFrom()).toEqual([
+				{ title: 'Manuscript', content: '', depth: 1, isFolder: true },
+				{ title: 'Chapter 1', content: 'Body text.', depth: 2, isFolder: false },
+			]);
+		});
+
+		it('defaults to the Draft folder and excludes Research/other top-level folders', async () => {
+			(project as any).documentManager.getProjectStructure = jest.fn().mockResolvedValue([
+				{
+					id: 'draft',
+					title: 'Manuscript',
+					type: 'DraftFolder',
+					children: [{ id: 'c1', title: 'Chapter 1', type: 'Text' }],
+				},
+				{
+					id: 'res',
+					title: 'Research',
+					type: 'ResearchFolder',
+					children: [{ id: 'img', title: 'Photo', type: 'Text' }],
+				},
+			]);
+
+			await project.compileStructured({});
+			const titles = (entriesFrom() as Array<{ title: string }>).map((e) => e.title);
+			expect(titles).toEqual(['Chapter 1']);
+			expect(titles).not.toContain('Photo');
+		});
+
+		it('honors Include-in-Compile, and includeExcluded overrides it', async () => {
+			(project as any).documentManager.getProjectStructure = jest.fn().mockResolvedValue([
+				{
+					id: 'draft',
+					title: 'M',
+					type: 'DraftFolder',
+					children: [
+						{ id: 'c1', title: 'Kept', type: 'Text', includeInCompile: true },
+						{ id: 'c2', title: 'Dropped', type: 'Text', includeInCompile: false },
+					],
+				},
+			]);
+
+			await project.compileStructured({});
+			expect((entriesFrom() as Array<{ title: string }>).map((e) => e.title)).toEqual([
+				'Kept',
+			]);
+
+			(project as any).compilationService.compileStructured.mockClear();
+			await project.compileStructured({ includeExcluded: true });
+			expect((entriesFrom() as Array<{ title: string }>).map((e) => e.title)).toEqual([
+				'Kept',
+				'Dropped',
+			]);
 		});
 	});
 });

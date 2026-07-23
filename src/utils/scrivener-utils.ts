@@ -261,7 +261,6 @@ export function getDocumentPaths(
 	notes: string;
 	directory: string;
 	comments: string;
-	snapshots: string;
 } {
 	if (!projectPath) {
 		throw new AppError('Project path is required', ErrorCode.INVALID_INPUT);
@@ -269,13 +268,14 @@ export function getDocumentPaths(
 
 	const directory = buildPath(projectPath, 'Files', 'Data', documentId);
 
+	// Note: snapshots are NOT under Files/Data/<uuid>; they live in the package's
+	// top-level Snapshots/<uuid>.snapshots/ directory (see services/snapshots.ts).
 	return {
 		content: buildPath(directory, 'content.rtf'),
 		synopsis: buildPath(directory, 'synopsis.txt'),
 		notes: buildPath(directory, 'notes.rtf'),
 		directory,
 		comments: buildPath(directory, 'comments.xml'),
-		snapshots: buildPath(directory, 'snapshots'),
 	};
 }
 

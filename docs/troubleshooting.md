@@ -76,14 +76,13 @@ You need to call `open_project` with a path before using document tools. The pro
 
 ## "Unknown tool" errors
 
-Tools load progressively to minimize token overhead. At startup, only 10 tools are registered (the `project` skill + meta-tools).
+Tools load progressively to minimize token overhead. At startup, only 14 tools are registered (the `project` skill + meta-tools). Calling a tool whose skill is not active yet now activates that skill on the fly, so a valid tool call no longer dead-ends on "Unknown tool" -- that error is reserved for genuinely unknown or intentionally hidden tools.
 
 - Call `list_skills` to see all available skill groups and which are currently active
-- Call `use_skill("analysis")` to activate analysis tools
-- Call `use_skill("compilation")` to activate compilation tools
+- Call `use_skill("analysis")` to activate a group up front (optional; calling its tools also activates it)
 - The `documents` and `search` skill groups auto-activate after `open_project`
 
-If a tool you expect isn't available, check which skills are active and activate the appropriate group.
+If a tool name is still reported unknown, check the spelling against `list_skills`.
 
 **If activating a skill doesn't help** -- e.g. `create_document` keeps returning "No such tool available" even right after the `documents` skill activates -- your client isn't refreshing its tool list when the server adds tools. The server sends a `tools/list_changed` notification, but some clients (and older builds of this server) don't act on it. Force everything to register at startup instead:
 

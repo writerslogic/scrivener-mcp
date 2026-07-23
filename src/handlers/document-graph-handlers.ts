@@ -17,8 +17,9 @@ import {
 	type DocumentText,
 } from '../services/document-references.js';
 import type { ScrivenerProject } from '../scrivener-project.js';
+import { createError, ErrorCode } from '../utils/common.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
-import { requireProject, getStringArg } from './types.js';
+import { requireProject, getStringArg, getOptionalStringArg } from './types.js';
 
 /**
  * Read the project's character and location registries from SQLite. Returns []
@@ -66,15 +67,16 @@ async function loadDocuments(project: ScrivenerProject): Promise<DocumentText[]>
 	}));
 }
 
-export const getDocumentReferencesHandler: ToolDefinition = {
-	name: 'get_document_references',
-	title: 'Get Document References',
+export const getEntityReferencesHandler: ToolDefinition = {
+	name: 'get_entity_references',
+	title: 'Get Entity References',
 	description:
-		'List the registered characters and locations that a given document mentions, with how many ' +
-		'times each appears and where. Uses exact whole-word, case-insensitive matching against the ' +
-		"project's character and location registries — no AI. Use this to see a scene's cast and " +
-		'settings at a glance. Returns empty when the document mentions no known entities or the ' +
-		'registries are empty. Requires an open project.',
+		'Trace the reference graph between documents and registered characters/locations, in either ' +
+		'direction. Pass documentId to list the entities a document mentions (its cast and settings, ' +
+		'with counts and offsets); pass entity (registry id or name) to list every document that ' +
+		'mentions it, ranked by count. Provide exactly one of documentId or entity. Exact whole-word, ' +
+		'case-insensitive matching against the registries — no AI. Returns empty when there are no ' +
+		'matches or the registries are empty. Requires an open project.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -86,18 +88,27 @@ export const getDocumentReferencesHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
-				description: 'UUID of the document to inspect (from get_structure).',
+				description:
+					'UUID of a document to list the entities it mentions (from get_structure). ' +
+					'Mutually exclusive with entity.',
+			},
+			entity: {
+				type: 'string',
+				description:
+					'Registry id or name of a character/location to list the documents that mention ' +
+					'it, e.g. "Elena". Mutually exclusive with documentId.',
 			},
 		},
-		required: ['documentId'],
 	},
 	outputSchema: {
 		type: 'object',
 		properties: {
-			documentId: { type: 'string', description: 'The inspected document id.' },
+			documentId: { type: 'string', description: 'Echoed when querying by document.' },
+			entity: { type: 'string', description: 'Echoed when querying by entity.' },
 			mentions: {
 				type: 'array',
-				description: 'Registered entities this document references.',
+				description:
+					'Entities the document references (present when querying by documentId).',
 				items: {
 					type: 'object',
 					properties: {
@@ -116,54 +127,9 @@ export const getDocumentReferencesHandler: ToolDefinition = {
 					},
 				},
 			},
-		},
-		required: ['documentId', 'mentions'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const documentId = getStringArg(args, 'documentId');
-		const entities = loadRegistryEntities(context);
-		const index = buildReferenceIndex(await loadDocuments(project), entities);
-		const mentions = referencesForDocument(index, documentId);
-		const result = { documentId, mentions };
-		return {
-			content: [{ type: 'text', text: compact(result) }],
-			structuredContent: result as unknown as Record<string, unknown>,
-		};
-	},
-};
-
-export const getReferencingDocumentsHandler: ToolDefinition = {
-	name: 'get_referencing_documents',
-	title: 'Get Referencing Documents',
-	description:
-		'Find every document that mentions a given character or location, ranked by mention count. ' +
-		'Accepts the entity by exact registry id or by name (case-insensitive). Use this to trace ' +
-		"an entity's footprint across the manuscript. Returns empty when nothing references it or " +
-		'the entity is unknown. Requires an open project.',
-	annotations: {
-		readOnlyHint: true,
-		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: false,
-	},
-	inputSchema: {
-		type: 'object',
-		properties: {
-			entity: {
-				type: 'string',
-				description: 'Registry id or name of the character/location, e.g. "Elena".',
-			},
-		},
-		required: ['entity'],
-	},
-	outputSchema: {
-		type: 'object',
-		properties: {
-			entity: { type: 'string', description: 'The queried id or name.' },
 			documents: {
 				type: 'array',
-				description: 'Documents referencing the entity, most mentions first.',
+				description: 'Documents referencing the entity (present when querying by entity).',
 				items: {
 					type: 'object',
 					properties: {
@@ -174,15 +140,25 @@ export const getReferencingDocumentsHandler: ToolDefinition = {
 				},
 			},
 		},
-		required: ['entity', 'documents'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
-		const entity = getStringArg(args, 'entity');
+		const documentId = getOptionalStringArg(args, 'documentId');
+		const entity = getOptionalStringArg(args, 'entity');
+		if ((documentId && entity) || (!documentId && !entity)) {
+			throw createError(
+				ErrorCode.INVALID_INPUT,
+				{ documentId, entity },
+				'Provide exactly one of documentId or entity.'
+			);
+		}
+
 		const entities = loadRegistryEntities(context);
 		const index = buildReferenceIndex(await loadDocuments(project), entities);
-		const documents = documentsReferencing(index, entity);
-		const result = { entity, documents };
+
+		const result = documentId
+			? { documentId, mentions: referencesForDocument(index, documentId) }
+			: { entity, documents: documentsReferencing(index, entity as string) };
 		return {
 			content: [{ type: 'text', text: compact(result) }],
 			structuredContent: result as unknown as Record<string, unknown>,
@@ -321,8 +297,7 @@ export const suggestConnectionsHandler: ToolDefinition = {
 };
 
 export const documentGraphHandlers: ToolDefinition[] = [
-	getDocumentReferencesHandler,
-	getReferencingDocumentsHandler,
+	getEntityReferencesHandler,
 	findOrphanedEntitiesHandler,
 	suggestConnectionsHandler,
 ];

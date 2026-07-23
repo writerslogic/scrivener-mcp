@@ -12,6 +12,7 @@ import { getHHMSystem } from './memory-handlers.js';
 import { getLogger } from '../core/logger.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
+	getOptionalBooleanArg,
 	getOptionalNumberArg,
 	getOptionalStringArg,
 	getStringArg,
@@ -292,6 +293,7 @@ export const writeDocumentHandler: ToolDefinition = {
 		properties: {
 			documentId: SHARED_DEFS.docId,
 			content: SHARED_DEFS.content,
+			force: SHARED_DEFS.force,
 		},
 		required: ['documentId', 'content'],
 	},
@@ -312,6 +314,7 @@ export const writeDocumentHandler: ToolDefinition = {
 				);
 			}
 
+			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			await measureExecution(() => project.writeDocument(documentId, content));
 
 			// Update HHM memory with new content
@@ -375,6 +378,7 @@ export const createDocumentHandler: ToolDefinition = {
 				enum: ['Text', 'Folder'],
 				description: 'Whether to create a "Text" document (default) or a "Folder".',
 			},
+			force: SHARED_DEFS.force,
 		},
 		required: ['title'],
 	},
@@ -413,6 +417,7 @@ export const createDocumentHandler: ToolDefinition = {
 				);
 			}
 
+			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			const result = await measureExecution(() =>
 				project.createDocument(title, content, parentId, documentType)
 			);
@@ -478,6 +483,7 @@ export const deleteDocumentHandler: ToolDefinition = {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
+			force: SHARED_DEFS.force,
 		},
 		required: ['documentId'],
 	},
@@ -487,6 +493,7 @@ export const deleteDocumentHandler: ToolDefinition = {
 			validateInput(args, documentIdSchema);
 
 			const documentId = getStringArg(args, 'documentId');
+			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			await project.deleteDocument(documentId);
 			return {
 				content: [
@@ -521,6 +528,7 @@ export const moveDocumentHandler: ToolDefinition = {
 		properties: {
 			documentId: SHARED_DEFS.docId,
 			targetFolderId: SHARED_DEFS.folderId,
+			force: SHARED_DEFS.force,
 			position: {
 				type: 'number',
 				description:
@@ -538,6 +546,7 @@ export const moveDocumentHandler: ToolDefinition = {
 			const documentId = getStringArg(args, 'documentId');
 			const targetFolderId = getStringArg(args, 'targetFolderId');
 			const position = getOptionalNumberArg(args, 'position');
+			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			await project.moveDocument(documentId, targetFolderId, position);
 			return {
 				content: [
@@ -572,6 +581,7 @@ export const updateDocumentHandler: ToolDefinition = {
 		type: 'object',
 		properties: {
 			documentId: SHARED_DEFS.docId,
+			force: SHARED_DEFS.force,
 			title: {
 				type: 'string',
 				description: 'New title for the document. Omit to leave the title unchanged.',
@@ -619,6 +629,7 @@ export const updateDocumentHandler: ToolDefinition = {
 			status !== undefined ||
 			customMetadata !== undefined
 		) {
+			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			await project.updateDocumentMetadata(documentId, {
 				synopsis,
 				notes,
