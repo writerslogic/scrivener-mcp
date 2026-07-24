@@ -6,12 +6,16 @@
  * ids, and path-traversal attempts.
  */
 
+import * as fs from 'fs';
+import * as fsp from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import {
 	parseSnapshotIndex,
 	listDocumentSnapshots,
 	listAllSnapshots,
 	findSnapshot,
+	createSnapshot,
 } from '../../../src/services/snapshots.js';
 
 const PROJECT = path.join(process.cwd(), 'tests', 'sample-project.scriv');
@@ -105,5 +109,80 @@ describe('findSnapshot (fixture)', () => {
 
 	it('returns undefined for an invalid document id', async () => {
 		expect(await findSnapshot(PROJECT, 'not-a-uuid', 'x')).toBeUndefined();
+	});
+});
+
+describe('createSnapshot', () => {
+	const DOC_ID = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
+	let dir: string;
+	let project: string;
+
+	beforeEach(async () => {
+		dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'snap-create-'));
+		project = path.join(dir, 'p.scriv');
+		await fsp.mkdir(path.join(project, 'Files', 'Data', DOC_ID), { recursive: true });
+		await fsp.writeFile(
+			path.join(project, 'Files', 'Data', DOC_ID, 'content.rtf'),
+			'{\\rtf1\\ansi original body}'
+		);
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('copies content byte-for-byte and records Scrivener-format metadata', async () => {
+		const when = new Date(2025, 9, 27, 2, 20, 40); // 2025-10-27 02:20:40 local
+		const entry = await createSnapshot(project, DOC_ID, 'Before edit', when);
+
+		expect(entry.title).toBe('Before edit');
+		// index.xml date: "YYYY-MM-DD HH:MM:SS ±ZZZZ"; the id repeats it with the
+		// timezone sign as the separator.
+		expect(entry.date).toMatch(/^2025-10-27 02:20:40 [+-]\d{4}$/);
+		expect(entry.snapshotId).toMatch(/^2025-10-27-02-20-40[+-]\d{4}$/);
+
+		const snapRtf = await fsp.readFile(
+			path.join(project, 'Snapshots', `${DOC_ID}.snapshots`, `${entry.snapshotId}.rtf`)
+		);
+		const source = await fsp.readFile(
+			path.join(project, 'Files', 'Data', DOC_ID, 'content.rtf')
+		);
+		expect(snapRtf.equals(source)).toBe(true);
+
+		const listed = await listDocumentSnapshots(project, DOC_ID);
+		expect(listed).toEqual([entry]);
+	});
+
+	it('appends to an existing index without dropping prior snapshots', async () => {
+		await createSnapshot(project, DOC_ID, 'First', new Date(2025, 0, 1, 8, 0, 0));
+		await createSnapshot(project, DOC_ID, 'Second', new Date(2025, 0, 2, 9, 30, 0));
+		const listed = await listDocumentSnapshots(project, DOC_ID);
+		expect(listed.map((s) => s.title)).toEqual(['First', 'Second']);
+	});
+
+	it('disambiguates a same-second collision instead of overwriting', async () => {
+		const when = new Date(2025, 0, 1, 8, 0, 0);
+		const a = await createSnapshot(project, DOC_ID, 'A', when);
+		const b = await createSnapshot(project, DOC_ID, 'B', when);
+		expect(a.snapshotId).not.toBe(b.snapshotId);
+		expect((await listDocumentSnapshots(project, DOC_ID)).length).toBe(2);
+	});
+
+	it('XML-escapes titles', async () => {
+		const entry = await createSnapshot(project, DOC_ID, 'A & B <x>', new Date(2025, 0, 1));
+		const idx = await fsp.readFile(
+			path.join(project, 'Snapshots', `${DOC_ID}.snapshots`, 'index.xml'),
+			'utf-8'
+		);
+		expect(idx).toContain('<Title>A &amp; B &lt;x&gt;</Title>');
+		// And it round-trips back to the original title through the reader.
+		expect(entry.title).toBe('A & B <x>');
+		expect((await listDocumentSnapshots(project, DOC_ID))[0].title).toBe('A & B <x>');
+	});
+
+	it('throws NOT_FOUND when the document has no content to snapshot', async () => {
+		await expect(
+			createSnapshot(project, '11111111-1111-4111-8111-111111111111', 'x', new Date())
+		).rejects.toThrow();
 	});
 });

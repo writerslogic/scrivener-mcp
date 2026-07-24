@@ -241,7 +241,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 
 ## All Tools
 
-56 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically, or calls them directly and the owning skill activates on the fly). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
+57 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically, or calls them directly and the owning skill activates on the fly). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
@@ -260,6 +260,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | `list_snapshots` | List Scrivener snapshots (title, date) for one document or the whole project |
 | `read_snapshot` | Read a snapshot's text as plain text, with word count |
 | `compare_snapshot` | Diff a snapshot against the current document (or another snapshot): paragraphs added/removed and net word change |
+| `create_snapshot` | Take a Scrivener-native snapshot of a document (restorable from Scrivener's own Snapshots browser) before editing |
 
 </details>
 

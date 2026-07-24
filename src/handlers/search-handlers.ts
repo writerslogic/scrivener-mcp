@@ -249,16 +249,28 @@ export const searchContentHandler: ToolDefinition = {
 				score: r.score ?? null,
 			}));
 
+			// Signal the degradation explicitly: this was keyword matching, not
+			// meaning-based search, so a "find passages about X" query may miss
+			// conceptually-related results that use different words.
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Found ${trimmedResults.length} matches (basic search)\n${compact({
-							results: trimmedResults,
-						})}`,
+						text:
+							`Semantic search was unavailable, so this is a KEYWORD search (not meaning-based) ` +
+							`— conceptually related passages using other words may be missed. Found ` +
+							`${trimmedResults.length} matches.\n${compact({
+								results: trimmedResults,
+								searchType: 'keyword',
+								degraded: true,
+							})}`,
 					},
 				],
-				structuredContent: { results: trimmedResults },
+				structuredContent: {
+					results: trimmedResults,
+					searchType: 'keyword',
+					degraded: true,
+				},
 			};
 		}
 	},

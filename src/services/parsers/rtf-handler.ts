@@ -333,7 +333,10 @@ export class RTFHandler {
 			'\\listtable',
 			'\\listoverridetable',
 			'\\info',
-			'\\*\\shppict',
+			// Ignorable destinations ({\*\...}): expandedcolortbl, shppict, generator,
+			// etc. A reader that doesn't understand them must drop the whole group, not
+			// emit its body as text (which leaked "*;;" and image markup into content).
+			'\\*',
 			'\\pict',
 		];
 

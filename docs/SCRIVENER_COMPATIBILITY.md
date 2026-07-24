@@ -43,13 +43,13 @@ To migrate a Scrivener 2 project, open and re-save it in Scrivener 3 first
 | Area | Read | Write | Notes |
 |------|------|-------|-------|
 | Binder structure (folders/documents, order, nesting) | ✅ | ✅ | |
-| Document RTF content | ✅ | ✅ | via the RTF handler |
+| Document RTF content | ✅ | ✅ | Fidelity-preserving writes: only the edited span changes; stylesheet, images, footnotes, and `\Scrv_` groups are kept byte-for-byte, else auto-snapshot + fall back. |
 | Synopsis, notes, keywords | ✅ | ✅ | |
 | Label / status | ✅ | ✅ | Colors surfaced (raw + hex) via `get_compile_settings`. |
 | Collections | ✅ | ➖ | Read-only via `get_compile_settings` (id, title, type, color). |
 | Compile format settings | ✅ | ➖ | Read-only via `get_compile_settings` (formats, section-layout counts, front matter, options). Not applied during compile. |
 | Section types | ✅ | ➖ | Read-only via `get_compile_settings`. |
-| Snapshots | ✅ | ➖ | Read-only via `list_snapshots` / `read_snapshot` (title, date, text). |
+| Snapshots | ✅ | ✅ | Read via `list_snapshots`/`read_snapshot`/`compare_snapshot`; create via `create_snapshot`. |
 | Project/manuscript export (Markdown, HTML, JSON) | — | ✅ | Inline. |
 | Project/manuscript export (DOCX, EPUB, PDF) | — | ✅ | Written to disk via `export_project` — see issue #37. |
 

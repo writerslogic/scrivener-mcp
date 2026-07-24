@@ -2,6 +2,7 @@
  * Document management service for Scrivener projects
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LRUCache } from '../core/cache.js';
@@ -276,7 +277,85 @@ export class DocumentManager {
 			// Update cache
 			const cacheKey = `doc:${documentId}`;
 			this.documentCache.set(cacheKey, rtfContent);
+			await this.syncDocsChecksum(documentId);
 		});
+	}
+
+	/**
+	 * Write raw RTF bytes to a document's content.rtf, backing up the prior version
+	 * first (fail-closed like writeDocumentImmediate). Used by the fidelity-preserving
+	 * write path, which produces the exact bytes to store and must not have them
+	 * re-serialized by the RTF writer. Invalidates the parsed cache.
+	 */
+	async writeRawContent(documentId: string, rawRtf: string): Promise<void> {
+		if (!isValidUUID(documentId)) {
+			throw createError(
+				ErrorCode.VALIDATION_ERROR,
+				{ documentId },
+				`Invalid document ID format: ${truncate(documentId, 50)}`
+			);
+		}
+		return this.dedupedOperation(`write:${documentId}`, async () => {
+			const filePath = getDocumentPath(this.projectPath, documentId);
+			await ensureDir(path.dirname(filePath));
+
+			const backupDir = path.join(this.projectPath, '.scrivener-mcp-backup');
+			try {
+				await ensureDir(backupDir);
+				await fs.promises.copyFile(filePath, path.join(backupDir, `${documentId}.rtf`));
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+					throw createError(
+						ErrorCode.FILE_WRITE_ERROR,
+						{ documentId, error: (err as Error).message },
+						`Refusing to overwrite document ${documentId}: could not back up existing content first`
+					);
+				}
+			}
+
+			await fs.promises.writeFile(filePath, rawRtf, 'utf-8');
+			this.documentCache.delete(`doc:${documentId}`);
+			await this.syncDocsChecksum(documentId);
+		});
+	}
+
+	/**
+	 * Keep Scrivener's `Files/Data/docs.checksum` in sync after a write so Scrivener
+	 * does not flag the document as "modified externally". Each line is
+	 * `<UUID>/content.rtf=<sha1>` (verified against real projects). Only updates an
+	 * existing checksum file — never creates one a project didn't already use — and
+	 * serializes updates so concurrent writes can't corrupt the shared file. Best
+	 * effort: a failure here never fails the write.
+	 */
+	private checksumLock: Promise<void> = Promise.resolve();
+	private async syncDocsChecksum(documentId: string): Promise<void> {
+		this.checksumLock = this.checksumLock.then(async () => {
+			const checksumPath = path.join(this.projectPath, 'Files', 'Data', 'docs.checksum');
+			try {
+				let existing: string;
+				try {
+					existing = await fs.promises.readFile(checksumPath, 'utf-8');
+				} catch {
+					return; // no checksum file: this project doesn't use them, leave it that way
+				}
+				const bytes = await fs.promises.readFile(
+					getDocumentPath(this.projectPath, documentId)
+				);
+				const hash = crypto.createHash('sha1').update(bytes).digest('hex');
+				const key = `${documentId}/content.rtf`;
+				const lines = existing.split('\n').filter((l) => l.length > 0);
+				const idx = lines.findIndex((l) => l.startsWith(`${key}=`));
+				if (idx >= 0) lines[idx] = `${key}=${hash}`;
+				else lines.push(`${key}=${hash}`);
+				await fs.promises.writeFile(checksumPath, `${lines.join('\n')}\n`, 'utf-8');
+			} catch (error) {
+				logger.warn('Failed to update docs.checksum', {
+					documentId,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		});
+		return this.checksumLock;
 	}
 
 	/**

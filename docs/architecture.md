@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 56 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
+Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 57 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
 
 ```
 Claude Desktop / Claude Code
@@ -30,7 +30,7 @@ Tools are organized into skills that load progressively by default to minimize t
 
 | Skill | Tools | Progressive load |
 |-------|-------|-------------|
-| `project` | open_project, discover_projects, get_structure, refresh_project, close_project, verify_project_integrity, get_compile_settings, get_manuscript_briefing, list_snapshots, read_snapshot, compare_snapshot | Startup (always) |
+| `project` | open_project, discover_projects, get_structure, refresh_project, close_project, verify_project_integrity, get_compile_settings, get_manuscript_briefing, list_snapshots, read_snapshot, compare_snapshot, create_snapshot | Startup (always) |
 | `documents` | get_document_info, read_document, write_document, create_document, update_document, move_document, delete_document | After open_project |
 | `search` | search, semantic_search, find_mentions, list_trash, restore_document, read_annotations | After open_project |
 | `analysis` | analyze_document, check_consistency, enhance_content, generate_content, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback | On demand |

@@ -209,10 +209,12 @@ export const relationshipHandlers: ToolDefinition[] = [
 		name: 'character_network',
 		title: 'Character Network',
 		description:
-			'Return the full character relationship network for the project: every character and the ' +
-			'typed relationships connecting them, suitable for rendering a graph or analyzing the cast ' +
-			"structure. Use find_relationships instead when you only need one entity's connections. " +
-			'Requires an open project with the relationship engine initialized. Takes no parameters.',
+			'THE default tool for "map my characters" / "how do my characters connect": returns the full ' +
+			'character relationship network — every character and the typed relationships between them — ' +
+			'for rendering a graph or analyzing cast structure. Prefer this for any whole-cast question. ' +
+			"Use find_relationships only for one entity's connections, get_entity_references for which " +
+			'documents mention an entity, and suggest_connections to surface missing links. Requires an ' +
+			'open project with the relationship engine initialized. Takes no parameters.',
 		annotations: {
 			readOnlyHint: true,
 			destructiveHint: false,

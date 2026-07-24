@@ -1058,6 +1058,57 @@ export const getManuscriptBriefingHandler: ToolDefinition = {
 	},
 };
 
+export const createSnapshotHandler: ToolDefinition = {
+	name: 'create_snapshot',
+	title: 'Create Document Snapshot',
+	description:
+		"Take a Scrivener-native snapshot of a document's current content, restorable from Scrivener's " +
+		'own Snapshots browser. Use this before rewriting a document to give the writer a native ' +
+		"rollback point. Copies the live content into the project's Snapshots directory with a title " +
+		'and timestamp; does not modify the document. Requires an open project and a document that has ' +
+		'content.',
+	annotations: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: false,
+	},
+	inputSchema: {
+		type: 'object',
+		properties: {
+			documentId: { type: 'string', description: 'UUID of the document to snapshot.' },
+			title: {
+				type: 'string',
+				description: 'Snapshot title shown in Scrivener. Defaults to "Snapshot".',
+			},
+		},
+		required: ['documentId'],
+	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			documentId: { type: 'string' },
+			snapshotId: {
+				type: 'string',
+				description: 'Id of the new snapshot (for read_snapshot).',
+			},
+			title: { type: 'string' },
+			date: { type: 'string', description: 'Timestamp recorded for the snapshot.' },
+		},
+		required: ['documentId', 'snapshotId', 'title', 'date'],
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
+		const documentId = getStringArg(args, 'documentId');
+		const title = getOptionalStringArg(args, 'title') || 'Snapshot';
+		const snapshot = await project.takeSnapshot(documentId, title);
+		return {
+			content: [{ type: 'text', text: compact(snapshot) }],
+			structuredContent: snapshot as unknown as Record<string, unknown>,
+		};
+	},
+};
+
 export const projectHandlers = [
 	openProjectHandler,
 	getStructureHandler,
@@ -1070,4 +1121,5 @@ export const projectHandlers = [
 	listSnapshotsHandler,
 	readSnapshotHandler,
 	compareSnapshotHandler,
+	createSnapshotHandler,
 ];

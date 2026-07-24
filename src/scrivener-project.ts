@@ -22,8 +22,15 @@ import { MetadataManager } from './services/metadata-manager.js';
 import { ProjectLoader } from './services/project-loader.js';
 import { exportBinary, type ExportSection } from './services/export/manuscript-exporters.js';
 import { buildCompileMetadata, type CompileMetadata } from './services/compile-settings.js';
-import { listAllSnapshots, listDocumentSnapshots, findSnapshot } from './services/snapshots.js';
+import {
+	listAllSnapshots,
+	listDocumentSnapshots,
+	findSnapshot,
+	createSnapshot,
+	type SnapshotEntry,
+} from './services/snapshots.js';
 import { RTFHandler } from './services/parsers/rtf-handler.js';
+import { spliceRtfText, describeReplacedConstructs } from './services/parsers/rtf-splice.js';
 import { getAccurateWordCount } from './utils/text-metrics.js';
 import { diffParagraphs, diffWordCounts } from './utils/text-diff.js';
 import { isProjectOpenInScrivener } from './utils/scrivener-app.js';
@@ -77,6 +84,18 @@ export interface SnapshotContent {
 }
 
 /** A "where am I?" orientation of the manuscript, from `getManuscriptBriefing`. */
+/** Outcome of a fidelity-preserving document write. */
+export interface WriteFidelityReport {
+	documentId: string;
+	/** 'preserved': spliced, untouched RTF kept byte-for-byte. 'regenerated': rebuilt
+	 *  from plain text (lossy). 'created': first write, nothing to preserve. */
+	mode: 'preserved' | 'regenerated' | 'created';
+	/** Id of a snapshot taken before the write when fidelity was at risk. */
+	snapshotId?: string;
+	/** Human-readable constructs the edit could not preserve (empty on a clean edit). */
+	atRisk: string[];
+}
+
 export interface ManuscriptBriefing {
 	title?: string;
 	author?: string;
@@ -318,6 +337,60 @@ export class ScrivenerProject {
 				logger.warn('Failed to update HHM memory for document', { documentId, error });
 			}
 		}
+	}
+
+	/**
+	 * Replace a document's text while preserving all Scrivener RTF the edit did not
+	 * touch (stylesheet, style refs, images, footnotes, `\Scrv_` groups). Splices the
+	 * changed span into the original raw RTF and commits ONLY if re-parsing the result
+	 * yields exactly the intended text; otherwise it snapshots and falls back to a full
+	 * regenerate. When the changed span dropped non-round-trippable content it also
+	 * snapshots first, so the writer always has a native rollback point. Returns a
+	 * report of what happened.
+	 */
+	async writeDocumentPreserving(
+		documentId: string,
+		newText: string
+	): Promise<WriteFidelityReport> {
+		const oldRaw = await this.documentManager.readDocumentRaw(documentId);
+
+		// New/empty document: nothing to preserve or lose — write plainly.
+		if (!oldRaw) {
+			await this.writeDocument(documentId, newText);
+			return { documentId, mode: 'created', atRisk: [] };
+		}
+
+		const rtf = new RTFHandler();
+		const canonical = (await rtf.parseRTF(oldRaw)).plainText.trim();
+		const intended = newText.trim();
+		const splice = spliceRtfText(oldRaw, canonical, intended);
+
+		// Commit the splice only if the result provably reads back as the intended
+		// text — this gate makes a scanner imperfection a fallback, never a corruption.
+		if (splice) {
+			const roundTrip = (await rtf.parseRTF(splice.rtf)).plainText.trim();
+			if (roundTrip === intended) {
+				const atRisk = describeReplacedConstructs(splice.replacedRaw);
+				let snapshotId: string | undefined;
+				if (atRisk.length > 0) {
+					snapshotId = (await this.takeSnapshot(documentId, 'Before AI edit')).snapshotId;
+				}
+				await this.documentManager.writeRawContent(documentId, splice.rtf);
+				this.markDocumentChanged(documentId);
+				return { documentId, mode: 'preserved', snapshotId, atRisk };
+			}
+		}
+
+		// Fallback: cannot safely splice. Snapshot first (native rollback), then
+		// regenerate from plain text — which drops formatting/annotations/images.
+		const snapshotId = (await this.takeSnapshot(documentId, 'Before AI edit')).snapshotId;
+		await this.writeDocument(documentId, newText);
+		return {
+			documentId,
+			mode: 'regenerated',
+			snapshotId,
+			atRisk: ['formatting, styles, images, footnotes, and annotations were not preserved'],
+		};
 	}
 
 	async createDocument(
@@ -863,6 +936,15 @@ export class ScrivenerProject {
 	 * throw NOT_FOUND rather than reading outside the snapshot set. Returns the
 	 * snapshot's title, date, plain text, and word count.
 	 */
+	/**
+	 * Create a Scrivener-native snapshot of a document's current content, restorable
+	 * from Scrivener's own Snapshots browser. Use this before a lossy edit to give
+	 * the writer a native rollback point. Requires the document to have content.
+	 */
+	async takeSnapshot(documentId: string, title = 'Snapshot'): Promise<SnapshotEntry> {
+		return createSnapshot(this.projectPath, documentId, title, new Date());
+	}
+
 	async readSnapshot(documentId: string, snapshotId: string): Promise<SnapshotContent> {
 		const found = await findSnapshot(this.projectPath, documentId, snapshotId);
 		if (!found) {

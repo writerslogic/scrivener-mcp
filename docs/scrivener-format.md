@@ -38,8 +38,9 @@ elsewhere). Observed top-level contents of a Scrivener 3 project:
 ```
 
 Some projects (notably iOS-synced ones) additionally carry a `docs.checksum`
-file used to detect external tampering. **We neither read nor maintain it** —
-see *Risks* below.
+file (per-document SHA-1 of `content.rtf`) that Scrivener uses to detect external
+modification. When a project has one, we **update the relevant line on every
+document write**, so Scrivener does not flag our edits as externally modified.
 
 > `scrivener.db/` appearing inside a project directory is **created by
 > scrivener-mcp**, not by Scrivener. It is this server's SQLite cache and is not
@@ -136,8 +137,9 @@ format.
 
 Snapshots are stored per document in a top-level `Snapshots/` directory, one
 subfolder named `<document-UUID>.snapshots` per document that has any.
-`list_snapshots` / `read_snapshot` expose them read-only
-(`src/services/snapshots.ts`); we never write or restore snapshots.
+`list_snapshots` / `read_snapshot` / `compare_snapshot` read them and
+`create_snapshot` writes one (`src/services/snapshots.ts`); restoring a snapshot
+is left to Scrivener's own Snapshots browser.
 
 | Path | Meaning | Exposed as |
 |------|---------|-----------|
@@ -171,12 +173,17 @@ The reason this document is also a risk statement:
 2. **Inferred fields.** Compile section-layout semantics, snapshots, and revision
    metadata are guessed from context or ignored. We do not write them.
 3. **Write safety.** Before modifying a `.scrivx` we create a timestamped backup.
-   We do **not** update `docs.checksum`, so on projects that carry one, Scrivener
-   may flag externally-modified content. Prefer letting Scrivener re-open and
-   re-save after external edits.
-4. **RTF fidelity.** Our RTF writer round-trips text, basic styling, and tracked
-   metadata — not every Scrivener control word. Inline images, tables, footnotes,
-   and revision marks are not guaranteed to survive a write cycle byte-for-byte.
+   Document writes now **update `docs.checksum`** (SHA-1 of `content.rtf`, verified
+   against real projects) on projects that carry one, so Scrivener no longer flags
+   them as externally-modified.
+4. **RTF fidelity.** `write_document` uses a **fidelity-preserving splice**
+   (`services/parsers/rtf-splice.ts`): it changes only the edited span in the
+   original raw RTF, leaving the stylesheet, style refs, images, footnotes, and
+   `\Scrv_` groups byte-for-byte intact, and commits only if the result re-parses
+   to exactly the intended text (otherwise it snapshots and falls back to a full
+   regenerate). What still cannot survive: inline styling *inside* text the writer
+   rewrote (the words it was attached to changed), and any construct in the changed
+   span — those cases auto-snapshot first and are reported in the write result.
 
 ### Safe-modification guidance (what third-party tools should assume)
 

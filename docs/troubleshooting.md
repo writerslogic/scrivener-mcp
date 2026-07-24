@@ -76,7 +76,7 @@ You need to call `open_project` with a path before using document tools. The pro
 
 ## "Unknown tool" errors
 
-Tools load progressively to minimize token overhead. At startup, only 14 tools are registered (the `project` skill + meta-tools). Calling a tool whose skill is not active yet now activates that skill on the fly, so a valid tool call no longer dead-ends on "Unknown tool" -- that error is reserved for genuinely unknown or intentionally hidden tools.
+Tools load progressively to minimize token overhead. At startup, only 15 tools are registered (the `project` skill + meta-tools). Calling a tool whose skill is not active yet now activates that skill on the fly, so a valid tool call no longer dead-ends on "Unknown tool" -- that error is reserved for genuinely unknown or intentionally hidden tools.
 
 - Call `list_skills` to see all available skill groups and which are currently active
 - Call `use_skill("analysis")` to activate a group up front (optional; calling its tools also activates it)
@@ -125,7 +125,7 @@ or
 
 > "What Scrivener tools do you have?"
 
-You should see ten tools: `open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`, `list_skills`, and `use_skill`.
+You should see the startup tools, including: `open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`, `list_skills`, and `use_skill`.
 
 **Related issues:** [#2](https://github.com/writerslogic/scrivener-mcp/issues/2)
 

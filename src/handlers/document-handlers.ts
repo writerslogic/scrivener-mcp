@@ -278,8 +278,11 @@ export const writeDocumentHandler: ToolDefinition = {
 	name: 'write_document',
 	title: 'Write Document',
 	description:
-		'Replace the entire text of an existing document with new content. This overwrites the body; ' +
-		'a backup of the previous version is taken first and the write is atomic. To change only the ' +
+		"Replace a document's text with new content, preserving the surrounding Scrivener formatting " +
+		'the edit did not touch (stylesheet, styles, images, footnotes) byte-for-byte. The result ' +
+		'reports whether formatting was fully preserved; when an edit would drop non-round-trippable ' +
+		'content it takes a Scrivener snapshot first (restorable in Scrivener) and says so. To change ' +
+		'only the ' +
 		'title or metadata use update_document; to add a new document use create_document. Requires an ' +
 		'open project and a valid document id.',
 	annotations: {
@@ -315,7 +318,9 @@ export const writeDocumentHandler: ToolDefinition = {
 			}
 
 			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
-			await measureExecution(() => project.writeDocument(documentId, content));
+			const { result: report } = await measureExecution(() =>
+				project.writeDocumentPreserving(documentId, content)
+			);
 
 			// Update HHM memory with new content
 			try {
@@ -335,13 +340,31 @@ export const writeDocumentHandler: ToolDefinition = {
 				getLogger('document-handlers').debug('Failed to update HHM memory', { error });
 			}
 
+			// Report fidelity honestly: a clean preserving write vs. a lossy regenerate,
+			// naming anything the edit could not preserve and any snapshot taken.
+			let text: string;
+			if (report.mode === 'preserved' && report.atRisk.length === 0) {
+				text = 'Document updated. All surrounding formatting preserved.';
+			} else if (report.mode === 'preserved') {
+				text =
+					`Document updated. Formatting outside the edited text was preserved, but the edited ` +
+					`text dropped: ${report.atRisk.join(', ')}.` +
+					(report.snapshotId
+						? ` A snapshot was taken first (id ${report.snapshotId}).`
+						: '');
+			} else if (report.mode === 'created') {
+				text = 'Document created.';
+			} else {
+				text =
+					`Document updated, but its formatting could not be preserved (${report.atRisk.join(', ')}). ` +
+					(report.snapshotId
+						? `A snapshot was taken first (id ${report.snapshotId}) — restore it in Scrivener to recover the original.`
+						: '');
+			}
+
 			return {
-				content: [
-					{
-						type: 'text',
-						text: 'Document updated successfully',
-					},
-				],
+				content: [{ type: 'text', text }],
+				structuredContent: report as unknown as Record<string, unknown>,
 			};
 		} catch (error) {
 			const appError = handleError(error, 'writeDocument');

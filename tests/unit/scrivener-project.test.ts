@@ -463,6 +463,31 @@ describe('ScrivenerProject', () => {
 		});
 	});
 
+	describe('writeDocumentPreserving', () => {
+		it('preserves surrounding RTF and reports a clean edit', async () => {
+			const raw = '{\\rtf1\\ansi\\deff0{\\fonttbl\\f0 Times;}\\f0\\fs24 hello world}';
+			mockDocumentManager.readDocumentRaw = jest.fn().mockResolvedValue(raw);
+			const writeRaw = jest.fn().mockResolvedValue(undefined);
+			mockDocumentManager.writeRawContent = writeRaw;
+
+			const report = await project.writeDocumentPreserving('doc1', 'hello there world');
+			expect(report.mode).toBe('preserved');
+			expect(report.atRisk).toEqual([]);
+			expect(report.snapshotId).toBeUndefined();
+			// The stored bytes keep the font table and read back as the intended text.
+			const stored = writeRaw.mock.calls[0][1] as string;
+			expect(stored).toContain('{\\fonttbl\\f0 Times;}');
+			expect(stored).toContain('there');
+		});
+
+		it('reports mode "created" when there is no prior content', async () => {
+			mockDocumentManager.readDocumentRaw = jest.fn().mockResolvedValue('');
+			mockDocumentManager.writeDocument = jest.fn().mockResolvedValue(undefined);
+			const report = await project.writeDocumentPreserving('doc1', 'brand new');
+			expect(report.mode).toBe('created');
+		});
+	});
+
 	describe('ensureWritable (open-in-Scrivener guard)', () => {
 		const mockedProbe = isProjectOpenInScrivener as jest.MockedFunction<
 			typeof isProjectOpenInScrivener
