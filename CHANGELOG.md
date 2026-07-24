@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Fidelity-preserving document writes, snapshot creation, checksum sync
+## [0.10.0] - 2026-07-23
+
+### Added
 - Snapshots, manuscript briefing, structured compile, and correctness fixes
 
 ### Changed
