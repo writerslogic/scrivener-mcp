@@ -329,7 +329,8 @@ export const generateContentHandler: ToolDefinition = {
 		'steered by project context (a document, characters, or a target style) and a desired length. ' +
 		'This creates fresh text and does not modify any document. Use enhance_content to improve ' +
 		'existing text instead, or analyze_document to critique it. Calls an external AI model and ' +
-		'requires OPENAI_API_KEY; without it a placeholder is returned.',
+		'requires an AI provider key (ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY); ' +
+		'without one a placeholder is returned.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -381,11 +382,11 @@ export const generateContentHandler: ToolDefinition = {
 				const length = getOptionalNumberArg(args, 'length') || 500;
 				const context = getOptionalObjectArg(args, 'context');
 				const generated = {
-					content: `AI-Generated Content for: "${prompt}"\n\nThis is placeholder content. To enable actual AI content generation, set ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY in the environment.\n\nThe generated content would be tailored to your specifications:\n- Length: ${length} words\n- Context: ${context ? JSON.stringify(context, null, 2) : 'None provided'}`,
+					content: `AI-Generated Content for: "${prompt}"\n\nThis is placeholder content. To enable actual AI content generation, set ANTHROPIC_API_KEY (preferred), OPENAI_API_KEY, or OPENROUTER_API_KEY in the environment.\n\nThe generated content would be tailored to your specifications:\n- Length: ${length} words\n- Context: ${context ? JSON.stringify(context, null, 2) : 'None provided'}`,
 					wordCount: Math.max(50, Math.floor(length * 0.3)),
 					type: 'creative',
 					suggestions: [
-						'Set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable AI content generation',
+						'Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY to enable AI content generation',
 						'Consider expanding on character motivations',
 						'Add more sensory details to enhance immersion',
 					],

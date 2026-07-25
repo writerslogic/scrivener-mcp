@@ -348,18 +348,19 @@ export const writeDocumentHandler: ToolDefinition = {
 			} else if (report.mode === 'preserved') {
 				text =
 					`Document updated. Formatting outside the edited text was preserved, but the edited ` +
-					`text dropped: ${report.atRisk.join(', ')}.` +
-					(report.snapshotId
-						? ` A snapshot was taken first (id ${report.snapshotId}).`
-						: '');
+					`text dropped: ${report.atRisk.join(', ')}.${
+						report.snapshotId
+							? ` A snapshot was taken first (id ${report.snapshotId}).`
+							: ''
+					}`;
 			} else if (report.mode === 'created') {
 				text = 'Document created.';
 			} else {
-				text =
-					`Document updated, but its formatting could not be preserved (${report.atRisk.join(', ')}). ` +
-					(report.snapshotId
+				text = `Document updated, but its formatting could not be preserved (${report.atRisk.join(', ')}). ${
+					report.snapshotId
 						? `A snapshot was taken first (id ${report.snapshotId}) — restore it in Scrivener to recover the original.`
-						: '');
+						: ''
+				}`;
 			}
 
 			return {
