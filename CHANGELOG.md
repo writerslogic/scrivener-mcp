@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Multi-provider AI with OpenRouter, MCP sampling, key discovery, and automatic failover
+
+### Documentation
+- Document Anthropic, OpenRouter, sampling, and key auto-discovery for AI features
+
+### Fixed
+- Stop claiming OPENAI_API_KEY is required for content generation, autofix lint errors
+## [0.11.0] - 2026-07-24
+
+### Added
 - Fidelity-preserving document writes, snapshot creation, checksum sync
 ## [0.10.0] - 2026-07-23
 
