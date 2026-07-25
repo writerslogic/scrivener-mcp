@@ -227,7 +227,7 @@ Pass env vars through your client config when needed:
       "args": ["scrivener-mcp"],
       "env": {
         "LOG_LEVEL": "ERROR",
-        "OPENAI_API_KEY": "sk-..."
+        "ANTHROPIC_API_KEY": "sk-ant-..."
       }
     }
   }
@@ -237,8 +237,10 @@ Pass env vars through your client config when needed:
 | Variable | Purpose |
 |----------|---------|
 | `LOG_LEVEL` | Reduce log noise (`ERROR` recommended if you see JSON parse errors on old versions) |
-| `OPENAI_API_KEY` | Enable AI-powered enhancement features |
-| `ANTHROPIC_API_KEY` | Alternative provider for AI features |
+| `ANTHROPIC_API_KEY` | Enable AI-powered features with Claude (preferred chat provider) |
+| `OPENAI_API_KEY` | Enable AI-powered features with OpenAI; embeddings/semantic search need this or `OPENROUTER_API_KEY` |
+| `OPENROUTER_API_KEY` | Enable AI-powered features via OpenRouter (any model in its catalog via `OPENROUTER_MODEL`) |
+| `AI_PROVIDER` | Chat provider when several keys are set (`anthropic`, `openai`, or `openrouter`) |
 
 Core read/write/search tools work without API keys. See [Getting Started](./getting-started.md#environment-variables) for the full list.
 

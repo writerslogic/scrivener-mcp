@@ -161,22 +161,23 @@ For other MCP clients, point them at `npx scrivener-mcp` as a stdio server.
 <details>
 <summary><strong>Optional: AI-powered features</strong></summary>
 
-Core features (document management, analysis, search) work without any API key. For AI-powered enhancements, the server automatically discovers your OpenAI key from common locations:
+Core features (document management, analysis, search) work without any API key. AI-powered enhancements work with an Anthropic (Claude), OpenAI, or OpenRouter key; when several are present, Claude handles chat and generation (set `AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` to override). OpenRouter defaults to the `anthropic/claude-sonnet-4.6` model; set `OPENROUTER_MODEL` to use any model in its catalog. If the active provider fails with an account-level error (invalid key, exhausted credit, outage), the server automatically retries the request on the next configured provider. When your MCP client supports the [sampling capability](https://modelcontextprotocol.io/docs/concepts/sampling), chat-based AI features can also run through the client's own model — with no API key at all. Semantic/embedding features need an OpenAI or OpenRouter key (embeddings run through OpenAI models either way). The server automatically discovers keys from common locations:
 
-- `OPENAI_API_KEY` environment variable
-- `~/.env`, `~/.scrivener-mcp/.env`, `~/.openai/key`
-- macOS Keychain (service name `openai-api-key`)
+- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables
+- `~/.env`, `~/.scrivener-mcp/.env`
+- `~/.anthropic/key`, `~/.openai/key`, `~/.openrouter/key`
+- macOS Keychain (service names `anthropic-api-key` / `openai-api-key` / `openrouter-api-key`)
 
-To store your key in the macOS Keychain:
+To store a key in the macOS Keychain:
 
 ```bash
-security add-generic-password -s openai-api-key -a openai -w sk-your-key-here
+security add-generic-password -s anthropic-api-key -a anthropic -w sk-ant-your-key-here
 ```
 
 Or export it manually:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."   # or OPENAI_API_KEY="sk-..."
 ```
 
 This enables: content enhancement, semantic search, multi-agent analysis, character consistency checking, and intelligent compilation.
@@ -395,7 +396,7 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 - **Node.js 18+**
 - **Scrivener 3** project files (.scriv)
 - macOS, Windows, or Linux
-- Optional: OpenAI API key for AI-powered features
+- Optional: Anthropic or OpenAI API key for AI-powered features (OpenAI required for semantic/embedding features)
 - Optional: Neo4j for character relationship graphs
 
 ## Development

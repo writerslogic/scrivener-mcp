@@ -138,18 +138,18 @@ You should see the startup tools, including: `open_project`, `get_structure`, `r
 
 ## AI-powered features don't work
 
-AI-powered features (deep analysis, content enhancement, critique) require an API key. The server checks multiple locations automatically:
+AI-powered features (deep analysis, content enhancement, critique) require an Anthropic (Claude), OpenAI, or OpenRouter API key — or an MCP client that supports the sampling capability, in which case chat-based features run through the client's own model with no key. Claude is preferred for chat and generation when several keys are set (`AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` overrides); embeddings/semantic features need an OpenAI or OpenRouter key. The server checks multiple locations automatically for each provider:
 
-1. `OPENAI_API_KEY` environment variable
+1. `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables
 2. `~/.env` file
 3. `~/.scrivener-mcp/.env` file
-4. `~/.openai/key` file
-5. macOS Keychain (macOS only)
+4. `~/.anthropic/key` / `~/.openai/key` / `~/.openrouter/key` files
+5. macOS Keychain (macOS only; service names `anthropic-api-key` / `openai-api-key` / `openrouter-api-key`)
 
 To set manually:
 
 ```bash
-export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY=sk-...
 ```
 
 Or in your MCP client config:
@@ -160,13 +160,15 @@ Or in your MCP client config:
     "scrivener": {
       "command": "npx",
       "args": ["scrivener-mcp"],
-      "env": { "OPENAI_API_KEY": "sk-..." }
+      "env": { "ANTHROPIC_API_KEY": "sk-ant-..." }
     }
   }
 }
 ```
 
 Core features (read, write, search, structure, metadata, analysis) work without any API key. Only AI-enhanced features require one.
+
+Configuring keys for more than one provider adds resilience: when the active provider fails with an account-level error (invalid key, exhausted credit, quota, outage), the request is retried on the next configured provider automatically.
 
 ## "HHM system not initialized"
 

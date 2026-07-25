@@ -197,32 +197,36 @@ These are all optional:
 |----------|-------------|---------|
 | `LOG_LEVEL` | Logging verbosity (`DEBUG`, `INFO`, `WARN`, `ERROR`) | `INFO` |
 | `SCRIVENER_SKIP_SETUP` | Skip first-run initialization | `false` |
-| `OPENAI_API_KEY` | OpenAI key for AI-powered features | none |
-| `ANTHROPIC_API_KEY` | Anthropic key for AI-powered features | none |
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) key for AI-powered features | none |
+| `OPENAI_API_KEY` | OpenAI key for AI-powered features and embeddings | none |
+| `OPENROUTER_API_KEY` | OpenRouter key for AI-powered features | none |
+| `AI_PROVIDER` | Chat provider when several keys are set (`anthropic`, `openai`, or `openrouter`) | `anthropic` when its key exists |
+| `OPENROUTER_MODEL` | Model id used via OpenRouter | `anthropic/claude-sonnet-4.6` |
 
-All core Scrivener operations (read, write, search, structure, metadata) work without any API keys. The AI-powered features (deep analysis, content enhancement, critique) use them when available and fall back to local heuristics when they're not.
+All core Scrivener operations (read, write, search, structure, metadata) work without any API keys. The AI-powered features (deep analysis, content enhancement, critique) use them when available and fall back to local heuristics when they're not. Chat and generation prefer Claude when `ANTHROPIC_API_KEY` is set, and can also run through your MCP client's own model with no key at all when the client supports the MCP sampling capability. Semantic/embedding features need `OPENAI_API_KEY` or `OPENROUTER_API_KEY` (OpenRouter proxies the OpenAI embeddings API).
 
 ### API key auto-discovery
 
-You do not need to manually export your OpenAI key in most cases. The server automatically checks the following locations, in order:
+You do not need to manually export your key in most cases. The server automatically checks the following locations for each provider, in order:
 
-1. The `OPENAI_API_KEY` environment variable (standard `export`)
+1. The `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables (standard `export`)
 2. `~/.env`
 3. `~/.scrivener-mcp/.env`
-4. `~/.config/openai/key`
-5. `~/.openai/key`
-6. **macOS Keychain** (looks for a generic password with service name `openai-api-key`)
+4. `~/.config/anthropic/key` / `~/.config/openai/key` / `~/.config/openrouter/key`
+5. `~/.anthropic/key` / `~/.openai/key` / `~/.openrouter/key`
+6. **macOS Keychain** (generic passwords with service names `anthropic-api-key` / `openai-api-key` / `openrouter-api-key`)
 
-To store your key in the macOS Keychain:
+To store a key in the macOS Keychain:
 
 ```bash
+security add-generic-password -s anthropic-api-key -a anthropic -w sk-ant-your-key-here
 security add-generic-password -s openai-api-key -a openai -w sk-your-key-here
 ```
 
 If none of these locations contain a key, you can always fall back to a manual export:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."   # or OPENAI_API_KEY="sk-..."
 ```
 
 ## Optional: Neo4j
