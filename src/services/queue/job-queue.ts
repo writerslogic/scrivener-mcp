@@ -151,6 +151,8 @@ export class JobQueueService {
 			const envConfig = getEnvConfig();
 			const aiClient = new AIClient({
 				openaiApiKey: options.openaiApiKey || envConfig.openaiApiKey,
+				anthropicApiKey: envConfig.anthropicApiKey,
+				openrouterApiKey: envConfig.openrouterApiKey,
 			});
 			if (aiClient.isAvailable) {
 				this.aiWritingService = new AIWritingService(aiClient);

@@ -18,6 +18,8 @@ export interface EnvConfig {
 	redisHost: string;
 	redisPort: number;
 	openaiApiKey?: string;
+	anthropicApiKey?: string;
+	openrouterApiKey?: string;
 	scrivenerQuiet: boolean;
 	scrivenerSkipSetup: boolean;
 }
@@ -70,31 +72,34 @@ export function validateUrl(url: string | undefined, name: string): string | und
 	}
 }
 
+interface KeyDiscoverySpec {
+	/** Variable name expected in .env-style files, e.g. OPENAI_API_KEY. */
+	envVar: string;
+	/** Full-key validation pattern; anchored so one provider's key never matches another's. */
+	keyPattern: RegExp;
+	/** Files that contain just the key (no VAR= prefix). */
+	bareKeyFiles: string[];
+	/** macOS Keychain generic-password service name. */
+	keychainService: string;
+}
+
 /**
- * Discover OpenAI API key from common dotfiles and macOS Keychain.
- * Returns undefined if not found. Never throws.
+ * Discover an API key from common dotfiles and macOS Keychain.
+ * In multi-variable .env files the explicit `VAR=` prefix is required so a
+ * neighbouring provider's key (e.g. ANTHROPIC_API_KEY next to OPENAI_API_KEY)
+ * is never misattributed. Returns undefined if not found. Never throws.
  */
-function discoverOpenAIKey(): string | undefined {
-	const home = os.homedir();
+function discoverKey(spec: KeyDiscoverySpec, home: string): string | undefined {
+	const envFiles = [path.join(home, '.env'), path.join(home, '.scrivener-mcp', '.env')];
+	const prefixed = new RegExp(`^\\s*${spec.envVar}\\s*=\\s*["']?([A-Za-z0-9_-]+)["']?\\s*$`, 'm');
 
-	// Check common dotfiles
-	const dotfiles = [
-		path.join(home, '.env'),
-		path.join(home, '.scrivener-mcp', '.env'),
-		path.join(home, '.config', 'openai', 'key'),
-		path.join(home, '.openai', 'key'),
-	];
-
-	for (const filepath of dotfiles) {
+	for (const filepath of envFiles) {
 		try {
 			if (!fs.existsSync(filepath)) continue;
 			const content = fs.readFileSync(filepath, 'utf-8');
-			// Look for OPENAI_API_KEY=sk-... or bare key
-			const match = content.match(
-				/(?:OPENAI_API_KEY\s*=\s*)?["']?(sk-[a-zA-Z0-9_-]{20,})["']?/
-			);
-			if (match) {
-				logger.debug('OpenAI key discovered from dotfile', { source: filepath });
+			const match = content.match(prefixed);
+			if (match && spec.keyPattern.test(match[1])) {
+				logger.debug(`${spec.envVar} discovered from dotfile`, { source: filepath });
 				return match[1];
 			}
 		} catch {
@@ -102,16 +107,28 @@ function discoverOpenAIKey(): string | undefined {
 		}
 	}
 
-	// macOS Keychain
+	for (const filepath of spec.bareKeyFiles) {
+		try {
+			if (!fs.existsSync(filepath)) continue;
+			const content = fs.readFileSync(filepath, 'utf-8').trim();
+			if (spec.keyPattern.test(content)) {
+				logger.debug(`${spec.envVar} discovered from key file`, { source: filepath });
+				return content;
+			}
+		} catch {
+			continue;
+		}
+	}
+
 	if (process.platform === 'darwin') {
 		try {
 			const result = execFileSync(
 				'security',
-				['find-generic-password', '-s', 'openai-api-key', '-w'],
+				['find-generic-password', '-s', spec.keychainService, '-w'],
 				{ timeout: 3000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
 			).trim();
-			if (result.startsWith('sk-')) {
-				logger.debug('OpenAI key discovered from macOS Keychain');
+			if (spec.keyPattern.test(result)) {
+				logger.debug(`${spec.envVar} discovered from macOS Keychain`);
 				return result;
 			}
 		} catch {
@@ -120,6 +137,90 @@ function discoverOpenAIKey(): string | undefined {
 	}
 
 	return undefined;
+}
+
+function discoverOpenAIKey(home: string = os.homedir()): string | undefined {
+	return discoverKey(
+		{
+			envVar: 'OPENAI_API_KEY',
+			// sk-ant- is an Anthropic key and sk-or- an OpenRouter key; exclude
+			// both so a misplaced key file or keychain entry is never sent to OpenAI.
+			keyPattern: /^sk-(?!ant-|or-)[a-zA-Z0-9_-]{20,}$/,
+			bareKeyFiles: [
+				path.join(home, '.config', 'openai', 'key'),
+				path.join(home, '.openai', 'key'),
+			],
+			keychainService: 'openai-api-key',
+		},
+		home
+	);
+}
+
+function discoverAnthropicKey(home: string = os.homedir()): string | undefined {
+	return discoverKey(
+		{
+			envVar: 'ANTHROPIC_API_KEY',
+			keyPattern: /^sk-ant-[a-zA-Z0-9_-]{20,}$/,
+			bareKeyFiles: [
+				path.join(home, '.config', 'anthropic', 'key'),
+				path.join(home, '.anthropic', 'key'),
+			],
+			keychainService: 'anthropic-api-key',
+		},
+		home
+	);
+}
+
+function discoverOpenRouterKey(home: string = os.homedir()): string | undefined {
+	return discoverKey(
+		{
+			envVar: 'OPENROUTER_API_KEY',
+			keyPattern: /^sk-or-[a-zA-Z0-9_-]{20,}$/,
+			bareKeyFiles: [
+				path.join(home, '.config', 'openrouter', 'key'),
+				path.join(home, '.openrouter', 'key'),
+			],
+			keychainService: 'openrouter-api-key',
+		},
+		home
+	);
+}
+
+/**
+ * Discover AI provider keys from dotfiles and the macOS Keychain.
+ * The homeDir parameter exists for tests; production callers use the default.
+ */
+export function discoverAIKeys(homeDir: string = os.homedir()): {
+	openaiApiKey?: string;
+	anthropicApiKey?: string;
+	openrouterApiKey?: string;
+} {
+	return {
+		openaiApiKey: discoverOpenAIKey(homeDir),
+		anthropicApiKey: discoverAnthropicKey(homeDir),
+		openrouterApiKey: discoverOpenRouterKey(homeDir),
+	};
+}
+
+/**
+ * Populate process.env with discovered AI keys so every AIClient construction
+ * (handlers read process.env directly) sees them, not just consumers of
+ * getEnvConfig(). Explicit environment variables always win; discovery only
+ * fills gaps. Never throws.
+ */
+export function applyDiscoveredAIKeys(homeDir: string = os.homedir()): void {
+	if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+		const key = discoverAnthropicKey(homeDir);
+		if (key) process.env.ANTHROPIC_API_KEY = key;
+	}
+	if (!process.env.OPENAI_API_KEY?.trim()) {
+		const key = discoverOpenAIKey(homeDir);
+		if (key) process.env.OPENAI_API_KEY = key;
+	}
+	if (!process.env.OPENROUTER_API_KEY?.trim()) {
+		const key = discoverOpenRouterKey(homeDir);
+		if (key) process.env.OPENROUTER_API_KEY = key;
+	}
 }
 
 /**
@@ -132,6 +233,8 @@ export function getEnvConfig(): EnvConfig {
 		redisHost: process.env.REDIS_HOST || 'localhost',
 		redisPort: parseEnvInt(process.env.REDIS_PORT, 6379, 'REDIS_PORT'),
 		openaiApiKey: process.env.OPENAI_API_KEY?.trim() || discoverOpenAIKey(),
+		anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim() || discoverAnthropicKey(),
+		openrouterApiKey: process.env.OPENROUTER_API_KEY?.trim() || discoverOpenRouterKey(),
 		scrivenerQuiet: parseEnvBool(process.env.SCRIVENER_QUIET, false),
 		scrivenerSkipSetup: parseEnvBool(process.env.SCRIVENER_SKIP_SETUP, false),
 	};
@@ -149,6 +252,8 @@ export function getEnvConfig(): EnvConfig {
 		redisHost: config.redisHost,
 		redisPort: config.redisPort,
 		hasOpenaiKey: !!config.openaiApiKey,
+		hasAnthropicKey: !!config.anthropicApiKey,
+		hasOpenrouterKey: !!config.openrouterApiKey,
 		quiet: config.scrivenerQuiet,
 		skipSetup: config.scrivenerSkipSetup,
 	});

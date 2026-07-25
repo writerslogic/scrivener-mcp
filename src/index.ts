@@ -27,8 +27,14 @@ import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
 import { PersonalizationService } from './services/personalization/personalization-service.js';
 import { initializeHHM } from './handlers/memory-handlers.js';
+import { applyDiscoveredAIKeys } from './utils/env-config.js';
+import { registerSamplingServer } from './services/ai/sampling-bridge.js';
 
 const logger = getLogger('main');
+
+// Fill in AI provider keys (Anthropic, OpenAI, OpenRouter) from dotfiles or the
+// macOS Keychain before any AIClient is constructed; explicit env vars always win.
+applyDiscoveredAIKeys();
 
 // Initialize HHM system
 let hhmInitialized = false;
@@ -78,6 +84,10 @@ const server = new Server(
 		capabilities: SERVER_CAPABILITIES,
 	}
 );
+
+// Let AIClient reach the client's own model via sampling/createMessage when
+// the connected MCP client supports it (checked per call, post-handshake).
+registerSamplingServer(server);
 
 // Initialize skill registry
 initializeSkillRegistry();
