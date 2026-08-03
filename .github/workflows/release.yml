@@ -59,7 +59,7 @@ jobs:
       # distributed via npm (npm install pulls the identical artifact), so a
       # GitHub-release copy is redundant.
       - name: Create Release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
           generateReleaseNotes: true
           draft: false
