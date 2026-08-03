@@ -436,7 +436,7 @@ Several Scrivener MCP servers exist. Here's how they compare:
 | Published to npm | yes (`npm i -g scrivener-mcp`) | no | no | no |
 | License | AGPL-3.0 / commercial dual-license | MIT | — | varies |
 | Active development | weekly | stale | occasional | stale |
-| Community | ⭐ 37 · 14 forks · 9 issues | ⭐ ? | ⭐ 5 | minimal |
+| Community | ⭐ 39 · 14 forks · 16 issues | ⭐ ? | ⭐ 5 | minimal |
 <!-- comparison-end -->
 
 ## Contributing
