@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.writerslogic%2Fscrivener-mcp.svg)](https://mcptoplist.com/server/io.github.writerslogic%2Fscrivener-mcp)
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-white.svg"/>
