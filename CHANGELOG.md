@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Fixed
+- Npm audit fix — clears 8 advisories (undici, fast-uri, brace-expansion, ip-address, hono, body-parser, @hono/node-server)
+- Describe all outputSchema fields and probe get_entity_references in conformance gate
+
+### Security
+- Fix all 23 open CodeQL findings across src, scripts, and tests
+## [0.12.0] - 2026-07-25
+
 ### Added
 - Multi-provider AI with OpenRouter, MCP sampling, key discovery, and automatic failover
 
