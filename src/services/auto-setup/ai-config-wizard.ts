@@ -4,13 +4,13 @@
  */
 
 import { mkdirSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import * as readline from 'readline';
 import { execFileSync } from 'child_process';
 import { getLogger } from '../../core/logger.js';
-import { writeJSON, getEnv } from '../../utils/common.js';
+import { writeJSON, getEnv, safeWriteFile } from '../../utils/common.js';
 
 const logger = getLogger('ai-config-wizard');
 
@@ -101,7 +101,7 @@ export class AIConfigWizard {
 		updateEnvVar('OLLAMA_URL', config.ollamaUrl);
 
 		// The .env holds API keys — owner-only
-		await writeFile(this.envPath, `${envContent.trim()}\n`, { mode: 0o600 });
+		await safeWriteFile(this.envPath, `${envContent.trim()}\n`, { mode: 0o600 });
 	}
 
 	/**

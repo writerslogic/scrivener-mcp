@@ -13,10 +13,14 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 
 const PAYLOAD_THRESHOLD = 4000; // chars before spilling to disk
-const SPOOL_DIR = path.join(os.tmpdir(), 'scrivener-mcp-spool');
+let spoolDir: string | undefined;
 
-function ensureSpoolDir(): void {
-	fs.mkdirSync(SPOOL_DIR, { recursive: true, mode: 0o700 });
+function getSpoolDir(): string {
+	if (!spoolDir) {
+		spoolDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrivener-mcp-spool-'));
+		fs.chmodSync(spoolDir, 0o700);
+	}
+	return spoolDir;
 }
 
 /**
@@ -51,10 +55,10 @@ export function formatPayload(data: unknown, label?: string): string {
 	const json = compact(data);
 	if (json.length <= PAYLOAD_THRESHOLD) return json;
 
-	ensureSpoolDir();
+	const spoolDirectory = getSpoolDir();
 	const id = crypto.randomUUID().slice(0, 8);
 	const filename = `${label || 'result'}-${id}.json`;
-	const filepath = path.join(SPOOL_DIR, filename);
+	const filepath = path.join(spoolDirectory, filename);
 	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
 
 	return compact({
@@ -73,10 +77,10 @@ export function formatList(items: unknown[], label?: string): string {
 	const json = compact(items);
 	if (json.length <= PAYLOAD_THRESHOLD) return json;
 
-	ensureSpoolDir();
+	const spoolDirectory = getSpoolDir();
 	const id = crypto.randomUUID().slice(0, 8);
 	const filename = `${label || 'list'}-${id}.json`;
-	const filepath = path.join(SPOOL_DIR, filename);
+	const filepath = path.join(spoolDirectory, filename);
 	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
 
 	return compact({
@@ -138,10 +142,10 @@ export function formatError(error: unknown, operation?: string): string {
  * Clean up old spool files (older than 1 hour).
  */
 export function cleanupSpool(): void {
-	if (!fs.existsSync(SPOOL_DIR)) return;
+	if (!spoolDir) return;
 	const cutoff = Date.now() - 3600000;
-	for (const file of fs.readdirSync(SPOOL_DIR)) {
-		const filepath = path.join(SPOOL_DIR, file);
+	for (const file of fs.readdirSync(spoolDir)) {
+		const filepath = path.join(spoolDir, file);
 		try {
 			const stat = fs.statSync(filepath);
 			if (stat.mtimeMs < cutoff) fs.unlinkSync(filepath);

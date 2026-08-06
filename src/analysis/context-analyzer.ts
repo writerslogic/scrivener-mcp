@@ -864,11 +864,14 @@ export class ContextAnalyzer {
 		const firstAvg = firstHalf.reduce((sum, p) => sum + p.intensity, 0) / firstHalf.length;
 		const secondAvg = secondHalf.reduce((sum, p) => sum + p.intensity, 0) / secondHalf.length;
 
-		let trend: StoryContext['overallPacing']['trend'] = 'steady';
-		if (secondAvg > firstAvg * 1.2) trend = 'accelerating';
-		else if (secondAvg < firstAvg * 0.8) trend = 'decelerating';
-		else if (Math.abs(secondAvg - firstAvg) < 0.1) trend = 'steady';
-		else trend = 'variable';
+		const trend: StoryContext['overallPacing']['trend'] =
+			secondAvg > firstAvg * 1.2
+				? 'accelerating'
+				: secondAvg < firstAvg * 0.8
+					? 'decelerating'
+					: Math.abs(secondAvg - firstAvg) < 0.1
+						? 'steady'
+						: 'variable';
 
 		// Generate suggestions
 		const suggestions: string[] = [];

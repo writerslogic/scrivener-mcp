@@ -495,9 +495,12 @@ export class MLWordClassifierPro {
 
 		// Use compromise for advanced analysis
 		const doc = nlp(context);
-		const terms = doc.terms().json();
+		const terms = doc.terms().json() as Array<{
+			text: string;
+			terms?: Array<{ tags?: string[] }>;
+		}>;
 		const wordIndex = this.findWordIndex(
-			terms.map((t: any) => t.text),
+			terms.map((term) => term.text),
 			word,
 			position
 		);
@@ -529,7 +532,8 @@ export class MLWordClassifierPro {
 		const syllables = this.countSyllables(word);
 
 		// Get morphological analysis
-		const stem = (nlp(word).verbs().conjugate()[0] as any)?.Infinitive || word.toLowerCase();
+		const conjugations = nlp(word).verbs().conjugate() as Array<{ Infinitive?: string }>;
+		const stem = conjugations[0]?.Infinitive || word.toLowerCase();
 		const phonemes = this.generatePhonemes(word);
 
 		// Calculate term frequency

@@ -27,9 +27,19 @@ function main() {
 		path.join(os.homedir(), '.config', 'claude', 'claude_desktop_config.json'),
 	];
 
-	let configPath = configPaths.find((p) => fs.existsSync(p));
+	let configPath;
+	let raw = null;
+	for (const candidate of configPaths) {
+		try {
+			raw = fs.readFileSync(candidate, 'utf8');
+			configPath = candidate;
+			break;
+		} catch (error) {
+			if (error.code !== 'ENOENT') return;
+		}
+	}
 
-	if (!configPath) {
+	if (configPath === undefined) {
 		// Create config in platform-appropriate location
 		if (process.platform === 'darwin') configPath = configPaths[0];
 		else if (process.platform === 'win32') configPath = configPaths[1];
@@ -40,19 +50,6 @@ function main() {
 
 	// Read existing config or start fresh
 	let config = {};
-	let raw = null;
-	try {
-		raw = fs.readFileSync(configPath, 'utf8');
-	} catch (err) {
-		if (err.code !== 'ENOENT') {
-			console.error(
-				'scrivener-mcp: Could not read ' +
-					configPath +
-					'. Run "npx scrivener-setup" to configure manually.'
-			);
-			return;
-		}
-	}
 	if (raw !== null) {
 		try {
 			config = JSON.parse(raw);

@@ -4,7 +4,7 @@
  * Usage: npx scrivener-setup
  */
 
-const { existsSync, readFileSync, writeFileSync, mkdirSync } = require('fs');
+const { readFileSync, writeFileSync, mkdirSync, statSync } = require('fs');
 const { homedir, platform } = require('os');
 const { join, dirname } = require('path');
 const readline = require('readline');
@@ -76,9 +76,21 @@ function detectClients() {
 		// directory does. Prefer an explicit `detect` marker; otherwise fall back
 		// to the config's parent dir (valid only when it is client-specific).
 		const marker = paths.detect || dirname(configPath);
-		if (existsSync(configPath) || existsSync(marker)) {
-			found.push({ name, configPath, exists: existsSync(configPath) });
+		let configExists = false;
+		let markerExists = false;
+		try {
+			statSync(configPath);
+			configExists = true;
+		} catch (error) {
+			if (error.code !== 'ENOENT') throw error;
 		}
+		try {
+			statSync(marker);
+			markerExists = true;
+		} catch (error) {
+			if (error.code !== 'ENOENT') throw error;
+		}
+		if (configExists || markerExists) found.push({ name, configPath, exists: configExists });
 	}
 	return found;
 }

@@ -165,7 +165,9 @@ export class StyleEnhancer {
 		let result = content;
 
 		// Apply vocabulary preferences (check if extended style guide has vocabulary)
-		const extendedStyleGuide = styleGuide as any;
+		const extendedStyleGuide = styleGuide as StyleGuide & {
+			vocabulary?: Record<string, string>;
+		};
 		if (extendedStyleGuide.vocabulary) {
 			for (const [original, replacement] of Object.entries(extendedStyleGuide.vocabulary)) {
 				const regex = new RegExp(`\\b${original}\\b`, 'gi');

@@ -9,7 +9,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { getLogger } from '../../core/logger.js';
 import { AutoSetup } from './auto-setup.js';
-import { readJSON } from '../../utils/common.js';
+import { readJSON, safeWriteFile } from '../../utils/common.js';
 
 const logger = getLogger('first-run');
 
@@ -35,10 +35,6 @@ export class FirstRunManager {
 	 * Check if setup has been completed
 	 */
 	async isSetupComplete(): Promise<boolean> {
-		if (!existsSync(this.setupPath)) {
-			return false;
-		}
-
 		try {
 			const setup = (await readJSON(this.setupPath, {})) as Record<string, unknown>;
 			return Boolean(setup.completed === true && setup.features);
@@ -62,10 +58,6 @@ export class FirstRunManager {
 			redis: false,
 			ai: false,
 		};
-
-		if (!existsSync(this.setupPath)) {
-			return defaultStatus;
-		}
 
 		try {
 			const setup = JSON.parse(await readFile(this.setupPath, 'utf-8'));
@@ -202,7 +194,7 @@ export class FirstRunManager {
 	 * Mark first run as complete
 	 */
 	private async markFirstRunComplete(): Promise<void> {
-		await writeFile(this.firstRunPath, new Date().toISOString());
+		await safeWriteFile(this.firstRunPath, new Date().toISOString(), { mode: 0o600 });
 		logger.info('First run complete');
 	}
 

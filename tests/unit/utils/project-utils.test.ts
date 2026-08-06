@@ -39,9 +39,7 @@ describe('Project Utils', () => {
 	});
 
 	afterEach(() => {
-		if (existsSync(tmpBase)) {
-			rmSync(tmpBase, { recursive: true, force: true });
-		}
+		if (existsSync(tmpBase)) rmSync(tmpBase, { recursive: true, force: true });
 	});
 
 	describe('ensureProjectDataDirectory', () => {

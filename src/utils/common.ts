@@ -339,15 +339,18 @@ export async function safeWriteFile(
 	data: string | Buffer,
 	options?: fs.WriteFileOptions
 ): Promise<void> {
-	// Random suffix + exclusive create: an attacker who can predict the temp
-	// name cannot pre-create or symlink it (CodeQL js/insecure-temporary-file).
-	const tmpPath = `${filePath}.${crypto.randomBytes(8).toString('hex')}.tmp`;
 	const dir = path.dirname(filePath);
+	let tmpDir: string | undefined;
 	try {
 		await ensureDir(dir);
+		// mkdtemp atomically creates a private, unpredictable staging directory.
+		// Keeping it beside the destination also preserves atomic rename semantics.
+		tmpDir = await fs.promises.mkdtemp(path.join(dir, '.scrivener-mcp-write-'));
+		await fs.promises.chmod(tmpDir, 0o700);
+		const tmpPath = path.join(tmpDir, 'content');
 		// Write to a temp file and fsync it before the atomic rename, so a crash
 		// or power loss cannot leave a truncated or non-durable target file.
-		const handle = await fs.promises.open(tmpPath, 'wx');
+		const handle = await fs.promises.open(tmpPath, 'wx', 0o600);
 		try {
 			await handle.writeFile(data, options);
 			await handle.sync();
@@ -355,6 +358,8 @@ export async function safeWriteFile(
 			await handle.close();
 		}
 		await fs.promises.rename(tmpPath, filePath);
+		await fs.promises.rmdir(tmpDir);
+		tmpDir = undefined;
 		// fsync the directory so the rename itself is durable. Not supported on
 		// every platform (e.g. Windows), so this is best-effort.
 		try {
@@ -368,11 +373,7 @@ export async function safeWriteFile(
 			/* directory fsync unsupported on this platform — best-effort */
 		}
 	} catch (e) {
-		try {
-			await fs.promises.unlink(tmpPath);
-		} catch {
-			/* best-effort cleanup */
-		}
+		if (tmpDir) await fs.promises.rm(tmpDir, { recursive: true, force: true });
 		throw handleError(e, `writeFile ${filePath}`);
 	}
 }
@@ -715,23 +716,36 @@ export function setNested(obj: Record<string, unknown>, path: string, value: unk
 	const keys = path.split('.');
 	// Reject prototype-pollution keys up front so a bad path mutates nothing.
 	for (const k of keys) {
-		if (isUnsafeKey(k)) {
+		if (k === '__proto__' || k === 'constructor' || k === 'prototype') {
 			throw createError(ErrorCode.INVALID_INPUT, null, `Unsafe property path: ${path}`);
 		}
 	}
 	let cur = obj;
 	for (let i = 0; i < keys.length - 1; i++) {
 		const key = keys[i];
-		if (isUnsafeKey(key)) continue;
-		if (!(key in cur) || typeof cur[key] !== 'object' || cur[key] === null) {
-			cur[key] = {} as Record<string, unknown>;
+		if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+		if (
+			!Object.prototype.hasOwnProperty.call(cur, key) ||
+			typeof cur[key] !== 'object' ||
+			cur[key] === null
+		) {
+			Object.defineProperty(cur, key, {
+				value: Object.create(null),
+				writable: true,
+				enumerable: true,
+				configurable: true,
+			});
 		}
 		cur = cur[key] as Record<string, unknown>;
 	}
 	const last = keys[keys.length - 1];
-	if (!isUnsafeKey(last)) {
-		cur[last] = value;
-	}
+	if (last === '__proto__' || last === 'constructor' || last === 'prototype') return;
+	Object.defineProperty(cur, last, {
+		value,
+		writable: true,
+		enumerable: true,
+		configurable: true,
+	});
 }
 
 /** Prototype-pollution sink guard for dotted property paths */

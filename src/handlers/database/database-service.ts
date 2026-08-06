@@ -12,6 +12,7 @@ import {
 	safeWriteFile,
 } from '../../utils/common.js';
 import { RelationshipEngine } from '../../services/relationship-engine.js';
+import type { HolographicMemorySystem } from '../../services/memory/hhm/holographic-memory-system.js';
 import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';
@@ -966,7 +967,7 @@ export class DatabaseService {
 	/**
 	 * Set the HMS instance and create the RelationshipEngine
 	 */
-	setHMS(hms: any): void {
+	setHMS(hms: HolographicMemorySystem): void {
 		this.relationshipEngine = new RelationshipEngine(hms, this.neo4jManager);
 	}
 

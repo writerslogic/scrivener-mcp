@@ -3,6 +3,7 @@
  */
 
 import * as fs from 'fs/promises';
+import { mkdtempSync } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
@@ -15,9 +16,8 @@ export const TEST_DATA_DIR = path.join(__dirname, 'fixtures');
 // Per-worker temp dir: jest runs test files across parallel workers, so a single
 // shared path races (one file's afterAll cleanup deletes the dir another worker is
 // still using → ENOENT). Scoping to JEST_WORKER_ID isolates each worker.
-export const TEMP_DIR = path.join(
-	os.tmpdir(),
-	`scrivener-mcp-tests-${process.env.JEST_WORKER_ID ?? '1'}`
+export const TEMP_DIR = mkdtempSync(
+	path.join(os.tmpdir(), `scrivener-mcp-tests-${process.env.JEST_WORKER_ID ?? '1'}-`)
 );
 
 // Setup before each test file

@@ -3,7 +3,7 @@
  * Handles sudo requirements and permission checks gracefully
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
@@ -11,7 +11,7 @@ import { promisify } from 'util';
 import { ApplicationError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const logger = getLogger('permission-manager');
 
 export interface PermissionCheckResult {
@@ -68,12 +68,9 @@ export class PermissionManager {
 	 */
 	private static async checkSudo(): Promise<PermissionCheckResult> {
 		try {
-			// Check if sudo command exists
-			await execAsync('which sudo', { timeout: 2000 });
-
 			// Check if sudo is configured (non-interactive check)
 			try {
-				await execAsync('sudo -n true');
+				await execFileAsync('/usr/bin/sudo', ['-n', 'true'], { timeout: 2000 });
 				// If we get here, sudo worked without password
 				return {
 					hasPermission: true,

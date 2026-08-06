@@ -4,6 +4,15 @@ import prettierPlugin from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
 
 export default tseslint.config(
+	{
+		ignores: [
+			'dist/**',
+			'coverage/**',
+			'node_modules/**',
+			'desktop/i18n/**',
+			'desktop/libs/**',
+		],
+	},
 	eslint.configs.recommended,
 	...tseslint.configs.recommended,
 	prettierConfig,

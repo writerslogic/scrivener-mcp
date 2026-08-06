@@ -91,7 +91,7 @@ export class SearchService {
 		if (!this.sqliteManager) return [];
 
 		try {
-			const sanitized = query.replace(/["\*\(\)\-\+\^]/g, ' ').trim();
+			const sanitized = query.replace(/["*()+^-]/g, ' ').trim();
 			const ftsQuery = options.fuzzy ? `"${sanitized}"*` : `"${sanitized}"`;
 
 			const sql = `

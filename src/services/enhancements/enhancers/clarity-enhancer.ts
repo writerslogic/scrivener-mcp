@@ -133,11 +133,9 @@ export class ClarityEnhancer {
 		const target = targetLength || Math.floor(originalWordCount * 0.8);
 
 		let result = content;
-		let currentWordCount = originalWordCount;
-
 		// Remove redundant phrases
 		result = this.removeRedundancy(result, changes);
-		currentWordCount = result.split(/\s+/).length;
+		let currentWordCount = result.split(/\s+/).length;
 
 		// Combine sentences if still too long
 		if (currentWordCount > target) {
@@ -386,7 +384,7 @@ export class ClarityEnhancer {
 
 		// Remove excessive adjectives (keep only the most important ones)
 		const adjectives = doc.adjectives().json();
-		const lessImportant = adjectives.filter((adj: any) =>
+		const lessImportant = adjectives.filter((adj: { text: string }) =>
 			this.isLessEssentialAdjective(adj.text)
 		);
 

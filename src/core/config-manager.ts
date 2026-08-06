@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import { getLogger } from './logger.js';
-import { AppError, ErrorCode, isUnsafeKey } from '../utils/common.js';
+import { AppError, ErrorCode } from '../utils/common.js';
 
 const logger = getLogger('config-manager');
 
@@ -279,10 +279,14 @@ export class ConfigManager extends EventEmitter {
 
 		// Check rollout percentage
 		if (flag.rolloutPercentage < 100) {
-			// Use consistent hashing based on user ID or flag name
+			// Use deterministic non-cryptographic hashing for rollout bucketing.
 			const hashInput = context?.userId || flagName;
-			const hash = crypto.createHash('sha256').update(hashInput).digest('hex');
-			const percentage = (parseInt(hash.slice(0, 2), 16) / 255) * 100;
+			let bucketHash = 2166136261;
+			for (const char of hashInput) {
+				bucketHash ^= char.codePointAt(0) ?? 0;
+				bucketHash = Math.imul(bucketHash, 16777619);
+			}
+			const percentage = ((bucketHash >>> 0) / 0xffffffff) * 100;
 
 			if (percentage > flag.rolloutPercentage) {
 				return false;
@@ -445,7 +449,13 @@ export class ConfigManager extends EventEmitter {
 			try {
 				const newKey = crypto.randomBytes(32);
 				// 'wx': if a concurrent process won the race, fall through and read its key
-				await fs.promises.writeFile(keyPath, newKey, { mode: 0o600, flag: 'wx' });
+				const keyHandle = await fs.promises.open(keyPath, 'wx', 0o600);
+				try {
+					await keyHandle.writeFile(newKey);
+					await keyHandle.sync();
+				} finally {
+					await keyHandle.close();
+				}
 				this.encryptionKey = newKey;
 				logger.info('Generated new encryption key');
 			} catch (writeError) {
@@ -468,16 +478,12 @@ export class ConfigManager extends EventEmitter {
 		const schemaPath = path.join(process.cwd(), 'config', 'schema.json');
 
 		try {
-			if (fs.existsSync(schemaPath)) {
-				const schemaContent = await fs.promises.readFile(schemaPath, 'utf-8');
-				this.schema = JSON.parse(schemaContent);
-			} else {
-				// Use default schema
-				this.schema = this.getDefaultSchema();
-				logger.info('Using default configuration schema');
-			}
+			const schemaContent = await fs.promises.readFile(schemaPath, 'utf-8');
+			this.schema = JSON.parse(schemaContent);
 		} catch (error) {
-			logger.warn('Failed to load configuration schema', { error });
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+				logger.warn('Failed to load configuration schema', { error });
+			} else logger.info('Using default configuration schema');
 			this.schema = this.getDefaultSchema();
 		}
 	}
@@ -487,22 +493,21 @@ export class ConfigManager extends EventEmitter {
 
 		// Load from JSON files
 		for (const configPath of this.configPaths) {
-			if (fs.existsSync(configPath)) {
-				try {
-					const content = await fs.promises.readFile(configPath, 'utf-8');
+			try {
+				const content = await fs.promises.readFile(configPath, 'utf-8');
 
-					if (configPath.endsWith('.json')) {
-						const config = JSON.parse(content);
-						loadedConfig = this.mergeConfigs(loadedConfig, config);
-					} else if (configPath.includes('.env')) {
-						const envConfig = this.parseEnvFile(content);
-						loadedConfig = this.mergeConfigs(loadedConfig, envConfig);
-					}
-
-					logger.debug('Loaded configuration from', { path: configPath });
-				} catch (error) {
-					logger.warn('Failed to load configuration file', { path: configPath, error });
+				if (configPath.endsWith('.json')) {
+					const config = JSON.parse(content);
+					loadedConfig = this.mergeConfigs(loadedConfig, config);
+				} else if (configPath.includes('.env')) {
+					const envConfig = this.parseEnvFile(content);
+					loadedConfig = this.mergeConfigs(loadedConfig, envConfig);
 				}
+
+				logger.debug('Loaded configuration from', { path: configPath });
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+				logger.warn('Failed to load configuration file', { path: configPath, error });
 			}
 		}
 
@@ -517,18 +522,18 @@ export class ConfigManager extends EventEmitter {
 		const flagsPath = path.join(process.cwd(), 'config', 'feature-flags.json');
 
 		try {
-			if (fs.existsSync(flagsPath)) {
-				const content = await fs.promises.readFile(flagsPath, 'utf-8');
-				const flags: Record<string, FeatureFlag> = JSON.parse(content);
+			const content = await fs.promises.readFile(flagsPath, 'utf-8');
+			const flags: Record<string, FeatureFlag> = JSON.parse(content);
 
-				for (const [name, flag] of Object.entries(flags)) {
-					this.featureFlags.set(name, flag);
-				}
-
-				logger.debug('Loaded feature flags', { count: this.featureFlags.size });
+			for (const [name, flag] of Object.entries(flags)) {
+				this.featureFlags.set(name, flag);
 			}
+
+			logger.debug('Loaded feature flags', { count: this.featureFlags.size });
 		} catch (error) {
-			logger.warn('Failed to load feature flags', { error });
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+				logger.warn('Failed to load feature flags', { error });
+			}
 		}
 	}
 
@@ -635,7 +640,7 @@ export class ConfigManager extends EventEmitter {
 	private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
 		const keys = path.split('.');
 		for (const k of keys) {
-			if (isUnsafeKey(k)) {
+			if (k === '__proto__' || k === 'constructor' || k === 'prototype') {
 				throw new AppError(`Unsafe property path: ${path}`, ErrorCode.INVALID_INPUT);
 			}
 		}
@@ -643,17 +648,30 @@ export class ConfigManager extends EventEmitter {
 
 		for (let i = 0; i < keys.length - 1; i++) {
 			const key = keys[i];
-			if (isUnsafeKey(key)) continue;
-			if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
-				current[key] = {};
+			if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+			if (
+				!Object.prototype.hasOwnProperty.call(current, key) ||
+				typeof current[key] !== 'object' ||
+				current[key] === null
+			) {
+				Object.defineProperty(current, key, {
+					value: Object.create(null),
+					writable: true,
+					enumerable: true,
+					configurable: true,
+				});
 			}
 			current = current[key] as Record<string, unknown>;
 		}
 
 		const last = keys[keys.length - 1];
-		if (!isUnsafeKey(last)) {
-			current[last] = value;
-		}
+		if (last === '__proto__' || last === 'constructor' || last === 'prototype') return;
+		Object.defineProperty(current, last, {
+			value,
+			writable: true,
+			enumerable: true,
+			configurable: true,
+		});
 	}
 
 	private isSensitiveValue(path: string): boolean {

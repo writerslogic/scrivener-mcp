@@ -173,15 +173,15 @@ export class WebContentParser {
 		html: string,
 		options?: { preserveImages?: boolean; preserveLinks?: boolean }
 	): string {
-		if (options?.preserveImages === false) {
-			html = html.replace(/<img[^>]*>/gi, '');
-		}
-
+		const $ = cheerio.load(html);
+		if (options?.preserveImages === false) $('img').remove();
 		if (options?.preserveLinks === false) {
-			html = html.replace(/<a[^>]*>(.*?)<\/a>/gi, '$1');
+			$('a').each((_, element) => {
+				$(element).replaceWith($(element).contents());
+			});
 		}
 
-		return this.turndownService.turndown(html);
+		return this.turndownService.turndown($.html());
 	}
 
 	/**

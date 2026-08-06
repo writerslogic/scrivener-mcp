@@ -384,6 +384,8 @@ class JSVectorEngine {
 // with a synchronous require (not a top-level `await import`) so that importing
 // this module never forces top-level await on consumers — which breaks CJS and
 // ts-jest transpilation of the whole handler graph.
+// The optional native package has no TypeScript declarations and is loaded dynamically.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let NativeHMS: any = null;
 let nativeLoadAttempted = false;
 function loadNativeHMS(): void {
@@ -410,6 +412,8 @@ function loadNativeHMS(): void {
 
 export class HolographicMemorySystem {
 	private dimensions: number;
+	// Runtime shape comes from the optional, untyped native package.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private native: any | null = null;
 	private jsEngine: JSVectorEngine | null = null;
 	private memoryIndex: Map<string, MemoryIndexEntry> = new Map();

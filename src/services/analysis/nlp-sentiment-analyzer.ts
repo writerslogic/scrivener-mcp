@@ -766,14 +766,16 @@ export class NLPSentimentAnalyzer {
 		if (!tags) return 'Unknown';
 
 		// Convert Compromise tags to standard POS tags
-		if ((tags as any).Noun) return 'Noun';
-		if ((tags as any).Verb) return 'Verb';
-		if ((tags as any).Adjective) return 'Adjective';
-		if ((tags as any).Adverb) return 'Adverb';
-		if ((tags as any).Pronoun) return 'Pronoun';
-		if ((tags as any).Preposition) return 'Preposition';
-		if ((tags as any).Conjunction) return 'Conjunction';
-		if ((tags as any).Determiner) return 'Determiner';
+		if (!Array.isArray(tags)) {
+			if (tags.Noun) return 'Noun';
+			if (tags.Verb) return 'Verb';
+			if (tags.Adjective) return 'Adjective';
+			if (tags.Adverb) return 'Adverb';
+			if (tags.Pronoun) return 'Pronoun';
+			if (tags.Preposition) return 'Preposition';
+			if (tags.Conjunction) return 'Conjunction';
+			if (tags.Determiner) return 'Determiner';
+		}
 
 		return 'Other';
 	}

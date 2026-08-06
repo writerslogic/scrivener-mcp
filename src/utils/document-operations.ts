@@ -9,9 +9,19 @@ import { getLogger } from '../core/logger.js';
 import type { LogContext } from '../core/logger.js';
 // import type { BinderItem, BinderContainer } from '../types/scrivx.js';
 
-// Temporary type definitions
-type BinderItem = any;
-type BinderContainer = any;
+interface BinderItem {
+	UUID: string;
+	Type?: string;
+	Title?: string;
+	Created?: string;
+	Modified?: string;
+	Children?: BinderItem[];
+	MetaData?: Record<string, unknown>;
+}
+
+interface BinderContainer {
+	BinderItem?: BinderItem | BinderItem[];
+}
 
 const logger = getLogger('document-operations');
 
@@ -164,7 +174,9 @@ export async function createDocument(
 				parentPath = parent.path;
 			} else {
 				// Add to root draft folder by default
-				const draftFolder = binder.BinderItem?.[0];
+				const draftFolder = Array.isArray(binder.BinderItem)
+					? binder.BinderItem[0]
+					: binder.BinderItem;
 				if (draftFolder && draftFolder.Type === 'Folder') {
 					if (!draftFolder.Children) {
 						draftFolder.Children = [];
@@ -282,7 +294,9 @@ export async function createDocuments(
 					parentPath = parent.path;
 				} else {
 					// Add to root draft folder by default
-					const draftFolder = binder.BinderItem?.[0];
+					const draftFolder = Array.isArray(binder.BinderItem)
+						? binder.BinderItem[0]
+						: binder.BinderItem;
 					if (draftFolder && draftFolder.Type === 'Folder') {
 						if (!draftFolder.Children) {
 							draftFolder.Children = [];
@@ -399,7 +413,8 @@ export async function moveDocument(
 						items.splice(i, 1);
 						return true;
 					}
-					if (items[i].Children && removeFromParent(items[i].Children)) {
+					const children = items[i].Children;
+					if (children && removeFromParent(children)) {
 						return true;
 					}
 				}
@@ -480,7 +495,8 @@ export async function deleteDocument(
 							items.splice(i, 1);
 							return true;
 						}
-						if (items[i].Children && removeFromItems(items[i].Children)) {
+						const children = items[i].Children;
+						if (children && removeFromItems(children)) {
 							return true;
 						}
 					}

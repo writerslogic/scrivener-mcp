@@ -122,10 +122,13 @@ export class AdaptiveMemoryManager {
 	 */
 	private setupGCOptimization(): void {
 		// Monitor GC events if available
-		if (typeof (global as any).gc === 'function') {
-			const originalGC = (global as any).gc;
+		const runtimeGlobal = globalThis as unknown as {
+			gc?: (...args: unknown[]) => unknown;
+		};
+		if (typeof runtimeGlobal.gc === 'function') {
+			const originalGC = runtimeGlobal.gc;
 
-			(global as any).gc = (...args: unknown[]) => {
+			runtimeGlobal.gc = (...args: unknown[]) => {
 				const startTime = performance.now();
 				const beforeHeap = this.estimateHeapUsage();
 
@@ -363,8 +366,9 @@ export class AdaptiveMemoryManager {
 		this.reducePools();
 
 		// 4. Trigger GC if available
-		if (typeof (global as any).gc === 'function') {
-			(global as any).gc();
+		const runtimeGlobal = globalThis as unknown as { gc?: () => void };
+		if (typeof runtimeGlobal.gc === 'function') {
+			runtimeGlobal.gc();
 		}
 
 		// 5. Notify pressure callbacks

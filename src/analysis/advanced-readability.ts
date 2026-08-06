@@ -396,7 +396,6 @@ export class AdvancedReadabilityService {
 		const contextRanges = this.getContextualRanges(context);
 
 		let score = 0;
-		let appropriateness = '';
 		const suggestions: string[] = [];
 
 		// Score based on context appropriateness
@@ -434,10 +433,14 @@ export class AdvancedReadabilityService {
 		}
 
 		// Determine appropriateness
-		if (score >= 90) appropriateness = 'excellent';
-		else if (score >= 70) appropriateness = 'good';
-		else if (score >= 50) appropriateness = 'fair';
-		else appropriateness = 'needs_improvement';
+		const appropriateness =
+			score >= 90
+				? 'excellent'
+				: score >= 70
+					? 'good'
+					: score >= 50
+						? 'fair'
+						: 'needs_improvement';
 
 		return { score, contextAppropriateness: appropriateness, suggestions };
 	}

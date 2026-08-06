@@ -144,7 +144,6 @@ export class WritingAnalytics {
 		`) as TimeProductivityData[];
 
 		// Calculate writing streak
-		let currentStreak = 0;
 		let longestStreak = 0;
 		let tempStreak = 1;
 
@@ -157,7 +156,7 @@ export class WritingAnalytics {
 				tempStreak = 1;
 			}
 		}
-		currentStreak = tempStreak;
+		const currentStreak = tempStreak;
 		longestStreak = Math.max(longestStreak, tempStreak);
 
 		// Get scene length preferences

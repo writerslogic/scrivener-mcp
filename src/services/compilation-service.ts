@@ -252,7 +252,7 @@ export class CompilationService {
 	): Promise<{ format: string; content: string; metadata: Record<string, unknown> }> {
 		logger.info(`Exporting project as ${format}`);
 
-		let content = '';
+		let content: string;
 		const metadata: Record<string, unknown> = {
 			exportDate: new Date().toISOString(),
 			format,

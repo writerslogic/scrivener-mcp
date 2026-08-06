@@ -1,4 +1,6 @@
 import { getLogger } from '../core/logger.js';
+import type { HolographicMemorySystem } from './memory/hhm/holographic-memory-system.js';
+import type { Neo4jManager } from '../handlers/database/neo4j-manager.js';
 
 export interface Relationship {
 	id: string;
@@ -20,8 +22,8 @@ export class RelationshipEngine {
 	private localTriplets: Map<string, Relationship> = new Map();
 
 	constructor(
-		private hms: any, // HolographicMemorySystem - use any to avoid circular deps
-		private neo4j: any | null // Neo4jManager - null when not connected
+		private hms: HolographicMemorySystem,
+		private neo4j: Neo4jManager | null
 	) {
 		if (!hms) {
 			throw new Error('RelationshipEngine requires an HMS instance');

@@ -484,7 +484,10 @@ export class Neo4jOptimizer {
 	}
 
 	private calculateIndexUsage(profiles: QueryProfile[]): IndexUsageStats[] {
-		const indexStats = new Map<string, { hits: number; misses: number; details: any }>();
+		const indexStats = new Map<
+			string,
+			{ hits: number; misses: number; details: Record<string, unknown> }
+		>();
 
 		for (const profile of profiles) {
 			if (profile.plan) {
@@ -494,8 +497,9 @@ export class Neo4jOptimizer {
 
 		return Array.from(indexStats.entries()).map(([index, stats]) => ({
 			index,
-			label: stats.details.label || 'Unknown',
-			property: stats.details.property || 'Unknown',
+			label: typeof stats.details.label === 'string' ? stats.details.label : 'Unknown',
+			property:
+				typeof stats.details.property === 'string' ? stats.details.property : 'Unknown',
 			hits: stats.hits,
 			misses: stats.misses,
 			hitRatio: stats.hits + stats.misses > 0 ? stats.hits / (stats.hits + stats.misses) : 0,
@@ -504,7 +508,7 @@ export class Neo4jOptimizer {
 
 	private analyzeIndexUsageInPlan(
 		plan: QueryPlan,
-		indexStats: Map<string, { hits: number; misses: number; details: any }>
+		indexStats: Map<string, { hits: number; misses: number; details: Record<string, unknown> }>
 	): void {
 		if (plan.operatorType.includes('Index')) {
 			const indexName =
