@@ -389,6 +389,7 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
 - **[Scrivener Compatibility](./docs/SCRIVENER_COMPATIBILITY.md)** -- Supported Scrivener versions, platforms, and format coverage
 - **[Scrivener File Format](./docs/scrivener-format.md)** -- The reverse-engineered `.scriv` format, what we read vs. infer, and safe-modification guidance
+- **[Fuzzing](./docs/fuzzing.md)** -- Jazzer.js target and OSS-Fuzz integration details
 - **[Contributing](./docs/contributing.md)** -- Development setup, code conventions, adding new tools
 
 ## Requirements
