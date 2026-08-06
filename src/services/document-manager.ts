@@ -21,6 +21,7 @@ import {
 	handleError,
 	isValidUUID,
 	safeReadFile,
+	safeWriteFile,
 	truncate,
 	validateInput,
 } from '../utils/common.js';
@@ -347,7 +348,7 @@ export class DocumentManager {
 				const idx = lines.findIndex((l) => l.startsWith(`${key}=`));
 				if (idx >= 0) lines[idx] = `${key}=${hash}`;
 				else lines.push(`${key}=${hash}`);
-				await fs.promises.writeFile(checksumPath, `${lines.join('\n')}\n`, 'utf-8');
+				await safeWriteFile(checksumPath, `${lines.join('\n')}\n`);
 			} catch (error) {
 				logger.warn('Failed to update docs.checksum', {
 					documentId,

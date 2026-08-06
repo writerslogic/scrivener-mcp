@@ -16,7 +16,13 @@ function main() {
 
 	// Find Claude Desktop config
 	const configPaths = [
-		path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
+		path.join(
+			os.homedir(),
+			'Library',
+			'Application Support',
+			'Claude',
+			'claude_desktop_config.json'
+		),
 		path.join(os.homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json'),
 		path.join(os.homedir(), '.config', 'claude', 'claude_desktop_config.json'),
 	];
@@ -29,20 +35,34 @@ function main() {
 		else if (process.platform === 'win32') configPath = configPaths[1];
 		else configPath = configPaths[2];
 
-		const dir = path.dirname(configPath);
-		if (!fs.existsSync(dir)) {
-			fs.mkdirSync(dir, { recursive: true });
-		}
+		fs.mkdirSync(path.dirname(configPath), { recursive: true });
 	}
 
 	// Read existing config or start fresh
 	let config = {};
-	if (fs.existsSync(configPath)) {
+	let raw = null;
+	try {
+		raw = fs.readFileSync(configPath, 'utf8');
+	} catch (err) {
+		if (err.code !== 'ENOENT') {
+			console.error(
+				'scrivener-mcp: Could not read ' +
+					configPath +
+					'. Run "npx scrivener-setup" to configure manually.'
+			);
+			return;
+		}
+	}
+	if (raw !== null) {
 		try {
-			config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+			config = JSON.parse(raw);
 		} catch {
 			// Corrupt config -- start fresh but don't overwrite
-			console.error('scrivener-mcp: Could not parse ' + configPath + '. Run "npx scrivener-setup" to configure manually.');
+			console.error(
+				'scrivener-mcp: Could not parse ' +
+					configPath +
+					'. Run "npx scrivener-setup" to configure manually.'
+			);
 			return;
 		}
 	}
@@ -64,7 +84,9 @@ function main() {
 		fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 		console.error('scrivener-mcp: Configured for Claude Desktop. Restart Claude to activate.');
 	} catch {
-		console.error('scrivener-mcp: Could not write config. Run "npx scrivener-setup" to configure manually.');
+		console.error(
+			'scrivener-mcp: Could not write config. Run "npx scrivener-setup" to configure manually.'
+		);
 	}
 }
 

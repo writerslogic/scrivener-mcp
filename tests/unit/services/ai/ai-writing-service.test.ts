@@ -24,7 +24,9 @@ function stub(reply: string | (() => string)) {
 
 describe('AIWritingService — deterministic (stubbed client)', () => {
 	it('reports availability from the underlying client', () => {
-		const off = new AIWritingService(new AIClient({ anthropicApiKey: '', openaiApiKey: '' }));
+		const off = new AIWritingService(
+			new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' })
+		);
 		expect(off.isAvailable).toBe(false);
 		const { svc } = stub('{}');
 		expect(svc.isAvailable).toBe(true);

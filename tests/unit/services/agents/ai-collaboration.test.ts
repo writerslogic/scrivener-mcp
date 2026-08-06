@@ -8,14 +8,18 @@ import { AIClient } from '../../../../src/services/ai/ai-client.js';
 
 describe('AICollaboration', () => {
 	it('returns an empty result for empty content without calling the model', async () => {
-		const collab = new AICollaboration(new AIClient({ anthropicApiKey: '', openaiApiKey: '' }));
+		const collab = new AICollaboration(
+			new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' })
+		);
 		const result = await collab.collaborateOnDocument({ content: '   ' });
 		expect(result.perspectives).toEqual([]);
 		expect(result.synthesis).toBe('');
 	});
 
 	it('propagates a clear error when no provider is configured', async () => {
-		const collab = new AICollaboration(new AIClient({ anthropicApiKey: '', openaiApiKey: '' }));
+		const collab = new AICollaboration(
+			new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' })
+		);
 		await expect(collab.collaborateOnDocument({ content: 'The cat sat.' })).rejects.toThrow(
 			/No AI provider configured/
 		);

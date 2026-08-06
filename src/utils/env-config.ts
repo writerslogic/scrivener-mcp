@@ -90,6 +90,10 @@ interface KeyDiscoverySpec {
  * is never misattributed. Returns undefined if not found. Never throws.
  */
 function discoverKey(spec: KeyDiscoverySpec, home: string): string | undefined {
+	// Escape hatch for hermetic tests and users who want explicit env only:
+	// discovery would otherwise pick up real keys from ~/.env or the Keychain.
+	const disabled = process.env.SCRIVENER_DISABLE_KEY_DISCOVERY;
+	if (disabled === '1' || disabled === 'true') return undefined;
 	const envFiles = [path.join(home, '.env'), path.join(home, '.scrivener-mcp', '.env')];
 	const prefixed = new RegExp(`^\\s*${spec.envVar}\\s*=\\s*["']?([A-Za-z0-9_-]+)["']?\\s*$`, 'm');
 

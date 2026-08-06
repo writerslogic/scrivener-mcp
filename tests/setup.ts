@@ -6,6 +6,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
+// Hermetic tests: never let key auto-discovery pull real keys from the
+// developer's ~/.env or Keychain. Explicit env vars still work (live suites).
+process.env.SCRIVENER_DISABLE_KEY_DISCOVERY = '1';
+
 // Test data directory
 export const TEST_DATA_DIR = path.join(__dirname, 'fixtures');
 // Per-worker temp dir: jest runs test files across parallel workers, so a single
@@ -49,9 +53,7 @@ global.console = {
 
 // Test utilities
 export async function createTempDir(): Promise<string> {
-	const dir = path.join(TEMP_DIR, `test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-	await fs.mkdir(dir, { recursive: true });
-	return dir;
+	return fs.mkdtemp(path.join(TEMP_DIR, 'test-'));
 }
 
 export async function createTempFile(content: string, ext = '.txt'): Promise<string> {

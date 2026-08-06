@@ -4,7 +4,7 @@
  */
 
 import { existsSync, unlinkSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getLogger } from '../../core/logger.js';
@@ -172,27 +172,27 @@ export class FirstRunManager {
 	private async minimalSetup(): Promise<void> {
 		logger.info('Performing minimal setup');
 
-		// Create config directory if needed
-		if (!existsSync(this.configDir)) {
-			const { mkdirSync } = await import('fs');
-			mkdirSync(this.configDir, { recursive: true });
-		}
+		await mkdir(this.configDir, { recursive: true });
 
-		// Create minimal setup.json
-		if (!existsSync(this.setupPath)) {
-			const minimalSetup = {
-				version: '0.3.2',
-				timestamp: new Date().toISOString(),
-				setupType: 'minimal',
-				completed: true,
-				features: {
-					sqlite: true,
-					neo4j: false,
-					redis: false,
-					ai: false,
-				},
-			};
-			await writeFile(this.setupPath, JSON.stringify(minimalSetup, null, 2));
+		const minimalSetup = {
+			version: '0.3.2',
+			timestamp: new Date().toISOString(),
+			setupType: 'minimal',
+			completed: true,
+			features: {
+				sqlite: true,
+				neo4j: false,
+				redis: false,
+				ai: false,
+			},
+		};
+		try {
+			// 'wx': never overwrite an existing setup.json
+			await writeFile(this.setupPath, JSON.stringify(minimalSetup, null, 2), {
+				flag: 'wx',
+			});
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
 		}
 
 		await this.markFirstRunComplete();

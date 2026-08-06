@@ -10,6 +10,7 @@ import {
 	writeJSON,
 } from '../../../src/utils/common.js';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 
 describe('Common Utilities - New Functions', () => {
@@ -240,11 +241,12 @@ describe('Common Utilities - New Functions', () => {
 	});
 
 	describe('JSON File Operations', () => {
-		const testDir = '/tmp/test-scrivener';
-		const testFile = path.join(testDir, 'test.json');
+		let testDir: string;
+		let testFile: string;
 
 		beforeEach(async () => {
-			await fs.mkdir(testDir, { recursive: true });
+			testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'test-scrivener-'));
+			testFile = path.join(testDir, 'test.json');
 		});
 
 		afterEach(async () => {

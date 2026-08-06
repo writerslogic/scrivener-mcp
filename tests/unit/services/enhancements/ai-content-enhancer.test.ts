@@ -10,7 +10,7 @@ import type { EnhancementType } from '../../../../src/services/enhancements/cont
 describe('AIContentEnhancer', () => {
 	it('propagates a clear error when no AI provider is configured', async () => {
 		const enhancer = new AIContentEnhancer(
-			new AIClient({ anthropicApiKey: '', openaiApiKey: '' })
+			new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' })
 		);
 		await expect(
 			enhancer.enhance({ content: 'Some prose.', type: 'style' as EnhancementType })

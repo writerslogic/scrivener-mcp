@@ -374,8 +374,7 @@ export class SQLiteOptimizer {
 		if (!whereMatch) return [];
 
 		const whereClause = whereMatch[1];
-		const columns = whereClause.match(/\b(\w+)\s*[=<>!]/g);
-		return columns ? columns.map((col) => col.replace(/\s*[=<>!].*/, '').trim()) : [];
+		return [...whereClause.matchAll(/\b(\w+)\s*[=<>!]/g)].map((m) => m[1]);
 	}
 
 	private extractJoinColumns(sql: string): string[] {

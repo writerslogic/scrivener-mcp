@@ -16,9 +16,7 @@ const PAYLOAD_THRESHOLD = 4000; // chars before spilling to disk
 const SPOOL_DIR = path.join(os.tmpdir(), 'scrivener-mcp-spool');
 
 function ensureSpoolDir(): void {
-	if (!fs.existsSync(SPOOL_DIR)) {
-		fs.mkdirSync(SPOOL_DIR, { recursive: true, mode: 0o700 });
-	}
+	fs.mkdirSync(SPOOL_DIR, { recursive: true, mode: 0o700 });
 }
 
 /**
@@ -57,7 +55,7 @@ export function formatPayload(data: unknown, label?: string): string {
 	const id = crypto.randomUUID().slice(0, 8);
 	const filename = `${label || 'result'}-${id}.json`;
 	const filepath = path.join(SPOOL_DIR, filename);
-	fs.writeFileSync(filepath, json);
+	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
 
 	return compact({
 		_ref: id,
@@ -79,7 +77,7 @@ export function formatList(items: unknown[], label?: string): string {
 	const id = crypto.randomUUID().slice(0, 8);
 	const filename = `${label || 'list'}-${id}.json`;
 	const filepath = path.join(SPOOL_DIR, filename);
-	fs.writeFileSync(filepath, json);
+	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
 
 	return compact({
 		_ref: id,

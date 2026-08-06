@@ -4,6 +4,9 @@
  */
 
 import { exec } from 'child_process';
+import { constants as fsConstants, promises as fs } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import { promisify } from 'util';
 import { ApplicationError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
@@ -102,12 +105,11 @@ export class PermissionManager {
 	private static async checkUserPermissions(): Promise<PermissionCheckResult> {
 		try {
 			// Check if user can write to common installation directories
-			const testPaths = ['/usr/local/bin', '/opt', `${process.env.HOME}/.local/bin`];
+			const testPaths = ['/usr/local/bin', '/opt', join(homedir(), '.local', 'bin')];
 
 			for (const testPath of testPaths) {
 				try {
-					// Try to access the directory (non-destructive check)
-					await execAsync(`test -w "${testPath}" 2>/dev/null`, { timeout: 2000 });
+					await fs.access(testPath, fsConstants.W_OK);
 					return {
 						hasPermission: true,
 						needsSudo: false,

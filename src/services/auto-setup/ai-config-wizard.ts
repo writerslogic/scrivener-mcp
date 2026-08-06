@@ -3,7 +3,7 @@
  * Handles API key management and model configuration
  */
 
-import { existsSync, mkdirSync } from 'fs';
+import { mkdirSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -34,10 +34,7 @@ export class AIConfigWizard {
 	private rl: readline.Interface;
 
 	constructor() {
-		// Ensure config directory exists
-		if (!existsSync(this.configDir)) {
-			mkdirSync(this.configDir, { recursive: true });
-		}
+		mkdirSync(this.configDir, { recursive: true });
 
 		this.rl = readline.createInterface({
 			input: process.stdin,
@@ -49,15 +46,15 @@ export class AIConfigWizard {
 	 * Load existing configuration
 	 */
 	async loadConfig(): Promise<AIConfig> {
-		if (existsSync(this.configPath)) {
-			try {
-				const configData = await readFile(this.configPath, 'utf-8');
-				return JSON.parse(configData);
-			} catch (error) {
+		try {
+			const configData = await readFile(this.configPath, 'utf-8');
+			return JSON.parse(configData);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
 				logger.warn('Failed to load existing config', { error });
 			}
+			return {};
 		}
-		return {};
 	}
 
 	/**
@@ -75,8 +72,10 @@ export class AIConfigWizard {
 	private async updateEnvFile(config: AIConfig): Promise<void> {
 		let envContent = '';
 
-		if (existsSync(this.envPath)) {
+		try {
 			envContent = await readFile(this.envPath, 'utf-8');
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 		}
 
 		// Update or add environment variables
@@ -101,7 +100,8 @@ export class AIConfigWizard {
 		updateEnvVar('AI_MAX_TOKENS', config.maxTokens?.toString());
 		updateEnvVar('OLLAMA_URL', config.ollamaUrl);
 
-		await writeFile(this.envPath, `${envContent.trim()}\n`);
+		// The .env holds API keys — owner-only
+		await writeFile(this.envPath, `${envContent.trim()}\n`, { mode: 0o600 });
 	}
 
 	/**

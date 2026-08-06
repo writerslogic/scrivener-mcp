@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import { getLogger } from './logger.js';
-import { AppError, ErrorCode } from '../utils/common.js';
+import { AppError, ErrorCode, isUnsafeKey } from '../utils/common.js';
 
 const logger = getLogger('config-manager');
 
@@ -281,7 +281,7 @@ export class ConfigManager extends EventEmitter {
 		if (flag.rolloutPercentage < 100) {
 			// Use consistent hashing based on user ID or flag name
 			const hashInput = context?.userId || flagName;
-			const hash = crypto.createHash('md5').update(hashInput).digest('hex');
+			const hash = crypto.createHash('sha256').update(hashInput).digest('hex');
 			const percentage = (parseInt(hash.slice(0, 2), 16) / 255) * 100;
 
 			if (percentage > flag.rolloutPercentage) {
@@ -435,17 +435,32 @@ export class ConfigManager extends EventEmitter {
 		const keyPath = path.join(process.cwd(), 'config', '.encryption-key');
 
 		try {
-			if (fs.existsSync(keyPath)) {
-				this.encryptionKey = await fs.promises.readFile(keyPath);
-			} else {
-				// Generate new key if none exists
-				this.encryptionKey = crypto.randomBytes(32);
-				await fs.promises.writeFile(keyPath, this.encryptionKey, { mode: 0o600 });
-				logger.info('Generated new encryption key');
+			this.encryptionKey = await fs.promises.readFile(keyPath);
+		} catch (readError) {
+			if ((readError as NodeJS.ErrnoException).code !== 'ENOENT') {
+				logger.warn('Failed to load encryption key', { error: readError });
+				this.encryptionKey = null;
+				return;
 			}
-		} catch (error) {
-			logger.warn('Failed to load/generate encryption key', { error });
-			this.encryptionKey = null;
+			try {
+				const newKey = crypto.randomBytes(32);
+				// 'wx': if a concurrent process won the race, fall through and read its key
+				await fs.promises.writeFile(keyPath, newKey, { mode: 0o600, flag: 'wx' });
+				this.encryptionKey = newKey;
+				logger.info('Generated new encryption key');
+			} catch (writeError) {
+				if ((writeError as NodeJS.ErrnoException).code === 'EEXIST') {
+					try {
+						this.encryptionKey = await fs.promises.readFile(keyPath);
+						return;
+					} catch (rereadError) {
+						logger.warn('Failed to load encryption key', { error: rereadError });
+					}
+				} else {
+					logger.warn('Failed to generate encryption key', { error: writeError });
+				}
+				this.encryptionKey = null;
+			}
 		}
 	}
 
@@ -619,17 +634,26 @@ export class ConfigManager extends EventEmitter {
 
 	private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
 		const keys = path.split('.');
+		for (const k of keys) {
+			if (isUnsafeKey(k)) {
+				throw new AppError(`Unsafe property path: ${path}`, ErrorCode.INVALID_INPUT);
+			}
+		}
 		let current = obj;
 
 		for (let i = 0; i < keys.length - 1; i++) {
 			const key = keys[i];
-			if (!(key in current) || typeof current[key] !== 'object') {
+			if (isUnsafeKey(key)) continue;
+			if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
 				current[key] = {};
 			}
 			current = current[key] as Record<string, unknown>;
 		}
 
-		current[keys[keys.length - 1]] = value;
+		const last = keys[keys.length - 1];
+		if (!isUnsafeKey(last)) {
+			current[last] = value;
+		}
 	}
 
 	private isSensitiveValue(path: string): boolean {
@@ -647,26 +671,6 @@ export class ConfigManager extends EventEmitter {
 		return sensitivePatterns.some(
 			(pattern) => path.toLowerCase().includes(pattern) || path === pattern
 		);
-	}
-
-	private encryptValue(value: string): string {
-		if (!this.encryptionKey) return value;
-
-		try {
-			const iv = crypto.randomBytes(16);
-			const cipher = crypto.createCipheriv(
-				'aes-256-cbc',
-				Buffer.from(this.encryptionKey),
-				iv
-			);
-			let encrypted = cipher.update(value, 'utf8', 'hex');
-			encrypted += cipher.final('hex');
-
-			return `enc:${iv.toString('hex')}:${encrypted}`;
-		} catch (error) {
-			logger.warn('Failed to encrypt sensitive value', { error });
-			return value;
-		}
 	}
 
 	private decryptValue(encryptedValue: string): string {

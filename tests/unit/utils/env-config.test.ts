@@ -25,6 +25,8 @@ describe('env-config AI key discovery', () => {
 		delete process.env.OPENAI_API_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		delete process.env.OPENROUTER_API_KEY;
+		// tests/setup.ts disables discovery globally; this suite tests discovery
+		delete process.env.SCRIVENER_DISABLE_KEY_DISCOVERY;
 		tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'env-config-test-'));
 	});
 
@@ -33,6 +35,7 @@ describe('env-config AI key discovery', () => {
 			if (saved[v] === undefined) delete process.env[v];
 			else process.env[v] = saved[v];
 		}
+		process.env.SCRIVENER_DISABLE_KEY_DISCOVERY = '1';
 		fs.rmSync(tmpHome, { recursive: true, force: true });
 	});
 

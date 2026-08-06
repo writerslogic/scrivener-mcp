@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { randomUUID } from 'crypto';
 import {
 	ensureProjectDataDirectory,
 	getQueueStatePath,
@@ -33,7 +32,7 @@ describe('Project Utils', () => {
 	let mcpDir: string;
 
 	beforeEach(() => {
-		tmpBase = join(tmpdir(), `scrivener-mcp-test-${randomUUID()}`);
+		tmpBase = mkdtempSync(join(tmpdir(), 'scrivener-mcp-test-'));
 		testProjectPath = join(tmpBase, 'test-project.scriv');
 		mcpDir = join(testProjectPath, '.scrivener-mcp');
 		createValidScrivProject(testProjectPath);

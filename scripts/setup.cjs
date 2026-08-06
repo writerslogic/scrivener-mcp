@@ -17,7 +17,13 @@ const SERVER_CONFIG = {
 // Known MCP client config locations
 const CLIENTS = {
 	'Claude Desktop': {
-		darwin: join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
+		darwin: join(
+			homedir(),
+			'Library',
+			'Application Support',
+			'Claude',
+			'claude_desktop_config.json'
+		),
 		win32: join(homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json'),
 		linux: join(homedir(), '.config', 'claude', 'claude_desktop_config.json'),
 	},
@@ -30,17 +36,37 @@ const CLIENTS = {
 		detect: join(homedir(), '.claude'),
 	},
 	Cursor: {
-		darwin: join(homedir(), 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
-		win32: join(homedir(), 'AppData', 'Roaming', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
-		linux: join(homedir(), '.config', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'config.json'),
+		darwin: join(
+			homedir(),
+			'Library',
+			'Application Support',
+			'Cursor',
+			'User',
+			'globalStorage',
+			'cursor.mcp',
+			'config.json'
+		),
+		win32: join(
+			homedir(),
+			'AppData',
+			'Roaming',
+			'Cursor',
+			'User',
+			'globalStorage',
+			'cursor.mcp',
+			'config.json'
+		),
+		linux: join(
+			homedir(),
+			'.config',
+			'Cursor',
+			'User',
+			'globalStorage',
+			'cursor.mcp',
+			'config.json'
+		),
 	},
 };
-
-function getConfigPath(client) {
-	const paths = CLIENTS[client];
-	if (paths.all) return paths.all;
-	return paths[platform()] || paths.linux;
-}
 
 function detectClients() {
 	const found = [];
@@ -59,14 +85,13 @@ function detectClients() {
 
 function configureClient(configPath) {
 	let config = {};
-	if (existsSync(configPath)) {
-		try {
-			config = JSON.parse(readFileSync(configPath, 'utf8'));
-		} catch {
+	mkdirSync(dirname(configPath), { recursive: true });
+	try {
+		config = JSON.parse(readFileSync(configPath, 'utf8'));
+	} catch (err) {
+		if (err.code !== 'ENOENT') {
 			console.log('  Warning: could not parse existing config, creating new one.');
 		}
-	} else {
-		mkdirSync(dirname(configPath), { recursive: true });
 	}
 
 	if (!config.mcpServers) config.mcpServers = {};
@@ -91,7 +116,7 @@ async function main() {
 	const detected = detectClients();
 
 	if (detected.length === 0) {
-		console.log('No MCP clients detected. Add this to your client\'s MCP config:\n');
+		console.log("No MCP clients detected. Add this to your client's MCP config:\n");
 		console.log(JSON.stringify({ mcpServers: { scrivener: SERVER_CONFIG } }, null, 2));
 		console.log('\nSee https://github.com/writerslogic/scrivener-mcp#install for details.\n');
 		return;
@@ -124,7 +149,9 @@ async function main() {
 	}
 
 	if (configured > 0) {
-		console.log(`\nConfigured ${configured} client(s). Restart them to activate Scrivener MCP.\n`);
+		console.log(
+			`\nConfigured ${configured} client(s). Restart them to activate Scrivener MCP.\n`
+		);
 	} else {
 		console.log('\nNo changes made.\n');
 	}

@@ -730,12 +730,21 @@ export class CompilationService {
 	}
 
 	private escapeLatex(text: string): string {
-		return text
-			.replace(/\\/g, '\\textbackslash{}')
-			.replace(/[{}]/g, '\\$&')
-			.replace(/[_%#&$]/g, '\\$&')
-			.replace(/~/g, '\\textasciitilde{}')
-			.replace(/\^/g, '\\textasciicircum{}');
+		// Single pass: sequential replaces re-escaped the braces that
+		// \textbackslash{} itself introduces.
+		const map: Record<string, string> = {
+			'\\': '\\textbackslash{}',
+			'{': '\\{',
+			'}': '\\}',
+			_: '\\_',
+			'%': '\\%',
+			'#': '\\#',
+			'&': '\\&',
+			$: '\\$',
+			'~': '\\textasciitilde{}',
+			'^': '\\textasciicircum{}',
+		};
+		return text.replace(/[\\{}_%#&$~^]/g, (ch) => map[ch]);
 	}
 
 	private countDocuments(structure: ScrivenerDocument[]): number {

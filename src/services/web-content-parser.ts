@@ -471,8 +471,7 @@ export class WebContentParser {
 	 */
 	private calculateMetadata($: CheerioAPI, content: string): ParsedWebContent['metadata'] {
 		const contentDoc = cheerio.load(content);
-		const bodyText = contentDoc('body').text();
-		const text = bodyText || content.replace(/<[^>]*>/g, ''); // Strip HTML as fallback
+		const text = contentDoc('body').text() || contentDoc.root().text();
 		const words = text
 			.trim()
 			.split(/\s+/)

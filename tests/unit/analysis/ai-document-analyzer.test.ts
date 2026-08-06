@@ -9,7 +9,7 @@ import { AIClient } from '../../../src/services/ai/ai-client.js';
 describe('AIDocumentAnalyzer', () => {
 	it('returns an n/a analysis for empty content without calling the model', async () => {
 		const analyzer = new AIDocumentAnalyzer(
-			new AIClient({ anthropicApiKey: '', openaiApiKey: '' })
+			new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' })
 		);
 		const result = await analyzer.analyzeDocument('   ');
 		expect(result.readability).toBe('n/a');
@@ -18,7 +18,7 @@ describe('AIDocumentAnalyzer', () => {
 
 	it('propagates a clear error when no provider is configured and content is present', async () => {
 		const analyzer = new AIDocumentAnalyzer(
-			new AIClient({ anthropicApiKey: '', openaiApiKey: '' })
+			new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' })
 		);
 		await expect(analyzer.analyzeDocument('The cat sat.')).rejects.toThrow(
 			/No AI provider configured/
