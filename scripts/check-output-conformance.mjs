@@ -66,8 +66,8 @@ const PLAN = [
 	['get_statistics', {}],
 	['get_compile_settings', {}],
 	['find_orphaned_entities', {}],
-	['get_document_references', 'NEEDS_DOC'],
-	['get_referencing_documents', { entity: 'storm' }],
+	['get_entity_references', 'NEEDS_DOC'],
+	['get_entity_references', { entity: 'storm' }],
 	['suggest_connections', 'NEEDS_DOC'],
 	['verify_project_integrity', {}],
 	['list_trash', {}],
@@ -76,7 +76,10 @@ const PLAN = [
 	['get_writing_goals', {}],
 	['get_writing_preferences', {}],
 	['analyze_document', 'NEEDS_DOC'],
-	['create_document', { title: 'Conformance Probe', content: 'A sample paragraph about a storm.' }],
+	[
+		'create_document',
+		{ title: 'Conformance Probe', content: 'A sample paragraph about a storm.' },
+	],
 	['get_document_info', 'NEEDS_DOC'],
 	['read_annotations', 'NEEDS_DOC'],
 ];
@@ -118,7 +121,9 @@ async function main() {
 	const withTimeout = (p, ms) =>
 		Promise.race([
 			p,
-			new Promise((_, rej) => setTimeout(() => rej(new Error(`timed out after ${ms}ms`)), ms)),
+			new Promise((_, rej) =>
+				setTimeout(() => rej(new Error(`timed out after ${ms}ms`)), ms)
+			),
 		]);
 	try {
 		out('opening fixture project...');

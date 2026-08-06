@@ -797,6 +797,7 @@ export const listSnapshotsHandler: ToolDefinition = {
 						},
 						snapshots: {
 							type: 'array',
+							description: 'Snapshots recorded for this document.',
 							items: {
 								type: 'object',
 								properties: {
@@ -856,8 +857,8 @@ export const readSnapshotHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
-			documentId: { type: 'string' },
-			snapshotId: { type: 'string' },
+			documentId: { type: 'string', description: 'UUID of the document.' },
+			snapshotId: { type: 'string', description: 'Id of the snapshot that was read.' },
 			title: { type: 'string', description: 'Snapshot title ("" if none).' },
 			date: { type: 'string', description: 'Snapshot date.' },
 			text: { type: 'string', description: 'Snapshot content as plain text.' },
@@ -911,23 +912,26 @@ export const compareSnapshotHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
-			documentId: { type: 'string' },
+			documentId: { type: 'string', description: 'UUID of the compared document.' },
 			from: {
 				type: 'object',
 				description: 'The baseline snapshot.',
 				properties: {
-					snapshotId: { type: 'string' },
-					title: { type: 'string' },
-					date: { type: 'string' },
-					wordCount: { type: 'number' },
+					snapshotId: { type: 'string', description: 'Baseline snapshot id.' },
+					title: { type: 'string', description: 'Baseline snapshot title ("" if none).' },
+					date: { type: 'string', description: 'Baseline snapshot date.' },
+					wordCount: { type: 'number', description: 'Baseline snapshot word count.' },
 				},
 			},
 			to: {
 				type: 'object',
 				description: 'What it was compared against ("current" or a snapshot id).',
 				properties: {
-					snapshotId: { type: 'string' },
-					wordCount: { type: 'number' },
+					snapshotId: {
+						type: 'string',
+						description: '"current" or the second snapshot id.',
+					},
+					wordCount: { type: 'number', description: 'Compared-to text word count.' },
 				},
 			},
 			wordDelta: {
@@ -996,10 +1000,11 @@ export const getManuscriptBriefingHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
-			title: { type: 'string' },
-			author: { type: 'string' },
+			title: { type: 'string', description: 'Project title.' },
+			author: { type: 'string', description: 'Project author, if set.' },
 			words: {
 				type: 'object',
+				description: 'Word-count progress against the draft target.',
 				properties: {
 					total: { type: 'number', description: 'Total words across text documents.' },
 					draftTarget: {
@@ -1015,10 +1020,11 @@ export const getManuscriptBriefingHandler: ToolDefinition = {
 			},
 			documents: {
 				type: 'object',
+				description: 'Binder item counts.',
 				properties: {
-					total: { type: 'number' },
-					folders: { type: 'number' },
-					textDocuments: { type: 'number' },
+					total: { type: 'number', description: 'All binder items.' },
+					folders: { type: 'number', description: 'Folder count.' },
+					textDocuments: { type: 'number', description: 'Text document count.' },
 				},
 			},
 			averageDocumentLength: { type: 'number', description: 'Mean words per text document.' },
@@ -1031,18 +1037,18 @@ export const getManuscriptBriefingHandler: ToolDefinition = {
 				type: 'object',
 				description: 'Longest text document by word count, or null.',
 				properties: {
-					id: { type: 'string' },
-					title: { type: 'string' },
-					wordCount: { type: 'number' },
+					id: { type: 'string', description: 'Document UUID.' },
+					title: { type: 'string', description: 'Document title.' },
+					wordCount: { type: 'number', description: 'Word count.' },
 				},
 			},
 			shortest: {
 				type: 'object',
 				description: 'Shortest text document by word count, or null.',
 				properties: {
-					id: { type: 'string' },
-					title: { type: 'string' },
-					wordCount: { type: 'number' },
+					id: { type: 'string', description: 'Document UUID.' },
+					title: { type: 'string', description: 'Document title.' },
+					wordCount: { type: 'number', description: 'Word count.' },
 				},
 			},
 		},
@@ -1087,12 +1093,12 @@ export const createSnapshotHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
-			documentId: { type: 'string' },
+			documentId: { type: 'string', description: 'UUID of the snapshotted document.' },
 			snapshotId: {
 				type: 'string',
 				description: 'Id of the new snapshot (for read_snapshot).',
 			},
-			title: { type: 'string' },
+			title: { type: 'string', description: 'Snapshot title as recorded.' },
 			date: { type: 'string', description: 'Timestamp recorded for the snapshot.' },
 		},
 		required: ['documentId', 'snapshotId', 'title', 'date'],
