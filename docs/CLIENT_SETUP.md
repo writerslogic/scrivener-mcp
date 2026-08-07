@@ -86,7 +86,7 @@ Merge the `scrivener` entry into the existing `mcpServers` object (create the fi
 
 1. **Quit and restart** Claude Desktop (MCP servers load only at startup).
 2. Open a new chat and ask: **"What Scrivener tools do you have?"**
-3. You should see at least seven startup tools, including `open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `list_skills`, and `use_skill`.
+3. You should see the 13 project tools plus `list_skills` and `use_skill` (15 startup tools total). These include `open_project`, `get_structure`, `refresh_project`, `close_project`, and `discover_projects`.
 
 ---
 
@@ -130,7 +130,7 @@ For user-wide setup, add the same `scrivener` entry under the top-level `mcpServ
 
 1. Start a new Claude Code session in the configured project (config is read at session start).
 2. Run `/mcp` to confirm the server is connected, or ask: **"What Scrivener tools do you have?"**
-3. You should see at least seven startup tools, including `open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `list_skills`, and `use_skill`.
+3. You should see the 13 project tools plus `list_skills` and `use_skill` (15 startup tools total). These include `open_project`, `get_structure`, `refresh_project`, `close_project`, and `discover_projects`.
 
 ---
 
@@ -238,7 +238,7 @@ Pass env vars through your client config when needed:
 |----------|---------|
 | `LOG_LEVEL` | Reduce log noise (`ERROR` recommended if you see JSON parse errors on old versions) |
 | `ANTHROPIC_API_KEY` | Enable AI-powered features with Claude (preferred chat provider) |
-| `OPENAI_API_KEY` | Enable AI-powered features with OpenAI; embeddings/semantic search need this or `OPENROUTER_API_KEY` |
+| `OPENAI_API_KEY` | Enable provider-backed AI features with OpenAI; semantic indexing/scoring is local, but `semantic_search` still needs a configured chat provider |
 | `OPENROUTER_API_KEY` | Enable AI-powered features via OpenRouter (any model in its catalog via `OPENROUTER_MODEL`) |
 | `AI_PROVIDER` | Chat provider when several keys are set (`anthropic`, `openai`, or `openrouter`) |
 

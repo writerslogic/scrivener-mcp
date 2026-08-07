@@ -134,11 +134,11 @@ You should see the startup tools, including: `open_project`, `get_structure`, `r
 - Documents must be opened/read at least once to be indexed in the vector store
 - The JavaScript fallback engine builds its index in memory per session -- it starts empty
 - Try opening the project and reading a few documents before searching
-- Full-text search (`search_project`) works immediately without indexing; semantic search (`semantic_search`) requires the vector index
+- Full-text search (`search`) works immediately without indexing; semantic search (`semantic_search`) requires the HMS index and a configured chat provider
 
 ## AI-powered features don't work
 
-AI-powered features (deep analysis, content enhancement, critique) require an Anthropic (Claude), OpenAI, or OpenRouter API key — or an MCP client that supports the sampling capability, in which case chat-based features run through the client's own model with no key. Claude is preferred for chat and generation when several keys are set (`AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` overrides); embeddings/semantic features need an OpenAI or OpenRouter key. The server checks multiple locations automatically for each provider:
+Provider-backed features (deep analysis, content enhancement, critique, generation, and the current `semantic_search` pipeline) require an Anthropic (Claude), OpenAI, or OpenRouter API key—or, for supported tools, an MCP client that can provide sampling. Claude is preferred for chat and generation when several keys are set (`AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` overrides). HMS indexing and similarity scoring are local and do not use an external embedding API, but `semantic_search` still calls the configured chat provider for query interpretation and result explanations. The server checks multiple locations automatically for each provider:
 
 1. `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables
 2. `~/.env` file
@@ -170,13 +170,13 @@ Core features (read, write, search, structure, metadata, analysis) work without 
 
 Configuring keys for more than one provider adds resilience: when the active provider fails with an account-level error (invalid key, exhausted credit, quota, outage), the request is retried on the next configured provider automatically.
 
-## "HHM system not initialized"
+## "HMS system not initialized"
 
-The Holographic Memory System (semantic search, analogies, dream mode) requires the optional `holographic-memory` Rust binary. All other features work without it. This message is expected if you installed from npm without building the native module.
+The Holographic Memory System includes a JavaScript fallback and does not require the optional Rust binary. Open a project first so its memory/index layer can initialize, then activate the memory skill. Installing `holographic-memory` enables the faster Rust implementation automatically.
 
 ## Neo4j connection errors
 
-Neo4j is entirely optional. All features except story structure graph analysis work without it.
+Neo4j is entirely optional. Public relationship, character-network, and document-reference tools work without it; Neo4j adds graph persistence and advanced queries when configured.
 
 If you want to use Neo4j:
 
