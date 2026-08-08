@@ -45,7 +45,6 @@ export class AdaptiveMemoryManager {
 	private memoryPressureCallbacks = new Set<() => void>();
 
 	// Performance optimization flags
-	private isEnabled = true;
 	private predictiveAllocation = true;
 	private adaptiveGC = true;
 	private compressionEnabled = true;
@@ -53,7 +52,6 @@ export class AdaptiveMemoryManager {
 	// Memory thresholds and limits
 	private readonly maxHeapSize = 512 * 1024 * 1024; // 512MB
 	private readonly pressureThreshold = 0.8; // 80% usage triggers pressure mode
-	private readonly gcTriggerThreshold = 0.9; // 90% usage triggers GC
 	private readonly poolMaxAge = 5 * 60 * 1000; // 5 minutes
 
 	// Monitor interval IDs

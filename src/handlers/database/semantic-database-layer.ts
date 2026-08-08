@@ -263,14 +263,9 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 			const dbResults = await this.performTraditionalSearch(searchTerms);
 
 			// Merge and rank results
-			const fullStructuredQuery: StructuredQuery = {
-				text: searchTerms,
-				...structuredQuery,
-			};
 			const mergedResults = await this.mergeAndRankResults(
 				vectorResults,
 				dbResults,
-				fullStructuredQuery,
 				options.threshold
 			);
 
@@ -331,7 +326,6 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 	private async mergeAndRankResults(
 		vectorResults: VectorSearchResult[],
 		dbResults: DatabaseResult[],
-		structuredQuery: StructuredQuery,
 		threshold: number
 	): Promise<
 		Array<{
@@ -341,7 +335,6 @@ Return as JSON with fields: intent, entities, relationships, temporal, filters`;
 			relevanceScore: number;
 		}>
 	> {
-		// Use structured query for query expansion and relevance boosting
 		const resultMap = new Map<
 			string,
 			{

@@ -2,16 +2,13 @@
  * Integration tests for Scrivener project operations
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
-import { DatabaseService } from '../../src/handlers/database/database-service.js';
-import { MemoryManager } from '../../src/memory-manager.js';
 import { ContentAnalyzer } from '../../src/analysis/base-analyzer.js';
 import { ContentEnhancer } from '../../src/services/enhancements/content-enhancer.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
-import { projectHandlers } from '../../src/handlers/project-handlers.js';
 import { documentHandlers } from '../../src/handlers/document-handlers.js';
 
 // Helper function to execute handlers by name

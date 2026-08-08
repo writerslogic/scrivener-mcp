@@ -3,7 +3,6 @@
  */
 
 import { DocumentManager } from '../../../src/services/document-manager.js';
-import { ErrorCode } from '../../../src/core/errors.js';
 import { DOCUMENT_TYPES } from '../../../src/core/constants.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -37,55 +36,59 @@ describe('DocumentManager', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		documentManager = new DocumentManager(mockProjectPath);
-		
+
 		// Set up basic project structure
 		(documentManager as any).projectStructure = {
 			ScrivenerProject: {
 				Binder: {
-					BinderItem: [{
-						UUID: 'root',
-						ID: 'root',
-						Type: DOCUMENT_TYPES.FOLDER,
-						Title: 'Draft',
-						Children: {
-							BinderItem: [
-								{
-									UUID: 'doc1',
-									ID: 'doc1',
-									Type: DOCUMENT_TYPES.TEXT,
-									Title: 'Chapter 1',
-								},
-								{
-									UUID: 'folder1',
-									ID: 'folder1',
-									Type: DOCUMENT_TYPES.FOLDER,
-									Title: 'Part 1',
-									Children: {
-										BinderItem: [
-											{
-												UUID: 'doc2',
-												ID: 'doc2',
-												Type: DOCUMENT_TYPES.TEXT,
-												Title: 'Chapter 2',
-											},
-										],
+					BinderItem: [
+						{
+							UUID: 'root',
+							ID: 'root',
+							Type: DOCUMENT_TYPES.FOLDER,
+							Title: 'Draft',
+							Children: {
+								BinderItem: [
+									{
+										UUID: 'doc1',
+										ID: 'doc1',
+										Type: DOCUMENT_TYPES.TEXT,
+										Title: 'Chapter 1',
 									},
-								},
-							],
+									{
+										UUID: 'folder1',
+										ID: 'folder1',
+										Type: DOCUMENT_TYPES.FOLDER,
+										Title: 'Part 1',
+										Children: {
+											BinderItem: [
+												{
+													UUID: 'doc2',
+													ID: 'doc2',
+													Type: DOCUMENT_TYPES.TEXT,
+													Title: 'Chapter 2',
+												},
+											],
+										},
+									},
+								],
+							},
 						},
-					}],
-					SearchResults: [{
-						Children: {
-							BinderItem: [
-								{
-									UUID: 'trash1',
-									ID: 'trash1',
-									Type: DOCUMENT_TYPES.TEXT,
-									Title: 'Deleted Chapter',
-								},
-							],
+					],
+					SearchResults: [
+						{
+							Children: {
+								BinderItem: [
+									{
+										UUID: 'trash1',
+										ID: 'trash1',
+										Type: DOCUMENT_TYPES.TEXT,
+										Title: 'Deleted Chapter',
+									},
+								],
+							},
 						},
-					}],
+					],
 				},
 			},
 		};
@@ -198,7 +201,8 @@ describe('DocumentManager', () => {
 	});
 
 	describe('readDocumentRaw', () => {
-		const mockRtfContent = '{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}} Test content}';
+		const mockRtfContent =
+			'{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}} Test content}';
 
 		beforeEach(() => {
 			(fs.readFile as jest.Mock).mockResolvedValue(mockRtfContent);
@@ -236,13 +240,7 @@ describe('DocumentManager', () => {
 		it('should use correct document path', async () => {
 			await documentManager.readDocumentRaw('doc1');
 
-			const expectedPath = path.join(
-				mockProjectPath,
-				'Files',
-				'Data',
-				'doc1',
-				'content.rtf'
-			);
+			const expectedPath = path.join(mockProjectPath, 'Files', 'Data', 'doc1', 'content.rtf');
 			expect(fs.readFile).toHaveBeenCalledWith(expectedPath, 'utf-8');
 		});
 	});

@@ -118,10 +118,10 @@ export class ContentEnhancer {
 
 		// Initialize enhancers with dependencies
 		this.styleEnhancer = new StyleEnhancer(this.classifier);
-		this.clarityEnhancer = new ClarityEnhancer(this.classifier);
-		this.descriptionEnhancer = new DescriptionEnhancer(this.classifier);
+		this.clarityEnhancer = new ClarityEnhancer();
+		this.descriptionEnhancer = new DescriptionEnhancer();
 		this.dialogueEnhancer = new DialogueEnhancer();
-		this.emotionEnhancer = new EmotionEnhancer(this.classifier);
+		this.emotionEnhancer = new EmotionEnhancer();
 		this.pacingEnhancer = new PacingEnhancer();
 	}
 

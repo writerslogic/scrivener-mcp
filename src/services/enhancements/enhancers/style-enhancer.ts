@@ -30,7 +30,6 @@ export class StyleEnhancer {
 					classification.isFilterWord &&
 					classification.confidence > 0.7 &&
 					this.shouldRemoveFilterWord(
-						wordText,
 						j > 0 ? words[j - 1].text : '',
 						j < words.length - 1 ? words[j + 1].text : ''
 					)
@@ -139,7 +138,7 @@ export class StyleEnhancer {
 
 			// Add transitions where needed
 			if (prevSentence && this.needsTransition(prevSentence, sentence)) {
-				const transition = this.selectTransition(prevSentence, sentence);
+				const transition = this.selectTransition(sentence);
 				if (transition) {
 					const withTransition = `${transition} ${modifiedSentence.toLowerCase()}`;
 					changes.push({
@@ -187,7 +186,7 @@ export class StyleEnhancer {
 		return result;
 	}
 
-	private shouldRemoveFilterWord(word: string, before: string, after: string): boolean {
+	private shouldRemoveFilterWord(before: string, after: string): boolean {
 		// Don't remove if it's part of a direct quote
 		if (before.includes('"') || after.includes('"')) return false;
 
@@ -350,8 +349,8 @@ export class StyleEnhancer {
 		return 1 - similarity; // Higher value = more topic shift
 	}
 
-	private selectTransition(sentence1: string, sentence2: string): string {
-		const transitionType = this.analyzeTransitionType(sentence1, sentence2);
+	private selectTransition(sentence2: string): string {
+		const transitionType = this.analyzeTransitionType(sentence2);
 
 		const transitions: Record<string, string[]> = {
 			contrast: ['However', 'Nevertheless', 'On the other hand', 'In contrast', 'Yet'],
@@ -366,7 +365,7 @@ export class StyleEnhancer {
 		return options[Math.floor(Math.random() * options.length)];
 	}
 
-	private analyzeTransitionType(sentence1: string, sentence2: string): string {
+	private analyzeTransitionType(sentence2: string): string {
 		const s2Lower = sentence2.toLowerCase();
 
 		// Check for contrast indicators

@@ -1,15 +1,8 @@
 import nlp from 'compromise';
-import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change } from '../content-enhancer.js';
 
 export class DescriptionEnhancer {
-	private classifier: MLWordClassifierPro;
-
-	constructor(classifier: MLWordClassifierPro) {
-		this.classifier = classifier;
-	}
-
 	enhanceDescriptions(content: string, changes: Change[]): string {
 		const sentences = splitIntoSentences(content);
 		const processedSentences: string[] = [];
