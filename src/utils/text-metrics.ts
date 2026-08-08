@@ -12,8 +12,8 @@ function normalizeText(content: string): string {
 	return content
 		.normalize('NFKC') // normalize Unicode characters
 		.replace(/\u200B|\uFEFF|\u2060/g, '') // strip zero-width chars
-		.replace(/[""«»„]/g, '"') // normalize quotes
-		.replace(/[''‚‛]/g, "'")
+		.replace(/["“”«»„]/g, '"') // normalize quotes
+		.replace(/['‘’‚‛]/g, "'")
 		.replace(/—|–|‒/g, ' ') // replace dashes with spaces
 		.replace(/…/g, '...') // normalize ellipsis
 		.replace(/\s+/g, ' '); // collapse whitespace
