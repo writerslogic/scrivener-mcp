@@ -1,8 +1,8 @@
 {
   "manifest_version": "0.2",
   "name": "scrivener-mcp",
-  "version": "0.5.1",
-  "description": "Connect Scrivener 3 projects to Claude and other AI assistants. 60+ tools for document management, writing analysis, semantic search, and character/plot tracking.",
+  "version": "0.12.0",
+  "description": "Connect Scrivener 3 projects to Claude and other AI assistants. 57 tools for document management, writing analysis, local semantic retrieval, and character/plot tracking.",
   "author": {
     "name": "WritersLogic, Inc.",
     "url": "https://github.com/writerslogic"

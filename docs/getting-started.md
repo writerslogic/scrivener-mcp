@@ -53,7 +53,7 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list the startup tools: the `project` skill (`open_project`, `get_structure`, `refresh_project`, `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`, `get_compile_settings`) plus two meta-tools (`list_skills`, `use_skill`). If you don't see the startup tools, check the troubleshooting section below.
+Claude should list 15 startup tools: the 13 tools in the `project` skill plus two meta-tools (`list_skills`, `use_skill`). If you don't see the startup tools, check the troubleshooting section below.
 
 ### How skills activate
 
@@ -64,7 +64,7 @@ The server uses progressive tool loading to keep conversations fast by only load
 3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load additional skill groups. Available on-demand skills:
    - **analysis** -- writing quality, pacing, style, critique, character consistency
    - **compilation** -- compile manuscripts, export, statistics
-   - **memory** -- semantic search, analogies, dream mode (HMS)
+   - **memory** -- persistent project facts and local HMS-backed memory
    - **advanced** -- fractal memory, async job queue, batch operations
 
 You can see all available skills and which are active by asking Claude to call `list_skills`.
@@ -149,9 +149,9 @@ You can also set custom metadata fields:
 
 ## Semantic Search
 
-Semantic search, analogies, and dream mode work out of the box without installing any native binary. A built-in JavaScript vector engine handles this automatically using TF-IDF with cosine similarity. You can search by meaning, find analogical relationships between concepts, and use dream mode to surface unexpected connections across your manuscript -- all with zero configuration.
+Semantic indexing and similarity scoring do not require a native binary or external embedding API. The built-in JavaScript Holographic Memory System (HMS) provides the local fallback. The public `semantic_search` tool uses that local index, but its current end-to-end query pipeline also calls the configured chat provider for natural-language query interpretation and result explanations. Configure Anthropic, OpenAI, or OpenRouter before using that tool.
 
-If the optional `holographic-memory` package is installed, the server transparently upgrades to a faster Rust-based engine. You do not need to change any settings or commands; the upgrade is automatic. Most users will never need the native engine -- the JS fallback is fast enough for typical novel-length projects.
+If the optional `holographic-memory` package is installed, the server transparently upgrades to a faster Rust-based engine. You do not need to change any settings or commands; the upgrade is automatic. Most users will not need the native engine for a typical novel-length project.
 
 ## Project Memory
 
@@ -187,7 +187,7 @@ MyNovel.scriv/
   .ai-memory/                  # Character profiles, plot threads, style guide
 ```
 
-Nothing is stored globally or sent to external servers. If you move, copy, or share the `.scriv` package, the AI memory comes with it. If you delete the `.ai-memory` folder, you lose the AI context but your Scrivener project is unaffected.
+Project memory and Scrivener data remain in the `.scriv` package by default. Deterministic tools and HMS indexing/scoring do not send manuscript text to an external embedding service. Provider-backed analysis, generation, enhancement, semantic-query interpretation/explanations, and MCP sampling can send the relevant prompt and document excerpts to the configured provider or MCP client model. If you move, copy, or share the `.scriv` package, its AI memory comes with it. If you delete the `.ai-memory` folder, you lose that AI context but the Scrivener project itself remains intact.
 
 ## Environment Variables
 
@@ -198,12 +198,12 @@ These are all optional:
 | `LOG_LEVEL` | Logging verbosity (`DEBUG`, `INFO`, `WARN`, `ERROR`) | `INFO` |
 | `SCRIVENER_SKIP_SETUP` | Skip first-run initialization | `false` |
 | `ANTHROPIC_API_KEY` | Anthropic (Claude) key for AI-powered features | none |
-| `OPENAI_API_KEY` | OpenAI key for AI-powered features and embeddings | none |
+| `OPENAI_API_KEY` | OpenAI key for provider-backed AI features | none |
 | `OPENROUTER_API_KEY` | OpenRouter key for AI-powered features | none |
 | `AI_PROVIDER` | Chat provider when several keys are set (`anthropic`, `openai`, or `openrouter`) | `anthropic` when its key exists |
 | `OPENROUTER_MODEL` | Model id used via OpenRouter | `anthropic/claude-sonnet-4.6` |
 
-All core Scrivener operations (read, write, search, structure, metadata) work without any API keys. The AI-powered features (deep analysis, content enhancement, critique) use them when available and fall back to local heuristics when they're not. Chat and generation prefer Claude when `ANTHROPIC_API_KEY` is set, and can also run through your MCP client's own model with no key at all when the client supports the MCP sampling capability. Semantic/embedding features need `OPENAI_API_KEY` or `OPENROUTER_API_KEY` (OpenRouter proxies the OpenAI embeddings API).
+All core Scrivener operations (read, write, keyword search, structure, metadata), deterministic analysis, project memory, and HMS indexing/scoring work without API keys. Provider-backed deep analysis, content enhancement, critique, generation, and the current `semantic_search` query pipeline use a configured provider. Chat and generation prefer Claude when `ANTHROPIC_API_KEY` is set, and supported tools can also run through the MCP client's model with no separately configured key when the client supports sampling.
 
 ### API key auto-discovery
 
@@ -231,7 +231,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."   # or OPENAI_API_KEY="sk-..."
 
 ## Optional: Neo4j
 
-Neo4j enables character relationship graphs and story structure analysis. It is completely optional -- all other features work without it.
+Neo4j adds persistent graph storage and advanced relationship queries. It is completely optional; the public relationship, character-network, and document-reference tools work without it.
 
 To install:
 
@@ -263,8 +263,8 @@ You're running an older version. Update to v0.4.0+ (`npm update -g scrivener-mcp
 **Tool results seem empty or Claude says "I don't have that information"**
 Also a pre-v0.4.0 bug. The server was attaching data in a way that MCP clients couldn't read. Update to the latest version.
 
-**"HHM system not initialized"**
-The Holographic Memory System (semantic search, analogies, dream mode) works with a built-in JS engine by default. This error means the HMS has not been loaded yet -- activate the memory skill with `use_skill("memory")` or ask Claude to do so. If `holographic-memory` is installed, it uses the faster Rust engine automatically, but the native module is not required.
+**"HMS system not initialized"**
+The Holographic Memory System has a built-in JavaScript fallback. This error usually means no project is open or the memory/index layer has not initialized yet. Open a project, then activate the memory skill with `use_skill("memory")` or ask the client to do so. If `holographic-memory` is installed, the server uses the faster Rust engine automatically, but the native module is not required.
 
 **Scrivener shows old content after writing**
 Scrivener caches document content in memory. Close and reopen the project in Scrivener, or switch away from the modified document and back, to see changes made by the MCP server.

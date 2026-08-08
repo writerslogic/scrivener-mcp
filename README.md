@@ -21,6 +21,7 @@
     <img src="https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml/badge.svg" alt="build"/>
   </a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/writerslogic/scrivener-mcp"><img src="https://api.securityscorecards.dev/projects/github.com/writerslogic/scrivener-mcp/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://www.bestpractices.dev/projects/13976"><img src="https://www.bestpractices.dev/projects/13976/badge" alt="OpenSSF Best Practices"></a>
   <a href="https://github.com/writerslogic/scrivener-mcp/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp" alt="license"/>
   </a>
@@ -127,7 +128,7 @@ npm install -g writerslogic/scrivener-mcp
 Or a specific release:
 
 ```bash
-npm install -g writerslogic/scrivener-mcp#v0.5.1
+npm install -g writerslogic/scrivener-mcp#v0.12.0
 ```
 
 ### Homebrew (macOS)
@@ -161,7 +162,7 @@ For other MCP clients, point them at `npx scrivener-mcp` as a stdio server.
 <details>
 <summary><strong>Optional: AI-powered features</strong></summary>
 
-Core features (document management, analysis, search) work without any API key. AI-powered enhancements work with an Anthropic (Claude), OpenAI, or OpenRouter key; when several are present, Claude handles chat and generation (set `AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` to override). OpenRouter defaults to the `anthropic/claude-sonnet-4.6` model; set `OPENROUTER_MODEL` to use any model in its catalog. If the active provider fails with an account-level error (invalid key, exhausted credit, outage), the server automatically retries the request on the next configured provider. When your MCP client supports the [sampling capability](https://modelcontextprotocol.io/docs/concepts/sampling), chat-based AI features can also run through the client's own model — with no API key at all. Semantic/embedding features need an OpenAI or OpenRouter key (embeddings run through OpenAI models either way). The server automatically discovers keys from common locations:
+Core features (document management, deterministic analysis, keyword search, and project memory) work without any API key. AI-powered analysis, generation, enhancement, and semantic search work with an Anthropic (Claude), OpenAI, or OpenRouter key; when several are present, Claude handles chat and generation (set `AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` to override). OpenRouter defaults to the `anthropic/claude-sonnet-4.6` model; set `OPENROUTER_MODEL` to use another model in its catalog. If the active provider fails with an account-level error (invalid key, exhausted credit, outage), the server automatically retries the request on the next configured provider. When your MCP client supports the [sampling capability](https://modelcontextprotocol.io/docs/concepts/sampling), supported chat-based AI features can also run through the client's own model—with no separately configured API key. Semantic indexing and similarity scoring use the local Holographic Memory System rather than an external embedding API, while the current `semantic_search` pipeline uses the configured chat provider to interpret queries and explain results. The server automatically discovers keys from common locations:
 
 - `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables
 - `~/.env`, `~/.scrivener-mcp/.env`
@@ -180,7 +181,7 @@ Or export it manually:
 export ANTHROPIC_API_KEY="sk-ant-..."   # or OPENAI_API_KEY="sk-..."
 ```
 
-This enables: content enhancement, semantic search, multi-agent analysis, character consistency checking, and intelligent compilation.
+This enables provider-backed writing analysis, content enhancement, generation, semantic search, character consistency checking, and intelligent compilation.
 
 </details>
 
@@ -226,7 +227,7 @@ Store character profiles, plot threads, and style guides that persist with your 
 
 ### Search by Meaning
 
-Find passages by what they're about, not just keyword matching. "Find scenes where the protagonist feels isolated" works even if the word "isolated" never appears. Powered by the [Holographic Memory System](https://www.npmjs.com/package/holographic-memory) -- works offline, no API key needed.
+Find passages by what they're about, not just keyword matching. "Find scenes where the protagonist feels isolated" works even if the word "isolated" never appears. The project index and similarity scoring run locally through the [Holographic Memory System](https://www.npmjs.com/package/holographic-memory); the current search pipeline also uses your configured AI provider for query interpretation and result explanations, so `semantic_search` requires a provider.
 
 > **You:** Find all scenes where Elena and Marcus are alone together.
 
@@ -286,7 +287,7 @@ Combine chapters into a single manuscript with configurable formatting, separato
 | Tool | What it does |
 |------|-------------|
 | `search` | Keyword/full-text search; `field: "title"` for titles, `scope: "trash"` for trash |
-| `semantic_search` | Find passages by meaning using embeddings, with similarity scores |
+| `semantic_search` | Find passages by meaning using the local HMS index plus provider-backed query interpretation, with similarity scores |
 | `find_mentions` | Locate every occurrence of a specific name or term, with context |
 | `list_trash` | List trashed documents |
 | `restore_document` | Restore a document from trash |
@@ -389,6 +390,7 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
 - **[Scrivener Compatibility](./docs/SCRIVENER_COMPATIBILITY.md)** -- Supported Scrivener versions, platforms, and format coverage
 - **[Scrivener File Format](./docs/scrivener-format.md)** -- The reverse-engineered `.scriv` format, what we read vs. infer, and safe-modification guidance
+- **[Fuzzing](./docs/fuzzing.md)** -- Jazzer.js target and OSS-Fuzz integration details
 - **[Contributing](./docs/contributing.md)** -- Development setup, code conventions, adding new tools
 
 ## Requirements
@@ -396,8 +398,8 @@ Works without Neo4j -- relationships live in the Holographic Memory System and a
 - **Node.js 18+**
 - **Scrivener 3** project files (.scriv)
 - macOS, Windows, or Linux
-- Optional: Anthropic or OpenAI API key for AI-powered features (OpenAI required for semantic/embedding features)
-- Optional: Neo4j for character relationship graphs
+- Optional: Anthropic, OpenAI, or OpenRouter API key for provider-backed AI features
+- Optional: Neo4j for persistence and advanced graph queries; core relationship tools work without it
 
 ## Development
 
@@ -413,31 +415,29 @@ npm run typecheck    # Type checking only
 
 ## Why This One?
 
-Several Scrivener MCP servers exist. Here's how they compare:
+Several Scrivener MCP servers exist. This comparison is based on each project's public documentation, published package, and advertised tool surface as of **2026-08-07**. “No” means the project does not document that capability; it does not claim the capability is impossible through the connected AI client.
 
 <!-- comparison-start -->
-| Feature | **scrivener-mcp** | jiayun | zaphodsdad | others |
-|---------|:-:|:-:|:-:|:-:|
-| Document read/write | 60+ tools | 29 tools | read-only | basic |
-| RTF / rich text support | yes | no | no | no |
-| Writing analysis | readability, pacing, style, emotion | basic metrics | no | no |
-| Content enhancement | 12 types (filter words, verbs, show-don't-tell…) | no | no | no |
-| Semantic search (offline) | vector + analogies + dream mode | no | no | no |
-| Character consistency check | yes | no | no | no |
-| Character / plot memory | persistent profiles, plot threads, style guide | no | no | no |
-| Relationship graphs | HMS triplets + optional Neo4j | no | no | no |
-| Multi-agent analysis | roundtable critique with specialised agents | no | no | no |
-| Story structure analysis | yes (requires Neo4j) | no | no | no |
-| Token optimisation | progressive skill loading, compact JSON | no | no | no |
-| Batch document operations | yes | partial | no | no |
-| Export / compilation | yes — multiple formats | basic | no | no |
-| Windows support | full path handling + .scrivx discovery | partial | no | no |
-| Install method | npm · Homebrew · Docker · Smithery | manual clone | manual clone | varies |
-| Published to npm | yes (`npm i -g scrivener-mcp`) | no | no | no |
-| License | AGPL-3.0 / commercial dual-license | MIT | — | varies |
-| Active development | weekly | stale | occasional | stale |
-| Community | ⭐ 39 · 14 forks · 16 issues | ⭐ ? | ⭐ 5 | minimal |
+| Feature | **scrivener-mcp** | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp) | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
+|---------|:-:|:-:|:-:|:-:|:-:|:-:|
+| Public MCP tools | 57 | 29 | 22 | 38 | 18 | 10 |
+| Manuscript access | read/write | read/write | read/write | read-only; writes sidecar data/metadata | read-only by default; opt-in content/notes/synopsis writes | read-only |
+| RTF handling | formatted reads; fidelity-preserving span writes | reads/writes document content | reads/writes document content | converts RTF to text; manuscript read-only | RTF-to-text reads; snapshot-protected content writes | converts RTF to text; read-only |
+| Built-in writing analysis | readability, pacing, style, emotion, AI critique | readability, style, sentiment | continuity comparison | agent-driven five-point review workflow | no dedicated analysis tool | no dedicated analysis tool |
+| Content generation/enhancement | generation + 12 targeted enhancement types | no | no | brainstorm/draft agent workflow | no | no |
+| Local semantic retrieval | HMS index and similarity search | no | no | no | no | no |
+| Continuity/project memory | persistent memory + consistency checks | persistent notes + consistency checks | mention/description comparison | world bible, story state, characters, locations, review history | no persistent memory | no persistent memory |
+| Relationship tooling | persistent relationships, networks, reference graph; optional Neo4j | no | no | human-editable relations data | no | no |
+| Token optimization | progressive skill loading, compact output, paged reads | no documented equivalent | no documented equivalent | no documented equivalent | scoped binder/chapter reads | scoped overview/read tools |
+| Export / compilation | Markdown, HTML, JSON, DOCX, EPUB, PDF | compile + whole-draft export | PDF | saves AI drafts; no manuscript export documented | no | no |
+| Windows support | yes | yes (prebuilt binary) | yes | not documented | not documented | yes |
+| Installation | npm, Homebrew, Docker, Smithery | Cargo or prebuilt binary | npm package (deprecated) | MCPB or source | source / `uv` | source / `pip install -e` |
+| License | AGPL-3.0 / commercial dual-license | MIT | MIT | MIT | not declared | MIT |
+| Repository/package status | weekly activity; npm `0.12.0` | weekly activity | discontinued and unmaintained | occasional activity | occasional activity; no releases | occasional activity |
+| Community | ⭐ 40 · 14 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | ⭐ 5 · 1 fork |
 <!-- comparison-end -->
+
+Counts and feature claims can change. Follow the linked projects for their latest documentation; the maintained comparison source is [`docs/comparison.yml`](./docs/comparison.yml).
 
 ## Contributing
 

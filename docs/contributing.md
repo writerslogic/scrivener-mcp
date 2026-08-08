@@ -141,7 +141,7 @@ Commit message prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:
 
 ## HMS Native Module
 
-The Holographic Memory System is a separate Rust crate (`holographic-memory`). It's an optional dependency -- the server includes a JS fallback engine that provides semantic search, analogies, and dream mode without it. If you're working on HMS features:
+The Holographic Memory System is a separate Rust crate (`holographic-memory`). It's an optional dependency—the server includes a JavaScript fallback for indexing and similarity scoring. If you're working on HMS features:
 
 ```bash
 cd /path/to/HMS

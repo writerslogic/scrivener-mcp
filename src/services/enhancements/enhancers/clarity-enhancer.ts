@@ -1,5 +1,4 @@
 import nlp from 'compromise';
-import type { MLWordClassifierPro } from '../../../analysis/ml-word-classifier-pro.js';
 import { splitIntoSentences } from '../../../utils/text-metrics.js';
 import type { Change, EnhancementOptions } from '../content-enhancer.js';
 
@@ -82,12 +81,6 @@ const COMMON_VERBS = ['is', 'was', 'are', 'were', 'have', 'has', 'had', 'will', 
 const VERB_ENDINGS = ['ed', 'ing', 'es', 's'] as const;
 
 export class ClarityEnhancer {
-	private classifier: MLWordClassifierPro;
-
-	constructor(classifier: MLWordClassifierPro) {
-		this.classifier = classifier;
-	}
-
 	improveFlow(content: string, changes: Change[]): string {
 		const sentences = splitIntoSentences(content);
 		const processedSentences: string[] = [];

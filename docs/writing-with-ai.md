@@ -213,7 +213,7 @@ The server stores sessions in SQLite and can report trends, averages, and streak
 
 ## Semantic Search
 
-When the Holographic Memory System is available, documents are stored in a high-dimensional vector space that enables meaning-based retrieval.
+When the Holographic Memory System index is populated, documents are stored in a high-dimensional vector space that enables meaning-based retrieval. Indexing and similarity scoring are local; the current `semantic_search` tool also uses the configured chat provider for query interpretation and result explanations.
 
 ### Finding Related Content
 
@@ -224,23 +224,6 @@ Unlike keyword search, semantic search finds documents that express a concept ev
 > "Find scenes similar in mood to the funeral chapter"
 
 You can search by referencing existing content, and the system finds passages with similar emotional or thematic signatures.
-
-### Analogical Reasoning
-
-> "protagonist is to hero as antagonist is to ?"
-
-The system uses vector arithmetic to discover conceptual relationships. This works best with concrete relationships established in your text:
-
-> "If Marcus is to the police department as Elena is to what?"
-> "Find patterns like: chapter 1 opening is to chapter 1 closing as chapter 5 opening is to ?"
-
-### Creative Exploration
-
-> "Enter dream mode"
-
-Dream mode recombines patterns found across your documents to surface unexpected connections. It might reveal that two seemingly unrelated characters share thematic parallels, or that a motif you planted early pays off in a way you hadn't consciously planned.
-
-This is a brainstorming tool, not an analysis tool. Not every connection will be useful, but the surprising ones can spark new ideas.
 
 ## Workflow Recipes
 
