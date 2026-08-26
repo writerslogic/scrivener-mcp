@@ -826,7 +826,11 @@ export class JobQueueService {
 	 */
 	private async addEmbeddedJob(jobType: JobType, data: Record<string, unknown>): Promise<string> {
 		if (!Object.values(JobType).includes(jobType)) {
-			throw createError(ErrorCode.NOT_FOUND, undefined, `Queue for job type ${jobType} not found`);
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				`Queue for job type ${jobType} not found`
+			);
 		}
 
 		const jobId = `embedded-${jobType}-${++this.embeddedJobCounter}`;
