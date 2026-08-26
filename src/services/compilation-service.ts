@@ -216,10 +216,18 @@ export class CompilationService {
 					matches.push(`Notes: ${doc.metadata.notes.substring(0, 100)}...`);
 				}
 
-				if (doc.metadata.keywords && Array.isArray(doc.metadata.keywords)) {
-					for (const keyword of doc.metadata.keywords as string[]) {
+				if (doc.metadata.keywords) {
+					// scrivener-project.ts always joins keywords into a single comma-separated
+					// string before it reaches here; accept a real array too for callers that don't.
+					const keywordList = Array.isArray(doc.metadata.keywords)
+						? (doc.metadata.keywords as unknown[])
+						: typeof doc.metadata.keywords === 'string'
+							? doc.metadata.keywords.split(',').map((k) => k.trim())
+							: [];
+					for (const keyword of keywordList) {
 						if (
 							typeof keyword === 'string' &&
+							keyword &&
 							this.matchesQuery(keyword, query, caseSensitive)
 						) {
 							matches.push(`Keyword: ${keyword}`);

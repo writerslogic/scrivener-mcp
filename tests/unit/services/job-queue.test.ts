@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 import { JobQueueService, JobType } from '../../../src/services/queue/job-queue';
 import { Queue, Worker, QueueEvents } from 'bullmq';
 import * as keydbDetector from '../../../src/services/queue/keydb-detector';
+import { AIClient } from '../../../src/services/ai/ai-client';
 
 // Mock BullMQ
 jest.mock('bullmq');
@@ -19,8 +20,8 @@ jest.mock('../../../src/services/queue/keydb-detector', () => ({
 // Mock MemoryRedis
 jest.mock('../../../src/services/queue/memory-redis', () => ({
 	MemoryRedis: jest.fn().mockImplementation(() => ({
-		connect: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
-		disconnect: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
+		connect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+		disconnect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
 		on: jest.fn(),
 		once: jest.fn(),
 	})),
@@ -29,14 +30,16 @@ jest.mock('../../../src/services/queue/memory-redis', () => ({
 // Mock services
 jest.mock('../../../src/analysis/base-analyzer', () => ({
 	ContentAnalyzer: jest.fn(() => ({
-		analyzeContent: jest.fn(() => Promise.resolve({
-			documentId: 'test-doc',
-			metrics: {
-				fleschReadingEase: 60,
-				fleschKincaidGrade: 8,
-				readingTime: 5,
-			},
-		})),
+		analyzeContent: jest.fn(() =>
+			Promise.resolve({
+				documentId: 'test-doc',
+				metrics: {
+					fleschReadingEase: 60,
+					fleschKincaidGrade: 8,
+					readingTime: 5,
+				},
+			})
+		),
 	})),
 }));
 
@@ -48,7 +51,7 @@ jest.mock('../../../src/services/ai/ai-writing-service', () => ({
 	})),
 }));
 
-jest.mock('../../../src/database/database-service', () => ({
+jest.mock('../../../src/handlers/database/database-service', () => ({
 	DatabaseService: jest.fn(() => ({
 		initialize: jest.fn(() => Promise.resolve()),
 		close: jest.fn(() => Promise.resolve()),
@@ -111,21 +114,21 @@ describe('JobQueueService v2', () => {
 	describe('initialization', () => {
 		it('should initialize with KeyDB when available', async () => {
 			const mockConnection = { quit: jest.fn() };
-			
+
 			detectConnectionMock.mockResolvedValue({
 				isAvailable: true,
 				type: 'keydb',
 				url: 'redis://localhost:6379',
 				version: '6.3.4',
 			});
-			
+
 			createBullMQConnectionMock.mockReturnValue(mockConnection as any);
 
 			await jobQueueService.initialize();
 
 			expect(detectConnectionMock).toHaveBeenCalled();
 			expect(createBullMQConnectionMock).toHaveBeenCalledWith('redis://localhost:6379');
-			
+
 			const connectionInfo = jobQueueService.getConnectionInfo();
 			expect(connectionInfo.type).toBe('keydb');
 			expect(connectionInfo.isConnected).toBe(true);
@@ -147,14 +150,14 @@ describe('JobQueueService v2', () => {
 
 		it('should initialize with Redis when detected', async () => {
 			const mockConnection = { quit: jest.fn() };
-			
+
 			detectConnectionMock.mockResolvedValue({
 				isAvailable: true,
 				type: 'redis',
 				url: 'redis://localhost:6379',
 				version: '7.0.0',
 			});
-			
+
 			createBullMQConnectionMock.mockReturnValue(mockConnection as any);
 
 			await jobQueueService.initialize();
@@ -166,10 +169,12 @@ describe('JobQueueService v2', () => {
 
 		it('should create queues for all job types', async () => {
 			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
+				isAvailable: true,
+				type: 'redis',
+				url: 'redis://localhost:6379',
+				version: '7.0.0',
 			});
+			createBullMQConnectionMock.mockReturnValue({ quit: jest.fn(() => Promise.resolve()) });
 
 			await jobQueueService.initialize();
 
@@ -188,26 +193,30 @@ describe('JobQueueService v2', () => {
 			});
 
 			await jobQueueService.initialize({
-				langchainApiKey: 'test-api-key',
-				databasePath: './test.db',
+				openaiApiKey: 'test-api-key',
 			});
 
 			// Check services were initialized
 			const { AIWritingService } = require('../../../src/services/ai/ai-writing-service');
-			const { DatabaseService } = require('../../../src/database/database-service');
-			
-			expect(AIWritingService).toHaveBeenCalledWith('test-api-key');
-			expect(DatabaseService).toHaveBeenCalledWith('./test.db');
+			const { DatabaseService } = require('../../../src/handlers/database/database-service');
+
+			// JobQueueService always derives the database path from its own
+			// projectPath ('./test-project', passed to the constructor above);
+			// initialize()'s databasePath option is no longer read.
+			expect(AIWritingService).toHaveBeenCalledWith(expect.any(AIClient));
+			expect(DatabaseService).toHaveBeenCalledWith('./test-project');
 		});
 	});
 
 	describe('job management', () => {
 		beforeEach(async () => {
 			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
+				isAvailable: true,
+				type: 'redis',
+				url: 'redis://localhost:6379',
+				version: '7.0.0',
 			});
+			createBullMQConnectionMock.mockReturnValue({ quit: jest.fn(() => Promise.resolve()) });
 			await jobQueueService.initialize();
 		});
 
@@ -218,18 +227,14 @@ describe('JobQueueService v2', () => {
 				options: { includeReadability: true },
 			};
 
-			const jobId = await jobQueueService.addJob(
-				JobType.ANALYZE_DOCUMENT,
-				jobData,
-				{ priority: 1 }
-			);
+			const jobId = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, jobData, {
+				priority: 1,
+			});
 
 			expect(jobId).toBe('job-123');
-			expect(mockQueue.add).toHaveBeenCalledWith(
-				JobType.ANALYZE_DOCUMENT,
-				jobData,
-				{ priority: 1 }
-			);
+			expect(mockQueue.add).toHaveBeenCalledWith(JobType.ANALYZE_DOCUMENT, jobData, {
+				priority: 1,
+			});
 		});
 
 		it('should get job status', async () => {
@@ -244,19 +249,11 @@ describe('JobQueueService v2', () => {
 
 			mockQueue.getJob.mockResolvedValue(mockJob as any);
 
-			const status = await jobQueueService.getJobStatus(
-				JobType.ANALYZE_DOCUMENT,
-				'job-123'
-			);
+			const status = await jobQueueService.getJobStatus(JobType.ANALYZE_DOCUMENT, 'job-123');
 
-			expect(status).toEqual({
-				id: 'job-123',
-				state: 'completed',
-				progress: 50,
-				data: { test: 'data' },
-				returnvalue: { result: 'completed' },
-				failedReason: null,
-			});
+			// getJobStatus returns the raw BullMQ Job unchanged; state resolution via
+			// job.getState() happens one layer up, in the async-handlers.ts caller.
+			expect(status).toBe(mockJob);
 		});
 
 		it('should cancel job', async () => {
@@ -305,32 +302,37 @@ describe('JobQueueService v2', () => {
 	describe('concurrency settings', () => {
 		beforeEach(async () => {
 			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
+				isAvailable: true,
+				type: 'redis',
+				url: 'redis://localhost:6379',
+				version: '7.0.0',
 			});
+			createBullMQConnectionMock.mockReturnValue({ quit: jest.fn(() => Promise.resolve()) });
 			await jobQueueService.initialize();
 		});
 
 		it('should set correct concurrency for document analysis', () => {
 			// Worker constructor should have been called with correct concurrency
-			const analyzeDocumentWorkerCall = (Worker as jest.MockedClass<typeof Worker>).mock.calls
-				.find(call => call[0] === JobType.ANALYZE_DOCUMENT);
-			
+			const analyzeDocumentWorkerCall = (
+				Worker as jest.MockedClass<typeof Worker>
+			).mock.calls.find((call) => call[0] === JobType.ANALYZE_DOCUMENT);
+
 			expect(analyzeDocumentWorkerCall?.[2]?.concurrency).toBe(5);
 		});
 
 		it('should set correct concurrency for vector store building', () => {
-			const vectorStoreWorkerCall = (Worker as jest.MockedClass<typeof Worker>).mock.calls
-				.find(call => call[0] === JobType.BUILD_VECTOR_STORE);
-			
+			const vectorStoreWorkerCall = (
+				Worker as jest.MockedClass<typeof Worker>
+			).mock.calls.find((call) => call[0] === JobType.BUILD_VECTOR_STORE);
+
 			expect(vectorStoreWorkerCall?.[2]?.concurrency).toBe(1);
 		});
 
 		it('should set correct concurrency for suggestion generation', () => {
-			const suggestionsWorkerCall = (Worker as jest.MockedClass<typeof Worker>).mock.calls
-				.find(call => call[0] === JobType.GENERATE_SUGGESTIONS);
-			
+			const suggestionsWorkerCall = (
+				Worker as jest.MockedClass<typeof Worker>
+			).mock.calls.find((call) => call[0] === JobType.GENERATE_SUGGESTIONS);
+
 			expect(suggestionsWorkerCall?.[2]?.concurrency).toBe(3);
 		});
 	});
@@ -338,10 +340,12 @@ describe('JobQueueService v2', () => {
 	describe('shutdown', () => {
 		beforeEach(async () => {
 			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
+				isAvailable: true,
+				type: 'redis',
+				url: 'redis://localhost:6379',
+				version: '7.0.0',
 			});
+			createBullMQConnectionMock.mockReturnValue({ quit: jest.fn(() => Promise.resolve()) });
 			await jobQueueService.initialize();
 		});
 
@@ -355,19 +359,19 @@ describe('JobQueueService v2', () => {
 
 		it('should close KeyDB connection when using KeyDB', async () => {
 			const mockConnection = { quit: jest.fn(() => Promise.resolve()) };
-			
+
 			// Reinitialize with KeyDB
 			jobQueueService = new JobQueueService('./test-project');
-			
+
 			detectConnectionMock.mockResolvedValue({
 				isAvailable: true,
 				type: 'keydb',
 				url: 'redis://localhost:6379',
 				version: '6.3.4',
 			});
-			
+
 			createBullMQConnectionMock.mockReturnValue(mockConnection as any);
-			
+
 			await jobQueueService.initialize();
 			await jobQueueService.shutdown();
 
@@ -376,7 +380,7 @@ describe('JobQueueService v2', () => {
 
 		it('should handle shutdown when not initialized', async () => {
 			const uninitializedService = new JobQueueService('./test');
-			
+
 			// Should not throw
 			await expect(uninitializedService.shutdown()).resolves.toBeUndefined();
 		});
@@ -392,9 +396,9 @@ describe('JobQueueService v2', () => {
 			await jobQueueService.initialize();
 
 			// Use an invalid job type
-			await expect(
-				jobQueueService.addJob('INVALID_TYPE' as JobType, {})
-			).rejects.toThrow('Queue for job type INVALID_TYPE not found');
+			await expect(jobQueueService.addJob('INVALID_TYPE' as JobType, {})).rejects.toThrow(
+				'Queue for job type INVALID_TYPE not found'
+			);
 		});
 
 		it('should throw error when getting stats for non-existent queue', async () => {
@@ -405,9 +409,9 @@ describe('JobQueueService v2', () => {
 			});
 			await jobQueueService.initialize();
 
-			await expect(
-				jobQueueService.getQueueStats('INVALID_TYPE' as JobType)
-			).rejects.toThrow('Queue for job type INVALID_TYPE not found');
+			await expect(jobQueueService.getQueueStats('INVALID_TYPE' as JobType)).rejects.toThrow(
+				'Queue for job type INVALID_TYPE not found'
+			);
 		});
 
 		it('should handle initialization failure gracefully', async () => {

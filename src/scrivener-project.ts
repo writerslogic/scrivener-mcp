@@ -313,7 +313,10 @@ export class ScrivenerProject {
 	}
 
 	async writeDocument(documentId: string, content: string | RTFContent): Promise<void> {
-		await this.documentManager.writeDocument(documentId, content);
+		// Immediate: a single explicit document write must be durable and visible
+		// to a subsequent read. The batched/queued path only reaches disk on a 5s
+		// timer, a full queue, or close(), which breaks read-your-own-write.
+		await this.documentManager.writeDocument(documentId, content, true);
 		this.markDocumentChanged(documentId);
 
 		// Update HHM if available

@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs/promises';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
 import { ContentAnalyzer } from '../../src/analysis/base-analyzer.js';
@@ -31,9 +32,9 @@ describe('Scrivener Project Integration', () => {
 	let tempDir: string;
 
 	beforeAll(async () => {
-		// Create temporary test directory
-		tempDir = path.join(process.cwd(), 'test-temp', Date.now().toString());
-		await fs.mkdir(tempDir, { recursive: true });
+		// Create temporary test directory outside the repo so a crashed run
+		// never leaves disk litter behind for git to notice.
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'scrivener-project-test-'));
 
 		// Create a mock Scrivener project structure
 		testProjectPath = path.join(tempDir, 'TestProject.scriv');
@@ -42,7 +43,7 @@ describe('Scrivener Project Integration', () => {
 		// Initialize context
 		context = {
 			project: null,
-			memoryManager: null,
+			memoryManager: new MemoryManager(testProjectPath),
 			contentAnalyzer: new ContentAnalyzer(),
 			contentEnhancer: new ContentEnhancer(),
 		};
@@ -208,8 +209,9 @@ describe('Scrivener Project Integration', () => {
 				return;
 			}
 
-			// Get database service
-			const dbService = (project as any).database;
+			// Get database service (ScrivenerProject's private field is
+			// `databaseService`, not `database`).
+			const dbService = (project as any).databaseService;
 			if (!dbService) {
 				console.warn('No database service available');
 				return;

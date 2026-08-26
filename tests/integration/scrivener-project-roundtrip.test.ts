@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
 
@@ -15,25 +16,23 @@ const CHAPTER2_ID = '0BFBFA71-F1E9-401C-8A78-97B10BC12399';
 
 describe('ScrivenerProject — fixture round-trip', () => {
 	let project: ScrivenerProject;
-	let chapter1RtfBackup: Buffer | null = null;
+	let workDir: string;
 
 	beforeAll(async () => {
-		const rtfPath = path.join(FIXTURE, 'Files', 'Data', CHAPTER1_ID, 'content.rtf');
-		try {
-			chapter1RtfBackup = await fs.readFile(rtfPath);
-		} catch {
-			chapter1RtfBackup = null;
-		}
-		project = new ScrivenerProject(FIXTURE);
+		// Operate on a disposable copy so the write-path tests below never touch
+		// the checked-in fixture (writeDocument() also updates a checksum file
+		// that a content.rtf-only backup/restore would miss).
+		workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'scrivener-roundtrip-'));
+		const projectCopy = path.join(workDir, 'sample-project.scriv');
+		await fs.cp(FIXTURE, projectCopy, { recursive: true });
+
+		project = new ScrivenerProject(projectCopy);
 		await project.loadProject();
 	}, 30000);
 
 	afterAll(async () => {
-		if (chapter1RtfBackup) {
-			const rtfPath = path.join(FIXTURE, 'Files', 'Data', CHAPTER1_ID, 'content.rtf');
-			await fs.writeFile(rtfPath, chapter1RtfBackup);
-		}
 		await project.close();
+		await fs.rm(workDir, { recursive: true, force: true });
 	});
 
 	it('loads the project and returns metadata', async () => {
