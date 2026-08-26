@@ -32,11 +32,7 @@ export default {
 		// These test real code but fail due to API drift, LangChain ESM/Jest
 		// incompatibility, or BullMQ type changes. Tracked as technical debt.
 		'tests/integration/embedded-queue\\.test\\.ts',
-		'tests/integration/project\\.test\\.ts',
-		'tests/integration/scrivener-project-roundtrip\\.test\\.ts',
-		'tests/integration/utility-adoption-workflow\\.test\\.ts',
 		'tests/unit/handlers/database/neo4j-manager\\.test\\.ts',
-		'tests/unit/services/compilation-service\\.test\\.ts',
 		'tests/unit/services/document-manager\\.test\\.ts',
 		'tests/unit/services/keydb-installer\\.test\\.ts',
 	],
