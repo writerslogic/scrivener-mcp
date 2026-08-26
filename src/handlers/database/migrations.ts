@@ -262,6 +262,22 @@ export class MigrationManager {
 					}
 				},
 			},
+			{
+				version: 10,
+				name: 'add_project_metadata_table',
+				sql: `
+					CREATE TABLE IF NOT EXISTS project_metadata (
+						key TEXT PRIMARY KEY,
+						value TEXT,
+						updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+					);
+				`,
+				up: async (sqlite) => {
+					if (sqlite) {
+						sqlite.getDatabase().exec(this.migrations[9].sql!);
+					}
+				},
+			},
 		];
 	}
 
