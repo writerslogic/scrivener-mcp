@@ -38,7 +38,6 @@ export default {
 		'tests/unit/handler-error-messages\\.test\\.ts',
 		'tests/unit/handlers/database/migrations\\.test\\.ts',
 		'tests/unit/handlers/database/neo4j-manager\\.test\\.ts',
-		'tests/unit/services/auto-setup\\.test\\.ts',
 		'tests/unit/services/compilation-service\\.test\\.ts',
 		'tests/unit/services/document-manager\\.test\\.ts',
 		'tests/unit/services/job-queue\\.test\\.ts',
