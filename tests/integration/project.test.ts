@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs/promises';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
+import { MemoryManager } from '../../src/memory-manager.js';
 import { ContentAnalyzer } from '../../src/analysis/base-analyzer.js';
 import { ContentEnhancer } from '../../src/services/enhancements/content-enhancer.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
