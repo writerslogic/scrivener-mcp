@@ -475,7 +475,7 @@ export class MemoryManager {
 			const worldElements = db
 				.prepare(
 					`
-				SELECT * FROM themes
+				SELECT id, name, 'theme' as type, description FROM themes
 				UNION ALL
 				SELECT id, name, 'location' as type, description FROM locations
 			`

@@ -141,7 +141,6 @@ export function createBullMQConnection(url: string): Redis {
 		enableOfflineQueue: true,
 		connectTimeout: 5000,
 		disconnectTimeout: 2000,
-		commandTimeout: 5000,
 		keepAlive: 30000,
 	});
 

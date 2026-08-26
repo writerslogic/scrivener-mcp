@@ -12,6 +12,7 @@ import { getLogger } from '../../core/logger.js';
 import { getQueueStatePath } from '../../utils/project-utils.js';
 import { DatabaseService } from '../../handlers/database/database-service.js';
 import { getEnvConfig } from '../../utils/env-config.js';
+import { getDocumentPath } from '../../utils/scrivener-utils.js';
 import { AIClient } from '../ai/ai-client.js';
 import { AIWritingService } from '../ai/ai-writing-service.js';
 import { createBullMQConnection, detectConnection } from './keydb-detector.js';
@@ -77,6 +78,16 @@ export interface BatchAnalysisJob {
 	options?: Record<string, unknown>;
 }
 
+// Status record for a job run inline by the embedded (no Redis) queue, shaped to match
+// what getJobStatus's "v1 API" branch already returns for non-BullMQ job results.
+interface EmbeddedJobStatus {
+	jobType: JobType;
+	state: 'active' | 'completed' | 'failed';
+	progress: number;
+	result?: unknown;
+	error?: string;
+}
+
 /**
  * Optimized Job Queue Service
  */
@@ -86,6 +97,8 @@ export class JobQueueService {
 	private events: Map<JobType, QueueEvents> = new Map();
 	private connection: Redis | MemoryRedis | undefined = undefined;
 	private memoryRedis: MemoryRedis | undefined = undefined;
+	private embeddedJobs: Map<string, EmbeddedJobStatus> = new Map();
+	private embeddedJobCounter = 0;
 	private logger: ReturnType<typeof getLogger>;
 
 	// Services
@@ -159,19 +172,26 @@ export class JobQueueService {
 				this.logger.info('AI writing service initialized');
 			}
 
-			if (options.databasePath) {
-				this.databaseService = new DatabaseService(options.databasePath);
+			if (this.projectPath) {
+				this.databaseService = new DatabaseService(this.projectPath);
 				await this.databaseService.initialize();
 				this.logger.info('Database service initialized');
 			}
 
 			this.contentAnalyzer = new ContentAnalyzer();
 
-			// Step 3: Create queues and workers for each job type
-			for (const jobType of Object.values(JobType)) {
-				this.createQueue(jobType);
-				this.createWorker(jobType);
-				this.setupEventListeners(jobType);
+			// Step 3: Create queues and workers for each job type.
+			// MemoryRedis is not a real ioredis client (no duplicate(), no Lua script
+			// support), so handing it to BullMQ as `connection` makes BullMQ treat it as
+			// connection *options* instead and open a real socket to the default
+			// 127.0.0.1:6379 -- which then fails forever since nothing listens there.
+			// The embedded fallback runs jobs inline instead of through BullMQ.
+			if (this.connectionType !== 'embedded') {
+				for (const jobType of Object.values(JobType)) {
+					this.createQueue(jobType);
+					this.createWorker(jobType);
+					this.setupEventListeners(jobType);
+				}
 			}
 
 			this.isInitialized = true;
@@ -704,9 +724,10 @@ export class JobQueueService {
 	}
 
 	private async processSyncDatabase(data: SyncDatabaseJob): Promise<Record<string, unknown>> {
-		if (!this.databaseService) {
+		if (!this.databaseService || !this.projectPath) {
 			throw createError(ErrorCode.INVALID_STATE, null, 'Database service not initialized');
 		}
+		const projectPath = this.projectPath;
 
 		// Sync documents to database
 		let syncedCount = 0;
@@ -724,6 +745,7 @@ export class JobQueueService {
 							id: doc.id,
 							title: (doc.metadata?.title as string) || `Document ${doc.id}`,
 							type: (doc.metadata?.type as string) || 'Text',
+							path: getDocumentPath(projectPath, doc.id),
 							wordCount: doc.content.split(/\s+/).length,
 							synopsis: doc.metadata?.synopsis as string,
 							notes: doc.metadata?.notes as string,
@@ -780,6 +802,10 @@ export class JobQueueService {
 		data: Record<string, unknown>,
 		options?: { priority?: number; delay?: number }
 	): Promise<string> {
+		if (this.connectionType === 'embedded') {
+			return this.addEmbeddedJob(jobType, data);
+		}
+
 		const queue = this.queues.get(jobType);
 		if (!queue) {
 			throw createError(
@@ -795,9 +821,45 @@ export class JobQueueService {
 	}
 
 	/**
+	 * Run a job inline, without BullMQ, when no Redis/KeyDB connection is available.
+	 * Returns immediately; the result lands in `embeddedJobs` once the job settles.
+	 */
+	private async addEmbeddedJob(jobType: JobType, data: Record<string, unknown>): Promise<string> {
+		const jobId = `embedded-${jobType}-${++this.embeddedJobCounter}`;
+		this.embeddedJobs.set(jobId, { jobType, state: 'active', progress: 0 });
+		this.logger.info(`Job ${jobId} added to embedded queue ${jobType}`);
+
+		void this.processJob(jobType, { id: jobId, data } as Job)
+			.then((result) => {
+				this.embeddedJobs.set(jobId, {
+					jobType,
+					state: 'completed',
+					progress: 100,
+					result,
+				});
+				this.logger.info(`Job completed: ${jobId}`);
+			})
+			.catch((error: unknown) => {
+				this.embeddedJobs.set(jobId, {
+					jobType,
+					state: 'failed',
+					progress: 0,
+					error: error instanceof Error ? error.message : String(error),
+				});
+				this.logger.error(`Job failed: ${jobId}`, { error });
+			});
+
+		return jobId;
+	}
+
+	/**
 	 * Get job status
 	 */
-	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | null> {
+	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
+		if (this.connectionType === 'embedded') {
+			return this.embeddedJobs.get(jobId) ?? null;
+		}
+
 		const queue = this.queues.get(jobType);
 		if (!queue) {
 			throw createError(
@@ -820,6 +882,18 @@ export class JobQueueService {
 	 * Cancel a job
 	 */
 	async cancelJob(jobType: JobType, jobId: string): Promise<void> {
+		if (this.connectionType === 'embedded') {
+			if (!this.embeddedJobs.delete(jobId)) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					undefined,
+					`Job ${jobId} not found in queue ${jobType}`
+				);
+			}
+			this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
+			return;
+		}
+
 		const queue = this.queues.get(jobType);
 		if (!queue) {
 			throw createError(
@@ -846,6 +920,19 @@ export class JobQueueService {
 	 * Get queue statistics
 	 */
 	async getQueueStats(jobType: JobType): Promise<Record<string, unknown>> {
+		if (this.connectionType === 'embedded') {
+			let active = 0;
+			let completed = 0;
+			let failed = 0;
+			for (const job of this.embeddedJobs.values()) {
+				if (job.jobType !== jobType) continue;
+				if (job.state === 'active') active++;
+				else if (job.state === 'completed') completed++;
+				else failed++;
+			}
+			return { waiting: 0, active, completed, failed, delayed: 0 };
+		}
+
 		const queue = this.queues.get(jobType);
 		if (!queue) {
 			throw createError(
@@ -913,6 +1000,7 @@ export class JobQueueService {
 		this.queues.clear();
 		this.workers.clear();
 		this.events.clear();
+		this.embeddedJobs.clear();
 
 		this.isInitialized = false;
 		this.logger.info('Job queue service shutdown complete');
