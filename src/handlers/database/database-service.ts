@@ -376,7 +376,7 @@ export class DatabaseService {
 
 		// Begin transactions in both databases
 		if (this.sqliteManager) {
-			await this.sqliteManager.beginTransaction();
+			this.sqliteManager.beginTransaction();
 		}
 
 		return transactionId;
@@ -459,6 +459,7 @@ export class DatabaseService {
 		id: string;
 		title: string;
 		type: string;
+		path: string;
 		synopsis?: string;
 		notes?: string;
 		wordCount?: number;
@@ -482,6 +483,7 @@ export class DatabaseService {
 					id: documentData.id,
 					title: documentData.title,
 					type: documentData.type,
+					path: documentData.path,
 					synopsis: documentData.synopsis || null,
 					notes: documentData.notes || null,
 					word_count: documentData.wordCount || 0,
