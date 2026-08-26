@@ -12,7 +12,7 @@ import { DatabaseService } from './handlers/database/index.js';
 import { ContextSyncService, type SyncStatus } from './sync/context-sync.js';
 import { CleanupManager, safeReadFile, safeWriteFile } from './utils/common.js';
 import { ensureProjectDataDirectory } from './utils/project-utils.js';
-import { findBinderItem } from './utils/scrivener-utils.js';
+import { findBinderItem, getDocumentPath } from './utils/scrivener-utils.js';
 
 // Import service modules
 import { CompilationService, type StructuredEntry } from './services/compilation-service.js';
@@ -1402,6 +1402,7 @@ export class ScrivenerProject {
 				id: doc.id,
 				title: doc.title,
 				type: doc.type,
+				path: getDocumentPath(this.projectPath, doc.id),
 				synopsis: doc.synopsis,
 				notes: doc.notes,
 				wordCount,
