@@ -77,9 +77,7 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 	private operationProfiles = new Map<string, OperationProfile>();
 	private correlationTracker = new Map<string, PerformanceMetrics[]>();
 	private memoryBaseline: NodeJS.MemoryUsage;
-	private lastGc: number = Date.now();
 	private gcStats: Array<{ timestamp: number; type: string; duration: number }> = [];
-	private cpuBaseline: NodeJS.CpuUsage = process.cpuUsage();
 	private isProfilingActive = false;
 	private cleanupInterval: NodeJS.Timeout | null = null;
 	private monitoringInterval: NodeJS.Timeout | null = null;
@@ -118,7 +116,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 
 		this.isProfilingActive = true;
 		this.memoryBaseline = process.memoryUsage();
-		this.cpuBaseline = process.cpuUsage();
 
 		// Start memory pressure monitoring
 		this.monitoringInterval = setInterval(() => {

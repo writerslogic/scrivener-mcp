@@ -173,7 +173,7 @@ export function measureAndTrackOperationSync<T>(
  * Decorator for automatic method metrics tracking
  */
 export function trackMetrics(operationName?: string, logPrefix?: string) {
-	return function (target: object, propertyKey: string, descriptor: PropertyDescriptor) {
+	return function (_target: object, propertyKey: string, descriptor: PropertyDescriptor) {
 		const originalMethod = descriptor.value;
 		const finalOperationName = operationName || propertyKey;
 

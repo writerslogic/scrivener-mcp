@@ -54,11 +54,7 @@ export class FilterWordsEnhancer {
 					const after = sentence.substring(match.index + match[0].length);
 
 					if (this.isFilterUsage(before, after, filterWord)) {
-						const rewrite = this.rewriteWithoutFilter(
-							sentence,
-							match.index,
-							filterWord
-						);
+						const rewrite = this.rewriteWithoutFilter(sentence, filterWord);
 
 						if (rewrite && rewrite !== sentence) {
 							changes.push({
@@ -97,11 +93,7 @@ export class FilterWordsEnhancer {
 		return hasSubject && hasPerceptionContent;
 	}
 
-	private rewriteWithoutFilter(
-		sentence: string,
-		filterIndex: number,
-		filterWord: string
-	): string | null {
+	private rewriteWithoutFilter(sentence: string, filterWord: string): string | null {
 		// Extract the core observation
 		const patterns: Record<string, (sentence: string) => string | null> = {
 			saw: (s) => this.convertVisualFilter(s),

@@ -2,7 +2,7 @@
  * Cache system tests
  */
 
-import { LRUCache, CacheKeys, cached } from '../../../src/core/cache';
+import { LRUCache, CacheKeys } from '../../../src/core/cache';
 
 describe('LRUCache', () => {
 	let cache: LRUCache<string>;

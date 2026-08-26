@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { KeyDBInstaller } from '../../../src/services/auto-setup/keydb-installer';
 import * as child_process from 'child_process';
-import * as os from 'os';
 
 // Mock child_process
 jest.mock('child_process');
@@ -21,11 +20,11 @@ describe('KeyDBInstaller', () => {
 	beforeEach(async () => {
 		installer = await KeyDBInstaller.getInstance();
 		mockExec = child_process.exec as any;
-		
+
 		// Import the mocked module
 		const keydbDetector = require('../../../src/services/queue/keydb-detector');
 		detectConnectionMock = keydbDetector.detectConnection;
-		
+
 		// Clear all mocks
 		jest.clearAllMocks();
 	});
@@ -95,7 +94,7 @@ describe('KeyDBInstaller', () => {
 				url: null,
 			});
 
-			mockExec.mockImplementation((cmd: string, callback: any) => {
+			mockExec.mockImplementation((_cmd: string, callback: any) => {
 				if (typeof callback === 'function') {
 					callback(new Error('Command not found'), '', '');
 				}
@@ -133,7 +132,7 @@ describe('KeyDBInstaller', () => {
 		it('should install via Homebrew on macOS', async () => {
 			// Set platform to Darwin
 			Object.defineProperty(process, 'platform', {
-				value: 'darwin'
+				value: 'darwin',
 			});
 
 			detectConnectionMock.mockResolvedValue({
@@ -203,7 +202,7 @@ describe('KeyDBInstaller', () => {
 				url: null,
 			});
 
-			mockExec.mockImplementation((cmd: string, callback: any) => {
+			mockExec.mockImplementation((_cmd: string, callback: any) => {
 				if (typeof callback === 'function') {
 					callback(new Error('Installation failed'), '', '');
 				}
@@ -220,7 +219,7 @@ describe('KeyDBInstaller', () => {
 	describe('startKeyDB', () => {
 		it('should start KeyDB successfully', async () => {
 			let callCount = 0;
-			
+
 			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
 				const cb = typeof options === 'function' ? options : callback;
 				if (typeof cb === 'function') {
@@ -256,7 +255,7 @@ describe('KeyDBInstaller', () => {
 			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
 				const cb = typeof options === 'function' ? options : callback;
 				attemptedCommands.push(cmd);
-				
+
 				if (typeof cb === 'function') {
 					// Fail all except systemctl
 					if (cmd === 'systemctl start keydb') {
@@ -291,11 +290,11 @@ describe('KeyDBInstaller', () => {
 		it('should provide platform-specific instructions for macOS', () => {
 			Object.defineProperty(process, 'platform', {
 				value: 'darwin',
-				configurable: true
+				configurable: true,
 			});
-			
+
 			const instructions = installer.getManualInstructions();
-			
+
 			expect(instructions).toContain('macOS');
 			expect(instructions).toContain('Homebrew');
 			expect(instructions).toContain('Docker');
@@ -304,11 +303,11 @@ describe('KeyDBInstaller', () => {
 		it('should provide platform-specific instructions for Linux', () => {
 			Object.defineProperty(process, 'platform', {
 				value: 'linux',
-				configurable: true
+				configurable: true,
 			});
-			
+
 			const instructions = installer.getManualInstructions();
-			
+
 			expect(instructions).toContain('Linux');
 			expect(instructions).toContain('apt-get');
 			expect(instructions).toContain('yum');
@@ -317,11 +316,11 @@ describe('KeyDBInstaller', () => {
 		it('should provide platform-specific instructions for Windows', () => {
 			Object.defineProperty(process, 'platform', {
 				value: 'win32',
-				configurable: true
+				configurable: true,
 			});
-			
+
 			const instructions = installer.getManualInstructions();
-			
+
 			expect(instructions).toContain('Windows');
 			expect(instructions).toContain('Docker Desktop');
 			expect(instructions).toContain('WSL2');

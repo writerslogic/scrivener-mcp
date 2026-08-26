@@ -22,7 +22,7 @@ The AI client only pays the token cost for tool definitions it actually uses in 
 Every tool response is optimized to minimize token consumption:
 
 - **Minified JSON:** Responses strip null fields and omit empty arrays/objects. No pretty-printing.
-- **Search snippets:** `search_project` returns 100-character context snippets around each match, not full document text. Follow up with `read_document` for the complete content.
+- **Search snippets:** `search` returns short context snippets around each match, not full document text. Follow up with `read_document` for the complete content.
 - **Analysis summaries:** `analyze_document` returns a summary with the top 3 issues rather than a full metrics blob. This keeps analysis results actionable without overwhelming the context.
 - **Large payload spill:** Compiled manuscripts and other results exceeding 4,000 characters are written to a temp directory on disk. The tool returns a tracker ID and a short preview instead of the full payload. The AI client can read the file if needed.
 

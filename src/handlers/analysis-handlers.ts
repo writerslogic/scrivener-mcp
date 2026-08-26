@@ -1202,11 +1202,12 @@ export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
 	title: 'Semantic Search',
 	description:
-		'Find passages by meaning rather than exact words, using embeddings over the project, and ' +
+		'Find passages by meaning rather than exact words, using the local HMS index, and ' +
 		'return the most relevant documents with similarity scores and related entities. Use this ' +
 		'for conceptual "find passages about X" queries; use search for keyword/full-text matching ' +
-		'and find_mentions to locate every occurrence of a specific name or term. Calls an external ' +
-		'embedding model. Requires an open project with semantic indexing available.',
+		'and find_mentions to locate every occurrence of a specific name or term. Indexing and similarity ' +
+		'scoring are local; query interpretation and explanations require a configured AI provider. ' +
+		'Requires an open project with semantic indexing available.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,

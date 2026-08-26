@@ -12,13 +12,9 @@ export class SIMDTextProcessor {
 	private static instance: SIMDTextProcessor;
 	private readonly simdWidth = 16; // 128-bit SIMD operations
 	private readonly textEncoder = new TextEncoder();
-	private readonly textDecoder = new TextDecoder();
 
-	// Pre-allocated buffers for zero-copy operations
+	// Pre-allocated buffer for zero-copy operations
 	private readonly workBuffer = new ArrayBuffer(1024 * 1024); // 1MB working buffer
-	private readonly uint8View = new Uint8Array(this.workBuffer);
-	private readonly uint32View = new Uint32Array(this.workBuffer);
-	private readonly float32View = new Float32Array(this.workBuffer);
 
 	// SIMD pattern matching lookup tables
 	private readonly vowelMask = new Uint8Array(256);

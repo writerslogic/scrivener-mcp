@@ -67,7 +67,6 @@ export class ObjectPool<T> extends EventEmitter {
 	private stats: PoolStatistics;
 	private createTimes: number[] = [];
 	private resetTimes: number[] = [];
-	private lastMaintenance: number = Date.now();
 
 	constructor(config: PoolConfig) {
 		super();
@@ -243,7 +242,6 @@ export class ObjectPool<T> extends EventEmitter {
 				}
 			}
 
-			this.lastMaintenance = now;
 			this.stats.lastMaintenance = now;
 			this.updateStatistics();
 
