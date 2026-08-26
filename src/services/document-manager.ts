@@ -209,11 +209,14 @@ export class DocumentManager {
 			return this.writeDocumentImmediate(documentId, content);
 		}
 
-		// Queue for batch writing
+		// Queue for batch writing. Invalidate the parsed-content cache now, not at
+		// flush time, so a read that arrives before the flush sees "not cached"
+		// (falls through to disk) rather than the stale pre-write content.
 		this.pendingWrites.set(documentId, {
 			content,
 			timestamp: Date.now(),
 		});
+		this.documentCache.delete(`doc:${documentId}`);
 
 		// Flush if queue is full
 		if (this.pendingWrites.size >= this.batchSize) {

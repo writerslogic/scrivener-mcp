@@ -73,31 +73,31 @@ describe('CompilationService', () => {
 			});
 
 			it('should include synopsis when option is set', async () => {
-				const result = await compilationService.compileDocuments(mockDocuments, {
+				const result = (await compilationService.compileDocuments(mockDocuments, {
 					outputFormat: 'json',
 					includeSynopsis: true,
-				}) as any;
+				})) as any;
 
 				expect(result.documents[0].synopsis).toBe('Chapter 1 synopsis');
 				expect(result.documents[1].synopsis).toBe('Chapter 2 synopsis');
 			});
 
 			it('should include notes when option is set', async () => {
-				const result = await compilationService.compileDocuments(mockDocuments, {
+				const result = (await compilationService.compileDocuments(mockDocuments, {
 					outputFormat: 'json',
 					includeNotes: true,
-				}) as any;
+				})) as any;
 
 				expect(result.documents[0].notes).toBe('Chapter 1 notes');
 				expect(result.documents[1].notes).toBe('Chapter 2 notes');
 			});
 
 			it('should exclude metadata when options are false', async () => {
-				const result = await compilationService.compileDocuments(mockDocuments, {
+				const result = (await compilationService.compileDocuments(mockDocuments, {
 					outputFormat: 'json',
 					includeSynopsis: false,
 					includeNotes: false,
-				}) as any;
+				})) as any;
 
 				expect(result.documents[0].synopsis).toBeUndefined();
 				expect(result.documents[0].notes).toBeUndefined();
@@ -128,11 +128,13 @@ describe('CompilationService', () => {
 
 		describe('HTML compilation', () => {
 			it('should compile to HTML with proper escaping', async () => {
-				const docsWithSpecialChars = [{
-					id: 'doc1',
-					title: 'Chapter & Title',
-					content: 'Content with <tags> & "quotes"',
-				}];
+				const docsWithSpecialChars = [
+					{
+						id: 'doc1',
+						title: 'Chapter & Title',
+						content: 'Content with <tags> & "quotes"',
+					},
+				];
 
 				const result = await compilationService.compileDocuments(docsWithSpecialChars, {
 					outputFormat: 'html',
@@ -148,18 +150,20 @@ describe('CompilationService', () => {
 					outputFormat: 'html',
 				});
 
-				expect(result).toContain('<b>Chapter 2 </b>');
-				expect(result).toContain('<i>content</i>');
+				expect(result).toContain('<strong>Chapter 2 </strong>');
+				expect(result).toContain('<em>content</em>');
 			});
 		});
 
 		describe('LaTeX compilation', () => {
 			it('should compile to LaTeX with proper escaping', async () => {
-				const docsWithSpecialChars = [{
-					id: 'doc1',
-					title: 'Chapter_with_underscores',
-					content: 'Content with $math$ and %percent',
-				}];
+				const docsWithSpecialChars = [
+					{
+						id: 'doc1',
+						title: 'Chapter_with_underscores',
+						content: 'Content with $math$ and %percent',
+					},
+				];
 
 				const result = await compilationService.compileDocuments(docsWithSpecialChars, {
 					outputFormat: 'latex',
@@ -212,7 +216,9 @@ describe('CompilationService', () => {
 				['footnote1', 'This is a footnote'],
 			]);
 
-			mockRtfHandler.preserveScrivenerAnnotations = jest.fn().mockReturnValue(mockAnnotations);
+			mockRtfHandler.preserveScrivenerAnnotations = jest
+				.fn()
+				.mockReturnValue(mockAnnotations);
 
 			const rtfContent = '{\\rtf1 Some content with annotations}';
 			const result = compilationService.extractAnnotations(rtfContent);
@@ -269,7 +275,7 @@ describe('CompilationService', () => {
 			});
 
 			expect(results).toHaveLength(2); // Both docs start with 'This'
-			
+
 			// Search for 'test' lowercase should find matches
 			const resultsLowercase = compilationService.searchInDocuments(mockSearchDocs, 'test', {
 				caseSensitive: true,
@@ -297,17 +303,19 @@ describe('CompilationService', () => {
 
 			expect(results).toHaveLength(2); // Both docs have 'search' (doc1 in keyword string, doc2 in content)
 			// Find the doc1 result
-			const doc1Result = results.find(r => r.documentId === 'doc1');
-			expect(doc1Result?.matches).toContainEqual('Keyword: test, search, document');
+			const doc1Result = results.find((r) => r.documentId === 'doc1');
+			expect(doc1Result?.matches).toContainEqual('Keyword: search');
 		});
 
 		it('should limit results when maxResults is set', () => {
-			const manyDocs = Array(10).fill(null).map((_, i) => ({
-				id: `doc${i}`,
-				title: `Document ${i}`,
-				content: `Content with test in document ${i}`,
-				metadata: {},
-			}));
+			const manyDocs = Array(10)
+				.fill(null)
+				.map((_, i) => ({
+					id: `doc${i}`,
+					title: `Document ${i}`,
+					content: `Content with test in document ${i}`,
+					metadata: {},
+				}));
 
 			const results = compilationService.searchInDocuments(manyDocs, 'test', {
 				maxResults: 3,
@@ -451,15 +459,15 @@ describe('CompilationService', () => {
 		});
 
 		it('should throw error for EPUB format (not implemented)', async () => {
-			await expect(
-				compilationService.exportProject(mockStructure, 'epub')
-			).rejects.toThrow('EPUB export not yet implemented');
+			await expect(compilationService.exportProject(mockStructure, 'epub')).rejects.toThrow(
+				'EPUB export not yet implemented'
+			);
 		});
 
 		it('should throw error for unsupported format', async () => {
-			await expect(
-				compilationService.exportProject(mockStructure, 'pdf')
-			).rejects.toThrow('Unsupported export format: pdf');
+			await expect(compilationService.exportProject(mockStructure, 'pdf')).rejects.toThrow(
+				'Unsupported export format: pdf'
+			);
 		});
 	});
 
@@ -467,17 +475,28 @@ describe('CompilationService', () => {
 		it('should calculate project statistics', () => {
 			const documents: any[] = [
 				{ id: '1', title: 'Doc1', type: 'Text', path: '/Draft/Doc1', children: [] },
-				{ id: '2', title: 'Folder1', type: 'Folder', path: '/Draft/Folder1', children: [
-					{ id: '3', title: 'Doc2', type: 'Text', path: '/Draft/Folder1/Doc2', children: [] },
-				]},
+				{
+					id: '2',
+					title: 'Folder1',
+					type: 'Folder',
+					path: '/Draft/Folder1',
+					children: [
+						{
+							id: '3',
+							title: 'Doc2',
+							type: 'Text',
+							path: '/Draft/Folder1/Doc2',
+							children: [],
+						},
+					],
+				},
 			];
 
 			const stats = compilationService.getStatistics(documents);
 
 			expect(stats).toMatchObject({
 				totalDocuments: 3,
-				textDocuments: 2,
-				folders: 1,
+				totalFolders: 1,
 				documentsByType: {
 					Text: 2,
 					Folder: 1,

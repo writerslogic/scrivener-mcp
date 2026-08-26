@@ -825,6 +825,14 @@ export class JobQueueService {
 	 * Returns immediately; the result lands in `embeddedJobs` once the job settles.
 	 */
 	private async addEmbeddedJob(jobType: JobType, data: Record<string, unknown>): Promise<string> {
+		if (!Object.values(JobType).includes(jobType)) {
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				`Queue for job type ${jobType} not found`
+			);
+		}
+
 		const jobId = `embedded-${jobType}-${++this.embeddedJobCounter}`;
 		this.embeddedJobs.set(jobId, { jobType, state: 'active', progress: 0 });
 		this.logger.info(`Job ${jobId} added to embedded queue ${jobType}`);
@@ -921,6 +929,14 @@ export class JobQueueService {
 	 */
 	async getQueueStats(jobType: JobType): Promise<Record<string, unknown>> {
 		if (this.connectionType === 'embedded') {
+			if (!Object.values(JobType).includes(jobType)) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					undefined,
+					`Queue for job type ${jobType} not found`
+				);
+			}
+
 			let active = 0;
 			let completed = 0;
 			let failed = 0;
