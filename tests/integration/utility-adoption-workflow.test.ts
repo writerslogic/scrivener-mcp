@@ -59,7 +59,6 @@ async function createFixtureProjectDir(root: string, name: string): Promise<stri
 describe('Utility Adoption Workflow Integration', () => {
 	let tmpRoot: string;
 	let mockProject: any;
-	let mockContext: any;
 
 	beforeAll(async () => {
 		tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'scrivener-utility-adoption-'));
@@ -107,10 +106,6 @@ describe('Utility Adoption Workflow Integration', () => {
 				wordCount: 1000,
 				characterCount: 5000,
 			}),
-		};
-
-		mockContext = {
-			project: mockProject,
 		};
 
 		jest.clearAllMocks();
