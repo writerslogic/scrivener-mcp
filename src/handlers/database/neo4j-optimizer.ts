@@ -448,7 +448,7 @@ export class Neo4jOptimizer {
 		const toNum = (v: unknown): number | undefined => {
 			if (v == null) return undefined;
 			if (typeof v === 'number') return v;
-			if (typeof v === 'object' && v !== null && 'toNumber' in v)
+			if (typeof v === 'object' && 'toNumber' in v)
 				return (v as { toNumber(): number }).toNumber();
 			return undefined;
 		};

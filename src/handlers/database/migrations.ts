@@ -31,6 +31,19 @@ export class MigrationManager {
 	}
 
 	/**
+	 * Look up a migration by version rather than array position, so inserting,
+	 * removing, or reordering entries can't silently misalign an `up` closure
+	 * with another migration's SQL.
+	 */
+	private getMigration(version: number): Migration {
+		const migration = this.migrations.find((m) => m.version === version);
+		if (!migration) {
+			throw new Error(`Migration version ${version} not found`);
+		}
+		return migration;
+	}
+
+	/**
 	 * Define all migrations
 	 */
 	private initializeMigrations(): void {
@@ -61,7 +74,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[1].sql!);
+						sqlite.getDatabase().exec(this.getMigration(2).sql!);
 					}
 				},
 			},
@@ -99,7 +112,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[2].sql!);
+						sqlite.getDatabase().exec(this.getMigration(3).sql!);
 						// Populate FTS table with existing data
 						sqlite.execute(`
 							INSERT INTO documents_fts(rowid, id, title, synopsis, notes)
@@ -131,7 +144,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[3].sql!);
+						sqlite.getDatabase().exec(this.getMigration(4).sql!);
 					}
 				},
 			},
@@ -154,7 +167,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[4].sql!);
+						sqlite.getDatabase().exec(this.getMigration(5).sql!);
 					}
 				},
 			},
@@ -178,7 +191,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[5].sql!);
+						sqlite.getDatabase().exec(this.getMigration(6).sql!);
 					}
 				},
 			},
@@ -197,7 +210,7 @@ export class MigrationManager {
 				`,
 				up: async (_sqlite, neo4j) => {
 					if (neo4j && neo4j.isAvailable()) {
-						const constraints = this.migrations[6]
+						const constraints = this.getMigration(7)
 							.cypher!.split(';')
 							.filter((c) => c.trim());
 						for (const constraint of constraints) {
@@ -226,7 +239,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[7].sql!);
+						sqlite.getDatabase().exec(this.getMigration(8).sql!);
 					}
 				},
 			},
@@ -258,7 +271,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[8].sql!);
+						sqlite.getDatabase().exec(this.getMigration(9).sql!);
 					}
 				},
 			},
@@ -274,7 +287,7 @@ export class MigrationManager {
 				`,
 				up: async (sqlite) => {
 					if (sqlite) {
-						sqlite.getDatabase().exec(this.migrations[9].sql!);
+						sqlite.getDatabase().exec(this.getMigration(10).sql!);
 					}
 				},
 			},

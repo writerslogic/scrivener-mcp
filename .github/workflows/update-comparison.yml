@@ -18,7 +18,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install PyYAML
-        run: pip install --disable-pip-version-check pyyaml
+        run: |
+          pip install --disable-pip-version-check --no-binary :all: --require-hashes \
+            -r .github/workflows/pyyaml-requirements.txt
 
       - name: Update comparison table
         env:

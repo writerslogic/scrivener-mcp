@@ -43,7 +43,7 @@ export interface CharacterProfile {
 export interface WorldElement {
 	id: string;
 	name: string;
-	type: 'location' | 'object' | 'concept' | 'organization';
+	type: 'location' | 'object' | 'concept' | 'organization' | 'theme';
 	description: string;
 	significance: string;
 	appearances: { documentId: string; context: string }[];
@@ -485,7 +485,7 @@ export class MemoryManager {
 			this.memory.worldBuilding = worldElements.map((w) => ({
 				id: String(w.id),
 				type: String(w.type || 'location') as
-					'object' | 'location' | 'concept' | 'organization',
+					'object' | 'location' | 'concept' | 'organization' | 'theme',
 				name: String(w.name),
 				description: String(w.description || ''),
 				details: w.details ? safeParse(String(w.details), {}) : {},

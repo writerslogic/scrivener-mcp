@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { tmpdir } from 'os';
 import {
 	ensureProjectDataDirectory,
@@ -15,10 +15,7 @@ import {
  */
 function createValidScrivProject(projectPath: string): void {
 	mkdirSync(projectPath, { recursive: true });
-	const projectName = projectPath
-		.split('/')
-		.pop()!
-		.replace(/\.scriv$/, '');
+	const projectName = basename(projectPath).replace(/\.scriv$/, '');
 	writeFileSync(
 		join(projectPath, `${projectName}.scrivx`),
 		'<?xml version="1.0"?><ScrivenerProject></ScrivenerProject>'
