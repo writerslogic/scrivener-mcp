@@ -504,4 +504,43 @@ describe('CompilationService', () => {
 			});
 		});
 	});
+
+	describe('compileStructured with sectionLayouts', () => {
+		const entries = [
+			{ title: 'Chapter One', content: 'First chapter body.', depth: 1, isFolder: false, sectionTypeId: 'chapter-type' },
+			{ title: 'Chapter Two', content: 'Second chapter body.', depth: 1, isFolder: false, sectionTypeId: 'chapter-type' },
+		];
+
+		it('renders auto-numbered titles and a page break for a recognized CHAPTER-NUMBER layout', () => {
+			const result = compilationService.compileStructured(entries, {
+				sectionLayouts: { 'chapter-type': 'CHAPTER-NUMBER' },
+			});
+
+			expect(result).toContain('Chapter 1');
+			expect(result).toContain('Chapter 2');
+			expect(result).not.toContain('Chapter One');
+			expect(result).toContain('\f');
+		});
+
+		it('falls back to generic includeTitles/sceneSeparator behavior for an unrecognized layout', () => {
+			const result = compilationService.compileStructured(entries, {
+				sectionLayouts: { 'chapter-type': 'CUSTOM-GUID-LAYOUT-1234' },
+				sceneSeparator: '* * *',
+			});
+
+			expect(result).toContain('Chapter One');
+			expect(result).toContain('Chapter Two');
+			expect(result).not.toContain('\f');
+		});
+
+		it('ignores sectionLayouts for an entry with no matching sectionTypeId', () => {
+			const result = compilationService.compileStructured(
+				[{ title: 'Untyped', content: 'body', depth: 1, isFolder: false }],
+				{ sectionLayouts: { 'chapter-type': 'CHAPTER-NUMBER' } }
+			);
+
+			expect(result).toContain('Untyped');
+			expect(result).not.toContain('Chapter 1');
+		});
+	});
 });

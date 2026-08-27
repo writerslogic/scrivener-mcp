@@ -39,6 +39,8 @@ export interface ScrivenerDocument {
 	customMetadata?: Record<string, string>;
 	keywords?: string[];
 	metadata?: Record<string, string>;
+	/** Resolved Section Type ID: this item's own override, or the nearest ancestor's ChildDefault. */
+	sectionTypeId?: string;
 }
 
 export interface ScrivenerMetadata {

@@ -145,6 +145,15 @@ export const compileDocumentsHandler: ToolDefinition = {
 					'For mode "structured": include documents whose "Include in Compile" flag is off. ' +
 					'Default false (excluded documents are omitted, matching Scrivener).',
 			},
+			compileFormatId: {
+				type: 'string',
+				description:
+					'For mode "structured": id of a compile format from get_compile_settings. When given, ' +
+					"sections whose resolved Section Type maps to one of that format's recognized standard " +
+					"layouts (title visibility, chapter auto-numbering, page breaks) use that layout's " +
+					'behavior instead of includeTitles/sceneSeparator. Custom or unrecognized layouts fall ' +
+					'back to the generic behavior — this is best-effort, not full Scrivener compile fidelity.',
+			},
 			hierarchical: {
 				type: 'boolean',
 				description: 'Preserve the binder folder hierarchy as headings. Default false.',
@@ -240,6 +249,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 				sceneSeparator: getOptionalStringArg(args, 'sceneSeparator') ?? '',
 				includeTitles: (args.includeTitles as boolean) ?? true,
 				includeExcluded: (args.includeExcluded as boolean) ?? false,
+				compileFormatId: getOptionalStringArg(args, 'compileFormatId'),
 			});
 			return formatCompileResult(text, documentsToCompile.length, format);
 		}
