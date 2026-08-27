@@ -2,7 +2,7 @@ name: Update Comparison Table
 
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -17,15 +17,32 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Install PyYAML
+        run: pip install --disable-pip-version-check pyyaml
+
       - name: Update comparison table
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 - <<'PYEOF'
-          import json, os, re, subprocess, urllib.request, urllib.error
+          # Renders the README comparison table from docs/comparison.yml.
+          #
+          # docs/comparison.yml is the single source of truth for feature claims;
+          # this job only refreshes the machine-checkable columns (stars, forks,
+          # activity, published version). Feature rows are never invented here.
+          #
+          # Two dates, deliberately distinct:
+          #   `verified`  - when a human last checked the feature claims. Never
+          #                 touched by this job; auto-bumping it would assert a
+          #                 review that did not happen.
+          #   `refreshed` - when these stats were last pulled. This job owns it.
+          import json, os, re, urllib.request, urllib.error
+          from datetime import datetime, timezone
+          import yaml
 
           token = os.environ.get('GH_TOKEN', '')
-          headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'}
+          headers = {'Authorization': f'Bearer {token}',
+                     'Accept': 'application/vnd.github+json'}
 
           def gh_api(path):
               req = urllib.request.Request(f'https://api.github.com/{path}', headers=headers)
@@ -36,76 +53,102 @@ jobs:
                   return {}
 
           def days_since(iso_date):
-              from datetime import datetime, timezone
               if not iso_date:
                   return 9999
               dt = datetime.fromisoformat(iso_date.replace('Z', '+00:00'))
               return (datetime.now(timezone.utc) - dt).days
 
           def activity_label(days):
-              if days <= 14:   return 'weekly'
-              if days <= 60:   return 'monthly'
-              if days <= 365:  return 'occasional'
+              if days <= 14:  return 'weekly'
+              if days <= 60:  return 'monthly'
+              if days <= 365: return 'occasional'
               return 'stale'
 
-          repos = {
-              'scrivener-mcp': 'writerslogic/scrivener-mcp',
-              'jiayun':        'jiayun/scrivener-mcp',
-              'assistant':     'elnino1/scrivener-assistant',
-              'ricopicone':    'ricopicone/scrivener-mcp',
-              'zaphodsdad':    'zaphodsdad/scrivener-mcp',
-          }
+          spec = yaml.safe_load(open('docs/comparison.yml'))
+          repos = spec['repos']
+          order = list(repos.keys())
+
+          own_version = json.load(open('package.json'))['version']
 
           stats = {}
-          for key, slug in repos.items():
-              data = gh_api(f'repos/{slug}')
-              stars    = data.get('stargazers_count', '?')
-              forks    = data.get('forks_count', '?')
-              issues   = data.get('open_issues_count', '?')
-              pushed   = data.get('pushed_at', '')
-              activity = activity_label(days_since(pushed))
-              stats[key] = {'stars': stars, 'forks': forks, 'issues': issues, 'activity': activity}
+          for key, meta in repos.items():
+              slug = meta.get('github')
+              if not slug:
+                  stats[key] = {}
+                  continue
+              d = gh_api(f'repos/{slug}')
+              releases = gh_api(f'repos/{slug}/releases')
+              stats[key] = {
+                  'stars': d.get('stargazers_count', '?'),
+                  'forks': d.get('forks_count', '?'),
+                  'activity': activity_label(days_since(d.get('pushed_at', ''))),
+                  'releases': len(releases) if isinstance(releases, list) else None,
+              }
 
-          s = stats.get('scrivener-mcp', {})
-          j = stats.get('jiayun', {})
-          a = stats.get('assistant', {})
-          r = stats.get('ricopicone', {})
-          z = stats.get('zaphodsdad', {})
+          def header_cell(key):
+              m = repos[key]
+              label = m['display']
+              if m.get('github'):
+                  return f"[{label}](https://github.com/{m['github']})"
+              if m.get('npm'):
+                  return f"[{label}](https://www.npmjs.com/package/{m['npm']})"
+              return label
 
-          table = f"""| Feature | **scrivener-mcp** | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp) | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
-          |---------|:-:|:-:|:-:|:-:|:-:|:-:|
-          | Public MCP tools | 57 | 29 | 22 | 38 | 18 | 10 |
-          | Manuscript access | read/write | read/write | read/write | read-only; writes sidecar data/metadata | read-only by default; opt-in content/notes/synopsis writes | read-only |
-          | RTF handling | formatted reads; fidelity-preserving span writes | reads/writes document content | reads/writes document content | converts RTF to text; manuscript read-only | RTF-to-text reads; snapshot-protected content writes | converts RTF to text; read-only |
-          | Built-in writing analysis | readability, pacing, style, emotion, AI critique | readability, style, sentiment | continuity comparison | agent-driven five-point review workflow | no dedicated analysis tool | no dedicated analysis tool |
-          | Content generation/enhancement | generation + 12 targeted enhancement types | no | no | brainstorm/draft agent workflow | no | no |
-          | Local semantic retrieval | HMS index and similarity search | no | no | no | no | no |
-          | Continuity/project memory | persistent memory + consistency checks | persistent notes + consistency checks | mention/description comparison | world bible, story state, characters, locations, review history | no persistent memory | no persistent memory |
-          | Relationship tooling | persistent relationships, networks, reference graph; optional Neo4j | no | no | human-editable relations data | no | no |
-          | Token optimization | progressive skill loading, compact output, paged reads | no documented equivalent | no documented equivalent | no documented equivalent | scoped binder/chapter reads | scoped overview/read tools |
-          | Export / compilation | Markdown, HTML, JSON, DOCX, EPUB, PDF | compile + whole-draft export | PDF | saves AI drafts; no manuscript export documented | no | no |
-          | Windows support | yes | yes (prebuilt binary) | yes | not documented | not documented | yes |
-          | Installation | npm, Homebrew, Docker, Smithery | Cargo or prebuilt binary | npm package (deprecated) | MCPB or source | source / `uv` | source / `pip install -e` |
-          | License | AGPL-3.0 / commercial dual-license | MIT | MIT | MIT | not declared | MIT |
-          | Repository/package status | {s.get('activity', '?')} activity; npm `0.12.0` | {j.get('activity', '?')} activity | discontinued and unmaintained | {a.get('activity', '?')} activity | {r.get('activity', '?')} activity; no releases | {z.get('activity', '?')} activity |
-          | Community | ⭐ {s.get('stars', '?')} · {s.get('forks', '?')} forks | ⭐ {j.get('stars', '?')} | source repository unavailable | ⭐ {a.get('stars', '?')} | ⭐ {r.get('stars', '?')} | ⭐ {z.get('stars', '?')} · {z.get('forks', '?')} fork |"""
+          # scrivener-mcp is us: bold, and never linked away from this page.
+          rows = ['| Feature | ' + ' | '.join(
+              (repos[k]['display'] if k == 'scrivener-mcp' else header_cell(k))
+              for k in order) + ' |']
+          rows.append('|---------|' + ':-:|' * len(order))
 
-          # Dedent the table (strip leading spaces from template literal)
-          lines = [line.lstrip() for line in table.splitlines()]
-          table = '\n'.join(lines)
+          for feat in spec['features']:
+              cells = [str(feat.get(k, '—')) for k in order]
+              rows.append(f"| {feat['label']} | " + ' | '.join(cells) + ' |')
+
+          # Machine-refreshed rows, appended after the human-authored feature rows.
+          status = []
+          for k in order:
+              s = stats.get(k, {})
+              note = repos[k].get('status_note')
+              if note:
+                  status.append(note)
+              elif s.get('activity'):
+                  if k == 'scrivener-mcp':
+                      extra = f"; npm `{own_version}`"
+                  elif s.get('releases') == 0:
+                      extra = '; no releases'
+                  else:
+                      extra = ''
+                  status.append(f"{s['activity']} activity{extra}")
+              else:
+                  status.append('—')
+          rows.append('| Repository/package status | ' + ' | '.join(status) + ' |')
+
+          community = []
+          for k in order:
+              s = stats.get(k, {})
+              if not s:
+                  community.append(repos[k].get('community_note', '—'))
+                  continue
+              cell = f"⭐ {s['stars']}"
+              if s.get('forks'):
+                  cell += f" · {s['forks']} fork" + ('s' if s['forks'] != 1 else '')
+              community.append(cell)
+          rows.append('| Community | ' + ' | '.join(community) + ' |')
+
+          table = '\n'.join(rows)
+          today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
           readme = open('README.md').read()
-          new_readme = re.sub(
-              r'<!-- comparison-start -->.*?<!-- comparison-end -->',
-              f'<!-- comparison-start -->\n{table}\n<!-- comparison-end -->',
-              readme,
-              flags=re.DOTALL
-          )
+          new = re.sub(r'<!-- comparison-start -->.*?<!-- comparison-end -->',
+                       f'<!-- comparison-start -->\n{table}\n<!-- comparison-end -->',
+                       readme, flags=re.DOTALL)
+          new = re.sub(r'(<!-- comparison-refreshed -->)[^<]*(<!-- /comparison-refreshed -->)',
+                       rf'\g<1>{today}\g<2>', new)
 
-          if new_readme == readme:
+          if new == readme:
               print('No changes to comparison table.')
           else:
-              open('README.md', 'w').write(new_readme)
+              open('README.md', 'w').write(new)
               print('Comparison table updated.')
           PYEOF
 
