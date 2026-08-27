@@ -498,6 +498,8 @@ export class ScrivenerProject {
 			sceneSeparator?: string;
 			includeTitles?: boolean;
 			includeExcluded?: boolean;
+			/** Apply this compile format's standard section-layout behavior (see CompilationService.compileStructured). */
+			compileFormatId?: string;
 		} = {}
 	): Promise<string> {
 		// Walk the nested binder tree so heading depth comes from actual structure,
@@ -532,16 +534,31 @@ export class ScrivenerProject {
 						});
 					}
 				}
-				entries.push({ title: node.title, content, depth, isFolder: !isText });
+				entries.push({
+					title: node.title,
+					content,
+					depth,
+					isFolder: !isText,
+					sectionTypeId: node.sectionTypeId,
+				});
 				if (node.children?.length) await walk(node.children, depth + 1);
 			}
 		};
 		await walk(roots, 1);
 
+		let sectionLayouts: Record<string, string> | undefined;
+		if (options.compileFormatId) {
+			const metadata = await this.getCompileMetadata().catch(() => null);
+			sectionLayouts = metadata?.compileFormats.find(
+				(f) => f.id === options.compileFormatId
+			)?.sectionLayouts;
+		}
+
 		return this.compilationService.compileStructured(entries, {
 			outputFormat: options.outputFormat ?? 'text',
 			sceneSeparator: options.sceneSeparator ?? '',
 			includeTitles: options.includeTitles ?? true,
+			sectionLayouts,
 		});
 	}
 

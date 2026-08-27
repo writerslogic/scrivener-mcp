@@ -902,7 +902,12 @@ export class DocumentManager {
 			documents.push(doc);
 			if (item.Children?.BinderItem) {
 				doc.children = [];
-				this.buildDocumentTree(item.Children, doc.children, prefix || `${item.Title}/`);
+				this.buildDocumentTree(
+					item.Children,
+					doc.children,
+					prefix || `${item.Title}/`,
+					this.childDefaultOf(item) ?? doc.sectionTypeId
+				);
 			}
 		}
 
@@ -952,22 +957,30 @@ export class DocumentManager {
 	 * Recursively append an item and all its descendants to a flat list,
 	 * threading the folder path so each document's path reflects its ancestry.
 	 */
-	private collectDocuments(item: BinderItem, parentPath: string, out: ScrivenerDocument[]): void {
-		out.push(this.binderItemToDocument(item, parentPath));
+	private collectDocuments(
+		item: BinderItem,
+		parentPath: string,
+		out: ScrivenerDocument[],
+		inheritedSectionType?: string
+	): void {
+		const doc = this.binderItemToDocument(item, parentPath, inheritedSectionType);
+		out.push(doc);
 
 		const children = item.Children?.BinderItem;
 		if (!children) return;
 		const childPath = `${parentPath}${item.Title}/`;
+		const childDefault = this.childDefaultOf(item) ?? doc.sectionTypeId;
 		const items = Array.isArray(children) ? children : [children];
 		for (const child of items) {
-			this.collectDocuments(child, childPath, out);
+			this.collectDocuments(child, childPath, out, childDefault);
 		}
 	}
 
 	private buildDocumentTree(
 		container: BinderContainer,
 		documents: ScrivenerDocument[],
-		parentPath: string
+		parentPath: string,
+		inheritedSectionType?: string
 	): void {
 		if (!container.BinderItem) return;
 
@@ -975,18 +988,37 @@ export class DocumentManager {
 			? container.BinderItem
 			: [container.BinderItem];
 		for (const item of items) {
-			const doc = this.binderItemToDocument(item, parentPath);
+			const doc = this.binderItemToDocument(item, parentPath, inheritedSectionType);
 			documents.push(doc);
 
 			if (item.Children?.BinderItem) {
 				const childPath = `${parentPath}${item.Title}/`;
 				doc.children = [];
-				this.buildDocumentTree(item.Children, doc.children, childPath);
+				this.buildDocumentTree(
+					item.Children,
+					doc.children,
+					childPath,
+					this.childDefaultOf(item) ?? doc.sectionTypeId
+				);
 			}
 		}
 	}
 
-	private binderItemToDocument(item: BinderItem, parentPath: string): ScrivenerDocument {
+	/** A folder's own ChildDefault, if it sets one for its descendants. */
+	private childDefaultOf(item: BinderItem): string | undefined {
+		if (!item.MetaData) return undefined;
+		const metadata = Array.isArray(item.MetaData) ? item.MetaData[0] : item.MetaData;
+		const sectionType = (metadata as { SectionType?: unknown }).SectionType;
+		return sectionType && typeof sectionType === 'object'
+			? (sectionType as { ChildDefault?: string }).ChildDefault
+			: undefined;
+	}
+
+	private binderItemToDocument(
+		item: BinderItem,
+		parentPath: string,
+		inheritedSectionType?: string
+	): ScrivenerDocument {
 		const doc: ScrivenerDocument = {
 			id: item.UUID || '',
 			title: item.Title || 'Untitled',
@@ -1001,6 +1033,16 @@ export class DocumentManager {
 			const metadata = Array.isArray(item.MetaData)
 				? item.MetaData[0]
 				: (item.MetaData as MetaDataItem);
+
+			// A plain string is the item's own override; an object means only
+			// ChildDefault was set (a folder's default for its children, not for
+			// itself), so this item still falls back to the inherited value.
+			const ownSectionType =
+				typeof metadata.SectionType === 'string' ? metadata.SectionType : undefined;
+			const resolvedSectionType = ownSectionType ?? inheritedSectionType;
+			if (resolvedSectionType) {
+				doc.sectionTypeId = resolvedSectionType;
+			}
 
 			if (metadata.Synopsis) {
 				doc.synopsis = metadata.Synopsis;

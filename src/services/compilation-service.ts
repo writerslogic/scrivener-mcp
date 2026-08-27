@@ -6,6 +6,7 @@ import { DOCUMENT_TYPES } from '../core/constants.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
 import { getAccurateWordCount } from '../utils/text-metrics.js';
+import { classifyLayout } from './compile-settings.js';
 import type {
 	DocumentInfo,
 	ProjectMetadata,
@@ -33,6 +34,8 @@ export interface StructuredEntry {
 	/** 1-based binder depth, used as the heading level (top-level = 1). */
 	depth: number;
 	isFolder: boolean;
+	/** Resolved Section Type ID (ScrivenerDocument.sectionTypeId), if any. */
+	sectionTypeId?: string;
 }
 
 export interface StructuredCompileOptions {
@@ -41,6 +44,14 @@ export interface StructuredCompileOptions {
 	sceneSeparator?: string;
 	/** Emit each document's title as a heading. Default true. */
 	includeTitles?: boolean;
+	/**
+	 * A compile format's section-type -> layout-ID map (CompileFormat.sectionLayouts).
+	 * When given, entries whose sectionTypeId resolves to a recognized standard
+	 * layout (see classifyLayout) get that layout's title/numbering/page-break
+	 * behavior instead of the generic includeTitles/sceneSeparator behavior.
+	 * Omit for today's unchanged, format-agnostic compile.
+	 */
+	sectionLayouts?: Record<string, string>;
 }
 
 export interface SearchOptions {
@@ -124,12 +135,19 @@ export class CompilationService {
 	 * a structured manuscript: folder titles become headings at their binder depth,
 	 * document titles optionally become headings, and a scene separator is inserted
 	 * between consecutive sibling documents. Unlike compile_documents' AI path this
-	 * needs no API key and is fully reproducible. It reflects the *binder*
-	 * structure; it does not reproduce Scrivener's compile-format section layouts
-	 * (those definitions are not stored in the project — see docs/scrivener-format.md).
+	 * needs no API key and is fully reproducible. With no `sectionLayouts` given it
+	 * reflects only the *binder* structure, generic across every compile format.
+	 * Passing a format's sectionLayouts applies that format's standard-layout
+	 * title/numbering/page-break behavior per entry (see classifyLayout) - still
+	 * best-effort, since the layouts' full rules live outside the project file.
 	 */
 	compileStructured(entries: StructuredEntry[], options: StructuredCompileOptions = {}): string {
-		const { outputFormat = 'text', sceneSeparator = '', includeTitles = true } = options;
+		const {
+			outputFormat = 'text',
+			sceneSeparator = '',
+			includeTitles = true,
+			sectionLayouts,
+		} = options;
 
 		const heading = (title: string, depth: number): string => {
 			const level = Math.min(Math.max(depth, 1), 6);
@@ -141,6 +159,10 @@ export class CompilationService {
 			return title.toUpperCase();
 		};
 
+		const pageBreak = (): string =>
+			outputFormat === 'html' ? '<div style="page-break-before:always"></div>' : '\f';
+
+		let chapterNumber = 0;
 		const parts: string[] = [];
 		let prevWasDocument = false;
 		for (const entry of entries) {
@@ -150,9 +172,24 @@ export class CompilationService {
 				prevWasDocument = false;
 				continue;
 			}
-			if (prevWasDocument && sceneSeparator) parts.push(sceneSeparator);
+
+			// Only override the generic behavior when this entry actually resolves to a
+			// layout - an entry with no sectionTypeId isn't "AS-IS", it's unknown, and
+			// should keep the generic includeTitles/sceneSeparator behavior.
+			const layoutId = entry.sectionTypeId
+				? sectionLayouts?.[entry.sectionTypeId]
+				: undefined;
+			const layout = layoutId ? classifyLayout(layoutId) : undefined;
+
+			if (layout?.pageBreakBefore) parts.push(pageBreak());
+			else if (prevWasDocument && sceneSeparator) parts.push(sceneSeparator);
+
 			const seg: string[] = [];
-			if (includeTitles && entry.title) seg.push(heading(entry.title, level));
+			const titleVisible = layout ? layout.titleVisible : includeTitles && !!entry.title;
+			if (titleVisible) {
+				const title = layout?.numbered ? `Chapter ${++chapterNumber}` : entry.title;
+				seg.push(heading(title, level));
+			}
 			const body = entry.content.trim();
 			if (body) seg.push(body);
 			if (seg.length > 0) parts.push(seg.join('\n\n'));

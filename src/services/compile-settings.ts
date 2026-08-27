@@ -46,8 +46,57 @@ export interface CompileFormat {
 	font?: string;
 	/** Number of section-type → layout assignments this format defines. */
 	sectionLayoutCount: number;
+	/** Section-type ID -> layout ID, as assigned by this format. */
+	sectionLayouts: Record<string, string>;
 	/** True when the format injects default front/back matter. */
 	hasFrontMatter: boolean;
+}
+
+/**
+ * How a layout affects compiled output. Scrivener's project files only ever
+ * store a layout *ID* (see CompileFormat.sectionLayouts); the layout's actual
+ * rules (title format, separators, page breaks) live in Scrivener's own
+ * format-preset files, outside the .scriv package, so they can't be read from
+ * project data at all. This recognizes the handful of standard layout IDs
+ * that Scrivener's built-in format presets use consistently (visible by name,
+ * not a GUID) and gives them a reasonable, documented interpretation. Any
+ * other ID - a custom layout, or one from a preset not covered here - is
+ * unclassifiable and returns the same neutral defaults as "no layout".
+ */
+export interface LayoutBehavior {
+	/** Show the document's title before its text. */
+	titleVisible: boolean;
+	/** Render the title as "Chapter <n>" with an auto-incrementing counter. */
+	numbered: boolean;
+	/** Start this section on a new page. */
+	pageBreakBefore: boolean;
+}
+
+const NEUTRAL_LAYOUT: LayoutBehavior = {
+	titleVisible: false,
+	numbered: false,
+	pageBreakBefore: false,
+};
+
+const STANDARD_LAYOUTS: Record<string, LayoutBehavior> = {
+	'AS-IS': NEUTRAL_LAYOUT,
+	'TEXT-SECTION': NEUTRAL_LAYOUT,
+	'TEXT-WITH-HEADER': { titleVisible: true, numbered: false, pageBreakBefore: false },
+	'CHAPTER-NUMBER': { titleVisible: true, numbered: true, pageBreakBefore: true },
+	'NEW-PAGE-HEADER': { titleVisible: true, numbered: false, pageBreakBefore: true },
+};
+
+/**
+ * Classify a layout ID into its formatting behavior. Returns undefined for an
+ * unrecognized ID (a custom layout, or one from a preset not covered above) -
+ * distinct from AS-IS/TEXT-SECTION, which are recognized and genuinely
+ * neutral. Callers should treat undefined as "unknown" and fall back to
+ * their own default, not silently apply neutral (e.g. hiding a title the
+ * user's own generic settings would have shown).
+ */
+export function classifyLayout(layoutId: string | undefined): LayoutBehavior | undefined {
+	if (!layoutId) return undefined;
+	return STANDARD_LAYOUTS[layoutId.toUpperCase()];
 }
 
 /** Aggregated, read-only view of a project's compile and taxonomy settings. */
@@ -136,10 +185,18 @@ export async function parseCompileXml(xml: string): Promise<{
 	const formats = asArray(asRecord(root.FormatSettings).Format).map((raw): CompileFormat => {
 		const fmt = asRecord(raw);
 		const layouts = asArray(asRecord(fmt.SectionLayouts).Type);
+		const sectionLayouts: Record<string, string> = {};
+		for (const layout of layouts) {
+			const rec = asRecord(layout);
+			const sectionTypeId = asString(rec.ID);
+			const layoutId = textOf(layout);
+			if (sectionTypeId && layoutId) sectionLayouts[sectionTypeId] = layoutId;
+		}
 		return {
 			id: asString(fmt.ID) ?? '',
 			font: asString(fmt.Font),
 			sectionLayoutCount: layouts.length,
+			sectionLayouts,
 			hasFrontMatter: 'FrontAndBackMatter' in fmt,
 		};
 	});

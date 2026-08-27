@@ -53,6 +53,14 @@ export interface BinderMetaData {
 	Keywords?: string;
 	Created?: string;
 	Modified?: string;
+	/**
+	 * A document's own section-type override is plain text (xml2js collapses
+	 * `<SectionType>ID</SectionType>` to a string). A folder's default for its
+	 * children carries the `ChildDefault` attribute instead, which xml2js
+	 * merges onto an object (`<SectionType ChildDefault="ID"></SectionType>`).
+	 * Both can be present on the same folder at once.
+	 */
+	SectionType?: string | { ChildDefault?: string; _?: string };
 	CustomMetaData?: {
 		MetaDataItem?: MetaDataItem | MetaDataItem[];
 	};
