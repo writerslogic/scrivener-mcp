@@ -704,7 +704,7 @@ export function deepMerge<T extends Record<string, unknown>, U extends Record<st
 /** Get nested property safely */
 export function getNested(obj: Record<string, unknown>, path: string, def?: unknown): unknown {
 	return path.split('.').reduce<unknown>((o, k) => {
-		if (o && typeof o === 'object' && o !== null && k in o) {
+		if (o && typeof o === 'object' && k in o) {
 			return (o as Record<string, unknown>)[k];
 		}
 		return def;
