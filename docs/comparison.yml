@@ -1,10 +1,19 @@
 # Source data for the "Why This One?" table in README.md.
 #
-# Verified: 2026-08-07. Feature claims come from each project's public README
-# and, for TwelveTake, its published npm package. Repository statistics are
-# refreshed weekly by .github/workflows/update-comparison.yml.
+# This file is the single source of truth for the table. The renderer lives in
+# .github/workflows/update-comparison.yml and reads it directly: edit feature
+# claims here, never in the README or the workflow.
+#
+# Feature claims come from each project's public README and, for TwelveTake,
+# its published npm package.
+#
+# Two dates, deliberately distinct:
+#   verified  - when a human last re-checked the feature claims below.
+#               Bump it by hand, only after actually re-reading the sources.
+#   refreshed - when the machine-checkable columns (stars, forks, activity,
+#               published version) were last pulled. The workflow owns it.
 
-verified: "2026-08-07"
+verified: "2026-08-22"
 
 repos:
   scrivener-mcp:
@@ -19,6 +28,8 @@ repos:
     npm: "@twelvetake/scrivener-mcp"
     display: "TwelveTake"
     note: "npm marks 1.3.2 as discontinued and unmaintained; linked source is unavailable"
+    status_note: "discontinued and unmaintained"
+    community_note: "source repository unavailable"
   scrivener-assistant:
     github: elnino1/scrivener-assistant
     display: "Scrivener Assistant"
@@ -123,8 +134,8 @@ features:
     jiayun: "Cargo or prebuilt binary"
     twelvetake: "npm package (deprecated)"
     scrivener-assistant: "MCPB or source"
-    ricopicone: "source / uv"
-    zaphodsdad: "source / pip install -e"
+    ricopicone: "source / `uv`"
+    zaphodsdad: "source / `pip install -e`"
 
   - label: License
     scrivener-mcp: "AGPL-3.0 / commercial dual-license"
