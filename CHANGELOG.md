@@ -5,12 +5,41 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Apply compile-format section layouts to structured compile (#14)
+
+### Changed
+- Drive comparison-table workflow from docs/comparison.yml (#101)
+
+### Documentation
+- Standardize repository presentation (#108)
+
 ### Fixed
+- Address CodeQL, Scorecard, and code-quality scanner findings (#102)
+- Changelog workflow opens a PR instead of pushing directly to main
+- Add missing MemoryManager import in project.test.ts
+- Correct JobQueueService call signature in manual queue test
+- Correct duplicate characters in regex character classes
+- Remove unused imports and dead code flagged by CodeQL quality scan
+- Keyword search was dead code, real docs pass a joined string not an array
+- Repair project.test.ts vacuous checks and temp-dir hygiene
+- Repair scrivener-project-roundtrip integration test and stale-write-cache bug
+- Repair utility-adoption-workflow integration test for API drift
+- Run embedded job queue inline instead of opening a real Redis socket (#91, #96, #93)
+- Pass resolved document path when syncing to database (#93)
+- Persist document path in documents table insert (#93)
+- Add missing project_metadata table migration (#95)
+- Correct UNION ALL column list between themes and locations (#94)
+- Remove commandTimeout that aborts blocking BullMQ worker commands (#92)
+- Resolve security and code quality findings
 - Npm audit fix — clears 8 advisories (undici, fast-uri, brace-expansion, ip-address, hono, body-parser, @hono/node-server)
 - Describe all outputSchema fields and probe get_entity_references in conformance gate
 
 ### Security
 - Fix all 23 open CodeQL findings across src, scripts, and tests
+
+### Style
+- Fix prettier formatting in job-queue.ts
 ## [0.12.0] - 2026-07-25
 
 ### Added
