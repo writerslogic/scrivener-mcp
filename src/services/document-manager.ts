@@ -25,7 +25,12 @@ import {
 	truncate,
 	validateInput,
 } from '../utils/common.js';
-import { generateScrivenerUUID, getDocumentPath } from '../utils/scrivener-utils.js';
+import {
+	generateScrivenerUUID,
+	getDocumentPath,
+	getNotesPath,
+	getSynopsisPath,
+} from '../utils/scrivener-utils.js';
 import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
 import {
 	addBinderItem,
@@ -817,7 +822,7 @@ export class DocumentManager {
 				for (const item of topItems) {
 					const isTrash = item.Type === 'TrashFolder';
 					if (isTrash && !includeTrash) continue;
-					this.collectDocuments(item, isTrash ? 'Trash/' : '', flatList);
+					await this.collectDocuments(item, isTrash ? 'Trash/' : '', flatList);
 				}
 
 				// Alternate trash representation: a SearchResults container.
@@ -831,7 +836,7 @@ export class DocumentManager {
 						if (!children) continue;
 						const items = Array.isArray(children) ? children : [children];
 						for (const child of items) {
-							this.collectDocuments(child, 'Trash/', flatList);
+							await this.collectDocuments(child, 'Trash/', flatList);
 						}
 					}
 				}
@@ -864,7 +869,7 @@ export class DocumentManager {
 			const basePath = `${folder?.Title ?? ''}/`;
 			const items = Array.isArray(children) ? children : [children];
 			for (const child of items) {
-				this.collectDocuments(child, basePath, out);
+				await this.collectDocuments(child, basePath, out);
 			}
 			return out;
 		} catch (error) {
@@ -898,11 +903,11 @@ export class DocumentManager {
 			const isTrash = item.Type === 'TrashFolder';
 			if (isTrash && !includeTrash) continue;
 			const prefix = isTrash ? 'Trash/' : '';
-			const doc = this.binderItemToDocument(item, prefix);
+			const doc = await this.binderItemToDocument(item, prefix);
 			documents.push(doc);
 			if (item.Children?.BinderItem) {
 				doc.children = [];
-				this.buildDocumentTree(
+				await this.buildDocumentTree(
 					item.Children,
 					doc.children,
 					prefix || `${item.Title}/`,
@@ -919,7 +924,7 @@ export class DocumentManager {
 					: [];
 
 			if (searchResults[0]?.Children?.BinderItem) {
-				this.buildDocumentTree(searchResults[0].Children, documents, 'Trash/');
+				await this.buildDocumentTree(searchResults[0].Children, documents, 'Trash/');
 			}
 		}
 
@@ -957,13 +962,13 @@ export class DocumentManager {
 	 * Recursively append an item and all its descendants to a flat list,
 	 * threading the folder path so each document's path reflects its ancestry.
 	 */
-	private collectDocuments(
+	private async collectDocuments(
 		item: BinderItem,
 		parentPath: string,
 		out: ScrivenerDocument[],
 		inheritedSectionType?: string
-	): void {
-		const doc = this.binderItemToDocument(item, parentPath, inheritedSectionType);
+	): Promise<void> {
+		const doc = await this.binderItemToDocument(item, parentPath, inheritedSectionType);
 		out.push(doc);
 
 		const children = item.Children?.BinderItem;
@@ -972,29 +977,29 @@ export class DocumentManager {
 		const childDefault = this.childDefaultOf(item) ?? doc.sectionTypeId;
 		const items = Array.isArray(children) ? children : [children];
 		for (const child of items) {
-			this.collectDocuments(child, childPath, out, childDefault);
+			await this.collectDocuments(child, childPath, out, childDefault);
 		}
 	}
 
-	private buildDocumentTree(
+	private async buildDocumentTree(
 		container: BinderContainer,
 		documents: ScrivenerDocument[],
 		parentPath: string,
 		inheritedSectionType?: string
-	): void {
+	): Promise<void> {
 		if (!container.BinderItem) return;
 
 		const items = Array.isArray(container.BinderItem)
 			? container.BinderItem
 			: [container.BinderItem];
 		for (const item of items) {
-			const doc = this.binderItemToDocument(item, parentPath, inheritedSectionType);
+			const doc = await this.binderItemToDocument(item, parentPath, inheritedSectionType);
 			documents.push(doc);
 
 			if (item.Children?.BinderItem) {
 				const childPath = `${parentPath}${item.Title}/`;
 				doc.children = [];
-				this.buildDocumentTree(
+				await this.buildDocumentTree(
 					item.Children,
 					doc.children,
 					childPath,
@@ -1014,11 +1019,40 @@ export class DocumentManager {
 			: undefined;
 	}
 
-	private binderItemToDocument(
+	/**
+	 * Scrivener 3 stores a document's synopsis/notes as files under
+	 * Files/Data/<UUID>/ (synopsis.txt, notes.rtf) -- the .scrivx MetaData
+	 * Synopsis/Notes fields read by binderItemToDocument below are effectively
+	 * always empty in real projects. Disk content wins when present; the
+	 * MetaData fields remain a fallback for the (untested-as-existing) case
+	 * where some other client populates them instead.
+	 */
+	private async readSynopsisAndNotesFromDisk(
+		documentId: string
+	): Promise<{ synopsis?: string; notes?: string }> {
+		const [synopsis, notes] = await Promise.all([
+			(async () => {
+				const filePath = getSynopsisPath(this.projectPath, documentId);
+				if (!(await FileUtils.exists(filePath))) return undefined;
+				const text = await safeReadFile(filePath, 'utf-8');
+				return text || undefined;
+			})(),
+			(async () => {
+				const filePath = getNotesPath(this.projectPath, documentId);
+				if (!(await FileUtils.exists(filePath))) return undefined;
+				const rtf = await this.rtfHandler.readRTF(filePath);
+				return rtf.plainText || undefined;
+			})(),
+		]);
+
+		return { synopsis, notes };
+	}
+
+	private async binderItemToDocument(
 		item: BinderItem,
 		parentPath: string,
 		inheritedSectionType?: string
-	): ScrivenerDocument {
+	): Promise<ScrivenerDocument> {
 		const doc: ScrivenerDocument = {
 			id: item.UUID || '',
 			title: item.Title || 'Untitled',
@@ -1085,6 +1119,12 @@ export class DocumentManager {
 					}
 				}
 			}
+		}
+
+		if (doc.id) {
+			const fromDisk = await this.readSynopsisAndNotesFromDisk(doc.id);
+			if (fromDisk.synopsis !== undefined) doc.synopsis = fromDisk.synopsis;
+			if (fromDisk.notes !== undefined) doc.notes = fromDisk.notes;
 		}
 
 		return doc;
