@@ -48,8 +48,11 @@ document write**, so Scrivener does not flag our edits as externally modified.
 
 ## The `.scrivx` manifest
 
-Parsed with `xml2js` (`explicitArray: false, mergeAttrs: true`), so XML
-attributes and child elements land as sibling keys and element text lands on `_`.
+Parsed with `xml2js` (`explicitArray: false, mergeAttrs: false`). XML attributes
+remain in `$`, child elements retain their names, and element text lands on `_`.
+Non-enumerable attribute accessors keep existing `item.UUID`/`item.Type` callers
+working without serializing those aliases as child elements. New binder items
+have their UUID, ID, Type, Created, and Modified fields encoded as attributes.
 
 The root carries project identity as attributes:
 
