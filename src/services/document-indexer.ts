@@ -258,6 +258,19 @@ export class DocumentIndexer {
 	}
 
 	/**
+	 * Patch fields on an already-indexed document in place. A metadata update
+	 * (synopsis, notes, label, ...) writes to the binder XML and/or disk, not to
+	 * this index, so without this the O(1) getDocumentInfo path keeps serving
+	 * the ScrivenerDocument snapshot from the last buildIndex. No-op if the
+	 * document isn't indexed.
+	 */
+	patchDocumentMetadata(documentId: string, patch: Partial<ScrivenerDocument>): void {
+		const info = this.documentIndex.get(documentId);
+		if (!info) return;
+		Object.assign(info.document, patch);
+	}
+
+	/**
 	 * Search content using index
 	 */
 	async searchContent(
