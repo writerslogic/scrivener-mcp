@@ -25,8 +25,8 @@ elsewhere). Observed top-level contents of a Scrivener 3 project:
 │   ├── Data/
 │   │   └── <UUID>/
 │   │       ├── content.rtf   # the document's text (RTF)
-│   │       ├── synopsis.txt  # index-card synopsis (optional)
-│   │       └── notes.rtf     # document notes (optional)
+│   │       ├── synopsis.txt  # index-card synopsis (optional) -- authoritative; see below
+│   │       └── notes.rtf     # document notes (optional) -- authoritative; see below
 │   ├── binder.autosave  # Scrivener's autosave copy of the binder
 │   ├── search.indexes   # Scrivener's full-text index
 │   ├── styles.xml       # paragraph/character styles
