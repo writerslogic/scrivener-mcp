@@ -402,7 +402,7 @@ npm run typecheck    # Type checking only
 
 ## Why This One?
 
-Several Scrivener MCP servers exist. Feature claims below come from each project’s public documentation, published package, and advertised tool surface, last re-read on **2026-08-22**; stars, forks, activity, and published version were refreshed <!-- comparison-refreshed -->2026-08-22<!-- /comparison-refreshed -->. “No” means the project does not document that capability; it does not claim the capability is impossible through the connected AI client.
+Several Scrivener MCP servers exist. Feature claims below come from each project’s public documentation, published package, and advertised tool surface, last re-read on **2026-08-22**; stars, forks, activity, and published version were refreshed <!-- comparison-refreshed -->2026-09-15<!-- /comparison-refreshed -->. “No” means the project does not document that capability; it does not claim the capability is impossible through the connected AI client.
 
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp) | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
@@ -420,8 +420,8 @@ Several Scrivener MCP servers exist. Feature claims below come from each project
 | Windows support | yes | yes (prebuilt binary) | yes | not documented | not documented | yes |
 | Installation | npm, Homebrew, Docker, Smithery | Cargo or prebuilt binary | npm package (deprecated) | MCPB or source | source / `uv` | source / `pip install -e` |
 | License | AGPL-3.0 / commercial dual-license | MIT | MIT | MIT | not declared | MIT |
-| Repository/package status | weekly activity; npm `0.12.0` | weekly activity | discontinued and unmaintained | occasional activity | occasional activity; no releases | occasional activity |
-| Community | ⭐ 46 · 13 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | ⭐ 5 · 1 fork |
+| Repository/package status | weekly activity; npm `0.12.0` | monthly activity | discontinued and unmaintained | occasional activity | occasional activity; no releases | occasional activity; no releases |
+| Community | ⭐ 54 · 18 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | ⭐ 5 · 1 fork |
 <!-- comparison-end -->
 
 Counts and feature claims can change. Follow the linked projects for their latest documentation.
