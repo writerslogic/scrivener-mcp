@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
+- Tighten README prose, drop fabricated chat transcripts (#120)
 - Standardize repository presentation (#108)
 
 ### Fixed
