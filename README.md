@@ -37,200 +37,109 @@
 
 ---
 
-Scrivener MCP lets your AI assistant open, read, edit, analyze, and search your Scrivener projects directly. No copy-pasting. No exporting. Tell your assistant which project to open, and start working.
+Scrivener MCP lets your AI assistant open, read, edit, analyze, and search your Scrivener projects directly. No exporting, no copy-pasting text back and forth. Tell it which project to open and start working.
 
 > **You:** Open my novel and analyze the pacing in Chapter 12.
 >
-> **Claude:** *Opens your .scriv project, reads Chapter 12, runs pacing analysis.*
-> The first half moves well with short, tense paragraphs. The middle section slows
-> considerably -- the three-page internal monologue starting at paragraph 14 stalls
-> the momentum you built in the confrontation scene. Consider cutting it to a single
-> paragraph and moving the backstory to Chapter 8 where Elena is first introduced.
+> **Claude:** *Opens the .scriv project, reads Chapter 12, runs pacing analysis.* The first half moves well, but the middle stalls — a three-page internal monologue starting at paragraph 14 kills the momentum you built in the confrontation scene. Consider cutting it to a paragraph and moving the backstory to Chapter 8.
 
 Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), VS Code (Copilot/Continue), Cursor, and any MCP-compatible client. Scrivener 3 on macOS, Windows, and Linux. Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.writerslogic/scrivener-mcp`.
 
 ## Install
 
-Pick the method that works for you. Most auto-configure **Claude Desktop** on install. **Claude Code** and other clients need one extra step -- see [Claude Code](#claude-code) below.
-
-### npm (recommended)
-
 ```bash
 npm install -g scrivener-mcp
 ```
 
-Restart Claude Desktop. Done.
-
-### Claude Code
-
-Installing the npm package does **not** register the server with Claude Code -- the install-time auto-config only writes Claude Desktop's config. After installing, register the server:
+Restart Claude Desktop and it's ready. Other clients need one more step:
 
 ```bash
 npx scrivener-setup
 ```
 
-This detects Claude Code (along with Claude Desktop and Cursor) and writes the config for you. To register it manually instead:
+This finds Claude Code, Claude Desktop, and Cursor and configures them for you. To set up Claude Code by hand instead: `claude mcp add -s user scrivener -- npx scrivener-mcp`, then restart it (or run `/mcp`).
 
-```bash
-claude mcp add -s user scrivener -- npx scrivener-mcp
-```
+<details>
+<summary><strong>Other ways to install</strong></summary>
 
-Then restart Claude Code (or run `/mcp` to reconnect) and Scrivener MCP appears in the server list. Drop `-s user` to scope it to the current project instead of all projects.
-
-### Smithery
-
+**Smithery**
 ```bash
 npx -y @smithery/cli install scrivener-mcp --client claude
 ```
 
-### npx (no install)
-
-Use directly without installing globally:
-
+**npx, no install**
 ```bash
 npx scrivener-mcp
 ```
-
-Or add to your Claude Desktop config manually:
-
+or add it to Claude Desktop's config directly:
 ```json
 {
   "mcpServers": {
-    "scrivener": {
-      "command": "npx",
-      "args": ["scrivener-mcp"]
-    }
+    "scrivener": { "command": "npx", "args": ["scrivener-mcp"] }
   }
 }
 ```
 
-### GitHub
-
-Install directly from the repo (latest main):
-
+**From GitHub**
 ```bash
-npm install -g writerslogic/scrivener-mcp
+npm install -g writerslogic/scrivener-mcp              # latest main
+npm install -g writerslogic/scrivener-mcp#v0.12.0       # a specific release
 ```
 
-Or a specific release:
-
-```bash
-npm install -g writerslogic/scrivener-mcp#v0.12.0
-```
-
-### Homebrew (macOS)
-
+**Homebrew (macOS)**
 ```bash
 brew install writerslogic/tap/scrivener-mcp
 ```
 
-### Docker
-
+**Docker**
 ```bash
 docker build -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
 docker run -i --rm -v /path/to/your/projects:/projects scrivener-mcp
 ```
 
-<details>
-<summary><strong>Setup for other MCP clients</strong></summary>
-
-Run the interactive setup to auto-detect and configure your client:
-
-```bash
-npx scrivener-setup
-```
-
-This detects Claude Desktop, Claude Code, and Cursor, and writes the config for you.
-
-For other MCP clients, point them at `npx scrivener-mcp` as a stdio server.
+Any other MCP client: point it at `npx scrivener-mcp` as a stdio server.
 
 </details>
 
 <details>
 <summary><strong>Optional: AI-powered features</strong></summary>
 
-Core features (document management, deterministic analysis, keyword search, and project memory) work without any API key. AI-powered analysis, generation, enhancement, and semantic search work with an Anthropic (Claude), OpenAI, or OpenRouter key; when several are present, Claude handles chat and generation (set `AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` to override). OpenRouter defaults to the `anthropic/claude-sonnet-4.6` model; set `OPENROUTER_MODEL` to use another model in its catalog. If the active provider fails with an account-level error (invalid key, exhausted credit, outage), the server automatically retries the request on the next configured provider. When your MCP client supports the [sampling capability](https://modelcontextprotocol.io/docs/concepts/sampling), supported chat-based AI features can also run through the client's own model—with no separately configured API key. Semantic indexing and similarity scoring use the local Holographic Memory System rather than an external embedding API, while the current `semantic_search` pipeline uses the configured chat provider to interpret queries and explain results. The server automatically discovers keys from common locations:
+Document management, deterministic analysis, keyword search, and project memory work with no API key at all. Writing analysis, generation, enhancement, and semantic search need one — Anthropic, OpenAI, or OpenRouter. Set more than one and Claude handles chat by default; override with `AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` (OpenRouter defaults to `anthropic/claude-sonnet-4.6`, change it with `OPENROUTER_MODEL`). If the active provider fails on an account-level error — bad key, no credit, an outage — the server retries on the next one you've configured. If your MCP client supports [sampling](https://modelcontextprotocol.io/docs/concepts/sampling), chat-based features can run through the client's own model instead, no separate key needed. Semantic indexing itself always runs locally through the Holographic Memory System; only `semantic_search`'s query interpretation needs a provider.
 
-- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables
-- `~/.env`, `~/.scrivener-mcp/.env`
+Keys are picked up automatically from:
+- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY`
+- `~/.env` or `~/.scrivener-mcp/.env`
 - `~/.anthropic/key`, `~/.openai/key`, `~/.openrouter/key`
-- macOS Keychain (service names `anthropic-api-key` / `openai-api-key` / `openrouter-api-key`)
-
-To store a key in the macOS Keychain:
+- macOS Keychain (`anthropic-api-key` / `openai-api-key` / `openrouter-api-key`)
 
 ```bash
-security add-generic-password -s anthropic-api-key -a anthropic -w sk-ant-your-key-here
+security add-generic-password -s anthropic-api-key -a anthropic -w sk-ant-your-key-here   # Keychain
+export ANTHROPIC_API_KEY="sk-ant-..."                                                      # or export it directly
 ```
-
-Or export it manually:
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."   # or OPENAI_API_KEY="sk-..."
-```
-
-This enables provider-backed writing analysis, content enhancement, generation, semantic search, character consistency checking, and intelligent compilation.
 
 </details>
 
 ## What You Can Do
 
-> **First, open a project.** The server acts on whatever `.scriv` project you point it at -- it has no link to the Scrivener app and can't see what you have open there. Start a conversation with *"Open my Scrivener project at `~/Documents/My Novel.scriv`"* (or *"Discover my Scrivener projects"* if you don't know the path), then give your commands. On macOS you can also just say *"Use the project I have open in Scrivener"* -- it detects the open project and opens it (the first time, macOS asks you to allow controlling Scrivener). Do this once at the start of each conversation; the examples below all assume a project is open. If the same project is also open and unsaved in the Scrivener app, save or close it there first to avoid conflicting writes.
+> Open a project first. The server has no link to the Scrivener app itself and can't see what's open there — say *"Open my Scrivener project at `~/Documents/My Novel.scriv`"*, or *"Discover my Scrivener projects"* if you don't know the path. On macOS, *"Use the project I have open in Scrivener"* works too (the first time, macOS will ask permission to control Scrivener). Do this once per conversation. If the project is also open and unsaved in Scrivener itself, save or close it there first, or the two can write over each other.
 
-### Manage Your Manuscript
+**Manage your manuscript.** Read chapters, create scenes, reorganize the binder, update synopses — all through conversation. *"Create a new scene called 'The Reveal' after Chapter 5, and move the old epilogue to the trash."*
 
-Open any Scrivener project and work with it naturally. Read chapters, create new scenes, reorganize the binder, update synopses -- all through conversation.
+**Analyze your writing.** Readability, pacing, style, dialogue quality, emotional arc — grounded in your actual prose, not generic advice. Ask whether a chapter's pacing is off and get specifics: which paragraphs stall, how the scene compares to your other chapters, filter-word density against your own average.
 
-> **You:** Create a new scene called "The Reveal" after Chapter 5, and move the old epilogue to the trash.
+**Enhance your prose.** Targeted edits: cut filter words, strengthen verbs, vary sentence structure, add sensory detail, turn telling into showing, tighten dialogue, fix pacing.
 
-### Analyze Your Writing
+**Track characters and plot.** Character profiles, plot threads, and style guides persist with the project across sessions. Save a profile for a character once; a consistency check months later catches contradictions — dialogue that doesn't sound like them, a limp that disappears for a chapter.
 
-Get detailed feedback on readability, pacing, style, dialogue quality, and emotional arc. Not generic advice -- analysis grounded in your actual prose.
+**Search by meaning.** "Find scenes where the protagonist feels isolated" works even if that word never appears. Indexing and similarity scoring run locally through the [Holographic Memory System](https://www.npmjs.com/package/holographic-memory); `semantic_search` also needs a configured AI provider to interpret the query and explain the results.
 
-> **You:** Analyze Chapter 3. Is the pacing too slow?
->
-> **Claude:** Readability is good (Flesch-Kincaid grade 8.2), but pacing flags:
-> - 4 consecutive paragraphs of internal monologue (lines 45-78) with no action or dialogue
-> - The scene is 3,200 words with only 2 scene breaks -- your other chapters average 4
-> - Filter word density is 2x your manuscript average ("felt", "seemed", "noticed")
-> Specific suggestions: ...
+**Track relationships.** Query how characters, locations, themes, and plot threads connect. No Neo4j required — relationships live in the semantic memory engine and persist with the project; Neo4j adds deeper graph analysis if you have it.
 
-### Enhance Your Prose
-
-Apply targeted improvements: eliminate filter words, strengthen verbs, vary sentence structure, add sensory details, convert telling to showing, tighten dialogue, adjust pacing.
-
-> **You:** Eliminate the filter words in Chapter 7 and strengthen the verbs.
-
-### Track Characters and Plot
-
-Store character profiles, plot threads, and style guides that persist with your project. The AI remembers your characters across sessions.
-
-> **You:** Save a character profile for Marcus: retired detective, cynical but fair, walks with a limp from an old injury, speaks in clipped sentences.
->
-> *Later...*
->
-> **You:** Check if Marcus is consistent across all chapters.
->
-> **Claude:** Found an inconsistency: Marcus walks "briskly" in Chapter 9 (line 34), but his limp is referenced in Chapters 2, 5, and 11. Also, his dialogue in Chapter 4 uses long flowing sentences, which contradicts the "clipped sentences" note in his profile.
-
-### Search by Meaning
-
-Find passages by what they're about, not just keyword matching. "Find scenes where the protagonist feels isolated" works even if the word "isolated" never appears. The project index and similarity scoring run locally through the [Holographic Memory System](https://www.npmjs.com/package/holographic-memory); the current search pipeline also uses your configured AI provider for query interpretation and result explanations, so `semantic_search` requires a provider.
-
-> **You:** Find all scenes where Elena and Marcus are alone together.
-
-### Track Relationships
-
-Store and query relationships between characters, locations, themes, and plot threads. No Neo4j required -- relationships live in the semantic memory engine and persist with your project.
-
-> **You:** Who is connected to Marcus? What plot threads involve the lighthouse?
-
-### Compile and Export
-
-Combine chapters into a single manuscript with configurable formatting, separators, and structure preservation. Export the result inline as Markdown, HTML, or JSON, or write a DOCX, EPUB, or PDF file to disk for submission, e-readers, or print.
+**Compile and export.** Assemble chapters into one manuscript with your own formatting and structure preserved. Export inline as Markdown, HTML, or JSON, or write a DOCX, EPUB, or PDF to disk.
 
 ## All Tools
 
-57 tools organized by workflow. To keep token usage low, tools load progressively -- project tools at startup, document and search tools when you open a project, and the rest on demand (your AI client activates them automatically, or calls them directly and the owning skill activates on the fly). Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything at once.
+57 tools organized by workflow. To keep token usage low, tools load progressively — project tools at startup, document and search tools once a project is open, the rest on demand. Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
@@ -402,7 +311,7 @@ npm run typecheck    # Type checking only
 
 ## Why This One?
 
-Several Scrivener MCP servers exist. Feature claims below come from each project’s public documentation, published package, and advertised tool surface, last re-read on **2026-08-22**; stars, forks, activity, and published version were refreshed <!-- comparison-refreshed -->2026-09-15<!-- /comparison-refreshed -->. “No” means the project does not document that capability; it does not claim the capability is impossible through the connected AI client.
+A few Scrivener MCP servers exist. Feature claims below come from each project's own docs, published package, and advertised tools, last re-read on **2026-08-22**; stars, forks, activity, and published version were refreshed <!-- comparison-refreshed -->2026-09-15<!-- /comparison-refreshed -->. "No" means undocumented — not necessarily impossible through the connected AI client.
 
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp) | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
@@ -424,24 +333,13 @@ Several Scrivener MCP servers exist. Feature claims below come from each project
 | Community | ⭐ 54 · 18 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | ⭐ 5 · 1 fork |
 <!-- comparison-end -->
 
-Counts and feature claims can change. Follow the linked projects for their latest documentation.
-The table is generated from [`docs/comparison.yml`](./docs/comparison.yml) — edit claims there, not here.
+Counts and feature claims can change. Follow the linked projects for their own latest documentation. The table is generated from [`docs/comparison.yml`](./docs/comparison.yml) — edit claims there, not here.
 
-### The option that isn't an MCP server
+### The alternative that isn't an MCP server
 
-Worth naming, because it is the real alternative for many writers: Scrivener can
-**Sync to External Folder**, writing each document out as RTF or plain text, and any
-general-purpose file MCP server (for example
-[`@modelcontextprotocol/server-filesystem`](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem))
-can then read and write those files.
+Scrivener can also **Sync to External Folder**, writing each document out as RTF or plain text, which any generic file-access MCP server (like [`@modelcontextprotocol/server-filesystem`](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem)) can then read and write.
 
-That costs nothing and works today. What it gives up is everything that depends on
-understanding the project rather than the folder: the binder hierarchy, metadata,
-labels and status, snapshots, compile settings, and RTF formatting all flatten away,
-and edits land in the sync folder rather than the project — so a bad edit is
-reconciled by Scrivener on the next sync rather than caught before it happens. Use the
-sync-folder route for occasional read-only help with prose; use a Scrivener MCP server
-when you want the structure to survive the round trip.
+It's free and works today. What you lose is everything tied to the actual project — binder hierarchy, metadata, labels and status, snapshots, compile settings, RTF formatting — and edits land in the sync folder rather than the project itself, so a bad edit gets reconciled by Scrivener on the next sync instead of caught before it happens. Fine for occasional read-only help with prose; not if you want the structure to survive the round trip.
 
 ## Contributing
 
