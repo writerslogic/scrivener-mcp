@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -154,12 +155,15 @@ jobs:
               print('Comparison table updated.')
           PYEOF
 
-      - name: Commit if changed
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --quiet README.md || (
-            git add README.md &&
-            git commit -m "chore: update comparison table stats" &&
-            git push
-          )
+      # main requires status checks on every ref update, so this can no longer
+      # push directly (that always failed: "2 of 2 required status checks are
+      # expected"). Open a PR instead, same as the changelog workflow.
+      - name: Open comparison-table PR
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          commit-message: 'chore: update comparison table stats'
+          title: 'chore: update comparison table stats'
+          body: Auto-generated weekly refresh of stars/forks/activity/version stats in the "Why This One?" table.
+          branch: auto/comparison-update
+          delete-branch: true
+          add-paths: README.md

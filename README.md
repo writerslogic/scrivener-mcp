@@ -14,14 +14,6 @@
     <img src="https://img.shields.io/npm/v/scrivener-mcp.svg?style=flat-square&labelColor=20232a&color=007ec6" alt="npm version"/>
   </a>
   <img src="https://img.shields.io/npm/dm/scrivener-mcp.svg?style=flat-square&labelColor=20232a&color=007ec6" alt="npm downloads"/>
-  <a href="https://github.com/writerslogic/scrivener-mcp/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/writerslogic/scrivener-mcp/ci.yml?style=flat-square&labelColor=20232a&branch=main" alt="build"/>
-  </a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/writerslogic/scrivener-mcp"><img src="https://img.shields.io/ossf-scorecard/github.com/writerslogic/scrivener-mcp?style=flat-square&labelColor=20232a" alt="OpenSSF Scorecard"></a>
-  <a href="https://www.bestpractices.dev/projects/13976"><img src="https://www.bestpractices.dev/projects/13976/badge" alt="OpenSSF Best Practices"></a>
-  <a href="https://github.com/writerslogic/scrivener-mcp/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/writerslogic/scrivener-mcp?style=flat-square&labelColor=20232a&color=007ec6" alt="license"/>
-  </a>
   <img src="https://img.shields.io/node/v/scrivener-mcp?style=flat-square&labelColor=20232a&color=007ec6" alt="node version"/>
   
   <a href="https://github.com/writerslogic/scrivener-mcp">
