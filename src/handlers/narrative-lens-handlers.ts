@@ -6,11 +6,13 @@
 
 import {
 	analyzeForeshadowing,
+	analyzeOpening,
 	analyzeSyntaxTension,
 	buildTimeline,
 	checkGrammar,
 	computeReadability,
 	extractDialogue,
+	genreFromLabel,
 	measureVoiceDriftFromText,
 	trackWorldState,
 	wordFrequencies,
@@ -21,6 +23,7 @@ import {
 	requireMemoryManager,
 	getOptionalArrayArg,
 	getOptionalNumberArg,
+	getOptionalStringArg,
 	getStringArg,
 } from './types.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
@@ -392,9 +395,111 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 	},
 };
 
+export const analyzeOpeningLocalHandler: ToolDefinition = {
+	name: 'analyze_opening_local',
+	title: 'Analyze Opening (Local)',
+	description:
+		"Analyze a document's opening as a manuscript first-page/first-chapter hook: hook type and " +
+		'strength, first-line and first-paragraph quality, backstory ratio, how fast voice and world ' +
+		'are established, an engagement trajectory, and a genre-aware read-on prediction. Defaults to ' +
+		"the manuscript's first document when documentId is omitted, matching how an agent or editor " +
+		'reads it. No AI model and no network call. Requires an open project.',
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	inputSchema: {
+		type: 'object',
+		properties: {
+			documentId: {
+				...SHARED_DEFS.docId,
+				description: `${
+					SHARED_DEFS.docId.description
+				} Omit to analyze the manuscript's first document in binder order.`,
+			},
+			genre: {
+				type: 'string',
+				description:
+					'Genre label (e.g. "thriller", "YA fantasy", "literary fiction"). Free text is ' +
+					'canonicalized to the nearest recognized genre; unrecognized labels fall back to ' +
+					'general-fiction expectations. Omit for the same fallback.',
+			},
+		},
+	},
+	outputSchema: {
+		type: 'object',
+		properties: {
+			documentId: { type: 'string', description: 'The document that was analyzed.' },
+			documentTitle: {
+				type: 'string',
+				description: 'Title of the document that was analyzed.',
+			},
+			genre: { type: 'string', description: 'Genre used for genre-aware scoring.' },
+			analysis: {
+				type: 'object',
+				description:
+					'Hook type/strength, first-line/paragraph quality, backstory ratio, voice ' +
+					'establishment, engagement trajectory, issues, strengths, and a revision suggestion.',
+			},
+		},
+		required: ['documentId', 'documentTitle', 'genre', 'analysis'],
+	},
+	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
+		const documentId = getOptionalStringArg(args, 'documentId');
+		const genreLabel = getOptionalStringArg(args, 'genre');
+		const genre = genreLabel ? (genreFromLabel(genreLabel) ?? 'General') : 'General';
+
+		let doc: { id: string; title: string; content: string };
+		if (documentId) {
+			const document = await project.getDocument(documentId);
+			if (!document) {
+				throw createError(ErrorCode.NOT_FOUND, {}, 'Document not found');
+			}
+			doc = { id: documentId, title: document.title, content: document.content || '' };
+		} else {
+			const docs = await project.getManuscriptDocuments();
+			const first = docs[0];
+			if (!first) {
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					{},
+					'Manuscript has no documents to analyze'
+				);
+			}
+			doc = first;
+		}
+
+		const analysis = analyzeOpening(doc.content, genre);
+
+		const summary =
+			`"${doc.title}" as opening (genre: ${genre}): hook=${analysis.hookType ?? 'none detected'} ` +
+			`(score ${analysis.hookScore.toFixed(2)}), first line quality ` +
+			`${analysis.firstLineQuality.toFixed(2)}, backstory ratio ${analysis.backstoryRatio.toFixed(2)}, ` +
+			`read-on prediction ${analysis.readOnPrediction.toFixed(2)}.\n${
+				analysis.issues.length > 0 ? `Issues: ${analysis.issues.join('; ')}\n` : ''
+			}${
+				analysis.strengths.length > 0 ? `Strengths: ${analysis.strengths.join('; ')}\n` : ''
+			}${analysis.revisionSuggestion}`;
+
+		return {
+			content: [{ type: 'text', text: summary }],
+			structuredContent: {
+				documentId: doc.id,
+				documentTitle: doc.title,
+				genre,
+				analysis,
+			},
+		};
+	},
+};
+
 export const narrativeLensHandlers = [
 	analyzeCraftLocalHandler,
 	checkContinuityLocalHandler,
 	analyzeForeshadowingLocalHandler,
 	measureVoiceDriftLocalHandler,
+	analyzeOpeningLocalHandler,
 ];
