@@ -339,7 +339,8 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		const characterName = getStringArg(args, 'characterName');
-		const splitFraction = getOptionalNumberArg(args, 'splitFraction') ?? 0.5;
+		const splitFractionArg = getOptionalNumberArg(args, 'splitFraction') ?? 0.5;
+		const splitFraction = Math.min(1, Math.max(0, splitFractionArg));
 		const includeExcluded = Boolean(args.includeExcluded);
 
 		const docs = await project.getManuscriptDocuments(includeExcluded);
