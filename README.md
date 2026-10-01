@@ -3,7 +3,7 @@
 
 <h1>Scrivener MCP</h1>
 
-<p><strong>The definitive MCP server for Scrivener — connect your novels, screenplays, and manuscripts to Claude, ChatGPT, and any AI assistant. 53 tools: document management, writing analysis, content enhancement, offline semantic search, and character/plot tracking.</strong></p>
+<p><strong>The definitive MCP server for Scrivener — connect your novels, screenplays, and manuscripts to Claude, ChatGPT, and any AI assistant. 62 tools: document management, writing analysis, content enhancement, offline semantic search, and character/plot tracking.</strong></p>
 
 <br clear="left">
 
@@ -139,7 +139,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 
 ## All Tools
 
-57 tools organized by workflow. To keep token usage low, tools load progressively — project tools at startup, document and search tools once a project is open, the rest on demand. Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
+62 tools organized by workflow. To keep token usage low, tools load progressively — project tools at startup, document and search tools once a project is open, the rest on demand. Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
