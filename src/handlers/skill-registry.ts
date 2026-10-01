@@ -11,6 +11,7 @@ import { documentHandlers } from './document-handlers.js';
 import { searchHandlers } from './search-handlers.js';
 import { compilationHandlers } from './compilation-handlers.js';
 import { analysisHandlers, memoryHandlers, semanticSearchHandler } from './analysis-handlers.js';
+import { narrativeLensHandlers } from './narrative-lens-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
@@ -47,7 +48,12 @@ const skills: Skill[] = [
 		name: 'analysis',
 		description:
 			'Analyze writing quality, enhance prose, check consistency, track goals, tune writing preferences',
-		tools: [...analysisHandlers, ...goalsHandlers, ...personalizationHandlers],
+		tools: [
+			...analysisHandlers,
+			...narrativeLensHandlers,
+			...goalsHandlers,
+			...personalizationHandlers,
+		],
 	},
 	{
 		name: 'compilation',

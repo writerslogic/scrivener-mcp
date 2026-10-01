@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 
 ### Added
 - Apply compile-format section layouts to structured compile (#14)
+- Local, deterministic craft analysis tools backed by narrative-lens: `analyze_craft_local`, `check_continuity_local`, `analyze_foreshadowing_local`, `measure_voice_drift_local`, `analyze_opening_local`
 
 ### Changed
 - Drive comparison-table workflow from docs/comparison.yml (#101)
