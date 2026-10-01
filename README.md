@@ -208,6 +208,11 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 | `set_writing_preferences` | Set author preferences (tone, complexity, length, POV, style guide) that steer AI output |
 | `get_writing_preferences` | Show current preferences plus feedback insights and suggestions |
 | `collect_feedback` | Record a rating/comment on an AI operation to inform those insights |
+| `analyze_craft_local` | Offline readability, grammar, syntax-tension, dialogue, and word-frequency report for one document (narrative-lens, no AI call) |
+| `check_continuity_local` | Offline timeline and world-state continuity pass across the manuscript |
+| `analyze_foreshadowing_local` | Offline setup/payoff tracking across scenes |
+| `measure_voice_drift_local` | Compare a character's earlier vs later dialogue for voice drift |
+| `analyze_opening_local` | Offline hook, clarity, and genre-fit scoring of an opening |
 
 **Enhancement types:** `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
 

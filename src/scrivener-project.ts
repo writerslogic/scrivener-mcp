@@ -567,6 +567,43 @@ export class ScrivenerProject {
 		});
 	}
 
+	/**
+	 * The manuscript's Text documents in binder order, with content -- the same
+	 * scope and ordering as compileStructured, but keeping each document's id
+	 * (compileStructured's StructuredEntry drops it once headings are flattened
+	 * into a single string). Used by scene-sequenced analyzers that need to
+	 * attribute a finding back to a document.
+	 */
+	async getManuscriptDocuments(
+		includeExcluded = false
+	): Promise<Array<{ id: string; title: string; content: string }>> {
+		const tree = await this.documentManager.getProjectStructure();
+		const draft = findDraftFolder(tree);
+		const roots = draft ? (draft.children ?? []) : tree;
+
+		const result: Array<{ id: string; title: string; content: string }> = [];
+		const walk = async (nodes: ScrivenerDocument[]): Promise<void> => {
+			for (const node of nodes) {
+				if (node.type === DOCUMENT_TYPES.TEXT) {
+					if (node.includeInCompile !== false || includeExcluded) {
+						let content = '';
+						try {
+							content = await this.readDocument(node.id);
+						} catch (error) {
+							logger.warn(`getManuscriptDocuments: failed to read ${node.id}`, {
+								error: error instanceof Error ? error.message : String(error),
+							});
+						}
+						result.push({ id: node.id, title: node.title, content });
+					}
+				}
+				if (node.children?.length) await walk(node.children);
+			}
+		};
+		await walk(roots);
+		return result;
+	}
+
 	async searchContent(
 		query: string,
 		options?: {

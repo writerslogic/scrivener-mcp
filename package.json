@@ -67,6 +67,7 @@
     "epub-gen-memory": "^1.1.2",
     "ioredis": "^5.11.1",
     "lru-cache": "^11.5.1",
+    "narrative-lens": "^0.1.0",
     "neo4j-driver": "^6.1.0",
     "openai": "^6.44.0",
     "pdf-lib": "^1.17.1",
