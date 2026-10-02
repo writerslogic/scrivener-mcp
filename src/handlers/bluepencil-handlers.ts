@@ -14,7 +14,7 @@ import {
 	findRepeats,
 	report,
 	sentenceStarters,
-} from 'bluepencil';
+} from 'bluepencil-node';
 import { createError, ErrorCode } from '../core/errors.js';
 import {
 	requireProject,
