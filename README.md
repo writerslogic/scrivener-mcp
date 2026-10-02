@@ -3,7 +3,7 @@
 
 <h1>Scrivener MCP</h1>
 
-<p><strong>The definitive MCP server for Scrivener — connect your novels, screenplays, and manuscripts to Claude, ChatGPT, and any AI assistant. 62 tools: document management, writing analysis, content enhancement, offline semantic search, and character/plot tracking.</strong></p>
+<p><strong>The definitive MCP server for Scrivener — connect your novels, screenplays, and manuscripts to Claude, ChatGPT, and any AI assistant. 67 tools: document management, writing analysis, content enhancement, offline semantic search, and character/plot tracking.</strong></p>
 
 <br clear="left">
 
@@ -139,7 +139,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 
 ## All Tools
 
-62 tools organized by workflow. To keep token usage low, tools load progressively — project tools at startup, document and search tools once a project is open, the rest on demand. Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
+67 tools organized by workflow. To keep token usage low, tools load progressively — project tools at startup, document and search tools once a project is open, the rest on demand. Set `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
 <details>
 <summary><strong>Project</strong> -- open, browse, manage</summary>
@@ -213,6 +213,11 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 | `analyze_foreshadowing_local` | Offline setup/payoff tracking across scenes |
 | `measure_voice_drift_local` | Compare a character's earlier vs later dialogue for voice drift |
 | `analyze_opening_local` | Offline hook, clarity, and genre-fit scoring of an opening |
+| `check_style_local` | Line-edit one document for adverbs, filter words, hedges, clichés, passive voice, nominalizations, and personal tics, each with line and column (bluepencil, no AI call) |
+| `find_repetition_local` | Echoes (a word reappearing within a window) and repeated phrases, with both locations |
+| `analyze_rhythm_local` | Sentence-length distribution, monotonous runs, overlong sentences, and repeated openers |
+| `analyze_dialogue_tags_local` | Dialogue ratio and every quoted line's tag classified as plain, showy, adverb-modified, or untagged |
+| `manuscript_style_report_local` | Per-document style density across the manuscript with word-weighted means and outliers |
 
 **Enhancement types:** `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`, `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`, `strengthen-dialogue`, `fix-pacing`, `expand`, `condense`, `rewrite`
 

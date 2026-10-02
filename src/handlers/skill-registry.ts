@@ -12,6 +12,7 @@ import { searchHandlers } from './search-handlers.js';
 import { compilationHandlers } from './compilation-handlers.js';
 import { analysisHandlers, memoryHandlers, semanticSearchHandler } from './analysis-handlers.js';
 import { narrativeLensHandlers } from './narrative-lens-handlers.js';
+import { bluepencilHandlers } from './bluepencil-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { nativeHHMTools } from './memory-handlers.js';
 import { relationshipHandlers } from './relationship-handlers.js';
@@ -51,6 +52,7 @@ const skills: Skill[] = [
 		tools: [
 			...analysisHandlers,
 			...narrativeLensHandlers,
+			...bluepencilHandlers,
 			...goalsHandlers,
 			...personalizationHandlers,
 		],
