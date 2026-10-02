@@ -6,14 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Add local line-editing tools backed by bluepencil (#137)
+- Local craft analysis tools backed by narrative-lens (#134)
 - Apply compile-format section layouts to structured compile (#14)
-- Local, deterministic craft analysis tools backed by narrative-lens: `analyze_craft_local`, `check_continuity_local`, `analyze_foreshadowing_local`, `measure_voice_drift_local`, `analyze_opening_local`
-- Local, deterministic line-editing tools backed by bluepencil: `check_style_local`, `find_repetition_local`, `analyze_rhythm_local`, `analyze_dialogue_tags_local`, `manuscript_style_report_local`
 
 ### Changed
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
+- Update tool count to 62 after narrative-lens tools (#136)
 - Tighten README prose, drop fabricated chat transcripts (#120)
 - Standardize repository presentation (#108)
 
