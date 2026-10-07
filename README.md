@@ -1,31 +1,12 @@
-<!-- repo-header:start -->
-<img src="https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/assets/logo-black.svg" alt="Scrivener MCP logo" width="120" align="left">
+### Scrivener MCP
 
-<h1>Scrivener MCP</h1>
+<picture><source media="(prefers-color-scheme: dark)" srcset="assets/logo-white.svg"><img align="left" width="96" src="assets/logo-black.svg" alt="Scrivener MCP logo"></picture>
 
-<p><strong>The definitive MCP server for Scrivener — connect your novels, screenplays, and manuscripts to Claude, ChatGPT, and any AI assistant. 67 tools: document management, writing analysis, content enhancement, offline semantic search, and character/plot tracking.</strong></p>
+MCP server for Scrivener: connect your novels, screenplays, and manuscripts to Claude, ChatGPT, and any AI assistant, with document management, writing analysis, content enhancement, offline semantic search, and character/plot tracking.
 
 <br clear="left">
 
-[![CI](https://img.shields.io/github/actions/workflow/status/writerslogic/scrivener-mcp/release.yml?style=flat-square&labelColor=20232a&branch=main&label=CI)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/release.yml) [![CodeQL](https://img.shields.io/github/actions/workflow/status/writerslogic/scrivener-mcp/codeql.yml?style=flat-square&labelColor=20232a&branch=main&label=CodeQL)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml) [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/writerslogic/scrivener-mcp?style=flat-square&labelColor=20232a&label=OpenSSF)](https://securityscorecards.dev/viewer/?uri=github.com/writerslogic/scrivener-mcp) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13976/badge)](https://www.bestpractices.dev/projects/13976) [![License](https://img.shields.io/github/license/writerslogic/scrivener-mcp?style=flat-square&labelColor=20232a&color=007ec6&label=license)](https://github.com/writerslogic/scrivener-mcp/blob/main/LICENSE) [![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant%202.1-6a4c93?style=flat-square&labelColor=20232a)](https://github.com/writerslogic/scrivener-mcp/blob/main/CODE_OF_CONDUCT.md) [![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Sponsor-EA4AAA?style=flat-square&labelColor=20232a)](https://github.com/sponsors/dcondrey)
-<!-- repo-header:end -->
-
-<a href="https://www.npmjs.com/package/scrivener-mcp">
-    <img src="https://img.shields.io/npm/v/scrivener-mcp.svg?style=flat-square&labelColor=20232a&color=007ec6" alt="npm version"/>
-  </a>
-  <img src="https://img.shields.io/npm/dm/scrivener-mcp.svg?style=flat-square&labelColor=20232a&color=007ec6" alt="npm downloads"/>
-  <img src="https://img.shields.io/node/v/scrivener-mcp?style=flat-square&labelColor=20232a&color=007ec6" alt="node version"/>
-  
-  <a href="https://github.com/writerslogic/scrivener-mcp">
-    <img src="https://img.shields.io/github/stars/writerslogic/scrivener-mcp?style=flat-square&labelColor=20232a&color=6a4c93" alt="stars"/>
-  </a>
-  <a href="https://mseep.ai/app/writerslogic-scrivener-mcp">
-    <img src="https://img.shields.io/badge/MseeP-verified-green.svg?style=flat-square&labelColor=20232a" alt="MseeP verified"/>
-  </a>
-  <a href="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp">
-    <img src="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp/badges/score.svg" alt="scrivener-mcp MCP server score"/>
-  </a>
-</p>
+[![CI](https://img.shields.io/github/actions/workflow/status/writerslogic/scrivener-mcp/ci.yml?branch=main&label=CI)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml) [![CodeQL](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml) [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/writerslogic/scrivener-mcp)](https://securityscorecards.dev/viewer/?uri=github.com/writerslogic/scrivener-mcp) [![npm](https://img.shields.io/npm/v/scrivener-mcp.svg)](https://www.npmjs.com/package/scrivener-mcp) [![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](https://github.com/writerslogic/scrivener-mcp/blob/main/LICENSE)
 
 <p align="center">
   <a href="#install">Install</a> &middot;
