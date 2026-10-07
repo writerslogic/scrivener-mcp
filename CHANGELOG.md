@@ -14,6 +14,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
+- Standardize README header (#140)
 - Update tool count to 62 after narrative-lens tools (#136)
 - Tighten README prose, drop fabricated chat transcripts (#120)
 - Standardize repository presentation (#108)
