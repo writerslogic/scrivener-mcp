@@ -26,7 +26,7 @@ You can also run the interactive setup wizard:
 npx scrivener-setup
 ```
 
-The setup wizard detects Claude Desktop, Claude Code, and Cursor automatically.
+The setup tool detects Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, and BoltAI automatically, opens Raycast's install dialog, and runs a start-up test. New to the terminal or missing Node.js? Follow the [Mac install guide](./install-mac.md).
 
 ### Other install methods
 
