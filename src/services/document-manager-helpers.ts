@@ -221,6 +221,32 @@ export function addBinderItem(
 }
 
 /**
+ * Append an item to a folder's children, normalizing a missing or single-item
+ * Children.BinderItem to an array.
+ */
+export function appendBinderChild(parent: BinderItem, item: BinderItem): void {
+	if (!parent.Children) {
+		parent.Children = { BinderItem: [] };
+	}
+	const existing = parent.Children.BinderItem;
+	if (!existing) {
+		parent.Children.BinderItem = [item];
+	} else if (Array.isArray(existing)) {
+		existing.push(item);
+	} else {
+		parent.Children.BinderItem = [existing, item];
+	}
+}
+
+/**
+ * Resolve a folder by UUID, or undefined if it is missing or not a folder.
+ */
+export function findParentFolder(container: BinderContainer, id: string): BinderItem | undefined {
+	const parent = findBinderItemById(container, id);
+	return parent && parent.Type === 'Folder' ? parent : undefined;
+}
+
+/**
  * Count all items in container recursively
  */
 export function countBinderItems(container: BinderContainer): number {
