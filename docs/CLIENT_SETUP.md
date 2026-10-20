@@ -57,6 +57,31 @@ Run `npm run build` in the repo before using the local path.
 
 ---
 
+## Codex (local fork)
+
+Build the checkout with `npm ci --ignore-scripts` and `npm run build`. If native
+dependencies need a binary for your Node version, run `npm rebuild better-sqlite3`.
+The launcher keeps the server's cache/database working directory in the checkout.
+
+Add this block to `~/.codex/config.toml`, adjusting both absolute paths:
+
+```toml
+[mcp_servers.scrivener]
+command = 'C:\path\to\node.exe'
+args = ['C:\Coding\scrivener-mcp\scripts\codex-launcher.mjs']
+startup_timeout_sec = 60
+
+[mcp_servers.scrivener.env]
+SCRIVENER_MCP_EAGER_TOOLS = "1"
+SCRIVENER_QUIET = "true"
+SCRIVENER_SKIP_SETUP = "true"
+```
+
+On macOS/Linux, use the corresponding absolute paths instead. Restart Codex after changing the
+configuration. Eager registration makes document tools available during the
+initial handshake, including on clients that do not refresh a changed tool list
+([upstream issue #50](https://github.com/writerslogic/scrivener-mcp/issues/50)).
+
 ## Claude Desktop
 
 ### Config file location

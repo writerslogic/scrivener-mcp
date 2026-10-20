@@ -175,6 +175,66 @@ describe('CompilationService', () => {
 				expect(result).toContain('\\begin{document}');
 				expect(result).toContain('\\end{document}');
 			});
+
+			it('omits the trailing separator after the last document and joins the others with one', async () => {
+				const result = (await compilationService.compileDocuments(
+					[
+						{ id: 'a', title: 'A', content: 'alpha' },
+						{ id: 'b', title: 'B', content: 'beta' },
+					],
+					{ outputFormat: 'latex' }
+				)) as string;
+
+				expect(result.match(/\\par\\bigskip/g)).toHaveLength(1);
+				expect(result.indexOf('\\par\\bigskip')).toBeGreaterThan(result.indexOf('alpha'));
+				expect(result.indexOf('\\par\\bigskip')).toBeLessThan(result.indexOf('\\section{B}'));
+			});
+
+			it('emits no separator for a single document', async () => {
+				const result = await compilationService.compileDocuments(
+					[{ id: 'a', title: 'A', content: 'alpha' }],
+					{ outputFormat: 'latex' }
+				);
+
+				expect(result).not.toContain('\\par\\bigskip');
+			});
+
+			it('skips empty or whitespace-only documents entirely', async () => {
+				const result = await compilationService.compileDocuments(
+					[
+						{ id: 'a', title: 'A', content: 'alpha' },
+						{ id: 'b', title: 'Blank', content: '   \n  ' },
+						{ id: 'c', title: 'C', content: 'gamma' },
+					],
+					{ outputFormat: 'latex' }
+				);
+
+				expect(result).not.toContain('Blank');
+				expect(result).toContain('\\section{A}');
+				expect(result).toContain('\\section{C}');
+			});
+
+			it('renders bold, italic and bold-italic runs', async () => {
+				const result = await compilationService.compileDocuments(
+					[
+						{
+							id: 'a',
+							title: 'A',
+							content: {
+								plainText: 'x y z',
+								formattedText: [
+									{ text: 'x', style: { bold: true } },
+									{ text: 'y', style: { italic: true } },
+									{ text: 'z', style: { bold: true, italic: true } },
+								],
+							} as RTFContent,
+						},
+					],
+					{ outputFormat: 'latex' }
+				);
+
+				expect(result).toContain('\\textbf{x}\\textit{y}\\textbf{\\textit{z}}');
+			});
 		});
 
 		describe('Text compilation', () => {
@@ -531,6 +591,46 @@ describe('CompilationService', () => {
 			expect(result).toContain('Chapter One');
 			expect(result).toContain('Chapter Two');
 			expect(result).not.toContain('\f');
+		});
+
+		it('shows the title without numbering or a page break for TEXT-WITH-HEADER', () => {
+			const result = compilationService.compileStructured(entries, {
+				sectionLayouts: { 'chapter-type': 'TEXT-WITH-HEADER' },
+			});
+
+			expect(result).toContain('Chapter One');
+			expect(result).toContain('Chapter Two');
+			expect(result).not.toContain('Chapter 1');
+			expect(result).not.toContain('\f');
+		});
+
+		it('shows the title and breaks the page before each section for NEW-PAGE-HEADER', () => {
+			const result = compilationService.compileStructured(entries, {
+				sectionLayouts: { 'chapter-type': 'NEW-PAGE-HEADER' },
+			});
+
+			expect(result).toContain('Chapter One');
+			expect(result).not.toContain('Chapter 1');
+			expect(result.match(/\f/g)).toHaveLength(2);
+		});
+
+		it('hides the title and adds no page break for AS-IS, even with includeTitles on', () => {
+			const result = compilationService.compileStructured(entries, {
+				sectionLayouts: { 'chapter-type': 'AS-IS' },
+				includeTitles: true,
+			});
+
+			expect(result).not.toContain('Chapter One');
+			expect(result).toContain('First chapter body.');
+			expect(result).not.toContain('\f');
+		});
+
+		it('resolves layout ids case-insensitively', () => {
+			const result = compilationService.compileStructured(entries, {
+				sectionLayouts: { 'chapter-type': 'new-page-header' },
+			});
+
+			expect(result.match(/\f/g)).toHaveLength(2);
 		});
 
 		it('ignores sectionLayouts for an entry with no matching sectionTypeId', () => {
