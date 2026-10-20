@@ -3,6 +3,7 @@ import type { ScrivenerDocument } from '../../../types/index.js';
 import * as path from 'path';
 import { createRequire } from 'module';
 import { open } from 'fs/promises';
+import type * as NativeModule from 'holographic-memory';
 import type { HolographicMemorySystem as NativeEngine } from 'holographic-memory';
 
 const logger = getLogger('holographic-memory-system');
@@ -399,7 +400,7 @@ function loadNativeHMS(): void {
 		// which is the project root for the packaged server. Native HMS is optional,
 		// so a resolution miss simply falls back to the JS engine below.
 		const requireFn = createRequire(path.join(process.cwd(), 'package.json'));
-		const native = requireFn('holographic-memory') as typeof import('holographic-memory');
+		const native = requireFn('holographic-memory') as typeof NativeModule;
 		if (typeof native?.HolographicMemorySystem === 'function') {
 			NativeHMS = native.HolographicMemorySystem;
 			logger.info('HMS using native Rust engine');
