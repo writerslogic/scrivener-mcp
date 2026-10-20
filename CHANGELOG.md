@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Adapt HMS adapter to holographic-memory 0.6 and gate it in CI (#155)
 - Add local line-editing tools backed by bluepencil (#137)
 - Local craft analysis tools backed by narrative-lens (#134)
 - Apply compile-format section layouts to structured compile (#14)
@@ -14,11 +15,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
+- Standardize README header (#140)
 - Update tool count to 62 after narrative-lens tools (#136)
 - Tighten README prose, drop fabricated chat transcripts (#120)
 - Standardize repository presentation (#108)
 
 ### Fixed
+- Preserve Scrivener XML attributes and plain text in Codex (#156)
+- Validate binder move targets, patch audit findings, add tests (#154)
 - Convert comparison-table workflow to open a PR, dedupe README badges (#117)
 - Read/write document synopsis and notes from disk, not .scrivx (#111)
 - Address CodeQL, Scorecard, and code-quality scanner findings (#102)
