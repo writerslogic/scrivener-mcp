@@ -179,8 +179,10 @@ The reason this document is also a risk statement:
    Document writes now **update `docs.checksum`** (SHA-1 of `content.rtf`, verified
    against real projects) on projects that carry one, so Scrivener no longer flags
    them as externally-modified.
-4. **RTF fidelity.** `write_document` uses a **fidelity-preserving splice**
-   (`services/parsers/rtf-splice.ts`): it changes only the edited span in the
+4. **RTF fidelity.** The `write_document` tool calls
+   `ScrivenerProject.writeDocumentPreserving()`, a **fidelity-preserving splice**
+   (`services/parsers/rtf-splice.ts`); the lower-level `writeDocument()` API
+   serializes a fresh RTF document and does not preserve existing markup. The splice changes only the edited span in the
    original raw RTF, leaving the stylesheet, style refs, images, footnotes, and
    `\Scrv_` groups byte-for-byte intact, and commits only if the result re-parses
    to exactly the intended text (otherwise it snapshots and falls back to a full

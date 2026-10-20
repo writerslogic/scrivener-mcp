@@ -33,7 +33,7 @@ Tools are organized into skills that load progressively by default to minimize t
 | `project` | open_project, discover_projects, get_structure, refresh_project, close_project, verify_project_integrity, get_compile_settings, get_manuscript_briefing, list_snapshots, read_snapshot, compare_snapshot, create_snapshot | Startup (always) |
 | `documents` | get_document_info, read_document, write_document, create_document, update_document, move_document, delete_document | After open_project |
 | `search` | search, semantic_search, find_mentions, list_trash, restore_document, read_annotations | After open_project |
-| `analysis` | analyze_document, check_consistency, enhance_content, generate_content, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback | On demand |
+| `analysis` | analyze_document, check_consistency, enhance_content, generate_content, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback, analyze_craft_local, check_continuity_local, analyze_foreshadowing_local, measure_voice_drift_local, analyze_opening_local, check_style_local, find_repetition_local, analyze_rhythm_local, analyze_dialogue_tags_local, manuscript_style_report_local | On demand |
 | `compilation` | compile_documents, export_project, get_statistics, generate_marketing_materials | On demand |
 | `memory` | remember, recall | On demand |
 | `relationships` | add_relationship, find_relationships, discover_connections, character_network, get_entity_references, find_orphaned_entities, suggest_connections | On demand |
