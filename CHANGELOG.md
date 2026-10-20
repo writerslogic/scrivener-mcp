@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Apply compile-format section layouts to structured compile (#14)
 
 ### Changed
+- Split the five largest modules into focused submodules (#158)
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
