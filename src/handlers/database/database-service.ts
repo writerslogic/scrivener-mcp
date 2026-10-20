@@ -19,7 +19,7 @@ import { DatabaseSetup } from './database-setup.js';
 import { GraphAnalytics } from './graph-analytics.js';
 import { MigrationManager } from './migrations.js';
 import { Neo4jManager } from './neo4j-manager.js';
-import { SQLQueryBuilder } from './query-builder.js';
+
 import { SearchService } from './search-service.js';
 import { SQLiteManager } from './sqlite-manager.js';
 import type {
@@ -60,12 +60,14 @@ import {
 	trackWritingSession,
 } from './session-analytics.js';
 import { TransactionCoordinator } from './transaction-coordinator.js';
+import { DatabaseSync } from './database-sync.js';
 
 const logger = getLogger('database');
 
 export type { WritingGoalRecord } from './user-data.js';
 
 export class DatabaseService {
+	private sync: DatabaseSync;
 	private sqliteManager: SQLiteManager | null = null;
 	private neo4jManager: Neo4jManager | null = null;
 	private config: DatabaseConfig;
@@ -95,6 +97,13 @@ export class DatabaseService {
 				...(config?.neo4j || {}),
 			},
 		};
+
+		this.sync = new DatabaseSync(
+			() => this.sqliteManager,
+			() => this.neo4jManager,
+			() => this.relationshipEngine,
+			this.transactions
+		);
 	}
 
 	/**
@@ -321,65 +330,7 @@ export class DatabaseService {
 		wordCount?: number;
 		characterCount?: number;
 	}): Promise<void> {
-		const transactionId = await this.beginTransaction();
-		const txn = this.transactions.get(transactionId)!;
-
-		try {
-			// Phase 1: Prepare SQLite operation
-			if (this.sqliteManager) {
-				const sqliteOp: (typeof txn.operations)[0] = {
-					type: 'sqlite',
-					operation: 'upsert_document',
-					data: documentData,
-					status: 'pending',
-				};
-				txn.operations.push(sqliteOp);
-
-				const { sql, params } = SQLQueryBuilder.insert('documents', {
-					id: documentData.id,
-					title: documentData.title,
-					type: documentData.type,
-					path: documentData.path,
-					synopsis: documentData.synopsis || null,
-					notes: documentData.notes || null,
-					word_count: documentData.wordCount || 0,
-					character_count: documentData.characterCount || 0,
-					modified_at: new Date().toISOString(),
-				});
-
-				const stmt = this.sqliteManager
-					.getDatabase()
-					.prepare(sql.replace('INSERT', 'INSERT OR REPLACE'));
-				stmt.run(params);
-
-				sqliteOp.status = 'prepared';
-			}
-
-			// Phase 1: Prepare Neo4j operation
-			if (this.neo4jManager && this.neo4jManager.isAvailable()) {
-				const neo4jOp: (typeof txn.operations)[0] = {
-					type: 'neo4j',
-					operation: 'upsert_document',
-					data: documentData,
-					status: 'pending',
-				};
-				txn.operations.push(neo4jOp);
-
-				await this.neo4jManager.upsertDocument(documentData);
-				neo4jOp.status = 'prepared';
-			}
-
-			// Phase 2: Prepare and commit
-			const prepared = await this.prepareTransaction(transactionId);
-			if (prepared) {
-				await this.commitTransaction(transactionId);
-			} else {
-				throw new AppError('Failed to prepare transaction', ErrorCode.DATABASE_ERROR);
-			}
-		} catch (error) {
-			await this.rollbackTransaction(transactionId);
-			throw error;
-		}
+		return this.sync.syncDocumentData(documentData);
 	}
 
 	/**
@@ -393,28 +344,7 @@ export class DatabaseService {
 		traits?: string[];
 		notes?: string;
 	}): Promise<void> {
-		// Update SQLite
-		if (this.sqliteManager) {
-			const { sql, params } = SQLQueryBuilder.insert('characters', {
-				id: characterData.id,
-				name: characterData.name,
-				role: characterData.role || null,
-				description: characterData.description || null,
-				traits: safeStringify(characterData.traits || []),
-				notes: characterData.notes || null,
-				modified_at: new Date().toISOString(),
-			});
-
-			const stmt = this.sqliteManager
-				.getDatabase()
-				.prepare(sql.replace('INSERT', 'INSERT OR REPLACE'));
-			stmt.run(params);
-		}
-
-		// Update Neo4j if available
-		if (this.neo4jManager) {
-			await this.neo4jManager.upsertCharacter(characterData);
-		}
+		return this.sync.syncCharacterData(characterData);
 	}
 
 	/**
@@ -428,46 +358,14 @@ export class DatabaseService {
 		relationshipType: string,
 		properties: Record<string, unknown> = {}
 	): Promise<void> {
-		// Store in SQLite relationships table
-		if (this.sqliteManager) {
-			if (fromType === 'document' && toType === 'document') {
-				const stmt = this.sqliteManager.getDatabase().prepare(`
-					INSERT OR REPLACE INTO document_relationships
-					(source_document_id, target_document_id, relationship_type, notes)
-					VALUES (?, ?, ?, ?)
-				`);
-
-				stmt.run([fromId, toId, relationshipType, safeStringify(properties)]);
-			}
-		}
-
-		// Store in Neo4j
-		if (this.neo4jManager) {
-			const fromLabel = this.getNodeLabel(fromType);
-			const toLabel = this.getNodeLabel(toType);
-
-			await this.neo4jManager.createRelationship(
-				fromId,
-				fromLabel,
-				toId,
-				toLabel,
-				relationshipType,
-				properties
-			);
-		}
-
-		// Also write to RelationshipEngine for HMS-backed storage
-		if (this.relationshipEngine) {
-			await this.relationshipEngine.addRelationship({
-				id: `${fromType}:${fromId}--${relationshipType}--${toType}:${toId}`,
-				head: fromId,
-				headType: this.getNodeLabel(fromType),
-				relation: relationshipType,
-				tail: toId,
-				tailType: this.getNodeLabel(toType),
-				properties,
-			});
-		}
+		return this.sync.createRelationship(
+			fromId,
+			fromType,
+			toId,
+			toType,
+			relationshipType,
+			properties
+		);
 	}
 
 	/**
@@ -542,25 +440,6 @@ export class DatabaseService {
 			neo4j: neo4jStatus,
 			paths: this.paths,
 		};
-	}
-
-	/**
-	 * Helper to get Neo4j node label from type
-	 */
-	private getNodeLabel(type: string): string {
-		switch (type.toLowerCase()) {
-			case 'document':
-				return 'Document';
-			case 'character':
-				return 'Character';
-			case 'theme':
-				return 'Theme';
-			case 'plot':
-			case 'plotthread':
-				return 'PlotThread';
-			default:
-				return 'Entity';
-		}
 	}
 
 	/**

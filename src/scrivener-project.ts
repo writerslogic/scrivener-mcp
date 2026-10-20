@@ -5,7 +5,7 @@
 import * as path from 'path';
 import { ContentAnalyzer, ContextAnalyzer } from './analysis/index.js';
 import { DOCUMENT_TYPES } from './core/constants.js';
-import { getLogger } from './core/logger.js';
+
 import { createError, ErrorCode } from './core/errors.js';
 
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
@@ -28,23 +28,13 @@ import { CompilationService } from './services/compilation-service.js';
 import { documentIndexer } from './services/document-indexer.js';
 import { DocumentManager } from './services/document-manager.js';
 import { MetadataManager } from './services/metadata-manager.js';
-import { ProjectLoader } from './services/project-loader.js';
 
 import { buildCompileMetadata, type CompileMetadata } from './services/compile-settings.js';
 import type { SnapshotEntry } from './services/snapshots.js';
-import { RTFHandler } from './services/parsers/rtf-handler.js';
-import { spliceRtfText, describeReplacedConstructs } from './services/parsers/rtf-splice.js';
-
-import { isProjectOpenInScrivener } from './utils/scrivener-app.js';
-import {
-	createDocument as createDocumentUtil,
-	type DocumentOperationContext,
-} from './utils/document-operations.js';
 
 import type { ChapterContext } from './analysis/context-analyzer.js';
 import type { RTFContent } from './services/parsers/rtf-handler.js';
 import type {
-	DocumentInfo,
 	ExportOptions,
 	ProjectStatistics,
 	ProjectStructure,
@@ -53,6 +43,18 @@ import type {
 } from './types/index.js';
 
 import type { HolographicMemorySystem } from './services/memory/hhm/holographic-memory-system.js';
+
+import { getLogger } from './core/logger.js';
+import { ProjectLoader } from './services/project-loader.js';
+import { ProjectSnapshots } from './services/project-snapshots.js';
+import { ProjectReports } from './services/project-reports.js';
+import { ProjectExporter } from './services/project-exporter.js';
+import { ProjectMetadataEditor } from './services/project-metadata-editor.js';
+import { ProjectContent } from './services/project-content.js';
+import { ProjectContextBridge } from './services/project-context-bridge.js';
+import { ProjectTrash } from './services/project-trash.js';
+import { ProjectWriter } from './services/project-writer.js';
+import { ProjectDocumentInfo } from './services/project-document-info.js';
 
 const logger = getLogger('scrivener-project');
 
@@ -65,15 +67,9 @@ export type {
 	SnapshotComparison,
 } from './project-types.js';
 
-import { ProjectSnapshots } from './services/project-snapshots.js';
-import { ProjectReports } from './services/project-reports.js';
-import { ProjectExporter } from './services/project-exporter.js';
-import { ProjectMetadataEditor } from './services/project-metadata-editor.js';
-import { ProjectContent } from './services/project-content.js';
-import { ProjectContextBridge } from './services/project-context-bridge.js';
-import { ProjectTrash } from './services/project-trash.js';
-
 export class ScrivenerProject {
+	private documentInfo: ProjectDocumentInfo;
+	private writer: ProjectWriter;
 	private trash: ProjectTrash;
 	private contextBridge: ProjectContextBridge;
 	private content: ProjectContent;
@@ -96,7 +92,6 @@ export class ScrivenerProject {
 	private hhmSystem?: HolographicMemorySystem;
 	/** Short-lived cache of the "open in Scrivener" probe, to avoid spawning an
 	 * osascript per write in a batch. */
-	private openStateCache?: { state: 'open' | 'closed' | 'unknown'; expiresAt: number };
 
 	constructor(projectPath: string, options: ScrivenerProjectOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
@@ -183,6 +178,23 @@ export class ScrivenerProject {
 			() => this.saveProject(),
 			(documentId) => this.readDocument(documentId),
 			(includeTrash) => this.getProjectStructure(includeTrash)
+		);
+
+		this.writer = new ProjectWriter(
+			this.projectPath,
+			this.documentManager,
+			this.hhmSystem,
+			() => this.saveProject(),
+			(documentId) => this.markDocumentChanged(documentId),
+			(documentId) => this.getDocumentInfo(documentId),
+			(documentId, title) => this.takeSnapshot(documentId, title)
+		);
+
+		this.documentInfo = new ProjectDocumentInfo(
+			this.documentManager,
+			this.compilationService,
+			(includeTrash) => this.getProjectStructure(includeTrash),
+			() => this.indexInitialized
 		);
 	}
 
@@ -280,51 +292,11 @@ export class ScrivenerProject {
 	 * cached briefly so a batch of writes spawns at most one detection call.
 	 */
 	async ensureWritable(force = false): Promise<void> {
-		if (force) return;
-		const now = Date.now();
-		if (!this.openStateCache || this.openStateCache.expiresAt <= now) {
-			const state = await isProjectOpenInScrivener(this.projectPath);
-			this.openStateCache = { state, expiresAt: now + 5000 };
-		}
-		if (this.openStateCache.state === 'open') {
-			throw createError(
-				ErrorCode.INVALID_STATE,
-				{ projectPath: this.projectPath },
-				'This project is currently open in Scrivener. Editing it now risks your changes ' +
-					'being overwritten when Scrivener next saves. Close the project in Scrivener, ' +
-					'or pass force: true to write anyway.'
-			);
-		}
+		return this.writer.ensureWritable(force);
 	}
 
 	async writeDocument(documentId: string, content: string | RTFContent): Promise<void> {
-		// Immediate: a single explicit document write must be durable and visible
-		// to a subsequent read. The batched/queued path only reaches disk on a 5s
-		// timer, a full queue, or close(), which breaks read-your-own-write.
-		await this.documentManager.writeDocument(documentId, content, true);
-		this.markDocumentChanged(documentId);
-
-		// Update HHM if available
-		if (this.hhmSystem) {
-			try {
-				const doc = await this.getDocumentInfo(documentId);
-				if (doc.document) {
-					// Ensure we have plain text content
-					let plainText = '';
-					if (typeof content === 'string') {
-						plainText = content;
-					} else {
-						plainText = content.plainText;
-					}
-
-					// Update document object with new content
-					const updatedDoc = { ...doc.document, content: plainText };
-					await this.hhmSystem.memorizeDocument(updatedDoc);
-				}
-			} catch (error) {
-				logger.warn('Failed to update HHM memory for document', { documentId, error });
-			}
-		}
+		return this.writer.writeDocument(documentId, content);
 	}
 
 	/**
@@ -340,45 +312,7 @@ export class ScrivenerProject {
 		documentId: string,
 		newText: string
 	): Promise<WriteFidelityReport> {
-		const oldRaw = await this.documentManager.readDocumentRaw(documentId);
-
-		// New/empty document: nothing to preserve or lose — write plainly.
-		if (!oldRaw) {
-			await this.writeDocument(documentId, newText);
-			return { documentId, mode: 'created', atRisk: [] };
-		}
-
-		const rtf = new RTFHandler();
-		const canonical = (await rtf.parseRTF(oldRaw)).plainText.trim();
-		const intended = newText.trim();
-		const splice = spliceRtfText(oldRaw, canonical, intended);
-
-		// Commit the splice only if the result provably reads back as the intended
-		// text — this gate makes a scanner imperfection a fallback, never a corruption.
-		if (splice) {
-			const roundTrip = (await rtf.parseRTF(splice.rtf)).plainText.trim();
-			if (roundTrip === intended) {
-				const atRisk = describeReplacedConstructs(splice.replacedRaw);
-				let snapshotId: string | undefined;
-				if (atRisk.length > 0) {
-					snapshotId = (await this.takeSnapshot(documentId, 'Before AI edit')).snapshotId;
-				}
-				await this.documentManager.writeRawContent(documentId, splice.rtf);
-				this.markDocumentChanged(documentId);
-				return { documentId, mode: 'preserved', snapshotId, atRisk };
-			}
-		}
-
-		// Fallback: cannot safely splice. Snapshot first (native rollback), then
-		// regenerate from plain text — which drops formatting/annotations/images.
-		const snapshotId = (await this.takeSnapshot(documentId, 'Before AI edit')).snapshotId;
-		await this.writeDocument(documentId, newText);
-		return {
-			documentId,
-			mode: 'regenerated',
-			snapshotId,
-			atRisk: ['formatting, styles, images, footnotes, and annotations were not preserved'],
-		};
+		return this.writer.writeDocumentPreserving(documentId, newText);
 	}
 
 	async createDocument(
@@ -387,30 +321,7 @@ export class ScrivenerProject {
 		parentId?: string,
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
-		// Use unified document creation utility with transaction support
-		const context: DocumentOperationContext = {
-			projectStructure: this.documentManager.getProjectStructureData(),
-			projectPath: this.projectPath,
-			writeDocument: (id, content) => this.documentManager.writeDocument(id, content),
-			saveProject: () => this.saveProject(),
-		};
-
-		const result = await createDocumentUtil({ title, content, parentId, type }, context);
-
-		// Add to HHM if available
-		if (this.hhmSystem && result.id) {
-			try {
-				const doc = await this.getDocumentInfo(result.id);
-				if (doc.document) {
-					const docWithContent = { ...doc.document, content };
-					await this.hhmSystem.memorizeDocument(docWithContent);
-				}
-			} catch (error) {
-				logger.warn('Failed to add new document to HHM', { documentId: result.id, error });
-			}
-		}
-
-		return result.id;
+		return this.writer.createDocument(title, content, parentId, type);
 	}
 
 	async deleteDocument(documentId: string): Promise<void> {
@@ -686,78 +597,7 @@ export class ScrivenerProject {
 		metadata: Record<string, string>;
 		location: 'active' | 'trash' | 'unknown';
 	}> {
-		// Use document indexer for O(1) lookup if available
-		if (this.indexInitialized) {
-			const docInfo = documentIndexer.getDocumentInfo(documentId);
-			if (docInfo) {
-				const metadata: Record<string, string> = {};
-				if (docInfo.document.synopsis) metadata.synopsis = docInfo.document.synopsis;
-				if (docInfo.document.notes) metadata.notes = docInfo.document.notes;
-				if (docInfo.document.keywords && docInfo.document.keywords.length > 0) {
-					metadata.keywords = docInfo.document.keywords.join(', ');
-				}
-				if (docInfo.document.status) metadata.status = docInfo.document.status;
-				if (docInfo.document.label) metadata.label = docInfo.document.label;
-
-				return {
-					document: docInfo.document,
-					path: docInfo.path,
-					metadata,
-					location: docInfo.location,
-				};
-			}
-		}
-
-		// Fallback to tree search if index not available or document not found
-		const structure = await this.getProjectStructure(true);
-		let foundDoc: ScrivenerDocument | null = null;
-		let path: Array<{ id: string; title: string; type: string }> = [];
-		let location: 'active' | 'trash' | 'unknown' = 'unknown';
-
-		const searchInDocs = (
-			docs: ScrivenerDocument[],
-			currentPath: Array<{ id: string; title: string; type: string }>
-		): boolean => {
-			for (const doc of docs) {
-				const newPath = [...currentPath, { id: doc.id, title: doc.title, type: doc.type }];
-
-				if (doc.id === documentId) {
-					foundDoc = doc;
-					path = newPath;
-					return true;
-				}
-
-				if (doc.children && searchInDocs(doc.children, newPath)) {
-					return true;
-				}
-			}
-			return false;
-		};
-
-		if (searchInDocs(structure, [])) {
-			location = 'active';
-		}
-
-		const metadata: Record<string, string> = {};
-		if (foundDoc) {
-			const doc = foundDoc as ScrivenerDocument;
-			if (doc.synopsis) metadata.synopsis = doc.synopsis;
-			if (doc.notes) metadata.notes = doc.notes;
-			if (doc.label) metadata.label = doc.label;
-			if (doc.status) metadata.status = doc.status;
-			if (doc.keywords && doc.keywords.length > 0) {
-				metadata.keywords = doc.keywords.join(', ');
-			}
-			if (doc.includeInCompile !== undefined) {
-				metadata.includeInCompile = doc.includeInCompile ? 'true' : 'false';
-			}
-
-			if (doc.customMetadata) {
-				Object.assign(metadata, doc.customMetadata);
-			}
-		}
-
-		return { document: foundDoc, path, metadata, location };
+		return this.documentInfo.getDocumentInfo(documentId);
 	}
 
 	async getTrashDocuments(): Promise<ScrivenerDocument[]> {
@@ -781,51 +621,11 @@ export class ScrivenerProject {
 		includeTrash?: boolean;
 		summaryOnly?: boolean;
 	}): Promise<ProjectStructure> {
-		const structure = await this.getProjectStructure(options?.includeTrash);
-
-		// Convert ScrivenerDocument[] to ProjectStructure format. Root is a synthetic
-		// wrapper over every top-level item, not just structure[0] — otherwise the
-		// binder collapses to its first entry.
-		const root = {
-			id: 'root',
-			title: 'Project Root',
-			type: 'Folder' as const,
-			path: '',
-			children: structure,
-		};
-
-		const convertToDocumentInfo = (doc: ScrivenerDocument): DocumentInfo => ({
-			...doc,
-			path: typeof doc.path === 'string' ? doc.path.split('/') : doc.path,
-			children: doc.children ? doc.children.map(convertToDocumentInfo) : undefined,
-		});
-
-		const draft = structure.find((doc) => doc.title === 'Manuscript' || doc.title === 'Draft');
-		const research = structure.find((doc) => doc.title === 'Research');
-		const trash = options?.includeTrash
-			? structure.find((doc) => doc.title === 'Trash')
-			: undefined;
-
-		return {
-			root: convertToDocumentInfo(root),
-			draft: draft ? convertToDocumentInfo(draft) : undefined,
-			research: research ? convertToDocumentInfo(research) : undefined,
-			trash: trash ? convertToDocumentInfo(trash) : undefined,
-			templates: [],
-		};
+		return this.documentInfo.getProjectStructureLimited(options);
 	}
 
 	async getDocumentAnnotations(documentId: string): Promise<Map<string, string>> {
-		try {
-			// Get the raw RTF content for the document
-			const rtfContent = await this.documentManager.readDocumentRaw(documentId);
-
-			// Extract annotations using the RTF handler
-			return this.compilationService.extractAnnotations(rtfContent);
-		} catch (error) {
-			logger.warn(`Failed to extract annotations for document ${documentId}`, { error });
-			return new Map<string, string>();
-		}
+		return this.documentInfo.getDocumentAnnotations(documentId);
 	}
 
 	// Compatibility aliases for handlers

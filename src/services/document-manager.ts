@@ -2,34 +2,25 @@
  * Document management service for Scrivener projects
  */
 
-import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
 import { LRUCache } from '../core/cache.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import type { ProjectStructure } from '../types/internal.js';
-import {
-	ensureDir,
-	handleError,
-	isValidUUID,
-	safeReadFile,
-	safeWriteFile,
-	truncate,
-	validateInput,
-} from '../utils/common.js';
+import { handleError, isValidUUID, safeReadFile, validateInput } from '../utils/common.js';
 import { getDocumentPath } from '../utils/scrivener-utils.js';
 import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
 import type { RTFContent } from './parsers/rtf-handler.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
 import { DocumentTree } from './document-tree.js';
 import { BinderEditor } from './binder-editor.js';
+import { DocumentWriter } from './document-writer.js';
 
 const logger = getLogger('document-manager');
 
 export class DocumentManager {
+	private writer: DocumentWriter;
 	private binder: BinderEditor;
 	private tree: DocumentTree;
 	private projectPath: string;
@@ -38,7 +29,6 @@ export class DocumentManager {
 	private projectStructure?: ProjectStructure;
 	private operationQueue: Map<string, Promise<unknown>>;
 	private readonly batchSize = 10;
-	private pendingWrites: Map<string, { content: RTFContent | string; timestamp: number }>;
 	private flushInterval: NodeJS.Timeout;
 
 	constructor(projectPath: string) {
@@ -52,7 +42,6 @@ export class DocumentManager {
 			},
 		});
 		this.operationQueue = new Map();
-		this.pendingWrites = new Map();
 
 		// Auto-flush pending writes every 5 seconds
 		this.flushInterval = setInterval(() => void this.flushPendingWrites(), 5000);
@@ -66,6 +55,13 @@ export class DocumentManager {
 		this.binder = new BinderEditor(
 			() => this.projectStructure,
 			(id, content) => this.writeDocument(id, content)
+		);
+
+		this.writer = new DocumentWriter(
+			this.projectPath,
+			this.rtfHandler,
+			this.documentCache,
+			(key, operation) => this.dedupedOperation(key, operation)
 		);
 	}
 
@@ -209,84 +205,7 @@ export class DocumentManager {
 		content: string | RTFContent,
 		immediate = false
 	): Promise<void> {
-		if (immediate) {
-			return this.writeDocumentImmediate(documentId, content);
-		}
-
-		// Queue for batch writing. Invalidate the parsed-content cache now, not at
-		// flush time, so a read that arrives before the flush sees "not cached"
-		// (falls through to disk) rather than the stale pre-write content.
-		this.pendingWrites.set(documentId, {
-			content,
-			timestamp: Date.now(),
-		});
-		this.documentCache.delete(`doc:${documentId}`);
-
-		// Flush if queue is full
-		if (this.pendingWrites.size >= this.batchSize) {
-			await this.flushPendingWrites();
-		}
-	}
-
-	/**
-	 * Write document immediately
-	 */
-	private async writeDocumentImmediate(
-		documentId: string,
-		content: string | RTFContent
-	): Promise<void> {
-		if (!isValidUUID(documentId)) {
-			throw createError(
-				ErrorCode.VALIDATION_ERROR,
-				{ documentId },
-				`Invalid document ID format: ${truncate(documentId, 50)}`
-			);
-		}
-		return this.dedupedOperation(`write:${documentId}`, async () => {
-			const filePath = getDocumentPath(this.projectPath, documentId);
-			logger.debug(`Writing document to ${filePath}`);
-
-			// Ensure the directory exists
-			const dir = path.dirname(filePath);
-			await ensureDir(dir);
-
-			// Convert to RTF if needed
-			let rtfContent: RTFContent;
-			if (typeof content === 'string') {
-				rtfContent = {
-					plainText: content,
-					formattedText: [],
-					metadata: {},
-				};
-			} else {
-				rtfContent = content;
-			}
-
-			// Backup existing content before overwrite. If the document already
-			// exists but cannot be backed up, fail closed rather than risk an
-			// unrecoverable overwrite of the writer's manuscript.
-			const backupDir = path.join(this.projectPath, '.scrivener-mcp-backup');
-			try {
-				await ensureDir(backupDir);
-				await fs.promises.copyFile(filePath, path.join(backupDir, `${documentId}.rtf`));
-			} catch (err) {
-				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-					throw createError(
-						ErrorCode.FILE_WRITE_ERROR,
-						{ documentId, error: (err as Error).message },
-						`Refusing to overwrite document ${documentId}: could not back up existing content first`
-					);
-				}
-				// ENOENT: no existing file to back up (first write) — safe to proceed.
-			}
-
-			await this.rtfHandler.writeRTF(filePath, rtfContent);
-
-			// Update cache
-			const cacheKey = `doc:${documentId}`;
-			this.documentCache.set(cacheKey, rtfContent);
-			await this.syncDocsChecksum(documentId);
-		});
+		return this.writer.writeDocument(documentId, content, immediate);
 	}
 
 	/**
@@ -296,35 +215,7 @@ export class DocumentManager {
 	 * re-serialized by the RTF writer. Invalidates the parsed cache.
 	 */
 	async writeRawContent(documentId: string, rawRtf: string): Promise<void> {
-		if (!isValidUUID(documentId)) {
-			throw createError(
-				ErrorCode.VALIDATION_ERROR,
-				{ documentId },
-				`Invalid document ID format: ${truncate(documentId, 50)}`
-			);
-		}
-		return this.dedupedOperation(`write:${documentId}`, async () => {
-			const filePath = getDocumentPath(this.projectPath, documentId);
-			await ensureDir(path.dirname(filePath));
-
-			const backupDir = path.join(this.projectPath, '.scrivener-mcp-backup');
-			try {
-				await ensureDir(backupDir);
-				await fs.promises.copyFile(filePath, path.join(backupDir, `${documentId}.rtf`));
-			} catch (err) {
-				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-					throw createError(
-						ErrorCode.FILE_WRITE_ERROR,
-						{ documentId, error: (err as Error).message },
-						`Refusing to overwrite document ${documentId}: could not back up existing content first`
-					);
-				}
-			}
-
-			await fs.promises.writeFile(filePath, rawRtf, 'utf-8');
-			this.documentCache.delete(`doc:${documentId}`);
-			await this.syncDocsChecksum(documentId);
-		});
+		return this.writer.writeRawContent(documentId, rawRtf);
 	}
 
 	/**
@@ -335,36 +226,6 @@ export class DocumentManager {
 	 * serializes updates so concurrent writes can't corrupt the shared file. Best
 	 * effort: a failure here never fails the write.
 	 */
-	private checksumLock: Promise<void> = Promise.resolve();
-	private async syncDocsChecksum(documentId: string): Promise<void> {
-		this.checksumLock = this.checksumLock.then(async () => {
-			const checksumPath = path.join(this.projectPath, 'Files', 'Data', 'docs.checksum');
-			try {
-				let existing: string;
-				try {
-					existing = await fs.promises.readFile(checksumPath, 'utf-8');
-				} catch {
-					return; // no checksum file: this project doesn't use them, leave it that way
-				}
-				const bytes = await fs.promises.readFile(
-					getDocumentPath(this.projectPath, documentId)
-				);
-				const hash = crypto.createHash('sha1').update(bytes).digest('hex');
-				const key = `${documentId}/content.rtf`;
-				const lines = existing.split('\n').filter((l) => l.length > 0);
-				const idx = lines.findIndex((l) => l.startsWith(`${key}=`));
-				if (idx >= 0) lines[idx] = `${key}=${hash}`;
-				else lines.push(`${key}=${hash}`);
-				await safeWriteFile(checksumPath, `${lines.join('\n')}\n`);
-			} catch (error) {
-				logger.warn('Failed to update docs.checksum', {
-					documentId,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
-		});
-		return this.checksumLock;
-	}
 
 	/**
 	 * Flush pending writes in batches
@@ -372,28 +233,7 @@ export class DocumentManager {
 	 * so new writes during processing go into the fresh map.
 	 */
 	private async flushPendingWrites(): Promise<void> {
-		if (this.pendingWrites.size === 0) return;
-
-		// Snapshot current pending writes, then clear so new writes
-		// arriving during processing accumulate in the fresh map
-		const snapshot = new Map(this.pendingWrites);
-		this.pendingWrites.clear();
-
-		const writes = Array.from(snapshot.entries());
-
-		// Process in parallel batches
-		const batches = [];
-		for (let i = 0; i < writes.length; i += this.batchSize) {
-			batches.push(writes.slice(i, i + this.batchSize));
-		}
-
-		for (const batch of batches) {
-			await Promise.all(
-				batch.map(([documentId, { content }]) =>
-					this.writeDocumentImmediate(documentId, content)
-				)
-			);
-		}
+		return this.writer.flushPendingWrites();
 	}
 
 	/**
