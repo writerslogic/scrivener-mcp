@@ -2,6 +2,8 @@ import { getLogger } from '../../../core/logger.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import * as path from 'path';
 import { createRequire } from 'module';
+import { open } from 'fs/promises';
+import type { HolographicMemorySystem as NativeEngine } from 'holographic-memory';
 
 const logger = getLogger('holographic-memory-system');
 
@@ -384,10 +386,10 @@ class JSVectorEngine {
 // with a synchronous require (not a top-level `await import`) so that importing
 // this module never forces top-level await on consumers — which breaks CJS and
 // ts-jest transpilation of the whole handler graph.
-// The optional native package has no TypeScript declarations and is loaded dynamically.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let NativeHMS: any = null;
+let NativeHMS: typeof NativeEngine | null = null;
 let nativeLoadAttempted = false;
+// Native locks last until GC; default consumers share one owner for the process lifetime.
+const defaultNativeStores = new Map<string, { dimensions: number; engine: NativeEngine }>();
 function loadNativeHMS(): void {
 	if (nativeLoadAttempted) return;
 	nativeLoadAttempted = true;
@@ -397,8 +399,8 @@ function loadNativeHMS(): void {
 		// which is the project root for the packaged server. Native HMS is optional,
 		// so a resolution miss simply falls back to the JS engine below.
 		const requireFn = createRequire(path.join(process.cwd(), 'package.json'));
-		const native = requireFn('holographic-memory');
-		if (native?.HolographicMemorySystem) {
+		const native = requireFn('holographic-memory') as typeof import('holographic-memory');
+		if (typeof native?.HolographicMemorySystem === 'function') {
 			NativeHMS = native.HolographicMemorySystem;
 			logger.info('HMS using native Rust engine');
 		}
@@ -412,9 +414,7 @@ function loadNativeHMS(): void {
 
 export class HolographicMemorySystem {
 	private dimensions: number;
-	// Runtime shape comes from the optional, untyped native package.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private native: any | null = null;
+	private native: NativeEngine | null = null;
 	private jsEngine: JSVectorEngine | null = null;
 	private memoryIndex: Map<string, MemoryIndexEntry> = new Map();
 	private jsTriplets: Map<string, { head: string; relation: string; tail: string }> = new Map();
@@ -426,7 +426,19 @@ export class HolographicMemorySystem {
 
 		loadNativeHMS();
 		if (NativeHMS) {
-			this.native = new NativeHMS(this.dimensions, storagePath);
+			const cached = config.storagePath ? undefined : defaultNativeStores.get(storagePath);
+			if (cached && cached.dimensions !== this.dimensions) {
+				throw new Error(
+					`HMS default store is already open with ${cached.dimensions} dimensions`
+				);
+			}
+			this.native = cached?.engine || new NativeHMS(this.dimensions, storagePath);
+			if (!config.storagePath && !cached) {
+				defaultNativeStores.set(storagePath, {
+					dimensions: this.dimensions,
+					engine: this.native,
+				});
+			}
 			this.engineType = 'native';
 		} else {
 			this.jsEngine = new JSVectorEngine(Math.min(this.dimensions, 512));
@@ -501,13 +513,24 @@ export class HolographicMemorySystem {
 	}
 
 	async memorizeFile(id: string, filePath: string): Promise<MemoryFormationResult> {
-		if (this.native) {
-			await this.native.memorizeFile(id, filePath);
-		} else {
-			const { readFileSync } = await import('fs');
-			const text = readFileSync(filePath, 'utf-8');
-			await this.jsEngine!.memorizeText(id, text);
+		const file = await open(filePath, 'r');
+		let text: string;
+		try {
+			if (!(await file.stat()).isFile()) throw new Error('filePath must name a regular file');
+			const chunks: Buffer[] = [];
+			let length = 0;
+			for await (const chunk of file.createReadStream({ autoClose: false })) {
+				length += chunk.length;
+				if (length > 8 * 1024 * 1024) throw new Error('file exceeds 8 MiB');
+				chunks.push(chunk);
+			}
+			text = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, length));
+		} finally {
+			await file.close();
 		}
+		// Scrivener queries text vectors; native memorizeFile now writes chunked documents.
+		if (this.native) await this.native.memorizeText(id, text);
+		else await this.jsEngine!.memorizeText(id, text);
 		this.memoryIndex.set(id, { modality: 'file', originalData: filePath });
 		return { id, modalities: ['file'] };
 	}
@@ -535,7 +558,7 @@ export class HolographicMemorySystem {
 
 	async findAnalogy(a: string, b: string, c: string, traceId?: string): Promise<QueryResult[]> {
 		const results = this.native
-			? await this.native.findAnalogy(a, b, c, traceId)
+			? await this.native.findAnalogy(a, b, c, undefined, traceId)
 			: await this.jsEngine!.findAnalogy(a, b, c);
 		return this.mapResults(results);
 	}
@@ -661,6 +684,8 @@ export class HolographicMemorySystem {
 
 	async destroy(): Promise<void> {
 		logger.info('Shutting down HMS Engine');
+		if (this.native) await this.native.flush();
+		this.native = null;
 		if (this.jsEngine) this.jsEngine.clear();
 		this.memoryIndex.clear();
 		this.jsTriplets.clear();

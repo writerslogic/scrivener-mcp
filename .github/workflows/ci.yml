@@ -45,5 +45,8 @@ jobs:
       - name: Output-schema conformance gate
         run: node scripts/check-output-conformance.mjs
 
+      - name: HMS fallback compatibility
+        run: node scripts/check-hms-compatibility.mjs
+
       - name: Test
         run: npm test -- --testTimeout=30000

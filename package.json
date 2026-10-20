@@ -47,6 +47,7 @@
     "typecheck": "tsc --noEmit",
     "check:tools": "npm run build && node scripts/check-tool-registry.mjs",
     "check:conformance": "npm run build && node scripts/check-output-conformance.mjs",
+    "check:hms": "npm run build && node scripts/check-hms-compatibility.mjs",
     "prepublishOnly": "npm run clean && npm run build",
     "prepare": "test -n \"$CI\" || npm run build",
     "postinstall": "node scripts/postinstall.cjs",
