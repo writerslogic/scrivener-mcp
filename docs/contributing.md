@@ -151,6 +151,8 @@ cargo build --features node-api  # Build napi bindings
 
 Type declarations for `holographic-memory` are stubbed in `src/types/hms-native.d.ts` so TypeScript compiles without the binary.
 
+Run `npm run check:hms` to check the JavaScript fallback through the built adapter and memory handler. To also test a local native build, run `npm run check:hms -- --native-package /path/to/holographic-memory`; that package must contain its built `.node` binding. The check installs it in a temporary directory and exercises retrieval, traced analogies, bounded file ingestion, shared store ownership, shutdown, and restart without changing the server's installed dependencies.
+
 ## Good First Issues
 
 Check the [issue tracker](https://github.com/writerslogic/scrivener-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for issues tagged "good first issue".

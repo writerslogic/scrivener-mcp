@@ -27,6 +27,7 @@ declare module 'holographic-memory' {
 	}
 	export class HolographicMemorySystem {
 		constructor(dimensions: number, storagePath?: string | undefined | null);
+		flush(): Promise<void>;
 		analyzeText(text: string): Promise<TextMetrics>;
 		calculateReadability(metrics: TextMetrics): Promise<number>;
 		memorizeText(id: string, text: string, traceId?: string | undefined | null): Promise<void>;
@@ -71,6 +72,7 @@ declare module 'holographic-memory' {
 			a: string,
 			b: string,
 			c: string,
+			k?: number | undefined | null,
 			traceId?: string | undefined | null
 		): Promise<Array<RetrievalResult>>;
 		synthesizeConcepts(): Promise<Array<ConceptCandidate>>;
