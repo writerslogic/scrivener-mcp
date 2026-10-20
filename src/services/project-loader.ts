@@ -18,6 +18,7 @@ import {
 } from '../utils/common.js';
 import { FileUtils } from '../utils/shared-patterns.js';
 import { findScrivxPath, getDefaultScrivxPath } from '../utils/scrivener-utils.js';
+import { exposeXmlAttributes, encodeNewBinderAttributes } from '../utils/scrivener-xml.js';
 
 const logger = getLogger('project-loader');
 
@@ -70,8 +71,9 @@ export class ProjectLoader {
 			const scrivxContent = await safeReadFile(this.scrivxPath, 'utf-8');
 			this.projectStructure = await parseStringPromise(scrivxContent, {
 				explicitArray: false,
-				mergeAttrs: true,
+				mergeAttrs: false,
 			});
+			exposeXmlAttributes(this.projectStructure);
 
 			if (!this.projectStructure?.ScrivenerProject) {
 				throw createError(
@@ -204,6 +206,7 @@ export class ProjectLoader {
 	 * Update the project structure in memory
 	 */
 	updateProjectStructure(structure: ProjectStructure): void {
+		exposeXmlAttributes(structure);
 		this.projectStructure = structure;
 	}
 
@@ -324,6 +327,7 @@ export class ProjectLoader {
 		// Remove internal tracking properties
 		delete clean._loadTime;
 		delete clean._modified;
+		encodeNewBinderAttributes(clean);
 
 		// Ensure ScrivenerProject is at root
 		if (clean.ScrivenerProject) {
@@ -423,6 +427,7 @@ export class ProjectLoader {
 	async importFromJson(jsonString: string): Promise<void> {
 		try {
 			const structure = safeParse(jsonString, {});
+			exposeXmlAttributes(structure);
 
 			if (!this.validateProjectStructure(structure)) {
 				throw createError(ErrorCode.INVALID_FORMAT, 'Invalid project structure in JSON');
