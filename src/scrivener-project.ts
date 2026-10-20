@@ -5,49 +5,43 @@
 import * as path from 'path';
 import { ContentAnalyzer, ContextAnalyzer } from './analysis/index.js';
 import { DOCUMENT_TYPES } from './core/constants.js';
-import { createError, ErrorCode } from './core/errors.js';
 import { getLogger } from './core/logger.js';
+import { createError, ErrorCode } from './core/errors.js';
+
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 import { DatabaseService } from './handlers/database/index.js';
 import { ContextSyncService, type SyncStatus } from './sync/context-sync.js';
-import { CleanupManager, safeReadFile, safeWriteFile } from './utils/common.js';
+import { CleanupManager, safeReadFile } from './utils/common.js';
+import type {
+	ScrivenerProjectOptions,
+	DocumentSnapshots,
+	SnapshotContent,
+	WriteFidelityReport,
+	ManuscriptBriefing,
+	SnapshotComparison,
+} from './project-types.js';
+
 import { ensureProjectDataDirectory } from './utils/project-utils.js';
-import {
-	findBinderItem,
-	getDocumentPath,
-	getNotesPath,
-	getSynopsisPath,
-} from './utils/scrivener-utils.js';
 
 // Import service modules
-import { CompilationService, type StructuredEntry } from './services/compilation-service.js';
-import { documentIndexer, type SearchResult } from './services/document-indexer.js';
+import { CompilationService } from './services/compilation-service.js';
+import { documentIndexer } from './services/document-indexer.js';
 import { DocumentManager } from './services/document-manager.js';
 import { MetadataManager } from './services/metadata-manager.js';
 import { ProjectLoader } from './services/project-loader.js';
-import { exportBinary, type ExportSection } from './services/export/manuscript-exporters.js';
+
 import { buildCompileMetadata, type CompileMetadata } from './services/compile-settings.js';
-import {
-	listAllSnapshots,
-	listDocumentSnapshots,
-	findSnapshot,
-	createSnapshot,
-	type SnapshotEntry,
-} from './services/snapshots.js';
+import type { SnapshotEntry } from './services/snapshots.js';
 import { RTFHandler } from './services/parsers/rtf-handler.js';
 import { spliceRtfText, describeReplacedConstructs } from './services/parsers/rtf-splice.js';
-import { getAccurateWordCount } from './utils/text-metrics.js';
-import { diffParagraphs, diffWordCounts } from './utils/text-diff.js';
+
 import { isProjectOpenInScrivener } from './utils/scrivener-app.js';
 import {
 	createDocument as createDocumentUtil,
 	type DocumentOperationContext,
 } from './utils/document-operations.js';
 
-import type {
-	ScrivenerDocument as AnalyzerDocument,
-	ChapterContext,
-} from './analysis/context-analyzer.js';
+import type { ChapterContext } from './analysis/context-analyzer.js';
 import type { RTFContent } from './services/parsers/rtf-handler.js';
 import type {
 	DocumentInfo,
@@ -62,104 +56,31 @@ import type { HolographicMemorySystem } from './services/memory/hhm/holographic-
 
 const logger = getLogger('scrivener-project');
 
-export interface ScrivenerProjectOptions {
-	autoSave?: boolean;
-	autoBackup?: boolean;
-	cacheSize?: number;
-	syncInterval?: number;
-	scrivxPath?: string;
-	hhmSystem?: HolographicMemorySystem;
-}
+export type {
+	ScrivenerProjectOptions,
+	DocumentSnapshots,
+	SnapshotContent,
+	WriteFidelityReport,
+	ManuscriptBriefing,
+	SnapshotComparison,
+} from './project-types.js';
 
-/** A document and its snapshots, as returned by `listSnapshots`. */
-export interface DocumentSnapshots {
-	documentId: string;
-	documentTitle?: string;
-	snapshots: Array<{ snapshotId: string; title: string; date: string }>;
-}
-
-/** A single snapshot's metadata and text, as returned by `readSnapshot`. */
-export interface SnapshotContent {
-	documentId: string;
-	snapshotId: string;
-	title: string;
-	date: string;
-	text: string;
-	wordCount: number;
-}
-
-/** A "where am I?" orientation of the manuscript, from `getManuscriptBriefing`. */
-/** Outcome of a fidelity-preserving document write. */
-export interface WriteFidelityReport {
-	documentId: string;
-	/** 'preserved': spliced, untouched RTF kept byte-for-byte. 'regenerated': rebuilt
-	 *  from plain text (lossy). 'created': first write, nothing to preserve. */
-	mode: 'preserved' | 'regenerated' | 'created';
-	/** Id of a snapshot taken before the write when fidelity was at risk. */
-	snapshotId?: string;
-	/** Human-readable constructs the edit could not preserve (empty on a clean edit). */
-	atRisk: string[];
-}
-
-export interface ManuscriptBriefing {
-	title?: string;
-	author?: string;
-	words: {
-		total: number;
-		draftTarget?: number;
-		percentToTarget?: number;
-		deadline?: string;
-	};
-	documents: { total: number; folders: number; textDocuments: number };
-	averageDocumentLength: number;
-	byStatus: Record<string, number>;
-	byLabel: Record<string, number>;
-	longest: { id: string; title: string; wordCount: number } | null;
-	shortest: { id: string; title: string; wordCount: number } | null;
-}
-
-/** A paragraph-level comparison between a snapshot and current/another snapshot. */
-export interface SnapshotComparison {
-	documentId: string;
-	from: { snapshotId: string; title: string; date: string; wordCount: number };
-	to: { snapshotId: string; wordCount: number };
-	wordDelta: number;
-	wordsAdded: number;
-	wordsRemoved: number;
-	addedParagraphs: string[];
-	removedParagraphs: string[];
-	unchangedParagraphs: number;
-}
-
-/** Depth-first search for a node by id in a nested binder tree. */
-function findSubtree(nodes: ScrivenerDocument[], id: string): ScrivenerDocument | undefined {
-	for (const node of nodes) {
-		if (node.id === id) return node;
-		if (node.children?.length) {
-			const found = findSubtree(node.children, id);
-			if (found) return found;
-		}
-	}
-	return undefined;
-}
-
-/**
- * Find the Draft/Manuscript folder (BinderItem Type "DraftFolder") — the root of
- * the compilable manuscript. Returns undefined when the project has none (rare;
- * some templates rename or omit it), so callers can fall back to the whole binder.
- */
-function findDraftFolder(nodes: ScrivenerDocument[]): ScrivenerDocument | undefined {
-	for (const node of nodes) {
-		if ((node.type as string) === 'DraftFolder') return node;
-		if (node.children?.length) {
-			const found = findDraftFolder(node.children);
-			if (found) return found;
-		}
-	}
-	return undefined;
-}
+import { ProjectSnapshots } from './services/project-snapshots.js';
+import { ProjectReports } from './services/project-reports.js';
+import { ProjectExporter } from './services/project-exporter.js';
+import { ProjectMetadataEditor } from './services/project-metadata-editor.js';
+import { ProjectContent } from './services/project-content.js';
+import { ProjectContextBridge } from './services/project-context-bridge.js';
+import { ProjectTrash } from './services/project-trash.js';
 
 export class ScrivenerProject {
+	private trash: ProjectTrash;
+	private contextBridge: ProjectContextBridge;
+	private content: ProjectContent;
+	private metadataEditor: ProjectMetadataEditor;
+	private exporter: ProjectExporter;
+	private reports: ProjectReports;
+	private snapshots: ProjectSnapshots;
 	private projectPath: string;
 	private documentManager: DocumentManager;
 	private projectLoader: ProjectLoader;
@@ -204,6 +125,65 @@ export class ScrivenerProject {
 		this.cleanupManager.register(async () => {
 			await this.close();
 		});
+
+		this.snapshots = new ProjectSnapshots(
+			this.projectPath,
+			(includeTrash) => this.getAllDocuments(includeTrash),
+			(documentId) => this.readDocument(documentId)
+		);
+
+		this.reports = new ProjectReports(
+			this.projectPath,
+			this.documentManager,
+			this.compilationService,
+			(documentId) => this.readDocument(documentId),
+			() => this.getProjectMetadata(),
+			() => this.getCompileMetadata()
+		);
+
+		this.exporter = new ProjectExporter(
+			this.compilationService,
+			() => this.getProjectStructure(),
+			() => this.getProjectMetadata(),
+			(documentId) => this.readDocument(documentId)
+		);
+
+		this.metadataEditor = new ProjectMetadataEditor(
+			this.projectPath,
+			this.projectLoader,
+			this.metadataManager,
+			() => this.saveProject(),
+			() => this.indexInitialized
+		);
+
+		this.content = new ProjectContent(
+			this.documentManager,
+			this.compilationService,
+			(documentId) => this.readDocument(documentId),
+			(includeTrash) => this.getAllDocuments(includeTrash),
+			(documentId) => this.getDocumentInfo(documentId),
+			() => this.getCompileMetadata(),
+			() => this.indexInitialized
+		);
+
+		this.contextBridge = new ProjectContextBridge(
+			this.projectPath,
+			this.databaseService,
+			() => this.contextSync,
+			() => this.contextAnalyzer,
+			(includeTrash) => this.getAllDocuments(includeTrash),
+			(documentId) => this.readDocument(documentId),
+			(documentId) => this.getDocumentInfo(documentId),
+			() => this.indexInitialized
+		);
+
+		this.trash = new ProjectTrash(
+			this.documentManager,
+			this.compilationService,
+			() => this.saveProject(),
+			(documentId) => this.readDocument(documentId),
+			(includeTrash) => this.getProjectStructure(includeTrash)
+		);
 	}
 
 	/**
@@ -467,27 +447,7 @@ export class ScrivenerProject {
 		separator = '\n\n---\n\n',
 		outputFormat: 'text' | 'markdown' | 'html' | 'latex' | 'json' = 'text'
 	): Promise<string | object> {
-		const documents = [];
-		for (const id of documentIds) {
-			try {
-				const content = await this.documentManager.readDocumentFormatted(id);
-				const doc = await this.getDocumentInfo(id);
-				documents.push({
-					id,
-					content,
-					title: doc.document?.title || 'Untitled',
-				});
-			} catch (error) {
-				logger.warn(`Failed to read document ${id}:`, {
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
-		}
-
-		return await this.compilationService.compileDocuments(documents, {
-			separator,
-			outputFormat,
-		});
+		return this.content.compileDocuments(documentIds, separator, outputFormat);
 	}
 
 	/**
@@ -507,64 +467,7 @@ export class ScrivenerProject {
 			compileFormatId?: string;
 		} = {}
 	): Promise<string> {
-		// Walk the nested binder tree so heading depth comes from actual structure,
-		// not from splitting the title-joined path (titles may contain "/"). Honor
-		// Scrivener's per-document "Include in Compile" flag unless includeExcluded.
-		const tree = await this.documentManager.getProjectStructure();
-		// Default to the Draft/Manuscript folder like Scrivener's own compile — not
-		// the whole binder, which would pull in Research (images), Trash, character
-		// sheets, and templates. Fall back to the whole binder only if no draft exists.
-		const scope = options.rootFolderId
-			? findSubtree(tree, options.rootFolderId)
-			: findDraftFolder(tree);
-		const roots = scope ? (scope.children ?? []) : tree;
-
-		const entries: StructuredEntry[] = [];
-		const includeExcluded = options.includeExcluded ?? false;
-		const walk = async (nodes: ScrivenerDocument[], depth: number): Promise<void> => {
-			for (const node of nodes) {
-				// Only 'Text' items carry compilable body content; every container type
-				// (Folder, DraftFolder, ResearchFolder, ...) is treated as a heading.
-				const isText = node.type === DOCUMENT_TYPES.TEXT;
-				const excluded = node.includeInCompile === false;
-				if (isText && excluded && !includeExcluded) continue;
-
-				let content = '';
-				if (isText) {
-					try {
-						content = await this.readDocument(node.id);
-					} catch (error) {
-						logger.warn(`Structured compile: failed to read ${node.id}`, {
-							error: error instanceof Error ? error.message : String(error),
-						});
-					}
-				}
-				entries.push({
-					title: node.title,
-					content,
-					depth,
-					isFolder: !isText,
-					sectionTypeId: node.sectionTypeId,
-				});
-				if (node.children?.length) await walk(node.children, depth + 1);
-			}
-		};
-		await walk(roots, 1);
-
-		let sectionLayouts: Record<string, string> | undefined;
-		if (options.compileFormatId) {
-			const metadata = await this.getCompileMetadata().catch(() => null);
-			sectionLayouts = metadata?.compileFormats.find(
-				(f) => f.id === options.compileFormatId
-			)?.sectionLayouts;
-		}
-
-		return this.compilationService.compileStructured(entries, {
-			outputFormat: options.outputFormat ?? 'text',
-			sceneSeparator: options.sceneSeparator ?? '',
-			includeTitles: options.includeTitles ?? true,
-			sectionLayouts,
-		});
+		return this.content.compileStructured(options);
 	}
 
 	/**
@@ -577,31 +480,7 @@ export class ScrivenerProject {
 	async getManuscriptDocuments(
 		includeExcluded = false
 	): Promise<Array<{ id: string; title: string; content: string }>> {
-		const tree = await this.documentManager.getProjectStructure();
-		const draft = findDraftFolder(tree);
-		const roots = draft ? (draft.children ?? []) : tree;
-
-		const result: Array<{ id: string; title: string; content: string }> = [];
-		const walk = async (nodes: ScrivenerDocument[]): Promise<void> => {
-			for (const node of nodes) {
-				if (node.type === DOCUMENT_TYPES.TEXT) {
-					if (node.includeInCompile !== false || includeExcluded) {
-						let content = '';
-						try {
-							content = await this.readDocument(node.id);
-						} catch (error) {
-							logger.warn(`getManuscriptDocuments: failed to read ${node.id}`, {
-								error: error instanceof Error ? error.message : String(error),
-							});
-						}
-						result.push({ id: node.id, title: node.title, content });
-					}
-				}
-				if (node.children?.length) await walk(node.children);
-			}
-		};
-		await walk(roots);
-		return result;
+		return this.content.getManuscriptDocuments(includeExcluded);
 	}
 
 	async searchContent(
@@ -613,70 +492,7 @@ export class ScrivenerProject {
 			includeTrash?: boolean;
 		}
 	): Promise<Array<{ documentId: string; title: string; matches: string[] }>> {
-		// Use the document indexer for efficient search if available
-		if (this.indexInitialized && !options?.searchMetadata) {
-			const results = await documentIndexer.searchContent(query, {
-				caseSensitive: options?.caseSensitive,
-				regex: options?.regex,
-				limit: 100,
-			});
-
-			// Update index for accessed documents
-			for (const result of results.slice(0, 10)) {
-				try {
-					const content = await this.readDocument(result.documentId);
-					await documentIndexer.updateDocumentInIndex(result.documentId, content);
-				} catch (err) {
-					logger.debug('Skipped document index update', {
-						id: result.documentId,
-						error: err,
-					});
-				}
-			}
-
-			return results.map((r: SearchResult) => ({
-				documentId: r.documentId,
-				title: r.title,
-				matches: r.matches,
-			}));
-		}
-
-		// Fallback to full scan for metadata search or if index not available
-		const documents = await this.getAllDocuments(options?.includeTrash);
-		const docsWithContent = [];
-
-		for (const doc of documents) {
-			if (doc.type === DOCUMENT_TYPES.TEXT) {
-				try {
-					const content = await this.readDocument(doc.id);
-					const metadata: Record<string, string> = {};
-					if (doc.synopsis) metadata.synopsis = doc.synopsis;
-					if (doc.notes) metadata.notes = doc.notes;
-					if (doc.keywords && doc.keywords.length > 0) {
-						metadata.keywords = doc.keywords.join(', ');
-					}
-
-					docsWithContent.push({
-						id: doc.id,
-						title: doc.title,
-						content,
-						metadata,
-					});
-
-					// Update index while we have the content
-					if (this.indexInitialized) {
-						await documentIndexer.updateDocumentInIndex(doc.id, content);
-					}
-				} catch (err) {
-					logger.debug('Skipped document during content scan', {
-						id: doc.id,
-						error: err,
-					});
-				}
-			}
-		}
-
-		return this.compilationService.searchInDocuments(docsWithContent, query, options);
+		return this.content.searchContent(query, options);
 	}
 
 	async exportProject(
@@ -684,110 +500,11 @@ export class ScrivenerProject {
 		outputPath?: string,
 		options?: Partial<ExportOptions>
 	): Promise<unknown> {
-		if (format === 'docx' || format === 'epub' || format === 'pdf') {
-			const sections = await this.gatherManuscriptSections();
-			const meta = await this.getProjectMetadata();
-			const buffer = await exportBinary(format, sections, {
-				title: meta.title || 'Untitled',
-				author: meta.author,
-			});
-			const filePath = await this.writeExportFile(buffer, format, outputPath, meta.title);
-			return {
-				format,
-				path: filePath,
-				bytes: buffer.length,
-				metadata: {
-					exportDate: new Date().toISOString(),
-					format,
-					documentCount: sections.filter((s) => !s.isFolder).length,
-				},
-			};
-		}
-
-		const structure = await this.getProjectStructure();
-		return await this.compilationService.exportProject(structure, format, options);
-	}
-
-	/**
-	 * Walk the binder in order, reading each text document's content, to build the
-	 * ordered manuscript sections the binary exporters consume.
-	 */
-	private async gatherManuscriptSections(): Promise<ExportSection[]> {
-		const structure = await this.getProjectStructure();
-		const sections: ExportSection[] = [];
-
-		const walk = async (docs: ScrivenerDocument[], depth: number): Promise<void> => {
-			for (const doc of docs) {
-				const isText = doc.type === 'Text';
-				let text = '';
-				if (isText) {
-					try {
-						text = await this.readDocument(doc.id);
-					} catch (error) {
-						logger.warn('Skipping unreadable document during export', {
-							documentId: doc.id,
-							error,
-						});
-					}
-				}
-				sections.push({ title: doc.title || 'Untitled', text, depth, isFolder: !isText });
-				if (doc.children && doc.children.length > 0) {
-					await walk(doc.children, depth + 1);
-				}
-			}
-		};
-
-		await walk(structure, 0);
-		return sections;
-	}
-
-	/** Resolve the output path (given, or a default in the working directory) and write the export. */
-	private async writeExportFile(
-		buffer: Buffer,
-		ext: string,
-		outputPath: string | undefined,
-		title: string | undefined
-	): Promise<string> {
-		if (outputPath && outputPath.includes('\0')) {
-			throw createError(ErrorCode.INVALID_INPUT, { outputPath }, 'Invalid output path');
-		}
-		const safeTitle = (title || 'manuscript').replace(/[^\w.-]+/g, '_') || 'manuscript';
-		const target = outputPath
-			? path.resolve(outputPath)
-			: path.join(process.cwd(), `${safeTitle}.${ext}`);
-		await safeWriteFile(target, buffer);
-		return target;
+		return this.exporter.exportProject(format, outputPath, options);
 	}
 
 	async getStatistics(): Promise<ProjectStatistics> {
-		// getAllDocuments carries neither content nor a word count, so statistics over
-		// it report zero words. Read content into the tree first, then aggregate.
-		const tree = await this.documentManager.getProjectStructure();
-		await this.annotateWordCounts(tree);
-		return this.compilationService.getStatistics(tree);
-	}
-
-	/**
-	 * Read each Text node's content and set its wordCount in place, so statistics
-	 * over the tree reflect real prose (the binder tree stores no counts). Content
-	 * is capped per document as defense against any binary/outlier; embedded images
-	 * are already stripped by the RTF handler. Unreadable documents count as zero.
-	 */
-	private async annotateWordCounts(nodes: ScrivenerDocument[]): Promise<void> {
-		const CONTENT_CAP = 2_000_000;
-		for (const node of nodes) {
-			if (node.type === DOCUMENT_TYPES.TEXT) {
-				try {
-					const text = await this.readDocument(node.id);
-					node.wordCount = getAccurateWordCount(
-						text.length > CONTENT_CAP ? text.slice(0, CONTENT_CAP) : text
-					);
-				} catch {
-					node.wordCount = 0;
-				}
-			}
-			if (node.children?.length) await this.annotateWordCounts(node.children);
-		}
+		return this.reports.getStatistics();
 	}
 
 	/**
@@ -798,134 +515,12 @@ export class ScrivenerProject {
 	 * a caller does not have to stitch several tools together after open_project.
 	 */
 	async getManuscriptBriefing(): Promise<ManuscriptBriefing> {
-		// Scope to the Draft/Manuscript folder (like Scrivener) and count words from
-		// document content (annotateWordCounts), since the binder tree stores none.
-		const tree = await this.documentManager.getProjectStructure();
-		const draft = findDraftFolder(tree);
-		const scopeNodes = draft?.children ?? tree;
-		await this.annotateWordCounts(scopeNodes);
-
-		const stats = this.compilationService.getStatistics(scopeNodes);
-		const meta = await this.getProjectMetadata();
-
-		// Label and Status are stored on documents as taxonomy ids; resolve them to
-		// human names via the compile metadata so the breakdown is readable.
-		const taxonomy = await this.getCompileMetadata().catch(() => null);
-		const nameById = (
-			defs: Array<{ id: string; title: string }> | undefined
-		): Map<string, string> => new Map((defs ?? []).map((d) => [d.id, d.title]));
-		const labelNames = nameById(taxonomy?.labels);
-		const statusNames = nameById(taxonomy?.statuses);
-		const relabel = (counts: Record<string, number>, names: Map<string, string>) => {
-			const out: Record<string, number> = {};
-			for (const [key, n] of Object.entries(counts)) out[names.get(key) ?? key] = n;
-			return out;
-		};
-
-		// A project with no draft target parses to NaN/undefined; treat only a finite
-		// positive number as a real goal so percent-to-target isn't NaN.
-		const rawTarget = meta.projectTargets?.draft;
-		const draftTarget =
-			typeof rawTarget === 'number' && Number.isFinite(rawTarget) && rawTarget > 0
-				? rawTarget
-				: undefined;
-		const slim = (d: DocumentInfo | null) =>
-			d ? { id: d.id, title: d.title, wordCount: d.wordCount ?? 0 } : null;
-
-		return {
-			// Many projects store no ProjectTitle (Scrivener shows the .scriv filename);
-			// fall back to the package basename so the briefing is never nameless.
-			title: meta.title || path.basename(this.projectPath, '.scriv'),
-			author: meta.author,
-			words: {
-				total: stats.totalWords,
-				draftTarget,
-				percentToTarget: draftTarget
-					? Math.round((stats.totalWords / draftTarget) * 100)
-					: undefined,
-				deadline: meta.projectTargets?.deadline,
-			},
-			documents: {
-				total: stats.totalDocuments,
-				folders: stats.totalFolders,
-				textDocuments: stats.totalDocuments - stats.totalFolders,
-			},
-			averageDocumentLength: stats.averageDocumentLength,
-			byStatus: relabel(stats.documentsByStatus, statusNames),
-			byLabel: relabel(stats.documentsByLabel, labelNames),
-			longest: slim(stats.longestDocument),
-			shortest: slim(stats.shortestDocument),
-		};
+		return this.reports.getManuscriptBriefing();
 	}
 
 	// Metadata operations
 	async updateMetadata(documentId: string, metadata: Record<string, unknown>): Promise<void> {
-		const structure = this.projectLoader.getProjectStructure();
-		if (!structure) {
-			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
-		}
-
-		const item = this.findBinderItem(
-			structure as unknown as Record<string, unknown>,
-			documentId
-		);
-		if (!item) {
-			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
-		}
-
-		this.metadataManager.updateDocumentMetadata(item, metadata);
-		await this.writeSynopsisAndNotesToDisk(documentId, metadata);
-		this.patchDocumentIndex(documentId, metadata);
-		await this.saveProject();
-	}
-
-	/**
-	 * Scrivener 3 reads a document's synopsis/notes from files under
-	 * Files/Data/<UUID>/ (synopsis.txt, notes.rtf), not from the .scrivx
-	 * MetaData block that updateDocumentMetadata above writes -- so a synopsis
-	 * set here must also land on disk to be visible in Scrivener's own UI (and
-	 * to round-trip back out of get_document_info, which reads from disk too).
-	 */
-	private async writeSynopsisAndNotesToDisk(
-		documentId: string,
-		metadata: Record<string, unknown>
-	): Promise<void> {
-		if (typeof metadata.synopsis === 'string') {
-			await safeWriteFile(getSynopsisPath(this.projectPath, documentId), metadata.synopsis);
-		}
-
-		if (typeof metadata.notes === 'string') {
-			await new RTFHandler().writeRTF(
-				getNotesPath(this.projectPath, documentId),
-				metadata.notes
-			);
-		}
-	}
-
-	/**
-	 * Keep the document indexer's O(1) getDocumentInfo snapshot in sync with an
-	 * in-session metadata update. buildIndex() snapshots each ScrivenerDocument
-	 * once at load time; without this, get_document_info keeps serving
-	 * pre-update values for the rest of the session even though the binder XML
-	 * and disk files are current.
-	 */
-	private patchDocumentIndex(documentId: string, metadata: Record<string, unknown>): void {
-		if (!this.indexInitialized) return;
-
-		const patch: Partial<ScrivenerDocument> = {};
-		if (typeof metadata.title === 'string') patch.title = metadata.title;
-		if (typeof metadata.synopsis === 'string') patch.synopsis = metadata.synopsis || undefined;
-		if (typeof metadata.notes === 'string') patch.notes = metadata.notes || undefined;
-		if (typeof metadata.label === 'string') patch.label = metadata.label;
-		if (typeof metadata.status === 'string') patch.status = metadata.status;
-		if (Array.isArray(metadata.keywords)) patch.keywords = metadata.keywords as string[];
-		if (typeof metadata.includeInCompile === 'boolean') {
-			patch.includeInCompile = metadata.includeInCompile;
-		}
-
-		if (Object.keys(patch).length > 0) {
-			documentIndexer.patchDocumentMetadata(documentId, patch);
-		}
+		return this.metadataEditor.updateMetadata(documentId, metadata);
 	}
 
 	async updateDocumentMetadata(
@@ -938,7 +533,7 @@ export class ScrivenerProject {
 			customMetadata?: Record<string, string>;
 		}
 	): Promise<void> {
-		await this.updateMetadata(documentId, metadata);
+		return this.metadataEditor.updateDocumentMetadata(documentId, metadata);
 	}
 
 	async updateSynopsisAndNotes(
@@ -946,7 +541,7 @@ export class ScrivenerProject {
 		synopsis?: string,
 		notes?: string
 	): Promise<void> {
-		await this.updateMetadata(documentId, { synopsis, notes });
+		return this.metadataEditor.updateSynopsisAndNotes(documentId, synopsis, notes);
 	}
 
 	async batchUpdateSynopsisAndNotes(
@@ -956,20 +551,7 @@ export class ScrivenerProject {
 			notes?: string;
 		}>
 	): Promise<Array<{ documentId: string; success: boolean; error?: string }>> {
-		const results = [];
-		for (const update of updates) {
-			try {
-				await this.updateSynopsisAndNotes(update.documentId, update.synopsis, update.notes);
-				results.push({ documentId: update.documentId, success: true });
-			} catch (error) {
-				results.push({
-					documentId: update.documentId,
-					success: false,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
-		}
-		return results;
+		return this.metadataEditor.batchUpdateSynopsisAndNotes(updates);
 	}
 
 	async getProjectMetadata(): Promise<ScrivenerMetadata> {
@@ -1013,34 +595,16 @@ export class ScrivenerProject {
 	 * empty array when the project or document has no snapshots.
 	 */
 	async listSnapshots(documentId?: string): Promise<DocumentSnapshots[]> {
-		const entries = documentId
-			? await listDocumentSnapshots(this.projectPath, documentId)
-			: await listAllSnapshots(this.projectPath);
-		if (entries.length === 0) return [];
+		return this.snapshots.listSnapshots(documentId);
+	}
 
-		const titles = new Map<string, string>();
-		for (const doc of await this.getAllDocuments(true)) {
-			titles.set(doc.id, doc.title);
-		}
-
-		const grouped = new Map<string, DocumentSnapshots>();
-		for (const entry of entries) {
-			let group = grouped.get(entry.documentId);
-			if (!group) {
-				group = {
-					documentId: entry.documentId,
-					documentTitle: titles.get(entry.documentId),
-					snapshots: [],
-				};
-				grouped.set(entry.documentId, group);
-			}
-			group.snapshots.push({
-				snapshotId: entry.snapshotId,
-				title: entry.title,
-				date: entry.date,
-			});
-		}
-		return Array.from(grouped.values());
+	/**
+	 * Create a Scrivener-native snapshot of a document's current content, restorable
+	 * from Scrivener's own Snapshots browser. Use this before a lossy edit to give
+	 * the writer a native rollback point. Requires the document to have content.
+	 */
+	async takeSnapshot(documentId: string, title = 'Snapshot'): Promise<SnapshotEntry> {
+		return this.snapshots.takeSnapshot(documentId, title);
 	}
 
 	/**
@@ -1049,35 +613,8 @@ export class ScrivenerProject {
 	 * throw NOT_FOUND rather than reading outside the snapshot set. Returns the
 	 * snapshot's title, date, plain text, and word count.
 	 */
-	/**
-	 * Create a Scrivener-native snapshot of a document's current content, restorable
-	 * from Scrivener's own Snapshots browser. Use this before a lossy edit to give
-	 * the writer a native rollback point. Requires the document to have content.
-	 */
-	async takeSnapshot(documentId: string, title = 'Snapshot'): Promise<SnapshotEntry> {
-		return createSnapshot(this.projectPath, documentId, title, new Date());
-	}
-
 	async readSnapshot(documentId: string, snapshotId: string): Promise<SnapshotContent> {
-		const found = await findSnapshot(this.projectPath, documentId, snapshotId);
-		if (!found) {
-			throw createError(
-				ErrorCode.NOT_FOUND,
-				{ documentId, snapshotId },
-				`No snapshot "${snapshotId}" for document ${documentId}`
-			);
-		}
-
-		const { plainText } = await new RTFHandler().readRTF(found.rtfPath);
-		const text = plainText ?? '';
-		return {
-			documentId,
-			snapshotId,
-			title: found.entry.title,
-			date: found.entry.date,
-			text,
-			wordCount: getAccurateWordCount(text),
-		};
+		return this.snapshots.readSnapshot(documentId, snapshotId);
 	}
 
 	/**
@@ -1091,35 +628,7 @@ export class ScrivenerProject {
 		snapshotId: string,
 		againstSnapshotId?: string
 	): Promise<SnapshotComparison> {
-		const from = await this.readSnapshot(documentId, snapshotId);
-
-		let toLabel: string;
-		let toText: string;
-		let toWordCount: number;
-		if (againstSnapshotId) {
-			const to = await this.readSnapshot(documentId, againstSnapshotId);
-			toLabel = againstSnapshotId;
-			toText = to.text;
-			toWordCount = to.wordCount;
-		} else {
-			toLabel = 'current';
-			toText = await this.readDocument(documentId);
-			toWordCount = getAccurateWordCount(toText);
-		}
-
-		const diff = diffParagraphs(from.text, toText);
-		const words = diffWordCounts(from.text, toText);
-		return {
-			documentId,
-			from: { snapshotId, title: from.title, date: from.date, wordCount: from.wordCount },
-			to: { snapshotId: toLabel, wordCount: toWordCount },
-			wordDelta: toWordCount - from.wordCount,
-			wordsAdded: words.added,
-			wordsRemoved: words.removed,
-			addedParagraphs: diff.added,
-			removedParagraphs: diff.removed,
-			unchangedParagraphs: diff.unchanged,
-		};
+		return this.snapshots.compareSnapshot(documentId, snapshotId, againstSnapshotId);
 	}
 
 	// Project management
@@ -1151,95 +660,23 @@ export class ScrivenerProject {
 	}
 
 	async analyzeChapterEnhanced(documentId: string): Promise<ChapterContext> {
-		if (!this.contextAnalyzer) {
-			throw createError(ErrorCode.INVALID_STATE, 'Context analyzer not initialized');
-		}
-
-		const document = await this.getDocumentInfo(documentId);
-		if (!document.document) {
-			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
-		}
-
-		const content = await this.readDocument(documentId);
-		const allDocuments = await this.getAllDocuments();
-
-		const addCharCount = (doc: ScrivenerDocument): AnalyzerDocument => ({
-			id: doc.id,
-			title: doc.title,
-			type: doc.type,
-			synopsis: doc.synopsis,
-			notes: doc.notes,
-			characterCount: doc.content?.length || 0,
-			wordCount: doc.wordCount || 0,
-			children: doc.children?.map(addCharCount),
-		});
-		const documentsWithCharCount = allDocuments.map(addCharCount);
-		const documentWithCharCount = addCharCount(document.document);
-		return (await this.contextAnalyzer.analyzeChapter(
-			documentWithCharCount,
-			content,
-			documentsWithCharCount
-		)) as ChapterContext;
+		return this.contextBridge.analyzeChapterEnhanced(documentId);
 	}
 
 	async buildStoryContext(): Promise<unknown> {
-		if (!this.contextAnalyzer) {
-			throw createError(ErrorCode.INVALID_STATE, 'Context analyzer not initialized');
-		}
-
-		const documents = await this.getAllDocuments();
-		const contexts = [];
-
-		for (const doc of documents) {
-			if (doc.type === DOCUMENT_TYPES.TEXT) {
-				const context = await this.contextAnalyzer.getChapterContext(doc.id);
-				if (context) {
-					contexts.push(context);
-				}
-			}
-		}
-
-		const addCharCount = (doc: ScrivenerDocument): AnalyzerDocument => ({
-			id: doc.id,
-			title: doc.title,
-			type: doc.type,
-			synopsis: doc.synopsis,
-			notes: doc.notes,
-			characterCount: doc.content?.length || 0,
-			wordCount: doc.wordCount || 0,
-			children: doc.children?.map(addCharCount),
-		});
-		const documentsWithCharCount = documents.map(addCharCount);
-		return await this.contextAnalyzer.buildStoryContext(documentsWithCharCount, contexts);
+		return this.contextBridge.buildStoryContext();
 	}
 
 	getSyncStatus(): SyncStatus | { enabled: false; message: string } {
-		if (!this.contextSync) {
-			return {
-				enabled: false,
-				message: 'Context sync not initialized',
-			};
-		}
-		return this.contextSync.getSyncStatus();
+		return this.contextBridge.getSyncStatus();
 	}
 
 	markDocumentChanged(documentId: string): void {
-		// Track in document indexer for efficient syncing
-		if (this.indexInitialized) {
-			documentIndexer.markDocumentChanged(documentId);
-		}
-
-		// Also track in context sync if available
-		if (this.contextSync) {
-			this.contextSync.markDocumentChanged(documentId);
-		}
+		return this.contextBridge.markDocumentChanged(documentId);
 	}
 
 	async exportContextFiles(exportPath: string): Promise<void> {
-		if (!this.contextSync) {
-			throw createError(ErrorCode.INVALID_STATE, 'Context sync not initialized');
-		}
-		await this.contextSync.exportContextFiles(exportPath);
+		return this.contextBridge.exportContextFiles(exportPath);
 	}
 
 	// Additional methods
@@ -1324,48 +761,18 @@ export class ScrivenerProject {
 	}
 
 	async getTrashDocuments(): Promise<ScrivenerDocument[]> {
-		const allDocs = await this.getProjectStructure(true);
-		const trashDocs: ScrivenerDocument[] = [];
-
-		// Find trash folder
-		for (const doc of allDocs) {
-			if (doc.path && doc.path.startsWith('Trash/')) {
-				trashDocs.push(doc);
-			}
-		}
-
-		return trashDocs;
+		return this.trash.getTrashDocuments();
 	}
 
 	async searchTrash(
 		query: string,
 		options?: { caseSensitive?: boolean; regex?: boolean }
 	): Promise<Array<{ documentId: string; title: string; matches: string[] }>> {
-		const trashDocs = await this.getTrashDocuments();
-		const docsWithContent = [];
-
-		for (const doc of trashDocs) {
-			if (doc.type === DOCUMENT_TYPES.TEXT) {
-				try {
-					const content = await this.readDocument(doc.id);
-					docsWithContent.push({
-						id: doc.id,
-						title: `[TRASH] ${doc.title}`,
-						content,
-						metadata: {},
-					});
-				} catch (err) {
-					logger.debug('Skipped trash document during scan', { id: doc.id, error: err });
-				}
-			}
-		}
-
-		return this.compilationService.searchInDocuments(docsWithContent, query, options);
+		return this.trash.searchTrash(query, options);
 	}
 
 	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
-		await this.documentManager.recoverFromTrash(documentId, targetParentId);
-		await this.saveProject();
+		return this.trash.recoverFromTrash(documentId, targetParentId);
 	}
 
 	async getProjectStructureLimited(options?: {
@@ -1460,85 +867,7 @@ export class ScrivenerProject {
 
 	// Private helpers
 	private async performInitialSync(): Promise<void> {
-		const allDocs = await this.getAllDocuments();
-		const BATCH_SIZE = 50;
-
-		const syncErrors: Array<{ docId: string; error: string }> = [];
-		for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
-			const batch = allDocs.slice(i, i + BATCH_SIZE);
-			const results = await Promise.allSettled(
-				batch.map((doc) => this.syncDocumentToDatabase(doc))
-			);
-			for (let j = 0; j < results.length; j++) {
-				const result = results[j];
-				if (result.status === 'rejected') {
-					syncErrors.push({
-						docId: batch[j].id,
-						error:
-							result.reason instanceof Error
-								? result.reason.message
-								: String(result.reason),
-					});
-				}
-			}
-			logger.debug(
-				`Synced ${Math.min(i + BATCH_SIZE, allDocs.length)}/${allDocs.length} documents`
-			);
-		}
-		if (syncErrors.length > 0) {
-			logger.error(`Database sync completed with ${syncErrors.length} error(s)`, {
-				syncErrors,
-			});
-		}
-	}
-
-	private async syncDocumentToDatabase(doc: ScrivenerDocument): Promise<void> {
-		try {
-			let wordCount = 0;
-			let characterCount = 0;
-
-			if (doc.type === DOCUMENT_TYPES.TEXT) {
-				try {
-					const content = await this.readDocument(doc.id);
-					const words = content
-						.trim()
-						.split(/\s+/)
-						.filter((w) => w.length > 0);
-					wordCount = words.length;
-					characterCount = content.length;
-				} catch (err) {
-					logger.debug('Document has no readable content', { id: doc.id, error: err });
-				}
-			}
-
-			await this.databaseService.syncDocumentData({
-				id: doc.id,
-				title: doc.title,
-				type: doc.type,
-				path: getDocumentPath(this.projectPath, doc.id),
-				synopsis: doc.synopsis,
-				notes: doc.notes,
-				wordCount,
-				characterCount,
-			});
-		} catch (error) {
-			logger.error(`Failed to sync document ${doc.id}:`, {
-				error: error instanceof Error ? error.message : String(error),
-			});
-			throw error;
-		}
-	}
-
-	private findBinderItem(
-		structure: Record<string, unknown>,
-		documentId: string
-	): Record<string, unknown> | null {
-		const scrivenerProject = structure.ScrivenerProject as Record<string, unknown> | undefined;
-		if (!scrivenerProject?.Binder) return null;
-
-		const binder = scrivenerProject.Binder;
-		const found = findBinderItem(binder, documentId);
-		return found as Record<string, unknown> | null;
+		return this.contextBridge.performInitialSync();
 	}
 
 	// Cleanup
