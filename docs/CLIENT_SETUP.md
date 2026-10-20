@@ -304,3 +304,13 @@ VS Code uses a different file format from the other apps: a top-level `servers` 
 ## One-click install links
 
 `npx scrivener-setup --links` prints ready-made links for Cursor, LM Studio, and Raycast, plus the `code --add-mcp` command for VS Code, each containing the full path to `npx` on your machine. A link only opens the app's own install dialog and cannot install or repair Node.js. If a link opens but the server fails to start, run the one-line installer above.
+
+If you installed the Scrivener MCP Mac app, you do not need Node.js at all. The app carries its own runtime, and you can generate links that point at it:
+
+```bash
+npx scrivener-setup --links \
+  --node "/Applications/Scrivener MCP.app/Contents/Resources/runtime/bin/node" \
+  --script "/Applications/Scrivener MCP.app/Contents/Resources/server/dist/index.js"
+```
+
+The same `--node` and `--script` options work with `--print` and with the setup itself.
