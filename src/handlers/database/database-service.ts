@@ -1,7 +1,6 @@
 import * as path from 'path';
 import { AppError, ErrorCode } from '../../utils/common.js';
 import { getLogger } from '../../core/logger.js';
-import { generateScrivenerUUID } from '../../utils/scrivener-utils.js';
 import {
 	buildPath,
 	ensureDir,
@@ -38,120 +37,40 @@ import type {
 	FeedbackRecord,
 	WritingPreferences,
 } from '../../services/personalization/types.js';
-import { DEFAULT_PREFERENCES } from '../../services/personalization/types.js';
+import type { WritingGoalInput, WritingGoalRecord } from './user-data.js';
+import {
+	getFeedbackRecords,
+	getWritingGoals,
+	getWritingPreferences,
+	recordFeedback,
+	saveWritingPreferences,
+	setWritingGoal,
+} from './user-data.js';
+import type {
+	ContentAnalysisEntry,
+	WritingSessionInput,
+	WritingStatistics,
+} from './session-analytics.js';
+import {
+	createDocumentVersion,
+	getContentAnalysisHistory,
+	getWritingStatistics,
+	recordWritingSession,
+	storeContentAnalysis,
+	trackWritingSession,
+} from './session-analytics.js';
+import { TransactionCoordinator } from './transaction-coordinator.js';
 
 const logger = getLogger('database');
 
-/** A writing goal row as stored in the `writing_goals` table (camelCase). */
-export interface WritingGoalRecord {
-	id: string;
-	type: string;
-	targetWords: number;
-	targetDate: string | null;
-	actualWords: number;
-	status: string;
-	createdAt: string;
-	completedAt: string | null;
-}
-
-interface RawWritingGoalRow {
-	id: string;
-	type: string;
-	target_words: number | null;
-	target_date: string | null;
-	actual_words: number | null;
-	status: string;
-	created_at: string;
-	completed_at: string | null;
-}
-
-function mapWritingGoalRow(row: RawWritingGoalRow): WritingGoalRecord {
-	return {
-		id: row.id,
-		type: row.type,
-		targetWords: row.target_words ?? 0,
-		targetDate: row.target_date,
-		actualWords: row.actual_words ?? 0,
-		status: row.status,
-		createdAt: row.created_at,
-		completedAt: row.completed_at,
-	};
-}
-
-/** A writing-preferences row as stored in the `writing_preferences` table. */
-interface RawPreferencesRow {
-	enabled: number;
-	tone: string;
-	complexity: string;
-	length: string;
-	point_of_view: string | null;
-	style_guides: string | null;
-	custom_instructions: string | null;
-	updated_at: string | null;
-}
-
-function mapPreferencesRow(row: RawPreferencesRow): WritingPreferences {
-	let styleGuides: string[] = [];
-	if (row.style_guides) {
-		try {
-			const parsed: unknown = JSON.parse(row.style_guides);
-			if (Array.isArray(parsed))
-				styleGuides = parsed.filter((g): g is string => typeof g === 'string');
-		} catch {
-			styleGuides = [];
-		}
-	}
-	return {
-		enabled: row.enabled !== 0,
-		tone: row.tone as WritingPreferences['tone'],
-		complexity: row.complexity as WritingPreferences['complexity'],
-		length: row.length as WritingPreferences['length'],
-		pointOfView: row.point_of_view ?? undefined,
-		styleGuides,
-		customInstructions: row.custom_instructions ?? undefined,
-		updatedAt: row.updated_at ?? undefined,
-	};
-}
-
-/** A feedback row as stored in the `writing_feedback` table. */
-interface RawFeedbackRow {
-	id: string;
-	operation: string;
-	rating: number | null;
-	accepted: number | null;
-	comment: string | null;
-	created_at: string;
-}
-
-function mapFeedbackRow(row: RawFeedbackRow): FeedbackRecord {
-	return {
-		id: row.id,
-		operation: row.operation,
-		rating: row.rating ?? undefined,
-		accepted: row.accepted === null ? undefined : row.accepted !== 0,
-		comment: row.comment ?? undefined,
-		createdAt: row.created_at,
-	};
-}
-
-interface TransactionLog {
-	id: string;
-	timestamp: Date;
-	operations: Array<{
-		type: 'sqlite' | 'neo4j';
-		operation: string;
-		data: unknown;
-		status: 'pending' | 'prepared' | 'committed' | 'rolled_back';
-	}>;
-	status: 'in_progress' | 'prepared' | 'committed' | 'rolled_back';
-}
+export type { WritingGoalRecord } from './user-data.js';
 
 export class DatabaseService {
 	private sqliteManager: SQLiteManager | null = null;
 	private neo4jManager: Neo4jManager | null = null;
 	private config: DatabaseConfig;
 	private paths: ProjectDatabasePaths;
-	private transactionLog: Map<string, TransactionLog> = new Map();
+	private transactions = new TransactionCoordinator(() => this.sqliteManager);
 	private initialized: boolean = false;
 	private graphAnalytics: GraphAnalytics | null = null;
 	private migrationManager: MigrationManager | null = null;
@@ -365,91 +284,28 @@ export class DatabaseService {
 	 * Begin a two-phase commit transaction
 	 */
 	async beginTransaction(): Promise<string> {
-		const transactionId = generateScrivenerUUID();
-
-		this.transactionLog.set(transactionId, {
-			id: transactionId,
-			timestamp: new Date(),
-			operations: [],
-			status: 'in_progress',
-		});
-
-		// Begin transactions in both databases
-		if (this.sqliteManager) {
-			this.sqliteManager.beginTransaction();
-		}
-
-		return transactionId;
+		return this.transactions.begin();
 	}
 
 	/**
 	 * Prepare phase of two-phase commit
 	 */
 	async prepareTransaction(transactionId: string): Promise<boolean> {
-		const txn = this.transactionLog.get(transactionId);
-		if (!txn) {
-			throw new AppError('Transaction not found', ErrorCode.DATABASE_ERROR);
-		}
-
-		try {
-			// Mark all operations as prepared
-			txn.operations.forEach((op) => {
-				if (op.status === 'pending') {
-					op.status = 'prepared';
-				}
-			});
-
-			txn.status = 'prepared';
-			return true;
-		} catch (_error) {
-			logger.error('Transaction preparation failed', { transactionId, error: _error });
-			await this.rollbackTransaction(transactionId);
-			return false;
-		}
+		return this.transactions.prepare(transactionId);
 	}
 
 	/**
 	 * Commit phase of two-phase commit
 	 */
 	async commitTransaction(transactionId: string): Promise<void> {
-		const txn = this.transactionLog.get(transactionId);
-		if (!txn || txn.status !== 'prepared') {
-			throw new AppError('Transaction not prepared', ErrorCode.DATABASE_ERROR);
-		}
-
-		try {
-			// Commit SQLite transaction
-			if (this.sqliteManager) {
-				this.sqliteManager.commit();
-			}
-
-			// Mark transaction as committed
-			txn.status = 'committed';
-			txn.operations.forEach((op) => (op.status = 'committed'));
-
-			// Clean up old transaction logs
-			this.cleanupTransactionLogs();
-		} catch (error) {
-			await this.rollbackTransaction(transactionId);
-			throw error;
-		}
+		return this.transactions.commit(transactionId);
 	}
 
 	/**
 	 * Rollback a transaction
 	 */
 	async rollbackTransaction(transactionId: string): Promise<void> {
-		const txn = this.transactionLog.get(transactionId);
-		if (!txn) return;
-
-		// Rollback SQLite
-		if (this.sqliteManager) {
-			this.sqliteManager.rollback();
-		}
-
-		// Mark transaction as rolled back
-		txn.status = 'rolled_back';
-		txn.operations.forEach((op) => (op.status = 'rolled_back'));
+		return this.transactions.rollback(transactionId);
 	}
 
 	/**
@@ -466,7 +322,7 @@ export class DatabaseService {
 		characterCount?: number;
 	}): Promise<void> {
 		const transactionId = await this.beginTransaction();
-		const txn = this.transactionLog.get(transactionId)!;
+		const txn = this.transactions.get(transactionId)!;
 
 		try {
 			// Phase 1: Prepare SQLite operation
@@ -622,14 +478,7 @@ export class DatabaseService {
 		analysisType: string,
 		analysisData: unknown
 	): Promise<void> {
-		if (!this.sqliteManager) return;
-
-		const stmt = this.sqliteManager.getDatabase().prepare(`
-			INSERT INTO content_analysis (document_id, analysis_type, analysis_data)
-			VALUES (?, ?, ?)
-		`);
-
-		stmt.run([documentId, analysisType, safeStringify(analysisData)]);
+		storeContentAnalysis(this.sqliteManager, documentId, analysisType, analysisData);
 	}
 
 	/**
@@ -638,152 +487,22 @@ export class DatabaseService {
 	async getContentAnalysisHistory(
 		documentId: string,
 		analysisType?: string
-	): Promise<
-		Array<{
-			id: number;
-			analysisType: string;
-			analysisData: unknown;
-			analyzedAt: string;
-		}>
-	> {
-		if (!this.sqliteManager) return [];
-
-		let sql = `
-			SELECT id, analysis_type, analysis_data, analyzed_at
-			FROM content_analysis
-			WHERE document_id = ?
-		`;
-		const params = [documentId];
-
-		if (analysisType) {
-			sql += ` AND analysis_type = ?`;
-			params.push(analysisType);
-		}
-
-		sql += ` ORDER BY analyzed_at DESC`;
-
-		const results = this.sqliteManager.query(sql, params) as Array<{
-			id: number;
-			analysis_type: string;
-			analysis_data: string;
-			analyzed_at: string;
-		}>;
-
-		return results.map((row) => ({
-			id: row.id,
-			analysisType: row.analysis_type,
-			analysisData: safeParse(row.analysis_data, {}),
-			analyzedAt: row.analyzed_at,
-		}));
+	): Promise<ContentAnalysisEntry[]> {
+		return getContentAnalysisHistory(this.sqliteManager, documentId, analysisType);
 	}
 
 	/**
 	 * Record writing session
 	 */
-	async recordWritingSession(sessionData: {
-		date: string;
-		wordsWritten: number;
-		durationMinutes: number;
-		documentsWorkedOn: string[];
-		notes?: string;
-	}): Promise<void> {
-		if (!this.sqliteManager) return;
-
-		const stmt = this.sqliteManager.getDatabase().prepare(`
-			INSERT INTO writing_sessions
-			(date, words_written, duration_minutes, documents_worked_on, notes)
-			VALUES (?, ?, ?, ?, ?)
-		`);
-
-		stmt.run([
-			sessionData.date,
-			sessionData.wordsWritten,
-			sessionData.durationMinutes,
-			safeStringify(sessionData.documentsWorkedOn),
-			sessionData.notes || null,
-		]);
+	async recordWritingSession(sessionData: WritingSessionInput): Promise<void> {
+		recordWritingSession(this.sqliteManager, sessionData);
 	}
 
 	/**
 	 * Get writing statistics
 	 */
-	async getWritingStatistics(days = 30): Promise<{
-		totalWords: number;
-		totalSessions: number;
-		averageWordsPerSession: number;
-		dailyStats: Array<{
-			date: string;
-			words: number;
-			sessions: number;
-			duration: number;
-		}>;
-	}> {
-		if (!this.sqliteManager) {
-			return {
-				totalWords: 0,
-				totalSessions: 0,
-				averageWordsPerSession: 0,
-				dailyStats: [],
-			};
-		}
-
-		const QUERY_TIMEOUT_MS = 10000;
-		const sqliteManager = this.sqliteManager;
-		// Clamp to a safe integer; this value is interpolated into SQL date math
-		// (SQLite can't parametrize the "-N days" modifier), so it must not be raw.
-		const safeDays = Math.max(1, Math.min(3650, Math.floor(Number(days) || 30)));
-
-		const queryPromise = new Promise<{
-			totalWords: number;
-			totalSessions: number;
-			averageWordsPerSession: number;
-			dailyStats: Array<{ date: string; words: number; sessions: number; duration: number }>;
-		}>((resolve) => {
-			// Get total stats
-			const totalResult = sqliteManager.queryOne(`
-				SELECT
-					SUM(words_written) as total_words,
-					COUNT(*) as total_sessions
-				FROM writing_sessions
-				WHERE date >= date('now', '-${safeDays} days')
-			`) as { total_words: number; total_sessions: number } | undefined;
-
-			// Get daily stats
-			const dailyResults = sqliteManager.query(`
-				SELECT
-					date,
-					SUM(words_written) as words,
-					COUNT(*) as sessions,
-					SUM(duration_minutes) as duration
-				FROM writing_sessions
-				WHERE date >= date('now', '-${safeDays} days')
-				GROUP BY date
-				ORDER BY date DESC
-			`) as Array<{
-				date: string;
-				words: number;
-				sessions: number;
-				duration: number;
-			}>;
-
-			resolve({
-				totalWords: totalResult?.total_words || 0,
-				totalSessions: totalResult?.total_sessions || 0,
-				averageWordsPerSession: totalResult?.total_sessions
-					? Math.round((totalResult.total_words || 0) / totalResult.total_sessions)
-					: 0,
-				dailyStats: dailyResults,
-			});
-		});
-
-		const timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(
-				() => reject(new Error('Query timeout: getWritingStatistics exceeded 10s')),
-				QUERY_TIMEOUT_MS
-			)
-		);
-
-		return Promise.race([queryPromise, timeoutPromise]);
+	async getWritingStatistics(days = 30): Promise<WritingStatistics> {
+		return getWritingStatistics(this.sqliteManager, days);
 	}
 
 	/**
@@ -1044,15 +763,7 @@ export class DatabaseService {
 	 * Track writing session
 	 */
 	async trackWritingSession(wordsWritten: number, duration: number): Promise<void> {
-		if (!this.sqliteManager) return;
-
-		this.sqliteManager.execute(
-			`
-			INSERT INTO writing_sessions (date, words_written, duration_minutes)
-			VALUES (datetime('now'), ?, ?)
-		`,
-			[wordsWritten, duration]
-		);
+		trackWritingSession(this.sqliteManager, wordsWritten, duration);
 	}
 
 	/**
@@ -1063,26 +774,7 @@ export class DatabaseService {
 		content: string,
 		summary?: string
 	): Promise<void> {
-		if (!this.sqliteManager) return;
-
-		const wordCount = content.split(/\s+/).length;
-		const charCount = content.length;
-
-		this.sqliteManager.execute(
-			`
-			INSERT INTO document_revisions
-			(id, document_id, content, word_count, character_count, change_summary)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`,
-			[
-				`rev-${documentId}-${Date.now()}`,
-				documentId,
-				content,
-				wordCount,
-				charCount,
-				summary || 'Auto-saved version',
-			]
-		);
+		createDocumentVersion(this.sqliteManager, documentId, content, summary);
 	}
 
 	/**
@@ -1092,47 +784,8 @@ export class DatabaseService {
 	 * already exists it is updated in place, otherwise a new goal is inserted.
 	 * The returned record reflects the stored row (camelCase fields).
 	 */
-	async setWritingGoal(input: {
-		type: string;
-		targetWords: number;
-		targetDate?: string | null;
-	}): Promise<WritingGoalRecord> {
-		if (!this.sqliteManager) {
-			throw new AppError(
-				'SQLite not initialized. Call initialize() first.',
-				ErrorCode.DATABASE_ERROR
-			);
-		}
-
-		const targetDate = input.targetDate ?? null;
-		const existing = this.sqliteManager.queryOne(
-			`SELECT id FROM writing_goals WHERE type = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
-			[input.type]
-		) as { id: string } | undefined;
-
-		let id: string;
-		if (existing) {
-			id = existing.id;
-			this.sqliteManager.execute(
-				`UPDATE writing_goals SET target_words = ?, target_date = ?, status = 'active', completed_at = NULL WHERE id = ?`,
-				[input.targetWords, targetDate, id]
-			);
-		} else {
-			id = generateScrivenerUUID();
-			this.sqliteManager.execute(
-				`INSERT INTO writing_goals (id, type, target_words, target_date, status) VALUES (?, ?, ?, ?, 'active')`,
-				[id, input.type, input.targetWords, targetDate]
-			);
-		}
-
-		const row = this.sqliteManager.queryOne(
-			`SELECT id, type, target_words, target_date, actual_words, status, created_at, completed_at FROM writing_goals WHERE id = ?`,
-			[id]
-		) as RawWritingGoalRow | undefined;
-		if (!row) {
-			throw new AppError('Failed to persist writing goal', ErrorCode.DATABASE_ERROR);
-		}
-		return mapWritingGoalRow(row);
+	async setWritingGoal(input: WritingGoalInput): Promise<WritingGoalRecord> {
+		return setWritingGoal(this.sqliteManager, input);
 	}
 
 	/**
@@ -1140,20 +793,7 @@ export class DatabaseService {
 	 * (e.g. 'active'); omit it to return goals of every status.
 	 */
 	async getWritingGoals(status?: string): Promise<WritingGoalRecord[]> {
-		if (!this.sqliteManager) {
-			return [];
-		}
-
-		let sql = `SELECT id, type, target_words, target_date, actual_words, status, created_at, completed_at FROM writing_goals`;
-		const params: unknown[] = [];
-		if (status) {
-			sql += ` WHERE status = ?`;
-			params.push(status);
-		}
-		sql += ` ORDER BY created_at DESC`;
-
-		const rows = this.sqliteManager.query(sql, params) as RawWritingGoalRow[];
-		return rows.map(mapWritingGoalRow);
+		return getWritingGoals(this.sqliteManager, status);
 	}
 
 	/**
@@ -1161,13 +801,7 @@ export class DatabaseService {
 	 * defaults when none has been saved yet.
 	 */
 	async getWritingPreferences(): Promise<WritingPreferences> {
-		if (!this.sqliteManager) {
-			return { ...DEFAULT_PREFERENCES };
-		}
-		const row = this.sqliteManager.queryOne(
-			`SELECT enabled, tone, complexity, length, point_of_view, style_guides, custom_instructions, updated_at FROM writing_preferences WHERE id = 1`
-		) as RawPreferencesRow | undefined;
-		return row ? mapPreferencesRow(row) : { ...DEFAULT_PREFERENCES };
+		return getWritingPreferences(this.sqliteManager);
 	}
 
 	/**
@@ -1175,87 +809,16 @@ export class DatabaseService {
 	 * resolved profile (merge partial updates before calling).
 	 */
 	async saveWritingPreferences(prefs: WritingPreferences): Promise<WritingPreferences> {
-		if (!this.sqliteManager) {
-			throw new AppError(
-				'SQLite not initialized. Open a project before setting writing preferences.',
-				ErrorCode.DATABASE_ERROR
-			);
-		}
-		this.sqliteManager.execute(
-			`INSERT INTO writing_preferences (id, enabled, tone, complexity, length, point_of_view, style_guides, custom_instructions, updated_at)
-				VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-				ON CONFLICT(id) DO UPDATE SET
-					enabled = excluded.enabled, tone = excluded.tone, complexity = excluded.complexity,
-					length = excluded.length, point_of_view = excluded.point_of_view,
-					style_guides = excluded.style_guides, custom_instructions = excluded.custom_instructions,
-					updated_at = CURRENT_TIMESTAMP`,
-			[
-				prefs.enabled ? 1 : 0,
-				prefs.tone,
-				prefs.complexity,
-				prefs.length,
-				prefs.pointOfView ?? null,
-				safeStringify(prefs.styleGuides) ?? '[]',
-				prefs.customInstructions ?? null,
-			]
-		);
-		return this.getWritingPreferences();
+		return saveWritingPreferences(this.sqliteManager, prefs);
 	}
 
 	/** Record one feedback event for an AI operation. */
 	async recordFeedback(input: FeedbackInput): Promise<FeedbackRecord> {
-		if (!this.sqliteManager) {
-			throw new AppError(
-				'SQLite not initialized. Open a project before recording feedback.',
-				ErrorCode.DATABASE_ERROR
-			);
-		}
-		const id = generateScrivenerUUID();
-		const accepted = input.accepted === undefined ? null : input.accepted ? 1 : 0;
-		const rating = input.rating ?? null;
-		this.sqliteManager.execute(
-			`INSERT INTO writing_feedback (id, operation, rating, accepted, comment) VALUES (?, ?, ?, ?, ?)`,
-			[id, input.operation, rating, accepted, input.comment ?? null]
-		);
-		const row = this.sqliteManager.queryOne(
-			`SELECT id, operation, rating, accepted, comment, created_at FROM writing_feedback WHERE id = ?`,
-			[id]
-		) as RawFeedbackRow | undefined;
-		if (!row) {
-			throw new AppError('Failed to persist feedback', ErrorCode.DATABASE_ERROR);
-		}
-		return mapFeedbackRow(row);
+		return recordFeedback(this.sqliteManager, input);
 	}
 
 	/** Return recorded feedback, most recent first. */
 	async getFeedbackRecords(limit = 500): Promise<FeedbackRecord[]> {
-		if (!this.sqliteManager) {
-			return [];
-		}
-		const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 5000);
-		const rows = this.sqliteManager.query(
-			`SELECT id, operation, rating, accepted, comment, created_at FROM writing_feedback ORDER BY created_at DESC LIMIT ?`,
-			[safeLimit]
-		) as RawFeedbackRow[];
-		return rows.map(mapFeedbackRow);
-	}
-
-	/**
-	 * Clean up old transaction logs
-	 */
-	private cleanupTransactionLogs(): void {
-		const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-		const now = Date.now();
-
-		// Clean up old transaction logs from the Map
-		const toDelete: string[] = [];
-		this.transactionLog.forEach((log, id) => {
-			const age = now - log.timestamp.getTime();
-			if (age >= maxAge && log.status !== 'in_progress' && log.status !== 'prepared') {
-				toDelete.push(id);
-			}
-		});
-
-		toDelete.forEach((id) => this.transactionLog.delete(id));
+		return getFeedbackRecords(this.sqliteManager, limit);
 	}
 }
