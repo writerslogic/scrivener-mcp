@@ -38,7 +38,7 @@ Restart Claude Desktop and it's ready. Other clients need one more step:
 npx scrivener-setup
 ```
 
-This finds Claude Code, Claude Desktop, and Cursor and configures them for you. To set up Claude Code by hand instead: `claude mcp add -s user scrivener -- npx scrivener-mcp`, then restart it (or run `/mcp`).
+This finds Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, and Raycast and configures them for you, then confirms the server starts. No Node.js on your Mac? See the [Mac install guide](./docs/install-mac.md). To set up Claude Code by hand instead: `claude mcp add -s user scrivener -- npx scrivener-mcp`, then restart it (or run `/mcp`).
 
 <details>
 <summary><strong>Other ways to install</strong></summary>
