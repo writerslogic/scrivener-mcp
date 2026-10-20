@@ -54,7 +54,7 @@
     "uninstall": "node scripts/uninstall.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0",
+    "@anthropic-ai/sdk": "^0.135.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.11.1",
     "bluepencil-node": "^0.1.1",
