@@ -7,7 +7,9 @@
 
 import {
 	analyzeCraftLocalHandler,
+	analyzeForeshadowingLocalHandler,
 	analyzeOpeningLocalHandler,
+	checkContinuityLocalHandler,
 	measureVoiceDriftLocalHandler,
 } from '../../../src/handlers/narrative-lens-handlers.js';
 import type { HandlerContext } from '../../../src/handlers/types.js';
@@ -80,5 +82,84 @@ describe('analyze_opening_local', () => {
 	it('falls back to the first manuscript document when no id is given', async () => {
 		const res = await analyzeOpeningLocalHandler.handler({ genre: 'thriller' }, context);
 		expect(res.structuredContent).toMatchObject({ documentId: 'd1' });
+	});
+});
+
+const ordered = [
+	{
+		id: 'ch1',
+		title: 'The Door',
+		content:
+			'A rusted key hung beside the door. Mara stared at the rusted key and said nothing ' +
+			'about the rusted key. On Monday morning she was in Paris.',
+	},
+	{
+		id: 'ch2',
+		title: 'The Market',
+		content:
+			'They walked to the market and bought bread. The weather was mild and the road was long.',
+	},
+	{
+		id: 'ch3',
+		title: 'The Cellar',
+		content:
+			'Mara found the lock in the cellar. The rusted key turned, and the rusted key opened ' +
+			'the cellar door. Three days later she was in Rome.',
+	},
+];
+
+const orderedContext = {
+	project: {
+		getManuscriptDocuments: async () => ordered,
+	},
+	memoryManager: { getAllCharacters: () => [{ name: 'Mara' }] },
+} as unknown as HandlerContext;
+
+describe('check_continuity_local', () => {
+	it('projects a timeline entry per document in binder order and a world-state trace', async () => {
+		const res = await checkContinuityLocalHandler.handler({}, orderedContext);
+		const out = res.structuredContent as {
+			timeline: { documentId: string; order: number }[];
+			worldState: { continuityScore: number; violations: unknown[]; snapshots: unknown[] };
+			documentCount: number;
+		};
+		expect(out.documentCount).toBe(3);
+		expect(out.timeline.map((t) => t.documentId)).toEqual(['ch1', 'ch2', 'ch3']);
+		expect(out.timeline.map((t) => t.order)).toEqual([...out.timeline.map((t) => t.order)].sort());
+		expect(out.worldState.snapshots).toHaveLength(3);
+		expect(Array.isArray(out.worldState.violations)).toBe(true);
+		expect(res.content[0]).toMatchObject({ type: 'text' });
+	});
+
+	it('requires memory so character names can be resolved', async () => {
+		const noMemory = { project: orderedContext.project } as unknown as HandlerContext;
+		await expect(checkContinuityLocalHandler.handler({}, noMemory)).rejects.toThrow();
+	});
+});
+
+describe('analyze_foreshadowing_local', () => {
+	it('maps setup and payoff scene indices to document ids and titles', async () => {
+		const res = await analyzeForeshadowingLocalHandler.handler({}, orderedContext);
+		const out = res.structuredContent as {
+			items: {
+				setupTerm: string;
+				setupScene: number;
+				payoffScene: number | null;
+				setupDocumentId: string | null;
+				setupDocumentTitle: string | null;
+				payoffDocumentId: string | null;
+				payoffDocumentTitle: string | null;
+			}[];
+			documentCount: number;
+		};
+		expect(out.documentCount).toBe(3);
+		const key = out.items.find((i) => i.setupTerm === 'rusted' || i.setupTerm === 'key');
+		expect(key).toBeDefined();
+		expect(key!.setupScene).toBe(0);
+		expect(key!.setupDocumentId).toBe('ch1');
+		expect(key!.setupDocumentTitle).toBe('The Door');
+		expect(key!.payoffScene).toBe(2);
+		expect(key!.payoffDocumentId).toBe('ch3');
+		expect(key!.payoffDocumentTitle).toBe('The Cellar');
 	});
 });

@@ -34,7 +34,9 @@ import {
 import { FileUtils, PathUtils } from '../utils/shared-patterns.js';
 import {
 	addBinderItem,
+	appendBinderChild,
 	findBinderItemById,
+	findParentFolder,
 	removeBinderItem,
 	validateProjectStructure,
 } from './document-manager-helpers.js';
@@ -422,6 +424,18 @@ export class DocumentManager {
 			validateProjectStructure(this.projectStructure);
 
 			const binder = this.projectStructure!.ScrivenerProject.Binder;
+			let parentFolder: BinderItem | undefined;
+			if (parentId) {
+				parentFolder = findParentFolder(binder as BinderContainer, parentId);
+				if (!parentFolder) {
+					throw createError(
+						ErrorCode.NOT_FOUND,
+						{ parentId },
+						`Parent folder ${parentId} not found`
+					);
+				}
+			}
+
 			const id = generateScrivenerUUID();
 			const sanitizedTitle = truncate(title, 255);
 
@@ -439,7 +453,11 @@ export class DocumentManager {
 			};
 
 			// Use utility function to add binder item
-			addBinderItem(binder, newItem, parentId ? parseInt(parentId, 10) : undefined);
+			if (parentFolder) {
+				appendBinderChild(parentFolder, newItem);
+			} else {
+				addBinderItem(binder, newItem);
+			}
 
 			logger.info(`Created document ${id} with title "${sanitizedTitle}"`);
 			return id;
@@ -605,7 +623,33 @@ export class DocumentManager {
 				);
 			}
 
-			// Use utility function to remove and add binder item
+			// Validate the destination before detaching, so a bad parent cannot drop the item.
+			let newParent: BinderItem | undefined;
+			if (newParentId) {
+				newParent = findParentFolder(binder, newParentId);
+				if (!newParent) {
+					throw createError(
+						ErrorCode.NOT_FOUND,
+						{ newParentId },
+						`Target parent folder ${newParentId} not found`
+					);
+				}
+				const moving = findBinderItemById(binder, documentId);
+				if (
+					moving &&
+					findBinderItemById(
+						{ BinderItem: moving.Children?.BinderItem } as BinderContainer,
+						newParentId
+					)
+				) {
+					throw createError(
+						ErrorCode.INVALID_INPUT,
+						{ documentId, newParentId },
+						'Cannot move a document into its own descendant'
+					);
+				}
+			}
+
 			const extractedItem = removeBinderItem(binder, documentId);
 			if (!extractedItem) {
 				throw createError(
@@ -616,11 +660,11 @@ export class DocumentManager {
 			}
 
 			// Use utility function to add to new location
-			addBinderItem(
-				binder,
-				extractedItem,
-				newParentId ? parseInt(newParentId, 10) : undefined
-			);
+			if (newParent) {
+				appendBinderChild(newParent, extractedItem);
+			} else {
+				addBinderItem(binder, extractedItem);
+			}
 
 			logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
 		} catch (error) {
@@ -671,30 +715,25 @@ export class DocumentManager {
 			);
 		}
 
-		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
-		// Update the trash with the modified array
-		searchResults[0].Children!.BinderItem = trashArray;
-
-		// Place in target location or root
+		let targetParent: BinderItem | undefined;
 		if (targetParentId) {
-			const targetParent = findBinderItemById(binder, targetParentId);
-			if (!targetParent || targetParent.Type !== DOCUMENT_TYPES.FOLDER) {
+			targetParent = findParentFolder(binder, targetParentId);
+			if (!targetParent) {
 				throw createError(
 					ErrorCode.NOT_FOUND,
 					undefined,
 					`Target parent folder ${targetParentId} not found`
 				);
 			}
-			if (!targetParent.Children) {
-				targetParent.Children = { BinderItem: [] };
-			}
-			if (!targetParent.Children.BinderItem) {
-				targetParent.Children.BinderItem = [];
-			} else if (!Array.isArray(targetParent.Children.BinderItem)) {
-				// Convert single item to array
-				targetParent.Children.BinderItem = [targetParent.Children.BinderItem];
-			}
-			(targetParent.Children.BinderItem as BinderItem[]).push(recoveredItem);
+		}
+
+		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
+		// Update the trash with the modified array
+		searchResults[0].Children!.BinderItem = trashArray;
+
+		// Place in target location or root
+		if (targetParent) {
+			appendBinderChild(targetParent, recoveredItem as BinderItem);
 		} else {
 			// Restore into the Draft/Manuscript folder, or at the binder top level if
 			// there is none. (This previously assumed binderItems[0] was the container
