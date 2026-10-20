@@ -8,7 +8,7 @@
   "type": "module",
   "bin": {
     "scrivener-mcp": "dist/index.js",
-    "scrivener-setup": "scripts/setup.cjs"
+    "scrivener-setup": "dist/cli/setup.js"
   },
   "files": [
     "dist",
