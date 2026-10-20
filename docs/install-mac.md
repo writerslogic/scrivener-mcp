@@ -8,6 +8,16 @@ This guide is for writers who use Scrivener and want an AI assistant to work wit
 - An AI app that supports MCP: Claude Desktop, BoltAI, Raycast, LM Studio, Cursor, or VS Code
 - An account or key for that app's AI service. Scrivener MCP does not include one.
 
+## Fastest: the Claude Desktop extension
+
+If you use **Claude Desktop**, this is the simplest route and needs no Terminal.
+
+1. Download `scrivener-mcp-<version>-macos-arm64.mcpb` from the [latest release](https://github.com/writerslogic/scrivener-mcp/releases/latest).
+2. Double-click the file. Claude Desktop opens an install window.
+3. Review the details and click **Install**.
+
+The extension carries its own copy of everything it needs, so it works on a Mac with nothing else installed. It needs an Apple silicon Mac. For other AI apps, or an Intel Mac, use the installer below.
+
 ## Step 1: Run the installer
 
 Open **Terminal** (press Cmd+Space, type Terminal, press Return) and paste this line:

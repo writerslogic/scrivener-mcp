@@ -62,6 +62,7 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 	}
 
 	for (const url of urls) {
+		let client: Redis | undefined;
 		try {
 			const startTime = Date.now();
 
@@ -70,11 +71,14 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 				? Math.max(3000, bestConnection.latency * 3) // 3x latency or min 3s
 				: 5000; // fallback to 5s
 
-			const client = new Redis(url as string, {
+			client = new Redis(url as string, {
 				connectTimeout: adaptiveTimeout,
 				retryStrategy: () => null, // Don't retry (we handle retries at higher level)
 				lazyConnect: true,
 			});
+			// A failed probe is an expected outcome handled by the catch below. Without a listener,
+			// ioredis prints "Unhandled error event" to stderr on every start when no server runs.
+			client.on('error', () => undefined);
 
 			await client.connect();
 
@@ -104,6 +108,7 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 				version,
 			};
 		} catch (error) {
+			client?.disconnect();
 			// Continue to next URL
 			logger.debug(`Failed to connect to ${url}`, {
 				error: (error as Error).message,

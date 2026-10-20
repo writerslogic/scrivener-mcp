@@ -28,55 +28,14 @@ if [ "${SKIP_SIGN:-}" != "1" ]; then
 	[ -n "${SIGN_IDENTITY:-}" ] || die "Set SIGN_IDENTITY, or SKIP_SIGN=1 for an unsigned build."
 fi
 
-mkdir -p "${BUILD:?}/cache"
-rm -rf "${BUILD:?}/stage" "${BUILD:?}/Scrivener MCP.app"
-mkdir -p "$BUILD/stage"
-
-say "Building the TypeScript server"
-(cd "$ROOT" && npm run build >/dev/null)
-
-say "Fetching Node.js $NODE_LINE (checksum verified)"
-BASE="https://nodejs.org/dist/latest-${NODE_LINE}.x"
-curl -fsSL --proto '=https' --tlsv1.2 "$BASE/SHASUMS256.txt" -o "$BUILD/cache/SHASUMS256.txt"
-LINE="$(grep "  node-v[0-9.]*-darwin-arm64\.tar\.gz\$" "$BUILD/cache/SHASUMS256.txt")"
-EXPECTED="${LINE%% *}"
-FILE="${LINE##* }"
-if [ ! -f "$BUILD/cache/$FILE" ]; then
-	curl -fsSL --proto '=https' --tlsv1.2 "$BASE/$FILE" -o "$BUILD/cache/$FILE"
-fi
-ACTUAL="$(shasum -a 256 "$BUILD/cache/$FILE" | cut -d ' ' -f 1)"
-[ "$ACTUAL" = "$EXPECTED" ] || die "Checksum mismatch for $FILE"
-mkdir -p "$BUILD/stage/node-full"
-tar -xzf "$BUILD/cache/$FILE" -C "$BUILD/stage/node-full" --strip-components 1
-FULL_NODE="$BUILD/stage/node-full/bin/node"
-
-say "Staging the server with production dependencies"
-SERVER="$BUILD/stage/server"
-mkdir -p "$SERVER"
-cp -R "$ROOT/dist" "$SERVER/dist"
-cp "$ROOT/package.json" "$ROOT/package-lock.json" "$ROOT/LICENSE" "$SERVER/"
-(cd "$SERVER" && PATH="$BUILD/stage/node-full/bin:$PATH" npm ci --omit=dev --ignore-scripts --os=darwin --cpu=arm64 --no-audit --no-fund >/dev/null)
-
-say "Installing the SQLite binary that matches the bundled Node"
-(cd "$SERVER/node_modules/better-sqlite3" && "$FULL_NODE" ../prebuild-install/bin.js --runtime node --target "$("$FULL_NODE" -p process.versions.node)" >/dev/null)
-
-say "Pruning files the server never loads"
-find "$SERVER/node_modules" \( -name '*.map' -o -name '*.md' -o -name '*.markdown' \) -type f -delete
-rm -rf "$SERVER/node_modules/narrative-lens/artifacts" "$SERVER/node_modules/narrative-lens/npm"
-find "$SERVER/node_modules" -name '*.node' \( -path '*linux*' -o -path '*win32*' -o -path '*darwin-x64*' \) -type f -delete
+rm -rf "${BUILD:?}/Scrivener MCP.app"
+BUILD="$BUILD" NODE_LINE="$NODE_LINE" "$HERE/stage-bundle.sh"
 
 say "Assembling the app bundle"
-mkdir -p "$RES/runtime/bin" "$APP/Contents/MacOS"
-cp "$FULL_NODE" "$RES/runtime/bin/node"
-cp -R "$SERVER" "$RES/server"
-cp "$ROOT/LICENSE" "$RES/LICENSE"
-
-say "Smoke test: the staged server must start under the bundled Node"
-SMOKE_HOME="$(mktemp -d)"
-# The helper exits 1 when a client is not configured, which is expected in an empty home.
-(HOME="$SMOKE_HOME" "$RES/runtime/bin/node" "$RES/server/dist/cli/setup.js" --json --check \
-	--node "$RES/runtime/bin/node" --script "$RES/server/dist/index.js" --client claude-code || true) \
-	| node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.startup||!j.startup.ok){console.error("Smoke test failed:",JSON.stringify(j.startup||j));process.exit(1)}console.log("server started, "+j.startup.toolCount+" tools")})'
+mkdir -p "$RES" "$APP/Contents/MacOS"
+cp -R "$BUILD/bundle/runtime" "$RES/runtime"
+cp -R "$BUILD/bundle/server" "$RES/server"
+cp "$BUILD/bundle/LICENSE" "$RES/LICENSE"
 
 say "Compiling the app"
 (cd "$APP_DIR" && swift build -c release --arch arm64 >/dev/null)
@@ -84,7 +43,7 @@ BIN_PATH="$(cd "$APP_DIR" && swift build -c release --arch arm64 --show-bin-path
 cp "$BIN_PATH/ScrivenerMCP" "$APP/Contents/MacOS/ScrivenerMCP"
 
 say "Generating the app icon"
-ICONSET="$BUILD/stage/AppIcon.iconset"
+ICONSET="$BUILD/stage-app/AppIcon.iconset"
 mkdir -p "$ICONSET"
 "$APP/Contents/MacOS/ScrivenerMCP" --render-icon "$ICONSET"
 iconutil -c icns "$ICONSET" -o "$RES/AppIcon.icns"
@@ -111,7 +70,7 @@ fi
 say "Creating the disk image"
 DMG="$BUILD/ScrivenerMCP-$VERSION-arm64.dmg"
 rm -f "$DMG"
-DMG_STAGE="$BUILD/stage/dmg"
+DMG_STAGE="$BUILD/stage-app/dmg"
 mkdir -p "$DMG_STAGE"
 cp -R "$APP" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
