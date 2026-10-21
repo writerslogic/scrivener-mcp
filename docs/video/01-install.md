@@ -5,7 +5,7 @@
 | Time | On screen | Narration |
 |---|---|---|
 | 0:00 | A chapter in Scrivener, then a chat window answering a question about it | "What if you could ask an AI about your whole manuscript, and have it work right inside your Scrivener project? Here is how to set that up in two minutes." |
-| 0:15 | The Releases page, download button highlighted | "Download Draftbridge from the releases page. It is a free Mac app." |
+| 0:15 | The Releases page, download button highlighted | "Download Draftbridge from the releases page. It is a small one-time purchase, and the command-line setup is free if you prefer it." |
 | 0:25 | Open the disk image, drag the app to Applications | "Open the download and drag the app into your Applications folder." |
 | 0:35 | Launch the app. The window lists the AI apps found on the Mac | "Open it. The app looks for AI apps on your Mac, such as Claude, BoltAI, or Raycast." |
 | 0:50 | Click Connect on Claude Desktop. The pill turns green | "Click Connect next to the one you use. That is the whole setup." |
