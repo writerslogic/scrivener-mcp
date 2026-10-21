@@ -4,7 +4,7 @@
 
 | Time | On screen | Narration |
 |---|---|---|
-| 0:00 | A writer's hand hovering over a prompt, then pulling back | "Letting an AI near your manuscript can feel risky. Here is how Scrivener MCP protects your work." |
+| 0:00 | A writer's hand hovering over a prompt, then pulling back | "Letting an AI near your manuscript can feel risky. Here is how Draftbridge protects your work." |
 | 0:15 | Scrivener open with the project; the AI app reports the project is open | "First, it will not write to a project while Scrivener has it open, because Scrivener would overwrite the changes. Close the project first." |
 | 0:40 | Close the project in Scrivener, ask again, the edit succeeds | "Close it, ask again, and the edit goes through." |
 | 0:55 | Scrivener's Snapshots panel with "Before AI edit" | "Second, before any risky edit it takes a snapshot. You will find it in Scrivener's own Snapshots panel." |

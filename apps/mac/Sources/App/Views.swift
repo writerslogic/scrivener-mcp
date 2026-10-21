@@ -275,7 +275,7 @@ struct ProjectsCard: View {
 
 struct EmptyAppsCard: View {
     var body: some View {
-        Card("No AI apps found yet", subtitle: "Scrivener MCP works with these. Install one, then come back.") {
+        Card("No AI apps found yet", subtitle: "Draftbridge works with these. Install one, then come back.") {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(ClientCatalog.all.filter { $0.downloadURL != nil }, id: \.id) { info in
                     if let url = info.downloadURL {
@@ -340,7 +340,7 @@ struct Header: View {
         HStack(spacing: 14) {
             AppGlyph().frame(width: 56, height: 56)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Scrivener MCP").font(.title2.weight(.semibold))
+                Text("Draftbridge for Scrivener").font(.title2.weight(.semibold))
                 Text("Let your AI assistant read, search, and edit your Scrivener manuscripts safely.")
                     .font(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -402,7 +402,7 @@ struct FailureView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(.orange)
-            Text("Scrivener MCP can't start").font(.headline)
+            Text("Draftbridge can't start").font(.headline)
             Text(message).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Text("Download the app again from the releases page, then replace this copy.")
                 .font(.callout).foregroundStyle(.secondary)

@@ -1,8 +1,8 @@
 # Frequently asked questions
 
-## What is Scrivener MCP?
+## What is Draftbridge for Scrivener?
 
-A free connector that lets an AI app, such as Claude Desktop, BoltAI, or Raycast, read and work with your Scrivener projects. It runs on your Mac. Your manuscript is not uploaded anywhere by Scrivener MCP.
+A free connector that lets an AI app, such as Claude Desktop, BoltAI, or Raycast, read and work with your Scrivener projects. It runs on your Mac. Your manuscript is not uploaded anywhere by Draftbridge.
 
 ## Does the AI see my whole book?
 
@@ -10,7 +10,7 @@ Only what you ask about. The AI app reads the parts it needs to answer you, and 
 
 ## Do I need an account?
 
-Yes, with the AI app you choose. Scrivener MCP itself needs no account.
+Yes, with the AI app you choose. Draftbridge itself needs no account.
 
 ## Will it change my manuscript without asking?
 
@@ -26,7 +26,7 @@ Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, and Raycast. Ch
 
 ## The AI app does not show any Scrivener tools
 
-Quit the app completely (Cmd+Q) and reopen it. If it still does not appear, open Scrivener MCP and press **Test connection**, then see [Troubleshooting](./troubleshooting.md).
+Quit the app completely (Cmd+Q) and reopen it. If it still does not appear, open Draftbridge and press **Test connection**, then see [Troubleshooting](./troubleshooting.md).
 
 ## How do I remove it?
 

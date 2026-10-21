@@ -1,4 +1,4 @@
-# Scrivener MCP for Mac
+# Draftbridge for Scrivener (Mac app)
 
 A small native app that connects AI apps (Claude Desktop, BoltAI, Raycast, LM Studio, Cursor, VS Code, Claude Code) to Scrivener projects without Terminal, Node.js, or editing JSON.
 
@@ -42,7 +42,7 @@ xcrun notarytool store-credentials scrivener-notary   # once
 SIGN_IDENTITY="..." NOTARY_PROFILE=scrivener-notary apps/mac/scripts/build-app.sh
 ```
 
-The script downloads the Node.js release for the pinned line and verifies its SHA-256, installs production dependencies, fetches the SQLite binary that matches the bundled Node, starts the staged server as a smoke test, builds the app, generates the icon, signs every Mach-O file with the hardened runtime, builds the DMG, and optionally notarizes and staples it. The result is `apps/mac/build/ScrivenerMCP-<version>-arm64.dmg` plus a checksum.
+The script downloads the Node.js release for the pinned line and verifies its SHA-256, installs production dependencies, fetches the SQLite binary that matches the bundled Node, starts the staged server as a smoke test, builds the app, generates the icon, signs every Mach-O file with the hardened runtime, builds the DMG, and optionally notarizes and staples it. The result is `apps/mac/build/Draftbridge-<version>-arm64.dmg` plus a checksum.
 
 The bundled Node needs two entitlements for V8 (`entitlements-node.plist`). Everything else runs with the plain hardened runtime.
 
