@@ -258,7 +258,7 @@ extension AppModel {
         case .empty:
             model.rows = []
         case .failed:
-            model.phase = .failed("The bundled Scrivener MCP server could not be found.")
+            model.phase = .failed("The bundled Marginalia server could not be found.")
         }
         return model
     }

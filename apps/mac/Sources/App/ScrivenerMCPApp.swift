@@ -21,7 +21,7 @@ struct ScrivenerMCPApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
-        Window("Scrivener MCP", id: "main") {
+        Window("Marginalia for Scrivener", id: "main") {
             ContentView(model: model)
                 .task { await model.bootstrap() }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -31,12 +31,12 @@ struct ScrivenerMCPApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .help) {
-                Link("Scrivener MCP Help", destination: URL(string: "https://github.com/writerslogic/scrivener-mcp/blob/main/docs/install-mac.md")!)
+                Link("Marginalia Help", destination: URL(string: "https://github.com/writerslogic/scrivener-mcp/blob/main/docs/install-mac.md")!)
                 Button("Copy Diagnostics") { model.copyDiagnostics() }
             }
         }
 
-        MenuBarExtra("Scrivener MCP", systemImage: model.menuSymbol) {
+        MenuBarExtra("Marginalia", systemImage: model.menuSymbol) {
             MenuBarContent(model: model)
         }
         .menuBarExtraStyle(.menu)
@@ -50,7 +50,7 @@ struct MenuBarContent: View {
     var body: some View {
         Text(model.allHealthy ? "Everything is connected" : "Not fully connected")
         Divider()
-        Button("Open Scrivener MCP") {
+        Button("Open Marginalia") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }

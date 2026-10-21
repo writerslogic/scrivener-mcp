@@ -44,11 +44,11 @@ const fs = require("fs");
 const manifest = {
   manifest_version: "0.3",
   name: "scrivener-mcp",
-  display_name: "Scrivener MCP",
+  display_name: "Marginalia for Scrivener",
   version: process.env.VERSION,
   description: "Let Claude read, search, and safely edit your Scrivener 3 projects.",
   long_description:
-    "Scrivener MCP connects Claude to the Scrivener 3 projects on your Mac. Ask for word counts, " +
+    "Marginalia connects Claude to the Scrivener 3 projects on your Mac. Ask for word counts, " +
     "search by meaning, get feedback on a chapter, and revise a scene. It refuses to write while " +
     "Scrivener has the project open, and takes a Scrivener snapshot before risky edits. It runs " +
     "entirely on your Mac. Text Claude reads from your project is sent to Claude under your " +

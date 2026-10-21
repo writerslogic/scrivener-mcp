@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds, signs, notarizes and packages Scrivener MCP.app as a DMG (Apple silicon).
+# Builds, signs, notarizes and packages Marginalia.app as a DMG (Apple silicon).
 #
 # Required for a signed build:
 #   SIGN_IDENTITY   e.g. "Developer ID Application: Name (TEAMID)"
@@ -17,7 +17,7 @@ BUILD="$APP_DIR/build"
 NODE_LINE="${NODE_LINE:-v22}"
 VERSION="$(node -p "require('$ROOT/package.json').version")"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git -C "$ROOT" rev-list --count HEAD)}"
-APP="$BUILD/Scrivener MCP.app"
+APP="$BUILD/Marginalia.app"
 RES="$APP/Contents/Resources"
 
 say() { printf '\n==> %s\n' "$*"; }
@@ -28,7 +28,7 @@ if [ "${SKIP_SIGN:-}" != "1" ]; then
 	[ -n "${SIGN_IDENTITY:-}" ] || die "Set SIGN_IDENTITY, or SKIP_SIGN=1 for an unsigned build."
 fi
 
-rm -rf "${BUILD:?}/Scrivener MCP.app"
+rm -rf "${BUILD:?}/Marginalia.app"
 BUILD="$BUILD" NODE_LINE="$NODE_LINE" "$HERE/stage-bundle.sh"
 
 say "Assembling the app bundle"
@@ -68,13 +68,13 @@ if [ "${SKIP_SIGN:-}" != "1" ]; then
 fi
 
 say "Creating the disk image"
-DMG="$BUILD/ScrivenerMCP-$VERSION-arm64.dmg"
+DMG="$BUILD/Marginalia-$VERSION-arm64.dmg"
 rm -f "$DMG"
 DMG_STAGE="$BUILD/stage-app/dmg"
 mkdir -p "$DMG_STAGE"
 cp -R "$APP" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
-hdiutil create -volname "Scrivener MCP" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG" >/dev/null
+hdiutil create -volname "Marginalia" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG" >/dev/null
 if [ "${SKIP_SIGN:-}" != "1" ]; then
 	codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 fi
