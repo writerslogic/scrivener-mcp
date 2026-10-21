@@ -13,7 +13,7 @@
 #   LICENSE_PUBLIC_KEYS   kid=base64 pairs, comma separated; the 32-byte Ed25519 public key(s)
 #   LICENSE_BASE_URL      https URL of the license service (activation and revocation list)
 #   LICENSE_CHECKOUT_URL  https URL of the purchase page
-#   LICENSE_PRICE         label shown in the app, e.g. "$14.99"
+#   LICENSE_PRICE         label shown in the app, e.g. "$9.99"
 #   LICENSE_REQUIRE_ACTIVATION  "false" to skip the per-Mac activation (default true)
 #   LICENSE_DISABLED=1    build with no licensing, as community builds from source are
 set -euo pipefail

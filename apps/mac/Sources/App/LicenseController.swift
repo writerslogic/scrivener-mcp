@@ -132,7 +132,7 @@ final class LicenseController {
     }
 
     /// A model state for previews. It never touches the Keychain or the network.
-    static func sample(_ state: LicenseState, price: String? = "$14.99") -> LicenseController {
+    static func sample(_ state: LicenseState, price: String? = "$9.99") -> LicenseController {
         let controller = LicenseController(info: [:], store: SampleStore())
         controller.state = state
         controller.priceLabel = price

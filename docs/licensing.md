@@ -40,7 +40,7 @@ The service must verify the license signature before activating, count distinct 
 
 ## Selling it
 
-Checkout is Stripe. On `checkout.session.completed` the service creates a license `id`, signs a `DB1` token for the customer's email, and delivers it on the post-purchase page and by email. The success page offers an **Open in Draftbridge** link: `draftbridge://license?key=<token>`, which opens the purchase window with the key filled in. The person still presses Activate.
+The service is a Cloudflare Worker in the writerslogic.com repo (`workers/draftbridge-license`), live at `https://license.writerslogic.com`. Checkout is a Stripe Payment Link. On `checkout.session.completed` the service creates a license `id`, signs a `DB1` token for the customer's email, and delivers it on the post-purchase page and by email. The success page offers an **Open in Draftbridge** link: `draftbridge://license?key=<token>`, which opens the purchase window with the key filled in. The person still presses Activate.
 
 On a refund or a lost dispute the service adds the license `id` to the revocation list and re-signs it with a newer `iat`.
 
@@ -49,10 +49,10 @@ On a refund or a lost dispute the service adds the license `id` to the revocatio
 `apps/mac/scripts/build-app.sh` refuses to produce a signed build that has neither license settings nor `LICENSE_DISABLED=1`, so a paid build cannot ship unlocked by accident:
 
 ```bash
-LICENSE_PUBLIC_KEYS="2026a=<base64 public key>" \
-LICENSE_BASE_URL="https://license.example.com" \
-LICENSE_CHECKOUT_URL="https://example.com/draftbridge/buy" \
-LICENSE_PRICE='$14.99' \
+LICENSE_PUBLIC_KEYS="2026a=CtjsPBJnQ0zMQD8ssUd59wZPhLa2XJSpI1DPs7e6ge8=" \
+LICENSE_BASE_URL="https://license.writerslogic.com" \
+LICENSE_CHECKOUT_URL="https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00" \
+LICENSE_PRICE='$9.99' \
 SIGN_IDENTITY=... NOTARY_PROFILE=... apps/mac/scripts/build-app.sh
 ```
 
