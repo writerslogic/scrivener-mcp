@@ -10,8 +10,10 @@ The app runs the bundled `scrivener-setup` helper (`dist/cli/setup.js`) with `--
 
 | Piece | Where |
 |---|---|
-| Report types, state mapping, process runner, locator, update check | `Sources/Core` (tested) |
-| SwiftUI window, menu bar item, preview renderer | `Sources/App` |
+| Report types, state mapping, setup stage and project ordering, process runner, locator, update check | `Sources/Core` (tested) |
+| Guided home screen, settings, About panel, menu bar item, icon, preview renderer | `Sources/App` |
+
+The home screen leads with one next step chosen from the connection states (`SetupStage`): connect the recommended app, restart it, fix a broken connection, or open it and ask. Settings holds launch at login, the menu bar toggle, and removing Draftbridge from every app.
 | Build, sign, notarize, DMG | `scripts/build-app.sh` |
 
 ## Develop

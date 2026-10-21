@@ -7,16 +7,22 @@ enum PreviewRenderer {
     static func renderScreens(to directory: String) {
         _ = NSApplication.shared
         let screens: [(String, AppModel.SampleKind)] = [
-            ("connected", .allConnected), ("mixed", .mixed), ("empty", .empty), ("failed", .failed),
+            ("ready", .allConnected), ("first-run", .firstRun), ("restart", .restart), ("attention", .mixed),
+            ("no-scrivener", .noScrivener), ("no-apps", .empty), ("failed", .failed),
         ]
         for (name, kind) in screens {
             for dark in [false, true] {
                 let view = ContentView(model: .sample(kind))
-                guard let png = snapshot(view, size: CGSize(width: 560, height: 800), dark: dark) else {
+                guard let png = snapshot(view, size: CGSize(width: 640, height: 1000), dark: dark) else {
                     FileHandle.standardError.write(Data("Could not render \(name)\n".utf8))
                     continue
                 }
                 save(png, to: "\(directory)/\(name)-\(dark ? "dark" : "light").png")
+            }
+        }
+        for dark in [false, true] {
+            if let png = snapshot(SettingsView(model: .sample(.allConnected)), size: CGSize(width: 480, height: 520), dark: dark) {
+                save(png, to: "\(directory)/settings-\(dark ? "dark" : "light").png")
             }
         }
     }
