@@ -8,7 +8,7 @@
 //   node issuer.mjs revocations --key KEY.pem --kid 2026a --ids lic_1,lic_2
 //   node issuer.mjs verify --pub BASE64_PUBLIC_KEY --kid 2026a TOKEN
 import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,9 +76,14 @@ function main() {
 		need(o, 'kid', 'out');
 		const out = expand(o.out);
 		if (out.startsWith(repoRoot + path.sep)) throw new Error('Refusing to write a private key inside the repository.');
-		if (existsSync(out)) throw new Error(`${out} already exists.`);
 		const { privateKey } = generateKeyPairSync('ed25519');
-		writeFileSync(out, privateKey.export({ format: 'pem', type: 'pkcs8' }), { mode: 0o600 });
+		try {
+			// 'wx' creates the file or fails, so there is no check-then-write gap.
+			writeFileSync(out, privateKey.export({ format: 'pem', type: 'pkcs8' }), { mode: 0o600, flag: 'wx' });
+		} catch (error) {
+			if (error.code === 'EEXIST') throw new Error(`${out} already exists.`);
+			throw error;
+		}
 		chmodSync(out, 0o600);
 		console.log(`Private key written to ${out}. Back it up somewhere safe; losing it means re-keying every build.`);
 		console.log(`LICENSE_PUBLIC_KEYS="${o.kid}=${rawPublicKey(privateKey)}"`);

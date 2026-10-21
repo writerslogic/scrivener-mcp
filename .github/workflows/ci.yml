@@ -59,4 +59,4 @@ jobs:
         working-directory: apps/mac
         run: swift test
       - name: License issuer tests
-        run: node --test apps/mac/license/
+        run: node --test apps/mac/license/*.test.mjs
