@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Name the Mac app and extension Draftbridge for Scrivener (#167)
+- One-click Claude Desktop extension, shared bundle staging, quieter startup (#165)
+- Native Mac companion app, build pipeline, video scripts, and FAQ (#164)
+- Robust multi-client setup tool, Node bootstrap, and Mac install guide (#162)
 - Adapt HMS adapter to holographic-memory 0.6 and gate it in CI (#155)
 - Add local line-editing tools backed by bluepencil (#137)
 - Local craft analysis tools backed by narrative-lens (#134)
@@ -17,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
+- Add non-affiliation notice (#166)
 - Standardize README header (#140)
 - Update tool count to 62 after narrative-lens tools (#136)
 - Tighten README prose, drop fabricated chat transcripts (#120)
