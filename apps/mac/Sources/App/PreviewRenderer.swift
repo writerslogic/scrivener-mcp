@@ -7,7 +7,7 @@ enum PreviewRenderer {
     static func renderScreens(to directory: String) {
         _ = NSApplication.shared
         let screens: [(String, AppModel.SampleKind)] = [
-            ("ready", .allConnected), ("first-run", .firstRun), ("restart", .restart), ("attention", .mixed),
+            ("ready", .allConnected), ("first-run", .firstRun), ("unlicensed", .unlicensed), ("revoked", .revoked), ("restart", .restart), ("attention", .mixed),
             ("no-scrivener", .noScrivener), ("no-apps", .empty), ("failed", .failed),
         ]
         for (name, kind) in screens {
@@ -21,6 +21,15 @@ enum PreviewRenderer {
             }
         }
         for dark in [false, true] {
+            if let png = snapshot(PurchaseSheet(licensing: .sample(.unlicensed)), size: CGSize(width: 500, height: 640), dark: dark) {
+                save(png, to: "\(directory)/purchase-\(dark ? "dark" : "light").png")
+            }
+            let licensed = LicenseController.sample(.licensed(.init(id: "lic_1", email: "ann@example.com", seats: 2)))
+            let settingsModel = AppModel.sample(.allConnected)
+            settingsModel.licensing = licensed
+            if let png = snapshot(SettingsView(model: settingsModel), size: CGSize(width: 480, height: 760), dark: dark) {
+                save(png, to: "\(directory)/settings-licensed-\(dark ? "dark" : "light").png")
+            }
             if let png = snapshot(SettingsView(model: .sample(.allConnected)), size: CGSize(width: 480, height: 520), dark: dark) {
                 save(png, to: "\(directory)/settings-\(dark ? "dark" : "light").png")
             }

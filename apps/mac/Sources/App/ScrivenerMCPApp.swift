@@ -41,8 +41,12 @@ struct ScrivenerMCPApp: App {
             ContentView(model: model)
                 .task { await model.bootstrap() }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                    Task { await model.refresh() }
+                    Task {
+                        await model.refresh()
+                        await model.licensing.refresh()
+                    }
                 }
+                .onOpenURL { model.licensing.handle($0) }
                 .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in
                     model.refreshRunning()
                 }
