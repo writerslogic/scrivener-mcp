@@ -2,7 +2,15 @@
 
 ## What is Draftbridge for Scrivener?
 
-A free connector that lets an AI app, such as Claude Desktop, BoltAI, or Raycast, read and work with your Scrivener projects. It runs on your Mac. Your manuscript is not uploaded anywhere by Draftbridge.
+A Mac app that connects an AI app, such as Claude Desktop, BoltAI, or Raycast, to your Scrivener projects in one click, so it can read and work with them. It runs on your Mac. Your manuscript is not uploaded anywhere by Draftbridge.
+
+## Is it free?
+
+The app is a small one-time purchase. The server it uses, the command-line setup tool, and the Claude Desktop extension are open source and free, and they do the same job with more manual steps. See [Install on a Mac](./install-mac.md). Looking around the app, testing the connection, and disconnecting are always free. If a license is ever refunded or lapses, the apps you already connected keep working.
+
+## How do I move my license to a new Mac?
+
+Open Draftbridge, then Settings, then License, and choose **Deactivate**. That frees the seat. Then enter your key on the new Mac.
 
 ## Does the AI see my whole book?
 

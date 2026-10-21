@@ -57,6 +57,7 @@ final class AppModel {
     var pendingRestartID: String?
     var launchAtLogin = false
     var loginItemMessage: String?
+    var licensing = LicenseController()
     private(set) var report: SetupReport?
 
     private var runner: SetupRunner?
@@ -100,6 +101,11 @@ final class AppModel {
     // MARK: Lifecycle
 
     func bootstrap() async {
+        if let problem = licensing.configError {
+            phase = .failed(problem)
+            return
+        }
+        await licensing.loadState()
         refreshRunning()
         refreshLaunchAtLogin()
         do {
@@ -107,6 +113,7 @@ final class AppModel {
             self.location = location
             runner = SetupRunner(location: location)
             await refresh()
+            Task { await licensing.refresh() }
             Task { await findProjects() }
             if appVersion != "dev" {
                 Task { update = await UpdateChecker.latestRelease().flatMap { UpdateChecker.isNewer($0.version, than: appVersion) ? $0 : nil } }
@@ -157,6 +164,7 @@ final class AppModel {
     }
 
     func connect(_ id: String) async {
+        guard licensing.authorize() else { return }
         await act(on: [id]) { runner in
             try await runner.run(.connect(clientIDs: [id], verify: false))
         } done: { [self] report in
@@ -177,6 +185,7 @@ final class AppModel {
     }
 
     func connectAll() async {
+        guard licensing.authorize() else { return }
         let ids = rows.filter { $0.state == .notConnected || $0.state == .needsRepair }.map(\.id)
         guard !ids.isEmpty else { return }
         await act(on: ids) { runner in
@@ -197,6 +206,7 @@ final class AppModel {
 
     /// Repairs apps that are broken or out of date. Apps the person has not connected are left alone.
     func repairAll() async {
+        guard licensing.authorize() else { return }
         let ids = rows.filter {
             if case .problem = $0.state { return true }
             return $0.state == .needsRepair
@@ -397,6 +407,16 @@ extension AppModel {
             model.projects = sampleProjects
             model.scrivener = installed
             model.notice = Notice(kind: .success, text: "The server starts correctly and offers 15 tools.")
+        case .unlicensed:
+            model.licensing = .sample(.unlicensed)
+            model.rows = [row("claude-desktop", .notConnected, running: true), row("cursor", .notConnected), row("raycast", .manual)]
+            model.projects = sampleProjects
+            model.scrivener = installed
+        case .revoked:
+            model.licensing = .sample(.revoked)
+            model.rows = [row("claude-desktop", .connected, running: true), row("cursor", .notConnected)]
+            model.projects = sampleProjects
+            model.scrivener = installed
         case .firstRun:
             model.rows = [row("claude-desktop", .notConnected, running: true), row("cursor", .notConnected), row("raycast", .manual)]
             model.projects = sampleProjects
@@ -424,5 +444,5 @@ extension AppModel {
         return model
     }
 
-    enum SampleKind: CaseIterable { case allConnected, firstRun, restart, mixed, noScrivener, empty, failed }
+    enum SampleKind: CaseIterable { case allConnected, firstRun, unlicensed, revoked, restart, mixed, noScrivener, empty, failed }
 }

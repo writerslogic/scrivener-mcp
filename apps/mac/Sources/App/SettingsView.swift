@@ -21,6 +21,8 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
+            LicenseSettingsSection(licensing: model.licensing)
+
             Section("Connections") {
                 LabeledContent("Check that everything works") {
                     Button {
@@ -49,7 +51,7 @@ struct SettingsView: View {
                 LabeledContent("Diagnostics") {
                     Button("Copy diagnostics") { model.copyDiagnostics() }
                 }
-                Text("Draftbridge is free software under the AGPL-3.0 license by WritersLogic, Inc. It is independent and is not affiliated with, endorsed by, or sponsored by Literature & Latte, the makers of Scrivener.")
+                Text("The Draftbridge source code is free software under the AGPL-3.0 license, from WritersLogic, Inc. This app is the ready-to-use build. Draftbridge is independent and is not affiliated with, endorsed by, or sponsored by Literature & Latte, the makers of Scrivener.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -69,7 +71,7 @@ struct SettingsView: View {
 enum AboutPanel {
     @MainActor static func show() {
         let credits = NSMutableAttributedString(
-            string: "Let your AI assistant read, search and safely edit your Scrivener manuscripts.\n\nFree software under the AGPL-3.0 license by WritersLogic, Inc. Draftbridge is independent and is not affiliated with, endorsed by, or sponsored by Literature & Latte.",
+            string: "Let your AI assistant read, search and safely edit your Scrivener manuscripts.\n\nThe source code is free software under the AGPL-3.0 license, from WritersLogic, Inc. Draftbridge is independent and is not affiliated with, endorsed by, or sponsored by Literature & Latte.",
             attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]
         )
         let style = NSMutableParagraphStyle()

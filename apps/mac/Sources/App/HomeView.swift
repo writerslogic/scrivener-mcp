@@ -32,6 +32,7 @@ struct HomeView: View {
         ScrollView {
             VStack(spacing: 24) {
                 if let update = model.update { UpdateBanner(update: update) }
+                LicenseBanner(licensing: model.licensing)
                 Hero(model: model)
                 if let notice = model.notice { NoticeBanner(notice: notice, model: model) }
                 if model.rows.isEmpty {
@@ -48,6 +49,9 @@ struct HomeView: View {
             .padding(.top, 20)
             .padding(.bottom, 20)
             .frame(maxWidth: .infinity)
+        }
+        .sheet(isPresented: Bindable(model.licensing).showPurchase) {
+            PurchaseSheet(licensing: model.licensing)
         }
         .animation(reduceMotion ? nil : .smooth, value: model.stage)
         .animation(reduceMotion ? nil : .smooth, value: model.pendingRestartID)
@@ -105,12 +109,13 @@ struct Hero: View {
             AppIconView(row: row, size: 72)
             title(isManual ? "Set up \(row.name)" : "Connect \(row.name)")
             body("Let \(row.name) read, search and safely edit your Scrivener manuscripts. One click, and you can undo it any time.")
+            let unlocked = model.licensing.allowsSetup
             Button {
                 Task { await model.connect(row.id) }
             } label: {
                 HStack(spacing: 8) {
                     if row.busy { ProgressView().controlSize(.small) }
-                    Text(isManual ? "Open \(row.name) setup" : "Connect \(row.name)")
+                    Text(unlocked ? (isManual ? "Open \(row.name) setup" : "Connect \(row.name)") : "Get Draftbridge")
                 }
                 .frame(minWidth: 180)
             }
@@ -118,6 +123,15 @@ struct Hero: View {
             .controlSize(.large)
             .disabled(row.busy)
             .keyboardShortcut(.defaultAction)
+            if !unlocked, model.licensing.state == .unlicensed {
+                HStack(spacing: 4) {
+                    if let price = model.licensing.priceLabel {
+                        Text("\(price), one time. Looking around is free. ·")
+                    }
+                    Button("I have a key") { model.licensing.showPurchase = true }.buttonStyle(.link)
+                }
+                .font(.callout).foregroundStyle(.secondary)
+            }
             StepsStrip(current: 1).padding(.top, 8)
         }
     }

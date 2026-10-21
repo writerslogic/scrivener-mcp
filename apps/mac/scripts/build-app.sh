@@ -8,6 +8,14 @@
 #                   (omit to skip notarization)
 #   NODE_LINE       Node.js major line to bundle (default v22)
 #   SKIP_SIGN=1     unsigned build for local testing
+#
+# Licensing. A signed build must either carry license settings or say it is deliberately free:
+#   LICENSE_PUBLIC_KEYS   kid=base64 pairs, comma separated; the 32-byte Ed25519 public key(s)
+#   LICENSE_BASE_URL      https URL of the license service (activation and revocation list)
+#   LICENSE_CHECKOUT_URL  https URL of the purchase page
+#   LICENSE_PRICE         label shown in the app, e.g. "$14.99"
+#   LICENSE_REQUIRE_ACTIVATION  "false" to skip the per-Mac activation (default true)
+#   LICENSE_DISABLED=1    build with no licensing, as community builds from source are
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -26,6 +34,10 @@ die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 [ "$(uname -m)" = "arm64" ] || die "Build on an Apple silicon Mac."
 if [ "${SKIP_SIGN:-}" != "1" ]; then
 	[ -n "${SIGN_IDENTITY:-}" ] || die "Set SIGN_IDENTITY, or SKIP_SIGN=1 for an unsigned build."
+fi
+
+if [ -z "${LICENSE_PUBLIC_KEYS:-}" ] && [ "${SKIP_SIGN:-}" != "1" ] && [ "${LICENSE_DISABLED:-}" != "1" ]; then
+	die "A signed build needs license settings (LICENSE_PUBLIC_KEYS and friends), or LICENSE_DISABLED=1 to ship it free on purpose."
 fi
 
 rm -rf "${BUILD:?}/Draftbridge.app"
@@ -51,6 +63,30 @@ iconutil -c icns "$ICONSET" -o "$RES/AppIcon.icns"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" "$HERE/Info.plist.template" > "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+PLIST="$APP/Contents/Info.plist"
+if [ -n "${LICENSE_PUBLIC_KEYS:-}" ]; then
+	[ -n "${LICENSE_BASE_URL:-}" ] && [ -n "${LICENSE_CHECKOUT_URL:-}" ] && [ -n "${LICENSE_PRICE:-}" ] \
+		|| die "LICENSE_PUBLIC_KEYS needs LICENSE_BASE_URL, LICENSE_CHECKOUT_URL and LICENSE_PRICE."
+	case "$LICENSE_BASE_URL$LICENSE_CHECKOUT_URL" in *http://*) die "License URLs must be https." ;; esac
+	/usr/libexec/PlistBuddy -c "Add :DBLicensePublicKeys dict" "$PLIST"
+	IFS=',' read -r -a pairs <<< "$LICENSE_PUBLIC_KEYS"
+	for pair in "${pairs[@]}"; do
+		kid="${pair%%=*}"; key="${pair#*=}"
+		[ -n "$kid" ] && [ "$kid" != "$pair" ] || die "LICENSE_PUBLIC_KEYS entries look like kid=base64."
+		[ "$(printf '%s' "$key" | base64 -D 2>/dev/null | wc -c | tr -d ' ')" = "32" ] || die "Public key '$kid' is not a 32-byte Ed25519 key in base64."
+		/usr/libexec/PlistBuddy -c "Add :DBLicensePublicKeys:$kid string $key" "$PLIST"
+	done
+	/usr/libexec/PlistBuddy -c "Add :DBLicenseBaseURL string $LICENSE_BASE_URL" "$PLIST"
+	/usr/libexec/PlistBuddy -c "Add :DBLicenseCheckoutURL string $LICENSE_CHECKOUT_URL" "$PLIST"
+	/usr/libexec/PlistBuddy -c "Add :DBLicensePrice string $LICENSE_PRICE" "$PLIST"
+	/usr/libexec/PlistBuddy -c "Add :DBLicenseRequireActivation bool ${LICENSE_REQUIRE_ACTIVATION:-true}" "$PLIST"
+	say "Licensing is ON for this build"
+elif [ "${SKIP_SIGN:-}" != "1" ] && [ "${LICENSE_DISABLED:-}" != "1" ]; then
+	die "A signed build needs license settings (LICENSE_PUBLIC_KEYS and friends), or LICENSE_DISABLED=1 to ship it free on purpose."
+else
+	say "Licensing is OFF for this build"
+fi
+
 if [ "${SKIP_SIGN:-}" != "1" ]; then
 	say "Signing (hardened runtime)"
 	# Innermost first: every Mach-O file under Resources, then the app itself.
@@ -71,6 +107,7 @@ say "Creating the disk image"
 DMG="$BUILD/Draftbridge-$VERSION-arm64.dmg"
 rm -f "$DMG"
 DMG_STAGE="$BUILD/stage-app/dmg"
+rm -rf "${BUILD:?}/stage-app/dmg"
 mkdir -p "$DMG_STAGE"
 cp -R "$APP" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"

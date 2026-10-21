@@ -2,6 +2,17 @@
 
 This guide is for writers who use Scrivener and want an AI assistant to work with their manuscript. You do not need to know how to code. It takes about five minutes.
 
+## Pick how to install
+
+| | Draftbridge app | Free command-line setup |
+|---|---|---|
+| Cost | One-time purchase | Free |
+| Setup | Open the app and click Connect | Paste one line into Terminal (below) |
+| Node.js | Included | Installed for you if missing |
+| Repairs a connection after an AI app updates | One click | Run the line again |
+
+Both do the same job and connect the same server. The server, the setup tool and the Claude Desktop extension are open source and free. The app is the ready-made build with a guided screen, and buying it supports the project.
+
 ## What you need
 
 - A Mac with Scrivener 3

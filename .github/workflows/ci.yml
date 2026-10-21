@@ -58,3 +58,5 @@ jobs:
       - name: Swift tests
         working-directory: apps/mac
         run: swift test
+      - name: License issuer tests
+        run: node --test apps/mac/license/
