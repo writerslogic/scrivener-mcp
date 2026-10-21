@@ -354,6 +354,8 @@ Found a vulnerability? Please report it privately — see [SECURITY.md](./SECURI
 
 AGPL-3.0 &copy; [WritersLogic, Inc.](https://github.com/writerslogic)
 
+Scrivener is a trademark of Literature & Latte Ltd. This project is independent and is not affiliated with, endorsed by, or sponsored by Literature & Latte.
+
 Free for personal use and open-source projects. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](./COMMERCIAL_LICENSE.md) for details.
 
 <p align="center">
