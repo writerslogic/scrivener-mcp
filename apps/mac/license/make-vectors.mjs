@@ -1,4 +1,4 @@
-// Regenerates test-vectors.json from a fixed, public, test-only key. Never use this key for real licenses.
+// Regenerates vectors.json from a fixed, public, test-only key. Never use this key for real licenses.
 import { writeFileSync } from 'node:fs';
 import { privateKeyFromSeed, rawPublicKey, seal } from './issuer.mjs';
 
@@ -17,5 +17,5 @@ const vectors = {
 	revocations: seal('revocations', { v: 1, kid, iat: 1_700_000_200, ids: ['lic_other'] }, key),
 	revocationsWithLicense: seal('revocations', { v: 1, kid, iat: 1_700_000_300, ids: ['lic_test_1'] }, key),
 };
-writeFileSync(new URL('./test-vectors.json', import.meta.url), `${JSON.stringify(vectors, null, '\t')}\n`);
-console.log('wrote test-vectors.json');
+writeFileSync(new URL('./vectors.json', import.meta.url), `${JSON.stringify(vectors, null, '\t')}\n`);
+console.log('wrote vectors.json');

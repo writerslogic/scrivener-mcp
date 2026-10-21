@@ -389,7 +389,7 @@ private func service(
 
     private func load() throws -> (Vectors, LicenseVerifier, LicenseVerifier) {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("license/test-vectors.json")
+            .appendingPathComponent("license/vectors.json")
         let vectors = try JSONDecoder().decode(Vectors.self, from: Data(contentsOf: url))
         let key = try Curve25519.Signing.PublicKey(rawRepresentation: #require(Data(base64Encoded: vectors.publicKey)))
         let mine = LicenseVerifier(keys: [vectors.kid: key], requireActivation: true, deviceID: vectors.device)

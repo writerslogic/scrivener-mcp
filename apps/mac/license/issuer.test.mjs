@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { open, privateKeyFromSeed, publicKeyFromBase64, rawPublicKey, seal } from './issuer.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const vectors = JSON.parse(readFileSync(path.join(here, 'test-vectors.json'), 'utf8'));
+const vectors = JSON.parse(readFileSync(path.join(here, 'vectors.json'), 'utf8'));
 const publicKey = publicKeyFromBase64(vectors.publicKey);
 
 test('the checked-in vectors verify and have not drifted from the generator', () => {

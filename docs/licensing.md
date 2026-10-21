@@ -24,7 +24,7 @@ All three are `PREFIX.<base64url JSON>.<base64url Ed25519 signature>`. The signa
 
 `kid` names the public key. The app ships a set of public keys, so a key can be rotated by adding a new one. `dev` is the SHA-256 of `"draftbridge:" + <hardware UUID>`, so the service never sees the hardware UUID.
 
-`apps/mac/license/issuer.mjs` is the reference implementation, and `apps/mac/license/test-vectors.json` holds tokens the Swift tests and the Node tests both verify. A license service must pass those vectors.
+`apps/mac/license/issuer.mjs` is the reference implementation, and `apps/mac/license/vectors.json` holds tokens the Swift tests and the Node tests both verify. A license service must pass those vectors.
 
 ## Service contract
 
