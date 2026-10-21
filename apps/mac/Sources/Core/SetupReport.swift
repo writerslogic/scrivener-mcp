@@ -82,7 +82,7 @@ public enum SetupError: Error, LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .serverNotFound(let detail):
-            return "The bundled Marginalia server could not be found. \(detail)"
+            return "The bundled Draftbridge server could not be found. \(detail)"
         case .launchFailed(let detail):
             return "Could not run the setup helper. \(detail)"
         case .timedOut:

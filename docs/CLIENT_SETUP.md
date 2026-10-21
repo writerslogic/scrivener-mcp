@@ -305,12 +305,12 @@ VS Code uses a different file format from the other apps: a top-level `servers` 
 
 `npx scrivener-setup --links` prints ready-made links for Cursor, LM Studio, and Raycast, plus the `code --add-mcp` command for VS Code, each containing the full path to `npx` on your machine. A link only opens the app's own install dialog and cannot install or repair Node.js. If a link opens but the server fails to start, run the one-line installer above.
 
-If you installed the Marginalia Mac app, you do not need Node.js at all. The app carries its own runtime, and you can generate links that point at it:
+If you installed the Draftbridge Mac app, you do not need Node.js at all. The app carries its own runtime, and you can generate links that point at it:
 
 ```bash
 npx scrivener-setup --links \
-  --node "/Applications/Marginalia.app/Contents/Resources/runtime/bin/node" \
-  --script "/Applications/Marginalia.app/Contents/Resources/server/dist/index.js"
+  --node "/Applications/Draftbridge.app/Contents/Resources/runtime/bin/node" \
+  --script "/Applications/Draftbridge.app/Contents/Resources/server/dist/index.js"
 ```
 
 The same `--node` and `--script` options work with `--print` and with the setup itself.

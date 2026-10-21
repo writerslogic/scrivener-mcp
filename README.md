@@ -28,7 +28,7 @@ Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://d
 
 ## Install
 
-**On a Mac and not a terminal person?** Use **Marginalia for Scrivener**, the Mac app and one-click Claude Desktop extension built from this repo. It finds your AI apps, adds Scrivener MCP to each, and checks it works, with no Node.js to install. See the [Mac install guide](./docs/install-mac.md) and [FAQ](./docs/faq.md). Report app problems with the `mac-app` label.
+**On a Mac and not a terminal person?** Use **Draftbridge for Scrivener**, the Mac app and one-click Claude Desktop extension built from this repo. It finds your AI apps, adds Scrivener MCP to each, and checks it works, with no Node.js to install. See the [Mac install guide](./docs/install-mac.md) and [FAQ](./docs/faq.md). Report app problems with the `mac-app` label.
 
 Otherwise, from a terminal:
 

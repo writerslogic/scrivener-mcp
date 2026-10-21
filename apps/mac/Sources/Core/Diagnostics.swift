@@ -5,7 +5,7 @@ public enum Diagnostics {
     public static func summary(
         appVersion: String, macOS: String, report: SetupReport?, location: ServerLocation?
     ) -> String {
-        var lines = ["Marginalia \(appVersion)", "macOS \(macOS)"]
+        var lines = ["Draftbridge \(appVersion)", "macOS \(macOS)"]
         if let runtime = report?.runtime {
             lines.append("Node \(runtime.version) (\(runtime.source))")
         }
