@@ -95,11 +95,16 @@ Usage: scrivener-setup [options]
                    (used by the Mac app, which bundles both)
 `;
 
+/** Opens a Raycast install link with macOS `open`. Nothing else is ever opened from here. */
 function openUrl(url: string): Promise<void> {
 	return new Promise((resolve, reject) => {
-		const cmd = platform() === 'darwin' ? 'open' : platform() === 'win32' ? 'cmd' : 'xdg-open';
-		const args = platform() === 'win32' ? ['/c', 'start', '', url] : [url];
-		execFile(cmd, args, (error) => (error ? reject(error) : resolve()));
+		// The link embeds paths from the command line, so allow only the exact scheme and URL-safe characters,
+		// and end option parsing so the argument can never be read as a flag.
+		if (!/^raycast:\/\/mcp\/install\?[A-Za-z0-9%._~!*'()-]*$/.test(url)) {
+			reject(new Error('refusing to open an unexpected link'));
+			return;
+		}
+		execFile('open', ['--', url], (error) => (error ? reject(error) : resolve()));
 	});
 }
 
