@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- License the Mac app with offline-verified Ed25519 keys, per-Mac activation, and a signed revocation list (#171)
+- Redesign the Mac app with a guided first-run, settings, new icon, and a fixed project search (#169)
 - Name the Mac app and extension Draftbridge for Scrivener (#167)
 - One-click Claude Desktop extension, shared bundle staging, quieter startup (#165)
 - Native Mac companion app, build pipeline, video scripts, and FAQ (#164)
@@ -21,6 +23,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Drive comparison-table workflow from docs/comparison.yml (#101)
 
 ### Documentation
+- Say where to buy and download the Draftbridge app (#172)
 - Add non-affiliation notice (#166)
 - Standardize README header (#140)
 - Update tool count to 62 after narrative-lens tools (#136)
