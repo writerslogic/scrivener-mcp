@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Move the Mac app source to a private repo and promote Draftbridge in the README (#173)
 - License the Mac app with offline-verified Ed25519 keys, per-Mac activation, and a signed revocation list (#171)
 - Redesign the Mac app with a guided first-run, settings, new icon, and a fixed project search (#169)
 - Name the Mac app and extension Draftbridge for Scrivener (#167)
