@@ -11,7 +11,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BUILD="$ROOT/apps/mac/build"
+BUILD="$ROOT/build"
 OUT="$ROOT/dist-mcpb"
 SRC="$BUILD/mcpb-src"
 MCPB_CLI_VERSION="${MCPB_CLI_VERSION:-2.1.2}"
@@ -21,7 +21,7 @@ ARCHIVE="$OUT/scrivener-mcp-$VERSION-macos-arm64.mcpb"
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
-BUILD="$BUILD" "$ROOT/apps/mac/scripts/stage-bundle.sh"
+BUILD="$BUILD" "$HERE/stage-bundle.sh"
 
 say "Assembling the extension"
 rm -rf "${SRC:?}"
@@ -30,13 +30,7 @@ cp -R "$BUILD/bundle/runtime" "$SRC/runtime"
 cp -R "$BUILD/bundle/server" "$SRC/server"
 cp "$BUILD/bundle/LICENSE" "$SRC/LICENSE"
 
-say "Rendering the icon"
-BIN_PATH="$(cd "$ROOT/apps/mac" && swift build -c release --arch arm64 --show-bin-path)"
-(cd "$ROOT/apps/mac" && swift build -c release --arch arm64 >/dev/null)
-ICONS="$BUILD/mcpb-icons"
-mkdir -p "$ICONS"
-"$BIN_PATH/ScrivenerMCP" --render-icon "$ICONS"
-cp "$ICONS/icon_256x256@2x.png" "$SRC/icon.png"
+cp "$ROOT/assets/draftbridge/icon.png" "$SRC/icon.png"
 
 say "Writing the manifest"
 VERSION="$VERSION" SRC="$SRC" node -e '
