@@ -13,7 +13,7 @@
 #   refreshed - when the machine-checkable columns (stars, forks, activity,
 #               published version) were last pulled. The workflow owns it.
 
-verified: "2026-08-22"
+verified: "2026-10-22"
 
 repos:
   scrivener-mcp:
@@ -27,8 +27,8 @@ repos:
     github: null
     npm: "@twelvetake/scrivener-mcp"
     display: "TwelveTake"
-    note: "npm marks 1.3.2 as discontinued and unmaintained; linked source is unavailable"
-    status_note: "discontinued and unmaintained"
+    note: "removed from npm; source was never public"
+    status_note: "removed from npm"
     community_note: "source repository unavailable"
   scrivener-assistant:
     github: elnino1/scrivener-assistant
@@ -43,7 +43,7 @@ repos:
 features:
   - label: Public MCP tools
     scrivener-mcp: "57"
-    jiayun: "29"
+    jiayun: "30"
     twelvetake: "22"
     scrivener-assistant: "38"
     ricopicone: "18"
@@ -130,8 +130,8 @@ features:
     zaphodsdad: "yes"
 
   - label: Installation
-    scrivener-mcp: "npm, Homebrew, Docker, Smithery"
-    jiayun: "Cargo or prebuilt binary"
+    scrivener-mcp: "npm, Homebrew, Docker, Smithery, or the Draftbridge Mac app"
+    jiayun: "crates.io, prebuilt binary, or source"
     twelvetake: "npm package (deprecated)"
     scrivener-assistant: "MCPB or source"
     ricopicone: "source / `uv`"

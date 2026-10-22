@@ -10,7 +10,7 @@ MCP server for Scrivener: connect your novels, screenplays, and manuscripts to C
 
 <p align="center">
   <a href="#install">Install</a> &middot;
-  <a href="#mac-app-draftbridge-for-scrivener-999">Mac App</a> &middot;
+  <a href="#mac-app-draftbridge-for-scrivener-499">Mac App</a> &middot;
   <a href="#what-you-can-do">What You Can Do</a> &middot;
   <a href="#all-tools">All Tools</a> &middot;
   <a href="#guides">Guides</a> &middot;
@@ -29,17 +29,17 @@ Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://d
 
 ## Install
 
-### Mac app: Draftbridge for Scrivener, $9.99
+### Mac app: Draftbridge for Scrivener, $4.99
 
-**On a Mac and not a terminal person?** **[Draftbridge for Scrivener](https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00)** is the ready-made Mac app. It finds your AI apps (Claude Desktop, BoltAI, Cursor, VS Code, LM Studio, Raycast and Claude Code), connects Scrivener MCP to each with one click, shows your Scrivener projects, repairs the connection after an app updates, and checks it works. No Terminal, no Node.js, no settings files. It's a one-time $9.99 purchase for up to 3 of your Macs, signed and notarized by Apple.
+**Not a terminal person?** **[Draftbridge for Scrivener](https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00)** is the ready-made Mac app. It finds your AI apps — Claude Desktop, BoltAI, Cursor, VS Code, LM Studio, Raycast, Claude Code — connects Scrivener MCP to each with one click, shows your projects, and repairs the connection after an app update. No Terminal, no Node.js, no settings files. One-time $4.99, up to 3 Macs, signed and notarized by Apple.
 
 <p align="center">
   <picture><source media="(prefers-color-scheme: dark)" srcset="assets/draftbridge/ready-dark.png"><img src="assets/draftbridge/ready-light.png" alt="Draftbridge showing Claude Desktop and BoltAI connected, and the Scrivener projects it found" width="380"></picture>
   &nbsp;
-  <picture><source media="(prefers-color-scheme: dark)" srcset="assets/draftbridge/purchase-dark.png"><img src="assets/draftbridge/purchase-light.png" alt="The Draftbridge purchase window: $9.99, one time" width="300"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="assets/draftbridge/purchase-dark.png"><img src="assets/draftbridge/purchase-light.png" alt="The Draftbridge purchase window" width="300"></picture>
 </p>
 
-The server, the setup tool and the Claude Desktop extension in this repo stay free and open source. The app itself is closed source, and the fee buys the polished, notarized build and supports development. See the [Mac install guide](./docs/install-mac.md) and [FAQ](./docs/faq.md). Report app problems with the `mac-app` label.
+The server, setup tool, and Claude Desktop extension here stay free and open source. The app is closed source; the fee buys the notarized build and supports development. See the [Mac install guide](./docs/install-mac.md) and [FAQ](./docs/faq.md). Report app problems with the `mac-app` label.
 
 ### Free: Claude Desktop extension or command line
 
@@ -323,12 +323,12 @@ npm run typecheck    # Type checking only
 
 ## Why This One?
 
-A few Scrivener MCP servers exist. Feature claims below come from each project's own docs, published package, and advertised tools, last re-read on **2026-08-22**; stars, forks, activity, and published version were refreshed <!-- comparison-refreshed -->2026-10-19<!-- /comparison-refreshed -->. "No" means undocumented — not necessarily impossible through the connected AI client.
+A few Scrivener MCP servers exist. Feature claims below come from each project's own docs, published package, and advertised tools, last re-read on **2026-10-22**; stars, forks, activity, and published version were refreshed <!-- comparison-refreshed -->2026-10-22<!-- /comparison-refreshed -->. "No" means undocumented — not necessarily impossible through the connected AI client.
 
 <!-- comparison-start -->
 | Feature | **scrivener-mcp** | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp) | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
 |---------|:-:|:-:|:-:|:-:|:-:|:-:|
-| Public MCP tools | 57 | 29 | 22 | 38 | 18 | 10 |
+| Public MCP tools | 57 | 30 | 22 | 38 | 18 | 10 |
 | Manuscript access | read/write | read/write | read/write | read-only; writes sidecar data/metadata | read-only by default; opt-in content/notes/synopsis writes | read-only |
 | RTF handling | formatted reads; fidelity-preserving span writes | reads/writes document content | reads/writes document content | converts RTF to text; manuscript read-only | RTF-to-text reads; snapshot-protected content writes | converts RTF to text; read-only |
 | Built-in writing analysis | readability, pacing, style, emotion, AI critique | readability, style, sentiment | continuity comparison | agent-driven five-point review workflow | no dedicated analysis tool | no dedicated analysis tool |
@@ -339,9 +339,9 @@ A few Scrivener MCP servers exist. Feature claims below come from each project's
 | Token optimization | progressive skill loading, compact output, paged reads | no documented equivalent | no documented equivalent | no documented equivalent | scoped binder/chapter reads | scoped overview/read tools |
 | Export / compilation | Markdown, HTML, JSON, DOCX, EPUB, PDF | compile + whole-draft export | PDF | saves AI drafts; no manuscript export documented | no | no |
 | Windows support | yes | yes (prebuilt binary) | yes | not documented | not documented | yes |
-| Installation | npm, Homebrew, Docker, Smithery | Cargo or prebuilt binary | npm package (deprecated) | MCPB or source | source / `uv` | source / `pip install -e` |
+| Installation | npm, Homebrew, Docker, Smithery, or the Draftbridge Mac app | crates.io, prebuilt binary, or source | npm package (deprecated) | MCPB or source | source / `uv` | source / `pip install -e` |
 | License | AGPL-3.0 / commercial dual-license | MIT | MIT | MIT | not declared | MIT |
-| Repository/package status | weekly activity; npm `0.12.0` | occasional activity | discontinued and unmaintained | occasional activity | occasional activity; no releases | occasional activity; no releases |
+| Repository/package status | weekly activity; npm `0.12.0` | occasional activity | removed from npm | occasional activity | occasional activity; no releases | occasional activity; no releases |
 | Community | ⭐ 67 · 23 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | ⭐ 5 · 1 fork |
 <!-- comparison-end -->
 
@@ -374,6 +374,10 @@ AGPL-3.0 &copy; [WritersLogic, Inc.](https://github.com/writerslogic)
 Scrivener is a trademark of Literature & Latte Ltd. This project is independent and is not affiliated with, endorsed by, or sponsored by Literature & Latte.
 
 Free for personal use and open-source projects. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](./COMMERCIAL_LICENSE.md) for details.
+
+---
+
+Also from WritersLogic: **[WritersProof](https://writersproof.com)** witnesses your keystrokes, pauses, and revisions as you write, then seals that process into tamper-evident, independently verifiable proof you wrote it yourself — AI accusations, settled with evidence instead of your word.
 
 <p align="center">
   <a href="https://glama.ai/mcp/servers/writerslogic/scrivener-mcp">
