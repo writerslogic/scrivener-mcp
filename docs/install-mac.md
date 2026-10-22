@@ -13,6 +13,10 @@ This guide is for writers who use Scrivener and want an AI assistant to work wit
 
 Both do the same job and connect the same server. The server, the setup tool and the Claude Desktop extension are open source and free. The app is the ready-made build with a guided screen, and buying it supports the project.
 
+## Get the Draftbridge app
+
+Buy it for $9.99 at [buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00](https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00). Your license key appears on the page after checkout and is emailed to you, with a link to download the app. It works on up to 3 of your Macs. If you already have the key, [download the app](https://updates.writerslogic.com/draftbridge/Draftbridge-latest.dmg), open it, and paste the key.
+
 ## What you need
 
 - A Mac with Scrivener 3
