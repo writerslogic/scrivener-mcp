@@ -125,6 +125,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Improve package description
 
 ### Fixed
+- Only open Raycast install links, with URL-safe characters and no option parsing (#176)
 - Preserve Scrivener XML attributes and plain text in Codex (#156)
 - Validate binder move targets, patch audit findings, add tests (#154)
 - Convert comparison-table workflow to open a PR, dedupe README badges (#117)
