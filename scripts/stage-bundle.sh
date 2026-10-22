@@ -4,12 +4,12 @@
 #   $BUILD/bundle/server             the built server with production dependencies
 # and proves the staged server starts under that Node.
 #
-# Environment: NODE_LINE (default v22), BUILD (default apps/mac/build).
+# Environment: NODE_LINE (default v22), BUILD (default build).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../../.." && pwd)"
-BUILD="${BUILD:-$ROOT/apps/mac/build}"
+ROOT="$(cd "$HERE/.." && pwd)"
+BUILD="${BUILD:-$ROOT/build}"
 NODE_LINE="${NODE_LINE:-v22}"
 BUNDLE="$BUILD/bundle"
 WORK="$BUILD/stage"

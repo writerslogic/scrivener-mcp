@@ -42,4 +42,4 @@ In the app, click the menu beside each connected app and choose **Disconnect**, 
 
 ## Is it open source?
 
-Yes, under the AGPL-3.0 license, at [github.com/writerslogic/scrivener-mcp](https://github.com/writerslogic/scrivener-mcp). A commercial license is available; see `COMMERCIAL_LICENSE.md`.
+The server, the command-line setup tool and the Claude Desktop extension are, under the AGPL-3.0 license, at [github.com/writerslogic/scrivener-mcp](https://github.com/writerslogic/scrivener-mcp). A commercial license is available; see `COMMERCIAL_LICENSE.md`. The Draftbridge Mac app itself is closed source.
