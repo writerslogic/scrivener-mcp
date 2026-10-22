@@ -174,3 +174,6 @@ data/
 # Also covered by a global core.excludesFile; pinned here so the guard travels with the repo.
 PROVENANCE.md
 dist-mcpb/
+
+# Draftbridge for Scrivener (paid Mac app): private repo cloned here, not tracked
+apps/mac/

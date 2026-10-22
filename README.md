@@ -10,6 +10,7 @@ MCP server for Scrivener: connect your novels, screenplays, and manuscripts to C
 
 <p align="center">
   <a href="#install">Install</a> &middot;
+  <a href="#mac-app-draftbridge-for-scrivener-999">Mac App</a> &middot;
   <a href="#what-you-can-do">What You Can Do</a> &middot;
   <a href="#all-tools">All Tools</a> &middot;
   <a href="#guides">Guides</a> &middot;
@@ -28,7 +29,23 @@ Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://d
 
 ## Install
 
-**On a Mac and not a terminal person?** Use **Draftbridge for Scrivener**, the Mac app and one-click Claude Desktop extension built from this repo. It finds your AI apps, adds Scrivener MCP to each, and checks it works, with no Node.js to install. See the [Mac install guide](./docs/install-mac.md) and [FAQ](./docs/faq.md). Report app problems with the `mac-app` label.
+### Mac app: Draftbridge for Scrivener, $9.99
+
+**On a Mac and not a terminal person?** **[Draftbridge for Scrivener](https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00)** is the ready-made Mac app. It finds your AI apps (Claude Desktop, BoltAI, Cursor, VS Code, LM Studio, Raycast and Claude Code), connects Scrivener MCP to each with one click, shows your Scrivener projects, repairs the connection after an app updates, and checks it works. No Terminal, no Node.js, no settings files. It's a one-time $9.99 purchase for up to 3 of your Macs, signed and notarized by Apple.
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="assets/draftbridge/ready-dark.png"><img src="assets/draftbridge/ready-light.png" alt="Draftbridge showing Claude Desktop and BoltAI connected, and the Scrivener projects it found" width="380"></picture>
+  &nbsp;
+  <picture><source media="(prefers-color-scheme: dark)" srcset="assets/draftbridge/purchase-dark.png"><img src="assets/draftbridge/purchase-light.png" alt="The Draftbridge purchase window: $9.99, one time" width="300"></picture>
+</p>
+
+The server, the setup tool and the Claude Desktop extension in this repo stay free and open source. The app itself is closed source, and the fee buys the polished, notarized build and supports development. See the [Mac install guide](./docs/install-mac.md) and [FAQ](./docs/faq.md). Report app problems with the `mac-app` label.
+
+### Free: Claude Desktop extension or command line
+
+Prefer to do it yourself? The `.mcpb` extension (Claude Desktop only) and the terminal setup below do the same job for free.
+
+From a terminal:
 
 Otherwise, from a terminal:
 
