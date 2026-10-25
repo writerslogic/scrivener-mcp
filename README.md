@@ -31,7 +31,7 @@ Works with [Claude Desktop](https://claude.ai/download), [Claude Code](https://d
 
 ### Mac app: Draftbridge for Scrivener, $4.99
 
-**Not a terminal person?** **[Draftbridge for Scrivener](https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00)** is the ready-made Mac app. It finds your AI apps — Claude Desktop, BoltAI, Cursor, VS Code, LM Studio, Raycast, Claude Code — connects Scrivener MCP to each with one click, shows your projects, and repairs the connection after an app update. No Terminal, no Node.js, no settings files. One-time $4.99, up to 3 Macs, signed and notarized by Apple.
+**Not a terminal person?** **[Draftbridge for Scrivener](https://buy.stripe.com/14A8wHbm64Y0dR8fFdc7u01)** is the ready-made Mac app. It finds your AI apps — Claude Desktop, BoltAI, Cursor, VS Code, LM Studio, Raycast, Claude Code — connects Scrivener MCP to each with one click, shows your projects, and repairs the connection after an app update. No Terminal, no Node.js, no settings files. One-time $4.99, up to 3 Macs, signed and notarized by Apple.
 
 <p align="center">
   <picture><source media="(prefers-color-scheme: dark)" srcset="assets/draftbridge/ready-dark.png"><img src="assets/draftbridge/ready-light.png" alt="Draftbridge showing Claude Desktop and BoltAI connected, and the Scrivener projects it found" width="380"></picture>
