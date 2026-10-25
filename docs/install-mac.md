@@ -15,7 +15,7 @@ Both do the same job and connect the same server. The server, the setup tool and
 
 ## Get the Draftbridge app
 
-Buy it for $9.99 at [buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00](https://buy.stripe.com/28EaEP2PA2PSaEW1Onc7u00). Your license key appears on the page after checkout and is emailed to you, with a link to download the app. It works on up to 3 of your Macs. If you already have the key, [download the app](https://updates.writerslogic.com/draftbridge/Draftbridge-latest.dmg), open it, and paste the key.
+Buy it for $4.99 at [buy.stripe.com/14A8wHbm64Y0dR8fFdc7u01](https://buy.stripe.com/14A8wHbm64Y0dR8fFdc7u01). Your license key appears on the page after checkout and is emailed to you, with a link to download the app. It works on up to 3 of your Macs. If you already have the key, [download the app](https://updates.writerslogic.com/draftbridge/Draftbridge-latest.dmg), open it, and paste the key.
 
 ## What you need
 
