@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Documentation
+- Point Draftbridge buyers to live checkout (#180)
+## [0.13.0] - 2026-10-22
+
 ### Added
 - Move the Mac app source to a private repo and promote Draftbridge in the README (#173)
 - License the Mac app with offline-verified Ed25519 keys, per-Mac activation, and a signed revocation list (#171)
@@ -125,6 +129,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Improve package description
 
 ### Fixed
+- Only open Raycast install links, with URL-safe characters and no option parsing (#176)
 - Preserve Scrivener XML attributes and plain text in Codex (#156)
 - Validate binder move targets, patch audit findings, add tests (#154)
 - Convert comparison-table workflow to open a PR, dedupe README badges (#117)
