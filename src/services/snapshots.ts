@@ -13,6 +13,7 @@ import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { isValidUUID, createError, ErrorCode } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
+import { safeWriteFile } from '../utils/common.js';
 
 const logger = getLogger('snapshots');
 
@@ -238,50 +239,82 @@ function buildSnapshotIndex(entries: Array<{ title: string; date: string }>): st
  * any existing snapshots. Throws NOT_FOUND when the document has no content.rtf
  * (nothing to snapshot). The provided `date` defaults to now; pass one for tests.
  */
-export async function createSnapshot(
+export async function planSnapshot(
 	projectPath: string,
 	documentId: string,
 	title: string,
 	date: Date
 ): Promise<SnapshotEntry> {
 	const dir = snapshotDir(projectPath, documentId);
-	if (!dir) {
-		throw createError(ErrorCode.INVALID_INPUT, { documentId }, 'Invalid document id');
-	}
-
-	const contentPath = path.join(projectPath, 'Files', 'Data', documentId, 'content.rtf');
-	let content: Buffer;
-	try {
-		content = await fs.readFile(contentPath);
-	} catch {
-		throw createError(
-			ErrorCode.NOT_FOUND,
-			{ documentId },
-			`Document ${documentId} has no content.rtf to snapshot`
-		);
-	}
-
-	await fs.mkdir(dir, { recursive: true });
-
-	// Derive the stamp; on the rare same-second collision, disambiguate so an
-	// existing snapshot is never overwritten.
+	if (!dir || typeof title !== 'string' || title.length > 512 || !(date instanceof Date) || !Number.isFinite(date.getTime())) throw createError(ErrorCode.INVALID_INPUT, {}, 'Invalid snapshot identity, title, or date');
 	const { stem: baseStem, indexDate } = formatSnapshotStamp(date);
 	const existing = await listSnapshotRtfStems(dir);
 	let stem = baseStem;
 	for (let n = 1; existing.includes(stem); n++) stem = `${baseStem}-${n}`;
+	return { documentId, snapshotId: stem, title: title.trim(), date: indexDate };
+}
 
-	await fs.writeFile(path.join(dir, `${stem}.rtf`), content);
+export async function writePlannedSnapshot(projectPath: string, entry: SnapshotEntry, content: string): Promise<void> {
+	const dir = snapshotDir(projectPath, entry.documentId);
+	if (!dir || !/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}[+-]\d{4}(?:-\d+)?$/.test(entry.snapshotId) || typeof entry.title !== 'string' || entry.title.length > 512 || typeof entry.date !== 'string' || entry.date.length > 40 || typeof content !== 'string' || Buffer.byteLength(content) > 64 * 1024 * 1024) throw new Error('Invalid planned snapshot');
+	const rtfPath = path.join(dir, `${entry.snapshotId}.rtf`);
+	const indexPath = path.join(dir, 'index.xml');
+	const priorStems = await listSnapshotRtfStems(dir);
+	const otherStems = priorStems.filter((stem) => stem !== entry.snapshotId);
+	const completedStems = [...otherStems, entry.snapshotId].sort();
+	let prior: Array<{ title: string; date: string }> | undefined;
+	try {
+		const xml = await fs.readFile(indexPath, 'utf8');
+		const parsed = await parseStringPromise(xml, PARSE_OPTS) as { Snapshots?: { Snapshot?: unknown } | string };
+		if (parsed.Snapshots === undefined) throw new Error('Invalid snapshot index root');
+		const root = typeof parsed.Snapshots === 'object' ? parsed.Snapshots : undefined;
+		prior = asArray(root?.Snapshot).map((raw) => {
+			const record = raw && typeof raw === 'object' ? raw as { Title?: unknown; Date?: unknown } : {};
+			return { title: textOf(record.Title), date: textOf(record.Date) };
+		});
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+	}
+	const metadata = new Map<string, { title: string; date: string }>();
+	if (prior === undefined) {
+		for (const stem of otherStems) {
+			const stamp = stem.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})-(\d{2})-(\d{2})([+-]\d{4})(?:-\d+)?$/);
+			if (!stamp) throw new Error('An unindexed snapshot has an unsupported timestamp; inspect its metadata before retrying');
+			metadata.set(stem, { title: '', date: `${stamp[1]} ${stamp[2]}:${stamp[3]}:${stamp[4]} ${stamp[5]}` });
+		}
+	} else if (prior.length === completedStems.length) {
+		for (let index = 0; index < completedStems.length; index++) metadata.set(completedStems[index], prior[index]);
+		const planned = metadata.get(entry.snapshotId);
+		if (planned?.title !== entry.title || planned.date !== entry.date) throw new Error('Planned snapshot ID conflicts with existing snapshot metadata');
+	} else if (prior.length === otherStems.length) {
+		for (let index = 0; index < otherStems.length; index++) metadata.set(otherStems[index], prior[index]);
+	} else throw new Error('Snapshot index and saved files do not agree; inspect the existing snapshots before retrying');
+	metadata.set(entry.snapshotId, { title: entry.title, date: entry.date });
+	await fs.mkdir(dir, { recursive: true });
+	try {
+		const existing = await fs.readFile(rtfPath, 'utf8');
+		if (existing !== content) throw new Error('Planned snapshot ID already contains different saved content');
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+		await safeWriteFile(rtfPath, content);
+	}
+	const ordered = [...metadata.entries()].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0).map(([, value]) => value);
+	await safeWriteFile(indexPath, buildSnapshotIndex(ordered));
+}
 
-	// Append to index.xml, preserving prior entries in chronological order.
-	const prior = existing.length
-		? await fs
-				.readFile(path.join(dir, 'index.xml'), 'utf-8')
-				.then(parseSnapshotIndex)
-				.catch(() => [])
-		: [];
-	const entries = [...prior, { title, date: indexDate }];
-	await fs.writeFile(path.join(dir, 'index.xml'), buildSnapshotIndex(entries), 'utf-8');
-
-	logger.info('Created snapshot', { documentId, snapshotId: stem, title });
-	return { documentId, snapshotId: stem, title, date: indexDate };
+export async function createSnapshot(
+	projectPath: string,
+	documentId: string,
+	title: string,
+	date: Date
+): Promise<SnapshotEntry> {
+	const { MutationCoordinator } = await import('./editorial/mutation-coordinator.js');
+	const coordinator = new MutationCoordinator(projectPath);
+	try {
+		const entry = await coordinator.snapshot(documentId, title, date);
+		logger.info('Created snapshot', { documentId, snapshotId: entry.snapshotId });
+		return entry;
+	} finally {
+		coordinator.close();
+	}
 }

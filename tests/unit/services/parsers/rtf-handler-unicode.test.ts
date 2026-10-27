@@ -66,3 +66,17 @@ describe('RTFHandler Unicode (\\uc) handling', () => {
 		expect(result.plainText).not.toMatch(/[0-9a-f]{40,}/);
 	});
 });
+
+describe('RTF text control and Unicode scope round trips', () => {
+	const handler = new RTFHandler();
+
+	it('restores outer Unicode fallback width after a nested local override', async () => {
+		const raw = `{\\rtf1\\ansi\\uc1${FONT}\\f0 before {\\uc0 alpha \\u945 } caf\\u233? after}`;
+		expect((await handler.parseRTF(raw)).plainText).toBe('before alpha α café after');
+	});
+
+	it('preserves quotes, tabs, dashes, combining marks and astral text through the existing serializer', async () => {
+		const text = 'Mara\'s "promise"\tcafé — 東京 🌙 Żółć.\nA second paragraph.';
+		expect((await handler.parseRTF(handler.convertToRTF(text))).plainText).toBe(text);
+	});
+});

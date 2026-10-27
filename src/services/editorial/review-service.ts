@@ -107,14 +107,15 @@ function compose(proposal: ChangeProposal, additional: string[] = []): string {
 	return text;
 }
 
-function ownerDead(application: ReviewApplication): boolean {
-	if (application.host !== hostname()) return false;
-	if (application.ownerPid === process.pid) return !running.has(application.token);
+function applicationOwner(application: ReviewApplication): 'alive' | 'dead' | 'unknown' {
+	if (!Number.isSafeInteger(application.ownerPid) || application.ownerPid <= 0 || application.ownerPid > 2_147_483_647 || typeof application.host !== 'string' || !application.host.length || application.host.length > 255 || typeof application.token !== 'string' || !application.token.length || application.token.length > 128) throw new Error('Malformed review application ownership record; manual inspection is required');
+	if (application.host !== hostname()) return 'unknown';
+	if (application.ownerPid === process.pid) return running.has(application.token) ? 'alive' : 'unknown';
 	try {
 		process.kill(application.ownerPid, 0);
-		return false;
+		return 'alive';
 	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === 'ESRCH';
+		return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'dead' : 'unknown';
 	}
 }
 
@@ -303,7 +304,11 @@ export class ReviewService {
 				continue;
 			}
 			if (application.state !== 'preparing' && application.state !== 'interrupted') continue;
-			if (application.state === 'preparing' && !ownerDead(application)) continue;
+			if (application.state === 'preparing') {
+				const owner = applicationOwner(application);
+				if (owner === 'alive') continue;
+				if (owner === 'unknown') throw new Error('Review application ownership is ambiguous; inspect the original server before recovery');
+			}
 			const mutation = this.documents.getMutationCoordinator().get(application.id);
 			if (mutation?.state === 'committed') recovered.push(this.finalize(application, mutation));
 			else {

@@ -56,9 +56,10 @@ export class ProjectWriter {
 
 	async prepareDocument(documentId: string, newText: string, expectedRevision?: string): Promise<PreparedDocument> {
 		if (typeof newText !== 'string' || newText.length > MAX_TEXT_LENGTH) throw new Error('Document text exceeds the supported length');
-		const oldRaw = await this.documentManager.readDocumentRaw(documentId);
+		const observedRevision = expectedRevision ?? this.documentManager.getObservedRevision(documentId);
+		const oldRaw = (await this.documentManager.getMutationCoordinator().readRaw(documentId)).raw;
 		const beforeRevision = documentRevision(oldRaw);
-		if (expectedRevision !== undefined && expectedRevision !== beforeRevision) throw new Error('Stale document revision; refresh and review the saved changes');
+		if (observedRevision !== undefined && observedRevision !== beforeRevision) throw new Error('Stale document revision; refresh and review the saved changes');
 		const handler = new RTFHandler();
 		const beforeText = oldRaw ? (await handler.parseRTF(oldRaw)).plainText : '';
 		const afterText = newText;
@@ -112,7 +113,7 @@ export class ProjectWriter {
 
 	async restoreRaw(documentId: string, raw: string, options: WriteOptions): Promise<MutationRecord> {
 		const handler = new RTFHandler();
-		const currentRaw = await this.documentManager.readDocumentRaw(documentId);
+		const currentRaw = (await this.documentManager.getMutationCoordinator().readRaw(documentId)).raw;
 		const prepared: PreparedDocument = { documentId, beforeRevision: documentRevision(currentRaw), beforeText: (await handler.parseRTF(currentRaw)).plainText, afterText: (await handler.parseRTF(raw)).plainText, raw, fidelity: { documentId, mode: 'preserved', atRisk: [] } };
 		return (await this.commitPrepared(prepared, options)).mutation;
 	}

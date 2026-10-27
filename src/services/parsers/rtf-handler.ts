@@ -12,6 +12,20 @@ import type {
 const logger = getLogger('rtf-handler');
 const parseRTFAsync = promisify(parseRTF.string);
 
+export const RTF_TEXT_CONTROLS: ReadonlyMap<string, string> = new Map([
+	['\\ldblquote', '"'],
+	['\\rdblquote', '"'],
+	['\\lquote', "'"],
+	['\\rquote', "'"],
+	['\\endash', '–'],
+	['\\emdash', '—'],
+	['\\bullet', '•'],
+	['\\tab', '\t'],
+	['\\line', '\n'],
+	['\\par', '\n'],
+	['\\~', ' '],
+]);
+
 export interface RTFStyle {
 	bold?: boolean;
 	italic?: boolean;
@@ -45,20 +59,7 @@ export interface RTFContent {
  * Comprehensive RTF handler for Scrivener documents
  */
 export class RTFHandler {
-	// RTF control word mappings
-	private readonly SPECIAL_CHARS = new Map([
-		['\\ldblquote', '"'],
-		['\\rdblquote', '"'],
-		['\\lquote', "'"],
-		['\\rquote', "'"],
-		['\\endash', '–'],
-		['\\emdash', '—'],
-		['\\bullet', '•'],
-		['\\tab', '\t'],
-		['\\line', '\n'],
-		['\\par', '\n'],
-		['\\~', ' '],
-	]);
+	private readonly SPECIAL_CHARS = RTF_TEXT_CONTROLS;
 
 	private readonly SPECIAL_CHARS_REVERSE = new Map([
 		['"', '\\ldblquote '],
@@ -422,6 +423,7 @@ export class RTFHandler {
 		// Genuine Scrivener files use \uc0 (no fallback); honoring it prevents dropping
 		// the real character that follows a Unicode escape.
 		let uc = initialUc;
+		const ucStack: number[] = [];
 
 		while (i < content.length) {
 			const char = content[i];
@@ -434,6 +436,9 @@ export class RTFHandler {
 					const wordParam = controlMatch[2];
 					if (wordName === 'par' || wordName === 'line' || wordName === 'sect') {
 						tokens.push({ type: 'text', value: '\n' });
+						i += controlMatch[0].length;
+					} else if (this.SPECIAL_CHARS.has(`\\${wordName}`)) {
+						tokens.push({ type: 'text', value: this.SPECIAL_CHARS.get(`\\${wordName}`)! });
 						i += controlMatch[0].length;
 					} else if (wordName === 'uc') {
 						const n = parseInt(wordParam, 10);
@@ -477,9 +482,11 @@ export class RTFHandler {
 					i++;
 				}
 			} else if (char === '{') {
+				ucStack.push(uc);
 				tokens.push({ type: 'group-start', value: '{' });
 				i++;
 			} else if (char === '}') {
+				uc = ucStack.pop() ?? initialUc;
 				tokens.push({ type: 'group-end', value: '}' });
 				i++;
 			} else {

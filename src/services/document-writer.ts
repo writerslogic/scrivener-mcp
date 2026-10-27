@@ -11,13 +11,15 @@ export class DocumentWriter {
 		projectPath: string,
 		private readonly rtfHandler: RTFHandler,
 		private readonly documentCache: LRUCache<RTFContent>,
-		_dedupedOperation: <T>(key: string, operation: () => Promise<T>) => Promise<T>
+		_dedupedOperation: <T>(key: string, operation: () => Promise<T>) => Promise<T>,
+		private readonly observedRevision?: (documentId: string) => string | undefined,
+		private readonly onCommitted?: (documentId: string, revision: string) => void
 	) {
 		this.coordinator = new MutationCoordinator(projectPath);
 	}
 
 	async writeDocument(documentId: string, content: string | RTFContent, immediate = false, options: CommitOptions = {}): Promise<void> {
-		const expectedRevision = options.expectedRevision ?? (await this.coordinator.readRaw(documentId)).revision;
+		const expectedRevision = options.expectedRevision ?? this.observedRevision?.(documentId) ?? (await this.coordinator.readRaw(documentId)).revision;
 		if (immediate) {
 			await this.writeDocumentImmediate(documentId, content, { ...options, expectedRevision });
 			return;
@@ -33,8 +35,10 @@ export class DocumentWriter {
 	}
 
 	async writeRawContent(documentId: string, rawRtf: string, options: CommitOptions = {}): Promise<MutationRecord> {
-		const result = await this.coordinator.commit(documentId, rawRtf, options);
+		const expectedRevision = options.expectedRevision ?? this.observedRevision?.(documentId);
+		const result = await this.coordinator.commit(documentId, rawRtf, { ...options, expectedRevision });
 		this.documentCache.delete(`doc:${documentId}`);
+		this.onCommitted?.(documentId, result.afterRevision);
 		return result;
 	}
 
