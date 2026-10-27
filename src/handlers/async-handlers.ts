@@ -4,6 +4,8 @@
  */
 
 import type { Job } from 'bullmq';
+import { createHash } from 'node:crypto';
+import { resolve } from 'node:path';
 import { getLogger } from '../core/logger.js';
 import { AIClient } from '../services/ai/ai-client.js';
 import { AIWritingService } from '../services/ai/ai-writing-service.js';
@@ -25,18 +27,48 @@ let jobQueueService: JobQueueService | null = null;
 let aiWritingService: AIWritingService | null = null;
 const logger = getLogger('async-handlers');
 let localAnalyzer: ContentAnalyzer | undefined;
+let lifecycle: Promise<void> = Promise.resolve();
+let configuration: string | undefined;
+let activeOperations = 0;
+const drainCallbacks: Array<() => void> = [];
 
-export async function analyzeWorkflowDocument(params: {
-	documentId: string;
-	content: string;
-}): Promise<unknown> {
-	if (jobQueueService)
-		return jobQueueService.analyzeDocument({
-			...params,
-			options: { includeReadability: true, includeEntities: true, includeSentiment: true },
-		});
+function transition(operation: () => Promise<void>): Promise<void> {
+	const pending = lifecycle.then(operation);
+	lifecycle = pending.catch(() => undefined);
+	return pending;
+}
+
+async function withAsyncServices<T>(operation: (queue: JobQueueService | null, writing: AIWritingService | null) => Promise<T>): Promise<T> {
+	while (true) {
+		const pending = lifecycle;
+		await pending;
+		if (pending !== lifecycle) continue;
+		activeOperations++;
+		try { return await operation(jobQueueService, aiWritingService); }
+		finally {
+			activeOperations--;
+			if (activeOperations === 0) for (const notify of drainCallbacks.splice(0)) notify();
+		}
+	}
+}
+
+async function closeCurrentServices(): Promise<void> {
+	if (activeOperations) await new Promise<void>((notify) => drainCallbacks.push(notify));
+	const queue = jobQueueService;
+	const writing = aiWritingService;
+	jobQueueService = null;
+	aiWritingService = null;
+	configuration = undefined;
+	try { await queue?.shutdown(); }
+	finally { writing?.clearMemory(); }
+}
+
+export async function analyzeWorkflowDocument(params: { documentId: string; content: string }): Promise<unknown> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
+	if (jobQueueService) return jobQueueService.analyzeDocument({ ...params, options: { includeReadability: true, includeEntities: true, includeSentiment: true } });
 	localAnalyzer ??= new ContentAnalyzer();
 	return localAnalyzer.analyzeContent(params.content, params.documentId);
+	});
 }
 
 /**
@@ -51,42 +83,37 @@ export async function initializeAsyncServices(
 		projectPath?: string;
 	} = {}
 ): Promise<void> {
-	try {
-		const initResult = await measureExecution(async () => {
-			// Initialize job queue with automatic KeyDB/Redis detection
-			// Will use KeyDB/Redis if available, otherwise falls back to embedded queue
-			jobQueueService = new JobQueueService(options.projectPath);
-
-			// Use retry for robust initialization
-			await retry(
-				() =>
-					jobQueueService!.initialize({
-						openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
-						databasePath: options.databasePath,
-						neo4jUri: options.neo4jUri || getEnv('NEO4J_URI'),
-					}),
-				{ maxAttempts: 3 }
-			);
-
-			const connectionInfo = jobQueueService.getConnectionInfo();
-			logger.info(`Job queue service initialized with ${connectionInfo.type} connection`);
-
-			// Initialize the AI writing service when a provider key is available.
-			const aiClient = new AIClient({
-				openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
+	return transition(async () => {
+		const projectPath = options.projectPath ? resolve(options.projectPath) : undefined;
+		const key = createHash('sha256').update(JSON.stringify({ projectPath, redisUrl: options.redisUrl || getEnv('REDIS_URL'), databasePath: options.databasePath, openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'), neo4jUri: options.neo4jUri || getEnv('NEO4J_URI'), anthropicApiKey: getEnv('ANTHROPIC_API_KEY'), openrouterApiKey: getEnv('OPENROUTER_API_KEY') })).digest('hex');
+		if (configuration === key && jobQueueService) return;
+		let queue: JobQueueService | undefined;
+		try {
+			await closeCurrentServices();
+			const candidate = new JobQueueService(projectPath);
+			queue = candidate;
+			const initResult = await measureExecution(async () => {
+				await retry(() => candidate.initialize({ openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'), databasePath: options.databasePath, neo4jUri: options.neo4jUri || getEnv('NEO4J_URI') }), { maxAttempts: 3 });
+				const aiClient = new AIClient({ openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY') });
+				const writing = aiClient.isAvailable ? new AIWritingService(aiClient) : null;
+				jobQueueService = candidate;
+				aiWritingService = writing;
+				configuration = key;
+				logger.info(`Job queue service initialized with ${candidate.getConnectionInfo().type} connection`);
 			});
-			if (aiClient.isAvailable) {
-				aiWritingService = new AIWritingService(aiClient);
-				logger.info('AI writing service initialized');
+			logger.info(`Async services initialization completed in ${formatDuration(initResult.ms)}`);
+		} catch (error) {
+			if (jobQueueService === queue) {
+				jobQueueService = null;
+				aiWritingService?.clearMemory();
+				aiWritingService = null;
+				configuration = undefined;
 			}
-		});
-
-		logger.info(`Async services initialization completed in ${formatDuration(initResult.ms)}`);
-	} catch (error) {
-		const appError = handleError(error, 'initializeAsyncServices');
-		logger.warn('Failed to initialize async services', { error: appError.message });
-		// Don't throw - allow app to run without async features
-	}
+			await queue?.shutdown();
+			const appError = handleError(error, 'initializeAsyncServices');
+			logger.warn('Failed to initialize async services', { error: appError.message });
+		}
+	});
 }
 
 /**
@@ -102,6 +129,7 @@ export async function queueDocumentAnalysis(params: {
 		priority?: number;
 	};
 }): Promise<{ jobId: string; message: string }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { documentId: { required: true }, content: { required: true } });
 
 	if (!jobQueueService) {
@@ -128,6 +156,7 @@ export async function queueDocumentAnalysis(params: {
 		jobId,
 		message: `Document analysis queued with job ID: ${jobId}`,
 	};
+	});
 }
 
 /**
@@ -142,6 +171,7 @@ export async function queueProjectAnalysis(params: {
 		priority?: number;
 	};
 }): Promise<{ jobId: string; message: string; estimatedTime?: number }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { projectId: { required: true }, documents: { required: true } });
 
 	if (!jobQueueService) {
@@ -168,6 +198,7 @@ export async function queueProjectAnalysis(params: {
 		message: `Project analysis queued with ${params.documents.length} documents`,
 		estimatedTime,
 	};
+	});
 }
 
 /**
@@ -177,6 +208,7 @@ export async function buildVectorStore(params: {
 	documents: ScrivenerDocument[];
 	rebuild?: boolean;
 }): Promise<{ jobId?: string; message: string }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { documents: { required: true } });
 
 	// If job queue is available, use it
@@ -207,6 +239,7 @@ export async function buildVectorStore(params: {
 	return {
 		message: `Vector store built with ${params.documents.length} documents`,
 	};
+	});
 }
 
 /**
@@ -219,6 +252,7 @@ export async function semanticSearch(params: { query: string; topK?: number }): 
 		score?: number;
 	}>;
 }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { query: { required: true } });
 
 	if (!aiWritingService) {
@@ -233,6 +267,7 @@ export async function semanticSearch(params: { query: string; topK?: number }): 
 			metadata: doc.metadata,
 		})),
 	};
+	});
 }
 
 /**
@@ -244,6 +279,7 @@ export async function generateSuggestions(params: {
 	useContext?: boolean;
 	async?: boolean;
 }): Promise<{ jobId?: string; suggestions?: string; message?: string }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { prompt: { required: true } });
 
 	// If async is requested and job queue is available
@@ -273,6 +309,7 @@ export async function generateSuggestions(params: {
 	});
 
 	return { suggestions };
+	});
 }
 
 /**
@@ -281,6 +318,7 @@ export async function generateSuggestions(params: {
 export async function analyzeWritingStyle(params: {
 	samples: string[];
 }): Promise<{ analysis: Record<string, unknown> }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { samples: { required: true } });
 
 	if (!aiWritingService) {
@@ -290,6 +328,7 @@ export async function analyzeWritingStyle(params: {
 	const analysis = await aiWritingService.analyzeWritingStyle(params.samples);
 
 	return { analysis };
+	});
 }
 
 /**
@@ -308,6 +347,7 @@ export async function checkPlotConsistency(params: {
 	}>;
 	message?: string;
 }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { documents: { required: true } });
 
 	// If async is requested and job queue is available
@@ -332,6 +372,7 @@ export async function checkPlotConsistency(params: {
 	const issues = await aiWritingService.checkPlotConsistency(params.documents);
 
 	return { issues };
+	});
 }
 
 /**
@@ -343,6 +384,7 @@ export async function getJobStatus(params: { jobType: JobType; jobId: string }):
 	result?: unknown;
 	error?: string;
 }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { jobType: { required: true }, jobId: { required: true } });
 
 	if (!jobQueueService) {
@@ -374,6 +416,7 @@ export async function getJobStatus(params: { jobType: JobType; jobId: string }):
 
 	// Already in the correct format from v1 API
 	return jobStatus;
+	});
 }
 
 /**
@@ -383,6 +426,7 @@ export async function cancelJob(params: {
 	jobType: JobType;
 	jobId: string;
 }): Promise<{ message: string }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	validateInput(params, { jobType: { required: true }, jobId: { required: true } });
 
 	if (!jobQueueService) {
@@ -392,6 +436,7 @@ export async function cancelJob(params: {
 	await jobQueueService.cancelJob(params.jobType, params.jobId);
 
 	return { message: `Job ${params.jobId} cancelled` };
+	});
 }
 
 /**
@@ -429,6 +474,7 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 		};
 	}>;
 }> {
+	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 	if (!jobQueueService) {
 		throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 	}
@@ -459,21 +505,16 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 	}
 
 	return { queues };
+	});
 }
 
 /**
  * Shutdown async services
  */
 export async function shutdownAsyncServices(): Promise<void> {
-	if (jobQueueService) {
-		await jobQueueService.shutdown();
-		jobQueueService = null;
-	}
-
-	if (aiWritingService) {
-		aiWritingService.clearMemory();
-		aiWritingService = null;
-	}
-
-	logger.info('Async services shutdown complete');
+	return transition(async () => {
+		await closeCurrentServices();
+		localAnalyzer = undefined;
+		logger.info('Async services shutdown complete');
+	});
 }
