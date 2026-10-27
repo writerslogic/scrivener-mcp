@@ -45,6 +45,8 @@ export interface EditorialWorkflow {
 	owner?: WorkflowOwner;
 	error?: string;
 	idempotencyKey?: string;
+	allowExportWarnings?: boolean;
+	readonly initialAllowExportWarnings?: boolean;
 }
 
 export interface WorkflowDependencies {
@@ -61,7 +63,15 @@ export interface WorkflowDependencies {
 		workflowId: string;
 		documentIds: string[];
 		outputPath: string;
+		allowWarnings?: boolean;
 	}) => Promise<unknown>;
+}
+
+function validateExportWarningAcknowledgment(value: unknown, kind: WorkflowKind): void {
+	if (value !== undefined && typeof value !== 'boolean')
+		throw new Error('allowExportWarnings must be a boolean');
+	if (value !== undefined && kind !== 'beta-reader-draft')
+		throw new Error('allowExportWarnings applies only to the beta-reader-draft workflow');
 }
 
 function processAlive(owner: WorkflowOwner): 'alive' | 'dead' | 'unknown' {
@@ -93,10 +103,12 @@ export class WorkflowService {
 		kind: WorkflowKind;
 		documentIds?: string[];
 		idempotencyKey?: string;
+		allowExportWarnings?: boolean;
 	}): Promise<EditorialWorkflow> {
 		if (this.closed) throw new Error('Workflow service is closed');
 		if (!['review-chapter', 'audit-continuity', 'beta-reader-draft'].includes(input.kind))
 			throw new Error('Unknown editorial workflow');
+		validateExportWarningAcknowledgment(input.allowExportWarnings, input.kind);
 		if (
 			input.idempotencyKey !== undefined &&
 			(typeof input.idempotencyKey !== 'string' ||
@@ -134,6 +146,7 @@ export class WorkflowService {
 		if (prior) {
 			if (
 				prior.kind !== input.kind ||
+				(prior.initialAllowExportWarnings ?? false) !== (input.allowExportWarnings ?? false) ||
 				prior.scope.map((doc) => doc.documentId).join('\0') !==
 					documents.map((doc) => doc.documentId).join('\0')
 			)
@@ -188,6 +201,10 @@ export class WorkflowService {
 				basis: 'Local deterministic analysis, continuity, proposals and export. No provider calls or token charges; client chat costs are outside this server.',
 			},
 			idempotencyKey: input.idempotencyKey,
+			...(input.kind === 'beta-reader-draft' ? {
+				allowExportWarnings: input.allowExportWarnings ?? false,
+				initialAllowExportWarnings: input.allowExportWarnings ?? false,
+			} : {}),
 		};
 		this.store.transaction(() => {
 			if (this.store.get(this.namespace, id))
@@ -233,20 +250,30 @@ export class WorkflowService {
 		});
 	}
 
-	async resume(id: string): Promise<EditorialWorkflow> {
+	async resume(id: string, options: { allowExportWarnings?: boolean } = {}): Promise<EditorialWorkflow> {
 		if (this.closed) throw new Error('Workflow service is closed');
+		if (!options || typeof options !== 'object' || Array.isArray(options))
+			throw new Error('Workflow resume options must be an object');
 		const workflow = this.get(id);
+		validateExportWarningAcknowledgment(options.allowExportWarnings, workflow.kind);
 		if (workflow.state === 'completed') return workflow;
-		if (this.running.has(id)) return workflow;
+		if (this.running.has(id)) {
+			if (options.allowExportWarnings !== undefined && options.allowExportWarnings !== (workflow.allowExportWarnings ?? false))
+				throw new Error('Workflow is still running; wait for it to stop before changing export acknowledgment');
+			return workflow;
+		}
 		if (workflow.owner && processAlive(workflow.owner) !== 'dead')
 			throw new Error(
 				'Workflow owner is still running or cannot be identified safely; wait for it to finish before resuming'
 			);
 		await this.validateScope(workflow);
-		this.store.transaction(() => {
+		const ready = this.store.transaction(() => {
 			const current = this.get(id);
+			if (current.state === 'completed') return false;
 			if (current.owner && processAlive(current.owner) !== 'dead')
 				throw new Error('Workflow is owned by another active or ambiguous server');
+			if (options.allowExportWarnings !== undefined)
+				current.allowExportWarnings = options.allowExportWarnings;
 			current.state = 'ready';
 			current.error = undefined;
 			current.owner = undefined;
@@ -256,8 +283,9 @@ export class WorkflowService {
 					step.error = undefined;
 				}
 			this.store.put(this.namespace, id, current);
+			return true;
 		});
-		this.schedule(id);
+		if (ready) this.schedule(id);
 		return this.get(id);
 	}
 
@@ -373,6 +401,7 @@ export class WorkflowService {
 					case 'export':
 						result = await this.dependencies.exportBeta({
 							workflowId: id,
+							allowWarnings: current.allowExportWarnings,
 							documentIds: current.scope.map((doc) => doc.documentId),
 							outputPath: join(
 								this.source.projectPath,
