@@ -31,6 +31,7 @@ export class DocumentManager {
 	private rtfHandler: RTFHandler;
 	private documentCache: LRUCache<RTFContent>;
 	private readonly cachedRevisions = new Map<string, string>();
+	private readonly observedRevisions = new Map<string, string>();
 	private projectStructure?: ProjectStructure;
 	private operationQueue: Map<string, Promise<unknown>>;
 	private readonly batchSize = 10;
@@ -71,7 +72,9 @@ export class DocumentManager {
 			this.projectPath,
 			this.rtfHandler,
 			this.documentCache,
-			(key, operation) => this.dedupedOperation(key, operation)
+			(key, operation) => this.dedupedOperation(key, operation),
+			(documentId) => this.observedRevisions.get(documentId),
+			(documentId, revision) => this.observedRevisions.set(documentId, revision)
 		);
 	}
 
@@ -133,7 +136,9 @@ export class DocumentManager {
 	 * Read raw RTF document content (for annotation extraction)
 	 */
 	async readDocumentRaw(documentId: string): Promise<string> {
-		return (await this.writer.coordinator.readRaw(documentId)).raw;
+		const saved = await this.writer.coordinator.readRaw(documentId);
+		this.observedRevisions.set(documentId, saved.revision);
+		return saved.raw;
 	}
 
 	/**
@@ -159,6 +164,7 @@ export class DocumentManager {
 
 			const cacheKey = `doc:${documentId}`;
 			const saved = await this.writer.coordinator.readRaw(documentId);
+			this.observedRevisions.set(documentId, saved.revision);
 			const cached = this.documentCache.get(cacheKey);
 
 			if (cached && this.cachedRevisions.get(documentId) === saved.revision) {
@@ -184,9 +190,6 @@ export class DocumentManager {
 		}
 	}
 
-	/**
-	 * Write document content with batching and deduplication
-	 */
 	async writeDocument(
 		documentId: string,
 		content: string | RTFContent,
@@ -218,14 +221,18 @@ export class DocumentManager {
 		return documentRevision(await this.readDocumentRaw(documentId));
 	}
 
-	/**
-	 * Keep Scrivener's `Files/Data/docs.checksum` in sync after a write so Scrivener
-	 * does not flag the document as "modified externally". Each line is
-	 * `<UUID>/content.rtf=<sha1>` (verified against real projects). Only updates an
-	 * existing checksum file — never creates one a project didn't already use — and
-	 * serializes updates so concurrent writes can't corrupt the shared file. Best
-	 * effort: a failure here never fails the write.
-	 */
+	getObservedRevision(documentId: string): string | undefined {
+		return this.observedRevisions.get(documentId);
+	}
+
+	async readDocumentVersion(documentId: string): Promise<{ text: string; revision: string }> {
+		const saved = await this.writer.coordinator.readRaw(documentId);
+		const parsed = saved.exists ? await this.rtfHandler.parseRTF(saved.raw) : { plainText: '', formattedText: [], metadata: {} };
+		this.documentCache.set(`doc:${documentId}`, parsed);
+		this.cachedRevisions.set(documentId, saved.revision);
+		this.observedRevisions.set(documentId, saved.revision);
+		return { text: parsed.plainText, revision: saved.revision };
+	}
 
 	/**
 	 * Flush pending writes in batches
@@ -395,6 +402,7 @@ export class DocumentManager {
 
 		this.documentCache.clear();
 		this.cachedRevisions.clear();
+		this.observedRevisions.clear();
 		this.writer.close();
 	}
 }

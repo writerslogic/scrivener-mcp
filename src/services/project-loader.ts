@@ -4,6 +4,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { randomUUID } from 'node:crypto';
 import { parseStringPromise, Builder } from 'xml2js';
 import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
@@ -12,13 +13,12 @@ import {
 	ensureDir,
 	safeParse,
 	safeStringify,
-	safeReadFile,
 	safeWriteFile,
 	buildPath,
 } from '../utils/common.js';
-import { FileUtils } from '../utils/shared-patterns.js';
 import { findScrivxPath, getDefaultScrivxPath } from '../utils/scrivener-utils.js';
 import { exposeXmlAttributes, encodeNewBinderAttributes } from '../utils/scrivener-xml.js';
+import { MutationCoordinator } from './editorial/mutation-coordinator.js';
 
 const logger = getLogger('project-loader');
 
@@ -35,6 +35,8 @@ export class ProjectLoader {
 	private projectStructure?: ProjectStructure;
 	private lastLoadTime?: number;
 	private options: ProjectLoaderOptions;
+	private loadedRevision?: string;
+	private readonly coordinator: MutationCoordinator;
 
 	constructor(projectPath: string, options: ProjectLoaderOptions = {}) {
 		// Validate input at system boundary before any filesystem operations
@@ -43,6 +45,7 @@ export class ProjectLoader {
 		}
 
 		this.projectPath = path.resolve(projectPath);
+		this.coordinator = new MutationCoordinator(this.projectPath);
 		this.scrivxPath = options.scrivxPath
 			? path.resolve(options.scrivxPath)
 			: getDefaultScrivxPath(this.projectPath);
@@ -62,13 +65,14 @@ export class ProjectLoader {
 		logger.info(`Loading project from ${this.scrivxPath}`);
 
 		try {
-			if (!(await FileUtils.exists(this.scrivxPath))) {
+			const saved = await this.coordinator.readProjectFile(this.scrivxPath);
+			if (!saved.exists) {
 				throw createError(
 					ErrorCode.NOT_FOUND,
 					`Scrivener project file not found at "${this.scrivxPath}"`
 				);
 			}
-			const scrivxContent = await safeReadFile(this.scrivxPath, 'utf-8');
+			const scrivxContent = saved.raw;
 			this.projectStructure = await parseStringPromise(scrivxContent, {
 				explicitArray: false,
 				mergeAttrs: false,
@@ -92,6 +96,7 @@ export class ProjectLoader {
 			}
 
 			// Initialize internal tracking
+			this.loadedRevision = saved.revision;
 			this.lastLoadTime = Date.now();
 			this.projectStructure._loadTime = this.lastLoadTime;
 
@@ -128,6 +133,7 @@ export class ProjectLoader {
 			throw createError(ErrorCode.INVALID_STATE, 'No project loaded to save');
 		}
 
+		if (!this.loadedRevision) throw createError(ErrorCode.INVALID_STATE, 'Load the project before saving so its saved revision can be checked');
 		logger.info(`Saving project to ${this.scrivxPath}`);
 
 		// Create backup if enabled
@@ -152,7 +158,10 @@ export class ProjectLoader {
 					`Refusing to write malformed project XML to ${this.scrivxPath}`
 				);
 			}
-			await safeWriteFile(this.scrivxPath, xml);
+			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, xml, { expectedRevision: this.loadedRevision });
+			this.loadedRevision = mutation.afterRevision;
+			this.projectStructure = projectToSave;
+			this.lastLoadTime = Date.now();
 			logger.info('Project saved successfully');
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'EACCES') {
@@ -183,16 +192,13 @@ export class ProjectLoader {
 	 * Check if the project has been modified externally
 	 */
 	async isProjectModified(): Promise<boolean> {
-		if (!this.lastLoadTime) {
-			return false;
-		}
+		if (!this.loadedRevision) return false;
+		const saved = await this.coordinator.readProjectFile(this.scrivxPath);
+		return !saved.exists || saved.revision !== this.loadedRevision;
+	}
 
-		try {
-			const stats = await fs.stat(this.scrivxPath);
-			return stats.mtime.getTime() > this.lastLoadTime;
-		} catch {
-			return false;
-		}
+	close(): void {
+		this.coordinator.close();
 	}
 
 	/**
@@ -215,15 +221,18 @@ export class ProjectLoader {
 	 */
 	async createBackup(): Promise<string> {
 		const backupDir = buildPath(this.projectPath, '.backups');
+		this.coordinator.assertProjectPath(backupDir);
 		await ensureDir(backupDir);
 
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-		const backupName = `backup-${timestamp}.scrivx`;
+		const backupName = `backup-${timestamp}-${randomUUID()}.scrivx`;
 		const backupPath = buildPath(backupDir, backupName);
 
 		try {
-			const content = await safeReadFile(this.scrivxPath, 'utf-8');
-			await safeWriteFile(backupPath, content);
+			const saved = await this.coordinator.readProjectFile(this.scrivxPath);
+			if (!saved.exists) throw new Error('Project file is missing; cannot create a backup');
+			this.coordinator.assertProjectPath(backupPath);
+			await safeWriteFile(backupPath, saved.raw);
 			logger.info(`Backup created at ${backupPath}`);
 
 			// Clean up old backups
@@ -240,25 +249,23 @@ export class ProjectLoader {
 	 * Restore from a backup
 	 */
 	async restoreFromBackup(backupPath: string): Promise<void> {
-		logger.info(`Restoring from backup: ${backupPath}`);
-
 		try {
-			// Create a safety backup of current state
-			const _safetyBackup = await this.createBackup();
-
-			// Restore from backup
-			const backupContent = await safeReadFile(backupPath, 'utf-8');
-			await safeWriteFile(this.scrivxPath, backupContent);
-
-			// Reload the project
+			const resolved = path.resolve(backupPath);
+			if (path.dirname(resolved) !== path.join(this.projectPath, '.backups') || path.extname(resolved).toLowerCase() !== '.scrivx') throw new Error('Restore requires a project backup returned by listBackups');
+			const backup = await this.coordinator.readProjectArtifact(resolved);
+			if (!backup.exists) throw new Error('Project backup was not found');
+			const parsed = await parseStringPromise(backup.raw, { explicitArray: false, mergeAttrs: false });
+			if (!parsed?.ScrivenerProject) throw new Error('Project backup does not contain a ScrivenerProject');
+			const current = await this.coordinator.readProjectFile(this.scrivxPath);
+			const expectedRevision = this.loadedRevision ?? current.revision;
+			if (current.revision !== expectedRevision) throw new Error('Stale project revision; reload the saved binder before restoring');
+			await this.createBackup();
+			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, backup.raw, { expectedRevision });
+			this.loadedRevision = mutation.afterRevision;
 			await this.reloadProject();
-
 			logger.info('Project restored successfully');
 		} catch (error) {
-			throw createError(
-				ErrorCode.IO_ERROR,
-				`Failed to restore from backup: ${(error as Error).message}`
-			);
+			throw createError(ErrorCode.IO_ERROR, `Failed to restore from backup: ${(error as Error).message}`);
 		}
 	}
 
@@ -269,13 +276,16 @@ export class ProjectLoader {
 		const backupDir = path.join(this.projectPath, '.backups');
 
 		try {
+			this.coordinator.assertProjectPath(backupDir);
 			const files = await fs.readdir(backupDir);
 			const backups = [];
 
 			for (const file of files) {
 				if (file.endsWith('.scrivx')) {
 					const filePath = path.join(backupDir, file);
+					this.coordinator.assertProjectPath(filePath);
 					const stats = await fs.stat(filePath);
+					if (!stats.isFile()) continue;
 					backups.push({
 						path: filePath,
 						date: stats.mtime,
@@ -288,8 +298,8 @@ export class ProjectLoader {
 			backups.sort((a, b) => b.date.getTime() - a.date.getTime());
 			return backups;
 		} catch (error) {
-			logger.debug('Failed to list project backups; returning none', { error });
-			return [];
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+			throw createError(ErrorCode.IO_ERROR, `Failed to list project backups: ${(error as Error).message}`);
 		}
 	}
 

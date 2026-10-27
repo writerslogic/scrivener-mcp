@@ -10,19 +10,12 @@ import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 import { createSnapshot, listDocumentSnapshots } from '../../../src/services/snapshots.js';
 import { ReviewService } from '../../../src/services/editorial/review-service.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
-import {
-	MutationCoordinator,
-	documentRevision,
-	type MutationRecord,
-} from '../../../src/services/editorial/mutation-coordinator.js';
+import { MutationCoordinator, documentRevision, type MutationRecord } from '../../../src/services/editorial/mutation-coordinator.js';
 
-jest.mock('../../../src/utils/scrivener-app.js', () => ({
-	isProjectOpenInScrivener: jest.fn(async () => 'unknown'),
-}));
+jest.mock('../../../src/utils/scrivener-app.js', () => ({ isProjectOpenInScrivener: jest.fn(async () => 'unknown') }));
 
 const DOCUMENT = '6C1142A0-64E4-4B4D-8754-73BD6E36EC5B';
-const RICH =
-	'{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Times;}}{\\stylesheet{\\s1 Heading;}}\\pard\\s1 The quick brown fox.\\par Second {\\b bold} paragraph{\\Scrv_fn\\id1 a footnote\\Scrv_fn_end} here.}';
+const RICH = '{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Times;}}{\\stylesheet{\\s1 Heading;}}\\pard\\s1 The quick brown fox.\\par Second {\\b bold} paragraph{\\Scrv_fn\\id1 a footnote\\Scrv_fn_end} here.}';
 
 let root: string;
 let documents: DocumentManager;
@@ -35,15 +28,7 @@ const database = (): string => path.join(root, '.scrivener-mcp', 'editorial.sqli
 
 function openServices(): void {
 	documents = new DocumentManager(root);
-	writer = new ProjectWriter(
-		root,
-		documents,
-		undefined,
-		async () => {},
-		() => {},
-		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
-		(id, title) => createSnapshot(root, id, title ?? 'Snapshot', new Date())
-	);
+	writer = new ProjectWriter(root, documents, undefined, async () => {}, () => {}, async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }), (id, title) => createSnapshot(root, id, title ?? 'Snapshot', new Date()));
 	store = new PersistentStore(database());
 	reviews = new ReviewService(root, documents, writer, store);
 }
@@ -66,23 +51,13 @@ test('preview leaves manuscript untouched; selective applications survive restar
 	const before = await documents.readDocument(DOCUMENT);
 	const first = before.indexOf('quick');
 	const second = before.indexOf('here');
-	const proposal = await reviews.propose({
-		documentId: DOCUMENT,
-		expectedRevision: documentRevision(RICH),
-		edits: [
-			{ start: first, end: first + 5, text: 'slow' },
-			{ start: second, end: second + 4, text: 'there' },
-		],
-	});
+	const proposal = await reviews.propose({ documentId: DOCUMENT, expectedRevision: documentRevision(RICH), edits: [{ start: first, end: first + 5, text: 'slow' }, { start: second, end: second + 4, text: 'there' }] });
 	const preview = await reviews.preview(proposal.id, [proposal.edits[0].id]);
 	expect(preview.before).toBe(before);
 	expect(preview.after).toBe(before.replace('quick', 'slow'));
 	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
 	expect(await listDocumentSnapshots(root, DOCUMENT)).toHaveLength(0);
-	const applied = await reviews.apply(proposal.id, {
-		editIds: [proposal.edits[0].id],
-		force: true,
-	});
+	const applied = await reviews.apply(proposal.id, { editIds: [proposal.edits[0].id], force: true });
 	expect(await documents.readDocument(DOCUMENT)).toBe(before.replace('quick', 'slow'));
 	expect(await fs.readFile(file(), 'utf8')).toContain('{\\b bold}');
 	expect(applied.fidelity?.snapshotId).toBeTruthy();
@@ -90,35 +65,21 @@ test('preview leaves manuscript untouched; selective applications survive restar
 	store.close();
 	openServices();
 	expect(reviews.listApplications()[0].id).toBe(applied.id);
-	expect((await reviews.preview(proposal.id)).after).toBe(
-		before.replace('quick', 'slow').replace('here', 'there')
-	);
+	expect((await reviews.preview(proposal.id)).after).toBe(before.replace('quick', 'slow').replace('here', 'there'));
 	reviews.reject(proposal.id, [proposal.edits[1].id]);
 	await reviews.undo(applied.id, { force: true });
 	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
-	expect(reviews.get(proposal.id).edits.map((edit) => edit.status)).toEqual([
-		'pending',
-		'rejected',
-	]);
+	expect(reviews.get(proposal.id).edits.map((edit) => edit.status)).toEqual(['pending', 'rejected']);
 	expect((await reviews.undo(applied.id, { force: true })).undoes).toBe(applied.id);
 });
 
 test('saved external changes refresh cached reads and reject stale previews, writes, and undo even with force', async () => {
 	const before = await documents.readDocument(DOCUMENT);
-	const proposal = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	});
+	const proposal = await reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 3, text: 'One' }] });
 	await fs.writeFile(file(), handler.convertToRTF('External revision'));
 	expect(await documents.readDocument(DOCUMENT)).toBe('External revision');
 	await expect(reviews.preview(proposal.id)).rejects.toThrow(/stale/i);
-	await expect(
-		writer.writeDocumentPreserving(DOCUMENT, 'Replacement', {
-			expectedRevision: proposal.currentRevision,
-			force: true,
-			allowFormattingLoss: true,
-		})
-	).rejects.toThrow(/stale/i);
+	await expect(writer.writeDocumentPreserving(DOCUMENT, 'Replacement', { expectedRevision: proposal.currentRevision, force: true, allowFormattingLoss: true })).rejects.toThrow(/stale/i);
 	await fs.writeFile(file(), RICH);
 	const applied = await reviews.apply(proposal.id, { force: true });
 	await fs.writeFile(file(), handler.convertToRTF(`${before} Changed externally.`));
@@ -128,31 +89,20 @@ test('saved external changes refresh cached reads and reject stale previews, wri
 
 test('format risk must be acknowledged before application and native detection uncertainty requires explicit force', async () => {
 	const before = await documents.readDocument(DOCUMENT);
-	const proposal = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: before.length, text: 'Replacement prose.' }],
-	});
+	const proposal = await reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: before.length, text: 'Replacement prose.' }] });
 	expect((await reviews.preview(proposal.id)).fidelity.atRisk.length).toBeGreaterThan(0);
 	await expect(reviews.apply(proposal.id, { force: true })).rejects.toThrow(/formatting loss/i);
 	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
-	await expect(reviews.apply(proposal.id, { allowFormattingLoss: true })).rejects.toThrow(
-		/ambiguous|unavailable/i
-	);
+	await expect(reviews.apply(proposal.id, { allowFormattingLoss: true })).rejects.toThrow(/ambiguous|unavailable/i);
 	await reviews.apply(proposal.id, { allowFormattingLoss: true, force: true });
 	expect(await documents.readDocument(DOCUMENT)).toBe('Replacement prose.');
 });
 
 test('proposal and application retry keys never replay a completed mutation', async () => {
-	const input = {
-		documentId: DOCUMENT,
-		idempotencyKey: 'workflow/chapter-review',
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	};
+	const input = { documentId: DOCUMENT, idempotencyKey: 'workflow/chapter-review', edits: [{ start: 0, end: 3, text: 'One' }] };
 	const proposal = await reviews.propose(input);
 	expect((await reviews.propose(input)).id).toBe(proposal.id);
-	await expect(
-		reviews.propose({ ...input, edits: [{ start: 0, end: 3, text: 'Two' }] })
-	).rejects.toThrow(/already used/i);
+	await expect(reviews.propose({ ...input, edits: [{ start: 0, end: 3, text: 'Two' }] })).rejects.toThrow(/already used/i);
 	const operationId = randomUUID();
 	await reviews.apply(proposal.id, { force: true, operationId });
 	const snapshots = (await listDocumentSnapshots(root, DOCUMENT)).length;
@@ -164,35 +114,19 @@ test('proposal and application retry keys never replay a completed mutation', as
 
 test.each([-1, 0, 1])('edit endpoint at length %+d is validated at the boundary', async (delta) => {
 	const before = await documents.readDocument(DOCUMENT);
-	const result = reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: before.length + delta, end: before.length + delta, text: '!' }],
-	});
+	const result = reviews.propose({ documentId: DOCUMENT, edits: [{ start: before.length + delta, end: before.length + delta, text: '!' }] });
 	if (delta > 0) await expect(result).rejects.toThrow(/range/i);
 	else expect((await result).edits[0].start).toBe(before.length + delta);
 });
 
 test('overlapping edits and Unicode surrogate splits are rejected', async () => {
 	await fs.writeFile(file(), handler.convertToRTF('A 😀 fox'));
-	await expect(
-		reviews.propose({ documentId: DOCUMENT, edits: [{ start: 3, end: 4, text: 'x' }] })
-	).rejects.toThrow(/Unicode/i);
-	await expect(
-		reviews.propose({
-			documentId: DOCUMENT,
-			edits: [
-				{ start: 0, end: 3, text: 'x' },
-				{ start: 2, end: 4, text: 'y' },
-			],
-		})
-	).rejects.toThrow(/overlap/i);
+	await expect(reviews.propose({ documentId: DOCUMENT, edits: [{ start: 3, end: 4, text: 'x' }] })).rejects.toThrow(/Unicode/i);
+	await expect(reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 2, text: 'x' }, { start: 1, end: 4, text: 'y' }] })).rejects.toThrow(/overlap/i);
 });
 
 test('a commit interrupted after the RTF rename is reconciled after restart', async () => {
-	const proposal = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	});
+	const proposal = await reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 3, text: 'One' }] });
 	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
 	await fs.unlink(checksum);
 	await fs.mkdir(checksum);
@@ -207,23 +141,15 @@ test('a commit interrupted after the RTF rename is reconciled after restart', as
 	expect(recovered).toHaveLength(1);
 	expect(recovered[0].state).toBe('committed');
 	expect(reviews.get(proposal.id).edits[0].status).toBe('accepted');
-	expect(await fs.readFile(checksum, 'utf8')).toMatch(
-		new RegExp(`^${DOCUMENT}/content\\.rtf=[a-f0-9]{40}`)
-	);
+	expect(await fs.readFile(checksum, 'utf8')).toMatch(new RegExp(`^${DOCUMENT}/content\\.rtf=[a-f0-9]{40}`));
 });
 
 test('independent coordinators cannot both overwrite the same saved revision', async () => {
 	const other = new MutationCoordinator(root);
 	try {
 		const results = await Promise.allSettled([
-			documents
-				.getMutationCoordinator()
-				.commit(DOCUMENT, handler.convertToRTF('First writer'), {
-					expectedRevision: documentRevision(RICH),
-				}),
-			other.commit(DOCUMENT, handler.convertToRTF('Second writer'), {
-				expectedRevision: documentRevision(RICH),
-			}),
+			documents.getMutationCoordinator().commit(DOCUMENT, handler.convertToRTF('First writer'), { expectedRevision: documentRevision(RICH) }),
+			other.commit(DOCUMENT, handler.convertToRTF('Second writer'), { expectedRevision: documentRevision(RICH) }),
 		]);
 		expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
 		expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
@@ -235,43 +161,24 @@ test('independent coordinators cannot both overwrite the same saved revision', a
 
 test('live process ownership blocks recovery, then a dead process reservation recovers without writing the manuscript', async () => {
 	const id = randomUUID();
-	const record: MutationRecord = {
-		id,
-		documentId: DOCUMENT,
-		beforeRaw: RICH,
-		afterRaw: handler.convertToRTF('Prepared only'),
-		beforeRevision: documentRevision(RICH),
-		afterRevision: documentRevision(handler.convertToRTF('Prepared only')),
-		beforeExists: true,
-		state: 'prepared',
-		createdAt: new Date().toISOString(),
-	};
+	const record: MutationRecord = { id, documentId: DOCUMENT, beforeRaw: RICH, afterRaw: handler.convertToRTF('Prepared only'), beforeRevision: documentRevision(RICH), afterRevision: documentRevision(handler.convertToRTF('Prepared only')), beforeExists: true, state: 'prepared', createdAt: new Date().toISOString() };
 	store.put('mutations', id, record);
 	const script = `const Database = require('better-sqlite3'); const db = new Database(process.env.REVIEW_DB); db.prepare('INSERT INTO editorial_state(namespace,id,value) VALUES(?,?,?)').run('mutation-claims','project',JSON.stringify({operationId:process.env.REVIEW_OPERATION,ownerPid:process.pid,host:require('os').hostname(),token:'child-claim'})); process.send('ready'); process.on('message',()=>{db.close();process.exit(0)});`;
-	const child = spawn(process.execPath, ['-e', script], {
-		cwd: process.cwd(),
-		env: { ...process.env, REVIEW_DB: database(), REVIEW_OPERATION: id },
-		stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-	});
+	const child = spawn(process.execPath, ['-e', script], { cwd: process.cwd(), env: { ...process.env, REVIEW_DB: database(), REVIEW_OPERATION: id }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
 	try {
-		await Promise.race([
-			once(child, 'message'),
-			once(child, 'exit').then(() => {
-				throw new Error('Claim owner exited before initialization');
-			}),
-		]);
+		await Promise.race([once(child, 'message'), once(child, 'exit').then(() => { throw new Error('Claim owner exited before initialization'); })]);
 		await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(/active/i);
+		await expect(createSnapshot(root, DOCUMENT, 'Concurrent snapshot', new Date())).rejects.toThrow(/active/i);
+		const binder = path.join(root, 'Project.scrivx');
+		const xml = '<ScrivenerProject><Binder/></ScrivenerProject>';
+		await fs.writeFile(binder, xml);
+		await expect(documents.getMutationCoordinator().commitProjectFile(binder, xml, { expectedRevision: documentRevision(xml) })).rejects.toThrow(/active/i);
 		const exited = once(child, 'exit');
 		child.send('exit');
 		await exited;
 		expect((await documents.getMutationCoordinator().recover())[0].state).toBe('prepared');
 		expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
-		store.put('mutation-claims', 'project', {
-			operationId: id,
-			ownerPid: process.pid,
-			host: `${hostname()}-different-host`,
-			token: 'ambiguous',
-		});
+		store.put('mutation-claims', 'project', { operationId: id, ownerPid: process.pid, host: `${hostname()}-different-host`, token: 'ambiguous' });
 		await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(/ambiguous/i);
 		store.delete('mutation-claims', 'project');
 	} finally {
@@ -286,9 +193,7 @@ test('a document directory symlink cannot redirect manuscript reads or mutations
 		await fs.rm(path.dirname(file()), { recursive: true });
 		await fs.symlink(outside, path.dirname(file()), 'junction');
 		await expect(documents.readDocument(DOCUMENT)).rejects.toThrow(/symlink/i);
-		await expect(
-			documents.getMutationCoordinator().commit(DOCUMENT, handler.convertToRTF('Unsafe'))
-		).rejects.toThrow(/symlink/i);
+		await expect(documents.getMutationCoordinator().commit(DOCUMENT, handler.convertToRTF('Unsafe'))).rejects.toThrow(/symlink/i);
 		expect(await fs.readFile(path.join(outside, 'content.rtf'), 'utf8')).toBe(RICH);
 	} finally {
 		await fs.rm(outside, { recursive: true, force: true });
@@ -300,14 +205,8 @@ test('batch receipts persist and retries do not duplicate applications or snapsh
 	const otherFile = path.join(root, 'Files', 'Data', otherDocument, 'content.rtf');
 	await fs.mkdir(path.dirname(otherFile), { recursive: true });
 	await fs.writeFile(otherFile, handler.convertToRTF('The second scene.'));
-	const one = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	});
-	const two = await reviews.propose({
-		documentId: otherDocument,
-		edits: [{ start: 4, end: 10, text: 'final' }],
-	});
+	const one = await reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 3, text: 'One' }] });
+	const two = await reviews.propose({ documentId: otherDocument, edits: [{ start: 4, end: 10, text: 'final' }] });
 	const operationId = randomUUID();
 	const batch = await reviews.applyBatch([one.id, two.id], { force: true, operationId });
 	expect(batch.state).toBe('completed');
@@ -316,11 +215,77 @@ test('batch receipts persist and retries do not duplicate applications or snapsh
 	await documents.close();
 	store.close();
 	openServices();
-	expect(
-		(await reviews.applyBatch([one.id, two.id], { force: true, operationId })).completed
-	).toEqual(batch.completed);
+	expect((await reviews.applyBatch([one.id, two.id], { force: true, operationId })).completed).toEqual(batch.completed);
 	expect(reviews.listApplications()).toHaveLength(2);
 	expect(reviews.listBatches()[0].state).toBe('completed');
 	expect(await listDocumentSnapshots(root, DOCUMENT)).toHaveLength(count);
 	expect(await documents.readDocument(otherDocument)).toBe('The final scene.');
+});
+
+test('implicit legacy writes reject an externally changed last-observed revision until a fresh document read', async () => {
+	const observed = await documents.readDocumentVersion(DOCUMENT);
+	expect(observed.text).toBe((await handler.parseRTF(RICH)).plainText);
+	expect(observed.revision).toBe(documentRevision(RICH));
+	const external = handler.convertToRTF('Saved by another editor.');
+	await fs.writeFile(file(), external);
+	await expect(writer.writeDocumentPreserving(DOCUMENT, 'Stale caller replacement.', { force: true, allowFormattingLoss: true })).rejects.toThrow(/stale/i);
+	await expect(writer.writeDocumentPreserving(DOCUMENT, 'Repeated stale replacement.', { force: true, allowFormattingLoss: true })).rejects.toThrow(/stale/i);
+	await expect(documents.writeDocument(DOCUMENT, 'Low-level stale replacement.', true)).rejects.toThrow(/stale/i);
+	expect(await fs.readFile(file(), 'utf8')).toBe(external);
+	const refreshed = await documents.readDocumentVersion(DOCUMENT);
+	expect(refreshed.revision).toBe(documentRevision(external));
+	await writer.writeDocumentPreserving(DOCUMENT, 'Reviewed against the saved change.', { force: true });
+	expect(await documents.readDocument(DOCUMENT)).toBe('Reviewed against the saved change.');
+});
+
+test.each(['snapshot', 'checksum'])('%s symlinks are rejected before any manuscript overwrite', async (kind) => {
+	const outside = await fs.mkdtemp(path.join(tmpdir(), 'scrivener-path-guard-'));
+	try {
+		const target = kind === 'snapshot' ? path.join(root, 'Snapshots') : path.join(root, 'Files', 'Data', 'docs.checksum');
+		if (kind === 'checksum') await fs.unlink(target);
+		await fs.symlink(outside, target, 'junction');
+		const proposal = await reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 3, text: 'One' }] });
+		await expect(reviews.apply(proposal.id, { force: true })).rejects.toThrow(/symlink/i);
+		expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+		expect(await fs.readdir(outside)).toEqual([]);
+	} finally {
+		await fs.rm(outside, { recursive: true, force: true });
+	}
+});
+
+test.each([-1, 0, 2_147_483_648])('malformed owner PID %d fails before probing process ownership or changing files', async (ownerPid) => {
+	store.put('mutation-claims', 'project', { operationId: randomUUID(), ownerPid, host: hostname(), token: randomUUID() });
+	await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(/malformed.*ownership/i);
+	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+	store.delete('mutation-claims', 'project');
+});
+
+test('journal reconciliation marks third-party saved content conflicted without restoring before or after bytes', async () => {
+	const id = randomUUID();
+	const afterRaw = handler.convertToRTF('Interrupted planned edit.');
+	store.put<MutationRecord>('mutations', id, { id, documentId: DOCUMENT, beforeRaw: RICH, afterRaw, beforeRevision: documentRevision(RICH), afterRevision: documentRevision(afterRaw), beforeExists: true, state: 'prepared', createdAt: new Date().toISOString() });
+	const thirdParty = handler.convertToRTF('Third-party saved revision.');
+	await fs.writeFile(file(), thirdParty);
+	expect((await documents.getMutationCoordinator().recover())[0].state).toBe('conflicted');
+	await expect(documents.getMutationCoordinator().commit(DOCUMENT, afterRaw, { operationId: id, expectedRevision: documentRevision(RICH) })).rejects.toThrow(/conflict/i);
+	expect(await fs.readFile(file(), 'utf8')).toBe(thirdParty);
+	expect(await fs.readFile(path.join(root, 'Files', 'Data', 'docs.checksum'), 'utf8')).toBe('');
+});
+
+test('the complete first-session sample previews and applies an exact Unicode/formatting-preserving opening edit', async () => {
+	const sample = '{\\rtf1\\ansi\\ansicpg1252\\uc1\\deff0{\\fonttbl{\\f0 Times New Roman;}}{\\stylesheet{\\s0 Normal;}{\\s1\\b Scene;}}\\f0\\fs24 Mara\'s eyes were green.\\par She waited at the harbor caf\\u233? while the rain fell. The lantern was a {\\i promise}, not a warning.\\par Her hands trembled. Every creak behind the locked door made her flinch.\\par "Come inside," Ivo said. "You are safe here."\\par Mara took a step toward the light.{\\*\\Scrv_meta\\typefixture\\id1}Owned sample metadata{\\Scrv_meta_end}}';
+	await fs.writeFile(file(), sample);
+	const version = await documents.readDocumentVersion(DOCUMENT);
+	const proposal = await reviews.propose({ documentId: DOCUMENT, expectedRevision: version.revision, edits: [{ start: 0, end: 0, text: 'A new opening. ' }] });
+	const preview = await reviews.preview(proposal.id);
+	expect(preview.after).toBe(`A new opening. ${version.text}`);
+	expect(preview.fidelity.mode).toBe('preserved');
+	expect(preview.fidelity.atRisk).toEqual([]);
+	expect(await fs.readFile(file(), 'utf8')).toBe(sample);
+	await reviews.apply(proposal.id, { force: true });
+	expect(await documents.readDocument(DOCUMENT)).toBe(preview.after);
+	const raw = await fs.readFile(file(), 'utf8');
+	expect(raw).toContain('{\\stylesheet{\\s0 Normal;}{\\s1\\b Scene;}}');
+	expect(raw).toContain('{\\i promise}');
+	expect(raw).toContain('{\\*\\Scrv_meta\\typefixture\\id1}');
 });

@@ -88,3 +88,15 @@ describe('describeReplacedConstructs', () => {
 		);
 	});
 });
+
+describe('scoped Unicode and astral insertions', () => {
+	it('keeps the outer fallback count when an insertion precedes a Unicode escape', async () => {
+		const raw = '{\\rtf1\\ansi\\uc1{\\fonttbl{\\f0 Times;}}\\f0 Mara waited at the caf\\u233?.}';
+		const before = (await handler.parseRTF(raw)).plainText;
+		const expected = `🌙 A new opening. ${before}`;
+		const spliced = spliceRtfText(raw, before, expected);
+		expect(spliced).not.toBeNull();
+		expect((await handler.parseRTF(spliced!.rtf)).plainText).toBe(expected);
+		expect(scanRawText(spliced!.rtf).text.trim()).toBe(expected);
+	});
+});
