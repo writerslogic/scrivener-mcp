@@ -99,6 +99,7 @@ export class MemoryManager {
 	private memory: ProjectMemory;
 	private autoSaveInterval?: NodeJS.Timeout;
 	private databaseService?: DatabaseService;
+	private saveTail: Promise<void> = Promise.resolve();
 
 	constructor(projectPath: string, databaseService?: DatabaseService) {
 		// Store memory in a hidden folder within the Scrivener project
@@ -215,7 +216,13 @@ export class MemoryManager {
 		}
 	}
 
-	async saveMemory(): Promise<void> {
+	saveMemory(): Promise<void> {
+		const pending = this.saveTail.then(() => this.persistMemory());
+		this.saveTail = pending.catch(() => undefined);
+		return pending;
+	}
+
+	private async persistMemory(): Promise<void> {
 		try {
 			// Save to database if available
 			if (this.databaseService) {
