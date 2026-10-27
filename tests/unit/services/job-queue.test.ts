@@ -3,22 +3,22 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { JobQueueService, JobType } from '../../../src/services/queue/job-queue';
+import { JobQueueService, JobType } from '../../../src/services/queue/job-queue.js';
 import { Queue, Worker, QueueEvents } from 'bullmq';
-import * as keydbDetector from '../../../src/services/queue/keydb-detector';
-import { AIClient } from '../../../src/services/ai/ai-client';
+import * as keydbDetector from '../../../src/services/queue/keydb-detector.js';
+import { AIClient } from '../../../src/services/ai/ai-client.js';
 
 // Mock BullMQ
 jest.mock('bullmq');
 
 // Mock KeyDB detector
-jest.mock('../../../src/services/queue/keydb-detector', () => ({
+jest.mock('../../../src/services/queue/keydb-detector.js', () => ({
 	detectConnection: jest.fn(),
 	createBullMQConnection: jest.fn(),
 }));
 
 // Mock MemoryRedis
-jest.mock('../../../src/services/queue/memory-redis', () => ({
+jest.mock('../../../src/services/queue/memory-redis.js', () => ({
 	MemoryRedis: jest.fn().mockImplementation(() => ({
 		connect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
 		disconnect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -28,7 +28,7 @@ jest.mock('../../../src/services/queue/memory-redis', () => ({
 }));
 
 // Mock services
-jest.mock('../../../src/analysis/base-analyzer', () => ({
+jest.mock('../../../src/analysis/base-analyzer.js', () => ({
 	ContentAnalyzer: jest.fn(() => ({
 		analyzeContent: jest.fn(() =>
 			Promise.resolve({
@@ -43,7 +43,7 @@ jest.mock('../../../src/analysis/base-analyzer', () => ({
 	})),
 }));
 
-jest.mock('../../../src/services/ai/ai-writing-service', () => ({
+jest.mock('../../../src/services/ai/ai-writing-service.js', () => ({
 	AIWritingService: jest.fn(() => ({
 		generateWithContext: jest.fn(() => Promise.resolve('AI suggestion')),
 		buildVectorStore: jest.fn(() => Promise.resolve()),
@@ -51,7 +51,7 @@ jest.mock('../../../src/services/ai/ai-writing-service', () => ({
 	})),
 }));
 
-jest.mock('../../../src/handlers/database/database-service', () => ({
+jest.mock('../../../src/handlers/database/database-service.js', () => ({
 	DatabaseService: jest.fn(() => ({
 		initialize: jest.fn(() => Promise.resolve()),
 		close: jest.fn(() => Promise.resolve()),
