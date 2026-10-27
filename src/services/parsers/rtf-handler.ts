@@ -632,8 +632,8 @@ export class RTFHandler {
 	/**
 	 * Convert to RTF (public interface)
 	 */
-	convertToRTF(plainText: string): string {
-		return this.unifiedConvertToRTF(plainText);
+	convertToRTF(content: RTFContent | string): string {
+		return this.unifiedConvertToRTF(content);
 	}
 
 	/**
