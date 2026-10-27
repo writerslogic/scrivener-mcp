@@ -1,379 +1,121 @@
-/**
- * Tests for DocumentManager service
- */
-
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { tmpdir } from 'node:os';
 import { DocumentManager } from '../../../src/services/document-manager.js';
-import { DOCUMENT_TYPES } from '../../../src/core/constants.js';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 
-// Mock dependencies
-jest.mock('fs/promises');
-jest.mock('../../../src/core/logger.js', () => ({
-	getLogger: jest.fn(() => ({
-		info: jest.fn(),
-		debug: jest.fn(),
-		warn: jest.fn(),
-		error: jest.fn(),
-	})),
-}));
+const ROOT = '11111111-1111-4111-8111-111111111111';
+const DOC = '22222222-2222-4222-8222-222222222222';
+const FOLDER = '33333333-3333-4333-8333-333333333333';
+const NESTED = '44444444-4444-4444-8444-444444444444';
+const TRASH = '55555555-5555-4555-8555-555555555555';
+const MISSING = '66666666-6666-4666-8666-666666666666';
+const EMPTY = '77777777-7777-4777-8777-777777777777';
+type Item = { UUID: string; Type: string; Title: string; Children?: { BinderItem: Item[] } };
 
-jest.mock('../../../src/services/parsers/rtf-handler.js', () => ({
-	RTFHandler: jest.fn().mockImplementation(() => ({
-		parseRTF: jest.fn().mockResolvedValue({
-			plainText: 'Test content',
-			formattedText: [{ text: 'Test content' }],
-			metadata: {},
-		}),
-		generateRTF: jest.fn().mockReturnValue('{\\rtf1 Test content}'),
-	})),
-}));
+function fixture() {
+	const folder: Item = { UUID: FOLDER, Type: 'Folder', Title: 'Part', Children: { BinderItem: [{ UUID: NESTED, Type: 'Text', Title: 'Nested Scene' }] } };
+	const draft: Item = { UUID: ROOT, Type: 'DraftFolder', Title: 'Draft', Children: { BinderItem: [{ UUID: DOC, Type: 'Text', Title: 'Chapter 1' }, folder] } };
+	return { ScrivenerProject: { Binder: { BinderItem: [draft], SearchResults: [{ Children: { BinderItem: [{ UUID: TRASH, Type: 'Text', Title: 'Deleted Chapter' }] } }] } } };
+}
 
 describe('DocumentManager', () => {
-	let documentManager: DocumentManager;
-	const mockProjectPath = '/test/project/path.scriv';
+	let projectPath: string;
+	let manager: DocumentManager;
+	let structure: ReturnType<typeof fixture>;
+	const rtf = new RTFHandler();
+	const roots = (): Item[] => structure.ScrivenerProject.Binder.BinderItem;
+	const draftChildren = (): Item[] => roots()[0].Children!.BinderItem;
+	const folderChildren = (): Item[] => draftChildren().find((item) => item.UUID === FOLDER)!.Children!.BinderItem;
+	const trash = (): Item[] => structure.ScrivenerProject.Binder.SearchResults[0].Children.BinderItem;
+	const file = (id = DOC): string => path.join(projectPath, 'Files', 'Data', id, 'content.rtf');
 
-	beforeEach(() => {
-		jest.clearAllMocks();
-		documentManager = new DocumentManager(mockProjectPath);
-
-		// Set up basic project structure
-		(documentManager as any).projectStructure = {
-			ScrivenerProject: {
-				Binder: {
-					BinderItem: [
-						{
-							UUID: 'root',
-							ID: 'root',
-							Type: DOCUMENT_TYPES.FOLDER,
-							Title: 'Draft',
-							Children: {
-								BinderItem: [
-									{
-										UUID: 'doc1',
-										ID: 'doc1',
-										Type: DOCUMENT_TYPES.TEXT,
-										Title: 'Chapter 1',
-									},
-									{
-										UUID: 'folder1',
-										ID: 'folder1',
-										Type: DOCUMENT_TYPES.FOLDER,
-										Title: 'Part 1',
-										Children: {
-											BinderItem: [
-												{
-													UUID: 'doc2',
-													ID: 'doc2',
-													Type: DOCUMENT_TYPES.TEXT,
-													Title: 'Chapter 2',
-												},
-											],
-										},
-									},
-								],
-							},
-						},
-					],
-					SearchResults: [
-						{
-							Children: {
-								BinderItem: [
-									{
-										UUID: 'trash1',
-										ID: 'trash1',
-										Type: DOCUMENT_TYPES.TEXT,
-										Title: 'Deleted Chapter',
-									},
-								],
-							},
-						},
-					],
-				},
-			},
-		};
+	beforeEach(async () => {
+		projectPath = await fs.mkdtemp(path.join(tmpdir(), 'scrivener-documents-'));
+		await fs.mkdir(path.dirname(file()), { recursive: true });
+		await fs.writeFile(file(), rtf.convertToRTF('Test content with café and 東京.'));
+		manager = new DocumentManager(projectPath);
+		structure = fixture();
+		manager.setProjectStructure(structure);
 	});
 
-	describe('recoverFromTrash', () => {
-		it('should recover a document from trash to root', async () => {
-			await documentManager.recoverFromTrash('trash1');
-
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			const rootItems = binder.BinderItem[0].Children.BinderItem;
-			const trashItems = binder.SearchResults[0].Children.BinderItem;
-
-			// Document should be in root
-			expect(rootItems).toContainEqual(
-				expect.objectContaining({
-					ID: 'trash1',
-					Title: 'Deleted Chapter',
-				})
-			);
-
-			// Document should not be in trash
-			expect(trashItems).not.toContainEqual(
-				expect.objectContaining({
-					ID: 'trash1',
-				})
-			);
-		});
-
-		it('should recover a document to a specific parent folder', async () => {
-			await documentManager.recoverFromTrash('trash1', 'folder1');
-
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			const folderItems = binder.BinderItem[0].Children.BinderItem[1].Children.BinderItem;
-			const trashItems = binder.SearchResults[0].Children.BinderItem;
-
-			// Document should be in the target folder
-			expect(folderItems).toContainEqual(
-				expect.objectContaining({
-					ID: 'trash1',
-					Title: 'Deleted Chapter',
-				})
-			);
-
-			// Document should not be in trash
-			expect(trashItems).toHaveLength(0);
-		});
-
-		it('should throw error if document not found in trash', async () => {
-			await expect(documentManager.recoverFromTrash('nonexistent')).rejects.toThrow(
-				'Document nonexistent not found in trash'
-			);
-		});
-
-		it('should throw error if target parent is not a folder', async () => {
-			await expect(documentManager.recoverFromTrash('trash1', 'doc1')).rejects.toThrow(
-				'Target parent folder doc1 not found'
-			);
-		});
-
-		it('should throw error if trash is empty', async () => {
-			// Empty the trash
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			binder.SearchResults[0].Children.BinderItem = [];
-
-			await expect(documentManager.recoverFromTrash('trash1')).rejects.toThrow(
-				'Trash is empty'
-			);
-		});
-
-		it('should throw error if project not loaded', async () => {
-			(documentManager as any).projectStructure = null;
-
-			await expect(documentManager.recoverFromTrash('trash1')).rejects.toThrow(
-				'Project not loaded'
-			);
-		});
-
-		it('should handle missing trash structure gracefully', async () => {
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			delete binder.SearchResults;
-
-			await expect(documentManager.recoverFromTrash('trash1')).rejects.toThrow(
-				'Trash is empty'
-			);
-		});
-
-		it('should create parent Children structure if missing', async () => {
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			// Create a folder without Children
-			binder.BinderItem[0].Children.BinderItem.push({
-				UUID: 'folder2',
-				ID: 'folder2',
-				Type: DOCUMENT_TYPES.FOLDER,
-				Title: 'Empty Folder',
-			});
-
-			await documentManager.recoverFromTrash('trash1', 'folder2');
-
-			const folder = binder.BinderItem[0].Children.BinderItem.find(
-				(item: any) => item.ID === 'folder2'
-			);
-			expect(folder.Children).toBeDefined();
-			expect(folder.Children.BinderItem).toContainEqual(
-				expect.objectContaining({
-					ID: 'trash1',
-				})
-			);
-		});
+	afterEach(async () => {
+		await manager.close();
+		await fs.rm(projectPath, { recursive: true, force: true });
 	});
 
-	describe('readDocumentRaw', () => {
-		const mockRtfContent =
-			'{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}} Test content}';
-
-		beforeEach(() => {
-			(fs.readFile as jest.Mock).mockResolvedValue(mockRtfContent);
-		});
-
-		it('should read raw RTF content from file', async () => {
-			const result = await documentManager.readDocumentRaw('doc1');
-
-			expect(result).toBe(mockRtfContent);
-			expect(fs.readFile).toHaveBeenCalledWith(
-				expect.stringContaining('doc1/content.rtf'),
-				'utf-8'
-			);
-		});
-
-		it('should return empty string if file not found', async () => {
-			const error: any = new Error('File not found');
-			error.code = 'ENOENT';
-			(fs.readFile as jest.Mock).mockRejectedValue(error);
-
-			const result = await documentManager.readDocumentRaw('nonexistent');
-
-			expect(result).toBe('');
-		});
-
-		it('should throw other errors', async () => {
-			const error = new Error('Permission denied');
-			(fs.readFile as jest.Mock).mockRejectedValue(error);
-
-			await expect(documentManager.readDocumentRaw('doc1')).rejects.toThrow(
-				'Permission denied'
-			);
-		});
-
-		it('should use correct document path', async () => {
-			await documentManager.readDocumentRaw('doc1');
-
-			const expectedPath = path.join(mockProjectPath, 'Files', 'Data', 'doc1', 'content.rtf');
-			expect(fs.readFile).toHaveBeenCalledWith(expectedPath, 'utf-8');
-		});
+	test('recovers to the Draft folder and removes the same item from trash', async () => {
+		await manager.recoverFromTrash(TRASH);
+		expect(draftChildren().map((item) => item.UUID)).toContain(TRASH);
+		expect(trash()).toHaveLength(0);
 	});
 
-	describe('readDocument', () => {
-		it('should return plain text content', async () => {
-			(fs.readFile as jest.Mock).mockResolvedValue('{\\rtf1 Test content}');
-
-			const result = await documentManager.readDocument('doc1');
-
-			expect(result).toBe('Test content');
-		});
-
-		it('should cache document content', async () => {
-			(fs.readFile as jest.Mock).mockResolvedValue('{\\rtf1 Test content}');
-
-			// First read
-			await documentManager.readDocument('doc1');
-			// Second read should use cache
-			await documentManager.readDocument('doc1');
-
-			// Should only read file once
-			expect(fs.readFile).toHaveBeenCalledTimes(1);
-		});
+	test('recovers to a selected folder, creating its child container when absent', async () => {
+		draftChildren().push({ UUID: EMPTY, Type: 'Folder', Title: 'Empty Folder' });
+		await manager.recoverFromTrash(TRASH, EMPTY);
+		expect(draftChildren().find((item) => item.UUID === EMPTY)?.Children?.BinderItem.map((item) => item.UUID)).toEqual([TRASH]);
+		expect(trash()).toHaveLength(0);
 	});
 
-	describe('deleteDocument', () => {
-		it('should move document to trash', async () => {
-			await documentManager.deleteDocument('doc1');
-
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			const rootItems = binder.BinderItem[0].Children.BinderItem;
-			const trashItems = binder.SearchResults[0].Children.BinderItem;
-
-			// Document should not be in root
-			expect(rootItems).not.toContainEqual(
-				expect.objectContaining({
-					ID: 'doc1',
-				})
-			);
-
-			// Document should be in trash
-			expect(trashItems).toContainEqual(
-				expect.objectContaining({
-					ID: 'doc1',
-					Title: 'Chapter 1',
-				})
-			);
-		});
-
-		it('should create trash structure if missing', async () => {
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			delete binder.SearchResults;
-
-			await documentManager.deleteDocument('doc1');
-
-			expect(binder.SearchResults).toBeDefined();
-			expect(binder.SearchResults[0].Children.BinderItem).toContainEqual(
-				expect.objectContaining({
-					ID: 'doc1',
-				})
-			);
-		});
-
-		it('should throw error if document not found', async () => {
-			await expect(documentManager.deleteDocument('nonexistent')).rejects.toThrow(
-				'Document nonexistent not found'
-			);
-		});
+	test('recovers at binder top level when there is no Draft folder', async () => {
+		roots()[0].Type = 'Folder';
+		await manager.recoverFromTrash(TRASH);
+		expect(roots().map((item) => item.UUID)).toEqual([ROOT, TRASH]);
+		expect(draftChildren().map((item) => item.UUID)).not.toContain(TRASH);
 	});
 
-	describe('moveDocument', () => {
-		it('should move document to another folder', async () => {
-			await documentManager.moveDocument('doc1', 'folder1');
+	test.each([DOC, MISSING])('invalid recovery parent %s preserves the original trash item', async (parent) => {
+		await expect(manager.recoverFromTrash(TRASH, parent)).rejects.toThrow(/folder.*not found/i);
+		expect(trash().map((item) => item.UUID)).toEqual([TRASH]);
+	});
 
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			const rootItems = binder.BinderItem[0].Children.BinderItem;
-			// Find the folder by ID since its position may have changed
-			const folder = rootItems.find((item: any) => item.ID === 'folder1');
-			const folderItems = folder?.Children?.BinderItem;
+	test('missing documents, empty or absent trash, and unloaded structures report expected absence', async () => {
+		await expect(manager.recoverFromTrash(MISSING)).rejects.toThrow(/not found in trash/i);
+		structure.ScrivenerProject.Binder.SearchResults[0].Children.BinderItem = [];
+		await expect(manager.recoverFromTrash(TRASH)).rejects.toThrow(/trash is empty/i);
+		structure.ScrivenerProject.Binder.SearchResults = [];
+		await expect(manager.recoverFromTrash(TRASH)).rejects.toThrow(/trash is empty/i);
+		manager.setProjectStructure({});
+		await expect(manager.recoverFromTrash(TRASH)).rejects.toThrow(/project not loaded/i);
+	});
 
-			// Document should not be in root
-			expect(rootItems).not.toContainEqual(
-				expect.objectContaining({
-					ID: 'doc1',
-				})
-			);
+	test('reads raw RTF at Files/Data/UUID and treats only missing content as empty', async () => {
+		const raw = await fs.readFile(file(), 'utf8');
+		expect(await manager.readDocumentRaw(DOC)).toBe(raw);
+		expect(await manager.readDocumentRaw(MISSING)).toBe('');
+		await fs.mkdir(file(MISSING), { recursive: true });
+		await expect(manager.readDocumentRaw(MISSING)).rejects.toThrow(/regular file/i);
+	});
 
-			// Document should be in folder
-			expect(folderItems).toContainEqual(
-				expect.objectContaining({
-					ID: 'doc1',
-					Title: 'Chapter 1',
-				})
-			);
-		});
+	test('reads Unicode plain text and refreshes a previously cached document after an external save', async () => {
+		expect(await manager.readDocument(DOC)).toBe('Test content with café and 東京.');
+		expect(await manager.readDocument(DOC)).toBe('Test content with café and 東京.');
+		await fs.writeFile(file(), rtf.convertToRTF('A saved external change.'));
+		expect(await manager.readDocument(DOC)).toBe('A saved external change.');
+	});
 
-		it('should move document to root when parentId is null', async () => {
-			// Move doc2 from folder to root
-			await documentManager.moveDocument('doc2', null);
+	test.each(['../escape', 'not-a-uuid', ''])('rejects unsafe document identity %s before reading', async (id) => {
+		await expect(manager.readDocument(id)).rejects.toThrow();
+	});
 
-			const binder = (documentManager as any).projectStructure.ScrivenerProject.Binder;
-			const rootItems = binder.BinderItem[0].Children.BinderItem;
-			// Find the folder by ID since its position may have changed
-			const folder = rootItems.find((item: any) => item.ID === 'folder1');
-			const folderItems = folder?.Children?.BinderItem || [];
+	test('delete moves the actual item into trash and creates a missing trash container', async () => {
+		structure.ScrivenerProject.Binder.SearchResults = [];
+		await manager.deleteDocument(DOC);
+		expect(draftChildren().map((item) => item.UUID)).toEqual([FOLDER]);
+		expect(trash().map((item) => item.UUID)).toEqual([DOC]);
+		await expect(manager.deleteDocument(MISSING)).rejects.toThrow(/not found/i);
+	});
 
-			// Document should be in root
-			expect(rootItems).toContainEqual(
-				expect.objectContaining({
-					ID: 'doc2',
-					Title: 'Chapter 2',
-				})
-			);
+	test('moves a document beneath a selected folder and then to binder top level', async () => {
+		await manager.moveDocument(DOC, FOLDER);
+		expect(folderChildren().map((item) => item.UUID)).toEqual([NESTED, DOC]);
+		await manager.moveDocument(DOC, null);
+		expect(folderChildren().map((item) => item.UUID)).toEqual([NESTED]);
+		expect(roots().map((item) => item.UUID)).toEqual([ROOT, DOC]);
+	});
 
-			// Document should not be in folder
-			expect(folderItems).not.toContainEqual(
-				expect.objectContaining({
-					ID: 'doc2',
-				})
-			);
-		});
-
-		it('should throw error if moving document to itself', async () => {
-			await expect(documentManager.moveDocument('doc1', 'doc1')).rejects.toThrow(
-				'Cannot move document to itself'
-			);
-		});
-
-		it('should throw error if parent is not a folder', async () => {
-			await expect(documentManager.moveDocument('doc1', 'doc2')).rejects.toThrow(
-				'Parent folder doc2 not found'
-			);
-		});
+	test.each([DOC, NESTED, MISSING])('invalid move to %s leaves the original document attached', async (parent) => {
+		await expect(manager.moveDocument(DOC, parent)).rejects.toThrow();
+		expect(draftChildren().map((item) => item.UUID)).toContain(DOC);
 	});
 });
