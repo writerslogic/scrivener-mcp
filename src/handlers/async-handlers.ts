@@ -7,6 +7,7 @@ import type { Job } from 'bullmq';
 import { getLogger } from '../core/logger.js';
 import { AIClient } from '../services/ai/ai-client.js';
 import { AIWritingService } from '../services/ai/ai-writing-service.js';
+import { ContentAnalyzer } from '../analysis/base-analyzer.js';
 import { JobQueueService, JobType } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import {
@@ -23,6 +24,13 @@ import {
 let jobQueueService: JobQueueService | null = null;
 let aiWritingService: AIWritingService | null = null;
 const logger = getLogger('async-handlers');
+let localAnalyzer: ContentAnalyzer | undefined;
+
+export async function analyzeWorkflowDocument(params: { documentId: string; content: string }): Promise<unknown> {
+	if (jobQueueService) return jobQueueService.analyzeDocument({ ...params, options: { includeReadability: true, includeEntities: true, includeSentiment: true } });
+	localAnalyzer ??= new ContentAnalyzer();
+	return localAnalyzer.analyzeContent(params.content, params.documentId);
+}
 
 /**
  * Initialize async services
