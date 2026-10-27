@@ -14,9 +14,32 @@ const EMPTY = '77777777-7777-4777-8777-777777777777';
 type Item = { UUID: string; Type: string; Title: string; Children?: { BinderItem: Item[] } };
 
 function fixture() {
-	const folder: Item = { UUID: FOLDER, Type: 'Folder', Title: 'Part', Children: { BinderItem: [{ UUID: NESTED, Type: 'Text', Title: 'Nested Scene' }] } };
-	const draft: Item = { UUID: ROOT, Type: 'DraftFolder', Title: 'Draft', Children: { BinderItem: [{ UUID: DOC, Type: 'Text', Title: 'Chapter 1' }, folder] } };
-	return { ScrivenerProject: { Binder: { BinderItem: [draft], SearchResults: [{ Children: { BinderItem: [{ UUID: TRASH, Type: 'Text', Title: 'Deleted Chapter' }] } }] } } };
+	const folder: Item = {
+		UUID: FOLDER,
+		Type: 'Folder',
+		Title: 'Part',
+		Children: { BinderItem: [{ UUID: NESTED, Type: 'Text', Title: 'Nested Scene' }] },
+	};
+	const draft: Item = {
+		UUID: ROOT,
+		Type: 'DraftFolder',
+		Title: 'Draft',
+		Children: { BinderItem: [{ UUID: DOC, Type: 'Text', Title: 'Chapter 1' }, folder] },
+	};
+	return {
+		ScrivenerProject: {
+			Binder: {
+				BinderItem: [draft],
+				SearchResults: [
+					{
+						Children: {
+							BinderItem: [{ UUID: TRASH, Type: 'Text', Title: 'Deleted Chapter' }],
+						},
+					},
+				],
+			},
+		},
+	};
 }
 
 describe('DocumentManager', () => {
@@ -26,8 +49,10 @@ describe('DocumentManager', () => {
 	const rtf = new RTFHandler();
 	const roots = (): Item[] => structure.ScrivenerProject.Binder.BinderItem;
 	const draftChildren = (): Item[] => roots()[0].Children!.BinderItem;
-	const folderChildren = (): Item[] => draftChildren().find((item) => item.UUID === FOLDER)!.Children!.BinderItem;
-	const trash = (): Item[] => structure.ScrivenerProject.Binder.SearchResults[0].Children.BinderItem;
+	const folderChildren = (): Item[] =>
+		draftChildren().find((item) => item.UUID === FOLDER)!.Children!.BinderItem;
+	const trash = (): Item[] =>
+		structure.ScrivenerProject.Binder.SearchResults[0].Children.BinderItem;
 	const file = (id = DOC): string => path.join(projectPath, 'Files', 'Data', id, 'content.rtf');
 
 	beforeEach(async () => {
@@ -53,7 +78,11 @@ describe('DocumentManager', () => {
 	test('recovers to a selected folder, creating its child container when absent', async () => {
 		draftChildren().push({ UUID: EMPTY, Type: 'Folder', Title: 'Empty Folder' });
 		await manager.recoverFromTrash(TRASH, EMPTY);
-		expect(draftChildren().find((item) => item.UUID === EMPTY)?.Children?.BinderItem.map((item) => item.UUID)).toEqual([TRASH]);
+		expect(
+			draftChildren()
+				.find((item) => item.UUID === EMPTY)
+				?.Children?.BinderItem.map((item) => item.UUID)
+		).toEqual([TRASH]);
 		expect(trash()).toHaveLength(0);
 	});
 
@@ -64,10 +93,15 @@ describe('DocumentManager', () => {
 		expect(draftChildren().map((item) => item.UUID)).not.toContain(TRASH);
 	});
 
-	test.each([DOC, MISSING])('invalid recovery parent %s preserves the original trash item', async (parent) => {
-		await expect(manager.recoverFromTrash(TRASH, parent)).rejects.toThrow(/folder.*not found/i);
-		expect(trash().map((item) => item.UUID)).toEqual([TRASH]);
-	});
+	test.each([DOC, MISSING])(
+		'invalid recovery parent %s preserves the original trash item',
+		async (parent) => {
+			await expect(manager.recoverFromTrash(TRASH, parent)).rejects.toThrow(
+				/folder.*not found/i
+			);
+			expect(trash().map((item) => item.UUID)).toEqual([TRASH]);
+		}
+	);
 
 	test('missing documents, empty or absent trash, and unloaded structures report expected absence', async () => {
 		await expect(manager.recoverFromTrash(MISSING)).rejects.toThrow(/not found in trash/i);
@@ -94,9 +128,12 @@ describe('DocumentManager', () => {
 		expect(await manager.readDocument(DOC)).toBe('A saved external change.');
 	});
 
-	test.each(['../escape', 'not-a-uuid', ''])('rejects unsafe document identity %s before reading', async (id) => {
-		await expect(manager.readDocument(id)).rejects.toThrow();
-	});
+	test.each(['../escape', 'not-a-uuid', ''])(
+		'rejects unsafe document identity %s before reading',
+		async (id) => {
+			await expect(manager.readDocument(id)).rejects.toThrow();
+		}
+	);
 
 	test('delete moves the actual item into trash and creates a missing trash container', async () => {
 		structure.ScrivenerProject.Binder.SearchResults = [];
@@ -114,8 +151,11 @@ describe('DocumentManager', () => {
 		expect(roots().map((item) => item.UUID)).toEqual([ROOT, DOC]);
 	});
 
-	test.each([DOC, NESTED, MISSING])('invalid move to %s leaves the original document attached', async (parent) => {
-		await expect(manager.moveDocument(DOC, parent)).rejects.toThrow();
-		expect(draftChildren().map((item) => item.UUID)).toContain(DOC);
-	});
+	test.each([DOC, NESTED, MISSING])(
+		'invalid move to %s leaves the original document attached',
+		async (parent) => {
+			await expect(manager.moveDocument(DOC, parent)).rejects.toThrow();
+			expect(draftChildren().map((item) => item.UUID)).toContain(DOC);
+		}
+	);
 });

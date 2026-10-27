@@ -60,7 +60,9 @@ export class MutationCoordinator {
 	private state(): PersistentStore {
 		if (!this.store) {
 			this.assertSafePath(path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite'));
-			this.store = new PersistentStore(path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite'));
+			this.store = new PersistentStore(
+				path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
+			);
 		}
 		return this.store;
 	}
@@ -68,12 +70,14 @@ export class MutationCoordinator {
 	private assertSafePath(target: string): void {
 		const root = realpathSync(this.projectPath);
 		const relative = path.relative(this.projectPath, target);
-		if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Path leaves the project');
+		if (relative.startsWith('..') || path.isAbsolute(relative))
+			throw new Error('Path leaves the project');
 		let current = root;
 		for (const component of relative.split(path.sep)) {
 			current = path.join(current, component);
 			try {
-				if (lstatSync(current).isSymbolicLink()) throw new Error('Refusing a symlink in a project mutation path');
+				if (lstatSync(current).isSymbolicLink())
+					throw new Error('Refusing a symlink in a project mutation path');
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 			}
@@ -81,7 +85,8 @@ export class MutationCoordinator {
 	}
 
 	private documentPath(documentId: string): string {
-		if (typeof documentId !== 'string' || !isValidScrivenerDocumentId(documentId)) throw new Error('Invalid document ID');
+		if (typeof documentId !== 'string' || !isValidScrivenerDocumentId(documentId))
+			throw new Error('Invalid document ID');
 		const target = getDocumentPath(this.projectPath, documentId);
 		this.assertSafePath(target);
 		return target;
@@ -91,14 +96,17 @@ export class MutationCoordinator {
 		const target = this.documentPath(documentId);
 		try {
 			const stat = await fs.stat(target);
-			if (!stat.isFile() || stat.size > MAX_RAW_BYTES) throw new Error('Document is not a supported regular file');
+			if (!stat.isFile() || stat.size > MAX_RAW_BYTES)
+				throw new Error('Document is not a supported regular file');
 			const bytes = await fs.readFile(target);
-			if (bytes.length > MAX_RAW_BYTES) throw new Error('Document exceeds the supported size');
+			if (bytes.length > MAX_RAW_BYTES)
+				throw new Error('Document exceeds the supported size');
 			const raw = bytes.toString('utf8');
 			if (!Buffer.from(raw).equals(bytes)) throw new Error('Document RTF is not valid UTF-8');
 			return { raw, exists: true, revision: documentRevision(bytes) };
 		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { raw: '', exists: false, revision: documentRevision('') };
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+				return { raw: '', exists: false, revision: documentRevision('') };
 			throw error;
 		}
 	}
@@ -126,28 +134,47 @@ export class MutationCoordinator {
 			const claim = store.get<MutationClaim>(CLAIMS, 'project');
 			if (claim) {
 				const alive = this.ownerAlive(claim);
-				if (alive !== 'dead') throw new Error(alive === 'alive' ? 'Another manuscript operation is active; retry after it completes' : 'Manuscript operation ownership is ambiguous; inspect the original server before recovery');
+				if (alive !== 'dead')
+					throw new Error(
+						alive === 'alive'
+							? 'Another manuscript operation is active; retry after it completes'
+							: 'Manuscript operation ownership is ambiguous; inspect the original server before recovery'
+					);
 			}
-			const operationId = claim?.operationId ?? store.list<MutationRecord>(JOURNAL).find((record) => record.state === 'prepared' && !visited.has(record.id))?.id;
+			const operationId =
+				claim?.operationId ??
+				store
+					.list<MutationRecord>(JOURNAL)
+					.find((record) => record.state === 'prepared' && !visited.has(record.id))?.id;
 			if (!operationId) return recovered;
 			visited.add(operationId);
 			const token = randomUUID();
 			store.transaction(() => {
 				const current = store.get<MutationClaim>(CLAIMS, 'project');
-				if (current?.token !== claim?.token) throw new Error('Recovery ownership changed; retry');
-				store.put<MutationClaim>(CLAIMS, 'project', { operationId, ownerPid: process.pid, host: hostname(), token });
+				if (current?.token !== claim?.token)
+					throw new Error('Recovery ownership changed; retry');
+				store.put<MutationClaim>(CLAIMS, 'project', {
+					operationId,
+					ownerPid: process.pid,
+					host: hostname(),
+					token,
+				});
 				activeClaims.add(token);
 			});
 			try {
 				const record = store.get<MutationRecord>(JOURNAL, operationId);
-				if (!record) throw new Error('Mutation journal is missing for an interrupted operation');
+				if (!record)
+					throw new Error('Mutation journal is missing for an interrupted operation');
 				if (record.state === 'prepared') {
 					const current = await this.readRaw(record.documentId);
 					if (current.revision === record.afterRevision && current.exists) {
 						await this.syncChecksum(record.documentId, record.afterRaw);
 						record.state = 'committed';
 						record.completedAt = new Date().toISOString();
-					} else if (current.revision !== record.beforeRevision || current.exists !== record.beforeExists) {
+					} else if (
+						current.revision !== record.beforeRevision ||
+						current.exists !== record.beforeExists
+					) {
 						record.state = 'conflicted';
 					}
 					store.put(JOURNAL, record.id, record);
@@ -155,16 +182,26 @@ export class MutationCoordinator {
 				recovered.push(record);
 			} finally {
 				store.transaction(() => {
-					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token) store.delete(CLAIMS, 'project');
+					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
+						store.delete(CLAIMS, 'project');
 				});
 				activeClaims.delete(token);
 			}
 		}
 	}
 
-	async commit(documentId: string, afterRaw: string, options: CommitOptions = {}): Promise<MutationRecord> {
-		if (typeof afterRaw !== 'string' || Buffer.byteLength(afterRaw) > MAX_RAW_BYTES) throw new Error('Invalid RTF content size');
-		if (options.expectedRevision !== undefined && !/^[a-f0-9]{64}$/.test(options.expectedRevision)) throw new Error('Invalid expected revision');
+	async commit(
+		documentId: string,
+		afterRaw: string,
+		options: CommitOptions = {}
+	): Promise<MutationRecord> {
+		if (typeof afterRaw !== 'string' || Buffer.byteLength(afterRaw) > MAX_RAW_BYTES)
+			throw new Error('Invalid RTF content size');
+		if (
+			options.expectedRevision !== undefined &&
+			!/^[a-f0-9]{64}$/.test(options.expectedRevision)
+		)
+			throw new Error('Invalid expected revision');
 		const id = options.operationId ?? randomUUID();
 		if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error('Invalid operation ID');
 		const target = this.documentPath(documentId);
@@ -179,14 +216,41 @@ export class MutationCoordinator {
 			if (claim) throw new Error('Another manuscript operation acquired the project; retry');
 			const prior = store.get<MutationRecord>(JOURNAL, id);
 			if (prior) {
-				if (prior.documentId !== documentId || prior.afterRevision !== afterRevision || (options.expectedRevision !== undefined && prior.beforeRevision !== options.expectedRevision)) throw new Error('Operation ID was already used for different content');
+				if (
+					prior.documentId !== documentId ||
+					prior.afterRevision !== afterRevision ||
+					(options.expectedRevision !== undefined &&
+						prior.beforeRevision !== options.expectedRevision)
+				)
+					throw new Error('Operation ID was already used for different content');
 				if (prior.state === 'committed') return prior;
-				if (prior.state === 'conflicted') throw new Error('Interrupted mutation conflicts with saved manuscript changes');
+				if (prior.state === 'conflicted')
+					throw new Error('Interrupted mutation conflicts with saved manuscript changes');
 			}
-			if (options.expectedRevision !== undefined && before.revision !== options.expectedRevision) throw new Error('Stale document revision; refresh and review the saved changes');
-			record = prior ?? { id, documentId, beforeRevision: before.revision, afterRevision, beforeRaw: before.raw, afterRaw, beforeExists: before.exists, state: 'prepared', createdAt: new Date().toISOString(), undoes: options.undoes };
+			if (
+				options.expectedRevision !== undefined &&
+				before.revision !== options.expectedRevision
+			)
+				throw new Error('Stale document revision; refresh and review the saved changes');
+			record = prior ?? {
+				id,
+				documentId,
+				beforeRevision: before.revision,
+				afterRevision,
+				beforeRaw: before.raw,
+				afterRaw,
+				beforeExists: before.exists,
+				state: 'prepared',
+				createdAt: new Date().toISOString(),
+				undoes: options.undoes,
+			};
 			store.put(JOURNAL, id, record);
-			store.put<MutationClaim>(CLAIMS, 'project', { operationId: id, ownerPid: process.pid, host: hostname(), token });
+			store.put<MutationClaim>(CLAIMS, 'project', {
+				operationId: id,
+				ownerPid: process.pid,
+				host: hostname(),
+				token,
+			});
 			activeClaims.add(token);
 			return undefined;
 		});
@@ -194,14 +258,31 @@ export class MutationCoordinator {
 		record = store.get<MutationRecord>(JOURNAL, id)!;
 		try {
 			let current = await this.readRaw(documentId);
-			if (current.revision !== record.beforeRevision || current.exists !== record.beforeExists) throw new Error('Saved manuscript changed while preparing the mutation');
+			if (
+				current.revision !== record.beforeRevision ||
+				current.exists !== record.beforeExists
+			)
+				throw new Error('Saved manuscript changed while preparing the mutation');
 			if (record.beforeExists && !record.snapshotId) {
-				this.assertSafePath(path.join(this.projectPath, 'Snapshots', `${documentId}.snapshots`, 'index.xml'));
-				record.snapshotId = (await createSnapshot(this.projectPath, documentId, options.snapshotTitle ?? 'Before reviewed edit', new Date())).snapshotId;
+				this.assertSafePath(
+					path.join(this.projectPath, 'Snapshots', `${documentId}.snapshots`, 'index.xml')
+				);
+				record.snapshotId = (
+					await createSnapshot(
+						this.projectPath,
+						documentId,
+						options.snapshotTitle ?? 'Before reviewed edit',
+						new Date()
+					)
+				).snapshotId;
 				store.put(JOURNAL, id, record);
 			}
 			current = await this.readRaw(documentId);
-			if (current.revision !== record.beforeRevision || current.exists !== record.beforeExists) throw new Error('Saved manuscript changed before commit; the edit was not applied');
+			if (
+				current.revision !== record.beforeRevision ||
+				current.exists !== record.beforeExists
+			)
+				throw new Error('Saved manuscript changed before commit; the edit was not applied');
 			this.assertSafePath(target);
 			await safeWriteFile(target, afterRaw);
 			await this.syncChecksum(documentId, afterRaw);
@@ -211,7 +292,8 @@ export class MutationCoordinator {
 			return record;
 		} finally {
 			store.transaction(() => {
-				if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token) store.delete(CLAIMS, 'project');
+				if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
+					store.delete(CLAIMS, 'project');
 			});
 			activeClaims.delete(token);
 		}

@@ -1,10 +1,17 @@
 import type { LRUCache } from '../core/cache.js';
 import type { RTFContent, RTFHandler } from './parsers/rtf-handler.js';
-import { MutationCoordinator, type CommitOptions, type MutationRecord } from './editorial/mutation-coordinator.js';
+import {
+	MutationCoordinator,
+	type CommitOptions,
+	type MutationRecord,
+} from './editorial/mutation-coordinator.js';
 
 export class DocumentWriter {
 	private readonly batchSize = 10;
-	private readonly pendingWrites = new Map<string, { content: RTFContent | string; expectedRevision: string }>();
+	private readonly pendingWrites = new Map<
+		string,
+		{ content: RTFContent | string; expectedRevision: string }
+	>();
 	readonly coordinator: MutationCoordinator;
 
 	constructor(
@@ -16,10 +23,19 @@ export class DocumentWriter {
 		this.coordinator = new MutationCoordinator(projectPath);
 	}
 
-	async writeDocument(documentId: string, content: string | RTFContent, immediate = false, options: CommitOptions = {}): Promise<void> {
-		const expectedRevision = options.expectedRevision ?? (await this.coordinator.readRaw(documentId)).revision;
+	async writeDocument(
+		documentId: string,
+		content: string | RTFContent,
+		immediate = false,
+		options: CommitOptions = {}
+	): Promise<void> {
+		const expectedRevision =
+			options.expectedRevision ?? (await this.coordinator.readRaw(documentId)).revision;
 		if (immediate) {
-			await this.writeDocumentImmediate(documentId, content, { ...options, expectedRevision });
+			await this.writeDocumentImmediate(documentId, content, {
+				...options,
+				expectedRevision,
+			});
 			return;
 		}
 		this.pendingWrites.set(documentId, { content, expectedRevision });
@@ -27,12 +43,20 @@ export class DocumentWriter {
 		if (this.pendingWrites.size >= this.batchSize) await this.flushPendingWrites();
 	}
 
-	private async writeDocumentImmediate(documentId: string, content: string | RTFContent, options: CommitOptions): Promise<void> {
+	private async writeDocumentImmediate(
+		documentId: string,
+		content: string | RTFContent,
+		options: CommitOptions
+	): Promise<void> {
 		const raw = this.rtfHandler.convertToRTF(content);
 		await this.writeRawContent(documentId, raw, options);
 	}
 
-	async writeRawContent(documentId: string, rawRtf: string, options: CommitOptions = {}): Promise<MutationRecord> {
+	async writeRawContent(
+		documentId: string,
+		rawRtf: string,
+		options: CommitOptions = {}
+	): Promise<MutationRecord> {
 		const result = await this.coordinator.commit(documentId, rawRtf, options);
 		this.documentCache.delete(`doc:${documentId}`);
 		return result;
@@ -44,7 +68,9 @@ export class DocumentWriter {
 		for (let index = 0; index < writes.length; index++) {
 			const [documentId, pending] = writes[index];
 			try {
-				await this.writeDocumentImmediate(documentId, pending.content, { expectedRevision: pending.expectedRevision });
+				await this.writeDocumentImmediate(documentId, pending.content, {
+					expectedRevision: pending.expectedRevision,
+				});
 			} catch (error) {
 				for (const [id, value] of writes.slice(index)) {
 					if (!this.pendingWrites.has(id)) this.pendingWrites.set(id, value);

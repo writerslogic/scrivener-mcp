@@ -278,8 +278,16 @@ export class Neo4jManager {
 			throw new Error('Node properties cannot change the requested identity');
 		}
 
-		const editable = Object.fromEntries(Object.entries(properties).filter(([key]) => Neo4jManager.VALID_IDENTIFIER.test(key) && key !== 'id' && key !== 'updatedAt'));
-		const setProps = [...Object.keys(editable).map((key) => `n.${key} = $${key}`), 'n.updatedAt = datetime()'].join(', ');
+		const editable = Object.fromEntries(
+			Object.entries(properties).filter(
+				([key]) =>
+					Neo4jManager.VALID_IDENTIFIER.test(key) && key !== 'id' && key !== 'updatedAt'
+			)
+		);
+		const setProps = [
+			...Object.keys(editable).map((key) => `n.${key} = $${key}`),
+			'n.updatedAt = datetime()',
+		].join(', ');
 
 		const cypher = `
 			MERGE (n:${label} {id: $id})

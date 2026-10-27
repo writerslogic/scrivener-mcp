@@ -14,7 +14,12 @@ import { RTFHandler } from './parsers/rtf-handler.js';
 import { DocumentTree } from './document-tree.js';
 import { BinderEditor } from './binder-editor.js';
 import { DocumentWriter } from './document-writer.js';
-import { documentRevision, type CommitOptions, type MutationRecord, type MutationCoordinator } from './editorial/mutation-coordinator.js';
+import {
+	documentRevision,
+	type CommitOptions,
+	type MutationRecord,
+	type MutationCoordinator,
+} from './editorial/mutation-coordinator.js';
 
 const logger = getLogger('document-manager');
 
@@ -45,7 +50,9 @@ export class DocumentManager {
 
 		// Auto-flush pending writes every 5 seconds
 		this.flushInterval = setInterval(() => {
-			void this.flushPendingWrites().catch(() => logger.error('Queued manuscript writes failed; pending writes retained for retry'));
+			void this.flushPendingWrites().catch(() =>
+				logger.error('Queued manuscript writes failed; pending writes retained for retry')
+			);
 		}, 5000);
 		this.flushInterval.unref();
 
@@ -195,7 +202,11 @@ export class DocumentManager {
 	 * write path, which produces the exact bytes to store and must not have them
 	 * re-serialized by the RTF writer. Invalidates the parsed cache.
 	 */
-	async writeRawContent(documentId: string, rawRtf: string, options: CommitOptions = {}): Promise<MutationRecord> {
+	async writeRawContent(
+		documentId: string,
+		rawRtf: string,
+		options: CommitOptions = {}
+	): Promise<MutationRecord> {
 		return this.writer.writeRawContent(documentId, rawRtf, options);
 	}
 

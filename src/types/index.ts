@@ -258,6 +258,11 @@ export interface CompilationOptions {
 }
 
 export interface ExportOptions {
+	preset?: import('../services/export/export-presets.js').ExportPreset;
+	documentIds?: string[];
+	frontMatterIds?: string[];
+	includeAnnotations?: boolean;
+	allowWarnings?: boolean;
 	format: 'markdown' | 'html' | 'json' | 'epub';
 	outputPath?: string;
 	includeMetadata?: boolean;

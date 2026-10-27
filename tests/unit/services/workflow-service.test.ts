@@ -23,16 +23,52 @@ describe('durable editorial workflows', () => {
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), 'scrivener-workflows-'));
 		const text = 'Mira  waited beside the door. Her hands shook.';
-		doc = { projectId: 'workflow-fixture', documentId: '00000000-0000-4000-8000-000000000001', title: 'Chapter One', path: 'Draft/Chapter One', order: 0, text, revision: createHash('sha256').update(text).digest('hex'), metadata: {} };
-		source = { projectId: doc.projectId, projectPath: dir, list: async () => [doc], read: async (id) => { if (id !== doc.documentId) throw new Error('Missing source'); return doc; } };
+		doc = {
+			projectId: 'workflow-fixture',
+			documentId: '00000000-0000-4000-8000-000000000001',
+			title: 'Chapter One',
+			path: 'Draft/Chapter One',
+			order: 0,
+			text,
+			revision: createHash('sha256').update(text).digest('hex'),
+			metadata: {},
+		};
+		source = {
+			projectId: doc.projectId,
+			projectPath: dir,
+			list: async () => [doc],
+			read: async (id) => {
+				if (id !== doc.documentId) throw new Error('Missing source');
+				return doc;
+			},
+		};
 		store = new PersistentStore(join(dir, 'editorial.sqlite'));
 		search = new PassageSearch(source, store);
-		analyses = 0; proposals = new Map(); exports = 0;
+		analyses = 0;
+		proposals = new Map();
+		exports = 0;
 		dependencies = {
-			analyzeDocument: async (document) => { analyses++; return { revision: document.revision, wordCount: document.text.split(/\s+/u).length }; },
-			propose: async (input) => { const prior = proposals.get(input.idempotencyKey); if (prior) return prior; const result = { id: `proposal-${proposals.size}`, ...input }; proposals.set(input.idempotencyKey, result); return result; },
+			analyzeDocument: async (document) => {
+				analyses++;
+				return {
+					revision: document.revision,
+					wordCount: document.text.split(/\s+/u).length,
+				};
+			},
+			propose: async (input) => {
+				const prior = proposals.get(input.idempotencyKey);
+				if (prior) return prior;
+				const result = { id: `proposal-${proposals.size}`, ...input };
+				proposals.set(input.idempotencyKey, result);
+				return result;
+			},
 			auditContinuity: async ({ documentIds }) => ({ documentIds, findings: [] }),
-			exportBeta: async ({ outputPath, documentIds }) => { exports++; await mkdir(dirname(outputPath), { recursive: true }); await writeFile(outputPath, JSON.stringify({ documentIds, text: doc.text })); return { path: outputPath, documentIds }; },
+			exportBeta: async ({ outputPath, documentIds }) => {
+				exports++;
+				await mkdir(dirname(outputPath), { recursive: true });
+				await writeFile(outputPath, JSON.stringify({ documentIds, text: doc.text }));
+				return { path: outputPath, documentIds };
+			},
 		};
 		service = new WorkflowService(source, store, search, dependencies);
 	});
@@ -46,7 +82,11 @@ describe('durable editorial workflows', () => {
 
 	it('reviews the requested chapter through analysis and proposals without altering the source', async () => {
 		const before = doc.text;
-		const workflow = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId], idempotencyKey: 'chapter-review' });
+		const workflow = await service.start({
+			kind: 'review-chapter',
+			documentIds: [doc.documentId],
+			idempotencyKey: 'chapter-review',
+		});
 		const done = await service.wait(workflow.id);
 		expect(done.state).toBe('completed');
 		expect(done.progress).toBe(100);
@@ -57,7 +97,11 @@ describe('durable editorial workflows', () => {
 		expect(doc.text).toBe(before);
 		await service.close();
 		service = new WorkflowService(source, store, search, dependencies);
-		const repeated = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId], idempotencyKey: 'chapter-review' });
+		const repeated = await service.start({
+			kind: 'review-chapter',
+			documentIds: [doc.documentId],
+			idempotencyKey: 'chapter-review',
+		});
 		expect(repeated.id).toBe(workflow.id);
 		expect((await service.resume(workflow.id)).state).toBe('completed');
 		expect(analyses).toBe(1);
@@ -67,10 +111,22 @@ describe('durable editorial workflows', () => {
 	it('retains a completed in-flight step when cancelled and resumes remaining work after reopening storage', async () => {
 		let entered!: () => void;
 		let finish!: () => void;
-		const analysisStarted = new Promise<void>((resolve) => { entered = resolve; });
-		const analysisRelease = new Promise<void>((resolve) => { finish = resolve; });
-		dependencies.analyzeDocument = async () => { analyses++; entered(); await analysisRelease; return { checked: true }; };
-		const workflow = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		const analysisStarted = new Promise<void>((resolve) => {
+			entered = resolve;
+		});
+		const analysisRelease = new Promise<void>((resolve) => {
+			finish = resolve;
+		});
+		dependencies.analyzeDocument = async () => {
+			analyses++;
+			entered();
+			await analysisRelease;
+			return { checked: true };
+		};
+		const workflow = await service.start({
+			kind: 'review-chapter',
+			documentIds: [doc.documentId],
+		});
 		await analysisStarted;
 		expect(service.cancel(workflow.id).state).toBe('cancelled');
 		finish();
@@ -78,7 +134,9 @@ describe('durable editorial workflows', () => {
 		expect(cancelled.state).toBe('cancelled');
 		expect(cancelled.steps.find((step) => step.kind === 'analyze')?.state).toBe('completed');
 		expect(proposals.size).toBe(0);
-		await service.close(); await search.close(); store.close();
+		await service.close();
+		await search.close();
+		store.close();
 		store = new PersistentStore(join(dir, 'editorial.sqlite'));
 		search = new PassageSearch(source, store);
 		service = new WorkflowService(source, store, search, dependencies);
@@ -89,12 +147,17 @@ describe('durable editorial workflows', () => {
 	});
 
 	it('rejects stale resumption and out-of-project scopes without starting new steps', async () => {
-		const workflow = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		const workflow = await service.start({
+			kind: 'review-chapter',
+			documentIds: [doc.documentId],
+		});
 		service.cancel(workflow.id);
 		await service.wait(workflow.id);
 		doc = { ...doc, text: 'A saved external revision.', revision: 'changed-revision' };
 		await expect(service.resume(workflow.id)).rejects.toThrow('Saved source changed');
-		await expect(service.start({ kind: 'review-chapter', documentIds: ['foreign-document'] })).rejects.toThrow('out-of-project');
+		await expect(
+			service.start({ kind: 'review-chapter', documentIds: ['foreign-document'] })
+		).rejects.toThrow('out-of-project');
 		expect(analyses).toBe(0);
 		expect(proposals.size).toBe(0);
 	});
@@ -102,11 +165,18 @@ describe('durable editorial workflows', () => {
 	it('runs scoped continuity and beta export once, retaining the real export artifact and results', async () => {
 		const audit = await service.start({ kind: 'audit-continuity' });
 		const auditDone = await service.wait(audit.id);
-		expect(auditDone.steps.find((step) => step.kind === 'continuity')?.result).toEqual({ documentIds: [doc.documentId], findings: [] });
+		expect(auditDone.steps.find((step) => step.kind === 'continuity')?.result).toEqual({
+			documentIds: [doc.documentId],
+			findings: [],
+		});
 		const beta = await service.start({ kind: 'beta-reader-draft', idempotencyKey: 'beta' });
 		const done = await service.wait(beta.id);
-		const artifact = done.steps.find((step) => step.kind === 'export')?.result as { path: string };
-		expect(JSON.parse(await readFile(artifact.path, 'utf8')).documentIds).toEqual([doc.documentId]);
+		const artifact = done.steps.find((step) => step.kind === 'export')?.result as {
+			path: string;
+		};
+		expect(JSON.parse(await readFile(artifact.path, 'utf8')).documentIds).toEqual([
+			doc.documentId,
+		]);
 		await service.resume(beta.id);
 		expect(exports).toBe(1);
 		expect(done.cost.estimated).toBe(0);

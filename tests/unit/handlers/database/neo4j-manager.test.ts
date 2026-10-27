@@ -3,7 +3,10 @@ import type { Driver, ManagedTransaction, QueryResult } from 'neo4j-driver';
 import { Neo4jManager } from '../../../../src/handlers/database/neo4j-manager.js';
 import { ErrorCode } from '../../../../src/core/errors.js';
 
-interface QueryEvent { cypher: string; parameters?: Record<string, unknown> }
+interface QueryEvent {
+	cypher: string;
+	parameters?: Record<string, unknown>;
+}
 class FakeDriver {
 	closed = false;
 	closeError?: Error;
@@ -12,12 +15,20 @@ class FakeDriver {
 	queries: QueryEvent[] = [];
 	outcomes: Array<QueryResult | Error> = [];
 	result = { records: [] } as unknown as QueryResult;
-	async verifyConnectivity(): Promise<void> { if (this.connectError) throw this.connectError; }
-	async close(): Promise<void> { if (this.closeError) throw this.closeError; this.closed = true; }
+	async verifyConnectivity(): Promise<void> {
+		if (this.connectError) throw this.connectError;
+	}
+	async close(): Promise<void> {
+		if (this.closeError) throw this.closeError;
+		this.closed = true;
+	}
 	session(options: { database: string }) {
 		const session = { closed: false, database: options.database };
 		this.sessions.push(session);
-		const run = async (cypher: string, parameters?: Record<string, unknown>): Promise<QueryResult> => {
+		const run = async (
+			cypher: string,
+			parameters?: Record<string, unknown>
+		): Promise<QueryResult> => {
 			this.queries.push({ cypher, parameters });
 			const outcome = this.outcomes.shift() ?? this.result;
 			if (outcome instanceof Error) throw outcome;
@@ -26,9 +37,13 @@ class FakeDriver {
 		const transaction = { run } as unknown as ManagedTransaction;
 		return {
 			run,
-			close: async () => { session.closed = true; },
-			executeRead: async <T>(work: (tx: ManagedTransaction) => Promise<T>) => work(transaction),
-			executeWrite: async <T>(work: (tx: ManagedTransaction) => Promise<T>) => work(transaction),
+			close: async () => {
+				session.closed = true;
+			},
+			executeRead: async <T>(work: (tx: ManagedTransaction) => Promise<T>) =>
+				work(transaction),
+			executeWrite: async <T>(work: (tx: ManagedTransaction) => Promise<T>) =>
+				work(transaction),
 		};
 	}
 }
@@ -37,10 +52,22 @@ const mockCreateDriver = jest.fn<() => Driver>(() => mockDrivers.shift() as unkn
 
 jest.mock('neo4j-driver', () => ({
 	__esModule: true,
-	default: { driver: () => mockCreateDriver(), auth: { basic: (user: string, password: string) => ({ user, password }) } },
+	default: {
+		driver: () => mockCreateDriver(),
+		auth: { basic: (user: string, password: string) => ({ user, password }) },
+	},
 }));
-jest.mock('../../../../src/utils/condition-waiter.js', () => ({ waitForServiceReady: async () => undefined }));
-jest.mock('../../../../src/core/logger.js', () => ({ getLogger: () => ({ info: () => undefined, debug: () => undefined, warn: () => undefined, error: () => undefined }) }));
+jest.mock('../../../../src/utils/condition-waiter.js', () => ({
+	waitForServiceReady: async () => undefined,
+}));
+jest.mock('../../../../src/core/logger.js', () => ({
+	getLogger: () => ({
+		info: () => undefined,
+		debug: () => undefined,
+		warn: () => undefined,
+		error: () => undefined,
+	}),
+}));
 
 let driver: FakeDriver;
 let manager: Neo4jManager;
@@ -62,12 +89,17 @@ describe('Neo4j lifecycle and recovery', () => {
 	it('releases failed driver attempts before retrying and degrades explicitly when all connections fail', async () => {
 		const attempts = [driver, new FakeDriver(), new FakeDriver()];
 		mockDrivers.push(...attempts.slice(1));
-		for (const attempt of attempts) attempt.connectError = Object.assign(new Error('Service unavailable'), { code: 'ServiceUnavailable' });
+		for (const attempt of attempts)
+			attempt.connectError = Object.assign(new Error('Service unavailable'), {
+				code: 'ServiceUnavailable',
+			});
 		await manager.initialize();
 		expect(attempts.every((attempt) => attempt.closed)).toBe(true);
 		expect(manager.isAvailable()).toBe(false);
 		expect((await manager.checkHealth()).healthy).toBe(false);
-		await expect(manager.query('RETURN 1')).rejects.toMatchObject({ code: ErrorCode.DATABASE_ERROR });
+		await expect(manager.query('RETURN 1')).rejects.toMatchObject({
+			code: ErrorCode.DATABASE_ERROR,
+		});
 	});
 
 	it('closes schema-failure sessions and abandoned drivers before a successful retry', async () => {
@@ -101,27 +133,42 @@ describe('Neo4j query and transaction ownership', () => {
 		await connected();
 		expect(await manager.query('RETURN $value', { value: 7 })).toBe(driver.result);
 		expect(driver.sessions).toEqual([{ database: 'test-story', closed: true }]);
-		driver.outcomes.push(Object.assign(new Error('Syntax error'), { code: 'Neo.ClientError.Statement.SyntaxError' }));
-		await expect(manager.query('INVALID')).rejects.toMatchObject({ code: ErrorCode.INVALID_INPUT });
+		driver.outcomes.push(
+			Object.assign(new Error('Syntax error'), {
+				code: 'Neo.ClientError.Statement.SyntaxError',
+			})
+		);
+		await expect(manager.query('INVALID')).rejects.toMatchObject({
+			code: ErrorCode.INVALID_INPUT,
+		});
 		expect(driver.sessions.every((session) => session.closed)).toBe(true);
 	});
 
-	it.each(['readTransaction', 'writeTransaction'] as const)('propagates %s callback outcomes and closes sessions', async (method) => {
-		await connected();
-		const value = await manager[method](async (tx) => {
-			const result = await tx.run('RETURN 42');
-			return { result, complete: true };
-		});
-		expect(value).toEqual({ result: driver.result, complete: true });
-		const error = new Error('Work must roll back');
-		await expect(manager[method](async () => { throw error; })).rejects.toBe(error);
-		expect(driver.sessions).toHaveLength(2);
-		expect(driver.sessions.every((session) => session.closed)).toBe(true);
-	});
+	it.each(['readTransaction', 'writeTransaction'] as const)(
+		'propagates %s callback outcomes and closes sessions',
+		async (method) => {
+			await connected();
+			const value = await manager[method](async (tx) => {
+				const result = await tx.run('RETURN 42');
+				return { result, complete: true };
+			});
+			expect(value).toEqual({ result: driver.result, complete: true });
+			const error = new Error('Work must roll back');
+			await expect(
+				manager[method](async () => {
+					throw error;
+				})
+			).rejects.toBe(error);
+			expect(driver.sessions).toHaveLength(2);
+			expect(driver.sessions.every((session) => session.closed)).toBe(true);
+		}
+	);
 
 	it('retries transient timeouts with fresh sessions, then preserves the final failure', async () => {
 		await connected();
-		const timeout = Object.assign(new Error('Query timeout'), { code: 'Neo.TransientError.Transaction.Timeout' });
+		const timeout = Object.assign(new Error('Query timeout'), {
+			code: 'Neo.TransientError.Transaction.Timeout',
+		});
 		driver.outcomes.push(timeout, driver.result);
 		expect(await manager.queryWithRetry('RETURN 1', {}, 2)).toBe(driver.result);
 		expect(driver.sessions).toHaveLength(2);
@@ -133,7 +180,9 @@ describe('Neo4j query and transaction ownership', () => {
 
 	it('does not replay non-transient query failures', async () => {
 		await connected();
-		const syntax = Object.assign(new Error('Syntax error'), { code: 'Neo.ClientError.Statement.SyntaxError' });
+		const syntax = Object.assign(new Error('Syntax error'), {
+			code: 'Neo.ClientError.Statement.SyntaxError',
+		});
 		driver.outcomes.push(syntax, driver.result);
 		await expect(manager.queryWithRetry('INVALID', {}, 3)).rejects.toBe(syntax);
 		expect(driver.sessions).toHaveLength(1);
@@ -145,22 +194,42 @@ describe('Neo4j parameter and identifier boundaries', () => {
 	it('preserves relationship property maps and endpoint identities without interpolating user values', async () => {
 		await connected();
 		const properties = { fromId: 'attempted-override', description: "' OR true //" };
-		await manager.createRelationship('mara', 'Character', 'chapter-1', 'Document', 'APPEARS_IN', properties);
-		expect(driver.queries[0].parameters).toEqual({ fromId: 'mara', toId: 'chapter-1', properties });
+		await manager.createRelationship(
+			'mara',
+			'Character',
+			'chapter-1',
+			'Document',
+			'APPEARS_IN',
+			properties
+		);
+		expect(driver.queries[0].parameters).toEqual({
+			fromId: 'mara',
+			toId: 'chapter-1',
+			properties,
+		});
 		expect(driver.queries[0].cypher).not.toContain(properties.description);
 		expect(driver.queries[0].cypher).toContain('SET r += $properties');
 	});
 
-	it.each(['Character) DETACH DELETE n //', '', 'Has Space'])('rejects interpolated identifiers %j before issuing a query', async (label) => {
-		await connected();
-		await expect(manager.upsertNode(label, 'mara', { name: 'Mara' })).rejects.toThrow(/identifier/);
-		await expect(manager.createRelationship('mara', 'Character', 'chapter', 'Document', label)).rejects.toThrow(/identifier/);
-		expect(driver.queries).toEqual([]);
-	});
+	it.each(['Character) DETACH DELETE n //', '', 'Has Space'])(
+		'rejects interpolated identifiers %j before issuing a query',
+		async (label) => {
+			await connected();
+			await expect(manager.upsertNode(label, 'mara', { name: 'Mara' })).rejects.toThrow(
+				/identifier/
+			);
+			await expect(
+				manager.createRelationship('mara', 'Character', 'chapter', 'Document', label)
+			).rejects.toThrow(/identifier/);
+			expect(driver.queries).toEqual([]);
+		}
+	);
 
 	it('rejects node identity replacement and emits valid timestamp-only updates for empty or invalid properties', async () => {
 		await connected();
-		await expect(manager.upsertNode('Character', 'mara', { id: 'another-character' })).rejects.toThrow(/identity/);
+		await expect(
+			manager.upsertNode('Character', 'mara', { id: 'another-character' })
+		).rejects.toThrow(/identity/);
 		await manager.upsertNode('Character', 'mara', {});
 		await manager.upsertNode('Character', 'mara', { 'name) DELETE n': 'unsafe' });
 		for (const query of driver.queries) {

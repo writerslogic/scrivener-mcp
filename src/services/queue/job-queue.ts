@@ -164,7 +164,9 @@ export class JobQueueService {
 				this.connection = this.memoryRedis;
 				this.connectionType = 'embedded';
 				if (this.projectPath) {
-					this.embeddedStore = new PersistentStore(path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite'));
+					this.embeddedStore = new PersistentStore(
+						path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
+					);
 				}
 			}
 
@@ -362,7 +364,11 @@ export class JobQueueService {
 			timestamp: new Date().toISOString(),
 		};
 
-		if (data.options?.includeReadability || data.options?.includeEntities || data.options?.includeSentiment) {
+		if (
+			data.options?.includeReadability ||
+			data.options?.includeEntities ||
+			data.options?.includeSentiment
+		) {
 			// Use the content analyzer for full analysis
 			const analysis = await this.contentAnalyzer.analyzeContent(
 				data.content,
@@ -848,33 +854,41 @@ export class JobQueueService {
 		}
 
 		const jobId = `embedded-${jobType}-${randomUUID()}`;
-		this.storeEmbeddedJob(jobId, { jobType, state: 'active', progress: 0, owner: { pid: process.pid, host: hostname() } });
+		this.storeEmbeddedJob(jobId, {
+			jobType,
+			state: 'active',
+			progress: 0,
+			owner: { pid: process.pid, host: hostname() },
+		});
 		this.logger.info(`Job ${jobId} added to embedded queue ${jobType}`);
 
 		const run = new Promise<void>((resolve) => setImmediate(resolve)).then(async () => {
 			if (this.readEmbeddedJob(jobId)?.state === 'cancelled') return;
 			await this.processJob(jobType, { id: jobId, data } as Job)
-			.then((result) => {
-				this.finishEmbeddedJob(jobId, {
-					jobType,
-					state: 'completed',
-					progress: 100,
-					result,
+				.then((result) => {
+					this.finishEmbeddedJob(jobId, {
+						jobType,
+						state: 'completed',
+						progress: 100,
+						result,
+					});
+					this.logger.info(`Job completed: ${jobId}`);
+				})
+				.catch((error: unknown) => {
+					this.finishEmbeddedJob(jobId, {
+						jobType,
+						state: 'failed',
+						progress: 0,
+						error: error instanceof Error ? error.message : String(error),
+					});
+					this.logger.error(`Job failed: ${jobId}`, { error });
 				});
-				this.logger.info(`Job completed: ${jobId}`);
-			})
-			.catch((error: unknown) => {
-				this.finishEmbeddedJob(jobId, {
-					jobType,
-					state: 'failed',
-					progress: 0,
-					error: error instanceof Error ? error.message : String(error),
-				});
-				this.logger.error(`Job failed: ${jobId}`, { error });
-			});
 		});
 		this.embeddedRuns.set(jobId, run);
-		void run.then(() => this.embeddedRuns.delete(jobId), () => this.embeddedRuns.delete(jobId));
+		void run.then(
+			() => this.embeddedRuns.delete(jobId),
+			() => this.embeddedRuns.delete(jobId)
+		);
 
 		return jobId;
 	}
@@ -893,12 +907,19 @@ export class JobQueueService {
 	}
 
 	private readEmbeddedJob(id: string): EmbeddedJobStatus | undefined {
-		const status = this.embeddedStore?.get<EmbeddedJobStatus>('embedded-jobs', id) ?? this.embeddedJobs.get(id);
+		const status =
+			this.embeddedStore?.get<EmbeddedJobStatus>('embedded-jobs', id) ??
+			this.embeddedJobs.get(id);
 		if (status?.state === 'active' && status.owner?.host === hostname()) {
-			try { process.kill(status.owner.pid, 0); }
-			catch (error) {
+			try {
+				process.kill(status.owner.pid, 0);
+			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
-					const interrupted: EmbeddedJobStatus = { ...status, state: 'interrupted', error: 'The previous server stopped; this job was not automatically replayed.' };
+					const interrupted: EmbeddedJobStatus = {
+						...status,
+						state: 'interrupted',
+						error: 'The previous server stopped; this job was not automatically replayed.',
+					};
 					this.storeEmbeddedJob(id, interrupted);
 					return interrupted;
 				}
@@ -908,7 +929,10 @@ export class JobQueueService {
 	}
 
 	async waitForJob(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
-		if (this.connectionType !== 'embedded') throw new Error('waitForJob is only available for embedded jobs; poll external queue jobs');
+		if (this.connectionType !== 'embedded')
+			throw new Error(
+				'waitForJob is only available for embedded jobs; poll external queue jobs'
+			);
 		await this.embeddedRuns.get(jobId);
 		return this.getJobStatus(jobType, jobId);
 	}
@@ -997,7 +1021,9 @@ export class JobQueueService {
 			let completed = 0;
 			let failed = 0;
 			let cancelled = 0;
-			const jobs = this.embeddedStore?.list<EmbeddedJobStatus>('embedded-jobs') ?? [...this.embeddedJobs.values()];
+			const jobs = this.embeddedStore?.list<EmbeddedJobStatus>('embedded-jobs') ?? [
+				...this.embeddedJobs.values(),
+			];
 			for (const job of jobs) {
 				if (job.jobType !== jobType) continue;
 				if (job.state === 'active') active++;

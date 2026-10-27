@@ -21,6 +21,7 @@ export function registerSamplingServer(server: Server | null): void {
  * must be consulted at call time, not at registration time.
  */
 export function getSamplingServer(): Server | null {
+	if (process.env.SCRIVENER_LOCAL_ONLY === 'true') return null;
 	if (!samplingServer) return null;
 	return samplingServer.getClientCapabilities()?.sampling ? samplingServer : null;
 }

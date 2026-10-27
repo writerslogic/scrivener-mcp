@@ -14,9 +14,13 @@ import {
 	type ClientSpec,
 } from '../setup/clients.js';
 import { handshake, type HandshakeResult } from '../setup/doctor.js';
+import { firstSession } from '../setup/first-session.js';
+import { redactDiagnostics } from '../setup/redaction.js';
 import { installLinks } from '../setup/links.js';
 import {
 	MIN_NODE_MAJOR,
+	MIN_NODE_VERSION,
+	isSupportedRuntime,
 	chooseRuntime,
 	currentRuntime,
 	probeRuntime,
@@ -26,6 +30,8 @@ import {
 } from '../setup/runtime.js';
 
 interface Options {
+	demo: boolean;
+	demoDir?: string;
 	check: boolean;
 	remove: boolean;
 	yes: boolean;
@@ -40,6 +46,7 @@ interface Options {
 
 function parseArgs(argv: string[]): Options | string {
 	const opts: Options = {
+		demo: false,
 		check: false,
 		remove: false,
 		yes: false,
@@ -52,7 +59,12 @@ function parseArgs(argv: string[]): Options | string {
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
 		if (arg === '--check') opts.check = true;
-		else if (arg === '--remove') opts.remove = true;
+		else if (arg === '--demo') opts.demo = true;
+		else if (arg === '--demo-dir') {
+			opts.demo = true;
+			opts.demoDir = argv[++i];
+			if (!opts.demoDir) return '--demo-dir requires a new directory path';
+		} else if (arg === '--remove') opts.remove = true;
 		else if (arg === '--yes' || arg === '-y') opts.yes = true;
 		else if (arg === '--json') opts.json = true;
 		else if (arg === '--links') opts.links = true;
@@ -83,6 +95,8 @@ Usage: scrivener-setup [options]
 
   (no options)     Detect installed apps, add Scrivener MCP, and verify it starts
   --check          Report each app's status without changing anything
+  --demo           Run a real local analysis and edit preview in a new sample copy
+  --demo-dir <new>  Keep that sample in this new directory (never changes client config)
   --remove         Remove Scrivener MCP from the selected apps
   --client <id>    Only this app (repeatable): ${CLIENTS.map((c) => c.id).join(', ')}
   --yes, -y        Do not ask for confirmation
@@ -121,7 +135,7 @@ async function confirm(question: string): Promise<boolean> {
 function nodeProblem(): string {
 	const rt = currentRuntime();
 	const seen = rt ? `This is Node ${rt.version}` : 'Node was not found';
-	return `${seen}, but Scrivener MCP needs Node ${MIN_NODE_MAJOR} or newer with npx.
+	return `${seen}, but Scrivener MCP needs Node ${MIN_NODE_VERSION} or newer with npx.
 Install it with the one-line installer, which needs no administrator password:
   curl -fsSL https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/scripts/bootstrap-mac.sh | sh`;
 }
@@ -162,8 +176,8 @@ function resolveEntry(opts: Options): { runtime: NodeRuntime; entry: ServerEntry
 		if (!existsSync(opts.script)) return `Script not found: ${opts.script}`;
 		const runtime = probeRuntime(opts.node, 'explicit');
 		if (!runtime) return `Could not run ${opts.node}`;
-		if (runtime.major < MIN_NODE_MAJOR) {
-			return `${opts.node} is Node ${runtime.version}; Node ${MIN_NODE_MAJOR} or newer is required`;
+		if (!isSupportedRuntime(runtime)) {
+			return `${opts.node} is Node ${runtime.version}; Node ${MIN_NODE_VERSION} or newer is required`;
 		}
 		return { runtime, entry: { command: runtime.node, args: [opts.script] } };
 	}
@@ -193,6 +207,15 @@ async function main(): Promise<number> {
 		return 2;
 	}
 	const { runtime, entry } = resolved;
+	if (opts.demo) {
+		const result = await firstSession(entry, opts.demoDir);
+		process.stdout.write(
+			opts.json
+				? `${JSON.stringify(redactDiagnostics(result))}\n`
+				: `First session passed: analysis and edit preview verified.\nSample project: ${result.projectPath}\n${result.privacy}\n`
+		);
+		return 0;
+	}
 
 	if (opts.print) {
 		process.stdout.write(`${JSON.stringify({ mcpServers: { scrivener: entry } }, null, 2)}\n`);
@@ -225,7 +248,7 @@ async function main(): Promise<number> {
 	const finish = (): number => {
 		if (opts.json) {
 			process.stdout.write(
-				`${JSON.stringify({ schemaVersion: 1, mode, ok: problems === 0, runtime, clients, startup })}\n`
+				`${JSON.stringify(redactDiagnostics({ schemaVersion: 1, mode, ok: problems === 0, runtime, clients, startup }))}\n`
 			);
 		}
 		return problems === 0 ? 0 : 1;

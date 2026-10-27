@@ -4,12 +4,20 @@
  */
 
 import { createRequire } from 'module';
+import { readFile } from 'node:fs/promises';
 const _require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = _require('../package.json') as { version: string };
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+	CallToolRequestSchema,
+	ListToolsRequestSchema,
+	ListResourcesRequestSchema,
+	ReadResourceRequestSchema,
+	McpError,
+	ErrorCode as McpErrorCode,
+} from '@modelcontextprotocol/sdk/types.js';
 import { ContentAnalyzer } from './analysis/base-analyzer.js';
 import { getLogger } from './core/logger.js';
 import { formatError, cleanupSpool } from './core/response-formatter.js';
@@ -24,6 +32,7 @@ import {
 	activateSkillForTool,
 } from './handlers/skill-registry.js';
 import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
+import { APP_MIME_TYPE, DASHBOARD_URI, supportsApps } from './handlers/dashboard-handlers.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
 import { PersonalizationService } from './services/personalization/personalization-service.js';
 import { initializeHHM } from './handlers/memory-handlers.js';
@@ -94,8 +103,50 @@ initializeSkillRegistry();
 
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-	tools: getRegisteredTools(),
+	tools: getRegisteredTools(supportsApps(server.getClientCapabilities())),
 }));
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+	resources: supportsApps(server.getClientCapabilities())
+		? [
+				{
+					uri: DASHBOARD_URI,
+					name: 'Manuscript dashboard',
+					mimeType: APP_MIME_TYPE,
+					description: 'Accessible binder, source context, continuity and change review.',
+				},
+			]
+		: [],
+}));
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+	if (request.params.uri !== DASHBOARD_URI || !supportsApps(server.getClientCapabilities()))
+		throw new McpError(
+			McpErrorCode.InvalidParams,
+			'This resource requires a client with negotiated MCP Apps support'
+		);
+	return {
+		contents: [
+			{
+				uri: DASHBOARD_URI,
+				mimeType: APP_MIME_TYPE,
+				text: await readFile(
+					new URL('../assets/manuscript-dashboard.html', import.meta.url),
+					'utf8'
+				),
+				_meta: {
+					ui: {
+						csp: {
+							connectDomains: [],
+							resourceDomains: [],
+							frameDomains: [],
+							baseUriDomains: [],
+						},
+					},
+				},
+			},
+		],
+	};
+});
 
 // Handle tool execution
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -106,6 +157,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		if (!context) {
 			context = await contextPromise;
 		}
+		context.uiSupported = supportsApps(server.getClientCapabilities());
 
 		// Progressive disclosure: if the model calls a tool whose skill is not
 		// active yet, activate it on demand instead of dead-ending on "unknown
@@ -147,6 +199,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		// handler reporting an unavailable database) from a successful one;
 		// dropping it makes error text read as a normal result.
 		const response: {
+			_meta?: Record<string, unknown>;
 			content: typeof result.content;
 			structuredContent?: Record<string, unknown>;
 			isError?: boolean;
@@ -154,6 +207,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		if (result.structuredContent !== undefined) {
 			response.structuredContent = result.structuredContent;
 		}
+		if (result._meta) response._meta = result._meta;
 		if (result.isError) {
 			response.isError = true;
 		}
@@ -223,11 +277,11 @@ process.on('SIGINT', async () => {
 
 	// Clean up resources
 	await shutdownAsyncServices();
-	if (context.project) {
+	if (context?.project) {
 		await context.project.close();
 	}
 
-	if (context.memoryManager) {
+	if (context?.memoryManager) {
 		await context.memoryManager.stopAutoSave();
 	}
 

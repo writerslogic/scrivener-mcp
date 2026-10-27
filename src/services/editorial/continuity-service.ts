@@ -1,7 +1,19 @@
 import type { PersistentStore } from './persistent-store.js';
 import type { FactView, SeriesBible } from './series-bible.js';
-import type { FactConfidence, SourceDocument, SourcePassage, StoryFact, ManuscriptSource } from './types.js';
-import { passageState, sourcePassage, stableStoryId, storyIdentifier, storyText } from './provenance.js';
+import type {
+	FactConfidence,
+	SourceDocument,
+	SourcePassage,
+	StoryFact,
+	ManuscriptSource,
+} from './types.js';
+import {
+	passageState,
+	sourcePassage,
+	stableStoryId,
+	storyIdentifier,
+	storyText,
+} from './provenance.js';
 
 export type FindingStatus = 'open' | 'confirmed' | 'dismissed' | 'resolved';
 export type ContinuityCheck = 'characters' | 'timeline' | 'locations' | 'plotThreads' | 'all';
@@ -45,7 +57,13 @@ export interface ContinuityOptions {
 }
 
 const FINDINGS = 'continuity:findings';
-const CHECKS: readonly ContinuityCheck[] = ['characters', 'timeline', 'locations', 'plotThreads', 'all'];
+const CHECKS: readonly ContinuityCheck[] = [
+	'characters',
+	'timeline',
+	'locations',
+	'plotThreads',
+	'all',
+];
 const IMMUTABLE = new Set(['birth-year', 'birthplace', 'species']);
 
 function normalized(value: string): string {
@@ -54,27 +72,64 @@ function normalized(value: string): string {
 
 export function extractContinuityCandidates(document: SourceDocument): StoryFact[] {
 	const name = "([\\p{Lu}][\\p{L}\\p{M}'’.-]*(?: [\\p{Lu}][\\p{L}\\p{M}'’.-]*){0,2})";
-	const colors = '(blue|green|brown|hazel|grey|gray|amber|black|violet|red|blond|blonde|silver|white)';
+	const colors =
+		'(blue|green|brown|hazel|grey|gray|amber|black|violet|red|blond|blonde|silver|white)';
 	const patterns: Array<{ pattern: RegExp; predicate: string; kind: StoryFact['kind'] }> = [
-		{ pattern: new RegExp(`${name}['’]s eyes (?:are|were) ${colors}\\b`, 'gu'), predicate: 'eye-color', kind: 'character' },
-		{ pattern: new RegExp(`${name} (?:has|had) ${colors} eyes\\b`, 'gu'), predicate: 'eye-color', kind: 'character' },
-		{ pattern: new RegExp(`${name}['’]s hair (?:is|was) ${colors}\\b`, 'gu'), predicate: 'hair-color', kind: 'character' },
-		{ pattern: new RegExp(`${name} was born in ([0-9]{4})\\b`, 'gu'), predicate: 'birth-year', kind: 'chronology' },
+		{
+			pattern: new RegExp(`${name}['’]s eyes (?:are|were) ${colors}\\b`, 'gu'),
+			predicate: 'eye-color',
+			kind: 'character',
+		},
+		{
+			pattern: new RegExp(`${name} (?:has|had) ${colors} eyes\\b`, 'gu'),
+			predicate: 'eye-color',
+			kind: 'character',
+		},
+		{
+			pattern: new RegExp(`${name}['’]s hair (?:is|was) ${colors}\\b`, 'gu'),
+			predicate: 'hair-color',
+			kind: 'character',
+		},
+		{
+			pattern: new RegExp(`${name} was born in ([0-9]{4})\\b`, 'gu'),
+			predicate: 'birth-year',
+			kind: 'chronology',
+		},
 	];
 	const candidates: StoryFact[] = [];
 	for (const { pattern, predicate, kind } of patterns) {
 		for (const match of document.text.matchAll(pattern)) {
-			if (candidates.length >= 256) throw new Error('Document has more than 256 explicit continuity candidates; narrow the analysis scope');
+			if (candidates.length >= 256)
+				throw new Error(
+					'Document has more than 256 explicit continuity candidates; narrow the analysis scope'
+				);
 			const start = match.index;
 			const quote = sourcePassage(document, start, start + match[0].length);
-			const surrounding = document.text.slice(Math.max(0, start - 100), Math.min(document.text.length, start + match[0].length + 100));
-			const uncertain = /[“”"]|\b(?:dream|dreamed|dreamt|imagined|rumou?r|claimed|pretended|perhaps|maybe|unreliable)\b/i.test(surrounding);
+			const surrounding = document.text.slice(
+				Math.max(0, start - 100),
+				Math.min(document.text.length, start + match[0].length + 100)
+			);
+			const uncertain =
+				/[“”"]|\b(?:dream|dreamed|dreamt|imagined|rumou?r|claimed|pretended|perhaps|maybe|unreliable)\b/i.test(
+					surrounding
+				);
 			const metadata = document.metadata;
-			const flashback = /^(?:true|yes|1)$/i.test(metadata.flashback ?? '') || /\bflashback\b/i.test(document.title);
+			const flashback =
+				/^(?:true|yes|1)$/i.test(metadata.flashback ?? '') ||
+				/\bflashback\b/i.test(document.title);
 			const storyTime = metadata.storyTime || metadata['story-time'] || metadata.timeline;
-			const intentional = /^(?:true|yes|1)$/i.test(metadata.intentionalContradiction ?? metadata['intentional-contradiction'] ?? '');
+			const intentional = /^(?:true|yes|1)$/i.test(
+				metadata.intentionalContradiction ?? metadata['intentional-contradiction'] ?? ''
+			);
 			const fact: StoryFact = {
-				id: stableStoryId('candidate', document.projectId, document.documentId, document.revision, String(start), predicate),
+				id: stableStoryId(
+					'candidate',
+					document.projectId,
+					document.documentId,
+					document.revision,
+					String(start),
+					predicate
+				),
 				scope: { kind: 'project', id: document.projectId },
 				kind,
 				subject: match[1],
@@ -102,23 +157,76 @@ export class ContinuityService {
 
 	async analyze(options: ContinuityOptions = {}): Promise<ContinuityReport> {
 		const checkTypes = options.checkTypes ?? ['all'];
-		if (!Array.isArray(checkTypes) || checkTypes.length === 0 || checkTypes.length > CHECKS.length || checkTypes.some((check) => !CHECKS.includes(check))) throw new Error('Choose valid continuity check types');
-		if (options.documentIds !== undefined && (!Array.isArray(options.documentIds) || options.documentIds.length === 0 || options.documentIds.length > 5000)) throw new Error('Document scope must contain 1 to 5000 document ids');
+		if (
+			!Array.isArray(checkTypes) ||
+			checkTypes.length === 0 ||
+			checkTypes.length > CHECKS.length ||
+			checkTypes.some((check) => !CHECKS.includes(check))
+		)
+			throw new Error('Choose valid continuity check types');
+		if (
+			options.documentIds !== undefined &&
+			(!Array.isArray(options.documentIds) ||
+				options.documentIds.length === 0 ||
+				options.documentIds.length > 5000)
+		)
+			throw new Error('Document scope must contain 1 to 5000 document ids');
 		const documents = await this.source.list();
-		if (documents.length > 5000 || documents.reduce((length, document) => length + document.text.length, 0) > 50000000) throw new Error('Continuity scope is too large; analyze a chapter at a time');
-		const wanted = options.documentIds ? new Set(options.documentIds.map((id) => storyIdentifier(id, 'Document id'))) : undefined;
-		if (wanted && [...wanted].some((id) => !documents.some((document) => document.documentId === id))) throw new Error('A requested document is outside the current manuscript');
-		const scoped = documents.filter((document) => !wanted || wanted.has(document.documentId)).sort((a, b) => a.order - b.order);
+		if (
+			documents.length > 5000 ||
+			documents.reduce((length, document) => length + document.text.length, 0) > 50000000
+		)
+			throw new Error('Continuity scope is too large; analyze a chapter at a time');
+		const wanted = options.documentIds
+			? new Set(options.documentIds.map((id) => storyIdentifier(id, 'Document id')))
+			: undefined;
+		if (
+			wanted &&
+			[...wanted].some((id) => !documents.some((document) => document.documentId === id))
+		)
+			throw new Error('A requested document is outside the current manuscript');
+		const scoped = documents
+			.filter((document) => !wanted || wanted.has(document.documentId))
+			.sort((a, b) => a.order - b.order);
 		const candidates = scoped.flatMap(extractContinuityCandidates);
-		if (candidates.length > 10000) throw new Error('Continuity analysis exceeds 10000 candidates; narrow the scope');
-		const projectFacts = await this.bible.listFacts({ kind: 'project', id: this.source.projectId });
-		const seriesFacts = options.seriesId ? await this.bible.listFacts({ kind: 'series', id: options.seriesId }) : [];
+		if (candidates.length > 10000)
+			throw new Error('Continuity analysis exceeds 10000 candidates; narrow the scope');
+		const projectFacts = await this.bible.listFacts({
+			kind: 'project',
+			id: this.source.projectId,
+		});
+		const seriesFacts = options.seriesId
+			? await this.bible.listFacts({ kind: 'series', id: options.seriesId })
+			: [];
 		const canon = [...projectFacts, ...seriesFacts].filter((fact) => !fact.stale);
 		for (const candidate of candidates) {
-			if (canon.some((fact) => fact.intentional && normalized(fact.subject) === normalized(candidate.subject) && normalized(fact.predicate) === normalized(candidate.predicate) && fact.sources.some((passage) => candidate.sources.some((source) => source.projectId === passage.projectId && source.documentId === passage.documentId && source.revision === passage.revision && source.start < passage.end && source.end > passage.start)))) candidate.intentional = true;
+			if (
+				canon.some(
+					(fact) =>
+						fact.intentional &&
+						normalized(fact.subject) === normalized(candidate.subject) &&
+						normalized(fact.predicate) === normalized(candidate.predicate) &&
+						fact.sources.some((passage) =>
+							candidate.sources.some(
+								(source) =>
+									source.projectId === passage.projectId &&
+									source.documentId === passage.documentId &&
+									source.revision === passage.revision &&
+									source.start < passage.end &&
+									source.end > passage.start
+							)
+						)
+				)
+			)
+				candidate.intentional = true;
 		}
-		const aliases = new Map(canon.filter((fact) => fact.kind === 'alias' && fact.confidence === 'confirmed').map((fact) => [normalized(fact.value), normalized(fact.subject)]));
-		const subject = (fact: StoryFact): string => aliases.get(normalized(fact.subject)) ?? normalized(fact.subject);
+		const aliases = new Map(
+			canon
+				.filter((fact) => fact.kind === 'alias' && fact.confidence === 'confirmed')
+				.map((fact) => [normalized(fact.value), normalized(fact.subject)])
+		);
+		const subject = (fact: StoryFact): string =>
+			aliases.get(normalized(fact.subject)) ?? normalized(fact.subject);
 		const groups = new Map<string, StoryFact[]>();
 		for (const fact of [...canon, ...candidates]) {
 			if (fact.sources.length === 0 || fact.kind === 'alias' || fact.intentional) continue;
@@ -130,36 +238,95 @@ export class ContinuityService {
 		const detected = new Map<string, ContinuityFinding>();
 		const now = new Date().toISOString();
 		for (const group of groups.values()) {
-			if (group.length > 200) throw new Error('Too many facts for one continuity attribute; narrow the scope');
+			if (group.length > 200)
+				throw new Error('Too many facts for one continuity attribute; narrow the scope');
 			for (let i = 0; i < group.length; i++) {
 				for (let j = i + 1; j < group.length; j++) {
 					const left = group[i];
 					const right = group[j];
 					if (normalized(left.value) === normalized(right.value)) continue;
-					if (left.storyTime !== right.storyTime && (left.storyTime || right.storyTime) && !IMMUTABLE.has(left.predicate)) continue;
-					if (left.confidence === 'uncertain' || right.confidence === 'uncertain') continue;
-					if (wanted && ![...left.sources, ...right.sources].some((passage) => passage.projectId === this.source.projectId && wanted.has(passage.documentId))) continue;
+					if (
+						left.storyTime !== right.storyTime &&
+						(left.storyTime || right.storyTime) &&
+						!IMMUTABLE.has(left.predicate)
+					)
+						continue;
+					if (left.confidence === 'uncertain' || right.confidence === 'uncertain')
+						continue;
+					if (
+						wanted &&
+						![...left.sources, ...right.sources].some(
+							(passage) =>
+								passage.projectId === this.source.projectId &&
+								wanted.has(passage.documentId)
+						)
+					)
+						continue;
 					const type = this.category(left.kind);
-					if (!checkTypes.includes('all') && !checkTypes.includes(this.checkFor(type))) continue;
-					const evidence = [...left.sources, ...right.sources].filter((passage, index, passages) => passages.findIndex((entry) => entry.projectId === passage.projectId && entry.documentId === passage.documentId && entry.start === passage.start && entry.revision === passage.revision) === index).sort((a, b) => {
-						const orderA = a.projectId === this.source.projectId ? documents.find((document) => document.documentId === a.documentId)?.order ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
-						const orderB = b.projectId === this.source.projectId ? documents.find((document) => document.documentId === b.documentId)?.order ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
-						return orderA - orderB || a.start - b.start;
-					});
+					if (!checkTypes.includes('all') && !checkTypes.includes(this.checkFor(type)))
+						continue;
+					const evidence = [...left.sources, ...right.sources]
+						.filter(
+							(passage, index, passages) =>
+								passages.findIndex(
+									(entry) =>
+										entry.projectId === passage.projectId &&
+										entry.documentId === passage.documentId &&
+										entry.start === passage.start &&
+										entry.revision === passage.revision
+								) === index
+						)
+						.sort((a, b) => {
+							const orderA =
+								a.projectId === this.source.projectId
+									? (documents.find(
+											(document) => document.documentId === a.documentId
+										)?.order ?? Number.MAX_SAFE_INTEGER)
+									: Number.MAX_SAFE_INTEGER;
+							const orderB =
+								b.projectId === this.source.projectId
+									? (documents.find(
+											(document) => document.documentId === b.documentId
+										)?.order ?? Number.MAX_SAFE_INTEGER)
+									: Number.MAX_SAFE_INTEGER;
+							return orderA - orderB || a.start - b.start;
+						});
 					if (evidence.length < 2) continue;
-					const confirmed = left.confidence === 'confirmed' && right.confidence === 'confirmed' && (IMMUTABLE.has(left.predicate) || Boolean(left.storyTime && left.storyTime === right.storyTime));
+					const confirmed =
+						left.confidence === 'confirmed' &&
+						right.confidence === 'confirmed' &&
+						(IMMUTABLE.has(left.predicate) ||
+							Boolean(left.storyTime && left.storyTime === right.storyTime));
 					const values = [normalized(left.value), normalized(right.value)].sort();
-					const id = stableStoryId('finding', this.source.projectId, options.seriesId ?? '', subject(left), normalized(left.predicate), ...values, ...evidence.map((passage) => `${passage.projectId}:${passage.documentId}:${passage.revision}:${passage.start}`).sort());
+					const id = stableStoryId(
+						'finding',
+						this.source.projectId,
+						options.seriesId ?? '',
+						subject(left),
+						normalized(left.predicate),
+						...values,
+						...evidence
+							.map(
+								(passage) =>
+									`${passage.projectId}:${passage.documentId}:${passage.revision}:${passage.start}`
+							)
+							.sort()
+					);
 					if (detected.has(id)) continue;
-					const location = evidence.find((passage) => passage.projectId === this.source.projectId) ?? evidence[0];
-					const order = documents.find((document) => document.documentId === location.documentId)?.order ?? Number.MAX_SAFE_INTEGER;
+					const location =
+						evidence.find((passage) => passage.projectId === this.source.projectId) ??
+						evidence[0];
+					const order =
+						documents.find((document) => document.documentId === location.documentId)
+							?.order ?? Number.MAX_SAFE_INTEGER;
 					detected.set(id, {
 						id,
 						type,
 						severity: confirmed ? 'error' : 'warning',
 						documentId: location.documentId,
 						description: `${confirmed ? 'Conflicting confirmed facts' : 'Potential continuity mismatch'} for ${left.subject}: ${left.predicate} has competing values ${JSON.stringify(left.value)} and ${JSON.stringify(right.value)}.`,
-						suggestion: 'Review the quoted context and story time; confirm canon, record an intentional variation, or dismiss the finding.',
+						suggestion:
+							'Review the quoted context and story time; confirm canon, record an intentional variation, or dismiss the finding.',
 						confidence: confirmed ? 'confirmed' : 'inferred',
 						status: 'open',
 						evidence,
@@ -180,19 +347,63 @@ export class ContinuityService {
 			for (const finding of detected.values()) {
 				const existing = this.store.get<ContinuityFinding>(FINDINGS, finding.id);
 				const reopened = existing?.resolution === 'no-longer-detected';
-				const current = existing ? { ...finding, status: reopened ? 'open' as const : existing.status, note: existing.note, createdAt: existing.createdAt, resolution: reopened ? undefined : existing.resolution, updatedAt: reopened ? now : existing.updatedAt } : finding;
+				const current = existing
+					? {
+							...finding,
+							status: reopened ? ('open' as const) : existing.status,
+							note: existing.note,
+							createdAt: existing.createdAt,
+							resolution: reopened ? undefined : existing.resolution,
+							updatedAt: reopened ? now : existing.updatedAt,
+						}
+					: finding;
 				this.store.put(FINDINGS, current.id, current);
 				results.push(current);
 			}
 			for (const previous of this.store.list<ContinuityFinding>(FINDINGS)) {
-				if (detected.has(previous.id) || previous.status === 'dismissed' || previous.status === 'resolved' || previous.seriesId !== options.seriesId) continue;
-				if (!checkTypes.includes('all') && !checkTypes.includes(this.checkFor(previous.type))) continue;
-				if (wanted && !previous.evidence.some((passage) => passage.projectId === this.source.projectId && wanted.has(passage.documentId))) continue;
+				if (
+					detected.has(previous.id) ||
+					previous.status === 'dismissed' ||
+					previous.status === 'resolved' ||
+					previous.seriesId !== options.seriesId
+				)
+					continue;
+				if (
+					!checkTypes.includes('all') &&
+					!checkTypes.includes(this.checkFor(previous.type))
+				)
+					continue;
+				if (
+					wanted &&
+					!previous.evidence.some(
+						(passage) =>
+							passage.projectId === this.source.projectId &&
+							wanted.has(passage.documentId)
+					)
+				)
+					continue;
 				previous.status = 'resolved';
 				previous.resolution = 'no-longer-detected';
 				previous.stale = previous.evidence.some((passage) => {
-					if (passage.projectId === this.source.projectId) return passageState(documents.find((document) => document.documentId === passage.documentId), passage) !== 'current';
-					return ![...projectFacts, ...seriesFacts].some((fact) => !fact.stale && fact.sources.some((source) => source.projectId === passage.projectId && source.documentId === passage.documentId && source.revision === passage.revision));
+					if (passage.projectId === this.source.projectId)
+						return (
+							passageState(
+								documents.find(
+									(document) => document.documentId === passage.documentId
+								),
+								passage
+							) !== 'current'
+						);
+					return ![...projectFacts, ...seriesFacts].some(
+						(fact) =>
+							!fact.stale &&
+							fact.sources.some(
+								(source) =>
+									source.projectId === passage.projectId &&
+									source.documentId === passage.documentId &&
+									source.revision === passage.revision
+							)
+					);
 				});
 				previous.checkedAt = now;
 				previous.updatedAt = now;
@@ -200,31 +411,58 @@ export class ContinuityService {
 			}
 			return results;
 		});
-		const issues = findings.filter((finding) => finding.status === 'open' || finding.status === 'confirmed').sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+		const issues = findings
+			.filter((finding) => finding.status === 'open' || finding.status === 'confirmed')
+			.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 		return {
 			issues,
-			counts: { total: issues.length, errors: issues.filter((issue) => issue.severity === 'error').length, warnings: issues.filter((issue) => issue.severity === 'warning').length, info: issues.filter((issue) => issue.severity === 'info').length },
+			counts: {
+				total: issues.length,
+				errors: issues.filter((issue) => issue.severity === 'error').length,
+				warnings: issues.filter((issue) => issue.severity === 'warning').length,
+				info: issues.filter((issue) => issue.severity === 'info').length,
+			},
 			checkTypes,
 			candidates,
 			analyzedDocuments: scoped.length,
 			analyzedAt: now,
-			coverage: 'Local analysis compares curated facts and explicit eye-color, hair-color and birth-year statements. Narrative candidates remain inferred; quoted/dream context and untimed flashbacks remain uncertain. Location, world-rule and chronology conflicts require curated facts with matching subjects and predicates. Keyword counts, character absence and plot-thread silence are not treated as contradictions. Story time is not inferred from binder order.',
+			coverage:
+				'Local analysis compares curated facts and explicit eye-color, hair-color and birth-year statements. Narrative candidates remain inferred; quoted/dream context and untimed flashbacks remain uncertain. Location, world-rule and chronology conflicts require curated facts with matching subjects and predicates. Keyword counts, character absence and plot-thread silence are not treated as contradictions. Story time is not inferred from binder order.',
 		};
 	}
 
 	list(options: { includeResolved?: boolean } = {}): ContinuityFinding[] {
-		return this.store.list<ContinuityFinding>(FINDINGS).filter((finding) => options.includeResolved || finding.status === 'open' || finding.status === 'confirmed').sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+		return this.store
+			.list<ContinuityFinding>(FINDINGS)
+			.filter(
+				(finding) =>
+					options.includeResolved ||
+					finding.status === 'open' ||
+					finding.status === 'confirmed'
+			)
+			.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 	}
 
-	transition(id: string, action: 'confirm' | 'dismiss' | 'resolve', note?: string): ContinuityFinding {
+	transition(
+		id: string,
+		action: 'confirm' | 'dismiss' | 'resolve',
+		note?: string
+	): ContinuityFinding {
 		storyIdentifier(id, 'Finding id');
-		if (!['confirm', 'dismiss', 'resolve'].includes(action)) throw new Error('Finding action must be confirm, dismiss or resolve');
+		if (!['confirm', 'dismiss', 'resolve'].includes(action))
+			throw new Error('Finding action must be confirm, dismiss or resolve');
 		if (note !== undefined) storyText(note, 'Finding note');
 		return this.store.transaction(() => {
 			const finding = this.store.get<ContinuityFinding>(FINDINGS, id);
 			if (!finding) throw new Error('Continuity finding was not found');
-			if (action === 'confirm' && finding.stale) throw new Error('Recheck stale source passages before confirming this finding');
-			finding.status = action === 'confirm' ? 'confirmed' : action === 'dismiss' ? 'dismissed' : 'resolved';
+			if (action === 'confirm' && finding.stale)
+				throw new Error('Recheck stale source passages before confirming this finding');
+			finding.status =
+				action === 'confirm'
+					? 'confirmed'
+					: action === 'dismiss'
+						? 'dismissed'
+						: 'resolved';
 			if (note !== undefined) finding.note = note.trim();
 			if (action === 'resolve') finding.resolution = 'author';
 			else delete finding.resolution;
@@ -236,10 +474,18 @@ export class ContinuityService {
 
 	async recheck(id?: string): Promise<ContinuityFinding[]> {
 		if (id !== undefined) storyIdentifier(id, 'Finding id');
-		let findings = id ? [this.store.get<ContinuityFinding>(FINDINGS, id)] : this.list({ includeResolved: true });
-		if (findings.some((finding) => !finding)) throw new Error('Continuity finding was not found');
-		for (const seriesId of new Set((findings as ContinuityFinding[]).map((finding) => finding.seriesId))) await this.analyze({ seriesId });
-		findings = id ? [this.store.get<ContinuityFinding>(FINDINGS, id)] : this.list({ includeResolved: true });
+		let findings = id
+			? [this.store.get<ContinuityFinding>(FINDINGS, id)]
+			: this.list({ includeResolved: true });
+		if (findings.some((finding) => !finding))
+			throw new Error('Continuity finding was not found');
+		for (const seriesId of new Set(
+			(findings as ContinuityFinding[]).map((finding) => finding.seriesId)
+		))
+			await this.analyze({ seriesId });
+		findings = id
+			? [this.store.get<ContinuityFinding>(FINDINGS, id)]
+			: this.list({ includeResolved: true });
 		const documentCache = new Map<string, Promise<SourceDocument | undefined>>();
 		const states = new Map<string, boolean>();
 		const foreignCache = new Map<string, Promise<FactView[]>>();
@@ -251,17 +497,38 @@ export class ContinuityService {
 					const cacheKey = finding.seriesId ?? '';
 					let pending = foreignCache.get(cacheKey);
 					if (!pending) {
-						pending = finding.seriesId ? this.bible.listFacts({ kind: 'series', id: finding.seriesId }) : Promise.resolve([]);
+						pending = finding.seriesId
+							? this.bible.listFacts({ kind: 'series', id: finding.seriesId })
+							: Promise.resolve([]);
 						foreignCache.set(cacheKey, pending);
 					}
 					const facts = await pending;
-					if (!facts.some((fact) => fact.sources.some((source) => source.projectId === passage.projectId && source.documentId === passage.documentId && source.revision === passage.revision) && !fact.stale)) stale = true;
+					if (
+						!facts.some(
+							(fact) =>
+								fact.sources.some(
+									(source) =>
+										source.projectId === passage.projectId &&
+										source.documentId === passage.documentId &&
+										source.revision === passage.revision
+								) && !fact.stale
+						)
+					)
+						stale = true;
 					continue;
 				}
 				let pending = documentCache.get(key);
 				if (!pending) {
 					pending = this.source.read(passage.documentId).catch((error: unknown) => {
-						if (error && typeof error === 'object' && 'code' in error && ['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(String(error.code))) return undefined;
+						if (
+							error &&
+							typeof error === 'object' &&
+							'code' in error &&
+							['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(
+								String(error.code)
+							)
+						)
+							return undefined;
 						throw error;
 					});
 					documentCache.set(key, pending);
@@ -270,21 +537,37 @@ export class ContinuityService {
 			}
 			states.set(finding.id, stale);
 		}
-		return this.store.transaction(() => (findings as ContinuityFinding[]).map((before) => {
-			const finding = this.store.get<ContinuityFinding>(FINDINGS, before.id);
-			if (!finding) throw new Error('Continuity finding disappeared while rechecking');
-			finding.stale = states.get(finding.id) ?? true;
-			finding.checkedAt = new Date().toISOString();
-			this.store.put(FINDINGS, finding.id, finding);
-			return finding;
-		}));
+		return this.store.transaction(() =>
+			(findings as ContinuityFinding[]).map((before) => {
+				const finding = this.store.get<ContinuityFinding>(FINDINGS, before.id);
+				if (!finding) throw new Error('Continuity finding disappeared while rechecking');
+				finding.stale = states.get(finding.id) ?? true;
+				finding.checkedAt = new Date().toISOString();
+				this.store.put(FINDINGS, finding.id, finding);
+				return finding;
+			})
+		);
 	}
 
 	private category(kind: StoryFact['kind']): ContinuityFinding['type'] {
-		return kind === 'character' || kind === 'alias' ? 'character' : kind === 'location' ? 'location' : kind === 'world-rule' ? 'worldbuilding' : 'timeline';
+		return kind === 'character' || kind === 'alias'
+			? 'character'
+			: kind === 'location'
+				? 'location'
+				: kind === 'world-rule'
+					? 'worldbuilding'
+					: 'timeline';
 	}
 
 	private checkFor(type: ContinuityFinding['type']): ContinuityCheck {
-		return type === 'character' ? 'characters' : type === 'timeline' ? 'timeline' : type === 'location' ? 'locations' : type === 'plot' ? 'plotThreads' : 'locations';
+		return type === 'character'
+			? 'characters'
+			: type === 'timeline'
+				? 'timeline'
+				: type === 'location'
+					? 'locations'
+					: type === 'plot'
+						? 'plotThreads'
+						: 'locations';
 	}
 }

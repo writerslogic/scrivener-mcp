@@ -6,9 +6,21 @@
  * in minimal containers without an external binary (e.g. Pandoc).
  */
 
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import {
+	Document,
+	Packer,
+	Paragraph,
+	TextRun,
+	HeadingLevel,
+	AlignmentType,
+	Header,
+	Footer,
+	PageNumber,
+} from 'docx';
 import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
 import * as epubGenMemory from 'epub-gen-memory';
+import type { RTFContent } from '../parsers/rtf-handler.js';
+import { EXPORT_PRESETS, type ExportPreset } from './export-presets.js';
 
 type EpubFn = (
 	options: { title: string; author?: string },
@@ -28,6 +40,7 @@ function resolveCallable(mod: unknown): EpubFn {
 const generateEpub = resolveCallable(epubGenMemory);
 
 export interface ExportSection {
+	id?: string;
 	/** Document or folder title, used as a heading. */
 	title: string;
 	/** Plain-text body of the document ('' for folders). */
@@ -36,11 +49,15 @@ export interface ExportSection {
 	depth: number;
 	/** True for folder/group items, which contribute a heading but no body. */
 	isFolder: boolean;
+	sectionType?: 'part' | 'chapter' | 'scene' | 'front-matter';
+	formattedText?: RTFContent['formattedText'];
+	notes?: string[];
 }
 
 export interface ExportMeta {
 	title: string;
 	author?: string;
+	preset?: ExportPreset;
 }
 
 /** Split a plain-text body into non-empty paragraphs on blank lines / newlines. */
@@ -56,6 +73,23 @@ function escapeHtml(s: string): string {
 	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function styledParagraphs(section: ExportSection): Array<RTFContent['formattedText']> {
+	const runs =
+		section.formattedText?.map((run) => run.text).join('') === section.text
+			? section.formattedText
+			: [{ text: section.text }];
+	const paragraphs: Array<RTFContent['formattedText']> = [[]];
+	for (const run of runs ?? []) {
+		const parts = run.text.split(/\r?\n/);
+		for (let index = 0; index < parts.length; index++) {
+			if (index) paragraphs.push([]);
+			if (parts[index])
+				paragraphs[paragraphs.length - 1].push({ text: parts[index], style: run.style });
+		}
+	}
+	return paragraphs.filter((paragraph) => paragraph.some((run) => run.text.trim()));
+}
+
 // ---------------------------------------------------------------------------
 // DOCX
 // ---------------------------------------------------------------------------
@@ -68,6 +102,7 @@ const DOCX_HEADINGS = [
 ];
 
 export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promise<Buffer> {
+	const preset = meta.preset ? EXPORT_PRESETS[meta.preset] : undefined;
 	const children: Paragraph[] = [
 		new Paragraph({
 			text: meta.title,
@@ -82,18 +117,110 @@ export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promi
 	}
 
 	for (const section of sections) {
-		children.push(
-			new Paragraph({
-				text: section.title,
-				heading: DOCX_HEADINGS[Math.min(section.depth, DOCX_HEADINGS.length - 1)],
-			})
-		);
-		for (const para of splitParagraphs(section.text)) {
-			children.push(new Paragraph({ children: [new TextRun(para)] }));
+		if (section.sectionType !== 'scene' || !meta.preset)
+			children.push(
+				new Paragraph({
+					text: section.title,
+					heading: DOCX_HEADINGS[Math.min(section.depth, DOCX_HEADINGS.length - 1)],
+					pageBreakBefore:
+						!!meta.preset &&
+						(section.sectionType === 'chapter' || section.sectionType === 'part'),
+				})
+			);
+		if (section.sectionType === 'scene' && meta.preset)
+			children.push(new Paragraph({ text: '#', alignment: AlignmentType.CENTER }));
+		for (const para of styledParagraphs(section)) {
+			children.push(
+				new Paragraph({
+					children: para.map(
+						(run) =>
+							new TextRun({
+								text: run.text,
+								bold: run.style?.bold,
+								italics: run.style?.italic,
+								underline: run.style?.underline ? {} : undefined,
+								strike: run.style?.strikethrough,
+							})
+					),
+				})
+			);
 		}
+		for (const note of section.notes ?? [])
+			children.push(
+				new Paragraph({
+					children: [new TextRun({ text: note, italics: true })],
+					style: 'EditorialNote',
+				})
+			);
 	}
 
-	const doc = new Document({ sections: [{ children }] });
+	const doc = new Document({
+		creator: meta.author,
+		title: meta.title,
+		styles: preset
+			? {
+					default: {
+						document: {
+							run: { font: preset.font, size: preset.fontSize },
+							paragraph: {
+								spacing: { line: preset.line, after: preset.paragraphAfter },
+								indent: { firstLine: preset.firstLine },
+							},
+						},
+					},
+					paragraphStyles: [
+						{
+							id: 'EditorialNote',
+							name: 'Editorial note',
+							basedOn: 'Normal',
+							run: { italics: true },
+							paragraph: { indent: { firstLine: 0 } },
+						},
+					],
+				}
+			: undefined,
+		sections: [
+			{
+				properties: preset
+					? {
+							page: {
+								size: { width: 12240, height: 15840 },
+								margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 },
+							},
+						}
+					: undefined,
+				headers: preset
+					? {
+							default: new Header({
+								children: [
+									new Paragraph({
+										alignment: AlignmentType.RIGHT,
+										children: [
+											new TextRun(
+												`${meta.author || 'Author'} / ${meta.title}`
+											),
+										],
+									}),
+								],
+							}),
+						}
+					: undefined,
+				footers: preset
+					? {
+							default: new Footer({
+								children: [
+									new Paragraph({
+										alignment: AlignmentType.RIGHT,
+										children: [new TextRun({ children: [PageNumber.CURRENT] })],
+									}),
+								],
+							}),
+						}
+					: undefined,
+				children,
+			},
+		],
+	});
 	return Packer.toBuffer(doc);
 }
 
@@ -107,9 +234,24 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 		.map((s) => ({
 			title: s.title,
 			content:
-				splitParagraphs(s.text)
-					.map((p) => `<p>${escapeHtml(p)}</p>`)
-					.join('\n') || '<p></p>',
+				`<h${Math.min(s.depth + 1, 6)}>${escapeHtml(s.title)}</h${Math.min(s.depth + 1, 6)}>` +
+				(styledParagraphs(s)
+					.map(
+						(paragraph) =>
+							`<p>${paragraph
+								.map((run) => {
+									let text = escapeHtml(run.text);
+									if (run.style?.bold) text = `<strong>${text}</strong>`;
+									if (run.style?.italic) text = `<em>${text}</em>`;
+									if (run.style?.underline)
+										text = `<span style="text-decoration:underline">${text}</span>`;
+									if (run.style?.strikethrough) text = `<s>${text}</s>`;
+									return text;
+								})
+								.join('')}</p>`
+					)
+					.join('\n') || '<p></p>') +
+				(s.notes ?? []).map((note) => `<aside><p>${escapeHtml(note)}</p></aside>`).join(''),
 		}));
 
 	const result = await generateEpub(

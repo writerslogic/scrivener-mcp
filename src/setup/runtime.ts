@@ -3,7 +3,8 @@ import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 
-export const MIN_NODE_MAJOR = 18;
+export const MIN_NODE_MAJOR = 22;
+export const MIN_NODE_VERSION = '22.13.0';
 
 export interface NodeRuntime {
 	node: string;
@@ -94,7 +95,7 @@ export function findRuntimes(): NodeRuntime[] {
 		candidates.push([p, 'fnm']);
 	}
 	for (const dir of (process.env.PATH ?? '').split(delimiter).filter(Boolean)) {
-		candidates.push([join(dir, 'node'), 'path']);
+		candidates.push([join(dir, process.platform === 'win32' ? 'node.exe' : 'node'), 'path']);
 	}
 
 	const seen = new Set<string>();
@@ -114,9 +115,14 @@ export function chooseRuntime(
 	current: NodeRuntime | null = currentRuntime()
 ): NodeRuntime | null {
 	const usable = (rt: NodeRuntime | null): rt is NodeRuntime =>
-		rt !== null && rt.major >= MIN_NODE_MAJOR && rt.npx !== null;
+		rt !== null && isSupportedRuntime(rt) && rt.npx !== null;
 	if (usable(current)) return current;
 	return candidates.find(usable) ?? null;
+}
+
+export function isSupportedRuntime(runtime: NodeRuntime): boolean {
+	const parts = runtime.version.replace(/^v/, '').split('.').map(Number);
+	return runtime.major > MIN_NODE_MAJOR || (runtime.major === MIN_NODE_MAJOR && parts[1] >= 13);
 }
 
 /**
@@ -125,6 +131,18 @@ export function chooseRuntime(
  */
 export function serverEntry(runtime: NodeRuntime): ServerEntry {
 	const binDir = dirname(runtime.node);
+	if (process.platform === 'win32' && runtime.npx) {
+		const npxCli = join(binDir, 'node_modules', 'npm', 'bin', 'npx-cli.js');
+		if (!existsSync(npxCli))
+			throw new Error(
+				'npm npx-cli.js was not found beside Node; reinstall the official Node distribution'
+			);
+		return {
+			command: runtime.node,
+			args: [npxCli, '-y', 'scrivener-mcp'],
+			env: { PATH: [binDir, process.env.PATH ?? ''].join(delimiter) },
+		};
+	}
 	return {
 		command: runtime.npx ?? runtime.node,
 		args: runtime.npx ? ['-y', 'scrivener-mcp'] : [],

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Scrivener MCP bootstrap for macOS and Linux.
 #
-# Makes sure a usable Node.js (version 18 or newer, with npx) exists, then runs scrivener-setup.
+# Makes sure a usable Node.js (version 22.13 or newer, with npx) exists, then runs scrivener-setup.
 # If Node is missing it installs the official build into ~/.scrivener-mcp/node. That needs no
 # administrator password and touches nothing else on the system.
 #
@@ -13,7 +13,7 @@
 
 set -eu
 
-MIN_MAJOR=18
+MIN_MAJOR=22
 NODE_LINE="v22"
 PRIVATE_DIR="$HOME/.scrivener-mcp/node"
 

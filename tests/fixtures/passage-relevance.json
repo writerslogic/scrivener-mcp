@@ -1,17 +1,53 @@
 {
-  "license": "CC0-1.0; original synthetic passages written for this repository",
-  "documents": [
-    { "id": "00000000-0000-4000-8000-000000000001", "title": "The Bargain", "text": "Her closest friend sold their plan to the enemy in exchange for gold. Mira watched the departing rider, unaware of the bargain." },
-    { "id": "00000000-0000-4000-8000-000000000002", "title": "The Photograph", "text": "At the funeral, Mira held her mother's photograph and wept beside the grave. The room slowly emptied around her." },
-    { "id": "00000000-0000-4000-8000-000000000003", "title": "The Grate", "text": "The prisoner broke free through a loose grate and fled across the courtyard. Behind him, the cell door slammed." },
-    { "id": "00000000-0000-4000-8000-000000000004", "title": "The Register", "text": "Under a false name, Pavel entered the inn and signed the register. He pulled his collar high before anyone could recognize him." },
-    { "id": "00000000-0000-4000-8000-000000000005", "title": "Market Day", "text": "The baker arranged warm loaves on the counter. Children counted apples while a cart rattled along the street." },
-    { "id": "00000000-0000-4000-8000-000000000006", "title": "Weather Station", "text": "Rain swept across the harbor. Thunder echoed over the empty quay as the keeper checked the instruments." }
-  ],
-  "queries": [
-    { "query": "betrayal by a trusted companion", "relevantDocumentId": "00000000-0000-4000-8000-000000000001" },
-    { "query": "mourning a loved one", "relevantDocumentId": "00000000-0000-4000-8000-000000000002" },
-    { "query": "escape from captivity", "relevantDocumentId": "00000000-0000-4000-8000-000000000003" },
-    { "query": "concealed identity", "relevantDocumentId": "00000000-0000-4000-8000-000000000004" }
-  ]
+	"license": "CC0-1.0; original synthetic passages written for this repository",
+	"documents": [
+		{
+			"id": "00000000-0000-4000-8000-000000000001",
+			"title": "The Bargain",
+			"text": "Her closest friend sold their plan to the enemy in exchange for gold. Mira watched the departing rider, unaware of the bargain."
+		},
+		{
+			"id": "00000000-0000-4000-8000-000000000002",
+			"title": "The Photograph",
+			"text": "At the funeral, Mira held her mother's photograph and wept beside the grave. The room slowly emptied around her."
+		},
+		{
+			"id": "00000000-0000-4000-8000-000000000003",
+			"title": "The Grate",
+			"text": "The prisoner broke free through a loose grate and fled across the courtyard. Behind him, the cell door slammed."
+		},
+		{
+			"id": "00000000-0000-4000-8000-000000000004",
+			"title": "The Register",
+			"text": "Under a false name, Pavel entered the inn and signed the register. He pulled his collar high before anyone could recognize him."
+		},
+		{
+			"id": "00000000-0000-4000-8000-000000000005",
+			"title": "Market Day",
+			"text": "The baker arranged warm loaves on the counter. Children counted apples while a cart rattled along the street."
+		},
+		{
+			"id": "00000000-0000-4000-8000-000000000006",
+			"title": "Weather Station",
+			"text": "Rain swept across the harbor. Thunder echoed over the empty quay as the keeper checked the instruments."
+		}
+	],
+	"queries": [
+		{
+			"query": "betrayal by a trusted companion",
+			"relevantDocumentId": "00000000-0000-4000-8000-000000000001"
+		},
+		{
+			"query": "mourning a loved one",
+			"relevantDocumentId": "00000000-0000-4000-8000-000000000002"
+		},
+		{
+			"query": "escape from captivity",
+			"relevantDocumentId": "00000000-0000-4000-8000-000000000003"
+		},
+		{
+			"query": "concealed identity",
+			"relevantDocumentId": "00000000-0000-4000-8000-000000000004"
+		}
+	]
 }

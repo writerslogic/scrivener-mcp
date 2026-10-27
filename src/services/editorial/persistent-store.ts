@@ -19,37 +19,53 @@ export class PersistentStore {
 			throw new Error('Editorial database schema is newer than this server supports');
 		}
 		this.db.transaction(() => {
-			this.db.exec('CREATE TABLE IF NOT EXISTS editorial_state (namespace TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace, id))');
+			this.db.exec(
+				'CREATE TABLE IF NOT EXISTS editorial_state (namespace TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace, id))'
+			);
 			this.db.pragma('user_version = 1');
 		})();
 	}
 
 	get<T>(namespace: string, id: string): T | undefined {
-		const row = this.db.prepare('SELECT value FROM editorial_state WHERE namespace = ? AND id = ?').get(namespace, id) as { value: string } | undefined;
-		return row ? JSON.parse(row.value) as T : undefined;
+		const row = this.db
+			.prepare('SELECT value FROM editorial_state WHERE namespace = ? AND id = ?')
+			.get(namespace, id) as { value: string } | undefined;
+		return row ? (JSON.parse(row.value) as T) : undefined;
 	}
 
 	list<T>(namespace: string): T[] {
-		const rows = this.db.prepare('SELECT value FROM editorial_state WHERE namespace = ? ORDER BY id').all(namespace) as Array<{ value: string }>;
+		const rows = this.db
+			.prepare('SELECT value FROM editorial_state WHERE namespace = ? ORDER BY id')
+			.all(namespace) as Array<{ value: string }>;
 		return rows.map((row) => JSON.parse(row.value) as T);
 	}
 
 	put<T>(namespace: string, id: string, value: T): void {
 		const json = JSON.stringify(value);
-		if (json === undefined || Buffer.byteLength(json) > 64 * 1024 * 1024) throw new Error('Editorial state exceeds the storage limit');
-		this.db.prepare('INSERT INTO editorial_state(namespace, id, value) VALUES (?, ?, ?) ON CONFLICT(namespace, id) DO UPDATE SET value = excluded.value').run(namespace, id, json);
+		if (json === undefined || Buffer.byteLength(json) > 64 * 1024 * 1024)
+			throw new Error('Editorial state exceeds the storage limit');
+		this.db
+			.prepare(
+				'INSERT INTO editorial_state(namespace, id, value) VALUES (?, ?, ?) ON CONFLICT(namespace, id) DO UPDATE SET value = excluded.value'
+			)
+			.run(namespace, id, json);
 	}
 
 	delete(namespace: string, id: string): void {
-		this.db.prepare('DELETE FROM editorial_state WHERE namespace = ? AND id = ?').run(namespace, id);
+		this.db
+			.prepare('DELETE FROM editorial_state WHERE namespace = ? AND id = ?')
+			.run(namespace, id);
 	}
 
 	transaction<T>(operation: () => T): T {
-		return this.db.transaction(() => {
-			const result = operation();
-			if (result && typeof (result as { then?: unknown }).then === 'function') throw new Error('Persistent transactions must be synchronous');
-			return result;
-		}).immediate();
+		return this.db
+			.transaction(() => {
+				const result = operation();
+				if (result && typeof (result as { then?: unknown }).then === 'function')
+					throw new Error('Persistent transactions must be synchronous');
+				return result;
+			})
+			.immediate();
 	}
 
 	close(): void {

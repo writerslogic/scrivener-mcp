@@ -26,16 +26,7 @@ export default {
 	roots: ['<rootDir>/src', '<rootDir>/tests'],
 	testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
 	collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/**/__tests__/**', '!src/index.ts'],
-	testPathIgnorePatterns: [
-		'/node_modules/',
-		// Pre-existing failures exposed when || true was removed from CI.
-		// These test real code but fail due to API drift, LangChain ESM/Jest
-		// incompatibility, or BullMQ type changes. Tracked as technical debt.
-		'tests/integration/embedded-queue\\.test\\.ts',
-		'tests/unit/handlers/database/neo4j-manager\\.test\\.ts',
-		'tests/unit/services/document-manager\\.test\\.ts',
-		'tests/unit/services/keydb-installer\\.test\\.ts',
-	],
+	testPathIgnorePatterns: ['/node_modules/'],
 	coverageThreshold: {
 		global: {
 			branches: 5,

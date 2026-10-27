@@ -1,6 +1,4 @@
-import { SemanticDatabaseLayer } from '../handlers/database/semantic-database-layer.js';
 import { validateInput } from '../utils/common.js';
-import { getLogger } from '../core/logger.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getOptionalBooleanArg,
@@ -10,24 +8,6 @@ import {
 	getStringArg,
 	requireProject,
 } from './types.js';
-const logger = getLogger('search-handlers');
-
-// Cached singleton instances to avoid re-instantiation per request
-let cachedSemanticLayer: SemanticDatabaseLayer | null = null;
-let cachedSemanticLayerDbService: unknown = null;
-
-async function getSemanticLayer(
-	databaseService: NonNullable<unknown>
-): Promise<SemanticDatabaseLayer> {
-	if (!cachedSemanticLayer || cachedSemanticLayerDbService !== databaseService) {
-		cachedSemanticLayer = new SemanticDatabaseLayer(
-			databaseService as ConstructorParameters<typeof SemanticDatabaseLayer>[0]
-		);
-		await cachedSemanticLayer.initialize();
-		cachedSemanticLayerDbService = databaseService;
-	}
-	return cachedSemanticLayer;
-}
 
 import { compact } from '../core/response-formatter.js';
 import { SHARED_DEFS } from './shared-schemas.js';
@@ -177,102 +157,36 @@ export const searchContentHandler: ToolDefinition = {
 			};
 		}
 
-		try {
-			// Use semantic database layer for intelligent search if available
-			if (!context.databaseService) {
-				throw new Error('Database service not available for semantic search');
-			}
-
-			const semanticLayer = await getSemanticLayer(context.databaseService!);
-
-			const semanticResults = await semanticLayer.semanticQuery(query, {
-				threshold: 0.3,
-				maxResults: 20,
-				includeEntities: true,
-				includeRelationships: true,
-			});
-
-			// Trim results to compact snippets
-			const trimmedResults = (semanticResults.documents || []).map(
-				(doc: Record<string, unknown>) => ({
-					id: doc.id,
-					title: doc.title || 'Untitled',
-					snippet:
-						typeof doc.content === 'string'
-							? doc.content.length > 100
-								? `${doc.content.slice(0, 100)}...`
-								: doc.content
-							: typeof doc.text === 'string'
-								? doc.text.length > 100
-									? `${doc.text.slice(0, 100)}...`
-									: doc.text
-								: '',
-					score: doc.score ?? doc.relevance ?? null,
-				})
-			);
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Found ${trimmedResults.length} semantic matches\n${compact({
-							results: trimmedResults,
-							searchType: 'semantic',
-						})}`,
-					},
-				],
-				structuredContent: { results: trimmedResults },
-			};
-		} catch (error) {
-			logger.warn('Semantic search failed, falling back to basic search', { error });
-			const results = await project.searchContent(query, {
-				caseSensitive,
-				regex,
-				includeTrash,
-				searchMetadata: searchIn?.includes('synopsis') || searchIn?.includes('notes'),
-			});
-
-			// Trim fallback results to compact snippets
-			const trimmedResults = results.map((r: Record<string, unknown>) => ({
-				id: (r.id as string) || 'unknown',
-				title: (r.title as string) || 'Untitled',
-				snippet:
-					typeof r.content === 'string'
-						? r.content.length > 100
-							? `${r.content.slice(0, 100)}...`
-							: r.content
-						: typeof r.text === 'string'
-							? r.text.length > 100
-								? `${r.text.slice(0, 100)}...`
-								: r.text
-							: '',
-				score: r.score ?? null,
+		if (!regex && !caseSensitive && !includeTrash && !searchIn?.length) {
+			const found = await project
+				.getEditorialServices()
+				.search.search(query, { limit: 20, mode: 'hybrid' });
+			const results = found.results.map((match) => ({
+				...match,
+				id: match.documentId,
+				snippet: match.context,
 			}));
-
-			// Signal the degradation explicitly: this was keyword matching, not
-			// meaning-based search, so a "find passages about X" query may miss
-			// conceptually-related results that use different words.
 			return {
-				content: [
-					{
-						type: 'text',
-						text:
-							`Semantic search was unavailable, so this is a KEYWORD search (not meaning-based) ` +
-							`— conceptually related passages using other words may be missed. Found ` +
-							`${trimmedResults.length} matches.\n${compact({
-								results: trimmedResults,
-								searchType: 'keyword',
-								degraded: true,
-							})}`,
-					},
-				],
-				structuredContent: {
-					results: trimmedResults,
-					searchType: 'keyword',
-					degraded: true,
-				},
+				content: [{ type: 'text', text: JSON.stringify({ ...found, results }) }],
+				structuredContent: { ...found, results },
 			};
 		}
+		const found = await project.searchContent(query, {
+			caseSensitive,
+			regex,
+			includeTrash,
+			searchMetadata: searchIn?.includes('synopsis') || searchIn?.includes('notes'),
+		});
+		const results = found.map((match) => ({
+			id: match.documentId,
+			title: match.title,
+			snippet: match.matches.join('\n'),
+			score: null,
+		}));
+		return {
+			content: [{ type: 'text', text: JSON.stringify({ results, searchType: 'keyword' }) }],
+			structuredContent: { results, searchType: 'keyword' },
+		};
 	},
 };
 

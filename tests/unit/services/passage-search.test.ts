@@ -21,9 +21,29 @@ describe('local passage retrieval', () => {
 
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), 'scrivener-passages-'));
-		fixture = JSON.parse(await readFile(join(__dirname, '../../fixtures/passage-relevance.json'), 'utf8')) as RelevanceFixture;
-		documents = fixture.documents.map((doc, order) => ({ projectId: 'fixture-project', documentId: doc.id, title: doc.title, text: doc.text, revision: createHash('sha256').update(doc.text).digest('hex'), path: `Draft/${doc.title}`, order, metadata: {} }));
-		source = { projectId: 'fixture-project', projectPath: dir, list: async () => documents, read: async (id) => { const doc = documents.find((item) => item.documentId === id); if (!doc) throw new Error('Missing fixture document'); return doc; } };
+		fixture = JSON.parse(
+			await readFile(join(__dirname, '../../fixtures/passage-relevance.json'), 'utf8')
+		) as RelevanceFixture;
+		documents = fixture.documents.map((doc, order) => ({
+			projectId: 'fixture-project',
+			documentId: doc.id,
+			title: doc.title,
+			text: doc.text,
+			revision: createHash('sha256').update(doc.text).digest('hex'),
+			path: `Draft/${doc.title}`,
+			order,
+			metadata: {},
+		}));
+		source = {
+			projectId: 'fixture-project',
+			projectPath: dir,
+			list: async () => documents,
+			read: async (id) => {
+				const doc = documents.find((item) => item.documentId === id);
+				if (!doc) throw new Error('Missing fixture document');
+				return doc;
+			},
+		};
 		store = new PersistentStore(join(dir, 'editorial.sqlite'));
 		search = new PassageSearch(source, store);
 	});
@@ -42,13 +62,18 @@ describe('local passage retrieval', () => {
 			expect(result.results[0]?.semanticScore).toBeGreaterThan(0.4);
 			expect(result.results[0]?.matchedConcepts.length).toBeGreaterThan(0);
 		}
-		const unknown = await search.search('nonrepresentational epistemology', { mode: 'semantic' });
+		const unknown = await search.search('nonrepresentational epistemology', {
+			mode: 'semantic',
+		});
 		expect(unknown.results).toEqual([]);
 		expect(unknown.limitations).toContain('bounded English');
 	});
 
 	it('keeps exact passages, Unicode offsets, context and revisions through incremental changes and restart', async () => {
-		documents[0] = { ...documents[0], text: `Prelude 🌙\n\n${'A quiet threshold. '.repeat(90)}\n\nHer closest friend sold their plan to the enemy.` };
+		documents[0] = {
+			...documents[0],
+			text: `Prelude 🌙\n\n${'A quiet threshold. '.repeat(90)}\n\nHer closest friend sold their plan to the enemy.`,
+		};
 		documents[0].revision = createHash('sha256').update(documents[0].text).digest('hex');
 		const first = await search.search('betrayal', { mode: 'semantic', contextChars: 80 });
 		const hit = first.results[0];
@@ -61,7 +86,11 @@ describe('local passage retrieval', () => {
 		store = new PersistentStore(join(dir, 'editorial.sqlite'));
 		search = new PassageSearch(source, store);
 		expect((await search.refresh()).changedDocuments).toBe(0);
-		documents[0] = { ...documents[0], text: 'The baker arranged fresh loaves.', revision: 'new-saved-revision' };
+		documents[0] = {
+			...documents[0],
+			text: 'The baker arranged fresh loaves.',
+			revision: 'new-saved-revision',
+		};
 		const changed = await search.search('betrayal', { mode: 'semantic' });
 		expect(changed.index.changedDocuments).toBe(1);
 		expect(changed.results).toEqual([]);
@@ -73,8 +102,15 @@ describe('local passage retrieval', () => {
 		await expect(search.search('bread', { limit })).rejects.toThrow('1 to 50');
 	});
 
-	it.each([1, 50])('accepts boundary result limit %s and enforces document scope', async (limit) => {
-		const result = await search.search('betrayal', { mode: 'semantic', limit, documentIds: [documents[4].documentId] });
-		expect(result.results).toEqual([]);
-	});
+	it.each([1, 50])(
+		'accepts boundary result limit %s and enforces document scope',
+		async (limit) => {
+			const result = await search.search('betrayal', {
+				mode: 'semantic',
+				limit,
+				documentIds: [documents[4].documentId],
+			});
+			expect(result.results).toEqual([]);
+		}
+	);
 });

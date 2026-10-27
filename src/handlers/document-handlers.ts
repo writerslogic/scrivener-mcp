@@ -297,6 +297,16 @@ export const writeDocumentHandler: ToolDefinition = {
 			documentId: SHARED_DEFS.docId,
 			content: SHARED_DEFS.content,
 			force: SHARED_DEFS.force,
+			expectedRevision: {
+				type: 'string',
+				description:
+					'SHA-256 saved source revision from read_document or manuscript_dashboard; stale writes are rejected.',
+			},
+			allowFormattingLoss: {
+				type: 'boolean',
+				description:
+					'Explicitly acknowledge disclosed formatting risk. Prefer review_changes preview before applying a lossy change.',
+			},
 		},
 		required: ['documentId', 'content'],
 	},
@@ -317,9 +327,12 @@ export const writeDocumentHandler: ToolDefinition = {
 				);
 			}
 
-			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			const { result: report } = await measureExecution(() =>
-				project.writeDocumentPreserving(documentId, content)
+				project.writeDocumentPreserving(documentId, content, {
+					force: getOptionalBooleanArg(args, 'force'),
+					expectedRevision: getOptionalStringArg(args, 'expectedRevision'),
+					allowFormattingLoss: getOptionalBooleanArg(args, 'allowFormattingLoss'),
+				})
 			);
 
 			// Update HHM memory with new content

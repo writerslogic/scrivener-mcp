@@ -13,15 +13,29 @@ export function storyIdentifier(value: unknown, label: string): string {
 }
 
 export function storyText(value: unknown, label: string, max = 2000): string {
-	if (typeof value !== 'string' || value.trim().length === 0 || value.length > max || value.includes('\0')) {
+	if (
+		typeof value !== 'string' ||
+		value.trim().length === 0 ||
+		value.length > max ||
+		value.includes('\0')
+	) {
 		throw new Error(`${label} must contain 1 to ${max} characters without null bytes`);
 	}
 	return value.trim();
 }
 
 export function sourcePassage(document: SourceDocument, start: number, end: number): SourcePassage {
-	if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > document.text.length || end - start > 10000) {
-		throw new Error('Source passage must be a non-empty range of at most 10000 UTF-16 code units within the document');
+	if (
+		!Number.isSafeInteger(start) ||
+		!Number.isSafeInteger(end) ||
+		start < 0 ||
+		end <= start ||
+		end > document.text.length ||
+		end - start > 10000
+	) {
+		throw new Error(
+			'Source passage must be a non-empty range of at most 10000 UTF-16 code units within the document'
+		);
 	}
 	return {
 		projectId: document.projectId,
@@ -37,16 +51,32 @@ export function sourcePassage(document: SourceDocument, start: number, end: numb
 }
 
 export function verifyPassage(document: SourceDocument, passage: SourcePassage): SourcePassage {
-	if (!passage || typeof passage !== 'object' || passage.projectId !== document.projectId || passage.documentId !== document.documentId || passage.revision !== document.revision) {
-		throw new Error('Source identity or saved revision no longer matches the proposed provenance');
+	if (
+		!passage ||
+		typeof passage !== 'object' ||
+		passage.projectId !== document.projectId ||
+		passage.documentId !== document.documentId ||
+		passage.revision !== document.revision
+	) {
+		throw new Error(
+			'Source identity or saved revision no longer matches the proposed provenance'
+		);
 	}
 	const canonical = sourcePassage(document, passage.start, passage.end);
-	if (canonical.quote !== passage.quote) throw new Error('Source quotation does not match the manuscript range');
+	if (canonical.quote !== passage.quote)
+		throw new Error('Source quotation does not match the manuscript range');
 	return canonical;
 }
 
-export function passageState(document: SourceDocument | undefined, passage: SourcePassage): 'current' | 'stale' | 'unavailable' {
+export function passageState(
+	document: SourceDocument | undefined,
+	passage: SourcePassage
+): 'current' | 'stale' | 'unavailable' {
 	if (!document) return 'unavailable';
-	if (document.revision !== passage.revision || document.text.slice(passage.start, passage.end) !== passage.quote) return 'stale';
+	if (
+		document.revision !== passage.revision ||
+		document.text.slice(passage.start, passage.end) !== passage.quote
+	)
+		return 'stale';
 	return 'current';
 }
