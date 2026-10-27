@@ -1,329 +1,157 @@
-/**
- * Tests for KeyDB Auto-Installer
- */
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { KeyDBInstaller } from '../../../src/services/auto-setup/keydb-installer.js';
+import type { ConnectionInfo } from '../../../src/services/queue/keydb-detector.js';
+import type { PlatformInfo } from '../../../src/utils/env-config.js';
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { KeyDBInstaller } from '../../../src/services/auto-setup/keydb-installer';
-import * as child_process from 'child_process';
+interface Output { stdout: string; stderr: string }
+const mockCommands: string[] = [];
+const mockExecAsync = jest.fn<(command: string, options?: unknown) => Promise<Output>>();
+const mockDetectConnection = jest.fn<() => Promise<ConnectionInfo>>();
+const mockCommandExists = jest.fn<(command: string) => Promise<boolean>>();
+const mockSafeExec = jest.fn<(command: string) => Promise<Output>>();
+const mockDetectPlatform = jest.fn<() => Promise<PlatformInfo>>();
+const mockServiceReady = jest.fn<() => Promise<void>>();
+const mockDockerReady = jest.fn<() => Promise<void>>();
+const mockPermissionCommands: string[] = [];
+let mockHasPermission = false;
 
-// Mock child_process
-jest.mock('child_process');
-jest.mock('../../../src/services/queue/keydb-detector', () => ({
-	detectConnection: jest.fn(),
+jest.mock('child_process', () => {
+	const actual = jest.requireActual<typeof import('child_process')>('child_process');
+	const exec = (command: string, optionsOrCallback: unknown, callback?: (error: Error | null, stdout: string, stderr: string) => void) => {
+		const done = typeof optionsOrCallback === 'function' ? optionsOrCallback as typeof callback : callback;
+		mockCommands.push(command);
+		void mockExecAsync(command).then((value) => done?.(null, value.stdout, value.stderr), (error: Error) => done?.(error, '', ''));
+		return {};
+	};
+	Object.defineProperty(exec, jest.requireActual<typeof import('util')>('util').promisify.custom, { value: (command: string, options?: unknown) => { mockCommands.push(command); return mockExecAsync(command, options); } });
+	return { ...actual, exec };
+});
+jest.mock('../../../src/services/queue/keydb-detector.js', () => ({ detectConnection: () => mockDetectConnection() }));
+jest.mock('../../../src/utils/shared-patterns.js', () => ({ ProcessUtils: { commandExists: (command: string) => mockCommandExists(command), safeExec: (command: string) => mockSafeExec(command) } }));
+jest.mock('../../../src/utils/env-config.js', () => ({ detectPlatform: () => mockDetectPlatform() }));
+jest.mock('../../../src/utils/condition-waiter.js', () => ({ waitForServiceReady: () => mockServiceReady(), waitForDockerContainer: () => mockDockerReady() }));
+jest.mock('../../../src/utils/adaptive-timeout.js', () => ({ AdaptiveTimeout: class { async wait<T>(operation: Promise<T>): Promise<T> { return operation; } }, ProgressIndicators: { outputProgress: () => ({ type: 'output' }) } }));
+jest.mock('../../../src/utils/permission-manager.js', () => ({
+	PermissionManager: {
+		checkSystemPermissions: async () => ({ hasPermission: mockHasPermission, needsSudo: !mockHasPermission, method: 'none' }),
+		getAlternatives: () => ['Use the embedded queue'],
+		executeWithPermissions: async (command: string) => { mockPermissionCommands.push(command); throw new Error('Permission denied'); },
+	},
+	withPermissionHandling: <T extends unknown[], R>(work: (...args: T) => Promise<R>) => work,
 }));
+jest.mock('../../../src/core/logger.js', () => ({ getLogger: () => ({ info: () => undefined, debug: () => undefined, warn: () => undefined, error: () => undefined }) }));
 
-describe('KeyDBInstaller', () => {
-	let installer: KeyDBInstaller;
-	let mockExec: any;
-	let detectConnectionMock: any;
+let installer: KeyDBInstaller;
+const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+beforeEach(async () => {
+	jest.clearAllMocks();
+	mockCommands.length = 0;
+	mockPermissionCommands.length = 0;
+	mockHasPermission = false;
+	mockDetectConnection.mockResolvedValue({ isAvailable: false, type: 'none', url: null });
+	mockCommandExists.mockResolvedValue(false);
+	mockSafeExec.mockRejectedValue(new Error('Command unavailable'));
+	mockServiceReady.mockResolvedValue(undefined);
+	mockDockerReady.mockResolvedValue(undefined);
+	mockExecAsync.mockImplementation(async () => { throw new Error('Command unavailable'); });
+	mockDetectPlatform.mockResolvedValue({ platform: 'win32', architecture: 'x64', packageManagers: [], isContainer: false, isWsl: false, sudoRequired: true });
+	installer = await KeyDBInstaller.getInstance();
+});
+afterEach(() => { Object.defineProperty(process, 'platform', platformDescriptor); jest.restoreAllMocks(); });
 
-	beforeEach(async () => {
-		installer = await KeyDBInstaller.getInstance();
-		mockExec = child_process.exec as any;
-
-		// Import the mocked module
-		const keydbDetector = require('../../../src/services/queue/keydb-detector');
-		detectConnectionMock = keydbDetector.detectConnection;
-
-		// Clear all mocks
-		jest.clearAllMocks();
+describe('KeyDB discovery and isolated installation', () => {
+	it.each(['keydb', 'redis'] as const)('uses an existing running %s service without launching installation commands', async (type) => {
+		mockDetectConnection.mockResolvedValue({ isAvailable: true, type, url: 'redis://localhost:6379', version: '7.2.0' });
+		expect(await installer.checkAvailability()).toEqual({ installed: true, running: true, version: '7.2.0', port: 6379 });
+		expect(await installer.autoInstall()).toMatchObject({ success: true, method: 'existing', version: '7.2.0' });
+		expect(mockCommands).toEqual([]);
 	});
 
-	afterEach(() => {
-		jest.restoreAllMocks();
+	it('distinguishes an installed stopped service from an unavailable installation', async () => {
+		mockCommandExists.mockResolvedValue(true);
+		mockSafeExec.mockResolvedValue({ stdout: 'KeyDB server v=6.3.4 sha=fixture', stderr: '' });
+		expect(await installer.checkAvailability()).toEqual({ installed: true, running: false, version: '6.3.4' });
+		mockCommandExists.mockResolvedValue(false);
+		expect(await installer.checkAvailability()).toEqual({ installed: false, running: false, version: undefined });
 	});
 
-	describe('getInstance', () => {
-		it('should return singleton instance', async () => {
-			const instance1 = await KeyDBInstaller.getInstance();
-			const instance2 = await KeyDBInstaller.getInstance();
-			expect(instance1).toBe(instance2);
-		});
+	it('reports discovery failure without launching a fallback installation during the availability check', async () => {
+		mockDetectConnection.mockRejectedValue(new Error('Discovery unavailable'));
+		expect(await installer.checkAvailability()).toEqual({ installed: false, running: false });
+		expect(mockCommands).toEqual([]);
 	});
 
-	describe('checkAvailability', () => {
-		it('should detect running KeyDB/Redis', async () => {
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: true,
-				type: 'keydb',
-				version: '6.3.4',
-				url: 'redis://localhost:6379',
-			});
-
-			const status = await installer.checkAvailability();
-
-			expect(status).toEqual({
-				installed: true,
-				running: true,
-				version: '6.3.4',
-				port: 6379,
-			});
-		});
-
-		it('should detect not running KeyDB', async () => {
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
-			});
-
-			// Mock 'which keydb-server' to indicate installed
-			mockExec.mockImplementation((cmd: string, callback: any) => {
-				if (typeof callback === 'function') {
-					if (cmd === 'which keydb-server') {
-						callback(null, '/usr/local/bin/keydb-server', '');
-					} else if (cmd === 'keydb-server --version') {
-						callback(null, 'KeyDB server v=6.3.4', '');
-					} else {
-						callback(new Error('Command not found'), '', '');
-					}
-				}
-				return {} as any;
-			});
-
-			const status = await installer.checkAvailability();
-
-			expect(status.installed).toBe(true);
-			expect(status.running).toBe(false);
-		});
-
-		it('should detect not installed KeyDB', async () => {
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
-			});
-
-			mockExec.mockImplementation((_cmd: string, callback: any) => {
-				if (typeof callback === 'function') {
-					callback(new Error('Command not found'), '', '');
-				}
-				return {} as any;
-			});
-
-			const status = await installer.checkAvailability();
-
-			expect(status).toEqual({
-				installed: false,
-				running: false,
-			});
-		});
+	it('handles Homebrew completion and installation failure without starting an unrequested service', async () => {
+		mockExecAsync.mockResolvedValue({ stdout: 'Installed', stderr: '' });
+		mockSafeExec.mockResolvedValue({ stdout: 'KeyDB server v=6.3.4', stderr: '' });
+		const installed = await installer.autoInstall({ method: 'homebrew', startService: false });
+		expect(installed).toMatchObject({ success: true, method: 'homebrew', version: '6.3.4' });
+		expect(mockCommands).toEqual(['brew update', 'brew install keydb']);
+		mockExecAsync.mockRejectedValue(new Error('Package installation rejected'));
+		const failed = await installer.autoInstall({ method: 'homebrew', startService: false });
+		expect(failed.success).toBe(false);
+		expect(failed.message).toMatch(/Homebrew installation failed/);
 	});
 
-	describe('autoInstall', () => {
-		it('should skip installation if already running', async () => {
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: true,
-				type: 'redis',
-				version: '6.3.4',
-				url: 'redis://localhost:6379',
-			});
-
-			const result = await installer.autoInstall();
-
-			expect(result).toEqual({
-				success: true,
-				message: expect.stringContaining('already running'),
-				method: 'existing',
-				version: '6.3.4',
-			});
-		});
-
-		it('should install via Homebrew on macOS', async () => {
-			// Set platform to Darwin
-			Object.defineProperty(process, 'platform', {
-				value: 'darwin',
-			});
-
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
-			});
-
-			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
-				const cb = typeof options === 'function' ? options : callback;
-				if (typeof cb === 'function') {
-					if (cmd === 'which brew') {
-						cb(null, '/opt/homebrew/bin/brew', '');
-					} else if (cmd === 'brew update') {
-						cb(null, 'Updated Homebrew', '');
-					} else if (cmd === 'brew install keydb') {
-						cb(null, 'Installed KeyDB', '');
-					} else if (cmd.includes('keydb-server --version')) {
-						cb(null, 'KeyDB server v=6.3.4', '');
-					} else {
-						cb(new Error('Command not found'), '', '');
-					}
-				}
-				return {} as any;
-			});
-
-			const result = await installer.autoInstall({ method: 'homebrew' });
-
-			expect(result.success).toBe(true);
-			expect(result.method).toBe('homebrew');
-			expect(result.message).toContain('Homebrew');
-		});
-
-		it('should install via Docker as fallback', async () => {
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
-			});
-
-			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
-				const cb = typeof options === 'function' ? options : callback;
-				if (typeof cb === 'function') {
-					if (cmd === 'which docker') {
-						cb(null, '/usr/local/bin/docker', '');
-					} else if (cmd.includes('docker run')) {
-						cb(null, 'Container started', '');
-					} else if (cmd === 'which brew') {
-						cb(new Error('brew not found'), '', '');
-					} else {
-						cb(new Error('Command not found'), '', '');
-					}
-				}
-				return {} as any;
-			});
-
-			const result = await installer.autoInstall({ method: 'docker' });
-
-			expect(result.success).toBe(true);
-			expect(result.method).toBe('docker');
-		}, 10000);
-
-		it('should handle installation failure gracefully', async () => {
-			detectConnectionMock.mockResolvedValue({
-				isAvailable: false,
-				type: 'none',
-				url: null,
-			});
-
-			mockExec.mockImplementation((_cmd: string, callback: any) => {
-				if (typeof callback === 'function') {
-					callback(new Error('Installation failed'), '', '');
-				}
-				return {} as any;
-			});
-
-			const result = await installer.autoInstall();
-
-			expect(result.success).toBe(false);
-			expect(result.message).toContain('failed');
-		}, 15000);
+	it('does not report a Docker installation as successful when container readiness fails', async () => {
+		mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
+		mockDockerReady.mockRejectedValue(new Error('Container never became ready'));
+		const failed = await installer.autoInstall({ method: 'docker', startService: false });
+		expect(failed.success).toBe(false);
+		expect(failed.message).toContain('Container never became ready');
+		expect(mockCommands.filter((command) => command.startsWith('docker run'))).toHaveLength(1);
 	});
 
-	describe('startKeyDB', () => {
-		it('should start KeyDB successfully', async () => {
-			let callCount = 0;
-
-			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
-				const cb = typeof options === 'function' ? options : callback;
-				if (typeof cb === 'function') {
-					if (cmd === 'keydb-server --daemonize yes') {
-						cb(null, 'Started', '');
-					} else {
-						cb(new Error('Command failed'), '', '');
-					}
-				}
-				return {} as any;
-			});
-
-			// Mock checkAvailability to return not running first, then running
-			jest.spyOn(installer, 'checkAvailability').mockImplementation(async () => {
-				callCount++;
-				return {
-					installed: true,
-					running: callCount > 1, // First call: not running, subsequent calls: running
-					version: '6.3.4',
-					port: 6379,
-				};
-			});
-
-			const started = await installer.startKeyDB();
-
-			expect(started).toBe(true);
-		}, 25000);
-
-		it('should try multiple start methods', async () => {
-			const attemptedCommands: string[] = [];
-			let systemctlExecuted = false;
-
-			mockExec.mockImplementation((cmd: string, options: any, callback?: any) => {
-				const cb = typeof options === 'function' ? options : callback;
-				attemptedCommands.push(cmd);
-
-				if (typeof cb === 'function') {
-					// Fail all except systemctl
-					if (cmd === 'systemctl start keydb') {
-						systemctlExecuted = true;
-						cb(null, 'Started', '');
-					} else {
-						cb(new Error('Command failed'), '', '');
-					}
-				}
-				return {} as any;
-			});
-
-			jest.spyOn(installer, 'checkAvailability').mockImplementation(async () => {
-				// Return running only after systemctl command executed successfully
-				return {
-					installed: true,
-					running: systemctlExecuted,
-					version: '6.3.4',
-					port: 6379,
-				};
-			});
-
-			const started = await installer.startKeyDB();
-
-			expect(started).toBe(true);
-			expect(attemptedCommands).toContain('keydb-server --daemonize yes');
-			expect(attemptedCommands).toContain('systemctl start keydb');
-		}, 25000);
+	it('coalesces concurrent installs and permits a later retry after failure', async () => {
+		let rejectRun!: (error: Error) => void;
+		let started!: () => void;
+		const running = new Promise<void>((resolve) => { started = resolve; });
+		mockExecAsync.mockImplementation(async (command) => {
+			if (command.startsWith('docker run')) {
+				started();
+				return new Promise<Output>((_resolve, reject) => { rejectRun = reject; });
+			}
+			return { stdout: '', stderr: '' };
+		});
+		const first = installer.autoInstall({ method: 'docker', startService: false });
+		await running;
+		const second = installer.autoInstall({ method: 'docker', startService: false });
+		rejectRun(new Error('Container launch failed'));
+		const results = await Promise.all([first, second]);
+		expect(results.every((result) => !result.success)).toBe(true);
+		expect(mockCommands.filter((command) => command.startsWith('docker run'))).toHaveLength(1);
+		mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
+		expect((await installer.autoInstall({ method: 'docker', startService: false })).success).toBe(true);
+		expect(mockCommands.filter((command) => command.startsWith('docker run'))).toHaveLength(2);
 	});
 
-	describe('getManualInstructions', () => {
-		it('should provide platform-specific instructions for macOS', () => {
-			Object.defineProperty(process, 'platform', {
-				value: 'darwin',
-				configurable: true,
-			});
+	it('keeps denied package-manager operations behind the permission boundary', async () => {
+		const failed = await installer.autoInstall({ method: 'apt', startService: false });
+		expect(failed.success).toBe(false);
+		expect(failed.message).toMatch(/sudo privileges.*fallback also failed.*Permission denied/);
+		expect(mockPermissionCommands).toEqual(['apt-get update']);
+		expect(mockCommands).toEqual([]);
+	});
+});
 
-			const instructions = installer.getManualInstructions();
-
-			expect(instructions).toContain('macOS');
-			expect(instructions).toContain('Homebrew');
-			expect(instructions).toContain('Docker');
+describe('KeyDB service startup and installation guidance', () => {
+	it('falls through missing commands and an unready service before succeeding with an available method', async () => {
+		mockExecAsync.mockImplementation(async (command) => {
+			if (['which redis-server', 'redis-server --daemonize yes', 'which systemctl', 'systemctl start keydb'].includes(command)) return { stdout: '', stderr: '' };
+			throw new Error('Command unavailable');
 		});
+		mockServiceReady.mockRejectedValueOnce(new Error('Not ready')).mockResolvedValueOnce(undefined);
+		expect(await installer.startKeyDB()).toBe(true);
+		expect(mockCommands.filter((command) => !command.startsWith('which '))).toEqual(['redis-server --daemonize yes', 'systemctl start keydb']);
+	});
 
-		it('should provide platform-specific instructions for Linux', () => {
-			Object.defineProperty(process, 'platform', {
-				value: 'linux',
-				configurable: true,
-			});
+	it('reports failure when no startup method is present', async () => {
+		expect(await installer.startKeyDB()).toBe(false);
+		expect(mockCommands.every((command) => command.startsWith('which '))).toBe(true);
+	});
 
-			const instructions = installer.getManualInstructions();
-
-			expect(instructions).toContain('Linux');
-			expect(instructions).toContain('apt-get');
-			expect(instructions).toContain('yum');
-		});
-
-		it('should provide platform-specific instructions for Windows', () => {
-			Object.defineProperty(process, 'platform', {
-				value: 'win32',
-				configurable: true,
-			});
-
-			const instructions = installer.getManualInstructions();
-
-			expect(instructions).toContain('Windows');
-			expect(instructions).toContain('Docker Desktop');
-			expect(instructions).toContain('WSL2');
-		});
+	it.each([['darwin', ['macOS', 'Homebrew', 'Docker']], ['linux', ['Linux', 'apt-get', 'yum']], ['win32', ['Windows', 'Docker Desktop', 'WSL2']]] as const)('keeps %s manual instructions available', (platform, expected) => {
+		Object.defineProperty(process, 'platform', { configurable: true, value: platform });
+		for (const text of expected) expect(installer.getManualInstructions()).toContain(text);
 	});
 });
