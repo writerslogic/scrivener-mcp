@@ -150,7 +150,8 @@ describe('KeyDB service startup and installation guidance', () => {
 		expect(mockCommands.every((command) => command.startsWith('which '))).toBe(true);
 	});
 
-	it.each([['darwin', ['macOS', 'Homebrew', 'Docker']], ['linux', ['Linux', 'apt-get', 'yum']], ['win32', ['Windows', 'Docker Desktop', 'WSL2']]] as const)('keeps %s manual instructions available', (platform, expected) => {
+	const manualCases: Array<[NodeJS.Platform, string[]]> = [['darwin', ['macOS', 'Homebrew', 'Docker']], ['linux', ['Linux', 'apt-get', 'yum']], ['win32', ['Windows', 'Docker Desktop', 'WSL2']]];
+	it.each(manualCases)('keeps %s manual instructions available', (platform, expected) => {
 		Object.defineProperty(process, 'platform', { configurable: true, value: platform });
 		for (const text of expected) expect(installer.getManualInstructions()).toContain(text);
 	});
