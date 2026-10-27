@@ -65,3 +65,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
