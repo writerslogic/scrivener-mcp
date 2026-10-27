@@ -169,6 +169,10 @@ const workflowOutputSchema: ToolSchema = {
 						},
 						required: ['currency', 'estimated', 'actual', 'basis'],
 					},
+					allowExportWarnings: {
+						type: 'boolean',
+						description: 'Persisted author acknowledgment of disclosed beta-reader export warnings; omitted for other workflows.',
+					},
 					error: {
 						type: 'string',
 						description: 'Workflow failure or interruption detail requiring attention.',
@@ -247,6 +251,10 @@ export const workflowHandlers: ToolDefinition[] = [
 					description:
 						'Optional stable start request key; retries return the same durable workflow.',
 				},
+				allowExportWarnings: {
+					type: 'boolean',
+					description: 'For beta-reader start or resume only: explicitly acknowledge disclosed export warnings. Omit on resume to retain the prior decision; completed exports never rerun.',
+				},
 			},
 			required: ['action'],
 		},
@@ -255,13 +263,17 @@ export const workflowHandlers: ToolDefinition[] = [
 			const project = requireProject(context);
 			const { workflows } = await project.getEditorialServices();
 			const action = getStringArg(args, 'action');
+			if (args.allowExportWarnings !== undefined && typeof args.allowExportWarnings !== 'boolean')
+				throw new Error('allowExportWarnings must be a boolean');
+			if (args.allowExportWarnings !== undefined && action !== 'start' && action !== 'resume')
+				throw new Error('Export warning acknowledgment is valid only when starting or resuming a beta-reader workflow');
 			let values: EditorialWorkflow[];
 			if (action === 'list') values = workflows.list();
 			else if (action === 'get') values = [workflows.get(getStringArg(args, 'workflowId'))];
 			else if (action === 'cancel')
 				values = [workflows.cancel(getStringArg(args, 'workflowId'))];
 			else if (action === 'resume')
-				values = [await workflows.resume(getStringArg(args, 'workflowId'))];
+				values = [await workflows.resume(getStringArg(args, 'workflowId'), { allowExportWarnings: args.allowExportWarnings as boolean | undefined })];
 			else if (action === 'start') {
 				if (args.rootFolderId && args.documentIds)
 					throw new Error('Choose rootFolderId or documentIds, not both');
@@ -275,6 +287,7 @@ export const workflowHandlers: ToolDefinition[] = [
 						kind: getStringArg(args, 'kind') as WorkflowKind,
 						documentIds,
 						idempotencyKey: args.idempotencyKey as string | undefined,
+						allowExportWarnings: args.allowExportWarnings as boolean | undefined,
 					}),
 				];
 			} else throw new Error('Unknown editorial workflow action');
