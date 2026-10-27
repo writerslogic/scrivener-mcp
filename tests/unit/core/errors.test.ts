@@ -9,7 +9,7 @@ import {
 	wrapError,
 	withErrorHandling,
 	withRetry,
-} from '../../../src/core/errors';
+} from '../../../src/core/errors.js';
 
 describe('Error Handling', () => {
 	describe('ApplicationError', () => {
