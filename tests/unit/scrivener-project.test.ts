@@ -3,6 +3,9 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import { tmpdir } from 'os';
+import { createHash } from 'crypto';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
 import { isProjectOpenInScrivener } from '../../src/utils/scrivener-app.js';
 import { DocumentManager } from '../../src/services/document-manager.js';
@@ -464,27 +467,49 @@ describe('ScrivenerProject', () => {
 	});
 
 	describe('writeDocumentPreserving', () => {
+		const documentId = '10000000-0000-4000-8000-000000000003';
+		let fixtureDirectory: string;
+		let documentPath: string;
+
+		beforeEach(async () => {
+			fixtureDirectory = await fs.mkdtemp(path.join(tmpdir(), 'scrivener-project-fidelity-'));
+			documentPath = path.join(fixtureDirectory, 'Files', 'Data', documentId, 'content.rtf');
+			await fs.mkdir(path.dirname(documentPath), { recursive: true });
+			const ActualDocumentManager = jest.requireActual<typeof import('../../src/services/document-manager.js')>('../../src/services/document-manager.js').DocumentManager;
+			(DocumentManager as jest.MockedClass<typeof DocumentManager>).mockImplementationOnce((root) => new ActualDocumentManager(root));
+			project = new ScrivenerProject(fixtureDirectory);
+		});
+
+		afterEach(async () => {
+			try {
+				await project.close();
+			} finally {
+				await fs.rm(fixtureDirectory, { recursive: true, force: true });
+			}
+		});
+
 		it('preserves surrounding RTF and reports a clean edit', async () => {
 			const raw = '{\\rtf1\\ansi\\deff0{\\fonttbl\\f0 Times;}\\f0\\fs24 hello world}';
-			mockDocumentManager.readDocumentRaw = jest.fn().mockResolvedValue(raw);
-			const writeRaw = jest.fn().mockResolvedValue(undefined);
-			mockDocumentManager.writeRawContent = writeRaw;
+			await fs.writeFile(documentPath, raw);
 
-			const report = await project.writeDocumentPreserving('doc1', 'hello there world');
+			const report = await project.writeDocumentPreserving(documentId, 'hello there world', {
+				force: true,
+				expectedRevision: createHash('sha256').update(raw).digest('hex'),
+			});
 			expect(report.mode).toBe('preserved');
 			expect(report.atRisk).toEqual([]);
-			expect(report.snapshotId).toBeUndefined();
-			// The stored bytes keep the font table and read back as the intended text.
-			const stored = writeRaw.mock.calls[0][1] as string;
+			expect(report.snapshotId).toBeDefined();
+			const stored = await fs.readFile(documentPath, 'utf8');
 			expect(stored).toContain('{\\fonttbl\\f0 Times;}');
-			expect(stored).toContain('there');
+			expect(await project.readDocument(documentId)).toBe('hello there world');
+			expect((await project.readSnapshot(documentId, report.snapshotId!)).text).toBe('hello world');
 		});
 
 		it('reports mode "created" when there is no prior content', async () => {
-			mockDocumentManager.readDocumentRaw = jest.fn().mockResolvedValue('');
-			mockDocumentManager.writeDocument = jest.fn().mockResolvedValue(undefined);
-			const report = await project.writeDocumentPreserving('doc1', 'brand new');
+			const report = await project.writeDocumentPreserving(documentId, 'brand new', { force: true });
 			expect(report.mode).toBe('created');
+			expect(report.snapshotId).toBeUndefined();
+			expect(await project.readDocument(documentId)).toBe('brand new');
 		});
 	});
 
@@ -495,7 +520,6 @@ describe('ScrivenerProject', () => {
 
 		beforeEach(() => {
 			mockedProbe.mockReset();
-			project = new ScrivenerProject(projectPath);
 		});
 
 		it('throws when the project is detected open in Scrivener', async () => {
@@ -508,19 +532,21 @@ describe('ScrivenerProject', () => {
 			expect(mockedProbe).not.toHaveBeenCalled();
 		});
 
-		it('allows the write when detection is unknown or the project is closed', async () => {
+		it('requires explicit force when native detection is unknown', async () => {
 			mockedProbe.mockResolvedValue('unknown');
-			await expect(project.ensureWritable()).resolves.toBeUndefined();
+			await expect(project.ensureWritable()).rejects.toThrow(/unavailable or ambiguous/i);
+			await expect(project.ensureWritable(true)).resolves.toBeUndefined();
+		});
+
+		it('allows the write when the project is detected closed', async () => {
 			mockedProbe.mockResolvedValue('closed');
-			project = new ScrivenerProject(projectPath);
 			await expect(project.ensureWritable()).resolves.toBeUndefined();
 		});
 
-		it('caches the probe result across calls within the TTL', async () => {
-			mockedProbe.mockResolvedValue('closed');
+		it('rechecks native state so an earlier closed result cannot authorize a later write', async () => {
+			mockedProbe.mockResolvedValueOnce('closed').mockResolvedValueOnce('open');
 			await project.ensureWritable();
-			await project.ensureWritable();
-			expect(mockedProbe).toHaveBeenCalledTimes(1);
+			await expect(project.ensureWritable()).rejects.toThrow(/open in Scrivener/i);
 		});
 	});
 
