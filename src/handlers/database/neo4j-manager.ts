@@ -65,6 +65,17 @@ export class Neo4jManager {
 
 				return; // Success
 			} catch (error) {
+				const failedDriver = this.driver;
+				this.driver = null;
+				this.isConnected = false;
+				this.lastHealthCheck = null;
+				if (failedDriver) {
+					try {
+						await failedDriver.close();
+					} catch {
+						logger.warn('Failed to release an unsuccessful Neo4j connection');
+					}
+				}
 				const isLastAttempt = attempt === this.connectionRetries;
 				if (!isLastAttempt) {
 					// Wait for service to be ready instead of fixed delay
@@ -175,7 +186,7 @@ export class Neo4jManager {
 	/**
 	 * Execute a Cypher query
 	 */
-	async query(cypher: string, parameters: QueryParameters = {}): Promise<QueryResult> {
+	async query(cypher: string, parameters: Record<string, unknown> = {}): Promise<QueryResult> {
 		if (!this.driver) {
 			throw toDatabaseError(
 				new Error('Neo4j not connected. Initialize first or check connection.'),
@@ -263,20 +274,20 @@ export class Neo4jManager {
 	): Promise<void> {
 		if (!this.driver) return;
 		Neo4jManager.validateIdentifier(label, 'label');
+		if (Object.prototype.hasOwnProperty.call(properties, 'id') && properties.id !== id) {
+			throw new Error('Node properties cannot change the requested identity');
+		}
 
-		const setProps = Object.entries(properties)
-			.filter(([key]) => Neo4jManager.VALID_IDENTIFIER.test(key))
-			.map(([key, _]) => `n.${key} = $${key}`)
-			.join(', ');
+		const editable = Object.fromEntries(Object.entries(properties).filter(([key]) => Neo4jManager.VALID_IDENTIFIER.test(key) && key !== 'id' && key !== 'updatedAt'));
+		const setProps = [...Object.keys(editable).map((key) => `n.${key} = $${key}`), 'n.updatedAt = datetime()'].join(', ');
 
 		const cypher = `
 			MERGE (n:${label} {id: $id})
-			SET ${setProps},
-				n.updatedAt = datetime()
+			SET ${setProps}
 			RETURN n
 		`;
 
-		await this.query(cypher, { id, ...properties });
+		await this.query(cypher, { ...editable, id });
 	}
 
 	/**
@@ -330,7 +341,7 @@ export class Neo4jManager {
 			RETURN r
 		`;
 
-		await this.query(cypher, { fromId, toId, ...properties } as QueryParameters);
+		await this.query(cypher, { fromId, toId, properties });
 	}
 
 	/**
@@ -619,6 +630,8 @@ export class Neo4jManager {
 		if (this.driver) {
 			await this.driver.close();
 			this.driver = null;
+			this.isConnected = false;
+			this.lastHealthCheck = null;
 		}
 	}
 }

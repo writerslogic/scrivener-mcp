@@ -1,418 +1,172 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import type { Driver, ManagedTransaction, QueryResult } from 'neo4j-driver';
 import { Neo4jManager } from '../../../../src/handlers/database/neo4j-manager.js';
-import { ApplicationError as AppError, ErrorCode } from '../../../../src/core/errors.js';
-import { isTransientDatabaseError, toDatabaseError } from '../../../../src/utils/database.js';
+import { ErrorCode } from '../../../../src/core/errors.js';
 
-// Mock neo4j driver
-const mockSession = {
-  run: jest.fn(),
-  close: jest.fn(),
-  executeRead: jest.fn(),
-  executeWrite: jest.fn(),
-};
-
-const mockDriver = {
-  session: jest.fn(() => mockSession),
-  close: jest.fn(),
-  verifyConnectivity: jest.fn(),
-};
+interface QueryEvent { cypher: string; parameters?: Record<string, unknown> }
+class FakeDriver {
+	closed = false;
+	closeError?: Error;
+	connectError?: Error;
+	sessions: Array<{ closed: boolean; database: string }> = [];
+	queries: QueryEvent[] = [];
+	outcomes: Array<QueryResult | Error> = [];
+	result = { records: [] } as unknown as QueryResult;
+	async verifyConnectivity(): Promise<void> { if (this.connectError) throw this.connectError; }
+	async close(): Promise<void> { if (this.closeError) throw this.closeError; this.closed = true; }
+	session(options: { database: string }) {
+		const session = { closed: false, database: options.database };
+		this.sessions.push(session);
+		const run = async (cypher: string, parameters?: Record<string, unknown>): Promise<QueryResult> => {
+			this.queries.push({ cypher, parameters });
+			const outcome = this.outcomes.shift() ?? this.result;
+			if (outcome instanceof Error) throw outcome;
+			return outcome;
+		};
+		const transaction = { run } as unknown as ManagedTransaction;
+		return {
+			run,
+			close: async () => { session.closed = true; },
+			executeRead: async <T>(work: (tx: ManagedTransaction) => Promise<T>) => work(transaction),
+			executeWrite: async <T>(work: (tx: ManagedTransaction) => Promise<T>) => work(transaction),
+		};
+	}
+}
+const mockDrivers: FakeDriver[] = [];
+const mockCreateDriver = jest.fn<() => Driver>(() => mockDrivers.shift() as unknown as Driver);
 
 jest.mock('neo4j-driver', () => ({
-  driver: jest.fn(() => mockDriver),
-  auth: {
-    basic: jest.fn((username, password) => ({ username, password })),
-  },
+	__esModule: true,
+	default: { driver: () => mockCreateDriver(), auth: { basic: (user: string, password: string) => ({ user, password }) } },
 }));
-
-// Mock logger
-jest.mock('../../../../src/core/logger.js', () => ({
-  getLogger: jest.fn(() => ({
-    info: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-  })),
-}));
-
-// Mock database utilities
-jest.mock('../../../../src/utils/database.js', () => ({
-  isTransientDatabaseError: jest.fn((error) => {
-    return error.code === 'ServiceUnavailable' || 
-           error.code === 'SessionExpired' ||
-           error.message?.includes('timeout');
-  }),
-  toDatabaseError: jest.fn((error, operation) => {
-    if (error instanceof AppError) return error;
-    return new AppError(
-      `Database error during ${operation}: ${error.message}`,
-      ErrorCode.DATABASE_ERROR,
-      { operation, originalError: error }
-    );
-  }),
-}));
-
-describe('Neo4jManager Enhanced Error Handling', () => {
-  let neo4jManager: Neo4jManager;
-  let mockConfig: any;
-
-  beforeEach(() => {
-    mockConfig = {
-      uri: 'bolt://localhost:7687',
-      username: 'neo4j',
-      password: 'password',
-      database: 'neo4j',
-    };
-
-    neo4jManager = new Neo4jManager(mockConfig);
-    
-    // Reset all mocks
-    jest.clearAllMocks();
-    mockSession.run.mockClear();
-    mockSession.close.mockClear();
-    mockDriver.session.mockReturnValue(mockSession);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('Connection Management', () => {
-    it('should handle connection failures with proper error handling', async () => {
-      const connectionError = new Error('Connection failed');
-      connectionError.code = 'ServiceUnavailable';
-      
-      mockDriver.verifyConnectivity.mockRejectedValue(connectionError);
-
-      await expect(neo4jManager.testConnection()).rejects.toThrow(AppError);
-      
-      expect(toDatabaseError).toHaveBeenCalledWith(connectionError, 'connection test');
-    });
-
-    it('should identify transient connection errors', async () => {
-      const transientError = new Error('Session expired');
-      transientError.code = 'SessionExpired';
-      
-      mockSession.run.mockRejectedValue(transientError);
-
-      await expect(neo4jManager.query('MATCH (n) RETURN count(n)')).rejects.toThrow();
-      expect(isTransientDatabaseError).toHaveBeenCalledWith(transientError);
-    });
-
-    it('should handle timeout errors as transient', async () => {
-      const timeoutError = new Error('Query timeout');
-      
-      mockSession.run.mockRejectedValue(timeoutError);
-
-      await expect(neo4jManager.query('MATCH (n) RETURN count(n)')).rejects.toThrow();
-      expect(isTransientDatabaseError).toHaveBeenCalledWith(timeoutError);
-    });
-  });
-
-  describe('Query Execution with Enhanced Error Handling', () => {
-    it('should handle successful queries', async () => {
-      const mockResult = {
-        records: [
-          { get: jest.fn(() => 5) }
-        ],
-      };
-
-      mockSession.run.mockResolvedValue(mockResult);
-
-      const result = await neo4jManager.query('MATCH (n) RETURN count(n) as count');
-
-      expect(result).toBe(mockResult);
-      expect(mockSession.run).toHaveBeenCalledWith('MATCH (n) RETURN count(n) as count', {});
-    });
-
-    it('should handle parametrized queries', async () => {
-      const mockResult = {
-        records: [
-          { get: jest.fn(() => ({ id: '123', name: 'Test Character' })) }
-        ],
-      };
-
-      mockSession.run.mockResolvedValue(mockResult);
-
-      const result = await neo4jManager.query(
-        'MATCH (c:Character {id: $id}) RETURN c',
-        { id: '123' }
-      );
-
-      expect(result).toBe(mockResult);
-      expect(mockSession.run).toHaveBeenCalledWith(
-        'MATCH (c:Character {id: $id}) RETURN c',
-        { id: '123' }
-      );
-    });
-
-    it('should convert database errors to AppError', async () => {
-      const dbError = new Error('Syntax error in query');
-      dbError.code = 'Neo.ClientError.Statement.SyntaxError';
-      
-      mockSession.run.mockRejectedValue(dbError);
-
-      await expect(neo4jManager.query('INVALID QUERY')).rejects.toThrow(AppError);
-      expect(toDatabaseError).toHaveBeenCalledWith(dbError, 'query execution');
-    });
-
-    it('should handle constraint violations', async () => {
-      const constraintError = new Error('Node already exists');
-      constraintError.code = 'Neo.ClientError.Schema.ConstraintValidationFailed';
-      
-      mockSession.run.mockRejectedValue(constraintError);
-
-      await expect(neo4jManager.query('CREATE (c:Character {id: "existing"})')).rejects.toThrow();
-      expect(toDatabaseError).toHaveBeenCalledWith(constraintError, 'query execution');
-    });
-
-    it('should handle authorization errors', async () => {
-      const authError = new Error('Access denied');
-      authError.code = 'Neo.ClientError.Security.Unauthorized';
-      
-      mockSession.run.mockRejectedValue(authError);
-
-      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow();
-      expect(toDatabaseError).toHaveBeenCalledWith(authError, 'query execution');
-    });
-
-    it('should properly close sessions after errors', async () => {
-      const dbError = new Error('Database error');
-      mockSession.run.mockRejectedValue(dbError);
-
-      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow();
-      expect(mockSession.close).toHaveBeenCalled();
-    });
-  });
-
-  describe('Write Operations with Error Handling', () => {
-    it('should handle successful write operations', async () => {
-      const mockResult = {
-        records: [],
-        summary: {
-          counters: {
-            nodesCreated: 1,
-            propertiesSet: 3,
-          },
-        },
-      };
-
-      mockSession.executeWrite.mockResolvedValue(mockResult);
-
-      const result = await neo4jManager.write(
-        'CREATE (c:Character {id: $id, name: $name}) RETURN c',
-        { id: '123', name: 'Test Character' }
-      );
-
-      expect(result).toBe(mockResult);
-      expect(mockSession.executeWrite).toHaveBeenCalled();
-    });
-
-    it('should handle write transaction failures', async () => {
-      const transactionError = new Error('Transaction rolled back');
-      transactionError.code = 'Neo.TransientError.Transaction.TransactionMarkedAsFailed';
-      
-      mockSession.executeWrite.mockRejectedValue(transactionError);
-
-      await expect(neo4jManager.write('CREATE (c:Character {id: "test"})')).rejects.toThrow();
-      expect(isTransientDatabaseError).toHaveBeenCalledWith(transactionError);
-      expect(toDatabaseError).toHaveBeenCalledWith(transactionError, 'write transaction');
-    });
-
-    it('should handle deadlock errors as transient', async () => {
-      const deadlockError = new Error('Deadlock detected');
-      deadlockError.code = 'Neo.TransientError.Transaction.DeadlockDetected';
-      
-      mockSession.executeWrite.mockRejectedValue(deadlockError);
-
-      await expect(neo4jManager.write('CREATE (c:Character {id: "test"})')).rejects.toThrow();
-      expect(isTransientDatabaseError).toHaveBeenCalledWith(deadlockError);
-    });
-  });
-
-  describe('Read Operations with Error Handling', () => {
-    it('should handle successful read operations', async () => {
-      const mockResult = {
-        records: [
-          { get: jest.fn(() => ({ id: '123', name: 'Test Character' })) }
-        ],
-      };
-
-      mockSession.executeRead.mockResolvedValue(mockResult);
-
-      const result = await neo4jManager.read(
-        'MATCH (c:Character {id: $id}) RETURN c',
-        { id: '123' }
-      );
-
-      expect(result).toBe(mockResult);
-      expect(mockSession.executeRead).toHaveBeenCalled();
-    });
-
-    it('should handle read transaction failures', async () => {
-      const readError = new Error('Unable to route read request');
-      readError.code = 'Neo.ClientError.Cluster.NotALeader';
-      
-      mockSession.executeRead.mockRejectedValue(readError);
-
-      await expect(neo4jManager.read('MATCH (n) RETURN count(n)')).rejects.toThrow();
-      expect(toDatabaseError).toHaveBeenCalledWith(readError, 'read transaction');
-    });
-  });
-
-  describe('Batch Operations with Error Handling', () => {
-    it('should handle successful batch operations', async () => {
-      const queries = [
-        { query: 'CREATE (c1:Character {id: "1", name: "Alice"})', params: {} },
-        { query: 'CREATE (c2:Character {id: "2", name: "Bob"})', params: {} },
-      ];
-
-      mockSession.executeWrite.mockResolvedValue({ records: [], summary: {} });
-
-      await neo4jManager.executeBatch(queries);
-
-      expect(mockSession.executeWrite).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle partial batch failures', async () => {
-      const queries = [
-        { query: 'CREATE (c1:Character {id: "1", name: "Alice"})', params: {} },
-        { query: 'INVALID QUERY', params: {} },
-      ];
-
-      mockSession.executeWrite
-        .mockResolvedValueOnce({ records: [], summary: {} })
-        .mockRejectedValueOnce(new Error('Syntax error'));
-
-      await expect(neo4jManager.executeBatch(queries)).rejects.toThrow();
-      expect(toDatabaseError).toHaveBeenCalledWith(
-        expect.any(Error),
-        'batch execution'
-      );
-    });
-
-    it('should handle transaction rollback in batch operations', async () => {
-      const queries = [
-        { query: 'CREATE (c1:Character {id: "1"})', params: {} },
-        { query: 'CREATE (c2:Character {id: "1"})', params: {} }, // Duplicate ID
-      ];
-
-      const constraintError = new Error('Constraint violation');
-      constraintError.code = 'Neo.ClientError.Schema.ConstraintValidationFailed';
-
-      mockSession.executeWrite
-        .mockResolvedValueOnce({ records: [], summary: {} })
-        .mockRejectedValueOnce(constraintError);
-
-      await expect(neo4jManager.executeBatch(queries)).rejects.toThrow();
-      expect(toDatabaseError).toHaveBeenCalledWith(constraintError, 'batch execution');
-    });
-  });
-
-  describe('Connection Health Monitoring', () => {
-    it('should properly test database availability', () => {
-      expect(neo4jManager.isAvailable()).toBe(true);
-    });
-
-    it('should handle unavailable database', () => {
-      neo4jManager['driver'] = null;
-      expect(neo4jManager.isAvailable()).toBe(false);
-    });
-
-    it('should verify connectivity with proper error handling', async () => {
-      mockDriver.verifyConnectivity.mockResolvedValue(undefined);
-
-      await expect(neo4jManager.testConnection()).resolves.not.toThrow();
-      expect(mockDriver.verifyConnectivity).toHaveBeenCalled();
-    });
-
-    it('should handle connectivity verification failures', async () => {
-      const connectivityError = new Error('Cannot connect to database');
-      connectivityError.code = 'ServiceUnavailable';
-      
-      mockDriver.verifyConnectivity.mockRejectedValue(connectivityError);
-
-      await expect(neo4jManager.testConnection()).rejects.toThrow(AppError);
-      expect(toDatabaseError).toHaveBeenCalledWith(connectivityError, 'connection test');
-    });
-  });
-
-  describe('Resource Cleanup', () => {
-    it('should close driver properly', async () => {
-      await neo4jManager.close();
-      expect(mockDriver.close).toHaveBeenCalled();
-    });
-
-    it('should handle close errors gracefully', async () => {
-      mockDriver.close.mockRejectedValue(new Error('Close failed'));
-
-      // Should not throw, but log the error
-      await expect(neo4jManager.close()).resolves.not.toThrow();
-    });
-
-    it('should ensure sessions are closed after operations', async () => {
-      const mockResult = { records: [] };
-      mockSession.run.mockResolvedValue(mockResult);
-
-      await neo4jManager.query('MATCH (n) RETURN count(n)');
-
-      expect(mockSession.close).toHaveBeenCalled();
-    });
-  });
-
-  describe('Error Classification', () => {
-    it('should correctly identify transient errors', () => {
-      const transientCodes = [
-        'ServiceUnavailable',
-        'SessionExpired',
-        'Neo.TransientError.Transaction.TransactionMarkedAsFailed',
-        'Neo.TransientError.Transaction.DeadlockDetected',
-      ];
-
-      transientCodes.forEach(code => {
-        const error = new Error('Test error');
-        error.code = code;
-        
-        expect(isTransientDatabaseError(error)).toBe(true);
-      });
-    });
-
-    it('should correctly identify non-transient errors', () => {
-      const nonTransientCodes = [
-        'Neo.ClientError.Statement.SyntaxError',
-        'Neo.ClientError.Schema.ConstraintValidationFailed',
-        'Neo.ClientError.Security.Unauthorized',
-      ];
-
-      nonTransientCodes.forEach(code => {
-        const error = new Error('Test error');
-        error.code = code;
-        
-        expect(isTransientDatabaseError(error)).toBe(false);
-      });
-    });
-
-    it('should handle timeout errors as transient', () => {
-      const timeoutError = new Error('Query execution timeout');
-      
-      expect(isTransientDatabaseError(timeoutError)).toBe(true);
-    });
-  });
-
-  describe('Integration with Database Utilities', () => {
-    it('should use toDatabaseError for consistent error formatting', async () => {
-      const originalError = new Error('Original database error');
-      mockSession.run.mockRejectedValue(originalError);
-
-      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow();
-      expect(toDatabaseError).toHaveBeenCalledWith(originalError, 'query execution');
-    });
-
-    it('should preserve AppError instances', async () => {
-      const appError = new AppError('Custom app error', ErrorCode.VALIDATION_ERROR);
-      mockSession.run.mockRejectedValue(appError);
-
-      await expect(neo4jManager.query('MATCH (n) RETURN n')).rejects.toThrow(appError);
-      expect(toDatabaseError).toHaveBeenCalledWith(appError, 'query execution');
-    });
-  });
+jest.mock('../../../../src/utils/condition-waiter.js', () => ({ waitForServiceReady: async () => undefined }));
+jest.mock('../../../../src/core/logger.js', () => ({ getLogger: () => ({ info: () => undefined, debug: () => undefined, warn: () => undefined, error: () => undefined }) }));
+
+let driver: FakeDriver;
+let manager: Neo4jManager;
+beforeEach(() => {
+	mockDrivers.length = 0;
+	mockCreateDriver.mockClear();
+	driver = new FakeDriver();
+	mockDrivers.push(driver);
+	manager = new Neo4jManager('bolt://localhost:7687', 'neo4j', 'fixture-only', 'test-story');
+});
+
+async function connected(): Promise<void> {
+	await manager.initialize();
+	driver.queries.length = 0;
+	driver.sessions.length = 0;
+}
+
+describe('Neo4j lifecycle and recovery', () => {
+	it('releases failed driver attempts before retrying and degrades explicitly when all connections fail', async () => {
+		const attempts = [driver, new FakeDriver(), new FakeDriver()];
+		mockDrivers.push(...attempts.slice(1));
+		for (const attempt of attempts) attempt.connectError = Object.assign(new Error('Service unavailable'), { code: 'ServiceUnavailable' });
+		await manager.initialize();
+		expect(attempts.every((attempt) => attempt.closed)).toBe(true);
+		expect(manager.isAvailable()).toBe(false);
+		expect((await manager.checkHealth()).healthy).toBe(false);
+		await expect(manager.query('RETURN 1')).rejects.toMatchObject({ code: ErrorCode.DATABASE_ERROR });
+	});
+
+	it('closes schema-failure sessions and abandoned drivers before a successful retry', async () => {
+		const replacement = new FakeDriver();
+		driver.outcomes.push(new Error('Schema rejected'));
+		mockDrivers.push(replacement);
+		await manager.initialize();
+		expect(driver.closed).toBe(true);
+		expect(driver.sessions.every((session) => session.closed)).toBe(true);
+		expect(replacement.sessions.every((session) => session.closed)).toBe(true);
+		expect(manager.isAvailable()).toBe(true);
+		await manager.close();
+		expect(replacement.closed).toBe(true);
+		expect((await manager.checkHealth()).healthy).toBe(false);
+	});
+
+	it('retains the handle on failed closure so cleanup can be retried', async () => {
+		await connected();
+		driver.closeError = new Error('Close failed');
+		await expect(manager.close()).rejects.toThrow('Close failed');
+		driver.closeError = undefined;
+		await manager.close();
+		expect(driver.closed).toBe(true);
+		expect(manager.isAvailable()).toBe(false);
+		await manager.close();
+	});
+});
+
+describe('Neo4j query and transaction ownership', () => {
+	it('returns real results and closes the selected database session on success and wrapped failure', async () => {
+		await connected();
+		expect(await manager.query('RETURN $value', { value: 7 })).toBe(driver.result);
+		expect(driver.sessions).toEqual([{ database: 'test-story', closed: true }]);
+		driver.outcomes.push(Object.assign(new Error('Syntax error'), { code: 'Neo.ClientError.Statement.SyntaxError' }));
+		await expect(manager.query('INVALID')).rejects.toMatchObject({ code: ErrorCode.INVALID_INPUT });
+		expect(driver.sessions.every((session) => session.closed)).toBe(true);
+	});
+
+	it.each(['readTransaction', 'writeTransaction'] as const)('propagates %s callback outcomes and closes sessions', async (method) => {
+		await connected();
+		const value = await manager[method](async (tx) => {
+			const result = await tx.run('RETURN 42');
+			return { result, complete: true };
+		});
+		expect(value).toEqual({ result: driver.result, complete: true });
+		const error = new Error('Work must roll back');
+		await expect(manager[method](async () => { throw error; })).rejects.toBe(error);
+		expect(driver.sessions).toHaveLength(2);
+		expect(driver.sessions.every((session) => session.closed)).toBe(true);
+	});
+
+	it('retries transient timeouts with fresh sessions, then preserves the final failure', async () => {
+		await connected();
+		const timeout = Object.assign(new Error('Query timeout'), { code: 'Neo.TransientError.Transaction.Timeout' });
+		driver.outcomes.push(timeout, driver.result);
+		expect(await manager.queryWithRetry('RETURN 1', {}, 2)).toBe(driver.result);
+		expect(driver.sessions).toHaveLength(2);
+		expect(driver.sessions.every((session) => session.closed)).toBe(true);
+		driver.outcomes.push(timeout, timeout);
+		await expect(manager.queryWithRetry('RETURN 1', {}, 2)).rejects.toBe(timeout);
+		expect(driver.sessions.every((session) => session.closed)).toBe(true);
+	});
+
+	it('does not replay non-transient query failures', async () => {
+		await connected();
+		const syntax = Object.assign(new Error('Syntax error'), { code: 'Neo.ClientError.Statement.SyntaxError' });
+		driver.outcomes.push(syntax, driver.result);
+		await expect(manager.queryWithRetry('INVALID', {}, 3)).rejects.toBe(syntax);
+		expect(driver.sessions).toHaveLength(1);
+		expect(driver.sessions[0].closed).toBe(true);
+	});
+});
+
+describe('Neo4j parameter and identifier boundaries', () => {
+	it('preserves relationship property maps and endpoint identities without interpolating user values', async () => {
+		await connected();
+		const properties = { fromId: 'attempted-override', description: "' OR true //" };
+		await manager.createRelationship('mara', 'Character', 'chapter-1', 'Document', 'APPEARS_IN', properties);
+		expect(driver.queries[0].parameters).toEqual({ fromId: 'mara', toId: 'chapter-1', properties });
+		expect(driver.queries[0].cypher).not.toContain(properties.description);
+		expect(driver.queries[0].cypher).toContain('SET r += $properties');
+	});
+
+	it.each(['Character) DETACH DELETE n //', '', 'Has Space'])('rejects interpolated identifiers %j before issuing a query', async (label) => {
+		await connected();
+		await expect(manager.upsertNode(label, 'mara', { name: 'Mara' })).rejects.toThrow(/identifier/);
+		await expect(manager.createRelationship('mara', 'Character', 'chapter', 'Document', label)).rejects.toThrow(/identifier/);
+		expect(driver.queries).toEqual([]);
+	});
+
+	it('rejects node identity replacement and emits valid timestamp-only updates for empty or invalid properties', async () => {
+		await connected();
+		await expect(manager.upsertNode('Character', 'mara', { id: 'another-character' })).rejects.toThrow(/identity/);
+		await manager.upsertNode('Character', 'mara', {});
+		await manager.upsertNode('Character', 'mara', { 'name) DELETE n': 'unsafe' });
+		for (const query of driver.queries) {
+			expect(query.cypher).toMatch(/SET n\.updatedAt = datetime\(\)/);
+			expect(query.cypher).not.toContain('SET ,');
+			expect(query.parameters).toEqual({ id: 'mara' });
+		}
+	});
 });
