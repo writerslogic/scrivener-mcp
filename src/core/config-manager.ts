@@ -146,9 +146,6 @@ export class ConfigManager extends EventEmitter {
 		this.setupConfigPaths();
 	}
 
-	/**
-	 * Initialize configuration manager
-	 */
 	async initialize(): Promise<void> {
 		if (this.isInitialized) return;
 
@@ -199,9 +196,6 @@ export class ConfigManager extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Get configuration value by path
-	 */
 	get<T = unknown>(path: string, defaultValue?: T): T {
 		if (!this.config) {
 			if (defaultValue !== undefined) return defaultValue;
@@ -242,9 +236,6 @@ export class ConfigManager extends EventEmitter {
 		logger.debug('Configuration value updated', { path, hasValue: value !== undefined });
 	}
 
-	/**
-	 * Get feature flag status
-	 */
 	isFeatureEnabled(flagName: string, context?: { userId?: string; userGroup?: string }): boolean {
 		const flag = this.featureFlags.get(flagName);
 		if (!flag) {
@@ -296,16 +287,10 @@ export class ConfigManager extends EventEmitter {
 		return true;
 	}
 
-	/**
-	 * Get all feature flags
-	 */
 	getFeatureFlags(): Map<string, FeatureFlag> {
 		return new Map(this.featureFlags);
 	}
 
-	/**
-	 * Update feature flag at runtime
-	 */
 	updateFeatureFlag(name: string, updates: Partial<FeatureFlag>): void {
 		const existing = this.featureFlags.get(name);
 		if (!existing) {
@@ -319,9 +304,6 @@ export class ConfigManager extends EventEmitter {
 		logger.info('Feature flag updated', { name, enabled: updated.enabled });
 	}
 
-	/**
-	 * Get environment name
-	 */
 	getEnvironment(): string {
 		return this.environment;
 	}
@@ -340,9 +322,6 @@ export class ConfigManager extends EventEmitter {
 		return this.maskSensitiveValues(this.config);
 	}
 
-	/**
-	 * Validate configuration against schema
-	 */
 	validateConfiguration(): ConfigValidationResult {
 		if (!this.config || !this.schema) {
 			return {
@@ -407,9 +386,6 @@ export class ConfigManager extends EventEmitter {
 		};
 	}
 
-	/**
-	 * Close configuration manager
-	 */
 	async close(): Promise<void> {
 		// Clear all watchers
 		for (const interval of this.watcherIntervals) {

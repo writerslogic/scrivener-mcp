@@ -24,9 +24,6 @@ const _DEFAULT_CACHE_CONFIG: CacheConfig = {
 	maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
-/**
- * Check if directory is a valid Scrivener project
- */
 async function isScrivenerProject(projectPath: string): Promise<boolean> {
 	try {
 		await findScrivxPath(projectPath);
@@ -167,23 +164,14 @@ async function addToGitignoreSafely(projectPath: string): Promise<void> {
 	}
 }
 
-/**
- * Get the path to the queue state file for a project
- */
 export function getQueueStatePath(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'queue-state.json');
 }
 
-/**
- * Get the path to the cache directory for a project
- */
 export function getCacheDirectory(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'cache');
 }
 
-/**
- * Get the path to the vectors directory for a project
- */
 export function getVectorsDirectory(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'vectors');
 }

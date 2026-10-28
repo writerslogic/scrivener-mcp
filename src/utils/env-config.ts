@@ -58,9 +58,6 @@ export function parseEnvBool(value: string | undefined, defaultValue: boolean): 
 	return defaultValue;
 }
 
-/**
- * Validate URL format
- */
 export function validateUrl(url: string | undefined, name: string): string | undefined {
 	if (!url) return undefined;
 
@@ -228,9 +225,6 @@ export function applyDiscoveredAIKeys(homeDir: string = os.homedir()): void {
 	}
 }
 
-/**
- * Get validated environment configuration
- */
 export function getEnvConfig(): EnvConfig {
 	const config: EnvConfig = {
 		keydbUrl: validateUrl(process.env.KEYDB_URL, 'KEYDB_URL'),

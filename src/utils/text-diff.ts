@@ -11,11 +11,10 @@ export interface ParagraphDiff {
 	added: string[];
 	/** Paragraphs present in the old text but not aligned to the new text. */
 	removed: string[];
-	/** Count of paragraphs common to both (the LCS length). */
+
 	unchanged: number;
 }
 
-/** Split text into non-empty, trimmed paragraphs (blank-line or newline separated). */
 export function splitParagraphs(text: string): string[] {
 	return text
 		.split(/\n+/)

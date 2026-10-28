@@ -127,9 +127,6 @@ export class RTFHandler {
 		return result;
 	}
 
-	/**
-	 * Read and parse an RTF file
-	 */
 	async readRTF(filePath: string): Promise<RTFContent> {
 		const resolved = path.resolve(filePath);
 		if (resolved.includes('\0') || /\.\.[\\/]/.test(filePath)) {
@@ -139,9 +136,6 @@ export class RTFHandler {
 		return this.parseRTF(rtfContent);
 	}
 
-	/**
-	 * Parse RTF string content
-	 */
 	async parseRTF(rtfString: string): Promise<RTFContent> {
 		try {
 			return this.enhancedRTFParse(rtfString);
@@ -159,9 +153,6 @@ export class RTFHandler {
 		}
 	}
 
-	/**
-	 * Write RTF content to a file
-	 */
 	async writeRTF(filePath: string, content: RTFContent | string): Promise<void> {
 		const resolved = path.resolve(filePath);
 		if (resolved.includes('\0') || /\.\.[\\/]/.test(filePath)) {
@@ -193,9 +184,6 @@ export class RTFHandler {
 		return `${header}${body}}`;
 	}
 
-	/**
-	 * Build RTF header with optional metadata
-	 */
 	private buildRTFHeader(metadata?: RTFContent['metadata']): string {
 		const parts: string[] = ['{\\rtf1\\ansi\\deff0\\uc1'];
 
@@ -227,9 +215,6 @@ export class RTFHandler {
 		return parts.join('');
 	}
 
-	/**
-	 * Build formatted RTF body from text segments
-	 */
 	private buildFormattedRTF(segments: RTFContent['formattedText']): string {
 		if (!segments || segments.length === 0) return '';
 
@@ -291,9 +276,6 @@ export class RTFHandler {
 		return result;
 	}
 
-	/**
-	 * Extract metadata from RTF info group
-	 */
 	private extractMetadata(rtfString: string): RTFContent['metadata'] | undefined {
 		// Metadata is always near the start; limit search to avoid scanning large files
 		const head = rtfString.substring(0, 2000);
@@ -353,9 +335,6 @@ export class RTFHandler {
 		return content;
 	}
 
-	/**
-	 * Parse RTF content into text segments with formatting
-	 */
 	private parseRTFSegments(
 		content: string,
 		documentUc = 1
@@ -564,9 +543,6 @@ export class RTFHandler {
 		}
 	}
 
-	/**
-	 * Convert from parsed RTF document structure
-	 */
 	private convertRTFDocument(doc: RTFParserDocument): RTFContent {
 		const result: RTFContent = {
 			plainText: '',
@@ -639,16 +615,10 @@ export class RTFHandler {
 		return result;
 	}
 
-	/**
-	 * Convert to RTF (public interface)
-	 */
 	convertToRTF(content: RTFContent | string): string {
 		return this.unifiedConvertToRTF(content);
 	}
 
-	/**
-	 * Extract plain text from RTF
-	 */
 	extractPlainText(rtfString: string): string {
 		const parsed = this.enhancedRTFParse(rtfString);
 		return parsed.plainText;

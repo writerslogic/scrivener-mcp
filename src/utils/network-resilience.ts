@@ -160,9 +160,6 @@ export class NetworkResilience {
 		);
 	}
 
-	/**
-	 * Get or create circuit breaker for a connection
-	 */
 	private static getCircuitBreaker(id: string, options: CircuitBreakerOptions): CircuitBreaker {
 		if (!NetworkResilience.circuitBreakers.has(id)) {
 			NetworkResilience.circuitBreakers.set(id, new CircuitBreaker(options));
@@ -225,9 +222,6 @@ export class NetworkResilience {
 		};
 	}
 
-	/**
-	 * Create adaptive timeout based on network conditions
-	 */
 	static calculateAdaptiveTimeout(
 		baseTimeout: number,
 		recentLatencies: number[],

@@ -1,7 +1,3 @@
-/**
- * Cache system tests
- */
-
 import { LRUCache, CacheKeys } from '../../../src/core/cache.js';
 
 describe('LRUCache', () => {

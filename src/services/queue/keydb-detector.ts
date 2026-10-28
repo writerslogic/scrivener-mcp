@@ -16,9 +16,6 @@ export interface ConnectionInfo {
 	version?: string;
 }
 
-/**
- * Detect available KeyDB/Redis connection
- */
 export async function detectConnection(): Promise<ConnectionInfo> {
 	// Priority order: KEYDB_URL > REDIS_URL > localhost:6379
 	const urls = [process.env.KEYDB_URL, process.env.REDIS_URL, 'redis://localhost:6379'].filter(
@@ -125,9 +122,6 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 	};
 }
 
-/**
- * Extract version from INFO output
- */
 function extractVersion(info: string, isKeyDB: boolean): string {
 	const pattern = isKeyDB ? /keydb_version:([^\r\n]+)/ : /redis_version:([^\r\n]+)/;
 
@@ -135,9 +129,6 @@ function extractVersion(info: string, isKeyDB: boolean): string {
 	return match ? match[1] : 'unknown';
 }
 
-/**
- * Create optimized connection for BullMQ
- */
 export function createBullMQConnection(url: string): Redis {
 	const client = new Redis(url, {
 		maxRetriesPerRequest: null, // Required for BullMQ

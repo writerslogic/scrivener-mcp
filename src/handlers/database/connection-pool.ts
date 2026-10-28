@@ -324,9 +324,6 @@ export class QueryOptimizer {
 		return stmt.all(...params);
 	}
 
-	/**
-	 * Create missing indexes
-	 */
 	static createIndexes(
 		db: Database.Database,
 		indexes: Array<{

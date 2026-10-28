@@ -67,9 +67,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Initialize context directory
-	 */
 	private async initializeContextDirectory(): Promise<void> {
 		await ensureDir(this.contextDir);
 
@@ -203,9 +200,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Write chapter context files
-	 */
 	private async writeChapterContextFiles(context: ChapterContext): Promise<void> {
 		const chapterDir = buildPath(this.contextDir, 'chapters');
 		const baseFileName = `${this.sanitizeFileName(context.title)}-${context.documentId.substring(0, 8)}`;
@@ -233,9 +227,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Convert context to markdown
-	 */
 	private contextToMarkdown(context: ChapterContext): string {
 		let md = `# ${context.title}\n\n`;
 
@@ -366,9 +357,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Ensure theme exists in database
-	 */
 	private async ensureThemeExists(themeName: string): Promise<string> {
 		const themeId = `theme-${themeName.toLowerCase().replace(/\s+/g, '-')}`;
 
@@ -394,9 +382,6 @@ export class ContextSyncService {
 		return themeId;
 	}
 
-	/**
-	 * Generate story-wide context
-	 */
 	private async generateStoryContext(): Promise<void> {
 		// Get all chapter contexts
 		const chapters = await this.getAllChapterContexts();
@@ -441,9 +426,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Convert story context to markdown
-	 */
 	private storyContextToMarkdown(context: StoryContext): string {
 		let md = `# Story Context\n\n`;
 
@@ -496,9 +478,6 @@ export class ContextSyncService {
 		return md;
 	}
 
-	/**
-	 * Check if context is outdated
-	 */
 	private isContextOutdated(document: ScrivenerDocument, context: ChapterContext): boolean {
 		// Check if word count has changed significantly
 		if (Math.abs(document.wordCount - context.wordCount) > 50) {
@@ -514,9 +493,6 @@ export class ContextSyncService {
 		return false;
 	}
 
-	/**
-	 * Get document from database
-	 */
 	private async getDocumentFromDatabase(documentId: string): Promise<ScrivenerDocument | null> {
 		if (!this.databaseService.getSQLite()) {
 			return null;
@@ -551,9 +527,6 @@ export class ContextSyncService {
 		};
 	}
 
-	/**
-	 * Get document content
-	 */
 	private async getDocumentContent(documentId: string): Promise<string> {
 		try {
 			const contentPath = buildPath(
@@ -572,9 +545,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Get all documents
-	 */
 	private async getAllDocuments(): Promise<ScrivenerDocument[]> {
 		if (!this.databaseService.getSQLite()) {
 			return [];
@@ -604,9 +574,6 @@ export class ContextSyncService {
 		}));
 	}
 
-	/**
-	 * Get all chapter contexts
-	 */
 	private async getAllChapterContexts(): Promise<ChapterContext[]> {
 		const contexts: ChapterContext[] = [];
 		const documents = await this.getAllDocuments();
@@ -621,9 +588,6 @@ export class ContextSyncService {
 		return contexts;
 	}
 
-	/**
-	 * Count synced documents
-	 */
 	private async countSyncedDocuments(): Promise<number> {
 		const chapterDir = buildPath(this.contextDir, 'chapters');
 
@@ -647,9 +611,6 @@ export class ContextSyncService {
 		return truncated.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 	}
 
-	/**
-	 * Get sync status
-	 */
 	getSyncStatus(): SyncStatus {
 		return { ...this.syncStatus };
 	}

@@ -80,9 +80,6 @@ export class AdaptiveMemoryManager {
 		return AdaptiveMemoryManager.instance;
 	}
 
-	/**
-	 * Initialize advanced memory monitoring with predictive analysis
-	 */
 	private initializeMemoryMonitoring(): void {
 		// Monitor allocation patterns for prediction
 		this.monitorIntervals.push(
@@ -152,9 +149,6 @@ export class AdaptiveMemoryManager {
 		}
 	}
 
-	/**
-	 * Create or get optimized memory pool for specific object types
-	 */
 	createPool<T>(
 		name: string,
 		factory: () => T,
@@ -281,9 +275,6 @@ export class AdaptiveMemoryManager {
 		return keyOrText; // Return as-is if not compressed
 	}
 
-	/**
-	 * Analyze allocation patterns for predictive optimization
-	 */
 	private analyzeAllocationPatterns(): void {
 		const now = Date.now();
 		const recentAllocations = this.allocationHistory.filter(
@@ -348,9 +339,6 @@ export class AdaptiveMemoryManager {
 		}
 	}
 
-	/**
-	 * Handle memory pressure with intelligent optimization
-	 */
 	private handleMemoryPressure(): void {
 		logger.warn('Memory pressure detected, optimizing...');
 
@@ -502,9 +490,6 @@ export class AdaptiveMemoryManager {
 		this.memoryPressureCallbacks.add(callback);
 	}
 
-	/**
-	 * Get comprehensive memory metrics
-	 */
 	getMemoryMetrics(): MemoryMetrics {
 		const heapUsage = this.estimateHeapUsage();
 		const _totalPoolSize = Array.from(this.memoryPools.values()).reduce(
@@ -522,9 +507,6 @@ export class AdaptiveMemoryManager {
 		};
 	}
 
-	/**
-	 * Get detailed performance analytics
-	 */
 	getAnalytics(): {
 		pools: { [key: string]: { size: number; allocated: number; efficiency: number } };
 		compression: { totalSaved: number; ratio: number; count: number };

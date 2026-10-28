@@ -253,9 +253,6 @@ describe('Scrivener Project Integration', () => {
 	});
 });
 
-/**
- * Create a mock Scrivener project for testing
- */
 async function createMockScrivenerProject(projectPath: string): Promise<void> {
 	// Create project directory
 	await fs.mkdir(projectPath, { recursive: true });

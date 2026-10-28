@@ -106,9 +106,6 @@ export class DatabaseService {
 		);
 	}
 
-	/**
-	 * Initialize both databases
-	 */
 	async initialize(): Promise<void> {
 		if (this.initialized) {
 			return;
@@ -214,16 +211,10 @@ export class DatabaseService {
 		this.initialized = true;
 	}
 
-	/**
-	 * Check if database service is initialized
-	 */
 	isInitialized(): boolean {
 		return this.initialized;
 	}
 
-	/**
-	 * Save database configuration
-	 */
 	private async saveConfig(): Promise<void> {
 		const configData = {
 			...this.config,
@@ -240,9 +231,6 @@ export class DatabaseService {
 		);
 	}
 
-	/**
-	 * Load database configuration
-	 */
 	static async loadConfig(projectPath: string): Promise<DatabaseConfig | null> {
 		const paths = generateDatabasePaths(projectPath);
 
@@ -269,9 +257,6 @@ export class DatabaseService {
 		}
 	}
 
-	/**
-	 * Get SQLite manager
-	 */
 	getSQLite(): SQLiteManager {
 		if (!this.sqliteManager) {
 			throw new AppError(
@@ -347,9 +332,6 @@ export class DatabaseService {
 		return this.sync.syncCharacterData(characterData);
 	}
 
-	/**
-	 * Create relationships between entities
-	 */
 	async createRelationship(
 		fromId: string,
 		fromType: string,
@@ -368,9 +350,6 @@ export class DatabaseService {
 		);
 	}
 
-	/**
-	 * Store content analysis
-	 */
 	async storeContentAnalysis(
 		documentId: string,
 		analysisType: string,
@@ -379,9 +358,6 @@ export class DatabaseService {
 		storeContentAnalysis(this.sqliteManager, documentId, analysisType, analysisData);
 	}
 
-	/**
-	 * Get content analysis history
-	 */
 	async getContentAnalysisHistory(
 		documentId: string,
 		analysisType?: string
@@ -396,16 +372,10 @@ export class DatabaseService {
 		recordWritingSession(this.sqliteManager, sessionData);
 	}
 
-	/**
-	 * Get writing statistics
-	 */
 	async getWritingStatistics(days = 30): Promise<WritingStatistics> {
 		return getWritingStatistics(this.sqliteManager, days);
 	}
 
-	/**
-	 * Get database status
-	 */
 	getStatus(): {
 		sqlite: { enabled: boolean; connected: boolean; size?: number };
 		neo4j: { enabled: boolean; connected: boolean; uri?: string };
@@ -442,9 +412,6 @@ export class DatabaseService {
 		};
 	}
 
-	/**
-	 * Close database connections
-	 */
 	async close(): Promise<void> {
 		if (this.sqliteManager) {
 			this.sqliteManager.close();
@@ -481,23 +448,14 @@ export class DatabaseService {
 		}
 	}
 
-	/**
-	 * Get graph analytics service
-	 */
 	getGraphAnalytics(): GraphAnalytics | null {
 		return this.graphAnalytics;
 	}
 
-	/**
-	 * Get search service
-	 */
 	getSearchService(): SearchService | null {
 		return this.searchService;
 	}
 
-	/**
-	 * Get migration manager
-	 */
 	getMigrationManager(): MigrationManager | null {
 		return this.migrationManager;
 	}
@@ -512,9 +470,6 @@ export class DatabaseService {
 		return this.graphAnalytics.discoverRelationships();
 	}
 
-	/**
-	 * Analyze story structure
-	 */
 	async analyzeStoryStructure(): Promise<{
 		characterNetwork: unknown;
 		plotComplexity: unknown;
@@ -540,9 +495,6 @@ export class DatabaseService {
 		};
 	}
 
-	/**
-	 * Perform full-text search
-	 */
 	async search(query: string, options?: Record<string, unknown>): Promise<unknown> {
 		if (!this.searchService) {
 			throw new AppError('Search service not available', ErrorCode.DATABASE_ERROR);
@@ -550,37 +502,22 @@ export class DatabaseService {
 		return this.searchService.search(query, options);
 	}
 
-	/**
-	 * Get writing analytics
-	 */
 	getWritingAnalytics(): WritingAnalytics | null {
 		return this.writingAnalytics;
 	}
 
-	/**
-	 * Get story intelligence
-	 */
 	getStoryIntelligence(): StoryIntelligence | null {
 		return this.storyIntelligence;
 	}
 
-	/**
-	 * Set the HMS instance and create the RelationshipEngine
-	 */
 	setHMS(hms: HolographicMemorySystem): void {
 		this.relationshipEngine = new RelationshipEngine(hms, this.neo4jManager);
 	}
 
-	/**
-	 * Get relationship engine
-	 */
 	getRelationshipEngine(): RelationshipEngine | null {
 		return this.relationshipEngine;
 	}
 
-	/**
-	 * Get comprehensive writing insights
-	 */
 	async getWritingInsights(): Promise<{
 		patterns: WritingPattern;
 		productivity: ProductivityTrend[];
@@ -613,9 +550,6 @@ export class DatabaseService {
 		return { patterns, productivity, recommendations, completion };
 	}
 
-	/**
-	 * Get story analysis and recommendations
-	 */
 	async getStoryAnalysis(): Promise<{
 		plotHoles: PlotHole[];
 		characterArcs: CharacterArcIssue[];
@@ -645,9 +579,6 @@ export class DatabaseService {
 		trackWritingSession(this.sqliteManager, wordsWritten, duration);
 	}
 
-	/**
-	 * Create document version/snapshot
-	 */
 	async createDocumentVersion(
 		documentId: string,
 		content: string,

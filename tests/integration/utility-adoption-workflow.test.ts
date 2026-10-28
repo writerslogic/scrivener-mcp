@@ -437,7 +437,6 @@ describe('Utility Adoption Workflow Integration', () => {
 		});
 
 		it('should maintain data integrity across utility operations', async () => {
-			// Create test data
 			const originalData = {
 				id: generateScrivenerUUID(),
 				metadata: 'Title: Test Document\nAuthor: Test Author\nGenre: Fiction',

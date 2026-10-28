@@ -77,7 +77,6 @@ export const openProjectHandler: ToolDefinition = {
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		return withProjectLifecycle(context, async () => {
-			// Validate input arguments
 			validateInput(args, {
 				path: {
 					type: 'string',

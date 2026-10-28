@@ -99,9 +99,6 @@ export class StoryIntelligence {
 		private graphAnalytics: GraphAnalytics | null
 	) {}
 
-	/**
-	 * Detect potential plot holes using pattern analysis
-	 */
 	async detectPlotHoles(): Promise<PlotHole[]> {
 		const holes: PlotHole[] = [];
 
@@ -131,9 +128,6 @@ export class StoryIntelligence {
 		});
 	}
 
-	/**
-	 * Analyze character arc progression
-	 */
 	async analyzeCharacterArcs(): Promise<CharacterArcIssue[]> {
 		if (!this.sqliteManager || !this.neo4jManager?.isAvailable()) {
 			return [];
@@ -198,9 +192,6 @@ export class StoryIntelligence {
 		return issues;
 	}
 
-	/**
-	 * Analyze story pacing
-	 */
 	async analyzePacing(): Promise<PacingIssue[]> {
 		if (!this.sqliteManager) return [];
 
@@ -275,9 +266,6 @@ export class StoryIntelligence {
 		return issues;
 	}
 
-	/**
-	 * Generate smart story recommendations
-	 */
 	async generateRecommendations(): Promise<StoryRecommendation[]> {
 		const recommendations: StoryRecommendation[] = [];
 
@@ -367,9 +355,6 @@ export class StoryIntelligence {
 		});
 	}
 
-	/**
-	 * Build story timeline from content
-	 */
 	async buildTimeline(): Promise<TimelineEvent[]> {
 		if (!this.sqliteManager) return [];
 

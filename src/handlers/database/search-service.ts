@@ -32,9 +32,6 @@ export class SearchService {
 		private neo4jManager: Neo4jManager | null
 	) {}
 
-	/**
-	 * Perform full-text search across all content
-	 */
 	async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
 		const results: SearchResult[] = [];
 		const {
@@ -135,9 +132,6 @@ export class SearchService {
 		}
 	}
 
-	/**
-	 * Search characters
-	 */
 	private async searchCharacters(query: string, options: SearchOptions): Promise<SearchResult[]> {
 		const results: SearchResult[] = [];
 
@@ -201,9 +195,6 @@ export class SearchService {
 		return results;
 	}
 
-	/**
-	 * Search plot threads
-	 */
 	private async searchPlotThreads(
 		query: string,
 		options: SearchOptions
@@ -232,9 +223,6 @@ export class SearchService {
 		}));
 	}
 
-	/**
-	 * Search themes
-	 */
 	private async searchThemes(query: string, options: SearchOptions): Promise<SearchResult[]> {
 		if (!this.sqliteManager) return [];
 
@@ -259,9 +247,6 @@ export class SearchService {
 		}));
 	}
 
-	/**
-	 * Search locations
-	 */
 	private async searchLocations(query: string, options: SearchOptions): Promise<SearchResult[]> {
 		if (!this.sqliteManager) return [];
 
@@ -299,9 +284,6 @@ export class SearchService {
 		return this.search(query, options);
 	}
 
-	/**
-	 * Search for connections between entities
-	 */
 	async searchConnections(
 		entity1: string,
 		entity2: string,
@@ -430,9 +412,6 @@ export class SearchService {
 		}
 	}
 
-	/**
-	 * Get search suggestions based on partial input
-	 */
 	async getSuggestions(partial: string, limit: number = 10): Promise<string[]> {
 		const suggestions: Set<string> = new Set();
 

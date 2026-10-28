@@ -2,10 +2,6 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// ============================================================================
-// Error Handling
-// ============================================================================
-
 /** Error codes for standardized error handling */
 export enum ErrorCode {
 	// File & Resource Errors
@@ -101,7 +97,6 @@ export class AppError extends Error {
 	}
 }
 
-/** Create a new AppError */
 export function createError(code: ErrorCode, details?: unknown, message?: string): AppError {
 	return new AppError(message || `Error: ${code}`, code, details);
 }
@@ -181,7 +176,6 @@ export interface ValidationRule {
 }
 export type ValidationSchema = Record<string, ValidationRule>;
 
-/** Validate input against schema */
 export function validateInput(
 	input: Record<string, unknown>,
 	schema: ValidationSchema,
@@ -253,7 +247,6 @@ export function sanitizePath(inputPath: string): string {
 		.join(path.sep);
 }
 
-/** Build a path from base and segments */
 export function buildPath(base: string, ...segments: string[]): string {
 	return path.join(base, ...segments);
 }
@@ -277,10 +270,6 @@ export function isValidUUID(
 
 	return pattern.test(uuid);
 }
-
-// ============================================================================
-// API Response Utilities
-// ============================================================================
 
 export interface ApiResponse<T = unknown> {
 	success: boolean;
@@ -310,10 +299,6 @@ export function validateApiResponse(resp: unknown): resp is ApiResponse {
 	const r = resp as ApiResponse;
 	return typeof r.success === 'boolean' && (r.success || !!r.error);
 }
-
-// ============================================================================
-// File System Utilities
-// ============================================================================
 
 export async function ensureDir(dirPath: string): Promise<void> {
 	try {
@@ -387,9 +372,6 @@ export async function pathExists(filePath: string): Promise<boolean> {
 	}
 }
 
-/**
- * Read and parse a JSON file using existing utilities
- */
 export async function readJSON<T>(filePath: string, fallback?: T): Promise<T> {
 	try {
 		const content = await safeReadFile(filePath, 'utf-8');
@@ -402,9 +384,6 @@ export async function readJSON<T>(filePath: string, fallback?: T): Promise<T> {
 	}
 }
 
-/**
- * Write data as JSON to a file using existing utilities
- */
 export async function writeJSON(filePath: string, data: unknown, pretty = true): Promise<void> {
 	try {
 		// For pretty printing, try native JSON.stringify first, fall back to safeStringify
@@ -424,10 +403,6 @@ export async function writeJSON(filePath: string, data: unknown, pretty = true):
 		throw handleError(e, `writeJSON ${filePath}`);
 	}
 }
-
-// ============================================================================
-// Cleanup Utilities
-// ============================================================================
 
 export class CleanupManager {
 	private cleanupTasks: Array<() => Promise<void>> = [];
@@ -476,10 +451,6 @@ export class CleanupManager {
 	}
 }
 
-// ============================================================================
-// String Utilities
-// ============================================================================
-
 export const truncate = (s: string, max: number): string =>
 	s.length <= max ? s : `${s.slice(0, max - 3)}...`;
 
@@ -493,10 +464,6 @@ export const toSlug = (s: string): string =>
 		.replace(/[^\w\s-]/g, '')
 		.replace(/[\s_-]+/g, '-')
 		.replace(/^-+|-+$/g, '');
-
-// ============================================================================
-// Async Utilities
-// ============================================================================
 
 export async function retry<T>(
 	fn: () => Promise<T>,
@@ -592,10 +559,6 @@ export function throttle<T extends (...a: unknown[]) => void>(fn: T, limit: numb
 	};
 }
 
-// ============================================================================
-// Batch Processing Utilities
-// ============================================================================
-
 export async function processBatch<T, R>(
 	items: T[],
 	processor: (batch: T[]) => Promise<R[]>,
@@ -628,10 +591,6 @@ export async function processParallel<T, R>(
 	await Promise.all(executing);
 	return results;
 }
-
-// ============================================================================
-// JSON & Object Utilities
-// ============================================================================
 
 /** Safe JSON parse with Map/Set support */
 export const safeParse = <T>(s: string, fallback: T): T => {
@@ -753,7 +712,6 @@ export function isUnsafeKey(key: string): boolean {
 	return key === '__proto__' || key === 'constructor' || key === 'prototype';
 }
 
-/** Check if object is empty */
 export const isEmpty = (obj: unknown): boolean => {
 	if (obj == null) return true;
 	if (Array.isArray(obj) || typeof obj === 'string') return obj.length === 0;
@@ -779,11 +737,6 @@ export const omit = <T extends object, K extends keyof T>(obj: T, keys: K[]): Om
 	return result as Omit<T, K>;
 };
 
-// ============================================================================
-// Array Utilities
-// ============================================================================
-
-/** Remove duplicates from array */
 export const unique = <T>(arr: T[]): T[] => [...new Set(arr)];
 
 /** Chunk array into smaller arrays */
@@ -806,10 +759,6 @@ export const groupBy = <T>(arr: T[], key: keyof T): Record<string, T[]> => {
 		{} as Record<string, T[]>
 	);
 };
-
-// ============================================================================
-// Performance & Environment Utilities
-// ============================================================================
 
 /** Measure execution time */
 export async function measureExecution<T>(
@@ -861,11 +810,6 @@ export const isProduction = (): boolean => process.env.NODE_ENV === 'production'
 /** Is development env */
 export const isDevelopment = (): boolean => process.env.NODE_ENV === 'development';
 
-// ============================================================================
-// Text Processing Utilities
-// ============================================================================
-
-// Re-export accurate text metrics functions from dedicated module
 export {
 	getAccurateParagraphCount,
 	getAccurateSentenceCount,
@@ -880,11 +824,6 @@ export {
 
 // Text processing functions moved to text-metrics.js and re-exported above
 
-// ============================================================================
-// Date & Time Utilities
-// ============================================================================
-
-/** Format duration in ms to human-readable string */
 export const formatDuration = (ms: number): string => {
 	const seconds = Math.floor(ms / 1000);
 	const minutes = Math.floor(seconds / 60);
@@ -897,7 +836,6 @@ export const formatDuration = (ms: number): string => {
 	return `${seconds}s`;
 };
 
-/** Format bytes to human-readable size */
 export const formatBytes = (bytes: number, decimals = 2): string => {
 	if (bytes === 0) return '0 Bytes';
 	const k = 1024;
@@ -906,10 +844,6 @@ export const formatBytes = (bytes: number, decimals = 2): string => {
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
-
-// ============================================================================
-// Export all utilities
-// ============================================================================
 
 export default {
 	// Error handling

@@ -12,10 +12,6 @@ export interface StyleGuideContextOptions {
 	customFields?: string[];
 }
 
-/**
- * Format style guide information for prompts
- * Eliminates duplicate style guide formatting code
- */
 export function formatStyleGuideContext(
 	styleGuide?: StyleGuide,
 	options: StyleGuideContextOptions = {}
@@ -94,9 +90,6 @@ export function formatStyleGuideContext(
 	return context;
 }
 
-/**
- * Generate style guide validation prompt
- */
 export function createStyleGuideValidationPrompt(
 	styleGuide: StyleGuide,
 	content: string,
@@ -125,9 +118,6 @@ Content to evaluate:
 	return prompt;
 }
 
-/**
- * Check if content has sufficient style guide information
- */
 export function hasMinimalStyleGuideInfo(styleGuide?: StyleGuide): boolean {
 	if (!styleGuide) return false;
 
@@ -139,9 +129,6 @@ export function hasMinimalStyleGuideInfo(styleGuide?: StyleGuide): boolean {
 	return (hasGenre || hasTone) && hasAudience;
 }
 
-/**
- * Extract style guide summary for logging
- */
 export function getStyleGuideSummary(styleGuide?: StyleGuide): Record<string, unknown> {
 	if (!styleGuide) return { hasStyleGuide: false };
 

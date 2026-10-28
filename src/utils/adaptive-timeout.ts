@@ -218,9 +218,6 @@ export class AdaptiveTimeout extends EventEmitter {
 		});
 	}
 
-	/**
-	 * Start progress monitoring with multiple indicators
-	 */
 	private startProgressMonitoring(): void {
 		if (!this.options.progressIndicators?.length) return;
 
@@ -238,9 +235,6 @@ export class AdaptiveTimeout extends EventEmitter {
 		}, 2000); // Check every 2 seconds
 	}
 
-	/**
-	 * Check progress using all available indicators
-	 */
 	private async checkProgress(): Promise<void> {
 		const now = Date.now();
 		let hasProgress = false;
@@ -355,9 +349,6 @@ export class AdaptiveTimeout extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Handle timeout scenario
-	 */
 	private handleTimeout(reject?: (error: Error) => void): void {
 		const elapsed = Date.now() - this.startTime;
 		const timeSinceProgress = Date.now() - this.lastProgressTime;
@@ -398,9 +389,6 @@ export class AdaptiveTimeout extends EventEmitter {
 		this.emit('cancelled');
 	}
 
-	/**
-	 * Cleanup resources
-	 */
 	private cleanup(): void {
 		if (this.timeoutHandle) {
 			clearTimeout(this.timeoutHandle);
@@ -412,9 +400,6 @@ export class AdaptiveTimeout extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Get progress statistics
-	 */
 	getProgressStats(): {
 		elapsed: number;
 		timeSinceProgress: number;

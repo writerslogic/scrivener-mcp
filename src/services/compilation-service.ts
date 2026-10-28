@@ -200,9 +200,6 @@ export class CompilationService {
 		return outputFormat === 'html' ? `<article>\n${joined}\n</article>` : joined;
 	}
 
-	/**
-	 * Search content across documents
-	 */
 	searchInDocuments(
 		documents: Array<{
 			id: string;
@@ -336,16 +333,10 @@ export class CompilationService {
 		return { format, content, metadata };
 	}
 
-	/**
-	 * Extract annotations from RTF content
-	 */
 	extractAnnotations(rtfContent: string): Map<string, string> {
 		return this.rtfHandler.preserveScrivenerAnnotations(rtfContent);
 	}
 
-	/**
-	 * Get project statistics
-	 */
 	getStatistics(documents: ScrivenerDocument[]): ProjectStatistics {
 		const stats: ProjectStatistics = {
 			totalDocuments: 0,

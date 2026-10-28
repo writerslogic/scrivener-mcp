@@ -25,9 +25,6 @@ export class DocumentTree {
 		return this.getStructure();
 	}
 
-	/**
-	 * Get all documents in the project
-	 */
 	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
 		try {
 			await this.getProjectStructure(includeTrash);
@@ -104,9 +101,6 @@ export class DocumentTree {
 		}
 	}
 
-	/**
-	 * Get project structure as hierarchical documents
-	 */
 	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');

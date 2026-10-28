@@ -190,7 +190,6 @@ function escapeInline(text: string): string {
 	return out;
 }
 
-/** Split text into reconstruction-exact tokens (word runs, whitespace runs, other runs). */
 function tokenize(text: string): string[] {
 	return text.match(/\s+|[A-Za-z0-9_]+|[^\sA-Za-z0-9_]+/gu) ?? [];
 }

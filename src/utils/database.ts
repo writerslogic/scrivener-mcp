@@ -8,10 +8,6 @@ import { ERROR_MESSAGES } from '../core/constants.js';
 import type { QueryResult, Record as Neo4jRecord } from 'neo4j-driver';
 import type Database from 'better-sqlite3';
 
-// ============================================================================
-// Database Error Handling
-// ============================================================================
-
 /**
  * Database error types
  */
@@ -77,9 +73,6 @@ export function classifyDatabaseError(error: unknown): DatabaseErrorType {
 	return DatabaseErrorType.UNKNOWN;
 }
 
-/**
- * Check if error is transient and should be retried
- */
 export function isTransientDatabaseError(error: unknown): boolean {
 	const type = classifyDatabaseError(error);
 	return [
@@ -89,9 +82,6 @@ export function isTransientDatabaseError(error: unknown): boolean {
 	].includes(type);
 }
 
-/**
- * Convert database error to AppError
- */
 export function toDatabaseError(error: unknown, context?: string): AppError {
 	const type = classifyDatabaseError(error);
 	const originalMessage =
@@ -124,9 +114,7 @@ export function toDatabaseError(error: unknown, context?: string): AppError {
 	);
 }
 
-// ============================================================================
 // Neo4j Utilities
-// ============================================================================
 
 /**
  * Extract single value from Neo4j result
@@ -177,9 +165,6 @@ export function nodeToObject(node: unknown): Record<string, unknown> {
 	return converted;
 }
 
-/**
- * Build Cypher parameter object with null handling
- */
 export function buildCypherParams(params: Record<string, unknown>): Record<string, unknown> {
 	const cleaned: Record<string, unknown> = {};
 
@@ -201,21 +186,11 @@ export function buildCypherParams(params: Record<string, unknown>): Record<strin
 	return cleaned;
 }
 
-// ============================================================================
-// SQLite Utilities
-// ============================================================================
-
-/**
- * Build parameterized SQL query
- */
 export interface SqlQuery {
 	sql: string;
 	params: unknown[];
 }
 
-/**
- * Build INSERT query
- */
 export function buildInsertQuery(
 	table: string,
 	data: Record<string, unknown>,
@@ -244,9 +219,6 @@ export function buildInsertQuery(
 	return { sql, params: values };
 }
 
-/**
- * Build UPDATE query
- */
 export function buildUpdateQuery(
 	table: string,
 	data: Record<string, unknown>,
@@ -268,9 +240,6 @@ export function buildUpdateQuery(
 	return { sql, params };
 }
 
-/**
- * Build SELECT query with filters
- */
 export function buildSelectQuery(
 	table: string,
 	filters?: Record<string, unknown>,
@@ -331,10 +300,6 @@ export function escapeIdentifier(identifier: string): string {
 	return `"${identifier.replace(/"/g, '""')}"`;
 }
 
-// ============================================================================
-// Transaction Utilities
-// ============================================================================
-
 /**
  * Transaction wrapper for SQLite
  */
@@ -384,13 +349,6 @@ export function batchInsert(
 	}
 }
 
-// ============================================================================
-// Connection Utilities
-// ============================================================================
-
-/**
- * Parse database connection string
- */
 export function parseConnectionString(connectionString: string): {
 	protocol: string;
 	host: string;
@@ -411,9 +369,6 @@ export function parseConnectionString(connectionString: string): {
 	};
 }
 
-/**
- * Get default port for database protocol
- */
 function getDefaultPort(protocol: string): number {
 	const defaults: Record<string, number> = {
 		'bolt:': 7687,
@@ -427,9 +382,6 @@ function getDefaultPort(protocol: string): number {
 	return defaults[protocol] || 0;
 }
 
-/**
- * Build connection string from parts
- */
 export function buildConnectionString(parts: {
 	protocol: string;
 	host: string;
@@ -460,10 +412,6 @@ export function buildConnectionString(parts: {
 
 	return url;
 }
-
-// ============================================================================
-// Query Result Utilities
-// ============================================================================
 
 /**
  * Paginate results
@@ -497,9 +445,6 @@ export function paginate<T>(
 	};
 }
 
-/**
- * Convert database rows to nested structure
- */
 export function rowsToNested<T extends Record<string, unknown>>(
 	rows: T[],
 	parentKey: string,
@@ -532,10 +477,6 @@ export function rowsToNested<T extends Record<string, unknown>>(
 
 	return roots;
 }
-
-// ============================================================================
-// Export
-// ============================================================================
 
 export default {
 	// Error handling

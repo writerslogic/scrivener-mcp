@@ -88,9 +88,6 @@ export async function analyzeWorkflowDocument(params: {
 	});
 }
 
-/**
- * Initialize async services
- */
 export async function initializeAsyncServices(
 	options: {
 		redisUrl?: string;
@@ -244,9 +241,6 @@ export async function queueProjectAnalysis(params: {
 	});
 }
 
-/**
- * Build vector store for semantic search
- */
 export async function buildVectorStore(params: {
 	documents: ScrivenerDocument[];
 	rebuild?: boolean;
@@ -285,9 +279,6 @@ export async function buildVectorStore(params: {
 	});
 }
 
-/**
- * Perform semantic search
- */
 export async function semanticSearch(params: { query: string; topK?: number }): Promise<{
 	results: Array<{
 		content: string;
@@ -313,9 +304,6 @@ export async function semanticSearch(params: { query: string; topK?: number }): 
 	});
 }
 
-/**
- * Generate AI suggestions with context
- */
 export async function generateSuggestions(params: {
 	prompt: string;
 	documentId?: string;
@@ -355,9 +343,6 @@ export async function generateSuggestions(params: {
 	});
 }
 
-/**
- * Analyze writing style
- */
 export async function analyzeWritingStyle(params: {
 	samples: string[];
 }): Promise<{ analysis: Record<string, unknown> }> {
@@ -374,9 +359,6 @@ export async function analyzeWritingStyle(params: {
 	});
 }
 
-/**
- * Check plot consistency
- */
 export async function checkPlotConsistency(params: {
 	documents: ScrivenerDocument[];
 	async?: boolean;
@@ -418,9 +400,6 @@ export async function checkPlotConsistency(params: {
 	});
 }
 
-/**
- * Get job status
- */
 export async function getJobStatus(params: { jobType: JobType; jobId: string }): Promise<{
 	state: string;
 	progress: number;
@@ -502,9 +481,6 @@ function normalizeQueueStats(rawStats: Record<string, unknown>): {
 	};
 }
 
-/**
- * Get queue statistics
- */
 export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 	queues: Array<{
 		type: JobType;

@@ -24,16 +24,10 @@ export class FirstRunManager {
 	private setupPath = join(this.configDir, 'setup.json');
 	private firstRunPath = join(this.configDir, '.first-run-complete');
 
-	/**
-	 * Check if this is the first run
-	 */
 	isFirstRun(): boolean {
 		return !existsSync(this.firstRunPath);
 	}
 
-	/**
-	 * Check if setup has been completed
-	 */
 	async isSetupComplete(): Promise<boolean> {
 		try {
 			const setup = (await readJSON(this.setupPath, {})) as Record<string, unknown>;
@@ -43,9 +37,6 @@ export class FirstRunManager {
 		}
 	}
 
-	/**
-	 * Get current feature status
-	 */
 	async getFeatureStatus(): Promise<{
 		basic: boolean;
 		neo4j: boolean;
@@ -72,9 +63,6 @@ export class FirstRunManager {
 		}
 	}
 
-	/**
-	 * Initialize on first run
-	 */
 	async initialize(config: FirstRunConfig = {}): Promise<void> {
 		// Skip if explicitly disabled
 		if (config.skipSetup || process.env.SCRIVENER_SKIP_SETUP === 'true') {

@@ -68,7 +68,6 @@ export interface ExportMeta {
 	preset?: ExportPreset;
 }
 
-/** Split a plain-text body into non-empty paragraphs on blank lines / newlines. */
 function splitParagraphs(text: string): string[] {
 	return text
 		.split(/\n{2,}|\r\n{2,}|\n/)
@@ -97,10 +96,6 @@ function styledParagraphs(section: ExportSection): Array<RTFContent['formattedTe
 	}
 	return paragraphs.filter((paragraph) => paragraph.some((run) => run.text.trim()));
 }
-
-// ---------------------------------------------------------------------------
-// DOCX
-// ---------------------------------------------------------------------------
 
 const DOCX_HEADINGS = [
 	HeadingLevel.HEADING_1,
@@ -232,10 +227,6 @@ export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promi
 	return Packer.toBuffer(doc);
 }
 
-// ---------------------------------------------------------------------------
-// EPUB
-// ---------------------------------------------------------------------------
-
 export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promise<Buffer> {
 	const chapters = sections
 		.filter((s) => !!meta.preset || !s.isFolder || s.text.trim().length > 0)
@@ -285,9 +276,7 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 	return Buffer.isBuffer(result) ? result : Buffer.from(result as ArrayBuffer);
 }
 
-// ---------------------------------------------------------------------------
 // PDF (pdf-lib is low-level: we wrap and paginate text ourselves)
-// ---------------------------------------------------------------------------
 
 /** pdf-lib StandardFonts only encode WinAnsi; map common typographic chars and
  * drop anything else so drawText never throws on smart quotes / em-dashes. */
@@ -363,7 +352,6 @@ export async function toPdf(sections: ExportSection[], meta: ExportMeta): Promis
 	return Buffer.from(bytes);
 }
 
-/** Format extension for a binary export format. */
 export const BINARY_FORMATS: Record<string, string> = {
 	docx: 'docx',
 	epub: 'epub',

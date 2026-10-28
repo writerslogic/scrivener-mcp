@@ -30,7 +30,7 @@ function stripEmpty(obj: unknown): unknown {
 	if (obj === null || obj === undefined) return undefined;
 	if (Array.isArray(obj)) return obj.map(stripEmpty).filter((v) => v !== undefined);
 	if (typeof obj === 'object') {
-		const cleaned: Record<string, unknown> = {};
+		const cleaned: Record<string, unknown> = Object.create(null);
 		for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
 			const stripped = stripEmpty(v);
 			if (stripped !== undefined) cleaned[k] = stripped;
@@ -44,7 +44,16 @@ function stripEmpty(obj: unknown): unknown {
  * Compact JSON serialization: no indentation, nulls stripped.
  */
 export function compact(data: unknown): string {
-	return JSON.stringify(stripEmpty(data));
+	return JSON.stringify(stripEmpty(data)) ?? 'null';
+}
+
+function spool(json: string, label: string): { id: string; filepath: string } {
+	if (typeof label !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(label))
+		throw new Error('Result label must contain 1–64 letters, digits, underscores or hyphens');
+	const id = crypto.randomUUID();
+	const filepath = path.join(getSpoolDir(), `${label}-${id}.json`);
+	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
+	return { id, filepath };
 }
 
 /**
@@ -55,11 +64,7 @@ export function formatPayload(data: unknown, label?: string): string {
 	const json = compact(data);
 	if (json.length <= PAYLOAD_THRESHOLD) return json;
 
-	const spoolDirectory = getSpoolDir();
-	const id = crypto.randomUUID().slice(0, 8);
-	const filename = `${label || 'result'}-${id}.json`;
-	const filepath = path.join(spoolDirectory, filename);
-	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
+	const { id, filepath } = spool(json, label ?? 'result');
 
 	return compact({
 		_ref: id,
@@ -70,18 +75,11 @@ export function formatPayload(data: unknown, label?: string): string {
 	});
 }
 
-/**
- * Format a list/array result with automatic spill for large result sets.
- */
 export function formatList(items: unknown[], label?: string): string {
 	const json = compact(items);
 	if (json.length <= PAYLOAD_THRESHOLD) return json;
 
-	const spoolDirectory = getSpoolDir();
-	const id = crypto.randomUUID().slice(0, 8);
-	const filename = `${label || 'list'}-${id}.json`;
-	const filepath = path.join(spoolDirectory, filename);
-	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
+	const { id, filepath } = spool(json, label ?? 'list');
 
 	return compact({
 		_ref: id,

@@ -109,9 +109,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 		};
 	}
 
-	/**
-	 * Initialize the connection pool
-	 */
 	async initialize(): Promise<void> {
 		if (this.isInitialized) return;
 
@@ -239,9 +236,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 		return this.executeTransaction('WRITE', work, retryOptions);
 	}
 
-	/**
-	 * Get pool health status
-	 */
 	async getHealth(): Promise<PoolHealth> {
 		const isHealthy = this.isReady() && (await this.performHealthCheck());
 
@@ -257,9 +251,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 		};
 	}
 
-	/**
-	 * Get connection statistics
-	 */
 	getStats(): ConnectionStats {
 		return {
 			...this.stats,
@@ -284,16 +275,10 @@ export class Neo4jConnectionPool extends EventEmitter {
 		logger.info('Connection pool statistics reset');
 	}
 
-	/**
-	 * Check if the pool is ready for queries
-	 */
 	isReady(): boolean {
 		return this.isInitialized && this.driver !== null && this.circuitBreaker.state !== 'open';
 	}
 
-	/**
-	 * Close the connection pool
-	 */
 	async close(): Promise<void> {
 		if (this.healthTimer) {
 			clearInterval(this.healthTimer);

@@ -29,9 +29,6 @@ export class OperationMetricsTracker {
 		this.logger = logger;
 	}
 
-	/**
-	 * Update metrics for an operation
-	 */
 	updateMetrics(
 		operationName: string,
 		executionTime: number,
@@ -68,9 +65,6 @@ export class OperationMetricsTracker {
 		}
 	}
 
-	/**
-	 * Get all metrics
-	 */
 	getMetrics(): Record<string, MetricsResult> {
 		const result: Record<string, MetricsResult> = {};
 		for (const [operation, metrics] of this.metrics.entries()) {
@@ -85,9 +79,6 @@ export class OperationMetricsTracker {
 		return result;
 	}
 
-	/**
-	 * Get metrics for a specific operation
-	 */
 	getOperationMetrics(operationName: string): MetricsResult | undefined {
 		const metrics = this.metrics.get(operationName);
 		if (!metrics) return undefined;
@@ -101,9 +92,6 @@ export class OperationMetricsTracker {
 		};
 	}
 
-	/**
-	 * Clear all metrics
-	 */
 	clearMetrics(): void {
 		this.metrics.clear();
 	}

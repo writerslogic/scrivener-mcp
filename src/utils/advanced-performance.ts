@@ -106,9 +106,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		this.startBackgroundMonitoring();
 	}
 
-	/**
-	 * Start advanced performance profiling
-	 */
 	async startProfiling(): Promise<void> {
 		if (this.isProfilingActive) {
 			return;
@@ -135,9 +132,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		});
 	}
 
-	/**
-	 * Stop profiling and cleanup
-	 */
 	async stopProfiling(): Promise<void> {
 		this.isProfilingActive = false;
 
@@ -246,9 +240,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Get current memory pressure level
-	 */
 	getMemoryPressure(): MemoryPressureLevel {
 		const _memory = process.memoryUsage();
 		const heapStats = v8.getHeapStatistics();
@@ -284,16 +275,10 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		};
 	}
 
-	/**
-	 * Get comprehensive operation profiles
-	 */
 	getOperationProfiles(): Map<string, OperationProfile> {
 		return new Map(this.operationProfiles);
 	}
 
-	/**
-	 * Get predictive insights based on collected metrics
-	 */
 	getPredictiveInsights(): PredictiveInsights {
 		const recentMetrics = this.metrics.slice(-100);
 		const memoryTrend = this.analyzeMemoryTrend(recentMetrics);
@@ -350,9 +335,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		return false;
 	}
 
-	/**
-	 * Get detailed performance report
-	 */
 	getPerformanceReport(): {
 		summary: {
 			totalOperations: number;

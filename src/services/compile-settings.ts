@@ -64,11 +64,10 @@ export interface CompileFormat {
  * unclassifiable and returns the same neutral defaults as "no layout".
  */
 export interface LayoutBehavior {
-	/** Show the document's title before its text. */
 	titleVisible: boolean;
 	/** Render the title as "Chapter <n>" with an auto-incrementing counter. */
 	numbered: boolean;
-	/** Start this section on a new page. */
+
 	pageBreakBefore: boolean;
 }
 

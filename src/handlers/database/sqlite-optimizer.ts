@@ -49,9 +49,6 @@ export class SQLiteOptimizer {
 		this.sqliteManager = sqliteManager;
 	}
 
-	/**
-	 * Analyze query performance and generate execution plan
-	 */
 	async analyzeQuery(
 		sql: string,
 		params: unknown[] = []
@@ -110,9 +107,6 @@ export class SQLiteOptimizer {
 		};
 	}
 
-	/**
-	 * Create recommended indexes based on query analysis
-	 */
 	async createOptimalIndexes(): Promise<{
 		created: string[];
 		failed: string[];
@@ -212,9 +206,6 @@ export class SQLiteOptimizer {
 		}
 	}
 
-	/**
-	 * Generate index recommendations based on query patterns
-	 */
 	private async generateIndexRecommendations(
 		sql: string,
 		plan: QueryPlan[]
@@ -285,9 +276,6 @@ export class SQLiteOptimizer {
 		return recommendations;
 	}
 
-	/**
-	 * Update query statistics
-	 */
 	private updateQueryStats(
 		sql: string,
 		hash: string,
@@ -317,9 +305,6 @@ export class SQLiteOptimizer {
 		}
 	}
 
-	/**
-	 * Get performance statistics
-	 */
 	getPerformanceStats(): {
 		totalQueries: number;
 		slowQueries: number;
@@ -343,9 +328,6 @@ export class SQLiteOptimizer {
 		};
 	}
 
-	/**
-	 * Generate performance report
-	 */
 	generatePerformanceReport(): string {
 		const stats = this.getPerformanceStats();
 

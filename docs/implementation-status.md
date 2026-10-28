@@ -131,3 +131,23 @@ attributes and needs curated facts for broader canon. Export preflight discloses
 anchor limits. Synthetic Windows layouts and configured CI do not certify a live native Windows
 Scrivener session. Commercial host rendering is not certified by the protocol/simulated-host browser
 checks.
+
+## Maintenance and main integration
+
+Follow-up authorization: merge/push main, merge reviewed open PRs, address quality findings,
+consolidate code/tests, reduce redundant comments, and remove stray repository artifacts.
+The original local-only delivery ended at `ac2f2f8`; this follow-up uses
+`cleanup/pre-main-20261027` with the same manager and three existing isolated workers.
+
+Initial remote audit found no open scanning alerts. Maintenance PRs #188 (SDK 1.32.2) and #187
+(changelog) were inspected and merged after their required checks passed; the connector lacked
+merge scope, so the authenticated GitHub CLI performed the merges. Repository rules currently
+require retired Node 20 job names; final integration must retain strict protection while aligning
+required checks with the six supported OS/runtime jobs.
+
+Repository cleanup removes the obsolete ESLint legacy configuration and stops tracking the HMS
+runtime database while preserving its local files. Runtime state stays ignored; npm's canonical
+lockfile and sample-project Data directories remain visible to Git. Comment cleanup removed 592
+dividers, section labels and restatements across 77 files, verified to preserve executable syntax.
+Seven trivial environment/path-wrapper tests were removed; UUID cases share a parameterized table.
+Focused formatter/utility checks: 55 tests passed. Worker integration and final validation pending.

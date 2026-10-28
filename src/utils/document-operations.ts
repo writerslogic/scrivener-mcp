@@ -67,7 +67,6 @@ export async function withDocumentTransaction<T>(
 	try {
 		logger.debug(`Starting transaction: ${operationName}`);
 
-		// Execute the operation
 		result = await operation();
 
 		// Save project if save function is provided
@@ -443,9 +442,6 @@ export async function moveDocument(
 	);
 }
 
-/**
- * Delete document with transaction support
- */
 export async function deleteDocument(
 	documentId: string,
 	context: DocumentOperationContext,

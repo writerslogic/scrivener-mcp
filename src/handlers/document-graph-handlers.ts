@@ -57,7 +57,6 @@ function loadRegistryEntities(context: HandlerContext): RegistryEntity[] {
 	return entities;
 }
 
-/** Load documents with text as the reference detector expects them. */
 async function loadDocuments(project: ScrivenerProject): Promise<DocumentText[]> {
 	const docs = await project.getAllDocuments();
 	return docs.map((doc) => ({

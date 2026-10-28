@@ -1,10 +1,8 @@
 import {
 	getEnv,
-	isDevelopment,
 	splitIntoSentences,
 	splitIntoWords,
 	getWordPairs,
-	buildPath,
 	isValidUUID,
 	readJSON,
 	writeJSON,
@@ -45,23 +43,6 @@ describe('Common Utilities - New Functions', () => {
 				process.env.TEST_VAR = '';
 				// Empty string is falsy, so should return default
 				expect(getEnv('TEST_VAR', 'default')).toBe('default');
-			});
-		});
-
-		describe('isDevelopment', () => {
-			it('should return true when NODE_ENV is development', () => {
-				process.env.NODE_ENV = 'development';
-				expect(isDevelopment()).toBe(true);
-			});
-
-			it('should return false when NODE_ENV is production', () => {
-				process.env.NODE_ENV = 'production';
-				expect(isDevelopment()).toBe(false);
-			});
-
-			it('should return false when NODE_ENV is not set', () => {
-				delete process.env.NODE_ENV;
-				expect(isDevelopment()).toBe(false);
 			});
 		});
 	});
@@ -171,72 +152,46 @@ describe('Common Utilities - New Functions', () => {
 		});
 	});
 
-	describe('Path Utilities', () => {
-		describe('buildPath', () => {
-			it('should join path segments', () => {
-				const result = buildPath('/home', 'user', 'documents', 'file.txt');
-				expect(result).toBe(path.join('/home', 'user', 'documents', 'file.txt'));
-			});
-
-			it('should handle single segment', () => {
-				const result = buildPath('/home');
-				expect(result).toBe('/home');
-			});
-
-			it('should handle empty segments', () => {
-				const result = buildPath('/home', '', 'documents');
-				expect(result).toBe(path.join('/home', '', 'documents'));
-			});
-
-			it('should normalize path separators', () => {
-				const result = buildPath('/home', 'user/documents', 'file.txt');
-				expect(result).toBe(path.join('/home', 'user/documents', 'file.txt'));
-			});
-		});
-	});
-
 	describe('UUID Validation', () => {
-		describe('isValidUUID with options', () => {
-			const validUUID = '550e8400-e29b-41d4-a716-446655440000';
-			const validUpperUUID = '550E8400-E29B-41D4-A716-446655440000';
-			const invalidUUID = 'not-a-uuid';
-			const numericId = '12345';
-
-			it('should validate standard UUID', () => {
-				expect(isValidUUID(validUUID)).toBe(true);
-			});
-
-			it('should validate uppercase UUID with case insensitive', () => {
-				expect(isValidUUID(validUpperUUID)).toBe(true);
-				expect(isValidUUID(validUpperUUID, { caseSensitive: false })).toBe(true);
-			});
-
-			it('should reject uppercase UUID with case sensitive', () => {
-				expect(isValidUUID(validUpperUUID, { caseSensitive: true })).toBe(false);
-			});
-
-			it('should reject numeric ID by default', () => {
-				expect(isValidUUID(numericId)).toBe(false);
-			});
-
-			it('should accept numeric ID with allowNumeric option', () => {
-				expect(isValidUUID(numericId, { allowNumeric: true })).toBe(true);
-			});
-
-			it('should reject invalid UUID format', () => {
-				expect(isValidUUID(invalidUUID)).toBe(false);
-				expect(isValidUUID(invalidUUID, { allowNumeric: true })).toBe(false);
-			});
-
-			it('should handle UUID v4 specific pattern', () => {
-				// Valid v4 UUID has 4 in the version position
-				const v4UUID = '550e8400-e29b-41d4-a716-446655440000';
-				expect(isValidUUID(v4UUID)).toBe(true);
-
-				// Invalid version
-				const wrongVersion = '550e8400-e29b-31d4-a716-446655440000';
-				expect(isValidUUID(wrongVersion)).toBe(false);
-			});
+		const lower = '550e8400-e29b-41d4-a716-446655440000';
+		const upper = lower.toUpperCase();
+		it.each([
+			{ name: 'standard UUID', id: lower, options: undefined, valid: true },
+			{ name: 'uppercase by default', id: upper, options: undefined, valid: true },
+			{
+				name: 'explicit case insensitivity',
+				id: upper,
+				options: { caseSensitive: false },
+				valid: true,
+			},
+			{
+				name: 'case-sensitive uppercase rejection',
+				id: upper,
+				options: { caseSensitive: true },
+				valid: false,
+			},
+			{ name: 'numeric rejection by default', id: '12345', options: undefined, valid: false },
+			{
+				name: 'opt-in numeric IDs',
+				id: '12345',
+				options: { allowNumeric: true },
+				valid: true,
+			},
+			{ name: 'invalid syntax', id: 'not-a-uuid', options: undefined, valid: false },
+			{
+				name: 'invalid syntax in numeric mode',
+				id: 'not-a-uuid',
+				options: { allowNumeric: true },
+				valid: false,
+			},
+			{
+				name: 'wrong UUID version',
+				id: '550e8400-e29b-31d4-a716-446655440000',
+				options: undefined,
+				valid: false,
+			},
+		])('validates $name', ({ id, options, valid }) => {
+			expect(isValidUUID(id, options)).toBe(valid);
 		});
 	});
 

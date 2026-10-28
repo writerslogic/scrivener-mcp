@@ -309,16 +309,10 @@ export function activateSkills(...names: string[]): boolean {
 	return changed;
 }
 
-/**
- * Check if a skill is activated.
- */
 export function isSkillActive(name: string): boolean {
 	return activatedSkills.has(name);
 }
 
-/**
- * Initialize the registry. Call once at startup.
- */
 export function initializeSkillRegistry(): void {
 	buildMetaTools();
 	// Always activate project skill (need open_project at minimum)
@@ -333,9 +327,6 @@ export function initializeSkillRegistry(): void {
 	}
 }
 
-/**
- * Get all currently registered tool definitions.
- */
 export function getRegisteredTools(uiSupported = false) {
 	return Array.from(handlerMap.values()).map((h) => {
 		const tool: {
@@ -393,9 +384,6 @@ export async function executeRegisteredHandler(
 	}
 }
 
-/**
- * Validate handler arguments.
- */
 export function validateRegisteredArgs(toolName: string, args: Record<string, unknown>): void {
 	const handler = handlerMap.get(toolName);
 	if (!handler) {

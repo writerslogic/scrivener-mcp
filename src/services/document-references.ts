@@ -67,7 +67,6 @@ function buildMatcher(entity: RegistryEntity): RegExp | null {
 	return new RegExp(`\\b(?:${terms.join('|')})\\b`, 'gi');
 }
 
-/** Find every registry entity mentioned in a single document. */
 export function findEntityMentions(doc: DocumentText, entities: RegistryEntity[]): EntityMention[] {
 	const content = doc.content ?? '';
 	if (!content) return [];
@@ -100,7 +99,6 @@ export function findEntityMentions(doc: DocumentText, entities: RegistryEntity[]
 	return mentions;
 }
 
-/** Build the full document → entity mention index for a project. */
 export function buildReferenceIndex(
 	docs: DocumentText[],
 	entities: RegistryEntity[]

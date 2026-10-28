@@ -79,9 +79,6 @@ export class WebContentParser {
 		});
 	}
 
-	/**
-	 * Parse HTML content and extract structured data
-	 */
 	parseHtmlContent(
 		html: string,
 		baseUrl?: string,
@@ -131,9 +128,6 @@ export class WebContentParser {
 		};
 	}
 
-	/**
-	 * Extract research-relevant data from parsed content
-	 */
 	extractResearchData(parsedContent: ParsedWebContent, keywords?: string[]): ResearchExtraction {
 		const $ = cheerio.load(parsedContent.content);
 		const text = $('body').text() || parsedContent.content;
@@ -166,9 +160,6 @@ export class WebContentParser {
 		};
 	}
 
-	/**
-	 * Convert HTML to clean, readable markdown
-	 */
 	htmlToMarkdown(
 		html: string,
 		options?: { preserveImages?: boolean; preserveLinks?: boolean }
@@ -184,9 +175,6 @@ export class WebContentParser {
 		return this.turndownService.turndown($.html());
 	}
 
-	/**
-	 * Extract article or blog post content from common CMS structures
-	 */
 	extractArticleContent(html: string): {
 		title: string;
 		content: string;
@@ -226,9 +214,6 @@ export class WebContentParser {
 		};
 	}
 
-	/**
-	 * Extract main content using various strategies
-	 */
 	private extractMainContent($: CheerioAPI, selector?: string): string {
 		if (selector) {
 			const selected = $(selector);
@@ -266,9 +251,6 @@ export class WebContentParser {
 		return $('body').html() || '';
 	}
 
-	/**
-	 * Extract title using multiple strategies
-	 */
 	private extractTitle($: CheerioAPI): string {
 		// Try different title sources in order of preference
 		const titleSources = [
@@ -299,9 +281,6 @@ export class WebContentParser {
 		return 'Untitled';
 	}
 
-	/**
-	 * Extract author information
-	 */
 	private extractAuthor($: CheerioAPI): string | undefined {
 		const authorSelectors = [
 			'.author',
@@ -326,9 +305,6 @@ export class WebContentParser {
 		return undefined;
 	}
 
-	/**
-	 * Extract publish date
-	 */
 	private extractPublishDate($: CheerioAPI): string | undefined {
 		const dateSelectors = [
 			'time[datetime]',
@@ -352,9 +328,6 @@ export class WebContentParser {
 		return undefined;
 	}
 
-	/**
-	 * Extract summary or description
-	 */
 	private extractSummary($: CheerioAPI): string | undefined {
 		const summarySelectors = [
 			'.summary',
@@ -378,9 +351,6 @@ export class WebContentParser {
 		return undefined;
 	}
 
-	/**
-	 * Extract all links from content
-	 */
 	private extractLinks(
 		$: CheerioAPI,
 		baseUrl?: string
@@ -412,9 +382,6 @@ export class WebContentParser {
 		return links;
 	}
 
-	/**
-	 * Extract all images from content
-	 */
 	private extractImages(
 		$: CheerioAPI,
 		baseUrl?: string
@@ -442,9 +409,6 @@ export class WebContentParser {
 		return images;
 	}
 
-	/**
-	 * Extract headings structure
-	 */
 	private extractHeadings($: CheerioAPI): Array<{ level: number; text: string; id?: string }> {
 		const headings: Array<{ level: number; text: string; id?: string }> = [];
 
@@ -466,9 +430,6 @@ export class WebContentParser {
 		return headings;
 	}
 
-	/**
-	 * Calculate content metadata
-	 */
 	private calculateMetadata($: CheerioAPI, content: string): ParsedWebContent['metadata'] {
 		const contentDoc = cheerio.load(content);
 		const text = contentDoc('body').text() || contentDoc.root().text();
@@ -486,9 +447,6 @@ export class WebContentParser {
 		};
 	}
 
-	/**
-	 * Extract factual statements
-	 */
 	private extractFacts(text: string): string[] {
 		const facts: string[] = [];
 		const sentences = splitIntoSentences(text);
@@ -513,9 +471,6 @@ export class WebContentParser {
 		return facts.slice(0, 20); // Limit to 20 facts
 	}
 
-	/**
-	 * Extract quotes from content
-	 */
 	private extractQuotes($: CheerioAPI, text: string): string[] {
 		const quotes: string[] = [];
 
@@ -538,9 +493,6 @@ export class WebContentParser {
 		return [...new Set(quotes)].slice(0, 10); // Remove duplicates, limit to 10
 	}
 
-	/**
-	 * Extract statistics and numerical data
-	 */
 	private extractStatistics(text: string): string[] {
 		const statistics: string[] = [];
 		const sentences = splitIntoSentences(text);
@@ -565,9 +517,6 @@ export class WebContentParser {
 		return statistics.slice(0, 15); // Limit to 15 statistics
 	}
 
-	/**
-	 * Extract source references
-	 */
 	private extractSources($: CheerioAPI, links: ParsedWebContent['links']): string[] {
 		const sources: string[] = [];
 
@@ -589,9 +538,6 @@ export class WebContentParser {
 		return [...new Set(sources)].slice(0, 10); // Remove duplicates, limit to 10
 	}
 
-	/**
-	 * Extract key terms from content
-	 */
 	private extractKeyTerms(text: string, keywords?: string[]): string[] {
 		const words = text
 			.toLowerCase()
@@ -627,9 +573,6 @@ export class WebContentParser {
 		return keyTerms.slice(0, 15);
 	}
 
-	/**
-	 * Calculate relevance score based on key terms and keywords
-	 */
 	private calculateRelevanceScore(text: string, keyTerms: string[], keywords?: string[]): number {
 		if (!keywords || keywords.length === 0) {
 			return 0.5; // Default relevance
@@ -652,9 +595,6 @@ export class WebContentParser {
 		return Math.min(matches / keywords.length, 1.0);
 	}
 
-	/**
-	 * Extract article-specific metadata
-	 */
 	private extractArticleMetadata($: CheerioAPI): Record<string, unknown> {
 		const metadata: Record<string, unknown> = {};
 

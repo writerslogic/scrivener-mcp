@@ -109,9 +109,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		this.setupReaper();
 	}
 
-	/**
-	 * Initialize the connection pool
-	 */
 	async initialize(): Promise<void> {
 		if (this.isDestroyed) {
 			throw new AppError('Pool is destroyed', ErrorCode.INVALID_STATE);
@@ -293,9 +290,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Get pool statistics
-	 */
 	getStats(): PoolStats {
 		const acquireTimes = this.stats.acquireTimes.slice().sort((a, b) => a - b);
 
@@ -357,9 +351,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Destroy the connection pool
-	 */
 	async destroy(): Promise<void> {
 		if (this.isDestroyed) return;
 

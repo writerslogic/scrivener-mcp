@@ -53,9 +53,6 @@ function protectAbbreviations(text: string): string {
 	return protectedText;
 }
 
-/**
- * Restore protected periods
- */
 function restoreProtectedPeriods(text: string): string {
 	return text.replace(/@@@/g, '.');
 }
@@ -89,10 +86,6 @@ export function getAccurateWordCount(content: string): number {
 	return wordCount;
 }
 
-/**
- * Count sentences accurately
- * Handles abbreviations, decimals, and dialogue
- */
 export function getAccurateSentenceCount(content: string): number {
 	if (!content) return 0;
 
@@ -113,10 +106,6 @@ export function getAccurateSentenceCount(content: string): number {
 	return Math.max(1, sentenceCount); // At least 1 sentence if there's content
 }
 
-/**
- * Count paragraphs accurately
- * A paragraph is text separated by blank lines or indentation
- */
 export function getAccurateParagraphCount(content: string): number {
 	if (!content) return 0;
 
@@ -130,9 +119,6 @@ export function getAccurateParagraphCount(content: string): number {
 	return paragraphs.length || 1; // At least 1 paragraph if there's content
 }
 
-/**
- * Split text into sentences (returns array of sentences)
- */
 export function splitIntoSentences(content: string): string[] {
 	if (!content) return [];
 
@@ -149,9 +135,6 @@ export function splitIntoSentences(content: string): string[] {
 		.filter((s: string) => s.length > 0);
 }
 
-/**
- * Get comprehensive text metrics
- */
 export interface WritingTextMetrics {
 	wordCount: number;
 	sentenceCount: number;
@@ -176,9 +159,6 @@ export function getWritingTextMetrics(content: string): WritingTextMetrics {
 	};
 }
 
-/**
- * Calculate character count (with and without spaces)
- */
 export function getCharacterCount(content: string, includeSpaces: boolean = true): number {
 	if (!content) return 0;
 
@@ -191,10 +171,6 @@ export function getCharacterCount(content: string, includeSpaces: boolean = true
 	}
 }
 
-/**
- * Get word frequency map
- * Uses NLP to identify stop words and common words
- */
 export function getWordFrequency(
 	content: string,
 	ignoreCommonWords: boolean = true
@@ -236,9 +212,6 @@ export function getWordFrequency(
 	return new Map([...frequency.entries()].sort((a, b) => b[1] - a[1]));
 }
 
-/**
- * Split text into words
- */
 export function splitIntoWords(text: string): string[] {
 	if (!text) return [];
 
@@ -249,9 +222,6 @@ export function splitIntoWords(text: string): string[] {
 	return doc.terms().out('array');
 }
 
-/**
- * Get word pairs (bigrams) from text or word array
- */
 export function getWordPairs(input: string | string[]): Array<[string, string]> {
 	const words = typeof input === 'string' ? splitIntoWords(input) : input;
 	const pairs: Array<[string, string]> = [];

@@ -12,7 +12,6 @@ yarn-error.log*
 .npm
 .yarn-integrity
 .pnpm-debug.log*
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -83,6 +82,7 @@ credentials/
 # Scrivener MCP specific
 .scrivener-databases/credentials.json
 .scrivener-mcp/
+.scrivener-hms.db/
 scrivener-cache.db
 scrivener.db
 *.scriv/Settings/compile.xml
@@ -169,7 +169,7 @@ docs/community-posts.md
 scratch/
 
 # Runtime state (job queue, etc.) written next to the server at runtime
-data/
+/data/
 # Confidential anti-piracy provenance fingerprints — never commit (public repo).
 # Also covered by a global core.excludesFile; pinned here so the guard travels with the repo.
 PROVENANCE.md

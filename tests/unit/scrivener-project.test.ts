@@ -12,7 +12,6 @@ import { DocumentManager } from '../../src/services/document-manager.js';
 import { CompilationService } from '../../src/services/compilation-service.js';
 import { DatabaseService } from '../../src/handlers/database/database-service.js';
 
-// Mock all dependencies
 jest.mock('../../src/services/document-manager.js');
 jest.mock('../../src/services/compilation-service.js');
 jest.mock('../../src/services/metadata-manager.js');

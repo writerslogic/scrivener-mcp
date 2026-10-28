@@ -201,9 +201,6 @@ export class DatabaseSetup {
 		}
 	}
 
-	/**
-	 * Generate setup instructions for manual installation
-	 */
 	static getSetupInstructions(): string {
 		return `
 Database Setup Instructions
@@ -258,9 +255,6 @@ but you'll miss out on advanced features like:
 `.trim();
 	}
 
-	/**
-	 * Parse .env file content
-	 */
 	private static parseEnvFile(content: string): Record<string, string> {
 		const vars: Record<string, string> = {};
 		const lines = content.split('\n');

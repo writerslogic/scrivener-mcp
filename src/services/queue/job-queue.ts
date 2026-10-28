@@ -121,9 +121,6 @@ export class JobQueueService {
 		this.projectPath = projectPath || null;
 	}
 
-	/**
-	 * Initialize with automatic KeyDB/Redis detection
-	 */
 	async initialize(
 		options: {
 			openaiApiKey?: string;
@@ -229,9 +226,6 @@ export class JobQueueService {
 		}
 	}
 
-	/**
-	 * Create a queue for a job type
-	 */
 	private createQueue(jobType: JobType): void {
 		if (!this.connection) {
 			throw createError(ErrorCode.INVALID_STATE, null, 'Connection not initialized');
@@ -257,9 +251,6 @@ export class JobQueueService {
 		this.queues.set(jobType, queue);
 	}
 
-	/**
-	 * Create a worker for processing jobs
-	 */
 	private createWorker(jobType: JobType): void {
 		const worker = new Worker(
 			jobType,
@@ -329,9 +320,6 @@ export class JobQueueService {
 		}
 	}
 
-	/**
-	 * Process a job based on its type
-	 */
 	private async processJob(jobType: JobType, job: Job): Promise<unknown> {
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
@@ -814,9 +802,6 @@ export class JobQueueService {
 		}
 	}
 
-	/**
-	 * Add a job to the queue
-	 */
 	async addJob(
 		jobType: JobType,
 		data: Record<string, unknown>,
@@ -937,9 +922,6 @@ export class JobQueueService {
 		return this.getJobStatus(jobType, jobId);
 	}
 
-	/**
-	 * Get job status
-	 */
 	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
 		if (this.connectionType === 'embedded') {
 			const status = this.readEmbeddedJob(jobId);
@@ -1004,9 +986,6 @@ export class JobQueueService {
 		this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
 	}
 
-	/**
-	 * Get queue statistics
-	 */
 	async getQueueStats(jobType: JobType): Promise<Record<string, unknown>> {
 		if (this.connectionType === 'embedded') {
 			if (!Object.values(JobType).includes(jobType)) {
@@ -1054,9 +1033,6 @@ export class JobQueueService {
 		return { waiting, active, completed, failed, delayed };
 	}
 
-	/**
-	 * Get connection info
-	 */
 	getConnectionInfo(): { type: string; isConnected: boolean } {
 		return {
 			type: this.connectionType,

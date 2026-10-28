@@ -105,9 +105,6 @@ export class WritingAnalytics {
 		private neo4jManager: Neo4jManager | null
 	) {}
 
-	/**
-	 * Analyze writing patterns and habits
-	 */
 	async analyzeWritingPatterns(): Promise<WritingPattern> {
 		if (!this.sqliteManager) {
 			throw toDatabaseError(new Error('SQLite not available'), 'database operations');
@@ -215,9 +212,6 @@ export class WritingAnalytics {
 		}));
 	}
 
-	/**
-	 * Analyze character voice consistency
-	 */
 	async analyzeCharacterVoices(): Promise<CharacterVoiceAnalysis[]> {
 		if (!this.sqliteManager || !this.neo4jManager?.isAvailable()) {
 			return [];
@@ -277,9 +271,6 @@ export class WritingAnalytics {
 		return analyses;
 	}
 
-	/**
-	 * Analyze scene effectiveness
-	 */
 	async analyzeSceneEffectiveness(): Promise<SceneEffectiveness[]> {
 		if (!this.sqliteManager) {
 			return [];
@@ -316,9 +307,6 @@ export class WritingAnalytics {
 		});
 	}
 
-	/**
-	 * Get personalized writing recommendations
-	 */
 	async getWritingRecommendations(): Promise<{
 		immediate: string[];
 		shortTerm: string[];

@@ -51,9 +51,6 @@ export class ProjectLoader {
 		};
 	}
 
-	/**
-	 * Load the project structure from disk
-	 */
 	async loadProject(): Promise<ProjectStructure> {
 		this.scrivxPath = await findScrivxPath(this.projectPath, this.scrivxPath);
 		logger.info(`Loading project from ${this.scrivxPath}`);
@@ -117,9 +114,6 @@ export class ProjectLoader {
 		}
 	}
 
-	/**
-	 * Save the project structure to disk
-	 */
 	async saveProject(structure?: ProjectStructure): Promise<void> {
 		const projectToSave = structure || this.projectStructure;
 
@@ -189,9 +183,6 @@ export class ProjectLoader {
 		return await this.loadProject();
 	}
 
-	/**
-	 * Check if the project has been modified externally
-	 */
 	async isProjectModified(): Promise<boolean> {
 		if (!this.loadedRevision) return false;
 		const saved = await this.coordinator.readProjectFile(this.scrivxPath);
@@ -202,24 +193,15 @@ export class ProjectLoader {
 		this.coordinator.close();
 	}
 
-	/**
-	 * Get the current project structure
-	 */
 	getProjectStructure(): ProjectStructure | undefined {
 		return this.projectStructure;
 	}
 
-	/**
-	 * Update the project structure in memory
-	 */
 	updateProjectStructure(structure: ProjectStructure): void {
 		exposeXmlAttributes(structure);
 		this.projectStructure = structure;
 	}
 
-	/**
-	 * Create a backup of the project file
-	 */
 	async createBackup(): Promise<string> {
 		const backupDir = buildPath(this.projectPath, '.backups');
 		this.coordinator.assertProjectPath(backupDir);
@@ -246,9 +228,6 @@ export class ProjectLoader {
 		}
 	}
 
-	/**
-	 * Restore from a backup
-	 */
 	async restoreFromBackup(backupPath: string): Promise<void> {
 		try {
 			const resolved = path.resolve(backupPath);
@@ -322,9 +301,6 @@ export class ProjectLoader {
 		}
 	}
 
-	/**
-	 * Validate project structure
-	 */
 	validateProjectStructure(structure: ProjectStructure): boolean {
 		if (!structure?.ScrivenerProject) {
 			logger.error('Invalid structure: Missing ScrivenerProject');
@@ -472,9 +448,6 @@ export class ProjectLoader {
 		}
 	}
 
-	/**
-	 * Get project metadata
-	 */
 	getProjectMetadata(): Record<string, unknown> {
 		if (!this.projectStructure?.ScrivenerProject) {
 			return {};
