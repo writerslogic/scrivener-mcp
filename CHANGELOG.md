@@ -20,6 +20,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Update the security changelog (#205)
 - Record verified cross-platform release compatibility
 - Point Draftbridge buyers to live checkout (#180)
 
