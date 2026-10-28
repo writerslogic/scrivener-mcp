@@ -104,9 +104,6 @@ export interface ReadabilityTrends {
 export class AdvancedReadabilityService {
 	private readingSpeedWPM = 200; // Average reading speed in words per minute
 
-	/**
-	 * Calculate comprehensive readability metrics for text
-	 */
 	calculateMetrics(text: string): ReadabilityMetrics {
 		try {
 			validateInput(
@@ -258,9 +255,6 @@ export class AdvancedReadabilityService {
 		}
 	}
 
-	/**
-	 * Calculate metrics for multiple texts efficiently
-	 */
 	async calculateMetricsBatch(texts: string[]): Promise<ReadabilityMetrics[]> {
 		try {
 			validateInput(
@@ -326,9 +320,6 @@ export class AdvancedReadabilityService {
 		};
 	}
 
-	/**
-	 * Analyze readability trends across document sections
-	 */
 	analyzeReadabilityTrends(text: string, segmentCount: number = 10): ReadabilityTrends {
 		const segments = this.splitTextIntoSegments(text, segmentCount);
 		const segmentMetrics = segments.map((segment, index) => {
@@ -351,9 +342,6 @@ export class AdvancedReadabilityService {
 		};
 	}
 
-	/**
-	 * Get readability recommendations for specific audience
-	 */
 	getAudienceSpecificRecommendations(
 		text: string,
 		targetAudience:
@@ -385,9 +373,6 @@ export class AdvancedReadabilityService {
 		return recommendations;
 	}
 
-	/**
-	 * Calculate readability score for different writing contexts
-	 */
 	getContextualReadability(
 		text: string,
 		context: 'academic' | 'business' | 'creative' | 'technical' | 'marketing' | 'educational'
@@ -445,9 +430,6 @@ export class AdvancedReadabilityService {
 		return { score, contextAppropriateness: appropriateness, suggestions };
 	}
 
-	/**
-	 * Determine reading level from grade level score
-	 */
 	private determineReadingLevel(gradeLevel: number): ReadingLevel {
 		if (gradeLevel < 6) {
 			return {
@@ -487,9 +469,6 @@ export class AdvancedReadabilityService {
 		}
 	}
 
-	/**
-	 * Determine comprehension difficulty from Flesch Reading Ease score
-	 */
 	private determineComprehensionDifficulty(
 		fleschScore: number
 	): ReadabilityMetrics['comprehensionDifficulty'] {
@@ -502,9 +481,6 @@ export class AdvancedReadabilityService {
 		return 'very_difficult';
 	}
 
-	/**
-	 * Determine target audience based on metrics
-	 */
 	private determineTargetAudience(
 		gradeLevel: number,
 		difficulty: ReadabilityMetrics['comprehensionDifficulty']
@@ -522,9 +498,6 @@ export class AdvancedReadabilityService {
 		}
 	}
 
-	/**
-	 * Generate readability recommendations
-	 */
 	private generateRecommendations(metrics: ReadabilityMetrics): ReadabilityRecommendation[] {
 		const recommendations: ReadabilityRecommendation[] = [];
 
@@ -597,9 +570,6 @@ export class AdvancedReadabilityService {
 		return recommendations;
 	}
 
-	/**
-	 * Get empty metrics for error cases
-	 */
 	private getEmptyMetrics(): ReadabilityMetrics {
 		return {
 			fleschReadingEase: 0,
@@ -634,9 +604,6 @@ export class AdvancedReadabilityService {
 		};
 	}
 
-	/**
-	 * Determine which text is easier to read
-	 */
 	private determineEasierText(
 		metrics1: ReadabilityMetrics,
 		metrics2: ReadabilityMetrics
@@ -696,9 +663,6 @@ export class AdvancedReadabilityService {
 		return differences;
 	}
 
-	/**
-	 * Generate comparative recommendations
-	 */
 	private generateComparativeRecommendations(
 		metrics1: ReadabilityMetrics,
 		metrics2: ReadabilityMetrics
@@ -728,9 +692,6 @@ export class AdvancedReadabilityService {
 		return recommendations;
 	}
 
-	/**
-	 * Split text into segments for trend analysis
-	 */
 	private splitTextIntoSegments(text: string, segmentCount: number): string[] {
 		const sentences = splitIntoSentences(text);
 		const sentencesPerSegment = Math.ceil(sentences.length / segmentCount);
@@ -746,9 +707,6 @@ export class AdvancedReadabilityService {
 		return segments;
 	}
 
-	/**
-	 * Determine overall readability trend
-	 */
 	private determineTrend(
 		segments: ReadabilityTrends['segments']
 	): ReadabilityTrends['overallTrend'] {
@@ -780,9 +738,6 @@ export class AdvancedReadabilityService {
 			.map((s) => s.index + 1); // Convert to 1-based indexing
 	}
 
-	/**
-	 * Get target grade level for audience
-	 */
 	private getTargetGradeLevel(audience: string): number {
 		const levels = {
 			elementary: 5,
@@ -795,9 +750,6 @@ export class AdvancedReadabilityService {
 		return levels[audience as keyof typeof levels] || 10;
 	}
 
-	/**
-	 * Get audience-specific suggestions
-	 */
 	private getAudienceSpecificSuggestions(
 		metrics: ReadabilityMetrics,
 		audience: string
@@ -833,9 +785,6 @@ export class AdvancedReadabilityService {
 		return suggestions;
 	}
 
-	/**
-	 * Get contextual ranges for different writing contexts
-	 */
 	private getContextualRanges(context: string): {
 		fleschReadingEase: { min: number; max: number; target: number };
 		fleschKincaidGrade: { min: number; max: number; target: number };

@@ -20,6 +20,12 @@ import { documentGraphHandlers } from './document-graph-handlers.js';
 import { integrityHandlers } from './integrity-handlers.js';
 import { goalsHandlers } from './goals-handlers.js';
 import { personalizationHandlers } from './personalization-handlers.js';
+import { reviewChangesHandler } from './review-handlers.js';
+import { dashboardHandler } from './dashboard-handlers.js';
+import { exportManuscriptHandler } from './export-preset-handlers.js';
+import { storyHandlers, continuityHandlers } from './story-handlers.js';
+import { localSearchHandlers } from './local-search-handlers.js';
+import { workflowHandlers } from './workflow-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -33,17 +39,17 @@ const skills: Skill[] = [
 	{
 		name: 'project',
 		description: 'Open, browse, save, close, and verify Scrivener projects',
-		tools: [...projectHandlers, ...integrityHandlers],
+		tools: [...projectHandlers, ...integrityHandlers, dashboardHandler],
 	},
 	{
 		name: 'documents',
 		description: 'Read, write, create, delete, move, and rename documents',
-		tools: documentHandlers,
+		tools: [...documentHandlers, reviewChangesHandler],
 	},
 	{
 		name: 'search',
 		description: 'Full-text and semantic search, trash, annotations, mentions',
-		tools: [...searchHandlers, semanticSearchHandler],
+		tools: [...searchHandlers, semanticSearchHandler, ...localSearchHandlers],
 	},
 	{
 		name: 'analysis',
@@ -55,17 +61,18 @@ const skills: Skill[] = [
 			...bluepencilHandlers,
 			...goalsHandlers,
 			...personalizationHandlers,
+			...continuityHandlers,
 		],
 	},
 	{
 		name: 'compilation',
 		description: 'Compile manuscripts, export, statistics',
-		tools: compilationHandlers,
+		tools: [...compilationHandlers, exportManuscriptHandler],
 	},
 	{
 		name: 'memory',
 		description: 'Store and recall persistent project facts (characters, world, plot, style)',
-		tools: [...memoryHandlers, ...nativeHHMTools],
+		tools: [...memoryHandlers, ...nativeHHMTools, ...storyHandlers],
 	},
 	{
 		name: 'relationships',
@@ -75,7 +82,7 @@ const skills: Skill[] = [
 	{
 		name: 'advanced',
 		description: 'Async job queue and batch operations',
-		tools: [...asyncHandlerDefinitions],
+		tools: [...asyncHandlerDefinitions, ...workflowHandlers],
 	},
 ];
 
@@ -302,16 +309,10 @@ export function activateSkills(...names: string[]): boolean {
 	return changed;
 }
 
-/**
- * Check if a skill is activated.
- */
 export function isSkillActive(name: string): boolean {
 	return activatedSkills.has(name);
 }
 
-/**
- * Initialize the registry. Call once at startup.
- */
 export function initializeSkillRegistry(): void {
 	buildMetaTools();
 	// Always activate project skill (need open_project at minimum)
@@ -326,12 +327,10 @@ export function initializeSkillRegistry(): void {
 	}
 }
 
-/**
- * Get all currently registered tool definitions.
- */
-export function getRegisteredTools() {
+export function getRegisteredTools(uiSupported = false) {
 	return Array.from(handlerMap.values()).map((h) => {
 		const tool: {
+			_meta?: Record<string, unknown>;
 			name: string;
 			title?: string;
 			description: string;
@@ -346,6 +345,7 @@ export function getRegisteredTools() {
 		if (h.title) tool.title = h.title;
 		if (h.outputSchema) tool.outputSchema = h.outputSchema;
 		if (h.annotations) tool.annotations = h.annotations;
+		if (uiSupported && h._meta) tool._meta = h._meta;
 		return tool;
 	});
 }
@@ -384,9 +384,6 @@ export async function executeRegisteredHandler(
 	}
 }
 
-/**
- * Validate handler arguments.
- */
 export function validateRegisteredArgs(toolName: string, args: Record<string, unknown>): void {
 	const handler = handlerMap.get(toolName);
 	if (!handler) {

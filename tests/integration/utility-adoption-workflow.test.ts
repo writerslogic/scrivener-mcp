@@ -70,7 +70,7 @@ describe('Utility Adoption Workflow Integration', () => {
 
 	beforeEach(() => {
 		mockProject = {
-			projectPath: '/test/project',
+			projectPath: path.join(tmpRoot, 'mock-project.scriv'),
 			getAllDocuments: (jest.fn() as any).mockResolvedValue([
 				{
 					id: generateScrivenerUUID(),
@@ -144,9 +144,9 @@ describe('Utility Adoption Workflow Integration', () => {
 			const cacheDir = getCacheDirectory(projectPath);
 			const queuePath = getQueueStatePath(projectPath);
 
-			expect(dataDir).toBe(`${projectPath}/.scrivener-mcp`);
-			expect(cacheDir).toBe(`${projectPath}/.scrivener-mcp/cache`);
-			expect(queuePath).toBe(`${projectPath}/.scrivener-mcp/queue-state.json`);
+			expect(dataDir).toBe(path.join(projectPath, '.scrivener-mcp'));
+			expect(cacheDir).toBe(path.join(projectPath, '.scrivener-mcp', 'cache'));
+			expect(queuePath).toBe(path.join(projectPath, '.scrivener-mcp', 'queue-state.json'));
 
 			// Step 4: Find binder items using utility. findBinderItem() operates on the
 			// raw parsed-XML shape: a container with a BinderItem array, items keyed by
@@ -225,11 +225,11 @@ describe('Utility Adoption Workflow Integration', () => {
 		});
 
 		it('should demonstrate caching workflow with utilities', async () => {
-			const projectPath = '/test/project';
+			const projectPath = path.join(tmpRoot, 'cache-project.scriv');
 
 			// Setup cache directory using project utilities
 			const cacheDir = getCacheDirectory(projectPath);
-			expect(cacheDir).toBe(`${projectPath}/.scrivener-mcp/cache`);
+			expect(cacheDir).toBe(path.join(projectPath, '.scrivener-mcp', 'cache'));
 
 			// Generate cache keys using UUID utility
 			const cacheKey1 = generateScrivenerUUID();
@@ -281,16 +281,16 @@ describe('Utility Adoption Workflow Integration', () => {
 			expect(parsedResults[2].Title).toBe('Doc3');
 
 			// Concurrent directory operations
-			const projectPaths = ['/project1', '/project2', '/project3'];
+			const projectPaths = ['project1', 'project2', 'project3'].map((name) =>
+				path.join(tmpRoot, `${name}.scriv`)
+			);
 			const cacheDirs = await Promise.all(
 				projectPaths.map((path) => Promise.resolve(getCacheDirectory(path)))
 			);
 
-			expect(cacheDirs).toEqual([
-				'/project1/.scrivener-mcp/cache',
-				'/project2/.scrivener-mcp/cache',
-				'/project3/.scrivener-mcp/cache',
-			]);
+			expect(cacheDirs).toEqual(
+				projectPaths.map((projectPath) => path.join(projectPath, '.scrivener-mcp', 'cache'))
+			);
 		});
 
 		it('should validate complete utility integration in real workflow', async () => {
@@ -394,14 +394,14 @@ describe('Utility Adoption Workflow Integration', () => {
 
 			// Step 7: Verify queue state path utility
 			const queuePath = getQueueStatePath(projectPath);
-			expect(queuePath).toBe(`${projectPath}/.scrivener-mcp/queue-state.json`);
+			expect(queuePath).toBe(path.join(projectPath, '.scrivener-mcp', 'queue-state.json'));
 
 			// Step 8: Verify cache directory utility
 			const cacheDir = getCacheDirectory(projectPath);
-			expect(cacheDir).toBe(`${projectPath}/.scrivener-mcp/cache`);
+			expect(cacheDir).toBe(path.join(projectPath, '.scrivener-mcp', 'cache'));
 
 			// All utilities worked together successfully
-			expect(dataDir).toBe(`${projectPath}/.scrivener-mcp`);
+			expect(dataDir).toBe(path.join(projectPath, '.scrivener-mcp'));
 			expect(chaptersWithParsedMeta).toHaveLength(3);
 			expect(chapterIds).toHaveLength(3);
 			expect(chapterIds.every((id) => id.match(/^[0-9a-f-]{36}$/i))).toBe(true);
@@ -437,7 +437,6 @@ describe('Utility Adoption Workflow Integration', () => {
 		});
 
 		it('should maintain data integrity across utility operations', async () => {
-			// Create test data
 			const originalData = {
 				id: generateScrivenerUUID(),
 				metadata: 'Title: Test Document\nAuthor: Test Author\nGenre: Fiction',
@@ -456,8 +455,8 @@ describe('Utility Adoption Workflow Integration', () => {
 			expect(parsedMeta.Title).toBe('Test Document');
 			expect(parsedMeta.Author).toBe('Test Author');
 			expect(parsedMeta.Genre).toBe('Fiction');
-			expect(dataDir).toBe(`${originalData.projectPath}/.scrivener-mcp`);
-			expect(cacheDir).toBe(`${originalData.projectPath}/.scrivener-mcp/cache`);
+			expect(dataDir).toBe(path.join(originalData.projectPath, '.scrivener-mcp'));
+			expect(cacheDir).toBe(path.join(originalData.projectPath, '.scrivener-mcp', 'cache'));
 
 			// Create binder and verify navigation
 			const binderItem = {

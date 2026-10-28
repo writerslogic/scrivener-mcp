@@ -39,9 +39,6 @@ export class AutoSetup {
 		this.aiWizard = new AIConfigWizard();
 	}
 
-	/**
-	 * Check if setup has been completed before
-	 */
 	async isSetupComplete(): Promise<boolean> {
 		if (existsSync(this.setupPath)) {
 			try {
@@ -54,9 +51,6 @@ export class AutoSetup {
 		return false;
 	}
 
-	/**
-	 * Save setup status
-	 */
 	private async saveSetupStatus(status: Record<string, unknown>): Promise<void> {
 		const dir = join(homedir(), '.scrivener-mcp');
 		if (!existsSync(dir)) {

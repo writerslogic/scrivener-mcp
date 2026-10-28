@@ -42,9 +42,6 @@ export class AIConfigWizard {
 		});
 	}
 
-	/**
-	 * Load existing configuration
-	 */
 	async loadConfig(): Promise<AIConfig> {
 		try {
 			const configData = await readFile(this.configPath, 'utf-8');
@@ -57,18 +54,12 @@ export class AIConfigWizard {
 		}
 	}
 
-	/**
-	 * Save configuration
-	 */
 	async saveConfig(config: AIConfig): Promise<void> {
 		await writeJSON(this.configPath, config);
 		await this.updateEnvFile(config);
 		logger.info('Configuration saved');
 	}
 
-	/**
-	 * Update .env file with API keys
-	 */
 	private async updateEnvFile(config: AIConfig): Promise<void> {
 		let envContent = '';
 
@@ -115,9 +106,6 @@ export class AIConfigWizard {
 		});
 	}
 
-	/**
-	 * Validate OpenAI API key
-	 */
 	async validateOpenAIKey(apiKey: string): Promise<boolean> {
 		try {
 			const response = await fetch('https://api.openai.com/v1/models', {
@@ -132,9 +120,6 @@ export class AIConfigWizard {
 		}
 	}
 
-	/**
-	 * Validate Anthropic API key
-	 */
 	async validateAnthropicKey(apiKey: string): Promise<boolean> {
 		try {
 			const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -158,9 +143,6 @@ export class AIConfigWizard {
 		}
 	}
 
-	/**
-	 * Check if Ollama is installed and running
-	 */
 	async checkOllama(): Promise<boolean> {
 		try {
 			const response = await fetch('http://localhost:11434/api/tags');
@@ -379,9 +361,6 @@ export class AIConfigWizard {
 		return config;
 	}
 
-	/**
-	 * Get active configuration
-	 */
 	async getActiveConfig(): Promise<AIConfig> {
 		const config = await this.loadConfig();
 

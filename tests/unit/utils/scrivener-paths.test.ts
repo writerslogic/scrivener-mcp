@@ -57,6 +57,15 @@ describe('Scrivener project path utilities', () => {
 		await expect(findScrivxPath(projectPath)).resolves.toBe(scrivxPath);
 	});
 
+	it('preserves a manifest directory without a .scriv suffix', async () => {
+		const scrivxPath = path.join(tempRoot, 'Novel.scrivx');
+		await fs.writeFile(scrivxPath, '<ScrivenerProject><Binder /></ScrivenerProject>');
+		await expect(resolveScrivenerProjectPath(tempRoot)).resolves.toEqual({
+			projectPath: tempRoot,
+			scrivxPath,
+		});
+	});
+
 	it('rejects regular files that are not .scrivx projects', async () => {
 		const filePath = path.join(tempRoot, 'notes.txt');
 		await fs.writeFile(filePath, 'not a project');

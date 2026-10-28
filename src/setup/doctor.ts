@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { ServerEntry } from './runtime.js';
+import { redactDiagnostics } from './redaction.js';
 
 export interface HandshakeResult {
 	ok: boolean;
@@ -45,14 +46,21 @@ export function handshake(entry: ServerEntry, timeoutMs = 60_000): Promise<Hands
 		child.on('exit', (code) =>
 			finish({
 				ok: false,
-				error: `exited early (code ${code}). ${stderr.trim().slice(-300)}`,
+				error: `exited early (code ${code}). ${String(redactDiagnostics(stderr.trim().slice(-300)))}`,
 			})
 		);
 		child.stderr.on('data', (chunk: Buffer) => {
-			stderr += chunk.toString();
+			stderr = (stderr + chunk.toString()).slice(-8192);
 		});
 		child.stdout.on('data', (chunk: Buffer) => {
 			buffer += chunk.toString();
+			if (buffer.length > 1024 * 1024) {
+				finish({
+					ok: false,
+					error: 'server protocol output exceeded the diagnostic limit',
+				});
+				return;
+			}
 			let nl: number;
 			while ((nl = buffer.indexOf('\n')) >= 0) {
 				const line = buffer.slice(0, nl).trim();

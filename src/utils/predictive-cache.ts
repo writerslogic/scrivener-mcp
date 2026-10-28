@@ -100,9 +100,6 @@ export class PredictiveCache<T> {
 		});
 	}
 
-	/**
-	 * Get value from cache with access pattern learning
-	 */
 	async get(
 		key: string,
 		context: string[] = [],
@@ -179,9 +176,6 @@ export class PredictiveCache<T> {
 		return undefined;
 	}
 
-	/**
-	 * Set value in cache with intelligent placement
-	 */
 	async set(
 		key: string,
 		value: T,
@@ -217,9 +211,6 @@ export class PredictiveCache<T> {
 		this.queuePrefetchCandidates(key, context, userSession);
 	}
 
-	/**
-	 * Delete item from cache
-	 */
 	delete(key: string): boolean {
 		const entry = this.cache.get(key);
 		if (entry) {
@@ -231,18 +222,12 @@ export class PredictiveCache<T> {
 		return false;
 	}
 
-	/**
-	 * Clear entire cache
-	 */
 	clear(): void {
 		this.cache = new Map<string, CacheEntry<T>>();
 		this.currentCacheSize = 0;
 		logger.info('Cache cleared');
 	}
 
-	/**
-	 * Get cache statistics
-	 */
 	getStats(): {
 		hitRate: number;
 		prefetchHitRate: number;
@@ -279,9 +264,6 @@ export class PredictiveCache<T> {
 		});
 	}
 
-	/**
-	 * Get prefetch recommendations
-	 */
 	getPrefetchRecommendations(limit = 10): PrefetchCandidate[] {
 		const candidates: PrefetchCandidate[] = [];
 		const processed = new Set<string>();
@@ -558,7 +540,7 @@ export class PredictiveCache<T> {
 					}
 				}
 			}
-		}, prefetchInterval);
+		}, prefetchInterval).unref();
 	}
 
 	private startModelUpdateLoop(): void {
@@ -568,7 +550,7 @@ export class PredictiveCache<T> {
 			if (this.totalAccesses % this.modelUpdateInterval === 0) {
 				await this.updateModel();
 			}
-		}, updateInterval);
+		}, updateInterval).unref();
 	}
 
 	private startCacheMaintenanceLoop(): void {
@@ -596,7 +578,7 @@ export class PredictiveCache<T> {
 					expiredEntries: keysToDelete.length,
 				});
 			}
-		}, maintenanceInterval);
+		}, maintenanceInterval).unref();
 	}
 
 	private estimateSize(value: T): number {
@@ -630,23 +612,14 @@ export class PredictiveCache<T> {
  * Factory for creating optimized predictive caches
  */
 export class PredictiveCacheFactory {
-	/**
-	 * Create content analysis cache with optimized settings
-	 */
 	static createAnalysisCache<T>(dataLoader?: (key: string) => Promise<T>): PredictiveCache<T> {
 		return new PredictiveCache<T>(50 * 1024 * 1024, dataLoader); // 50MB for analysis
 	}
 
-	/**
-	 * Create document cache with large capacity
-	 */
 	static createDocumentCache<T>(dataLoader?: (key: string) => Promise<T>): PredictiveCache<T> {
 		return new PredictiveCache<T>(200 * 1024 * 1024, dataLoader); // 200MB for documents
 	}
 
-	/**
-	 * Create small metadata cache
-	 */
 	static createMetadataCache<T>(dataLoader?: (key: string) => Promise<T>): PredictiveCache<T> {
 		return new PredictiveCache<T>(10 * 1024 * 1024, dataLoader); // 10MB for metadata
 	}

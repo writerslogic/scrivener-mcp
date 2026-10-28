@@ -17,10 +17,6 @@ import type { BinderItem, BinderContainer, MetaDataItem } from '../types/interna
  * Enhanced with better type safety, error handling, and organization
  */
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 /** Scrivener file extensions */
 export const SCRIVENER_EXTENSIONS = {
 	PROJECT: '.scriv',
@@ -49,10 +45,6 @@ export interface ResolvedScrivenerProjectPath {
 	projectPath: string;
 	scrivxPath: string;
 }
-
-// ============================================================================
-// Project Path Utilities
-// ============================================================================
 
 /**
  * Normalize a project path while preserving native Windows drive-letter paths.
@@ -83,9 +75,6 @@ export function getScrivenerProjectName(projectPath: string): string {
 	return path.basename(normalizedPath);
 }
 
-/**
- * Build the default .scrivx path for a .scriv project directory.
- */
 export function getDefaultScrivxPath(projectPath: string): string {
 	const normalizedPath = normalizeScrivenerPath(projectPath);
 
@@ -151,6 +140,19 @@ export async function findScrivxPath(
 	if (scrivxEntries.length === 1) {
 		return path.join(normalizedProjectPath, scrivxEntries[0].name);
 	}
+	if (
+		scrivxEntries.length === 0 &&
+		entries.some(
+			(entry) =>
+				entry.isDirectory() &&
+				path.extname(entry.name).toLowerCase() === SCRIVENER_EXTENSIONS.PROJECT
+		)
+	)
+		throw new AppError(
+			`"${normalizedProjectPath}" looks like a parent folder. Pass the .scriv project folder or its .scrivx file.`,
+			ErrorCode.INVALID_INPUT,
+			{ projectPath: normalizedProjectPath }
+		);
 
 	throw new AppError(
 		`Scrivener project file not found at "${defaultScrivxPath}"`,
@@ -206,13 +208,6 @@ export async function resolveScrivenerProjectPath(
 	};
 }
 
-// ============================================================================
-// Document Path Utilities
-// ============================================================================
-
-/**
- * Generate document path from ID
- */
 export function getDocumentPath(projectPath: string, documentId: string): string {
 	validateInput(
 		{ documentId },
@@ -235,9 +230,6 @@ export function getDocumentPath(projectPath: string, documentId: string): string
 	return buildPath(projectPath, 'Files', 'Data', documentId, 'content.rtf');
 }
 
-/**
- * Generate synopsis path from ID
- */
 export function getSynopsisPath(projectPath: string, documentId: string): string {
 	return buildPath(projectPath, 'Files', 'Data', documentId, 'synopsis.txt');
 }
@@ -249,9 +241,6 @@ export function getNotesPath(projectPath: string, documentId: string): string {
 	return buildPath(projectPath, 'Files', 'Data', documentId, 'notes.rtf');
 }
 
-/**
- * Get all document paths for a given ID
- */
 export function getDocumentPaths(
 	projectPath: string,
 	documentId: string
@@ -279,10 +268,6 @@ export function getDocumentPaths(
 	};
 }
 
-// ============================================================================
-// UUID Utilities
-// ============================================================================
-
 /**
  * Generate a Scrivener-compatible UUID (uppercase)
  */
@@ -290,36 +275,20 @@ export function generateScrivenerUUID(): string {
 	return crypto.randomUUID().toUpperCase();
 }
 
-/**
- * Check if string is a valid Scrivener UUID (uppercase)
- */
 export function isScrivenerUUID(id: string): boolean {
 	// Use common utility - Scrivener UUIDs are standard UUIDs
 	return isValidUUID(id);
 }
 
-/**
- * Check if string is a valid Scrivener numeric ID
- */
 export function isScrivenerNumericId(id: string): boolean {
 	return /^\d+$/.test(id);
 }
 
-/**
- * Validate Scrivener document ID (UUID or numeric)
- */
 export function isValidScrivenerDocumentId(id: string): boolean {
 	// Use common utility with numeric ID support
 	return isValidUUID(id, { allowNumeric: true });
 }
 
-// ============================================================================
-// Binder Traversal Utilities
-// ============================================================================
-
-/**
- * Find a binder item recursively with caching
- */
 const binderCache = new Map<string, BinderItem>();
 
 export function findBinderItem(
@@ -366,9 +335,6 @@ export function findBinderItem(
 	return null;
 }
 
-/**
- * Clear binder cache
- */
 export function clearBinderCache(): void {
 	binderCache.clear();
 }
@@ -399,9 +365,6 @@ export function traverseBinder(
 	}
 }
 
-/**
- * Get all binder items as flat array
- */
 export function flattenBinder(container: BinderContainer | undefined): BinderItem[] {
 	const items: BinderItem[] = [];
 
@@ -412,9 +375,6 @@ export function flattenBinder(container: BinderContainer | undefined): BinderIte
 	return items;
 }
 
-/**
- * Find parent of a binder item
- */
 export function findBinderParent(
 	container: BinderContainer | undefined,
 	documentId: string
@@ -461,13 +421,6 @@ export function getBinderPath(
 	return path;
 }
 
-// ============================================================================
-// Metadata Utilities
-// ============================================================================
-
-/**
- * Find metadata item by field ID
- */
 export function findMetadataField(
 	metadataItems: MetaDataItem[] | MetaDataItem | undefined,
 	fieldId: string
@@ -480,9 +433,6 @@ export function findMetadataField(
 	return items.find((item) => item.ID === fieldId || item.id === fieldId);
 }
 
-/**
- * Extract metadata value
- */
 export function getMetadataValue(
 	metadataItems: MetaDataItem[] | MetaDataItem | undefined,
 	fieldId: string
@@ -491,9 +441,6 @@ export function getMetadataValue(
 	return item?.Value;
 }
 
-/**
- * Parse metadata into key-value pairs
- */
 export function parseMetadata(
 	metadataItems: MetaDataItem[] | MetaDataItem | string | undefined
 ): Record<string, string> {
@@ -531,9 +478,6 @@ export function parseMetadata(
 	return metadata;
 }
 
-/**
- * Build metadata items from key-value pairs
- */
 export function buildMetadataItems(metadata: Record<string, string | undefined>): MetaDataItem[] {
 	const items: MetaDataItem[] = [];
 
@@ -549,13 +493,6 @@ export function buildMetadataItems(metadata: Record<string, string | undefined>)
 	return items;
 }
 
-// ============================================================================
-// Document Type Utilities
-// ============================================================================
-
-/**
- * Determine document type from Scrivener type code
- */
 export function getDocumentType(typeCode?: string): 'Text' | 'Folder' | 'Other' {
 	switch (typeCode) {
 		case DOCUMENT_TYPES.TEXT:
@@ -571,25 +508,16 @@ export function getDocumentType(typeCode?: string): 'Text' | 'Folder' | 'Other' 
 	}
 }
 
-/**
- * Check if folder type
- */
 export function isFolderType(type?: string): boolean {
 	return type !== undefined && (Object.values(SCRIVENER_FOLDERS) as string[]).includes(type);
 }
 
-/**
- * Check if item is in trash
- */
 export function isInTrash(item: BinderItem): boolean {
 	if (!item) return false;
 	// Check if item or any of its parents is trash
 	return item.Type === SCRIVENER_FOLDERS.TRASH || item.Title === 'Trash' || item.UUID === 'Trash';
 }
 
-/**
- * Check if item should be included in compile
- */
 export function shouldIncludeInCompile(item: BinderItem): boolean {
 	// Check IncludeInCompile flag
 	if (item.MetaData?.IncludeInCompile === 'No') {
@@ -609,13 +537,6 @@ export function shouldIncludeInCompile(item: BinderItem): boolean {
 	return true;
 }
 
-// ============================================================================
-// Search Utilities
-// ============================================================================
-
-/**
- * Search binder items by predicate
- */
 export function searchBinder(
 	container: BinderContainer | undefined,
 	predicate: (item: BinderItem) => boolean
@@ -631,9 +552,6 @@ export function searchBinder(
 	return results;
 }
 
-/**
- * Find documents by type
- */
 export function findDocumentsByType(
 	container: BinderContainer | undefined,
 	type: 'Text' | 'Folder' | 'Other'
@@ -641,9 +559,6 @@ export function findDocumentsByType(
 	return searchBinder(container, (item) => getDocumentType(item.Type) === type);
 }
 
-/**
- * Find documents by title (case-insensitive)
- */
 export function findDocumentsByTitle(
 	container: BinderContainer | undefined,
 	searchTerm: string,
@@ -656,10 +571,6 @@ export function findDocumentsByTitle(
 		return exact ? title === term : title.includes(term);
 	});
 }
-
-// ============================================================================
-// Validation Utilities
-// ============================================================================
 
 /**
  * Validation schema for document operations
@@ -691,20 +602,10 @@ export const documentValidationSchema = {
 	},
 };
 
-/**
- * Validate document operation input
- */
 export function validateDocumentInput(input: unknown): void {
 	validateInput(input as Record<string, unknown>, documentValidationSchema);
 }
 
-// ============================================================================
-// Additional Helper Functions
-// ============================================================================
-
-/**
- * Get binder statistics
- */
 export function getBinderStatistics(container: BinderContainer | undefined): {
 	totalItems: number;
 	folders: number;
@@ -742,9 +643,6 @@ export function getBinderStatistics(container: BinderContainer | undefined): {
 	return { totalItems, folders, documents, inTrash, totalWords };
 }
 
-/**
- * Get text statistics from metadata
- */
 export function getTextStatistics(item: BinderItem): {
 	words: number;
 	characters: number;
@@ -759,9 +657,6 @@ export function getTextStatistics(item: BinderItem): {
 	};
 }
 
-/**
- * Generate deterministic UUID from seed (useful for testing)
- */
 export function generateSeededUUID(seed: string): string {
 	const hash = crypto.createHash('md5').update(seed).digest('hex');
 	// Format as UUID v4
@@ -775,10 +670,6 @@ export function generateSeededUUID(seed: string): string {
 		.join('-')
 		.toUpperCase();
 }
-
-// ============================================================================
-// Export all utilities
-// ============================================================================
 
 export default {
 	// Constants

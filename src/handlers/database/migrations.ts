@@ -294,9 +294,6 @@ export class MigrationManager {
 		];
 	}
 
-	/**
-	 * Initialize migration tracking
-	 */
 	async initialize(): Promise<void> {
 		if (this.sqliteManager) {
 			// Create migrations table
@@ -414,9 +411,6 @@ export class MigrationManager {
 		this.currentVersion = targetVersion;
 	}
 
-	/**
-	 * Get migration status
-	 */
 	getStatus(): {
 		currentVersion: number;
 		latestVersion: number;

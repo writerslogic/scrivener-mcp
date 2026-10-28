@@ -6,9 +6,6 @@ import { createError, ErrorCode } from '../core/errors.js';
 import { validateInput, type ValidationSchema } from '../utils/common.js';
 import type { BinderItem, BinderContainer, ProjectStructure } from '../types/internal.js';
 
-/**
- * Validate that the project structure is loaded and has a binder
- */
 export function validateProjectStructure(
 	projectStructure?: ProjectStructure
 ): asserts projectStructure is ProjectStructure & {
@@ -19,9 +16,6 @@ export function validateProjectStructure(
 	}
 }
 
-/**
- * Validate document operation inputs
- */
 export function validateDocumentOperation(
 	operation: string,
 	params: Record<string, unknown>
@@ -116,9 +110,6 @@ export function* iterateAllBinderItems(container: BinderContainer): Generator<Bi
 	}
 }
 
-/**
- * Find a binder item by ID
- */
 export function findBinderItemById(container: BinderContainer, id: string): BinderItem | undefined {
 	for (const item of iterateAllBinderItems(container)) {
 		// Check both UUID and ID fields (tests use ID)
@@ -129,9 +120,6 @@ export function findBinderItemById(container: BinderContainer, id: string): Bind
 	return undefined;
 }
 
-/**
- * Find parent of a binder item
- */
 export function findParentOfBinderItem(
 	container: BinderContainer,
 	childId: string
@@ -156,9 +144,6 @@ export function findParentOfBinderItem(
 	return { parent: null, container };
 }
 
-/**
- * Remove a binder item from container
- */
 export function removeBinderItem(container: BinderContainer, id: string): BinderItem | undefined {
 	if (!container.BinderItem) return undefined;
 
@@ -195,9 +180,6 @@ export function removeBinderItem(container: BinderContainer, id: string): Binder
 	return undefined;
 }
 
-/**
- * Add a binder item to container
- */
 export function addBinderItem(
 	container: BinderContainer,
 	item: BinderItem,
@@ -246,9 +228,6 @@ export function findParentFolder(container: BinderContainer, id: string): Binder
 	return parent && parent.Type === 'Folder' ? parent : undefined;
 }
 
-/**
- * Count all items in container recursively
- */
 export function countBinderItems(container: BinderContainer): number {
 	let count = 0;
 	for (const _item of iterateAllBinderItems(container)) {
@@ -257,9 +236,6 @@ export function countBinderItems(container: BinderContainer): number {
 	return count;
 }
 
-/**
- * Get all items of a specific type
- */
 export function getBinderItemsByType(
 	container: BinderContainer,
 	type: 'Text' | 'Folder'
@@ -273,9 +249,6 @@ export function getBinderItemsByType(
 	return items;
 }
 
-/**
- * Validate binder item has required fields
- */
 export function validateBinderItem(item: unknown): asserts item is BinderItem {
 	if (!item || typeof item !== 'object') {
 		throw createError(ErrorCode.INVALID_INPUT, undefined, 'Invalid binder item');

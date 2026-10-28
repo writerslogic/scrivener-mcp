@@ -110,9 +110,6 @@ export class RelationshipEngine {
 		return id;
 	}
 
-	/**
-	 * Store a batch of relationships. Returns counts of successful operations.
-	 */
 	async addRelationshipBatch(
 		rels: Relationship[]
 	): Promise<{ stored: number; neo4jSynced: number }> {
@@ -183,9 +180,6 @@ export class RelationshipEngine {
 		return { stored, neo4jSynced };
 	}
 
-	/**
-	 * Find relationships involving an entity, optionally filtered by relation type.
-	 */
 	async findRelated(entity: string, relation?: string, k?: number): Promise<Relationship[]> {
 		const limit = k || 10;
 
@@ -224,9 +218,6 @@ export class RelationshipEngine {
 		return results;
 	}
 
-	/**
-	 * Store a sequence (e.g., plot progression) in HMS.
-	 */
 	async storeSequence(id: string, sequence: string[]): Promise<void> {
 		if (typeof this.hms.memorizeSequence === 'function') {
 			try {
@@ -438,9 +429,6 @@ export class RelationshipEngine {
 		);
 	}
 
-	/**
-	 * Parse a relationship from its deterministic ID format.
-	 */
 	private parseRelationshipId(id: string): Relationship | null {
 		const match = id.match(/^([^:]+):(.+?)--(.+?)--([^:]+):(.+)$/);
 		if (!match) return null;

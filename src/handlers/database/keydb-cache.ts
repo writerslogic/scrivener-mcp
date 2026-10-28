@@ -42,9 +42,6 @@ export class KeyDBCache {
 		this.defaultTTL = options.ttl || 300; // 5 minutes default
 	}
 
-	/**
-	 * Initialize cache connection
-	 */
 	async initialize(): Promise<boolean> {
 		return withErrorHandling(async () => {
 			// Detect connection with retry
@@ -74,9 +71,6 @@ export class KeyDBCache {
 		}, 'Cache initialization')();
 	}
 
-	/**
-	 * Get cached value
-	 */
 	async get<T>(key: string): Promise<T | null> {
 		if (!this.isConnected || !this.client) {
 			return null;
@@ -98,9 +92,6 @@ export class KeyDBCache {
 		}, 'Cache get')();
 	}
 
-	/**
-	 * Set cached value
-	 */
 	async set(key: string, value: unknown, ttl?: number): Promise<boolean> {
 		if (!this.isConnected || !this.client) {
 			return false;
@@ -121,9 +112,6 @@ export class KeyDBCache {
 		}, 'Cache set')();
 	}
 
-	/**
-	 * Delete cached value
-	 */
 	async del(key: string): Promise<boolean> {
 		if (!this.isConnected || !this.client) {
 			return false;
@@ -203,9 +191,6 @@ export class KeyDBCache {
 		return keys;
 	}
 
-	/**
-	 * Get or set cached value (cache-aside pattern)
-	 */
 	async getOrSet<T>(key: string, fetchFn: () => Promise<T>, ttl?: number): Promise<T> {
 		// Try to get from cache first
 		const cached = await this.get<T>(key);
@@ -222,9 +207,6 @@ export class KeyDBCache {
 		return value;
 	}
 
-	/**
-	 * Get cache statistics
-	 */
 	getStats(): CacheStats {
 		const total = this.stats.hits + this.stats.misses;
 		return {
@@ -242,16 +224,10 @@ export class KeyDBCache {
 		this.stats = { hits: 0, misses: 0 };
 	}
 
-	/**
-	 * Check if cache is available
-	 */
 	isAvailable(): boolean {
 		return this.isConnected;
 	}
 
-	/**
-	 * Close cache connection
-	 */
 	async close(): Promise<void> {
 		if (this.client && this.isConnected) {
 			await withErrorHandling(async () => {
@@ -276,9 +252,6 @@ export class CachedSQLiteManager {
 		this.cache = new KeyDBCache(cacheOptions);
 	}
 
-	/**
-	 * Initialize cache
-	 */
 	async initialize(): Promise<void> {
 		await this.cache.initialize();
 	}
@@ -367,24 +340,15 @@ export class CachedSQLiteManager {
 		return Math.abs(hash).toString(36);
 	}
 
-	/**
-	 * Extract table name from SQL for cache invalidation
-	 */
 	private extractTableName(sql: string): string | null {
 		const match = sql.match(/(?:FROM|INTO|UPDATE|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)/i);
 		return match ? match[1].toLowerCase() : null;
 	}
 
-	/**
-	 * Get cache statistics
-	 */
 	getCacheStats(): CacheStats {
 		return this.cache.getStats();
 	}
 
-	/**
-	 * Close cache connection
-	 */
 	async close(): Promise<void> {
 		await this.cache.close();
 	}

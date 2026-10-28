@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'"
+		/>
+		<title>Manuscript dashboard</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				font:
+					16px/1.5 system-ui,
+					sans-serif;
+				background: var(--color-background-primary, Canvas);
+				color: var(--color-text-primary, CanvasText);
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 20px;
+			}
+			h1 {
+				font-size: 1.5rem;
+				margin: 0;
+			}
+			h2 {
+				font-size: 1.15rem;
+			}
+			h3 {
+				font-size: 1rem;
+			}
+			header {
+				display: flex;
+				gap: 16px;
+				align-items: center;
+				justify-content: space-between;
+			}
+			button,
+			select,
+			input {
+				font: inherit;
+			}
+			button {
+				cursor: pointer;
+				padding: 6px 12px;
+				border: 1px solid currentColor;
+				border-radius: 5px;
+				background: transparent;
+				color: inherit;
+			}
+			button:disabled {
+				cursor: default;
+				opacity: 0.5;
+			}
+			button:hover:not(:disabled) {
+				background: color-mix(in srgb, CanvasText 10%, Canvas);
+			}
+			:focus-visible {
+				outline: 3px solid #397bc8;
+				outline-offset: 3px;
+			}
+			.layout {
+				display: grid;
+				grid-template-columns: minmax(180px, 1fr) minmax(0, 3fr);
+				gap: 24px;
+			}
+			nav {
+				max-height: 550px;
+				overflow: auto;
+			}
+			nav ul {
+				list-style: none;
+				padding-left: 16px;
+			}
+			nav > ul {
+				padding-left: 0;
+			}
+			nav button {
+				text-align: left;
+				border: 0;
+				padding: 4px;
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+			td,
+			th {
+				text-align: left;
+				border-bottom: 1px solid GrayText;
+				padding: 8px;
+				vertical-align: top;
+			}
+			th {
+				font-weight: 600;
+			}
+			small,
+			.subtle {
+				color: var(--color-text-secondary, GrayText);
+			}
+			pre {
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+				font: inherit;
+				border-left: 3px solid GrayText;
+				padding: 12px;
+			}
+			fieldset {
+				border: 1px solid GrayText;
+				margin: 12px 0;
+				padding: 12px;
+			}
+			label {
+				display: block;
+				margin: 8px 0;
+			}
+			label input {
+				margin-right: 8px;
+			}
+			.pair {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 16px;
+			}
+			.controls {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.notice {
+				padding: 8px 0;
+				min-height: 2em;
+			}
+			#error {
+				color: light-dark(#a21a1a, #ffb0b0);
+			}
+			details {
+				border-bottom: 1px solid GrayText;
+				padding: 10px 0;
+			}
+			summary {
+				cursor: pointer;
+			}
+			blockquote {
+				margin: 8px 0;
+				padding-left: 12px;
+				border-left: 3px solid GrayText;
+			}
+			.scroll {
+				overflow: auto;
+			}
+			a {
+				color: inherit;
+			}
+			.skip {
+				position: absolute;
+				top: -80px;
+			}
+			.skip:focus {
+				top: 0;
+				background: Canvas;
+				padding: 10px;
+			}
+			.badge {
+				font-size: 0.85rem;
+			}
+			body {
+				max-width: 1440px;
+				margin: 0 auto;
+				padding: 28px;
+			}
+			header {
+				border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+				padding-bottom: 20px;
+			}
+			h1 {
+				letter-spacing: -0.025em;
+				font-size: 1.65rem;
+				line-height: 1.25;
+			}
+			h2 {
+				margin: 0 0 12px;
+				letter-spacing: -0.015em;
+			}
+			.eyebrow {
+				margin: 0 0 6px;
+				color: GrayText;
+				font-size: 0.75rem;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+			}
+			main section {
+				padding: 20px;
+				margin-bottom: 20px;
+				border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+				border-radius: 12px;
+				background: color-mix(in srgb, CanvasText 2%, Canvas);
+			}
+			nav {
+				align-self: start;
+				padding-right: 8px;
+			}
+			button {
+				min-height: 40px;
+				border-color: color-mix(in srgb, CanvasText 25%, Canvas);
+				border-radius: 7px;
+			}
+			button[data-primary='true'] {
+				background: #1d4ed8;
+				border-color: #1d4ed8;
+				color: #fff;
+			}
+			button[data-primary='true']:hover:not(:disabled) {
+				background: #1e40af;
+			}
+			nav button {
+				width: 100%;
+				border-radius: 6px;
+			}
+			th {
+				font-size: 0.8rem;
+				color: GrayText;
+			}
+			.subtle {
+				overflow-wrap: anywhere;
+			}
+			.scene-note {
+				display: block;
+				max-width: 36em;
+				margin: 4px 0 2px;
+				font-size: 0.85rem;
+			}
+			#context {
+				margin: 0;
+				min-height: 64px;
+			}
+			.notice {
+				font-size: 0.9rem;
+				margin: 12px 0;
+			}
+			#error:empty {
+				display: none;
+			}
+			#binder-filter {
+				width: 100%;
+				margin-bottom: 12px;
+				padding: 9px 10px;
+				color: inherit;
+				background: Canvas;
+				border: 1px solid GrayText;
+				border-radius: 7px;
+			}
+			#binder-filter-label {
+				font-size: 0.8rem;
+				color: GrayText;
+			}
+			fieldset {
+				border-radius: 8px;
+			}
+			pre {
+				background: Canvas;
+				border-radius: 6px;
+			}
+			@media (max-width: 700px) {
+				.layout,
+				.pair {
+					grid-template-columns: 1fr;
+				}
+				nav {
+					max-height: 160px;
+				}
+				body {
+					padding: 12px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<a class="skip" href="#scenes">Skip binder navigation</a>
+		<header>
+			<div>
+				<p class="eyebrow">Scrivener · Editorial workspace</p>
+				<h1 id="project-title">Manuscript dashboard</h1>
+			</div>
+			<button id="refresh" disabled>Refresh</button>
+		</header>
+		<p id="status" class="notice" role="status" aria-live="polite">
+			Connecting to your writing client…
+		</p>
+		<p id="error" role="alert"></p>
+		<div class="layout">
+			<nav aria-label="Binder">
+				<h2>Binder</h2>
+				<label id="binder-filter-label" for="binder-filter">Find a document</label>
+				<input
+					id="binder-filter"
+					type="search"
+					placeholder="Filter binder titles"
+					autocomplete="off"
+				/>
+				<div id="binder"></div>
+			</nav>
+			<main>
+				<section id="scenes" aria-labelledby="scenes-heading">
+					<h2 id="scenes-heading">Scenes</h2>
+					<p class="subtle">
+						Pacing is a local sentence-length heuristic. Character mentions need
+						interpretation.
+					</p>
+					<div class="scroll">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">Scene</th>
+									<th scope="col">Words</th>
+									<th scope="col">Pacing</th>
+									<th scope="col">Character mentions</th>
+								</tr>
+							</thead>
+							<tbody id="scene-rows"></tbody>
+						</table>
+					</div>
+					<div class="controls">
+						<button id="previous" disabled>Previous scenes</button
+						><button id="next" disabled>Next scenes</button>
+					</div>
+				</section>
+				<section aria-labelledby="context-heading">
+					<h2 id="context-heading">Source context</h2>
+					<p id="source-location" class="subtle">
+						Select a scene, character mention or finding passage.
+					</p>
+					<pre id="context" tabindex="0"></pre>
+				</section>
+				<section aria-labelledby="findings-heading">
+					<h2 id="findings-heading">Unresolved findings</h2>
+					<div id="findings"></div>
+				</section>
+				<section aria-labelledby="review-heading">
+					<h2 id="review-heading">Proposed changes</h2>
+					<p class="subtle">
+						Preview selected edits before applying. Applications create native
+						snapshots. Close this project in Scrivener before writing.
+					</p>
+					<div id="reviews"></div>
+				</section>
+			</main>
+		</div>
+		<script>
+			'use strict';
+			const pending = new Map();
+			let requestId = 0,
+				connected = false,
+				hostOrigin = '*',
+				state = null,
+				offset = 0,
+				disposed = false;
+			const element = (tag, text) => {
+				const node = document.createElement(tag);
+				if (text !== undefined) node.textContent = text;
+				return node;
+			};
+			const status = (text) => (document.getElementById('status').textContent = text);
+			const fail = (error) => {
+				document.getElementById('error').textContent =
+					error instanceof Error ? error.message : String(error);
+				status('Action needs attention.');
+			};
+			const notify = (method, params) =>
+				parent.postMessage({ jsonrpc: '2.0', method, params }, hostOrigin);
+			function request(method, params) {
+				if (disposed) return Promise.reject(new Error('Dashboard is closed'));
+				const id = ++requestId;
+				return new Promise((resolve, reject) => {
+					const timer = setTimeout(() => {
+						pending.delete(id);
+						reject(
+							new Error(
+								'Your client did not respond. Refresh to retry read operations.'
+							)
+						);
+					}, 30000);
+					pending.set(id, { resolve, reject, timer });
+					parent.postMessage({ jsonrpc: '2.0', id, method, params }, hostOrigin);
+				});
+			}
+			async function call(name, args) {
+				if (!connected) throw new Error('Your client has not enabled interactive tools.');
+				const result = await request('tools/call', { name, arguments: args });
+				if (result.isError)
+					throw new Error(
+						result.content?.find((item) => item.type === 'text')?.text ||
+							'The operation failed'
+					);
+				return result.structuredContent || {};
+			}
+			function button(text, action) {
+				const node = element('button', text);
+				node.type = 'button';
+				node.addEventListener('click', () => run(action, node));
+				return node;
+			}
+			async function run(action, node) {
+				document.getElementById('error').textContent = '';
+				if (node) node.disabled = true;
+				try {
+					await action();
+				} catch (error) {
+					fail(error);
+				} finally {
+					if (node && node.isConnected) node.disabled = false;
+				}
+			}
+			async function refresh(documentId) {
+				status('Reading saved manuscript…');
+				const result = await call('manuscript_dashboard', {
+					offset,
+					limit: 50,
+					...(documentId ? { documentId } : {}),
+				});
+				render(result);
+				status(
+					`${result.pagination.total} manuscript scene${result.pagination.total === 1 ? '' : 's'}. Saved sources refreshed.`
+				);
+			}
+			async function reveal(documentId, passage) {
+				await refresh(documentId);
+				if (passage) {
+					const location = document.getElementById('source-location');
+					location.textContent = `${passage.path || passage.title || documentId} · line ${passage.line || 1} · source revision ${passage.revision || 'unavailable'}${passage.revision && state?.context?.revision !== passage.revision ? ' · evidence is stale; current saved source has changed' : ''}`;
+					document.getElementById('context').textContent = passage.quote || '';
+				}
+				document.getElementById('context').focus();
+			}
+			function binderList(items) {
+				const list = element('ul');
+				for (const item of items || []) {
+					const entry = element('li');
+					if (item.type === 'Text')
+						entry.append(button(item.title, () => reveal(item.id)));
+					else entry.append(element('span', item.title));
+					if (item.children?.length) entry.append(binderList(item.children));
+					list.append(entry);
+				}
+				return list;
+			}
+			function renderBinder() {
+				const term = document
+					.getElementById('binder-filter')
+					.value.normalize('NFKC')
+					.toLocaleLowerCase();
+				const filter = (items) =>
+					(items || []).flatMap((item) => {
+						if (
+							!term ||
+							item.title.normalize('NFKC').toLocaleLowerCase().includes(term)
+						)
+							return [item];
+						const children = filter(item.children);
+						return children.length ? [{ ...item, children }] : [];
+					});
+				document.getElementById('binder').replaceChildren(binderList(filter(state.binder)));
+			}
+			function render(data) {
+				if (!data || !Array.isArray(data.scenes)) return;
+				state = data;
+				document.getElementById('project-title').textContent =
+					data.projectTitle || 'Manuscript dashboard';
+				renderBinder();
+				const rows = document.getElementById('scene-rows');
+				rows.replaceChildren();
+				for (const scene of data.scenes) {
+					const row = element('tr'),
+						title = element('td');
+					title.append(button(scene.title, () => reveal(scene.documentId)));
+					if (scene.synopsis) {
+						const note = element('small', scene.synopsis);
+						note.className = 'scene-note subtle';
+						title.append(note);
+					}
+					row.append(
+						title,
+						element('td', scene.words),
+						element('td', scene.pacing?.overall || 'unavailable')
+					);
+					const names = element('td');
+					for (const appearance of scene.appearances || [])
+						names.append(
+							button(`${appearance.name} (${appearance.mentions.length})`, () =>
+								reveal(scene.documentId, {
+									...scene,
+									...appearance.mentions[0],
+									quote: appearance.mentions[0].quote,
+								})
+							)
+						);
+					row.append(names);
+					rows.append(row);
+				}
+				document.getElementById('previous').disabled = offset === 0;
+				document.getElementById('next').disabled =
+					offset + data.pagination.count >= data.pagination.total;
+				if (data.context) {
+					document.getElementById('source-location').textContent =
+						`${data.context.path} · saved revision ${data.context.revision}${data.context.truncated ? ' · context truncated' : ''}`;
+					document.getElementById('context').textContent = data.context.text;
+				}
+				renderFindings(data.findings || []);
+				renderReviews(data.proposals || [], data.applications || []);
+			}
+			function renderFindings(findings) {
+				const root = document.getElementById('findings');
+				root.replaceChildren();
+				if (!findings.length)
+					root.append(
+						element(
+							'p',
+							'No unresolved findings. Run “Audit continuity” to refresh the report.'
+						)
+					);
+				for (const finding of findings) {
+					const card = element('details');
+					card.append(
+						element(
+							'summary',
+							`${finding.confidence || finding.certainty || 'candidate'}: ${finding.description || finding.message || finding.title || finding.id}`
+						)
+					);
+					const passages = finding.sources || finding.evidence || [];
+					for (const passage of passages) {
+						card.append(
+							element('blockquote', passage.quote || ''),
+							button(`Show ${passage.title || 'source'} context`, () =>
+								reveal(passage.documentId, passage)
+							)
+						);
+					}
+					const controls = element('div');
+					controls.className = 'controls';
+					for (const action of ['confirm', 'dismiss', 'resolve', 'recheck'])
+						controls.append(
+							button(action[0].toUpperCase() + action.slice(1), async () => {
+								await call('continuity_findings', {
+									action,
+									findingId: finding.id,
+								});
+								await refresh();
+							})
+						);
+					card.append(controls);
+					root.append(card);
+				}
+			}
+			function renderReviews(proposals, applications) {
+				const root = document.getElementById('reviews');
+				root.replaceChildren();
+				if (!proposals.length)
+					root.append(
+						element(
+							'p',
+							'No proposed changes. Ask for a chapter review or propose an edit.'
+						)
+					);
+				for (const application of applications
+					.filter((item) => item.state === 'committed')
+					.slice(-20)) {
+					root.append(
+						button(
+							`Undo ${proposals.find((proposal) => proposal.id === application.proposalId)?.title || 'applied change'}`,
+							async () => {
+								await call('review_changes', {
+									action: 'undo',
+									operationId: application.id,
+								});
+								await refresh();
+								status('Application undone.');
+							}
+						)
+					);
+				}
+				for (const proposal of proposals) {
+					const card = element('details');
+					card.append(
+						element('summary', proposal.title || `Changes for ${proposal.documentId}`)
+					);
+					const group = element('fieldset');
+					group.append(element('legend', 'Select edits'));
+					for (const edit of proposal.edits || []) {
+						const label = element('label'),
+							check = element('input');
+						check.type = 'checkbox';
+						check.value = edit.id;
+						check.checked = edit.state === 'pending' || edit.status === 'pending';
+						check.disabled =
+							!!(edit.state && edit.state !== 'pending') ||
+							!!(edit.status && edit.status !== 'pending');
+						label.append(
+							check,
+							document.createTextNode(
+								`${edit.state || edit.status || 'pending'} · ${edit.start}–${edit.end}: ${edit.text || '(delete)'}`
+							)
+						);
+						group.append(label);
+					}
+					card.append(group);
+					const selected = () =>
+						[...group.querySelectorAll('input:checked:not(:disabled)')].map(
+							(node) => node.value
+						);
+					const preview = element('div');
+					let lastPreview = null;
+					const warning = element('p');
+					warning.setAttribute('role', 'status');
+					const acknowledge = element('label'),
+						ack = element('input');
+					ack.type = 'checkbox';
+					acknowledge.append(
+						ack,
+						document.createTextNode(
+							'I accept the formatting loss disclosed in this preview.'
+						)
+					);
+					acknowledge.hidden = true;
+					const controls = element('div');
+					controls.className = 'controls';
+					const apply = button('Apply selected', async () => {
+						if (
+							!lastPreview ||
+							JSON.stringify(lastPreview.selection) !== JSON.stringify(selected())
+						)
+							throw new Error('Preview the current selection first.');
+						if (!acknowledge.hidden && !ack.checked)
+							throw new Error(
+								'Acknowledge the disclosed formatting loss before applying.'
+							);
+						const response = await call('review_changes', {
+							action: 'apply',
+							proposalId: proposal.id,
+							editIds: selected(),
+							allowFormattingLoss: ack.checked,
+						});
+						const result = response.result;
+						await refresh();
+						status('Selected changes applied.');
+						const operationId = result.id;
+						if (operationId) {
+							const undo = button('Undo this application', async () => {
+								await call('review_changes', { action: 'undo', operationId });
+								await refresh();
+								status('Application undone.');
+							});
+							document.getElementById('reviews').prepend(undo);
+						}
+					});
+					apply.dataset.primary = 'true';
+					apply.disabled = true;
+					group.addEventListener('change', () => {
+						lastPreview = null;
+						apply.disabled = true;
+						ack.checked = false;
+					});
+					controls.append(
+						button('Preview selected', async () => {
+							const selection = selected();
+							if (!selection.length)
+								throw new Error('Select at least one pending edit.');
+							const response = await call('review_changes', {
+								action: 'preview',
+								proposalId: proposal.id,
+								editIds: selection,
+							});
+							const result = response.result;
+							lastPreview = { selection };
+							const pair = element('div');
+							pair.className = 'pair';
+							for (const [heading, text] of [
+								['Before', result.before ?? result.beforeText],
+								['After', result.after ?? result.afterText],
+							]) {
+								const side = element('div');
+								side.append(
+									element('h3', heading),
+									element(
+										'pre',
+										typeof text === 'string' ? text : JSON.stringify(text)
+									)
+								);
+								pair.append(side);
+							}
+							preview.replaceChildren(pair);
+							const risks = result.fidelity?.atRisk || result.atRisk || [];
+							warning.textContent = risks.length
+								? `Formatting risks: ${risks.join('; ')}`
+								: 'Formatting-preserving preview. No known loss in the selected change.';
+							acknowledge.hidden = risks.length === 0;
+							ack.checked = false;
+							apply.disabled = false;
+							status('Preview ready. Manuscript unchanged.');
+						}),
+						apply,
+						button('Reject selected', async () => {
+							if (!selected().length)
+								throw new Error('Select at least one pending edit.');
+							await call('review_changes', {
+								action: 'reject',
+								proposalId: proposal.id,
+								editIds: selected(),
+							});
+							await refresh();
+						})
+					);
+					card.append(controls, warning, acknowledge, preview);
+					root.append(card);
+				}
+			}
+			function hostContext(context) {
+				if (context?.theme === 'light' || context?.theme === 'dark')
+					document.documentElement.style.colorScheme = context.theme;
+			}
+			window.addEventListener('message', (event) => {
+				if (event.source !== parent || !event.data || event.data.jsonrpc !== '2.0') return;
+				if (hostOrigin !== '*' && event.origin !== hostOrigin) return;
+				const message = event.data;
+				if (message.id !== undefined && pending.has(message.id)) {
+					if (message.id === 1 && event.origin !== 'null' && !message.error)
+						hostOrigin = event.origin;
+					const item = pending.get(message.id);
+					pending.delete(message.id);
+					clearTimeout(item.timer);
+					if (message.error)
+						item.reject(new Error(message.error.message || 'Client request failed'));
+					else item.resolve(message.result);
+					return;
+				}
+				if (message.method === 'ui/notifications/tool-result')
+					render(message.params?.structuredContent);
+				if (message.method === 'ui/notifications/host-context-changed')
+					hostContext(message.params);
+				if (message.method === 'ui/resource-teardown') {
+					disposed = true;
+					for (const item of pending.values()) {
+						clearTimeout(item.timer);
+						item.reject(new Error('Dashboard closed'));
+					}
+					pending.clear();
+					parent.postMessage({ jsonrpc: '2.0', id: message.id, result: {} }, hostOrigin);
+				}
+			});
+			document
+				.getElementById('refresh')
+				.addEventListener('click', () => run(() => refresh()));
+			document.getElementById('binder-filter').addEventListener('input', () => {
+				if (state) renderBinder();
+			});
+			document.getElementById('previous').addEventListener('click', () =>
+				run(async () => {
+					offset = Math.max(0, offset - 50);
+					await refresh();
+				})
+			);
+			document.getElementById('next').addEventListener('click', () =>
+				run(async () => {
+					offset += 50;
+					await refresh();
+				})
+			);
+			if (parent === window) {
+				status(
+					'Open this dashboard through an MCP Apps compatible writing client. Text and structured dashboard data are available in every client.'
+				);
+			} else {
+				request('ui/initialize', {
+					protocolVersion: '2026-01-26',
+					appInfo: { name: 'scrivener-manuscript-dashboard', version: '1.0.0' },
+					appCapabilities: { availableDisplayModes: ['inline'] },
+				})
+					.then((result) => {
+						if (result.protocolVersion !== '2026-01-26')
+							throw new Error(
+								'Your client uses an unsupported MCP Apps protocol version. Use the text dashboard tools.'
+							);
+						hostContext(result.hostContext);
+						connected = !!result.hostCapabilities?.serverTools;
+						document.getElementById('refresh').disabled = !connected;
+						notify('ui/notifications/initialized', {});
+						status(
+							connected
+								? 'Select Refresh to read the saved manuscript.'
+								: 'Your client can display this view but has not enabled interactive tools.'
+						);
+					})
+					.catch(fail);
+			}
+			if (typeof ResizeObserver !== 'undefined')
+				new ResizeObserver(() => {
+					if (connected)
+						notify('ui/notifications/size-changed', {
+							width: document.documentElement.clientWidth,
+							height: document.documentElement.scrollHeight,
+						});
+				}).observe(document.body);
+		</script>
+	</body>
+</html>

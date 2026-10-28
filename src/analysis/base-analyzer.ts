@@ -384,9 +384,6 @@ export class ContentAnalyzer {
 		}, 0);
 	}
 
-	/**
-	 * Get advanced readability analysis using multiple algorithms
-	 */
 	async getAdvancedReadabilityAnalysis(content: string): Promise<ReadabilityMetrics> {
 		return advancedReadabilityService.calculateMetrics(content);
 	}
@@ -398,9 +395,6 @@ export class ContentAnalyzer {
 		return advancedReadabilityService.compareReadability(text1, text2);
 	}
 
-	/**
-	 * Analyze readability trends across document sections
-	 */
 	async analyzeReadabilityTrends(
 		content: string,
 		segments: number = 10
@@ -408,9 +402,6 @@ export class ContentAnalyzer {
 		return advancedReadabilityService.analyzeReadabilityTrends(content, segments);
 	}
 
-	/**
-	 * Parse HTML content and extract text
-	 */
 	parseWebContent(
 		html: string,
 		baseUrl?: string,
@@ -419,9 +410,6 @@ export class ContentAnalyzer {
 		return webContentParser.parseHtmlContent(html, baseUrl, options);
 	}
 
-	/**
-	 * Convert HTML to Markdown
-	 */
 	convertHtmlToMarkdown(
 		html: string,
 		options?: { preserveImages?: boolean; preserveLinks?: boolean }
@@ -429,9 +417,6 @@ export class ContentAnalyzer {
 		return webContentParser.htmlToMarkdown(html, options);
 	}
 
-	/**
-	 * Extract research data from web content
-	 */
 	extractResearchData(parsedContent: ParsedWebContent, keywords?: string[]): ResearchData {
 		return webContentParser.extractResearchData(parsedContent, keywords);
 	}

@@ -117,9 +117,6 @@ export class Neo4jAutoInstaller {
 		return result;
 	}
 
-	/**
-	 * Check system capabilities
-	 */
 	private static async checkSystemCapabilities(): Promise<SystemInfo> {
 		const info: SystemInfo = {
 			platform: os.platform(),
@@ -174,9 +171,6 @@ export class Neo4jAutoInstaller {
 		return info;
 	}
 
-	/**
-	 * Determine optimal installation method
-	 */
 	private static async determineOptimalMethod(
 		systemInfo: SystemInfo
 	): Promise<'docker' | 'homebrew' | 'native'> {
@@ -220,9 +214,6 @@ export class Neo4jAutoInstaller {
 		return 'native';
 	}
 
-	/**
-	 * Get user confirmation for installation
-	 */
 	private static async getUserConfirmation(
 		method: string,
 		systemInfo: SystemInfo
@@ -493,9 +484,6 @@ export class Neo4jAutoInstaller {
 		}
 	}
 
-	/**
-	 * Check if Java is installed
-	 */
 	private static async checkJava(): Promise<string | null> {
 		try {
 			const { stdout } = await execAsync('java -version 2>&1');
@@ -597,9 +585,6 @@ export class Neo4jAutoInstaller {
 		});
 	}
 
-	/**
-	 * Extract archive
-	 */
 	private static async extractArchive(archivePath: string, destination: string): Promise<void> {
 		if (archivePath.endsWith('.tar.gz')) {
 			await execAsync(`tar -xzf "${archivePath}" -C "${destination}"`);
@@ -631,9 +616,6 @@ export class Neo4jAutoInstaller {
 		await safeWriteFile(configPath, config);
 	}
 
-	/**
-	 * Create start script
-	 */
 	private static async createStartScript(neo4jHome: string, projectPath: string): Promise<void> {
 		const scriptPath = path.join(projectPath, 'start-neo4j.sh');
 		const script = `#!/bin/bash

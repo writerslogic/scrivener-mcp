@@ -24,9 +24,6 @@ const _DEFAULT_CACHE_CONFIG: CacheConfig = {
 	maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
-/**
- * Check if directory is a valid Scrivener project
- */
 async function isScrivenerProject(projectPath: string): Promise<boolean> {
 	try {
 		await findScrivxPath(projectPath);
@@ -62,15 +59,17 @@ export async function ensureProjectDataDirectory(projectPath: string): Promise<s
 	const readmePath = PathUtils.build(mcpDir, 'README.md');
 	const readmeContent = `# Scrivener MCP Data Directory
 
-This directory contains cached data and temporary files for the Scrivener MCP integration.
+This directory contains persistent editorial history and cached data for the Scrivener MCP integration.
 
 ## Structure:
 - \`cache/\` - Temporary cache files (auto-cleaned after 7 days)
 - \`backups/\` - Project backups
 - \`context/\` - AI context and memory files
+- \`editorial.sqlite\` (plus WAL/SHM companions) - Proposed changes, applications, undo/recovery journals, facts, findings, passage index and durable workflows
+- \`exports/\` - Generated manuscripts and beta-reader drafts
 
 ## Important:
-- This directory is safe to delete if you want to reset the integration
+- Back up this directory with the project. Deleting it loses review, undo and workflow history.
 - Cache files are automatically cleaned up
 - Backups are kept according to your retention settings
 
@@ -80,6 +79,20 @@ Generated: ${new Date().toISOString()}
 	if (!(await FileUtils.exists(readmePath))) {
 		await FileUtils.safeWrite(readmePath, readmeContent);
 		logger.debug('Created README.md in .scrivener-mcp directory');
+	} else {
+		const current = await fs.readFile(readmePath, 'utf8');
+		if (current.startsWith('# Scrivener MCP Data Directory')) {
+			const updated = current
+				.replace(
+					'This directory contains cached data and temporary files for the Scrivener MCP integration.',
+					'This directory contains persistent editorial history and cached data for the Scrivener MCP integration.'
+				)
+				.replace(
+					'- This directory is safe to delete if you want to reset the integration',
+					'- Back up this directory with the project. Deleting it loses proposals, application and undo journals, facts, findings and workflow checkpoints stored in editorial.sqlite.'
+				);
+			if (updated !== current) await FileUtils.safeWrite(readmePath, updated);
+		}
 	}
 
 	// Safely add to .gitignore
@@ -151,23 +164,14 @@ async function addToGitignoreSafely(projectPath: string): Promise<void> {
 	}
 }
 
-/**
- * Get the path to the queue state file for a project
- */
 export function getQueueStatePath(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'queue-state.json');
 }
 
-/**
- * Get the path to the cache directory for a project
- */
 export function getCacheDirectory(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'cache');
 }
 
-/**
- * Get the path to the vectors directory for a project
- */
 export function getVectorsDirectory(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'vectors');
 }

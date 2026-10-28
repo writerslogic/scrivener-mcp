@@ -14,6 +14,7 @@ import type { JSONValue } from '../types/index.js';
 import { ErrorCode, createError } from '../utils/common.js';
 
 export interface HandlerContext {
+	uiSupported?: boolean;
 	project: ScrivenerProject | null;
 	memoryManager: MemoryManager | null;
 	contentAnalyzer: ContentAnalyzer;
@@ -24,6 +25,7 @@ export interface HandlerContext {
 }
 
 export interface HandlerResult {
+	_meta?: Record<string, unknown>;
 	content: Array<{
 		type: string;
 		text?: string;
@@ -66,6 +68,7 @@ export interface ToolSchema {
 }
 
 export interface ToolDefinition {
+	_meta?: Record<string, unknown>;
 	name: string;
 	/** Human-readable title; defaults to a prettified name when omitted. */
 	title?: string;

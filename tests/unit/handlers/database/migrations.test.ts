@@ -3,7 +3,6 @@ import { MigrationManager, type Migration } from '../../../../src/handlers/datab
 import { ApplicationError as AppError, ErrorCode } from '../../../../src/core/errors.js';
 import { toDatabaseError } from '../../../../src/utils/database.js';
 
-// Mock the logger
 jest.mock('../../../../src/core/logger.js', () => ({
 	getLogger: jest.fn(() => ({
 		info: jest.fn(),
@@ -13,7 +12,6 @@ jest.mock('../../../../src/core/logger.js', () => ({
 	})),
 }));
 
-// Mock the database utilities
 jest.mock('../../../../src/utils/database.js', () => ({
 	toDatabaseError: jest.fn((error, operation) => {
 		if (error instanceof AppError) return error;

@@ -482,9 +482,6 @@ export class MLWordClassifierPro {
 		}
 	}
 
-	/**
-	 * Extract features using professional NLP tools
-	 */
 	private extractAdvancedFeatures(word: string, context: string, position: number): WordFeatures {
 		// Check feature cache first
 		const cacheKey = `${word}_${position}_${generateHash(context.slice(0, 100))}`;
@@ -585,9 +582,6 @@ export class MLWordClassifierPro {
 		return features;
 	}
 
-	/**
-	 * Perform classification using professional algorithms
-	 */
 	private performProfessionalClassification(features: WordFeatures): ClassificationResult {
 		// Named entities (character/place names) are content, not weak words.
 		// Detecting them via NER prevents misclassifying a name like "Pretty"
@@ -631,9 +625,6 @@ export class MLWordClassifierPro {
 		return result;
 	}
 
-	/**
-	 * Detect filter words using linguistic analysis
-	 */
 	private detectFilterWord(features: WordFeatures): number {
 		let score = 0;
 
@@ -666,9 +657,6 @@ export class MLWordClassifierPro {
 		return Math.min(1, score);
 	}
 
-	/**
-	 * Detect common words using TF-IDF and frequency analysis
-	 */
 	private detectCommonWord(features: WordFeatures): number {
 		let score = 0;
 
@@ -689,9 +677,6 @@ export class MLWordClassifierPro {
 		return Math.min(1, score);
 	}
 
-	/**
-	 * Detect weak verbs using semantic analysis
-	 */
 	private detectWeakVerb(features: WordFeatures): number {
 		if (features.morphology !== 'verb') return 0;
 
@@ -730,9 +715,6 @@ export class MLWordClassifierPro {
 		return Math.min(1, score);
 	}
 
-	/**
-	 * Detect clichés using n-gram analysis
-	 */
 	private detectCliche(features: WordFeatures): number {
 		let score = 0;
 		const { word, precedingWord, followingWord } = features;
@@ -758,9 +740,6 @@ export class MLWordClassifierPro {
 		return Math.min(1, score);
 	}
 
-	/**
-	 * Generate smart alternatives using semantic similarity
-	 */
 	private generateSmartAlternative(features: WordFeatures): string {
 		const word = features.word.toLowerCase();
 
@@ -839,9 +818,6 @@ export class MLWordClassifierPro {
 		return this.generateFromStem(features);
 	}
 
-	/**
-	 * Generate alternative from word stem
-	 */
 	private generateFromStem(features: WordFeatures): string {
 		const stem = features.stem || features.word;
 
@@ -854,9 +830,6 @@ export class MLWordClassifierPro {
 		return stem;
 	}
 
-	/**
-	 * Calculate word complexity score
-	 */
 	private calculateComplexity(features: WordFeatures): number {
 		let complexity = 0;
 
@@ -939,9 +912,6 @@ export class MLWordClassifierPro {
 		return word.replace(/[aeiou]/gi, 'V').replace(/[bcdfghjklmnpqrstvwxyz]/gi, 'C');
 	}
 
-	/**
-	 * Clear caches to free memory
-	 */
 	clearCache(): void {
 		this.contextCache.clear();
 	}
@@ -1021,9 +991,6 @@ export class MLWordClassifierPro {
 		return await wrappedClassifyBatch();
 	}
 
-	/**
-	 * Analyze entire document for optimization suggestions with error handling
-	 */
 	analyzeDocument(text: string): {
 		filterWords: string[];
 		weakVerbs: string[];

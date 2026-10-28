@@ -123,9 +123,6 @@ export class ContextAnalyzer {
 		private contentAnalyzer: ContentAnalyzer
 	) {}
 
-	/**
-	 * Analyze a chapter and build its context
-	 */
 	private async _analyzeChapter(
 		document: ScrivenerDocument,
 		content: string,
@@ -259,9 +256,6 @@ export class ContextAnalyzer {
 		return result as unknown as ChapterContext;
 	}
 
-	/**
-	 * Build complete story context
-	 */
 	async buildStoryContext(
 		_documents: ScrivenerDocument[],
 		chapterContexts: ChapterContext[]
@@ -287,9 +281,6 @@ export class ContextAnalyzer {
 		return storyContext;
 	}
 
-	/**
-	 * Extract character mentions from content
-	 */
 	private async extractCharacterMentions(
 		documentId: string,
 		content: string
@@ -350,9 +341,6 @@ export class ContextAnalyzer {
 		return result || [];
 	}
 
-	/**
-	 * Find a specific character in content
-	 */
 	private findCharacterInContent(
 		char: { id: string; name: string; role: string },
 		content: string
@@ -379,9 +367,6 @@ export class ContextAnalyzer {
 		return null;
 	}
 
-	/**
-	 * Extract themes from content
-	 */
 	private async extractThemes(
 		content: string,
 		_analysis: ContentAnalysis
@@ -436,9 +421,6 @@ export class ContextAnalyzer {
 		return themes;
 	}
 
-	/**
-	 * Get plot threads for a chapter
-	 */
 	private async getChapterPlotThreads(
 		documentId: string
 	): Promise<ChapterContext['plotThreads']> {
@@ -465,9 +447,6 @@ export class ContextAnalyzer {
 		return threads;
 	}
 
-	/**
-	 * Analyze emotional arc of content
-	 */
 	private analyzeEmotionalArc(
 		content: string,
 		_analysis: ContentAnalysis
@@ -501,9 +480,6 @@ export class ContextAnalyzer {
 		};
 	}
 
-	/**
-	 * Detect dominant emotion in text
-	 */
 	private detectDominantEmotion(text: string): string {
 		const emotions = {
 			positive: [
@@ -557,9 +533,6 @@ export class ContextAnalyzer {
 		return dominantEmotion;
 	}
 
-	/**
-	 * Extract key events from content
-	 */
 	private extractKeyEvents(content: string): string[] {
 		const events: string[] = [];
 
@@ -580,9 +553,6 @@ export class ContextAnalyzer {
 		return events.slice(0, 5); // Top 5 events
 	}
 
-	/**
-	 * Extract cliffhangers
-	 */
 	private extractCliffhangers(content: string): string[] {
 		const cliffhangers: string[] = [];
 
@@ -604,9 +574,6 @@ export class ContextAnalyzer {
 		return cliffhangers;
 	}
 
-	/**
-	 * Extract foreshadowing
-	 */
 	private extractForeshadowing(content: string): string[] {
 		const foreshadowing: string[] = [];
 
@@ -626,9 +593,6 @@ export class ContextAnalyzer {
 		return foreshadowing;
 	}
 
-	/**
-	 * Extract callbacks to previous chapters
-	 */
 	private extractCallbacks(content: string, _allDocuments: ScrivenerDocument[]): string[] {
 		const callbacks: string[] = [];
 
@@ -659,9 +623,6 @@ export class ContextAnalyzer {
 		return 'Very fast - intense and action-packed';
 	}
 
-	/**
-	 * Build character arcs across chapters
-	 */
 	private async buildCharacterArcs(
 		contexts: ChapterContext[]
 	): Promise<StoryContext['characterArcs']> {
@@ -716,9 +677,6 @@ export class ContextAnalyzer {
 		return arcs;
 	}
 
-	/**
-	 * Build theme progression
-	 */
 	private async buildThemeProgression(
 		contexts: ChapterContext[]
 	): Promise<StoryContext['themeProgression']> {
@@ -774,9 +732,6 @@ export class ContextAnalyzer {
 		return progression;
 	}
 
-	/**
-	 * Build plot thread map
-	 */
 	private async buildPlotThreadMap(
 		contexts: ChapterContext[]
 	): Promise<StoryContext['plotThreads']> {
@@ -834,9 +789,6 @@ export class ContextAnalyzer {
 		return threads;
 	}
 
-	/**
-	 * Determine thread status based on developments
-	 */
 	private determineThreadStatus(
 		developments: string[]
 	): 'setup' | 'developing' | 'climax' | 'resolved' {
@@ -848,9 +800,6 @@ export class ContextAnalyzer {
 		return 'setup';
 	}
 
-	/**
-	 * Analyze overall pacing
-	 */
 	private analyzeOverallPacing(contexts: ChapterContext[]): StoryContext['overallPacing'] {
 		const intensityPoints = contexts.map((ctx) => ({
 			chapter: ctx.title,
@@ -891,9 +840,6 @@ export class ContextAnalyzer {
 		};
 	}
 
-	/**
-	 * Store chapter context in database
-	 */
 	private async storeChapterContext(context: ChapterContext): Promise<void> {
 		await this.databaseService.storeContentAnalysis(
 			context.documentId,
@@ -914,9 +860,6 @@ export class ContextAnalyzer {
 		}
 	}
 
-	/**
-	 * Store story context in database
-	 */
 	private async storeStoryContext(context: StoryContext): Promise<void> {
 		if (this.databaseService.getSQLite()) {
 			// Convert Maps to objects for JSON storage
@@ -937,9 +880,6 @@ export class ContextAnalyzer {
 		}
 	}
 
-	/**
-	 * Get chapter context from database
-	 */
 	async getChapterContext(documentId: string): Promise<ChapterContext | null> {
 		const history = await this.databaseService.getContentAnalysisHistory(
 			documentId,
@@ -953,9 +893,6 @@ export class ContextAnalyzer {
 		return null;
 	}
 
-	/**
-	 * Get story context from database
-	 */
 	async getStoryContext(): Promise<StoryContext | null> {
 		if (this.databaseService.getSQLite()) {
 			const result = this.databaseService

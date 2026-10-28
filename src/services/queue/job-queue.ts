@@ -6,6 +6,8 @@ import type { Job, ConnectionOptions } from 'bullmq';
 import { Queue, QueueEvents, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
 import * as path from 'path';
+import { randomUUID } from 'node:crypto';
+import { hostname } from 'node:os';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
@@ -17,6 +19,7 @@ import { AIClient } from '../ai/ai-client.js';
 import { AIWritingService } from '../ai/ai-writing-service.js';
 import { createBullMQConnection, detectConnection } from './keydb-detector.js';
 import { MemoryRedis } from './memory-redis.js';
+import { PersistentStore } from '../editorial/persistent-store.js';
 
 // Job types
 export enum JobType {
@@ -82,10 +85,11 @@ export interface BatchAnalysisJob {
 // what getJobStatus's "v1 API" branch already returns for non-BullMQ job results.
 interface EmbeddedJobStatus {
 	jobType: JobType;
-	state: 'active' | 'completed' | 'failed';
+	state: 'active' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
 	progress: number;
 	result?: unknown;
 	error?: string;
+	owner?: { pid: number; host: string };
 }
 
 /**
@@ -98,7 +102,8 @@ export class JobQueueService {
 	private connection: Redis | MemoryRedis | undefined = undefined;
 	private memoryRedis: MemoryRedis | undefined = undefined;
 	private embeddedJobs: Map<string, EmbeddedJobStatus> = new Map();
-	private embeddedJobCounter = 0;
+	private embeddedStore?: PersistentStore;
+	private readonly embeddedRuns = new Map<string, Promise<void>>();
 	private logger: ReturnType<typeof getLogger>;
 
 	// Services
@@ -116,9 +121,6 @@ export class JobQueueService {
 		this.projectPath = projectPath || null;
 	}
 
-	/**
-	 * Initialize with automatic KeyDB/Redis detection
-	 */
 	async initialize(
 		options: {
 			openaiApiKey?: string;
@@ -158,6 +160,11 @@ export class JobQueueService {
 				await this.memoryRedis.connect();
 				this.connection = this.memoryRedis;
 				this.connectionType = 'embedded';
+				if (this.projectPath) {
+					this.embeddedStore = new PersistentStore(
+						path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
+					);
+				}
 			}
 
 			// Step 2: Initialize services
@@ -219,9 +226,6 @@ export class JobQueueService {
 		}
 	}
 
-	/**
-	 * Create a queue for a job type
-	 */
 	private createQueue(jobType: JobType): void {
 		if (!this.connection) {
 			throw createError(ErrorCode.INVALID_STATE, null, 'Connection not initialized');
@@ -247,9 +251,6 @@ export class JobQueueService {
 		this.queues.set(jobType, queue);
 	}
 
-	/**
-	 * Create a worker for processing jobs
-	 */
 	private createWorker(jobType: JobType): void {
 		const worker = new Worker(
 			jobType,
@@ -319,9 +320,6 @@ export class JobQueueService {
 		}
 	}
 
-	/**
-	 * Process a job based on its type
-	 */
 	private async processJob(jobType: JobType, job: Job): Promise<unknown> {
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
@@ -354,12 +352,17 @@ export class JobQueueService {
 			timestamp: new Date().toISOString(),
 		};
 
-		if (data.options?.includeReadability) {
+		if (
+			data.options?.includeReadability ||
+			data.options?.includeEntities ||
+			data.options?.includeSentiment
+		) {
 			// Use the content analyzer for full analysis
 			const analysis = await this.contentAnalyzer.analyzeContent(
 				data.content,
 				data.documentId
 			);
+			results.analysis = analysis;
 			results.readability = {
 				fleschReadingEase: analysis.metrics.fleschReadingEase,
 				fleschKincaidGrade: analysis.metrics.fleschKincaidGrade,
@@ -390,6 +393,11 @@ export class JobQueueService {
 		}
 
 		return results;
+	}
+
+	async analyzeDocument(data: AnalyzeDocumentJob): Promise<Record<string, unknown>> {
+		if (!this.contentAnalyzer) this.contentAnalyzer = new ContentAnalyzer();
+		return this.processAnalyzeDocument(data);
 	}
 
 	private async processAnalyzeProject(data: AnalyzeProjectJob): Promise<Record<string, unknown>> {
@@ -794,9 +802,6 @@ export class JobQueueService {
 		}
 	}
 
-	/**
-	 * Add a job to the queue
-	 */
 	async addJob(
 		jobType: JobType,
 		data: Record<string, unknown>,
@@ -833,39 +838,94 @@ export class JobQueueService {
 			);
 		}
 
-		const jobId = `embedded-${jobType}-${++this.embeddedJobCounter}`;
-		this.embeddedJobs.set(jobId, { jobType, state: 'active', progress: 0 });
+		const jobId = `embedded-${jobType}-${randomUUID()}`;
+		this.storeEmbeddedJob(jobId, {
+			jobType,
+			state: 'active',
+			progress: 0,
+			owner: { pid: process.pid, host: hostname() },
+		});
 		this.logger.info(`Job ${jobId} added to embedded queue ${jobType}`);
 
-		void this.processJob(jobType, { id: jobId, data } as Job)
-			.then((result) => {
-				this.embeddedJobs.set(jobId, {
-					jobType,
-					state: 'completed',
-					progress: 100,
-					result,
+		const run = new Promise<void>((resolve) => setImmediate(resolve)).then(async () => {
+			if (this.readEmbeddedJob(jobId)?.state === 'cancelled') return;
+			await this.processJob(jobType, { id: jobId, data } as Job)
+				.then((result) => {
+					this.finishEmbeddedJob(jobId, {
+						jobType,
+						state: 'completed',
+						progress: 100,
+						result,
+					});
+					this.logger.info(`Job completed: ${jobId}`);
+				})
+				.catch((error: unknown) => {
+					this.finishEmbeddedJob(jobId, {
+						jobType,
+						state: 'failed',
+						progress: 0,
+						error: error instanceof Error ? error.message : String(error),
+					});
+					this.logger.error(`Job failed: ${jobId}`, { error });
 				});
-				this.logger.info(`Job completed: ${jobId}`);
-			})
-			.catch((error: unknown) => {
-				this.embeddedJobs.set(jobId, {
-					jobType,
-					state: 'failed',
-					progress: 0,
-					error: error instanceof Error ? error.message : String(error),
-				});
-				this.logger.error(`Job failed: ${jobId}`, { error });
-			});
+		});
+		this.embeddedRuns.set(jobId, run);
+		void run.then(
+			() => this.embeddedRuns.delete(jobId),
+			() => this.embeddedRuns.delete(jobId)
+		);
 
 		return jobId;
 	}
 
-	/**
-	 * Get job status
-	 */
+	private storeEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
+		this.embeddedJobs.set(id, status);
+		this.embeddedStore?.put('embedded-jobs', id, { id, ...status });
+	}
+
+	private finishEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
+		const finish = (): void => {
+			if (this.readEmbeddedJob(id)?.state === 'active') this.storeEmbeddedJob(id, status);
+		};
+		if (this.embeddedStore) this.embeddedStore.transaction(finish);
+		else finish();
+	}
+
+	private readEmbeddedJob(id: string): EmbeddedJobStatus | undefined {
+		const status =
+			this.embeddedStore?.get<EmbeddedJobStatus>('embedded-jobs', id) ??
+			this.embeddedJobs.get(id);
+		if (status?.state === 'active' && status.owner?.host === hostname()) {
+			try {
+				process.kill(status.owner.pid, 0);
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+					const interrupted: EmbeddedJobStatus = {
+						...status,
+						state: 'interrupted',
+						error: 'The previous server stopped; this job was not automatically replayed.',
+					};
+					this.storeEmbeddedJob(id, interrupted);
+					return interrupted;
+				}
+			}
+		}
+		return status;
+	}
+
+	async waitForJob(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
+		if (this.connectionType !== 'embedded')
+			throw new Error(
+				'waitForJob is only available for embedded jobs; poll external queue jobs'
+			);
+		await this.embeddedRuns.get(jobId);
+		return this.getJobStatus(jobType, jobId);
+	}
+
 	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
 		if (this.connectionType === 'embedded') {
-			return this.embeddedJobs.get(jobId) ?? null;
+			const status = this.readEmbeddedJob(jobId);
+			return status?.jobType === jobType ? status : null;
 		}
 
 		const queue = this.queues.get(jobType);
@@ -891,13 +951,15 @@ export class JobQueueService {
 	 */
 	async cancelJob(jobType: JobType, jobId: string): Promise<void> {
 		if (this.connectionType === 'embedded') {
-			if (!this.embeddedJobs.delete(jobId)) {
+			const status = this.readEmbeddedJob(jobId);
+			if (!status || status.jobType !== jobType) {
 				throw createError(
 					ErrorCode.NOT_FOUND,
 					undefined,
 					`Job ${jobId} not found in queue ${jobType}`
 				);
 			}
+			this.finishEmbeddedJob(jobId, { ...status, state: 'cancelled', owner: undefined });
 			this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
 			return;
 		}
@@ -924,9 +986,6 @@ export class JobQueueService {
 		this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
 	}
 
-	/**
-	 * Get queue statistics
-	 */
 	async getQueueStats(jobType: JobType): Promise<Record<string, unknown>> {
 		if (this.connectionType === 'embedded') {
 			if (!Object.values(JobType).includes(jobType)) {
@@ -940,13 +999,18 @@ export class JobQueueService {
 			let active = 0;
 			let completed = 0;
 			let failed = 0;
-			for (const job of this.embeddedJobs.values()) {
+			let cancelled = 0;
+			const jobs = this.embeddedStore?.list<EmbeddedJobStatus>('embedded-jobs') ?? [
+				...this.embeddedJobs.values(),
+			];
+			for (const job of jobs) {
 				if (job.jobType !== jobType) continue;
 				if (job.state === 'active') active++;
 				else if (job.state === 'completed') completed++;
+				else if (job.state === 'cancelled') cancelled++;
 				else failed++;
 			}
-			return { waiting: 0, active, completed, failed, delayed: 0 };
+			return { waiting: 0, active, completed, failed, cancelled, delayed: 0 };
 		}
 
 		const queue = this.queues.get(jobType);
@@ -969,9 +1033,6 @@ export class JobQueueService {
 		return { waiting, active, completed, failed, delayed };
 	}
 
-	/**
-	 * Get connection info
-	 */
 	getConnectionInfo(): { type: string; isConnected: boolean } {
 		return {
 			type: this.connectionType,
@@ -984,6 +1045,9 @@ export class JobQueueService {
 	 */
 	async shutdown(): Promise<void> {
 		this.logger.info('Shutting down job queue service');
+		await Promise.all(this.embeddedRuns.values());
+		this.embeddedStore?.close();
+		this.embeddedStore = undefined;
 
 		// Close workers first
 		for (const [type, worker] of this.workers.entries()) {
@@ -1017,6 +1081,12 @@ export class JobQueueService {
 		this.workers.clear();
 		this.events.clear();
 		this.embeddedJobs.clear();
+		await this.databaseService?.close();
+		this.databaseService = null;
+		this.contentAnalyzer = null;
+		this.aiWritingService = null;
+		this.connection = undefined;
+		this.memoryRedis = undefined;
 
 		this.isInitialized = false;
 		this.logger.info('Job queue service shutdown complete');

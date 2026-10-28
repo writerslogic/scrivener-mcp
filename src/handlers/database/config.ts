@@ -35,9 +35,6 @@ export const DEFAULT_DATABASE_CONFIG: Omit<DatabaseConfig, 'sqlite' | 'neo4j'> &
 	},
 };
 
-/**
- * Generate database paths within a Scrivener project
- */
 export function generateDatabasePaths(projectPath: string): ProjectDatabasePaths {
 	const databaseDir = `${projectPath}/.scrivener-databases`;
 

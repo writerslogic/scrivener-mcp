@@ -28,9 +28,6 @@ export interface PermissionManagerOptions {
 }
 
 export class PermissionManager {
-	/**
-	 * Check if current user can perform system operations
-	 */
 	static async checkSystemPermissions(): Promise<PermissionCheckResult> {
 		try {
 			// Check if running as root
@@ -63,9 +60,6 @@ export class PermissionManager {
 		}
 	}
 
-	/**
-	 * Check sudo availability and permissions
-	 */
 	private static async checkSudo(): Promise<PermissionCheckResult> {
 		try {
 			// Check if sudo is configured (non-interactive check)
@@ -96,9 +90,6 @@ export class PermissionManager {
 		}
 	}
 
-	/**
-	 * Check user permissions for package management
-	 */
 	private static async checkUserPermissions(): Promise<PermissionCheckResult> {
 		try {
 			// Check if user can write to common installation directories
@@ -222,9 +213,6 @@ export class PermissionManager {
 		}
 	}
 
-	/**
-	 * Get installation alternatives when permissions are insufficient
-	 */
 	static getAlternatives(
 		_operation: string,
 		platformInfo: { platform?: string; packageManagers?: string[] }

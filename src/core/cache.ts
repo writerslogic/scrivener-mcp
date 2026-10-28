@@ -32,9 +32,6 @@ export class LRUCache<T = unknown> {
 		});
 	}
 
-	/**
-	 * Get value from cache
-	 */
 	get(key: string): T | undefined {
 		const entry = this.cache.get(key);
 
@@ -54,9 +51,6 @@ export class LRUCache<T = unknown> {
 		return entry.data;
 	}
 
-	/**
-	 * Set value in cache
-	 */
 	set(key: string, value: T, ttl?: number): void {
 		const size = this.estimateSize(value);
 
@@ -92,9 +86,6 @@ export class LRUCache<T = unknown> {
 		this.currentSize += size;
 	}
 
-	/**
-	 * Check if key exists
-	 */
 	has(key: string): boolean {
 		const entry = this.cache.get(key);
 		if (!entry) return false;
@@ -108,9 +99,6 @@ export class LRUCache<T = unknown> {
 		return true;
 	}
 
-	/**
-	 * Delete from cache
-	 */
 	delete(key: string): boolean {
 		const entry = this.cache.get(key);
 		if (!entry) return false;
@@ -126,9 +114,6 @@ export class LRUCache<T = unknown> {
 		return true;
 	}
 
-	/**
-	 * Clear all cache
-	 */
 	clear(): void {
 		if (this.onEvict) {
 			for (const [key, entry] of this.cache.entries()) {
@@ -141,9 +126,6 @@ export class LRUCache<T = unknown> {
 		this.currentSize = 0;
 	}
 
-	/**
-	 * Get cache statistics
-	 */
 	getStats() {
 		const stats = {
 			entries: this.cache.size,
@@ -159,23 +141,14 @@ export class LRUCache<T = unknown> {
 		return stats;
 	}
 
-	/**
-	 * Get number of entries in cache
-	 */
 	getSize(): number {
 		return this.cache.size;
 	}
 
-	/**
-	 * Get current memory usage in bytes
-	 */
 	getMemoryUsage(): number {
 		return this.currentSize;
 	}
 
-	/**
-	 * Update LRU access order
-	 */
 	private updateAccessOrder(key: string): void {
 		this.accessOrder = this.accessOrder.filter((k) => k !== key);
 		this.accessOrder.push(key);
@@ -250,9 +223,6 @@ export const caches = {
 	}),
 };
 
-/**
- * Cache key builders - utilizes generateHash for consistent key generation
- */
 export const CacheKeys = {
 	document: (projectId: string, documentId: string) =>
 		`doc:${generateHash(`${projectId}:${documentId}`)}`,
@@ -268,9 +238,6 @@ export const CacheKeys = {
 			: `structure:${generateHash(projectId)}`,
 };
 
-/**
- * Cache decorator for async functions
- */
 export function cached<TArgs extends readonly unknown[], TReturn>(
 	keyBuilder: (...args: TArgs) => string,
 	cache: LRUCache<TReturn> = caches.queries as LRUCache<TReturn>,

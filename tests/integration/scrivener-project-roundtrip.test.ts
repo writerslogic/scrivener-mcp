@@ -34,8 +34,11 @@ describe('ScrivenerProject — fixture round-trip', () => {
 	}, 30000);
 
 	afterAll(async () => {
-		await project.close();
-		await fs.rm(workDir, { recursive: true, force: true });
+		try {
+			if (project) await project.close();
+		} finally {
+			if (workDir) await fs.rm(workDir, { recursive: true, force: true });
+		}
 	});
 
 	it('loads the project and returns metadata', async () => {
@@ -64,11 +67,23 @@ describe('ScrivenerProject — fixture round-trip', () => {
 
 	it('round-trips plain text through write → read', async () => {
 		const testContent = 'Round-trip test: Café — naïve résumé.\nSecond paragraph.';
-		await project.writeDocument(CHAPTER1_ID, testContent);
+		const before = await project.readDocumentVersion(CHAPTER1_ID);
+		await project.writeDocument(CHAPTER1_ID, testContent, {
+			force: true,
+			expectedRevision: before.revision,
+		});
 		const doc = await project.getDocument(CHAPTER1_ID);
-		expect(doc.content).toContain('Round-trip test');
-		expect(doc.content).toContain('Caf');
-		expect(doc.content).toContain('\n');
+		expect(doc.content).toBe(testContent);
+		const after = await project.readDocumentVersion(CHAPTER1_ID);
+		expect(after.revision).not.toBe(before.revision);
+		const snapshots = (await project.listSnapshots(CHAPTER1_ID)).flatMap(
+			(group) => group.snapshots
+		);
+		const snapshot = snapshots.find((entry) => entry.title === 'Before reviewed edit');
+		expect(snapshot).toBeDefined();
+		expect((await project.readSnapshot(CHAPTER1_ID, snapshot!.snapshotId)).text).toBe(
+			before.text
+		);
 	});
 
 	it('throws for an unknown document ID', async () => {
@@ -80,9 +95,7 @@ describe('ScrivenerProject — fixture round-trip', () => {
 			const info = await project.getDocumentInfo(TITLE_PAGE_ID);
 
 			expect(info.document?.synopsis).toBe('Title page to the manuscript.');
-			expect(info.document?.notes).toContain(
-				'This is the title page of the manuscript.'
-			);
+			expect(info.document?.notes).toContain('This is the title page of the manuscript.');
 			expect(info.document?.notes).toContain('Section Type');
 			expect(info.metadata.synopsis).toBe('Title page to the manuscript.');
 		});

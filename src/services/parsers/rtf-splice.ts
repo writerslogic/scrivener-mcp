@@ -13,6 +13,8 @@
  * regenerate path), never to a corrupted manuscript.
  */
 
+import { RTF_TEXT_CONTROLS } from './rtf-handler.js';
+
 /** Header/table destinations that contribute no body text (mirrors the reader's strip). */
 const SKIP_GROUP_KEYWORDS = [
 	'\\fonttbl',
@@ -64,6 +66,7 @@ export function scanRawText(raw: string): ScanResult {
 	const text: string[] = [];
 	const offsets: number[] = [];
 	let uc = 1;
+	const ucStack: number[] = [];
 	let i = 0;
 
 	// Skip the leading "{\rtf1..." declaration up to the first control-word boundary,
@@ -72,8 +75,8 @@ export function scanRawText(raw: string): ScanResult {
 	if (decl) i = decl[0].length;
 
 	const push = (ch: string, at: number) => {
-		for (const c of ch) {
-			text.push(c);
+		for (let index = 0; index < ch.length; index++) {
+			text.push(ch[index]);
 			offsets.push(at);
 		}
 	};
@@ -92,10 +95,12 @@ export function scanRawText(raw: string): ScanResult {
 				i = skipGroup(raw, i);
 				continue;
 			}
+			ucStack.push(uc);
 			i++; // ordinary group-start: inherits style, contributes no text itself
 			continue;
 		}
 		if (ch === '}') {
+			uc = ucStack.pop() ?? 1;
 			i++;
 			continue;
 		}
@@ -108,8 +113,8 @@ export function scanRawText(raw: string): ScanResult {
 				if (word === 'par' || word === 'line' || word === 'sect') {
 					push('\n', i);
 					i += control[0].length;
-				} else if (word === 'tab') {
-					push('\t', i);
+				} else if (RTF_TEXT_CONTROLS.has(`\\${word}`)) {
+					push(RTF_TEXT_CONTROLS.get(`\\${word}`)!, i);
 					i += control[0].length;
 				} else if (word === 'uc') {
 					const n = parseInt(param, 10);
@@ -171,8 +176,9 @@ export function describeReplacedConstructs(replacedRaw: string): string[] {
 /** Escape a run of plain text for inclusion in RTF, encoding non-ASCII as `\uN` (fallback-free). */
 function escapeInline(text: string): string {
 	let out = '';
-	for (const ch of text) {
-		const code = ch.codePointAt(0) as number;
+	for (let index = 0; index < text.length; index++) {
+		const ch = text[index];
+		const code = text.charCodeAt(index);
 		if (ch === '\\') out += '\\\\';
 		else if (ch === '{') out += '\\{';
 		else if (ch === '}') out += '\\}';
@@ -184,7 +190,6 @@ function escapeInline(text: string): string {
 	return out;
 }
 
-/** Split text into reconstruction-exact tokens (word runs, whitespace runs, other runs). */
 function tokenize(text: string): string[] {
 	return text.match(/\s+|[A-Za-z0-9_]+|[^\sA-Za-z0-9_]+/gu) ?? [];
 }

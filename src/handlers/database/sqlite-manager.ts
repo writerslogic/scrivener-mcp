@@ -29,9 +29,6 @@ export class SQLiteManager {
 		this.dbPath = dbPath;
 	}
 
-	/**
-	 * Initialize the SQLite database with comprehensive error handling and performance monitoring
-	 */
 	async initialize(): Promise<void> {
 		const initResult = await measureExecution(async () => {
 			// Ensure directory exists
@@ -61,7 +58,6 @@ export class SQLiteManager {
 			const stats = fs.statSync(this.dbPath);
 			logger.info(`Database file size: ${formatBytes(stats.size)}`);
 
-			// Initialize database schema
 			await this.createTables();
 
 			// Initialize cached manager if KeyDB is available
@@ -72,9 +68,6 @@ export class SQLiteManager {
 		logger.info(`SQLite database initialized in ${formatDuration(initResult.ms)}`);
 	}
 
-	/**
-	 * Create all necessary tables
-	 */
 	private async createTables(): Promise<void> {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
@@ -210,9 +203,6 @@ export class SQLiteManager {
 		logger.info(`Database tables created in ${formatDuration(createResult.ms)}`);
 	}
 
-	/**
-	 * Get the database instance
-	 */
 	getDatabase(): Database.Database {
 		if (!this.db) {
 			throw new AppError(
@@ -223,16 +213,10 @@ export class SQLiteManager {
 		return this.db;
 	}
 
-	/**
-	 * Get cached database manager (if available)
-	 */
 	getCachedManager(): CachedSQLiteManager | null {
 		return this.cachedManager;
 	}
 
-	/**
-	 * Check if caching is available
-	 */
 	isCachingAvailable(): boolean {
 		return this.cachedManager?.getCacheStats().size !== undefined;
 	}
@@ -308,9 +292,6 @@ export class SQLiteManager {
 		);
 	}
 
-	/**
-	 * Process pending operations after transaction completes
-	 */
 	private processPendingOperations(): void {
 		while (this.pendingOperations.length > 0) {
 			const operation = this.pendingOperations.shift();
@@ -381,9 +362,6 @@ export class SQLiteManager {
 		}
 	}
 
-	/**
-	 * Check if database is healthy
-	 */
 	async checkHealth(): Promise<{ healthy: boolean; details: Record<string, unknown> }> {
 		try {
 			if (!this.db) {
@@ -414,9 +392,6 @@ export class SQLiteManager {
 		}
 	}
 
-	/**
-	 * Close the database connection
-	 */
 	async close(): Promise<void> {
 		if (this.cachedManager) {
 			await this.cachedManager.close();
@@ -429,9 +404,6 @@ export class SQLiteManager {
 		}
 	}
 
-	/**
-	 * Get database file size
-	 */
 	getDatabaseStats(): { size: number; pageCount: number; pageSize: number } {
 		if (!this.db) {
 			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);

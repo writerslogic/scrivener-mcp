@@ -4,10 +4,49 @@ import { ScrivenerProject } from '../../scrivener-project.js';
 import { validateInput, createError, ErrorCode } from '../../utils/common.js';
 import { compact } from '../../core/response-formatter.js';
 import { resolveScrivenerProjectPath } from '../../utils/scrivener-utils.js';
-import { DatabaseService } from '../database/database-service.js';
 import { PersonalizationService } from '../../services/personalization/personalization-service.js';
-import type { HandlerResult, ToolDefinition } from '../types.js';
+import type { HandlerContext, HandlerResult, ToolDefinition } from '../types.js';
 import { requireProject, getStringArg } from '../types.js';
+
+const lifecycleOperations = new WeakMap<HandlerContext, Promise<void>>();
+
+function withProjectLifecycle<T>(context: HandlerContext, operation: () => Promise<T>): Promise<T> {
+	const pending = (lifecycleOperations.get(context) ?? Promise.resolve()).then(operation);
+	const settled = pending.then(
+		() => undefined,
+		() => undefined
+	);
+	lifecycleOperations.set(context, settled);
+	void settled.then(() => {
+		if (lifecycleOperations.get(context) === settled) lifecycleOperations.delete(context);
+	});
+	return pending;
+}
+
+function clearProjectContext(context: HandlerContext): void {
+	context.project = null;
+	context.memoryManager = null;
+	context.databaseService = undefined;
+	context.personalization = new PersonalizationService(null);
+}
+
+async function retireProject(context: HandlerContext): Promise<void> {
+	if (context.memoryManager) {
+		try {
+			await context.memoryManager.stopAutoSave();
+		} catch (error) {
+			throw new Error(
+				'Could not save project memory; the current project remains available so closing can be retried',
+				{ cause: error }
+			);
+		}
+	}
+	try {
+		await context.project?.close();
+	} finally {
+		clearProjectContext(context);
+	}
+}
 
 export const openProjectHandler: ToolDefinition = {
 	name: 'open_project',
@@ -37,67 +76,84 @@ export const openProjectHandler: ToolDefinition = {
 		required: ['path'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		// Validate input arguments
-		validateInput(args, {
-			path: {
-				type: 'string',
-				required: true,
-				minLength: 1,
-			},
-		});
-
-		const rawPath = getStringArg(args, 'path');
-		const { projectPath, scrivxPath } = await resolveScrivenerProjectPath(rawPath);
-
-		// Close existing project
-		if (context.project) {
-			await context.project.close();
-		}
-
-		// Initialize new project
-		const project = new ScrivenerProject(projectPath, {
-			hhmSystem: context.hhmSystem,
-			scrivxPath,
-		});
-		try {
-			await project.loadProject();
-		} catch (error) {
-			const expectedScrivxPath = path.join(
-				projectPath,
-				`${path.basename(projectPath, path.extname(projectPath))}.scrivx`
-			);
-			throw createError(
-				ErrorCode.PROJECT_NOT_FOUND,
-				{ path: projectPath, expectedScrivxPath, cause: error },
-				`Could not open Scrivener project at "${projectPath}". Expected to find "${expectedScrivxPath}". Pass the .scriv project folder or its .scrivx file.`
-			);
-		}
-
-		// Initialize database service
-		const dbService = new DatabaseService(projectPath);
-		await dbService.initialize();
-
-		// Initialize memory manager
-		const memoryManager = new MemoryManager(projectPath, dbService);
-		await memoryManager.initialize();
-
-		// Update context
-		context.project = project;
-		context.memoryManager = memoryManager;
-		context.databaseService = project.getDatabaseService();
-		context.personalization = new PersonalizationService(context.databaseService);
-
-		const metadata = await project.getProjectMetadata();
-		return {
-			content: [
-				{
-					type: 'text',
-					text: `Project opened: ${metadata.title || path.basename(projectPath)}\n\n${compact(
-						metadata
-					)}`,
+		return withProjectLifecycle(context, async () => {
+			validateInput(args, {
+				path: {
+					type: 'string',
+					required: true,
+					minLength: 1,
 				},
-			],
-		};
+			});
+
+			const rawPath = getStringArg(args, 'path');
+			const { projectPath, scrivxPath } = await resolveScrivenerProjectPath(rawPath);
+
+			await retireProject(context);
+
+			// Initialize new project
+			const project = new ScrivenerProject(projectPath, {
+				hhmSystem: context.hhmSystem,
+				scrivxPath,
+			});
+			let memoryManager: MemoryManager | undefined;
+			let memoryInitialized = false;
+			let phase: 'load' | 'memory' | 'metadata' = 'load';
+			try {
+				await project.loadProject();
+				phase = 'memory';
+				const database = project.getDatabaseService();
+				memoryManager = new MemoryManager(projectPath, database);
+				await memoryManager.initialize();
+				memoryInitialized = true;
+				phase = 'metadata';
+				const metadata = await project.getProjectMetadata();
+				const result: HandlerResult = {
+					content: [
+						{
+							type: 'text',
+							text: `Project opened: ${metadata.title || path.basename(projectPath)}\n\n${compact(metadata)}`,
+						},
+					],
+				};
+				const personalization = new PersonalizationService(database);
+				context.project = project;
+				context.memoryManager = memoryManager;
+				context.databaseService = database;
+				context.personalization = personalization;
+				return result;
+			} catch (error) {
+				const cleanupFailures: Array<{ resource: 'memory' | 'project'; cause: unknown }> =
+					[];
+				if (memoryInitialized && memoryManager) {
+					try {
+						await memoryManager.stopAutoSave();
+					} catch (cause) {
+						cleanupFailures.push({ resource: 'memory', cause });
+					}
+				}
+				try {
+					await project.close();
+				} catch (cause) {
+					cleanupFailures.push({ resource: 'project', cause });
+				}
+				const expectedScrivxPath = path.join(
+					projectPath,
+					`${path.basename(projectPath, path.extname(projectPath))}.scrivx`
+				);
+				const failure = createError(
+					phase === 'load' ? ErrorCode.PROJECT_NOT_FOUND : ErrorCode.INITIALIZATION_ERROR,
+					{ path: projectPath, expectedScrivxPath, phase, cause: error, cleanupFailures },
+					(phase === 'load'
+						? `Could not open Scrivener project at "${projectPath}". Expected to find "${expectedScrivxPath}". Pass the .scriv project folder or its .scrivx file.`
+						: `Could not initialize project ${phase} at "${projectPath}". The project was not opened.`) +
+						(cleanupFailures.length
+							? ' Resource cleanup also failed; error details retain the original cause.'
+							: '')
+				);
+				failure.cause = error;
+				throw failure;
+			}
+		});
 	},
 };
 
@@ -119,17 +175,19 @@ export const refreshProjectHandler: ToolDefinition = {
 		properties: {},
 	},
 	handler: async (_args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		await project.refreshProject();
+		return withProjectLifecycle(context, async () => {
+			const project = requireProject(context);
+			await project.refreshProject();
 
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Project refreshed successfully',
-				},
-			],
-		};
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Project refreshed successfully',
+					},
+				],
+			};
+		});
 	},
 };
 
@@ -152,25 +210,18 @@ export const closeProjectHandler: ToolDefinition = {
 		properties: {},
 	},
 	handler: async (_args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		await project.close();
+		return withProjectLifecycle(context, async () => {
+			requireProject(context);
+			await retireProject(context);
 
-		if (context.memoryManager) {
-			await context.memoryManager.stopAutoSave();
-		}
-
-		context.project = null;
-		context.memoryManager = null;
-		context.databaseService = undefined;
-		context.personalization = new PersonalizationService(null);
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Project closed successfully',
-				},
-			],
-		};
+			return {
+				content: [
+					{
+						type: 'text',
+						text: 'Project closed successfully',
+					},
+				],
+			};
+		});
 	},
 };

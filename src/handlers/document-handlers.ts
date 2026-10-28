@@ -221,17 +221,17 @@ export const readDocumentHandler: ToolDefinition = {
 				};
 			}
 
-			const result = await measureExecution(() => project.readDocument(documentId));
+			const result = await measureExecution(() => project.readDocumentVersion(documentId));
 
 			// Optionally memorize document content in HHM
 			try {
 				const hhmSystem = getHHMSystem();
-				if (docInfo.document && result.result.trim()) {
+				if (docInfo.document && result.result.text.trim()) {
 					await hhmSystem.memorizeDocument({
 						id: docInfo.document.id,
 						title: docInfo.document.title || 'Untitled',
 						path: docInfo.document.path,
-						content: result.result,
+						content: result.result.text,
 						type: docInfo.document.type || 'Text',
 						wordCount: docInfo.document.wordCount || 0,
 						customMetadata: docInfo.document.customMetadata || {},
@@ -245,7 +245,7 @@ export const readDocumentHandler: ToolDefinition = {
 				getLogger('document-handlers').debug('Failed to memorize in HHM', { error });
 			}
 
-			let text = result.result;
+			let text = result.result.text;
 			const words = text.split(/\s+/);
 			const totalWords = words.length;
 
@@ -260,6 +260,7 @@ export const readDocumentHandler: ToolDefinition = {
 					: '';
 
 			return {
+				structuredContent: { documentId, revision: result.result.revision, text },
 				content: [
 					{
 						type: 'text',
@@ -297,6 +298,16 @@ export const writeDocumentHandler: ToolDefinition = {
 			documentId: SHARED_DEFS.docId,
 			content: SHARED_DEFS.content,
 			force: SHARED_DEFS.force,
+			expectedRevision: {
+				type: 'string',
+				description:
+					'SHA-256 saved source revision from read_document or manuscript_dashboard; stale writes are rejected.',
+			},
+			allowFormattingLoss: {
+				type: 'boolean',
+				description:
+					'Explicitly acknowledge disclosed formatting risk. Prefer review_changes preview before applying a lossy change.',
+			},
 		},
 		required: ['documentId', 'content'],
 	},
@@ -317,9 +328,13 @@ export const writeDocumentHandler: ToolDefinition = {
 				);
 			}
 
-			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
+			await requireExistingDocument(project, documentId);
 			const { result: report } = await measureExecution(() =>
-				project.writeDocumentPreserving(documentId, content)
+				project.writeDocumentPreserving(documentId, content, {
+					force: getOptionalBooleanArg(args, 'force'),
+					expectedRevision: getOptionalStringArg(args, 'expectedRevision'),
+					allowFormattingLoss: getOptionalBooleanArg(args, 'allowFormattingLoss'),
+				})
 			);
 
 			// Update HHM memory with new content

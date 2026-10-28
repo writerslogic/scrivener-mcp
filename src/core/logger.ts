@@ -20,7 +20,18 @@ export enum LogLevel {
  * `{"error":{}}` — hiding the failure. This surfaces name/message/stack (and any
  * cause chain), so logged errors are actually debuggable.
  */
-function serializeErrors(_key: string, value: unknown): unknown {
+function serializeErrors(key: string, value: unknown): unknown {
+	if (
+		/^(?:content|text|prompt|query|quote|manuscript|before|after|beforeRaw|afterRaw|password|secret|authorization|apiKey|api_key|accessToken|access_token)$/i.test(
+			key
+		)
+	)
+		return '[redacted]';
+	if (typeof value === 'string')
+		return value
+			.replace(/\b(?:sk-ant|sk-or|sk)-[A-Za-z0-9_-]{8,}/g, '[redacted]')
+			.replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
+			.replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/g, '$1[redacted]@');
 	if (value instanceof Error) {
 		return {
 			name: value.name,
@@ -53,7 +64,7 @@ class Logger {
 				return;
 			}
 			const ctx = context ? ` ${JSON.stringify(context, serializeErrors)}` : '';
-			process.stderr.write(`${prefix} ${message}${ctx}\n`);
+			process.stderr.write(`${prefix} ${serializeErrors('', message)}${ctx}\n`);
 		});
 	}
 

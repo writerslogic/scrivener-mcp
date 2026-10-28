@@ -349,9 +349,6 @@ export class SIMDTextProcessor {
 		};
 	}
 
-	/**
-	 * Get performance statistics for the SIMD processor
-	 */
 	getPerformanceStats(): {
 		simdWidth: number;
 		bufferSize: number;

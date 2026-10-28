@@ -58,9 +58,6 @@ export function parseEnvBool(value: string | undefined, defaultValue: boolean): 
 	return defaultValue;
 }
 
-/**
- * Validate URL format
- */
 export function validateUrl(url: string | undefined, name: string): string | undefined {
 	if (!url) return undefined;
 
@@ -90,6 +87,7 @@ interface KeyDiscoverySpec {
  * is never misattributed. Returns undefined if not found. Never throws.
  */
 function discoverKey(spec: KeyDiscoverySpec, home: string): string | undefined {
+	if (process.env.SCRIVENER_LOCAL_ONLY === 'true') return undefined;
 	// Escape hatch for hermetic tests and users who want explicit env only:
 	// discovery would otherwise pick up real keys from ~/.env or the Keychain.
 	const disabled = process.env.SCRIVENER_DISABLE_KEY_DISCOVERY;
@@ -227,9 +225,6 @@ export function applyDiscoveredAIKeys(homeDir: string = os.homedir()): void {
 	}
 }
 
-/**
- * Get validated environment configuration
- */
 export function getEnvConfig(): EnvConfig {
 	const config: EnvConfig = {
 		keydbUrl: validateUrl(process.env.KEYDB_URL, 'KEYDB_URL'),

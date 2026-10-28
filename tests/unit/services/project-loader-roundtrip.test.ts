@@ -44,6 +44,7 @@ describe('ProjectLoader XML round trips', () => {
 
 	afterEach(async () => {
 		await manager.close();
+		loader.close();
 		// Only remove the directory allocated by this test.
 		expect(path.dirname(tempRoot)).toBe(path.resolve(os.tmpdir()));
 		expect(path.basename(tempRoot)).toMatch(/^scrivener-roundtrip-/);

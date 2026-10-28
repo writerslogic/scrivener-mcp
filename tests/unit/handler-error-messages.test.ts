@@ -52,6 +52,15 @@ function createContext(project: HandlerContext['project']): HandlerContext {
 }
 
 describe('handler error messages', () => {
+	const temporaryDirectories: string[] = [];
+	afterEach(async () => {
+		await Promise.all(
+			temporaryDirectories
+				.splice(0)
+				.map((directory) => fs.rm(directory, { recursive: true, force: true }))
+		);
+	});
+
 	beforeEach(() => {
 		jest.clearAllMocks();
 
@@ -75,6 +84,7 @@ describe('handler error messages', () => {
 
 	it('accepts a direct .scrivx path for open_project', async () => {
 		const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'scrivener-mcp-'));
+		temporaryDirectories.push(tempRoot);
 		const projectDir = path.join(tempRoot, 'Novel.scriv');
 		const scrivxPath = path.join(projectDir, 'Novel.scrivx');
 
@@ -89,15 +99,13 @@ describe('handler error messages', () => {
 		);
 	});
 
-	// TODO: openProjectHandler has no "you passed a parent folder" guard.
-	// resolveScrivenerProjectPath's findScrivxPath happily locates a loose
-	// .scrivx and succeeds instead of rejecting - this test documents the
-	// desired UX for a feature that was never built. Skipped (not deleted)
-	// so the gap stays visible; implementing it is a separate decision.
-	it.skip('explains when open_project receives a parent folder instead of the project path', async () => {
+	it('explains when open_project receives a parent folder instead of the project path', async () => {
 		const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'scrivener-mcp-parent-'));
+		temporaryDirectories.push(tempRoot);
+		const projectPath = path.join(tempRoot, 'Novel.scriv');
+		await fs.mkdir(projectPath);
 		await fs.writeFile(
-			path.join(tempRoot, 'Novel.scrivx'),
+			path.join(projectPath, 'Novel.scrivx'),
 			'<ScrivenerProject><Binder /></ScrivenerProject>'
 		);
 

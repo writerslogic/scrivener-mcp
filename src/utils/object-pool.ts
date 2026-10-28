@@ -199,9 +199,6 @@ export class ObjectPool<T> extends EventEmitter {
 		});
 	}
 
-	/**
-	 * Perform pool maintenance
-	 */
 	async performMaintenance(): Promise<void> {
 		return globalProfiler.profileOperation(`pool_${this.config.name}_maintenance`, async () => {
 			const now = Date.now();
@@ -253,9 +250,6 @@ export class ObjectPool<T> extends EventEmitter {
 		});
 	}
 
-	/**
-	 * Get pool statistics
-	 */
 	getStatistics(): PoolStatistics {
 		this.updateStatistics();
 		return { ...this.stats };
@@ -469,9 +463,6 @@ export class PoolManager extends EventEmitter {
 		});
 	}
 
-	/**
-	 * Create a new object pool
-	 */
 	createPool<T>(config: PoolConfig): ObjectPool<T> {
 		if (this.pools.has(config.name)) {
 			throw new AppError(`Pool ${config.name} already exists`, ErrorCode.INVALID_INPUT);
@@ -498,16 +489,10 @@ export class PoolManager extends EventEmitter {
 		return pool;
 	}
 
-	/**
-	 * Get a pool by name
-	 */
 	getPool<T>(name: string): ObjectPool<T> | undefined {
 		return this.pools.get(name) as ObjectPool<T>;
 	}
 
-	/**
-	 * Remove and drain a pool
-	 */
 	async removePool(name: string): Promise<void> {
 		const pool = this.pools.get(name);
 		if (!pool) {
@@ -521,9 +506,6 @@ export class PoolManager extends EventEmitter {
 		logger.info(`Removed pool: ${name}`);
 	}
 
-	/**
-	 * Get statistics for all pools
-	 */
 	getAllStatistics(): Map<string, PoolStatistics> {
 		const stats = new Map<string, PoolStatistics>();
 
@@ -534,9 +516,6 @@ export class PoolManager extends EventEmitter {
 		return stats;
 	}
 
-	/**
-	 * Get global pool manager statistics
-	 */
 	getGlobalStatistics(): {
 		totalPools: number;
 		totalObjects: number;

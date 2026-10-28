@@ -276,9 +276,6 @@ export class Neo4jOptimizer {
 		}
 	}
 
-	/**
-	 * Get comprehensive performance metrics
-	 */
 	getPerformanceMetrics(): PerformanceMetrics {
 		const allProfiles: QueryProfile[] = [];
 		for (const profiles of this.queryProfiles.values()) {
@@ -320,9 +317,6 @@ export class Neo4jOptimizer {
 		};
 	}
 
-	/**
-	 * Generate optimization recommendations
-	 */
 	async generateRecommendations(): Promise<string[]> {
 		const metrics = this.getPerformanceMetrics();
 		const recommendations: string[] = [];
@@ -368,9 +362,6 @@ export class Neo4jOptimizer {
 		logger.info(`Query profiling ${enabled ? 'enabled' : 'disabled'}`);
 	}
 
-	/**
-	 * Clear collected performance data
-	 */
 	clearProfiles(): void {
 		this.queryProfiles.clear();
 		logger.info('Query profiles cleared');

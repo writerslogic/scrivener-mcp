@@ -519,9 +519,6 @@ export class SetupWizard {
 		}
 	}
 
-	/**
-	 * Check system health
-	 */
 	private async checkHealth(): Promise<void> {
 		console.log(chalk.bold.cyan('\n🔍 System Health Check\n'));
 
@@ -616,9 +613,6 @@ export class SetupWizard {
 		}
 	}
 
-	/**
-	 * Show setup operation metrics summary
-	 */
 	private showMetricsSummary(): void {
 		const metrics = this.metricsTracker.getMetrics();
 		if (Object.keys(metrics).length === 0) return;

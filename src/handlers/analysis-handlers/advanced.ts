@@ -75,17 +75,17 @@ export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
 	title: 'Semantic Search',
 	description:
-		'Find passages by meaning rather than exact words, using the local HMS index, and ' +
+		'Find passages with local story-concept vectors and source context without an API key, and ' +
 		'return the most relevant documents with similarity scores and related entities. Use this ' +
 		'for conceptual "find passages about X" queries; use search for keyword/full-text matching ' +
 		'and find_mentions to locate every occurrence of a specific name or term. Indexing and similarity ' +
-		'scoring are local; query interpretation and explanations require a configured AI provider. ' +
+		'scoring are local; conceptual coverage is bounded to the documented English story vocabulary. ' +
 		'Requires an open project with semantic indexing available.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
 		idempotentHint: true,
-		openWorldHint: true,
+		openWorldHint: false,
 	},
 	inputSchema: {
 		type: 'object',
@@ -131,67 +131,22 @@ export const semanticSearchHandler: ToolDefinition = {
 		required: ['results'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
+		const project = requireProject(context);
 		const query = getStringArg(args, 'query');
-		const maxResults = getOptionalNumberArg(args, 'maxResults') || 10;
-		const threshold = getOptionalNumberArg(args, 'threshold') || 0.5;
-
-		try {
-			if (!context.databaseService) {
-				throw createError(ErrorCode.INVALID_STATE, 'Database service not available');
-			}
-
-			const { SemanticDatabaseLayer } =
-				await import('../../handlers/database/semantic-database-layer.js');
-			const semanticLayer = new SemanticDatabaseLayer(context.databaseService);
-			await semanticLayer.initialize();
-
-			const results = await semanticLayer.semanticQuery(query, {
-				maxResults,
-				threshold,
-				includeEntities: true,
-				includeRelationships: true,
-			});
-
-			const trimmedResults = (results.documents || []).map(
-				(doc: Record<string, unknown>) => ({
-					id: doc.id,
-					title: doc.title || 'Untitled',
-					snippet:
-						typeof doc.content === 'string'
-							? doc.content.length > 100
-								? `${doc.content.slice(0, 100)}...`
-								: doc.content
-							: typeof doc.text === 'string'
-								? doc.text.length > 100
-									? `${doc.text.slice(0, 100)}...`
-									: doc.text
-								: '',
-					score: doc.score ?? doc.relevance ?? null,
-				})
-			);
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Found ${trimmedResults.length} semantic matches\n\n${compact({
-							results: trimmedResults,
-							searchType: 'semantic',
-						})}`,
-					},
-				],
-				structuredContent: { results: trimmedResults, searchType: 'semantic' },
-			};
-		} catch (error) {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `Semantic search failed: ${formatError(error)}`,
-					},
-				],
-				structuredContent: { results: [], searchType: 'semantic' },
-			};
-		}
+		const maxResults = getOptionalNumberArg(args, 'maxResults') ?? 10;
+		const threshold = getOptionalNumberArg(args, 'threshold') ?? 0.3;
+		if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)
+			throw new Error('threshold must be from zero through one');
+		const matches = await project
+			.getEditorialServices()
+			.search.search(query, { limit: maxResults, mode: 'semantic' });
+		const results = matches.results
+			.filter((match) => match.score >= threshold)
+			.map((match) => ({ ...match, id: match.documentId, snippet: match.context }));
+		const result = { ...matches, results, searchType: 'semantic' };
+		return {
+			content: [{ type: 'text', text: JSON.stringify(result) }],
+			structuredContent: result,
+		};
 	},
 };

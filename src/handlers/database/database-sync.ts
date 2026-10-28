@@ -151,9 +151,6 @@ export class DatabaseSync {
 		}
 	}
 
-	/**
-	 * Create relationships between entities
-	 */
 	async createRelationship(
 		fromId: string,
 		fromType: string,

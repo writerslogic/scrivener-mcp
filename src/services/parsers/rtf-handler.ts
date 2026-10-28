@@ -12,6 +12,20 @@ import type {
 const logger = getLogger('rtf-handler');
 const parseRTFAsync = promisify(parseRTF.string);
 
+export const RTF_TEXT_CONTROLS: ReadonlyMap<string, string> = new Map([
+	['\\ldblquote', '"'],
+	['\\rdblquote', '"'],
+	['\\lquote', "'"],
+	['\\rquote', "'"],
+	['\\endash', '–'],
+	['\\emdash', '—'],
+	['\\bullet', '•'],
+	['\\tab', '\t'],
+	['\\line', '\n'],
+	['\\par', '\n'],
+	['\\~', ' '],
+]);
+
 export interface RTFStyle {
 	bold?: boolean;
 	italic?: boolean;
@@ -45,20 +59,7 @@ export interface RTFContent {
  * Comprehensive RTF handler for Scrivener documents
  */
 export class RTFHandler {
-	// RTF control word mappings
-	private readonly SPECIAL_CHARS = new Map([
-		['\\ldblquote', '"'],
-		['\\rdblquote', '"'],
-		['\\lquote', "'"],
-		['\\rquote', "'"],
-		['\\endash', '–'],
-		['\\emdash', '—'],
-		['\\bullet', '•'],
-		['\\tab', '\t'],
-		['\\line', '\n'],
-		['\\par', '\n'],
-		['\\~', ' '],
-	]);
+	private readonly SPECIAL_CHARS = RTF_TEXT_CONTROLS;
 
 	private readonly SPECIAL_CHARS_REVERSE = new Map([
 		['"', '\\ldblquote '],
@@ -126,9 +127,6 @@ export class RTFHandler {
 		return result;
 	}
 
-	/**
-	 * Read and parse an RTF file
-	 */
 	async readRTF(filePath: string): Promise<RTFContent> {
 		const resolved = path.resolve(filePath);
 		if (resolved.includes('\0') || /\.\.[\\/]/.test(filePath)) {
@@ -138,9 +136,6 @@ export class RTFHandler {
 		return this.parseRTF(rtfContent);
 	}
 
-	/**
-	 * Parse RTF string content
-	 */
 	async parseRTF(rtfString: string): Promise<RTFContent> {
 		try {
 			return this.enhancedRTFParse(rtfString);
@@ -158,9 +153,6 @@ export class RTFHandler {
 		}
 	}
 
-	/**
-	 * Write RTF content to a file
-	 */
 	async writeRTF(filePath: string, content: RTFContent | string): Promise<void> {
 		const resolved = path.resolve(filePath);
 		if (resolved.includes('\0') || /\.\.[\\/]/.test(filePath)) {
@@ -192,9 +184,6 @@ export class RTFHandler {
 		return `${header}${body}}`;
 	}
 
-	/**
-	 * Build RTF header with optional metadata
-	 */
 	private buildRTFHeader(metadata?: RTFContent['metadata']): string {
 		const parts: string[] = ['{\\rtf1\\ansi\\deff0\\uc1'];
 
@@ -226,9 +215,6 @@ export class RTFHandler {
 		return parts.join('');
 	}
 
-	/**
-	 * Build formatted RTF body from text segments
-	 */
 	private buildFormattedRTF(segments: RTFContent['formattedText']): string {
 		if (!segments || segments.length === 0) return '';
 
@@ -290,9 +276,6 @@ export class RTFHandler {
 		return result;
 	}
 
-	/**
-	 * Extract metadata from RTF info group
-	 */
 	private extractMetadata(rtfString: string): RTFContent['metadata'] | undefined {
 		// Metadata is always near the start; limit search to avoid scanning large files
 		const head = rtfString.substring(0, 2000);
@@ -352,9 +335,6 @@ export class RTFHandler {
 		return content;
 	}
 
-	/**
-	 * Parse RTF content into text segments with formatting
-	 */
 	private parseRTFSegments(
 		content: string,
 		documentUc = 1
@@ -422,6 +402,7 @@ export class RTFHandler {
 		// Genuine Scrivener files use \uc0 (no fallback); honoring it prevents dropping
 		// the real character that follows a Unicode escape.
 		let uc = initialUc;
+		const ucStack: number[] = [];
 
 		while (i < content.length) {
 			const char = content[i];
@@ -434,6 +415,12 @@ export class RTFHandler {
 					const wordParam = controlMatch[2];
 					if (wordName === 'par' || wordName === 'line' || wordName === 'sect') {
 						tokens.push({ type: 'text', value: '\n' });
+						i += controlMatch[0].length;
+					} else if (this.SPECIAL_CHARS.has(`\\${wordName}`)) {
+						tokens.push({
+							type: 'text',
+							value: this.SPECIAL_CHARS.get(`\\${wordName}`)!,
+						});
 						i += controlMatch[0].length;
 					} else if (wordName === 'uc') {
 						const n = parseInt(wordParam, 10);
@@ -477,9 +464,11 @@ export class RTFHandler {
 					i++;
 				}
 			} else if (char === '{') {
+				ucStack.push(uc);
 				tokens.push({ type: 'group-start', value: '{' });
 				i++;
 			} else if (char === '}') {
+				uc = ucStack.pop() ?? initialUc;
 				tokens.push({ type: 'group-end', value: '}' });
 				i++;
 			} else {
@@ -554,9 +543,6 @@ export class RTFHandler {
 		}
 	}
 
-	/**
-	 * Convert from parsed RTF document structure
-	 */
 	private convertRTFDocument(doc: RTFParserDocument): RTFContent {
 		const result: RTFContent = {
 			plainText: '',
@@ -629,16 +615,10 @@ export class RTFHandler {
 		return result;
 	}
 
-	/**
-	 * Convert to RTF (public interface)
-	 */
-	convertToRTF(plainText: string): string {
-		return this.unifiedConvertToRTF(plainText);
+	convertToRTF(content: RTFContent | string): string {
+		return this.unifiedConvertToRTF(content);
 	}
 
-	/**
-	 * Extract plain text from RTF
-	 */
 	extractPlainText(rtfString: string): string {
 		const parsed = this.enhancedRTFParse(rtfString);
 		return parsed.plainText;

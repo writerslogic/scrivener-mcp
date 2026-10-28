@@ -52,23 +52,14 @@ export class MetadataManager {
 		>(10 * 60 * 1000); // 10 minutes
 	}
 
-	/**
-	 * Get the project title
-	 */
 	getProjectTitle(): string {
 		return this.projectTitle;
 	}
 
-	/**
-	 * Set the project title
-	 */
 	setProjectTitle(title: string): void {
 		this.projectTitle = title;
 	}
 
-	/**
-	 * Update metadata for a binder item with validation
-	 */
 	updateDocumentMetadata(item: BinderItem, metadata: DocumentMetadata): void {
 		if (!item) {
 			throw new AppError('No item provided', ErrorCode.INVALID_INPUT);
@@ -139,9 +130,6 @@ export class MetadataManager {
 		logger.debug(`Updated metadata for item ${item.UUID}`);
 	}
 
-	/**
-	 * Get metadata from a binder item
-	 */
 	getDocumentMetadata(item: BinderItem): DocumentMetadata {
 		const metadata: DocumentMetadata = {
 			title: item.Title || 'Untitled',
@@ -247,9 +235,6 @@ export class MetadataManager {
 		return results;
 	}
 
-	/**
-	 * Update project-level metadata with validation
-	 */
 	updateProjectMetadata(projectStructure: ProjectStructure, metadata: ProjectMetadata): void {
 		if (!projectStructure?.ScrivenerProject) {
 			throw new AppError('Invalid project structure', ErrorCode.INVALID_STATE);
@@ -315,9 +300,6 @@ export class MetadataManager {
 		logger.info('Updated project metadata');
 	}
 
-	/**
-	 * Get project-level metadata
-	 */
 	getProjectMetadata(projectStructure: ProjectStructure): ProjectMetadata {
 		if (!projectStructure?.ScrivenerProject) {
 			return {};
@@ -349,9 +331,6 @@ export class MetadataManager {
 		return metadata;
 	}
 
-	/**
-	 * Search metadata across all documents
-	 */
 	searchMetadata(
 		items: BinderItem[],
 		query: string,
@@ -453,9 +432,6 @@ export class MetadataManager {
 		return results;
 	}
 
-	/**
-	 * Get statistics about metadata usage
-	 */
 	getMetadataStatistics(items: BinderItem[]): Record<string, unknown> {
 		const stats = {
 			totalDocuments: 0,
@@ -574,9 +550,6 @@ export class MetadataManager {
 		return parseMetadata(metaDataItems);
 	}
 
-	/**
-	 * Validate metadata completeness with caching
-	 */
 	validateMetadata(
 		item: BinderItem,
 		requiredFields: string[] = []
@@ -642,9 +615,6 @@ export class MetadataManager {
 		return result;
 	}
 
-	/**
-	 * Validate metadata input
-	 */
 	private validateMetadataInput(metadata: DocumentMetadata): void {
 		if (metadata.title && metadata.title.length > this.maxStringLength) {
 			throw new AppError(
@@ -706,9 +676,6 @@ export class MetadataManager {
 		}
 	}
 
-	/**
-	 * Validate project metadata input
-	 */
 	private validateProjectMetadataInput(metadata: ProjectMetadata): void {
 		if (metadata.title && metadata.title.length > this.maxStringLength) {
 			throw new AppError(
@@ -804,9 +771,6 @@ export class MetadataManager {
 		return results;
 	}
 
-	/**
-	 * Validate multiple items with async processing and caching
-	 */
 	async validateMultipleItems(
 		items: BinderItem[],
 		requiredFields: string[] = [],
@@ -901,9 +865,6 @@ export class MetadataManager {
 		);
 	}
 
-	/**
-	 * Search metadata with async processing and result caching
-	 */
 	async searchMetadataAsync(
 		items: BinderItem[],
 		query: string,
@@ -947,18 +908,12 @@ export class MetadataManager {
 		}
 	}
 
-	/**
-	 * Clear all caches
-	 */
 	clearCaches(): void {
 		this.metadataCache.clear();
 		this.validationCache.clear();
 		logger.debug('Metadata caches cleared');
 	}
 
-	/**
-	 * Cleanup expired cache entries periodically
-	 */
 	scheduleCleanup(): void {
 		setInterval(
 			() => {

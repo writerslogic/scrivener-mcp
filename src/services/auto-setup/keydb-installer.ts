@@ -55,9 +55,6 @@ export class KeyDBInstaller {
 		return KeyDBInstaller.instancePromise;
 	}
 
-	/**
-	 * Check if KeyDB is already available
-	 */
 	async checkAvailability(): Promise<{
 		installed: boolean;
 		running: boolean;
@@ -199,9 +196,6 @@ export class KeyDBInstaller {
 		}
 	}
 
-	/**
-	 * Start KeyDB service with retry logic
-	 */
 	async startKeyDB(): Promise<boolean> {
 		return withErrorHandling(async () => {
 			// Try different methods to start KeyDB
@@ -246,9 +240,6 @@ export class KeyDBInstaller {
 		}, 'KeyDB start')();
 	}
 
-	/**
-	 * Detect the best installation method for the current system
-	 */
 	private async detectBestInstallMethod(): Promise<string> {
 		if (!this.platformInfo) {
 			this.platformInfo = await detectPlatform();
@@ -595,9 +586,6 @@ export class KeyDBInstaller {
 		}
 	}
 
-	/**
-	 * Check if KeyDB is installed
-	 */
 	private async isKeyDBInstalled(): Promise<boolean> {
 		// Check for KeyDB first
 		if (await ProcessUtils.commandExists('keydb-server')) {
@@ -607,9 +595,6 @@ export class KeyDBInstaller {
 		return await ProcessUtils.commandExists('redis-server');
 	}
 
-	/**
-	 * Get installed KeyDB version
-	 */
 	private async getInstalledVersion(): Promise<string | undefined> {
 		try {
 			const { stdout } = await ProcessUtils.safeExec('keydb-server --version');
@@ -681,9 +666,6 @@ export class KeyDBInstaller {
 		});
 	}
 
-	/**
-	 * Check if a command exists
-	 */
 	private async commandExists(command: string): Promise<boolean> {
 		try {
 			await execAsync(`which ${command}`);
@@ -693,9 +675,6 @@ export class KeyDBInstaller {
 		}
 	}
 
-	/**
-	 * Get installation instructions for manual setup
-	 */
 	getManualInstructions(): string {
 		const platform = process.platform || os.platform();
 

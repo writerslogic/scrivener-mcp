@@ -26,9 +26,6 @@ export class BinderEditor {
 		return this.getStructure();
 	}
 
-	/**
-	 * Create a new document
-	 */
 	async createDocument(
 		title: string,
 		content = '',
@@ -36,7 +33,6 @@ export class BinderEditor {
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
 		try {
-			// Validate input using utility functions
 			validateInput(
 				{ title, content, parentId, type },
 				{
@@ -86,19 +82,15 @@ export class BinderEditor {
 				addBinderItem(binder, newItem);
 			}
 
-			logger.info(`Created document ${id} with title "${sanitizedTitle}"`);
+			logger.info('Created document', { documentId: id });
 			return id;
 		} catch (error) {
 			throw handleError(error, 'createDocument');
 		}
 	}
 
-	/**
-	 * Delete a document (move to trash)
-	 */
 	async deleteDocument(documentId: string): Promise<void> {
 		try {
-			// Validate input
 			validateInput(
 				{ documentId },
 				{
@@ -164,7 +156,6 @@ export class BinderEditor {
 	 */
 	async renameDocument(documentId: string, newTitle: string): Promise<void> {
 		try {
-			// Validate input
 			validateInput(
 				{ documentId, newTitle },
 				{
@@ -211,7 +202,6 @@ export class BinderEditor {
 	 */
 	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
 		try {
-			// Validate input
 			validateInput(
 				{ documentId, newParentId },
 				{

@@ -96,7 +96,6 @@ export class AIWritingService {
 		return this.ai.isAvailable;
 	}
 
-	/** Build or extend the vector store from documents (chunked for retrieval granularity). */
 	async buildVectorStore(documents: ScrivenerDocument[]): Promise<void> {
 		const docs: HMSDocument[] = [];
 		for (const doc of documents) {
@@ -165,7 +164,6 @@ export class AIWritingService {
 		});
 	}
 
-	/** Analyze writing style from samples, returning a structured analysis object. */
 	async analyzeWritingStyle(samples: string[]): Promise<Record<string, unknown>> {
 		const joined = accumulateToLimit(
 			samples,
@@ -191,7 +189,6 @@ export class AIWritingService {
 		return { tone: 'neutral', complexity: 'medium', voice: 'descriptive', confidence: 0.5 };
 	}
 
-	/** Check plot consistency across documents, returning structured issues. */
 	async checkPlotConsistency(documents: ScrivenerDocument[]): Promise<ConsistencyIssue[]> {
 		const sections = documents.map((d) => `## ${d.title || d.id}\n${d.content || ''}`);
 		const manuscript = accumulateToLimit(

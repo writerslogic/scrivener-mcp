@@ -48,9 +48,6 @@ export interface StoryFlow {
 export class GraphAnalytics {
 	constructor(private neo4j: Neo4jManager) {}
 
-	/**
-	 * Analyze character network and relationships
-	 */
 	async analyzeCharacterNetwork(): Promise<CharacterNetwork> {
 		if (!this.neo4j.isAvailable()) {
 			throw toDatabaseError(new Error('Neo4j not available'), 'character network analysis');
@@ -137,9 +134,6 @@ export class GraphAnalytics {
 		};
 	}
 
-	/**
-	 * Analyze plot thread complexity
-	 */
 	async analyzePlotComplexity(): Promise<PlotComplexity> {
 		if (!this.neo4j.isAvailable()) {
 			throw toDatabaseError(new Error('Neo4j not available'), 'plot complexity analysis');
@@ -201,9 +195,6 @@ export class GraphAnalytics {
 		};
 	}
 
-	/**
-	 * Analyze story flow and pacing
-	 */
 	async analyzeStoryFlow(): Promise<StoryFlow> {
 		if (!this.neo4j.isAvailable()) {
 			throw toDatabaseError(new Error('Neo4j not available'), 'story flow analysis');
@@ -254,9 +245,6 @@ export class GraphAnalytics {
 		};
 	}
 
-	/**
-	 * Find potential character relationships based on co-occurrence
-	 */
 	async discoverRelationships(): Promise<
 		Array<{
 			character1: string;
@@ -294,9 +282,6 @@ export class GraphAnalytics {
 		});
 	}
 
-	/**
-	 * Analyze narrative structure patterns
-	 */
 	async analyzeNarrativeStructure(): Promise<{
 		structure: 'linear' | 'branching' | 'circular' | 'episodic';
 		keyMilestones: Array<{ chapter: string; event: string; impact: number }>;

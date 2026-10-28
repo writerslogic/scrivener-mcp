@@ -118,9 +118,6 @@ export class DocumentIndexer {
 		logger.info('Document indexer initialized');
 	}
 
-	/**
-	 * Build complete index from documents
-	 */
 	async buildIndex(
 		documents: ScrivenerDocument[],
 		location: 'active' | 'trash' = 'active'
@@ -189,18 +186,12 @@ export class DocumentIndexer {
 		}
 	}
 
-	/**
-	 * Build search index for fast content search
-	 */
 	private async buildSearchIndex(): Promise<void> {
 		// This will be populated incrementally as documents are read
 		// Initial build just sets up the structure
 		logger.debug('Search index structure initialized');
 	}
 
-	/**
-	 * Update search index for a specific document
-	 */
 	async updateDocumentInIndex(documentId: string, content: string): Promise<void> {
 		const startTime = Date.now();
 
@@ -270,9 +261,6 @@ export class DocumentIndexer {
 		Object.assign(info.document, patch);
 	}
 
-	/**
-	 * Search content using index
-	 */
 	async searchContent(
 		query: string,
 		options: {
@@ -430,16 +418,10 @@ export class DocumentIndexer {
 		this.emit('flush', documents);
 	}
 
-	/**
-	 * Get dirty documents
-	 */
 	getDirtyDocuments(): string[] {
 		return Array.from(this.dirtyDocuments);
 	}
 
-	/**
-	 * Clear all indexes and cleanup
-	 */
 	clearIndex(): void {
 		// Clear all data structures
 		this.documentIndex.clear();
@@ -458,9 +440,6 @@ export class DocumentIndexer {
 		logger.info('Index cleared');
 	}
 
-	/**
-	 * Get index statistics
-	 */
 	getStats(): IndexStats {
 		let totalWords = 0;
 		for (const words of this.documentWords.values()) {
@@ -475,9 +454,6 @@ export class DocumentIndexer {
 		};
 	}
 
-	/**
-	 * Get operation metrics
-	 */
 	getMetrics(): {
 		averageSearchTime: number;
 		averageIndexTime: number;
@@ -552,9 +528,6 @@ export class DocumentIndexer {
 		}
 	}
 
-	/**
-	 * Cleanup resources
-	 */
 	dispose(): void {
 		this.clearIndex();
 		this.operationMetrics.clear();

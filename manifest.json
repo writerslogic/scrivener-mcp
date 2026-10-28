@@ -1,26 +1,24 @@
 {
-  "manifest_version": "0.2",
-  "name": "scrivener-mcp",
-  "version": "0.13.0",
-  "description": "Connect Scrivener 3 projects to Claude and other AI assistants. 57 tools for document management, writing analysis, local semantic retrieval, and character/plot tracking.",
-  "author": {
-    "name": "WritersLogic, Inc.",
-    "url": "https://github.com/writerslogic"
-  },
-  "server": {
-    "type": "node",
-    "entry_point": "dist/index.js",
-    "mcp_config": {
-      "command": "node",
-      "args": [
-        "${__dirname}/dist/index.js"
-      ],
-      "env": {}
-    }
-  },
-  "license": "AGPL-3.0-only",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/writerslogic/scrivener-mcp"
-  }
+	"manifest_version": "0.2",
+	"name": "scrivener-mcp",
+	"version": "0.13.0",
+	"description": "Connect Scrivener 3 projects to AI assistants with 75 progressively loaded tools for durable change review, local passage retrieval, source-backed continuity, a scoped series bible, editorial workflows and validated exports.",
+	"author": {
+		"name": "WritersLogic, Inc.",
+		"url": "https://github.com/writerslogic"
+	},
+	"server": {
+		"type": "node",
+		"entry_point": "dist/index.js",
+		"mcp_config": {
+			"command": "node",
+			"args": ["${__dirname}/dist/index.js"],
+			"env": {}
+		}
+	},
+	"license": "AGPL-3.0-only",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/writerslogic/scrivener-mcp"
+	}
 }

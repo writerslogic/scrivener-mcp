@@ -82,6 +82,11 @@ export class AIClient {
 	readonly chatModel: string;
 
 	constructor(options: AIClientOptions = {}) {
+		if (process.env.SCRIVENER_LOCAL_ONLY === 'true') {
+			this.provider = null;
+			this.chatModel = '';
+			return;
+		}
 		const keys: Record<KeyProvider, string | undefined> = {
 			anthropic: options.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY,
 			openai: options.openaiApiKey ?? process.env.OPENAI_API_KEY,
@@ -136,6 +141,7 @@ export class AIClient {
 
 	/** True when a chat provider is configured or the MCP client supports sampling. */
 	get isAvailable(): boolean {
+		if (process.env.SCRIVENER_LOCAL_ONLY === 'true') return false;
 		return this.provider !== null || getSamplingServer() !== null;
 	}
 
@@ -166,6 +172,7 @@ export class AIClient {
 	 * is only known after the MCP initialize handshake.
 	 */
 	private get providerChain(): AIProvider[] {
+		if (process.env.SCRIVENER_LOCAL_ONLY === 'true') return [];
 		const keyProviders = PROVIDER_ORDER.filter((p) => this.clientFor(p));
 		const chain: AIProvider[] =
 			this.provider && this.provider !== 'sampling'
@@ -290,6 +297,8 @@ export class AIClient {
 	 * @throws when neither OPENAI_API_KEY nor OPENROUTER_API_KEY is configured.
 	 */
 	async embed(texts: string[]): Promise<number[][]> {
+		if (process.env.SCRIVENER_LOCAL_ONLY === 'true')
+			throw new Error('Provider requests are disabled in local-only mode');
 		const primary = this.openai ?? this.openrouter;
 		if (!primary) {
 			throw createError(

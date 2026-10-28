@@ -13,13 +13,6 @@ const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const logger = getLogger('shared-patterns');
 
-// ============================================================================
-// File System Patterns
-// ============================================================================
-
-/**
- * Check if file exists (consolidated from multiple files)
- */
 export async function fileExists(filePath: string): Promise<boolean> {
 	try {
 		await fs.access(filePath);
@@ -29,9 +22,6 @@ export async function fileExists(filePath: string): Promise<boolean> {
 	}
 }
 
-/**
- * Check file exists with content search (used in env-config, condition-waiter)
- */
 export async function fileExistsWithContent(
 	filePath: string,
 	searchContent?: string
@@ -81,9 +71,6 @@ export async function safeFileWrite(
 	}
 }
 
-/**
- * Ensure directory exists with proper permissions (consolidates ensureDir patterns)
- */
 export async function ensureDirectory(dirPath: string, mode: number = 0o755): Promise<void> {
 	try {
 		await fs.mkdir(dirPath, { recursive: true, mode });
@@ -99,10 +86,6 @@ export async function ensureDirectory(dirPath: string, mode: number = 0o755): Pr
 		}
 	}
 }
-
-// ============================================================================
-// Process and Command Patterns
-// ============================================================================
 
 /**
  * Safe command execution with timeout (used across multiple files)
@@ -125,9 +108,6 @@ export async function safeExec(
 	}
 }
 
-/**
- * Check if command/binary exists (used in env-config, permission-manager)
- */
 export async function commandExists(command: string): Promise<boolean> {
 	try {
 		await execFileAsync('which', [command], { timeout: 2000 });
@@ -137,9 +117,6 @@ export async function commandExists(command: string): Promise<boolean> {
 	}
 }
 
-/**
- * Get process ID by name (used in condition-waiter, adaptive-timeout)
- */
 export async function getProcessByName(processName: string): Promise<string[]> {
 	try {
 		const { stdout } = await execFileAsync('pgrep', ['-f', processName], { timeout: 2000 });
@@ -152,13 +129,6 @@ export async function getProcessByName(processName: string): Promise<string[]> {
 	}
 }
 
-// ============================================================================
-// Path Validation Patterns
-// ============================================================================
-
-/**
- * Validate and sanitize paths (used in scrivener-utils, project-utils-fixed)
- */
 export function validatePath(inputPath: string): string {
 	const resolved = path.resolve(inputPath);
 	const normalized = path.normalize(resolved);
@@ -183,10 +153,6 @@ export function buildPath(...segments: string[]): string {
 	const joined = path.join(...segments);
 	return validatePath(joined);
 }
-
-// ============================================================================
-// Async Utility Patterns
-// ============================================================================
 
 /**
  * Simple sleep with validation (used across multiple files)
@@ -263,10 +229,6 @@ export async function retryWithBackoff<T>(
 	throw lastError!;
 }
 
-// ============================================================================
-// Validation Patterns
-// ============================================================================
-
 /**
  * UUID validation (consolidates various UUID checks)
  */
@@ -303,13 +265,6 @@ export function validateUrl(
 	}
 }
 
-// ============================================================================
-// String Utilities
-// ============================================================================
-
-/**
- * Format bytes for human reading (used across multiple files)
- */
 export function formatBytes(bytes: number, decimals: number = 2): string {
 	if (bytes === 0) return '0 Bytes';
 
@@ -329,10 +284,6 @@ export function truncateString(str: string, maxLength: number, suffix: string = 
 	if (str.length <= maxLength) return str;
 	return str.substring(0, maxLength - suffix.length) + suffix;
 }
-
-// ============================================================================
-// Cache Patterns
-// ============================================================================
 
 /**
  * Simple memory cache with TTL (consolidates caching patterns)
@@ -372,10 +323,6 @@ export class MemoryCache<T> {
 		}
 	}
 }
-
-// ============================================================================
-// Export consolidated utilities
-// ============================================================================
 
 export const FileUtils = {
 	exists: fileExists,

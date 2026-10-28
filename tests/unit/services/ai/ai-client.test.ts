@@ -8,6 +8,30 @@ import { AIClient, isProviderUnavailable } from '../../../../src/services/ai/ai-
 import { registerSamplingServer } from '../../../../src/services/ai/sampling-bridge.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
+it('enforces local-only privacy for explicit keys and a sampling-capable client', async () => {
+	const original = process.env.SCRIVENER_LOCAL_ONLY;
+	process.env.SCRIVENER_LOCAL_ONLY = 'true';
+	registerSamplingServer({
+		getClientCapabilities: () => ({ sampling: {} }),
+	} as unknown as Server);
+	try {
+		const client = new AIClient({
+			anthropicApiKey: 'sk-ant-local-fixture',
+			openaiApiKey: 'sk-local-fixture',
+		});
+		expect(client.isAvailable).toBe(false);
+		expect(client.provider).toBeNull();
+		await expect(client.chat('A local privacy check')).rejects.toThrow('No AI provider');
+		await expect(client.embed(['private local text'])).rejects.toThrow(
+			'disabled in local-only'
+		);
+	} finally {
+		registerSamplingServer(null);
+		if (original === undefined) delete process.env.SCRIVENER_LOCAL_ONLY;
+		else process.env.SCRIVENER_LOCAL_ONLY = original;
+	}
+});
+
 describe('AIClient provider selection', () => {
 	const originalProvider = process.env.AI_PROVIDER;
 
