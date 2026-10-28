@@ -22,6 +22,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Remove static credentials and interpolated observer code (#200)
 - Preserve Redis proxy compatibility during driver upgrade
 - Use file URLs for cross-platform startup probes
 - Align packaged safety guidance and record verification
