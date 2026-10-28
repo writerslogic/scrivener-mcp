@@ -14,6 +14,14 @@ latest Node 22 and Node 26 on Linux. The 22.13 observations below are historical
 [the ledger](implementation-status.md#coordinated-major-dependency-integration) and its integration
 checks.
 
+The minimum Windows job uses `windows-2022`, with Visual Studio 2022; the Node 24 job uses
+`windows-latest`. Node 22.14 ships npm 10.9.2 and node-gyp 11, which cannot recognize Visual Studio
+2026 on the newer runner. Frozen installs trigger node-gyp because npm's lockfile omits SQLite's
+`gypfile: false` setting, even though the dependency ships its native binary. A fresh registry
+install with npm 10.9.2 used that binary without rebuilding in the isolated local reproduction.
+Source contributors using the minimum Node version on Windows need Visual Studio 2022 for `npm ci`;
+Node 24 is recommended. Both Windows jobs retain every applicable release check.
+
 | Target                                                 | Evidence in this candidate                                                                                                                                                | Limit                                                                                                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | macOS arm64, Node 26.8.1 / npm 11.19.0                 | Local manager validation, generated Mac/Windows-layout fixtures, installed-package MCP sessions and Chromium Apps interactions                                            | Exact final command results are recorded in [the ledger](implementation-status.md)                                                                   |

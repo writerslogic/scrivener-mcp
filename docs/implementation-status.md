@@ -347,3 +347,16 @@ diagnostic sessions now bypass automatic Redis discovery, preventing them from c
 installation's jobs. Redis logs identify endpoints without echoing URL credentials or fragments. The
 inspected Apple-silicon SQLite prebuild targets macOS 11; this does not certify live macOS 14 or
 Scrivener GUI behavior.
+
+Concurrent security PR #200 was preserved through an ordinary main merge, and changelog PR #201's
+head is retained as a merge parent. Its three redaction regressions and all fourteen
+installed-package checks passed after integration. Public code-scanning, dependency and
+secret-scanning alerts and Code Quality findings were empty at the October 28 review.
+
+The first combined CI candidate passed seven matrix jobs, CodeQL, Code Quality, dependency review
+and MCPB validation. Its minimum Windows job exposed npm 10's frozen-lock native rebuild against an
+unsupported Visual Studio 2026 toolchain. Minimal frozen installs reproduced the automatic rebuild
+with npm 10 and 11; a fresh registry install with npm 10 used the shipped binary without rebuilding.
+The minimum Windows job now uses Visual Studio 2022 on `windows-2022`; the Node 24 job retains
+`windows-latest`. All eight cases and the strict aggregate remain required. Final candidate results
+are attached to PR #202; the failed original run is not counted as passing evidence.
