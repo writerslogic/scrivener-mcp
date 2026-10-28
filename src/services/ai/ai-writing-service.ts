@@ -29,31 +29,6 @@ export interface ConsistencyIssue {
 	suggestion: string;
 }
 
-/** Split text into ~chunkSize-character pieces on paragraph then sentence boundaries. */
-function chunkText(text: string, chunkSize = 2000): string[] {
-	const trimmed = text.trim();
-	if (!trimmed) return [];
-	if (trimmed.length <= chunkSize) return [trimmed];
-
-	const chunks: string[] = [];
-	let current = '';
-	for (const para of trimmed.split(/\n\s*\n/)) {
-		if (current.length + para.length + 2 > chunkSize && current) {
-			chunks.push(current.trim());
-			current = '';
-		}
-		if (para.length > chunkSize) {
-			for (let i = 0; i < para.length; i += chunkSize) {
-				chunks.push(para.slice(i, i + chunkSize).trim());
-			}
-		} else {
-			current += (current ? '\n\n' : '') + para;
-		}
-	}
-	if (current.trim()) chunks.push(current.trim());
-	return chunks.filter(Boolean);
-}
-
 /**
  * Join `parts` with `separator` up to `maxChars`, accumulating incrementally so the
  * full untrusted string is never materialized. Logs once when input is truncated so
@@ -86,6 +61,7 @@ function accumulateToLimit(
 export class AIWritingService {
 	private readonly ai: AIClient;
 	private vectorStore: HMSVectorStore | null = null;
+	private lifecycle: Promise<void> = Promise.resolve();
 
 	constructor(ai: AIClient = new AIClient()) {
 		this.ai = ai;
@@ -96,35 +72,31 @@ export class AIWritingService {
 		return this.ai.isAvailable;
 	}
 
-	async buildVectorStore(documents: ScrivenerDocument[]): Promise<void> {
-		const docs: HMSDocument[] = [];
-		for (const doc of documents) {
-			const chunks = chunkText(doc.content || '');
-			chunks.forEach((chunk, index) => {
-				docs.push({
-					pageContent: chunk,
-					metadata: {
-						id: chunks.length > 1 ? `${doc.id}#${index}` : doc.id,
-						documentId: doc.id,
-						title: doc.title || '',
-						type: doc.type,
-					},
-				});
-			});
-		}
-
-		if (docs.length === 0) return;
-		if (!this.vectorStore) {
-			// Lazy-load the native HMS store so callers that never use vector
-			// features don't pay to load the Rust engine.
-			const { HMSVectorStore } = await import('./hms-vector-store.js');
-			this.vectorStore = new HMSVectorStore();
-		}
-		await this.vectorStore.addDocuments(docs);
-		logger.info('Vector store updated', { chunks: docs.length, documents: documents.length });
+	private transition(operation: () => Promise<void>): Promise<void> {
+		const pending = this.lifecycle.then(operation);
+		this.lifecycle = pending.catch(() => undefined);
+		return pending;
 	}
 
-	/** Semantic search across the indexed documents. */
+	async buildVectorStore(documents: ScrivenerDocument[]): Promise<void> {
+		return this.transition(async () => {
+			const docs: HMSDocument[] = documents.filter((doc) => doc.content?.trim()).map((doc) => ({
+				pageContent: doc.content || '',
+				metadata: { id: doc.id, documentId: doc.id, title: doc.title || '', type: doc.type },
+				...(doc.path ? { sourceUri: doc.path } : {}),
+				...(doc.metadata?.revision ? { version: doc.metadata.revision } : {}),
+			}));
+			if (!docs.length) return;
+			if (this.vectorStore) await this.vectorStore.addDocuments(docs);
+			else {
+				const { HMSVectorStore } = await import('./hms-vector-store.js');
+				this.vectorStore = await HMSVectorStore.fromDocuments(docs);
+			}
+			logger.info('Passage index updated', { documents: docs.length });
+		});
+	}
+
+	/** Retrieve matching passages across the indexed documents. */
 	async semanticSearch(query: string, topK: number = 5): Promise<HMSDocument[]> {
 		if (!this.vectorStore) {
 			throw createError(
@@ -232,8 +204,14 @@ export class AIWritingService {
 			.filter((i): i is ConsistencyIssue => i !== null);
 	}
 
-	/** Drop the in-memory vector store so the next build starts fresh. */
-	clearMemory(): void {
-		this.vectorStore = null;
+	clearMemory(): Promise<void> {
+		return this.transition(async () => {
+			await this.vectorStore?.close();
+			this.vectorStore = null;
+		});
+	}
+
+	close(): Promise<void> {
+		return this.clearMemory();
 	}
 }
