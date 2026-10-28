@@ -8,7 +8,7 @@ import { DocumentManager } from '../../../src/services/document-manager.js';
 import { ProjectWriter } from '../../../src/services/project-writer.js';
 import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 import { createSnapshot, listDocumentSnapshots } from '../../../src/services/snapshots.js';
-import { ReviewService } from '../../../src/services/editorial/review-service.js';
+import { ReviewService, type ChangeProposal } from '../../../src/services/editorial/review-service.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 import {
 	MutationCoordinator,
@@ -46,6 +46,16 @@ function openServices(): void {
 	);
 	store = new PersistentStore(database());
 	reviews = new ReviewService(root, documents, writer, store);
+}
+
+async function restartServices(): Promise<void> {
+	await documents.close();
+	store.close();
+	openServices();
+}
+
+function proposeOpening(): Promise<ChangeProposal> {
+	return reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 3, text: 'One' }] });
 }
 
 beforeEach(async () => {
@@ -86,9 +96,7 @@ test('preview leaves manuscript untouched; selective applications survive restar
 	expect(await documents.readDocument(DOCUMENT)).toBe(before.replace('quick', 'slow'));
 	expect(await fs.readFile(file(), 'utf8')).toContain('{\\b bold}');
 	expect(applied.fidelity?.snapshotId).toBeTruthy();
-	await documents.close();
-	store.close();
-	openServices();
+	await restartServices();
 	expect(reviews.listApplications()[0].id).toBe(applied.id);
 	expect((await reviews.preview(proposal.id)).after).toBe(
 		before.replace('quick', 'slow').replace('here', 'there')
@@ -105,10 +113,7 @@ test('preview leaves manuscript untouched; selective applications survive restar
 
 test('saved external changes refresh cached reads and reject stale previews, writes, and undo even with force', async () => {
 	const before = await documents.readDocument(DOCUMENT);
-	const proposal = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	});
+	const proposal = await proposeOpening();
 	await fs.writeFile(file(), handler.convertToRTF('External revision'));
 	expect(await documents.readDocument(DOCUMENT)).toBe('External revision');
 	await expect(reviews.preview(proposal.id)).rejects.toThrow(/stale/i);
@@ -205,10 +210,7 @@ test('overlapping edits and Unicode surrogate splits are rejected', async () => 
 });
 
 test('a commit interrupted after the RTF rename is reconciled after restart', async () => {
-	const proposal = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	});
+	const proposal = await proposeOpening();
 	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
 	await fs.unlink(checksum);
 	await fs.mkdir(checksum);
@@ -216,9 +218,7 @@ test('a commit interrupted after the RTF rename is reconciled after restart', as
 	expect(await documents.readDocument(DOCUMENT)).toMatch(/^One /);
 	await fs.rmdir(checksum);
 	await fs.writeFile(checksum, '');
-	await documents.close();
-	store.close();
-	openServices();
+	await restartServices();
 	const recovered = await reviews.recover();
 	expect(recovered).toHaveLength(1);
 	expect(recovered[0].state).toBe('committed');
@@ -293,13 +293,10 @@ test('live process ownership blocks recovery, then a dead process reservation re
 		await exited;
 		expect((await documents.getMutationCoordinator().recover())[0].state).toBe('prepared');
 		expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
-		store.put('mutation-claims', 'project', {
-			operationId: id,
-			ownerPid: process.pid,
-			host: `${hostname()}-different-host`,
-			token: 'ambiguous',
-		});
-		await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(/ambiguous/i);
+		for (const host of [hostname(), `${hostname()}-different-host`]) {
+			store.put('mutation-claims', 'project', { operationId: id, ownerPid: process.pid, host, token: 'ambiguous' });
+			await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(/ambiguous/i);
+		}
 		store.delete('mutation-claims', 'project');
 	} finally {
 		if (child.exitCode === null) child.kill();
@@ -327,10 +324,7 @@ test('batch receipts persist and retries do not duplicate applications or snapsh
 	const otherFile = path.join(root, 'Files', 'Data', otherDocument, 'content.rtf');
 	await fs.mkdir(path.dirname(otherFile), { recursive: true });
 	await fs.writeFile(otherFile, handler.convertToRTF('The second scene.'));
-	const one = await reviews.propose({
-		documentId: DOCUMENT,
-		edits: [{ start: 0, end: 3, text: 'One' }],
-	});
+	const one = await proposeOpening();
 	const two = await reviews.propose({
 		documentId: otherDocument,
 		edits: [{ start: 4, end: 10, text: 'final' }],
@@ -340,9 +334,7 @@ test('batch receipts persist and retries do not duplicate applications or snapsh
 	expect(batch.state).toBe('completed');
 	expect(batch.completed).toHaveLength(2);
 	const count = (await listDocumentSnapshots(root, DOCUMENT)).length;
-	await documents.close();
-	store.close();
-	openServices();
+	await restartServices();
 	expect(
 		(await reviews.applyBatch([one.id, two.id], { force: true, operationId })).completed
 	).toEqual(batch.completed);
@@ -492,4 +484,43 @@ test('project scope validation rejects removed targets without persisting or app
 	expect(reviews.list()).toHaveLength(1);
 	expect(reviews.listApplications()).toEqual([]);
 	expect(await fs.readFile(file(), 'utf8')).toBe(before);
+});
+
+
+test.each(['missing', 'empty'])('proposal source distinguishes %s saved content', async (state) => {
+	if (state === 'missing') await fs.unlink(file());
+	else await fs.writeFile(file(), '');
+	const input = { documentId: DOCUMENT, edits: [{ start: 0, end: 0, text: 'An opening.' }] };
+	if (state === 'missing') {
+		await expect(reviews.propose(input)).rejects.toThrow(/without saved content/i);
+		expect(reviews.list()).toEqual([]);
+	} else {
+		const proposal = await reviews.propose(input);
+		const preview = await reviews.preview(proposal.id);
+		expect(preview.before).toBe('');
+		expect(preview.after).toBe('An opening.');
+		expect(await fs.readFile(file(), 'utf8')).toBe('');
+		await reviews.apply(proposal.id, { force: true });
+		expect(await documents.readDocument(DOCUMENT)).toBe('An opening.');
+	}
+});
+
+test('retrying an undo reconciles an interrupted rename before checking the original applied revision', async () => {
+	const proposal = await proposeOpening();
+	const application = await reviews.apply(proposal.id, { force: true });
+	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+	await fs.unlink(checksum);
+	await fs.mkdir(checksum);
+	await expect(reviews.undo(application.id, { force: true })).rejects.toThrow();
+	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+	const snapshots = (await listDocumentSnapshots(root, DOCUMENT)).length;
+	await fs.rmdir(checksum);
+	await fs.writeFile(checksum, '');
+	await restartServices();
+	const undone = await reviews.undo(application.id, { force: true });
+	expect(undone.undoes).toBe(application.id);
+	expect(reviews.listApplications()[0].state).toBe('undone');
+	expect(reviews.get(proposal.id).edits[0].status).toBe('pending');
+	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+	expect(await listDocumentSnapshots(root, DOCUMENT)).toHaveLength(snapshots);
 });

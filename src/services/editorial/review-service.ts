@@ -4,7 +4,7 @@ import type { DocumentManager } from '../document-manager.js';
 import type { ProjectWriter, WriteOptions } from '../project-writer.js';
 import type { WriteFidelityReport } from '../../project-types.js';
 import type { PersistentStore } from './persistent-store.js';
-import type { MutationRecord } from './mutation-coordinator.js';
+import { operationOwnerState, type MutationRecord } from './mutation-coordinator.js';
 
 const PROPOSALS = 'review-proposals';
 const APPLICATIONS = 'review-applications';
@@ -82,10 +82,6 @@ function identity(value: string, label: string): string {
 	return value;
 }
 
-function digest(value: unknown): string {
-	return createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
-
 function stableUuid(value: unknown): string {
 	const bytes = createHash('sha256').update(JSON.stringify(value)).digest().subarray(0, 16);
 	bytes[6] = (bytes[6] & 15) | 80;
@@ -99,12 +95,13 @@ function selectedEdits(proposal: ChangeProposal, editIds?: string[]): ProposedEd
 		editIds !== undefined &&
 		(!Array.isArray(editIds) ||
 			editIds.length > 1000 ||
-			editIds.some((id) => typeof id !== 'string' || id.length > 160) ||
-			new Set(editIds).size !== editIds.length)
+			editIds.some((id) => typeof id !== 'string' || id.length > 160))
 	)
 		throw new Error('Invalid edit selection');
-	const selected = editIds
-		? proposal.edits.filter((edit) => editIds.includes(edit.id))
+	const selectedIds = editIds ? new Set(editIds) : undefined;
+	if (selectedIds && selectedIds.size !== editIds!.length) throw new Error('Invalid edit selection');
+	const selected = selectedIds
+		? proposal.edits.filter((edit) => selectedIds.has(edit.id))
 		: proposal.edits.filter((edit) => edit.status === 'pending');
 	if (editIds && selected.length !== editIds.length)
 		throw new Error('Selection contains an unknown edit ID');
@@ -114,8 +111,9 @@ function selectedEdits(proposal: ChangeProposal, editIds?: string[]): ProposedEd
 }
 
 function compose(proposal: ChangeProposal, additional: string[] = []): string {
+	const selectedIds = new Set(additional);
 	const edits = proposal.edits.filter(
-		(edit) => edit.status === 'accepted' || additional.includes(edit.id)
+		(edit) => edit.status === 'accepted' || selectedIds.has(edit.id)
 	);
 	const length = edits.reduce(
 		(total, edit) => total + edit.text.length - (edit.end - edit.start),
@@ -132,31 +130,6 @@ function compose(proposal: ChangeProposal, additional: string[] = []): string {
 	return pieces.join('');
 }
 
-function applicationOwner(application: ReviewApplication): 'alive' | 'dead' | 'unknown' {
-	if (
-		!Number.isSafeInteger(application.ownerPid) ||
-		application.ownerPid <= 0 ||
-		application.ownerPid > 2_147_483_647 ||
-		typeof application.host !== 'string' ||
-		!application.host.length ||
-		application.host.length > 255 ||
-		typeof application.token !== 'string' ||
-		!application.token.length ||
-		application.token.length > 128
-	)
-		throw new Error(
-			'Malformed review application ownership record; manual inspection is required'
-		);
-	if (application.host !== hostname()) return 'unknown';
-	if (application.ownerPid === process.pid)
-		return running.has(application.token) ? 'alive' : 'unknown';
-	try {
-		process.kill(application.ownerPid, 0);
-		return 'alive';
-	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'dead' : 'unknown';
-	}
-}
 
 export class ReviewService {
 	constructor(
@@ -195,7 +168,6 @@ export class ReviewService {
 		title?: string;
 		idempotencyKey?: string;
 	}): Promise<ChangeProposal> {
-		await this.validateDocument?.(input.documentId);
 		if (!Array.isArray(input.edits) || input.edits.length < 1 || input.edits.length > 1000)
 			throw new Error('A proposal must contain between 1 and 1000 edits');
 		if (
@@ -210,6 +182,13 @@ export class ReviewService {
 				input.idempotencyKey.length > 256)
 		)
 			throw new Error('Invalid proposal idempotency key');
+		let replacementLength = 0;
+		for (const edit of input.edits) {
+			if (!edit || !Number.isSafeInteger(edit.start) || !Number.isSafeInteger(edit.end) || edit.start < 0 || edit.end < edit.start || typeof edit.text !== 'string' || edit.text.length > MAX_TEXT) throw new Error('Invalid proposed edit range or text');
+			replacementLength += edit.text.length;
+			if (replacementLength > MAX_TEXT) throw new Error('Proposed manuscript text exceeds the supported length');
+		}
+		await this.validateDocument?.(input.documentId);
 		const id = input.idempotencyKey
 			? stableUuid(['proposal', input.idempotencyKey])
 			: randomUUID();
@@ -218,39 +197,22 @@ export class ReviewService {
 			if (
 				prior.documentId !== input.documentId ||
 				prior.title !== (input.title ?? 'Proposed manuscript changes') ||
-				digest(prior.edits.map(({ start, end, text }) => ({ start, end, text }))) !==
-					digest(input.edits) ||
+				prior.edits.length !== input.edits.length ||
+				prior.edits.some((edit, index) => edit.start !== input.edits[index].start || edit.end !== input.edits[index].end || edit.text !== input.edits[index].text) ||
 				(input.expectedRevision !== undefined &&
 					input.expectedRevision !== prior.sourceRevision)
 			)
 				throw new Error('Idempotency key was already used for a different proposal');
 			return prior;
 		}
-		const saved = await this.documents.getMutationCoordinator().readRaw(input.documentId);
-		if (!saved.exists)
-			throw new Error('Cannot propose edits to a document without saved content');
-		if (input.expectedRevision !== undefined && input.expectedRevision !== saved.revision)
-			throw new Error('Stale document revision; refresh before proposing changes');
-		const prepared = await this.writer.prepareDocument(
-			input.documentId,
-			await this.documents.readDocument(input.documentId),
-			saved.revision
-		);
-		const before = prepared.beforeText;
+		const saved = await this.documents.readDocumentVersion(input.documentId);
+		if (!saved.exists) throw new Error('Cannot propose edits to a document without saved content');
+		if (input.expectedRevision !== undefined && input.expectedRevision !== saved.revision) throw new Error('Stale document revision; refresh before proposing changes');
+		const before = saved.text;
 		const sorted = [...input.edits].sort((a, b) => a.start - b.start);
 		let previous: ProposedEditInput | undefined;
 		for (const edit of sorted) {
-			if (
-				!edit ||
-				!Number.isSafeInteger(edit.start) ||
-				!Number.isSafeInteger(edit.end) ||
-				edit.start < 0 ||
-				edit.end < edit.start ||
-				edit.end > before.length ||
-				typeof edit.text !== 'string' ||
-				edit.text.length > MAX_TEXT
-			)
-				throw new Error('Invalid proposed edit range or text');
+			if (edit.end > before.length) throw new Error('Invalid proposed edit range or text');
 			if (previous && (previous.end > edit.start || previous.start === edit.start))
 				throw new Error('Proposed edits overlap or insert ambiguously at one position');
 			for (const offset of [edit.start, edit.end]) {
@@ -343,10 +305,11 @@ export class ReviewService {
 		);
 		const prior = this.store.get<ReviewApplication>(APPLICATIONS, id);
 		if (prior) {
+			const priorIds = new Set(prior.editIds);
+			const selectedIds = options.editIds ? new Set(options.editIds) : undefined;
 			if (
 				prior.proposalId !== proposalId ||
-				(options.editIds &&
-					digest([...prior.editIds].sort()) !== digest([...options.editIds].sort()))
+				(options.editIds && (options.editIds.length !== prior.editIds.length || selectedIds!.size !== options.editIds.length || options.editIds.some((editId) => !priorIds.has(editId))))
 			)
 				throw new Error('Operation ID was already used for a different application');
 			if (prior.state === 'committed') return prior;
@@ -419,8 +382,9 @@ export class ReviewService {
 			if (current?.state === 'committed') return current;
 			if (current?.state === 'undone') throw new Error('Application was already undone');
 			const proposal = this.get(application.proposalId);
+			const selectedIds = new Set(application.editIds);
 			for (const edit of proposal.edits)
-				if (application.editIds.includes(edit.id)) edit.status = 'accepted';
+				if (selectedIds.has(edit.id)) edit.status = 'accepted';
 			proposal.currentRevision = mutation.afterRevision;
 			proposal.sequence++;
 			delete proposal.applyingOperation;
@@ -437,9 +401,11 @@ export class ReviewService {
 		operationId: string,
 		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<MutationRecord> {
+		identity(operationId, 'operation ID');
+		await this.recover();
 		const application = this.store.get<ReviewApplication>(
 			APPLICATIONS,
-			identity(operationId, 'operation ID')
+			operationId
 		);
 		const mutation = this.documents.getMutationCoordinator().get(operationId);
 		if (
@@ -472,8 +438,9 @@ export class ReviewService {
 			if (this.store.get<ReviewApplication>(APPLICATIONS, application.id)?.state === 'undone')
 				return;
 			const proposal = this.get(application.proposalId);
+			const selectedIds = new Set(application.editIds);
 			for (const edit of proposal.edits)
-				if (application.editIds.includes(edit.id)) edit.status = 'pending';
+				if (selectedIds.has(edit.id)) edit.status = 'pending';
 			proposal.currentRevision = result.afterRevision;
 			proposal.sequence++;
 			application.state = 'undone';
@@ -498,7 +465,7 @@ export class ReviewService {
 			}
 			if (application.state !== 'preparing' && application.state !== 'interrupted') continue;
 			if (application.state === 'preparing') {
-				const owner = applicationOwner(application);
+				const owner = operationOwnerState(application, running);
 				if (owner === 'alive') continue;
 				if (owner === 'unknown')
 					throw new Error(
@@ -537,7 +504,7 @@ export class ReviewService {
 			throw new Error('A batch requires 1 to 100 distinct proposal IDs');
 		const id = identity(options.operationId ?? randomUUID(), 'batch ID');
 		const prior = this.store.get<ReviewBatch>(BATCHES, id);
-		if (prior && digest(prior.proposalIds) !== digest(proposalIds))
+		if (prior && (prior.proposalIds.length !== proposalIds.length || prior.proposalIds.some((proposalId, index) => proposalId !== proposalIds[index])))
 			throw new Error('Batch ID was already used for a different selection');
 		const batch: ReviewBatch = prior ?? { id, proposalIds, completed: [], state: 'applying' };
 		if (batch.state === 'completed') return batch;
