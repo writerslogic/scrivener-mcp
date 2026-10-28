@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 
 export const MIN_NODE_MAJOR = 22;
-export const MIN_NODE_VERSION = '22.13.0';
+export const MIN_NODE_VERSION = '22.14.0';
+export const SUPPORTED_NODE_RANGE = '^22.14.0 || >=23.6.0';
 
 export interface NodeRuntime {
 	node: string;
@@ -153,6 +154,7 @@ export function chooseRuntime(
 export function isSupportedRuntime(runtime: NodeRuntime): boolean {
 	const parts = versionParts(runtime.version);
 	if (!parts || runtime.major !== parts[0]) return false;
+	if (parts[0] === 23 && parts[1] < 6) return false;
 	const minimum = versionParts(MIN_NODE_VERSION)!;
 	for (let index = 0; index < parts.length; index++) {
 		if (parts[index] !== minimum[index]) return parts[index] > minimum[index];
@@ -170,7 +172,7 @@ export function serverEntry(runtime: NodeRuntime): ServerEntry {
 		const npxCli = join(binDir, 'node_modules', 'npm', 'bin', 'npx-cli.js');
 		if (!existsSync(npxCli))
 			throw new Error(
-				'npm npx-cli.js was not found beside Node; reinstall the official Node distribution'
+				`npm npx-cli.js was not found beside Node; reinstall an official Node distribution satisfying ${SUPPORTED_NODE_RANGE}`
 			);
 		return {
 			command: runtime.node,

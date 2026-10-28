@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
-import { MIN_NODE_MAJOR, MIN_NODE_VERSION, isSupportedRuntime } from '../dist/setup/runtime.js';
+import {
+	MIN_NODE_MAJOR,
+	MIN_NODE_VERSION,
+	SUPPORTED_NODE_RANGE,
+	isSupportedRuntime,
+} from '../dist/setup/runtime.js';
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
-const required = /^>=(\d+\.\d+\.\d+)$/.exec(manifest.engines?.node ?? '');
 if (
-	!required ||
-	required[1] !== MIN_NODE_VERSION ||
-	Number(required[1].split('.')[0]) !== MIN_NODE_MAJOR
+	manifest.engines?.node !== SUPPORTED_NODE_RANGE ||
+	Number(MIN_NODE_VERSION.split('.')[0]) !== MIN_NODE_MAJOR
 )
-	throw new Error('Package engine and setup runtime requirements disagree');
+	throw new Error(
+		`Package engine and setup runtime requirements disagree; expected ${SUPPORTED_NODE_RANGE}`
+	);
 
 const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
 const matrix = /node-version:\s*\[([^\]]+)\]/
@@ -34,7 +39,7 @@ if (
 		source: 'runtime-policy',
 	})
 )
-	throw new Error(`Use a stable Node runtime satisfying ${manifest.engines.node}`);
+	throw new Error(`Use a stable Node runtime satisfying ${SUPPORTED_NODE_RANGE}`);
 
 process.stdout.write(
 	`Runtime policy agrees: Node ${manifest.engines.node}; running ${process.version}\n`
