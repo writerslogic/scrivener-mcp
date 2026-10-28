@@ -1,10 +1,5 @@
-/**
- * Async handlers for job queue operations - utilizes comprehensive utils for better performance
- * Provides MCP handlers for async processing with BullMQ
- */
-
 import type { Job } from 'bullmq';
-import { createHash } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { getLogger } from '../core/logger.js';
 import { AIClient } from '../services/ai/ai-client.js';
@@ -29,6 +24,7 @@ const logger = getLogger('async-handlers');
 let localAnalyzer: ContentAnalyzer | undefined;
 let lifecycle: Promise<void> = Promise.resolve();
 let configuration: string | undefined;
+const configurationKey = randomBytes(32);
 let activeOperations = 0;
 const drainCallbacks: Array<() => void> = [];
 
@@ -99,7 +95,7 @@ export async function initializeAsyncServices(
 ): Promise<void> {
 	return transition(async () => {
 		const projectPath = options.projectPath ? resolve(options.projectPath) : undefined;
-		const key = createHash('sha256')
+		const key = createHmac('sha256', configurationKey)
 			.update(
 				JSON.stringify({
 					projectPath,

@@ -197,12 +197,17 @@ describe('Scrivener Utils', () => {
 				expect(result).toBe(join(projectPath, 'Files', 'Data', 'ABC123', 'content.rtf'));
 			});
 
-			it.each([...new Set(['/', sep])])('should handle trailing separator %s in project path', (separator) => {
-				const projectPathWithSlash = projectPath + separator;
-				const documentId = 'ABC123';
-				const result = getDocumentPath(projectPathWithSlash, documentId);
-				expect(result).toBe(join(projectPath, 'Files', 'Data', 'ABC123', 'content.rtf'));
-			});
+			it.each([...new Set(['/', sep])])(
+				'should handle trailing separator %s in project path',
+				(separator) => {
+					const projectPathWithSlash = projectPath + separator;
+					const documentId = 'ABC123';
+					const result = getDocumentPath(projectPathWithSlash, documentId);
+					expect(result).toBe(
+						join(projectPath, 'Files', 'Data', 'ABC123', 'content.rtf')
+					);
+				}
+			);
 		});
 
 		describe('getSynopsisPath', () => {

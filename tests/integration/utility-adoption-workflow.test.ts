@@ -281,12 +281,16 @@ describe('Utility Adoption Workflow Integration', () => {
 			expect(parsedResults[2].Title).toBe('Doc3');
 
 			// Concurrent directory operations
-			const projectPaths = ['project1', 'project2', 'project3'].map((name) => path.join(tmpRoot, `${name}.scriv`));
+			const projectPaths = ['project1', 'project2', 'project3'].map((name) =>
+				path.join(tmpRoot, `${name}.scriv`)
+			);
 			const cacheDirs = await Promise.all(
 				projectPaths.map((path) => Promise.resolve(getCacheDirectory(path)))
 			);
 
-			expect(cacheDirs).toEqual(projectPaths.map((projectPath) => path.join(projectPath, '.scrivener-mcp', 'cache')));
+			expect(cacheDirs).toEqual(
+				projectPaths.map((projectPath) => path.join(projectPath, '.scrivener-mcp', 'cache'))
+			);
 		});
 
 		it('should validate complete utility integration in real workflow', async () => {

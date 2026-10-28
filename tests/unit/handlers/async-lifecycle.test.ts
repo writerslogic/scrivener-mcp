@@ -102,6 +102,17 @@ describe('async service resource lifecycle', () => {
 		expect(state.__instances[0].closed).toBe(false);
 	});
 
+	it('reuses equal credential configurations and replaces the service after credential rotation', async () => {
+		const projectPath = join(tmpdir(), 'scrivener-lifecycle-credentials');
+		await initializeAsyncServices({ projectPath, openaiApiKey: 'credential-fixture-one' });
+		const original = state.__instances[0];
+		await initializeAsyncServices({ projectPath, openaiApiKey: 'credential-fixture-one' });
+		expect((await queueDocumentAnalysis(request)).jobId).toBe('generation-1');
+		await initializeAsyncServices({ projectPath, openaiApiKey: 'credential-fixture-two' });
+		expect((await queueDocumentAnalysis(request)).jobId).toBe('generation-2');
+		expect(original.closed).toBe(true);
+	});
+
 	it('lets leased operations finish on the original generation before replacement and routes later work to the new project', async () => {
 		await initializeAsyncServices({ projectPath: join(tmpdir(), 'scrivener-lifecycle-first') });
 		const original = state.__instances[0];

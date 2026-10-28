@@ -49,7 +49,9 @@ mutation/snapshot recovery plans, source facts/findings, passage indexes and wor
 SQLite transactions are synchronous and short; durable operation reservations coordinate the
 filesystem work without holding database transactions across I/O. Binder saves compare the exact
 loaded XML revision, including same-size changes with preserved timestamps. Reads refresh saved
-revisions and reject stale applications.
+revisions and reject stale applications. Saved reads validate opened file descriptors and bounded
+content. POSIX uses no-follow/nonblocking flags; Windows verifies path/file identity after opening,
+with concurrent external replacements remaining best effort.
 
 Back up the project together with its editorial state and native `Snapshots` directory. Do not
 delete `.scrivener-mcp` as a cache. Existing version-zero editorial databases acquire the

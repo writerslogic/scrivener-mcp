@@ -63,13 +63,16 @@ describe('Project Utils', () => {
 			expect(existsSync(nestedMcpDir)).toBe(true);
 		});
 
-		it.each([...new Set(['/', sep])])('should handle project path with trailing separator %s', async (separator) => {
-			const projectPathWithSlash = testProjectPath + separator;
+		it.each([...new Set(['/', sep])])(
+			'should handle project path with trailing separator %s',
+			async (separator) => {
+				const projectPathWithSlash = testProjectPath + separator;
 
-			await ensureProjectDataDirectory(projectPathWithSlash);
+				await ensureProjectDataDirectory(projectPathWithSlash);
 
-			expect(existsSync(mcpDir)).toBe(true);
-		});
+				expect(existsSync(mcpDir)).toBe(true);
+			}
+		);
 	});
 
 	describe('getQueueStatePath', () => {
@@ -78,11 +81,14 @@ describe('Project Utils', () => {
 			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
 		});
 
-		it.each([...new Set(['/', sep])])('should handle project path with trailing separator %s', (separator) => {
-			const projectPathWithSlash = testProjectPath + separator;
-			const result = getQueueStatePath(projectPathWithSlash);
-			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
-		});
+		it.each([...new Set(['/', sep])])(
+			'should handle project path with trailing separator %s',
+			(separator) => {
+				const projectPathWithSlash = testProjectPath + separator;
+				const result = getQueueStatePath(projectPathWithSlash);
+				expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
+			}
+		);
 
 		it('should work with different project paths', () => {
 			const differentProject = join(tmpBase, 'novel.scriv');
@@ -97,11 +103,14 @@ describe('Project Utils', () => {
 			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
 		});
 
-		it.each([...new Set(['/', sep])])('should handle project path with trailing separator %s', (separator) => {
-			const projectPathWithSlash = testProjectPath + separator;
-			const result = getCacheDirectory(projectPathWithSlash);
-			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
-		});
+		it.each([...new Set(['/', sep])])(
+			'should handle project path with trailing separator %s',
+			(separator) => {
+				const projectPathWithSlash = testProjectPath + separator;
+				const result = getCacheDirectory(projectPathWithSlash);
+				expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
+			}
+		);
 
 		it('should work with different project paths', () => {
 			const differentProject = join(tmpBase, 'story.scriv');

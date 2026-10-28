@@ -28,12 +28,22 @@ function temporaryDirectory(): string {
 
 function withPlatform(platform: NodeJS.Platform, operation: () => void): void {
 	const descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
-	Object.defineProperty(process, 'platform', { configurable: true, enumerable: descriptor.enumerable, value: platform });
-	try { operation(); }
-	finally { Object.defineProperty(process, 'platform', descriptor); }
+	Object.defineProperty(process, 'platform', {
+		configurable: true,
+		enumerable: descriptor.enumerable,
+		value: platform,
+	});
+	try {
+		operation();
+	} finally {
+		Object.defineProperty(process, 'platform', descriptor);
+	}
 }
 
-function runtimeFiles(platform: NodeJS.Platform, bundledNpm = true): {
+function runtimeFiles(
+	platform: NodeJS.Platform,
+	bundledNpm = true
+): {
 	runtime: NodeRuntime;
 	npxCli: string;
 } {
@@ -68,16 +78,17 @@ describe('runtime selection', () => {
 	});
 
 	it.each([
-		[21, 'v21.99.99', false],
-		[22, 'v22.12.99', false],
-		[22, 'v22.13.0', true],
-		[22, 'v22.13.1', true],
-		[23, 'v23.0.0', true],
-	] as const)('enforces the runtime floor for major %s at %s', (major, version, expected) => {
-		expect(isSupportedRuntime({ ...rt(major, '/n/bin/npx'), version })).toBe(
-			expected
-		);
-	});
+		{ major: 21, version: 'v21.99.99', expected: false },
+		{ major: 22, version: 'v22.12.99', expected: false },
+		{ major: 22, version: 'v22.13.0', expected: true },
+		{ major: 22, version: 'v22.13.1', expected: true },
+		{ major: 23, version: 'v23.0.0', expected: true },
+	])(
+		'enforces the runtime floor for major $major at $version',
+		({ major, version, expected }) => {
+			expect(isSupportedRuntime({ ...rt(major, '/n/bin/npx'), version })).toBe(expected);
+		}
+	);
 
 	it('skips candidates without npx and returns null when nothing is usable', () => {
 		expect(chooseRuntime([rt(22, null)], rt(22, null))).toBeNull();
@@ -85,16 +96,21 @@ describe('runtime selection', () => {
 });
 
 describe('server entry', () => {
-	it.each(['darwin', 'win32'] as const)('uses absolute %s commands and a PATH containing the Node directory', (platform) => {
-		const { runtime, npxCli } = runtimeFiles(platform);
-		withPlatform(platform, () => {
-			const entry = serverEntry(runtime);
-			expect(isAbsolute(entry.command)).toBe(true);
-			expect(entry.command).toBe(platform === 'win32' ? runtime.node : runtime.npx);
-			expect(entry.args).toEqual(platform === 'win32' ? [npxCli, '-y', 'scrivener-mcp'] : ['-y', 'scrivener-mcp']);
-			expect(entry.env?.PATH?.split(delimiter)[0]).toBe(dirname(runtime.node));
-		});
-	});
+	it.each(['darwin', 'win32'] as const)(
+		'uses absolute %s commands and a PATH containing the Node directory',
+		(platform) => {
+			const { runtime, npxCli } = runtimeFiles(platform);
+			withPlatform(platform, () => {
+				const entry = serverEntry(runtime);
+				expect(isAbsolute(entry.command)).toBe(true);
+				expect(entry.command).toBe(platform === 'win32' ? runtime.node : runtime.npx);
+				expect(entry.args).toEqual(
+					platform === 'win32' ? [npxCli, '-y', 'scrivener-mcp'] : ['-y', 'scrivener-mcp']
+				);
+				expect(entry.env?.PATH?.split(delimiter)[0]).toBe(dirname(runtime.node));
+			});
+		}
+	);
 
 	it('reports an incomplete Windows npm distribution even when npx.cmd exists', () => {
 		const { runtime } = runtimeFiles('win32', false);

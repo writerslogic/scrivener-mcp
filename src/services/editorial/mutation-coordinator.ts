@@ -9,7 +9,11 @@ import { planSnapshot, writePlannedSnapshot, type SnapshotEntry } from '../snaps
 import { PersistentStore } from './persistent-store.js';
 
 const MAX_RAW_BYTES = 64 * 1024 * 1024;
-const SAVED_READ_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0) | (constants.O_NOCTTY ?? 0);
+const SAVED_READ_FLAGS =
+	constants.O_RDONLY |
+	(constants.O_NOFOLLOW ?? 0) |
+	(constants.O_NONBLOCK ?? 0) |
+	(constants.O_NOCTTY ?? 0);
 const JOURNAL = 'mutations';
 const CLAIMS = 'mutation-claims';
 const PENDING = 'mutation-pending';
@@ -205,7 +209,13 @@ export class MutationCoordinator {
 					// Windows lacks atomic no-follow opens; verify the opened file against its project path.
 					this.assertProjectPath(target);
 					const entry = await fs.lstat(target);
-					if (entry.isSymbolicLink() || !entry.isFile() || entry.dev !== stat.dev || entry.ino !== stat.ino) throw new Error('Saved content changed while opening; retry');
+					if (
+						entry.isSymbolicLink() ||
+						!entry.isFile() ||
+						entry.dev !== stat.dev ||
+						entry.ino !== stat.ino
+					)
+						throw new Error('Saved content changed while opening; retry');
 				}
 				const buffer = Buffer.alloc(stat.size + 1);
 				let count = 0;

@@ -173,3 +173,24 @@ Windows CI exposed Git checkout CRLF conversion against the repository’s LF fo
 keeps all matrix jobs running to expose platform failures together. GitHub code quality found one
 unused EPUBCheck-script import, now removed. The follow-up parallel Jest confirmation also passed
 all 859 tests and exited normally without a worker warning.
+
+The subsequent Windows failures were exact-path assertions built with POSIX separators, an unclosed
+test-owned ProjectLoader SQLite connection, and a POSIX-only runtime fixture. Native path
+assertions, loader teardown and disposable dual-platform Node/npm fixtures correct those causes.
+Production stablePath now locates node.exe through Windows directory junctions.
+
+CodeQL #57 is addressed with process-keyed HMAC configuration fingerprints and credential-rotation
+coverage. #59 is addressed with guarded descriptor opens, bounded reads, final metadata checks and
+real symlink/FIFO regressions. Windows lacks the atomic POSIX flags and retains post-open identity
+checks; concurrent path replacement there remains best effort. #58 was classified as a non-security
+compatibility checksum: the legacy SHA-1 sidecar never authorizes a mutation; all
+revision/conflict/undo guards use SHA-256. Its disposition is recorded on the GitHub alert, without
+disabling any rule. Case-varied checksum duplicates now collapse while preserving native key
+spelling, unrelated entries and line endings.
+
+The revised candidate passes the complete release gate: 81 suites, 870 tests passed, nine optional
+provider skips on macOS; zero lint warnings, zero audit vulnerabilities; all eleven
+installed-package checks. Logs: `logs/implementation/maintenance-release/`. POSIX-specific
+FIFO/no-follow tests skip on Windows, where native descriptor and fixture coverage remains enabled.
+A simulated Git checkout with core.autocrlf=true retained LF source and all 37 native fixture files
+byte-for-byte.
