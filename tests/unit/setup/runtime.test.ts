@@ -13,7 +13,7 @@ import {
 const rt = (major: number, npx: string | null, node = '/n/bin/node'): NodeRuntime => ({
 	node,
 	npx,
-	version: major === 22 ? 'v22.13.0' : `v${major}.0.0`,
+	version: major === 22 ? 'v22.14.0' : `v${major}.0.0`,
 	major,
 	source: 'test',
 });
@@ -80,9 +80,15 @@ describe('runtime selection', () => {
 	it.each([
 		{ major: 21, version: 'v21.99.99', expected: false },
 		{ major: 22, version: 'v22.12.99', expected: false },
-		{ major: 22, version: 'v22.13.0', expected: true },
-		{ major: 22, version: 'v22.13.1', expected: true },
-		{ major: 23, version: 'v23.0.0', expected: true },
+		{ major: 22, version: 'v22.13.0', expected: false },
+		{ major: 22, version: 'v22.13.999', expected: false },
+		{ major: 22, version: 'v22.14.0', expected: true },
+		{ major: 22, version: 'v22.14.1', expected: true },
+		{ major: 23, version: 'v23.0.0', expected: false },
+		{ major: 23, version: 'v23.5.99', expected: false },
+		{ major: 23, version: 'v23.6.0', expected: true },
+		{ major: 23, version: 'v23.6.1', expected: true },
+		{ major: 24, version: 'v24.0.0', expected: true },
 		{ major: 26, version: 'v26.12.1', expected: true },
 		{ major: 24, version: 'v22.12.0', expected: false },
 		{ major: 22, version: 'v24.0.0', expected: false },
@@ -101,6 +107,14 @@ describe('runtime selection', () => {
 
 	it('skips candidates without npx and returns null when nothing is usable', () => {
 		expect(chooseRuntime([rt(22, null)], rt(22, null))).toBeNull();
+	});
+
+	it('skips incompatible private and current runtimes before applying selection preferences', () => {
+		const obsolete = { ...rt(22, '/private/npx'), version: 'v22.13.999', source: 'private' };
+		const current = { ...rt(23, '/current/npx'), version: 'v23.5.99' };
+		const supported = rt(24, '/supported/npx');
+		expect(chooseRuntime([obsolete, current, supported], current)).toBe(supported);
+		expect(chooseRuntime([obsolete, current], current)).toBeNull();
 	});
 
 	it('prefers a private runtime, otherwise selects the newest stable version numerically', () => {

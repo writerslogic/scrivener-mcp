@@ -4,6 +4,7 @@
  * verified without a key or network. The base text compilation runs for real.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import { AICompilationService } from '../../../../src/services/compilation/ai-compiler.js';
 import { AISemanticExtractor } from '../../../../src/services/ai/ai-semantic-extractor.js';
 
@@ -72,7 +73,6 @@ describe('AICompilationService', () => {
 	});
 });
 
-const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 liveAnthropic('AICompilationService — live Claude', () => {
 	it('generates a synopsis from manuscript content', async () => {
 		const service = new AICompilationService();

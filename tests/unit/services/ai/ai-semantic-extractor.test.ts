@@ -1,9 +1,10 @@
 /**
- * AISemanticExtractor tests. Empty/no-key behavior is deterministic; key-gated
+ * AISemanticExtractor tests. Empty/no-key behavior is deterministic; explicitly opted-in
  * live tests verify extraction QUALITY (finds known entities and a relationship),
  * not parity with the old LangChain extractor.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import {
 	AISemanticExtractor,
 	type ExtractedEntity,
@@ -13,7 +14,7 @@ import { AIClient } from '../../../../src/services/ai/ai-client.js';
 /**
  * Stub the AIClient so the parsing/coercion path runs deterministically without
  * a key or network — this is the bug-prone code, and it is otherwise only covered
- * by the key-gated live tests (skipped in CI).
+ * by the explicitly opted-in live tests (skipped in CI).
  */
 function stub(reply: string | (() => string)) {
 	let calls = 0;
@@ -47,7 +48,6 @@ describe('AISemanticExtractor', () => {
 		expect(await ex.analyzeRelationships([])).toEqual([]);
 	});
 
-	const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 	liveAnthropic('live Claude extraction quality', () => {
 		const passage =
 			'Captain Mara Vance led her crew aboard the starship Aurora toward the planet Keldar. ' +

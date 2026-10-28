@@ -1,9 +1,9 @@
 # Install on Windows
 
-The public server and setup CLI provide all editorial features. Node.js 22.13.0 or newer is
-required; use the official Windows installer from [nodejs.org](https://nodejs.org/en/download),
-including npm. Node 22 and 24 are the CI targets. Scrivener 3 projects use a `.scriv` directory
-containing a `.scrivx` file.
+The public server and setup CLI provide all editorial features. Node.js 22.14+ on the 22 release
+line, or 23.6+, is required; use the official Windows installer from
+[nodejs.org](https://nodejs.org/en/download), including npm. Node 22 and 24 are the CI targets.
+Scrivener 3 projects use a `.scriv` directory containing a `.scrivx` file.
 
 In PowerShell:
 

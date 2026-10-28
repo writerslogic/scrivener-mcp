@@ -276,17 +276,87 @@ and ACLs that deny `HELLO`. BullMQ keeps its own declared compatible ioredis ver
 `redis-compatibility.test.ts` regression exercises actual detection and PING through a HELLO-denying
 loopback endpoint, without constructor mocks.
 
-An isolated local Redis 8.10.2 server with `HELLO` denied passed detection, cache set/get/SCAN
-invalidation, reconnect, a real BullMQ job and completion event, and shutdown using root ioredis
-6.0.0 with BullMQ 5.81.5. It used a disposable Unix socket and loopback proxy, not a developer's
-Redis data or client configuration. Integration validation runs in
-`/Volumes/A/scrivener-mcp-dependency`; logs remain under
-`/Volumes/A/scrivener-mcp-future/logs/implementation/future-final/dependency-*` and
+An isolated local Redis 8.10.2 server passed detection, cache set/get/SCAN invalidation, reconnect,
+a real BullMQ job and completion event, and shutdown using root ioredis 6.0.0 with BullMQ 5.81.5. It
+used a disposable Unix socket and loopback proxy, not a developer's Redis data or client
+configuration. Integration validation runs in `/Volumes/A/scrivener-mcp-dependency`; logs remain
+under `/Volumes/A/scrivener-mcp-future/logs/implementation/future-final/dependency-*` and
 `redis-backend-check.log`. The existing dependency security overrides and vendored patch remain
 unchanged.
+
+The early ad hoc verifier's `hello-denied-detection` label overstated its ACL setup: Redis exempts
+`HELLO` from ACL command checks. That run established functional backend behavior; NOPERM handshake
+compatibility was established by the portable loopback fixture. The maintained real-backend verifier
+disables `HELLO` in its private Redis process and explicitly checks the rejection before testing
+connections. It uses a fresh password, bounded Redis request buffers and explicit targets so it does
+not contact an existing Redis instance.
 
 The dependency candidate passed the complete local release gate: formatting, lint, types, build,
 runtime policy, registry (75 tools), output conformance (29 paths), HMS compatibility (seven cases),
 83 Jest suites (921 passed; nine optional-provider skips), zero-vulnerability audit and all fourteen
 installed-package checks. The private app's two real-helper contract tests also passed against this
 updated public checkout. Remote evidence for the final dependency candidate is attached to PR #191.
+
+## Coordinated major dependency integration
+
+After PR #191, Dependabot surfaced eight additional major upgrades. The manager integrates their
+exact PR heads in `quality/dependency-batch-20261028` at
+`/Volumes/A/scrivener-mcp-dependency-batch`, preserving their ancestry while reconciling one
+manifest and lockfile. Original source PR checks are superseded by the combined candidate's full
+compatibility gate, rather than treated as passed.
+
+| PR   | Upgrade         | Required integration                                                                                 |
+| ---- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| #192 | OpenAI 7        | Real SDK wire/embedding/error tests, bounded body consumption and no automatic replay                |
+| #193 | Jest globals 30 | Align the existing Jest 30 runner; retain typed mock and critical suite coverage                     |
+| #194 | Chalk 6         | Preserve supported ESM/color callers and actual CLI startup                                          |
+| #195 | Domhandler 6    | Verify Cheerio DOM type compatibility and actual offline HTML extraction                             |
+| #196 | Anthropic 1     | Omit removed temperature, verify new auth/version headers and existing fallback behavior             |
+| #197 | SQLite 13       | Node-API 10 range, shipped-binding proof and real v12 database/WAL upgrade fixtures                  |
+| #198 | BullMQ 6        | Keep protocol-2 adapter, select the valid typed Worker overload and verify real queue-state transfer |
+| #199 | Node 26 types   | Preserve actual minimum-runtime checks; declarations do not establish runtime availability           |
+
+The canonical runtime range becomes `^22.14.0 || >=23.6.0`, excluding unsupported early Node 23. The
+exact 22.14 minimum replaces 22.13 across all three OS jobs; Node 24, latest 22 and Node 26 coverage
+remain. SQLite's schema and mutation/recovery contracts stay unchanged. Three reused workers own
+disjoint runtime, native-fixture and AI-client paths; the manager owns dependencies, CI, schemas,
+registration, integration and all validation.
+
+SDK requests use per-request abort deadlines and disable SDK replay, while the existing explicit
+account/service fallback remains. No live-provider opt-in, paid API call, release or deployment is
+authorized for these checks. Native v12 fixtures contain original synthetic state, with provenance
+and CC0 dedication; source fixtures are never opened for writing by tests.
+
+The assembled local candidate passed formatting, lint, types, build, runtime policy, registry (75
+tools), output conformance (29 paths), HMS compatibility (seven cases), the full 87-suite Jest run
+(979 passed; nine explicitly gated live-provider skips), zero-vulnerability audit and all fourteen
+installed-package/MCP checks. `batch-*` logs are retained in
+`/Volumes/A/scrivener-mcp-future/logs/implementation/future-final/`.
+
+Actual locked upgrades are Anthropic 1.3.0, OpenAI 7.45.1, SQLite driver 13.0.3, BullMQ 6.5.1,
+Jest/globals 30.5.2, Chalk 6.0.1, Domhandler 6.0.1 and Node types 26.6.5. The core MCP SDK stays at
+1.32.2. Empty Cheerio/ioredis type stubs were removed after verifying that the runtime packages own
+their declarations. Lockfile package entries fell from 1,094 to 740; security overrides and the
+vendored patch are unchanged.
+
+Both current/current and BullMQ 5.81.5-to-6.5.1 real Redis checks passed, including persisted
+completed/failed/queued/delayed/retry jobs, progress and completion events, active-job removal
+rejection, scoped cache invalidation, reconnect and checked resource cleanup. The verifier is wired
+into Linux Node 24 CI. Explicit candidate lists are validated and bounded; local-only demo and
+diagnostic sessions now bypass automatic Redis discovery, preventing them from consuming another
+installation's jobs. Redis logs identify endpoints without echoing URL credentials or fragments. The
+inspected Apple-silicon SQLite prebuild targets macOS 11; this does not certify live macOS 14 or
+Scrivener GUI behavior.
+
+Concurrent security PR #200 was preserved through an ordinary main merge, and changelog PR #201's
+head is retained as a merge parent. Its three redaction regressions and all fourteen
+installed-package checks passed after integration. Public code-scanning, dependency and
+secret-scanning alerts and Code Quality findings were empty at the October 28 review.
+
+The first combined CI candidate passed seven matrix jobs, CodeQL, Code Quality, dependency review
+and MCPB validation. Its minimum Windows job exposed npm 10's frozen-lock native rebuild against an
+unsupported Visual Studio 2026 toolchain. Minimal frozen installs reproduced the automatic rebuild
+with npm 10 and 11; a fresh registry install with npm 10 used the shipped binary without rebuilding.
+The minimum Windows job now uses Visual Studio 2022 on `windows-2022`; the Node 24 job retains
+`windows-latest`. All eight cases and the strict aggregate remain required. Final candidate results
+are attached to PR #202; the failed original run is not counted as passing evidence.
