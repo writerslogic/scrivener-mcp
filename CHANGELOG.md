@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Integrate HMS 0.6.4 document retrieval and lifecycle
+- Synchronize local passages through HMS document retrieval
 - Complete editorial integration and release verification
 - Integrate editorial tools dashboard presets and first session
 - Add durable manuscript review and coordinated revisions
@@ -22,6 +24,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Scope HMS passage consumers and drain owned stores
 - Keep minimum Windows CI on its supported native toolchain
 - Remove static credentials and interpolated observer code (#200)
 - Integrate verified SDK and native runtime upgrades
