@@ -7,6 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 
 ### Documentation
 - Point Draftbridge buyers to live checkout (#180)
+
+### Fixed
+- Group CodeQL action updates
+
+### Security
+- Patch js-yaml and integrate maintenance updates (#183)
+- Patch js-yaml and body-parser
 ## [0.13.0] - 2026-10-22
 
 ### Added
