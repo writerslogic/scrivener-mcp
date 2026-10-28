@@ -5,7 +5,8 @@ your first Scrivener project.
 
 ## Prerequisites
 
-- **Node.js 22.13 or later** -- check with `node -v`
+- **Node.js 22.14+ on the 22 release line, or 23.6+** -- check with `node -v`; Node 24 is
+  recommended
 - **Scrivener 3** -- your project must be a Scrivener 3 `.scriv` package
 - **An MCP client** -- Claude Desktop, Claude Code, or any MCP-compatible client
 

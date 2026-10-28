@@ -3,8 +3,11 @@ import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 
-export const MIN_NODE_MAJOR = 22;
-export const MIN_NODE_VERSION = '22.13.0';
+export const MIN_NODE_VERSION = '22.14.0';
+export const NEXT_MIN_NODE_VERSION = '23.6.0';
+export const MIN_NODE_MAJOR = Number(MIN_NODE_VERSION.split('.')[0]);
+export const SUPPORTED_NODE_RANGE = `^${MIN_NODE_VERSION} || >=${NEXT_MIN_NODE_VERSION}`;
+export const MIN_NODE_API_VERSION = 10;
 
 export interface NodeRuntime {
 	node: string;
@@ -153,7 +156,9 @@ export function chooseRuntime(
 export function isSupportedRuntime(runtime: NodeRuntime): boolean {
 	const parts = versionParts(runtime.version);
 	if (!parts || runtime.major !== parts[0]) return false;
-	const minimum = versionParts(MIN_NODE_VERSION)!;
+	const minimum = versionParts(
+		parts[0] === MIN_NODE_MAJOR ? MIN_NODE_VERSION : NEXT_MIN_NODE_VERSION
+	)!;
 	for (let index = 0; index < parts.length; index++) {
 		if (parts[index] !== minimum[index]) return parts[index] > minimum[index];
 	}
@@ -170,7 +175,7 @@ export function serverEntry(runtime: NodeRuntime): ServerEntry {
 		const npxCli = join(binDir, 'node_modules', 'npm', 'bin', 'npx-cli.js');
 		if (!existsSync(npxCli))
 			throw new Error(
-				'npm npx-cli.js was not found beside Node; reinstall the official Node distribution'
+				`npm npx-cli.js was not found beside Node; reinstall an official Node distribution satisfying ${SUPPORTED_NODE_RANGE}`
 			);
 		return {
 			command: runtime.node,

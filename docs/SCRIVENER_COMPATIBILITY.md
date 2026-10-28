@@ -7,6 +7,13 @@ buffers and undocumented native compile-layout rules are outside this interface.
 
 ## Runtime and platform evidence
 
+The current SQLite 13 driver requires `^22.14.0 || >=23.6.0` and Node-API 10; Node 24 is
+recommended. CI checks the exact 22.14 minimum and Node 24 across all three operating systems, plus
+latest Node 22 and Node 26 on Linux. The 22.13 observations below are historical evidence for driver
+12 and do not establish current 22.13 support. Current candidate results are recorded in
+[the ledger](implementation-status.md#coordinated-major-dependency-integration) and its integration
+checks.
+
 | Target                                                 | Evidence in this candidate                                                                                                                                                | Limit                                                                                                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | macOS arm64, Node 26.8.1 / npm 11.19.0                 | Local manager validation, generated Mac/Windows-layout fixtures, installed-package MCP sessions and Chromium Apps interactions                                            | Exact final command results are recorded in [the ledger](implementation-status.md)                                                                   |
@@ -14,7 +21,7 @@ buffers and undocumented native compile-layout rules are outside this interface.
 | Linux, Node 22.13.0 and 24                             | Native CI passed the release gate and installed-package MCP sessions; Node 24 also passed Chromium and EPUBCheck                                                          | No native Scrivener process integration; native-app detection is ambiguous and writes need explicit acknowledgment                                   |
 | macOS, Node 22.13.0 and 24                             | Native CI passed the release gate and installed-package MCP sessions, including private-runtime setup                                                                     | These remote CI observations are separate from the local Node 26 measurements                                                                        |
 | Linux, latest Node 22 and Node 26                      | Expanded native CI passed the same release gate and installed-package sessions                                                                                            | This supplements the minimum-version and Node 24 jobs; native Scrivener GUI behavior remains outside Linux coverage                                  |
-| Node below 22.13.0                                     | Rejected by package/setup requirements                                                                                                                                    | The supported runtime policy starts at 22.13, above the dependency minimums; Node 18/20 are outside the current test matrix                          |
+| Node below 22.14, or 23.0 through 23.5                 | Rejected by current package/setup/bootstrap requirements                                                                                                                  | SQLite 13 requires Node-API 10; the previous 22.13 floor applied to driver 12. Node 18/20 are unsupported                                            |
 | MCP core SDK 1.32.1 / 1.32.2, Apps protocol 2026-01-26 | Installed-package sessions negotiate Apps and resource metadata; a plain client receives useful text/structured data                                                      | Individual commercial hosts may implement different extension versions; their visual integration is not certified by the simulated-host browser test |
 
 The repository's full final gate includes formatting, lint, type checking, build,
@@ -31,6 +38,11 @@ native Scrivener release or GUI interaction.
 The expanded eight-job matrix passed on main at `72ade1c` in
 [CI run 40707022045](https://github.com/writerslogic/scrivener-mcp/actions/runs/40707022045).
 `Release verification` now requires every matrix job to succeed before main integration.
+
+The SQLite driver upgrade retains the application schema. Original CC0 fixtures in
+`tests/fixtures/sqlite12` were produced with driver 12.11.1 / SQLite 3.53.2, including a committed
+WAL left by a terminated writer. Tests copy those files before opening them with the current driver,
+verify Unicode and WAL recovery, and exercise rollback, reopen and competing-process claims.
 
 ## Format and fidelity coverage
 

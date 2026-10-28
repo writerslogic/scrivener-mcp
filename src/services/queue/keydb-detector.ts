@@ -14,10 +14,39 @@ export interface ConnectionInfo {
 	version?: string;
 }
 
-export async function detectConnection(): Promise<ConnectionInfo> {
-	const urls = [process.env.KEYDB_URL, process.env.REDIS_URL, 'redis://localhost:6379'].filter(
-		Boolean
-	);
+export async function detectConnection(candidateUrls?: readonly string[]): Promise<ConnectionInfo> {
+	if (candidateUrls === undefined && process.env.SCRIVENER_LOCAL_ONLY === 'true')
+		return { type: 'none', url: null, isAvailable: false };
+	if (candidateUrls !== undefined) {
+		if (!Array.isArray(candidateUrls) || candidateUrls.length > 16)
+			throw new Error('Explicit Redis candidates must be an array of at most 16 URLs');
+		for (const candidate of candidateUrls) {
+			if (
+				typeof candidate !== 'string' ||
+				Buffer.byteLength(candidate) > 4096 ||
+				/[\s\p{Cc}]/u.test(candidate)
+			)
+				throw new Error('Each explicit Redis URL must be a string of at most 4096 bytes');
+			let parsed: URL;
+			try {
+				parsed = new URL(candidate);
+			} catch {
+				throw new Error('Each explicit Redis candidate must be a valid Redis URL');
+			}
+			if (
+				!['redis:', 'rediss:'].includes(parsed.protocol) ||
+				!parsed.hostname ||
+				parsed.port === '0'
+			)
+				throw new Error(
+					'Explicit Redis URLs require redis/rediss, a host and a valid port'
+				);
+		}
+	}
+	const urls = candidateUrls
+		? [...candidateUrls]
+		: [process.env.KEYDB_URL, process.env.REDIS_URL, 'redis://localhost:6379'].filter(Boolean);
+	if (urls.length === 0) return { type: 'none', url: null, isAvailable: false };
 
 	const connectionCandidates = urls
 		.map((url) => {
@@ -53,6 +82,7 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 	}
 
 	for (const url of urls) {
+		const target = connectionCandidates.find((candidate) => candidate.url === url);
 		let client: Redis | undefined;
 		try {
 			const startTime = Date.now();
@@ -83,7 +113,8 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 
 			logger.info(`Detected ${isKeyDB ? 'KeyDB' : 'Redis'}`, {
 				version,
-				url: url?.includes('localhost') ? 'localhost:6379' : url,
+				host: target?.host ?? 'local socket',
+				port: target?.port,
 				latency: connectionLatency,
 				adaptiveTimeout,
 				networkHealth: networkMonitor.getHealthScore(),
@@ -97,7 +128,9 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 			};
 		} catch (error) {
 			client?.disconnect();
-			logger.debug(`Failed to connect to ${url}`, {
+			logger.debug('Failed to connect to Redis', {
+				host: target?.host ?? 'local socket',
+				port: target?.port,
 				error: (error as Error).message,
 				networkHealth: networkMonitor.getHealthScore(),
 			});

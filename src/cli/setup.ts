@@ -18,7 +18,7 @@ import { firstSession } from '../setup/first-session.js';
 import { redactDiagnostics } from '../setup/redaction.js';
 import { installLinks } from '../setup/links.js';
 import {
-	MIN_NODE_VERSION,
+	SUPPORTED_NODE_RANGE,
 	isSupportedRuntime,
 	chooseRuntime,
 	currentRuntime,
@@ -147,7 +147,7 @@ async function confirm(question: string): Promise<boolean> {
 function nodeProblem(): string {
 	const rt = currentRuntime();
 	const seen = rt ? `This is Node ${rt.version}` : 'Node was not found';
-	return `${seen}, but Scrivener MCP needs Node ${MIN_NODE_VERSION} or newer with npx.
+	return `${seen}, but Scrivener MCP needs a stable Node version satisfying ${SUPPORTED_NODE_RANGE} with npx.
 Install it with the one-line installer, which needs no administrator password:
   curl -fsSL https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/scripts/bootstrap-mac.sh | sh`;
 }
@@ -189,7 +189,7 @@ function resolveEntry(opts: Options): { runtime: NodeRuntime; entry: ServerEntry
 		const runtime = probeRuntime(opts.node, 'explicit');
 		if (!runtime) return `Could not run ${opts.node}`;
 		if (!isSupportedRuntime(runtime)) {
-			return `${opts.node} is Node ${runtime.version}; Node ${MIN_NODE_VERSION} or newer is required`;
+			return `${opts.node} is Node ${runtime.version}; a stable Node version satisfying ${SUPPORTED_NODE_RANGE} is required`;
 		}
 		return { runtime, entry: { command: runtime.node, args: [opts.script] } };
 	}
