@@ -9,6 +9,7 @@ import {
 	getNotesPath,
 	traverseBinder,
 } from '../../../src/utils/scrivener-utils.js';
+import { join, resolve, sep } from 'path';
 import type { BinderItem, BinderContainer } from '../../../src/types/internal.js';
 
 describe('Scrivener Utils', () => {
@@ -187,20 +188,20 @@ describe('Scrivener Utils', () => {
 	});
 
 	describe('Path Utilities', () => {
-		const projectPath = '/path/to/project.scriv';
+		const projectPath = resolve('path', 'to', 'project.scriv');
 
 		describe('getDocumentPath', () => {
 			it('should generate correct document path', () => {
 				const documentId = 'ABC123';
 				const result = getDocumentPath(projectPath, documentId);
-				expect(result).toBe('/path/to/project.scriv/Files/Data/ABC123/content.rtf');
+				expect(result).toBe(join(projectPath, 'Files', 'Data', 'ABC123', 'content.rtf'));
 			});
 
-			it('should handle trailing slash in project path', () => {
-				const projectPathWithSlash = '/path/to/project.scriv/';
+			it.each([...new Set(['/', sep])])('should handle trailing separator %s in project path', (separator) => {
+				const projectPathWithSlash = projectPath + separator;
 				const documentId = 'ABC123';
 				const result = getDocumentPath(projectPathWithSlash, documentId);
-				expect(result).toBe('/path/to/project.scriv/Files/Data/ABC123/content.rtf');
+				expect(result).toBe(join(projectPath, 'Files', 'Data', 'ABC123', 'content.rtf'));
 			});
 		});
 
@@ -208,7 +209,7 @@ describe('Scrivener Utils', () => {
 			it('should generate correct synopsis path', () => {
 				const documentId = 'ABC123';
 				const result = getSynopsisPath(projectPath, documentId);
-				expect(result).toBe('/path/to/project.scriv/Files/Data/ABC123/synopsis.txt');
+				expect(result).toBe(join(projectPath, 'Files', 'Data', 'ABC123', 'synopsis.txt'));
 			});
 		});
 
@@ -216,7 +217,7 @@ describe('Scrivener Utils', () => {
 			it('should generate correct notes path', () => {
 				const documentId = 'ABC123';
 				const result = getNotesPath(projectPath, documentId);
-				expect(result).toBe('/path/to/project.scriv/Files/Data/ABC123/notes.rtf');
+				expect(result).toBe(join(projectPath, 'Files', 'Data', 'ABC123', 'notes.rtf'));
 			});
 		});
 	});
