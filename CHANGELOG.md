@@ -5,11 +5,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Complete editorial integration and release verification
+- Integrate editorial tools dashboard presets and first session
+- Add durable manuscript review and coordinated revisions
+- Add local passage retrieval and durable editorial workflows
+- Add scoped story bible and evidence-based continuity review
+- Establish editorial service contracts and acceptance ledger
+
+### Changed
+- Streamline editorial persistence and recovery
+- Consolidate result spooling and remove repository noise
+
 ### Documentation
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Integrate editorial cleanup and current compatibility evidence
+- Reuse scoped provenance and preserve historical continuity checks
+- Retire project memory before closing shared resources
+- Resume beta drafts after explicit export warning acknowledgment
+- Bind saved revisions and recover native snapshot operations
+- Coordinate async service lifetimes and cover portable project layouts
+- Restore database installer coverage and correct Neo4j resource handling
 - Group CodeQL action updates
+
+### Performance
+- Streamline retrieval and guard durable workflow transitions
 
 ### Security
 - Patch js-yaml and integrate maintenance updates (#183)
