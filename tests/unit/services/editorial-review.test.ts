@@ -1,6 +1,9 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { constants, renameSync, symlinkSync } from 'node:fs';
+import { promisify } from 'node:util';
+import { pathToFileURL } from 'node:url';
 import * as fs from 'node:fs/promises';
 import { tmpdir, hostname } from 'node:os';
 import * as path from 'node:path';
@@ -532,4 +535,89 @@ test('retrying an undo reconciles an interrupted rename before checking the orig
 	expect(reviews.get(proposal.id).edits[0].status).toBe('pending');
 	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
 	expect(await listDocumentSnapshots(root, DOCUMENT)).toHaveLength(snapshots);
+});
+
+
+const posixReadTest = process.platform === 'win32' || !constants.O_NOFOLLOW || !constants.O_NONBLOCK ? test.skip : test;
+
+posixReadTest('a symlink swapped in after project-path validation is rejected by the descriptor open', async () => {
+	const outside = await fs.mkdtemp(path.join(tmpdir(), 'scrivener-open-race-'));
+	const external = path.join(outside, 'external.rtf');
+	await fs.writeFile(external, handler.convertToRTF('External manuscript content.'));
+	class SwappingCoordinator extends MutationCoordinator {
+		override assertProjectPath(target: string): void {
+			super.assertProjectPath(target);
+			if (target === file()) {
+				renameSync(target, `${target}.original`);
+				symlinkSync(external, target);
+			}
+		}
+	}
+	const coordinator = new SwappingCoordinator(root);
+	try {
+		await expect(coordinator.readRaw(DOCUMENT)).rejects.toThrow(/ELOOP|symlink|symbolic link/i);
+		expect(await fs.readFile(`${file()}.original`, 'utf8')).toBe(RICH);
+		expect(await fs.readFile(external, 'utf8')).toBe(handler.convertToRTF('External manuscript content.'));
+	} finally {
+		coordinator.close();
+		await fs.rm(outside, { recursive: true, force: true });
+	}
+});
+
+posixReadTest('a FIFO without a writer is rejected without blocking the saved-file read', async () => {
+	await fs.unlink(file());
+	await promisify(execFile)('mkfifo', [file()], { timeout: 5000 });
+	const script = `const { MutationCoordinator } = await import(process.env.SAVED_READ_MODULE); const coordinator = new MutationCoordinator(process.env.SAVED_READ_PROJECT); let result; try { await coordinator.readRaw(process.env.SAVED_READ_DOCUMENT); result = { unexpectedSuccess: true }; } catch (error) { result = { error: error.message }; } finally { coordinator.close(); } process.send(result, () => process.exit(0));`;
+	const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], {
+		cwd: process.cwd(),
+		env: {
+			...process.env,
+			SAVED_READ_MODULE: pathToFileURL(path.join(process.cwd(), 'src', 'services', 'editorial', 'mutation-coordinator.ts')).href,
+			SAVED_READ_PROJECT: root,
+			SAVED_READ_DOCUMENT: DOCUMENT,
+		},
+		stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+	});
+	try {
+		const result = await new Promise<unknown>((resolve, reject) => {
+			const timer = setTimeout(() => reject(new Error('Saved-file read blocked on a FIFO')), 8000);
+			child.once('message', (message) => { clearTimeout(timer); resolve(message); });
+			child.once('error', (error) => { clearTimeout(timer); reject(error); });
+			child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`Saved-file reader exited before reporting: ${code}`)); });
+		});
+		expect(result).toEqual({ error: expect.stringMatching(/regular file/i) });
+	} finally {
+		if (child.exitCode === null && child.signalCode === null) {
+			const exited = once(child, 'exit');
+			child.kill();
+			await exited;
+		}
+	}
+});
+
+test.each(['directory', 'oversized', 'invalid-utf8'])('saved-file descriptors reject %s content and release the opened handle', async (kind) => {
+	await fs.unlink(file());
+	if (kind === 'directory') await fs.mkdir(file());
+	else if (kind === 'oversized') {
+		const handle = await fs.open(file(), 'w');
+		try { await handle.truncate(64 * 1024 * 1024 + 1); }
+		finally { await handle.close(); }
+	} else await fs.writeFile(file(), Buffer.from([0xff]));
+	await expect(documents.getMutationCoordinator().readRaw(DOCUMENT)).rejects.toThrow();
+	await fs.rm(file(), { recursive: true });
+	await fs.writeFile(file(), RICH);
+	expect(await documents.getMutationCoordinator().readRaw(DOCUMENT)).toEqual({ raw: RICH, exists: true, revision: documentRevision(RICH) });
+});
+
+test('native checksum updates preserve key spelling and unrelated entries while collapsing case-varied duplicates', async () => {
+	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+	const nativeKey = `${DOCUMENT.toLowerCase()}/content.rtf=`;
+	const unrelated = `11111111-1111-4111-8111-111111111111/content.rtf=${'a'.repeat(40)}`;
+	const notes = `${DOCUMENT}/notes.rtf=${'b'.repeat(40)}`;
+	await fs.writeFile(checksum, `${nativeKey}${'0'.repeat(40)}\r\n${unrelated}\r\n${DOCUMENT}/content.rtf=${'1'.repeat(40)}\r\n${notes}\r\n${DOCUMENT}/CONTENT.RTF=${'2'.repeat(40)}\r\n`);
+	const raw = handler.convertToRTF('Updated saved manuscript.');
+	await documents.getMutationCoordinator().commit(DOCUMENT, raw, { expectedRevision: documentRevision(RICH) });
+	const hash = createHash('sha1').update(raw).digest('hex');
+	expect(hash).toMatch(/^[a-f0-9]{40}$/);
+	expect(await fs.readFile(checksum, 'utf8')).toBe(`${nativeKey}${hash}\r\n${unrelated}\r\n${notes}\r\n`);
 });
