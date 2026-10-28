@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# Native project fixtures retain their saved bytes on every platform.
+**/*.scriv/** -text
+*.rtf -text
+*.scrivx -text

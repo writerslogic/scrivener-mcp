@@ -167,3 +167,9 @@ checks require the six supported OS/runtime jobs before main integration. The Gi
 deepmerge alert (#71) is addressed by the existing tested local security patch and should close when
 the patched lockfile reaches main; it is not dismissed. Secret-scanning and code-scanning open-alert
 queries returned no other findings.
+
+Windows CI exposed Git checkout CRLF conversion against the repository’s LF formatting policy.
+`.gitattributes` now enforces source LF while treating native `.scriv` fixtures as opaque bytes; CI
+keeps all matrix jobs running to expose platform failures together. GitHub code quality found one
+unused EPUBCheck-script import, now removed. The follow-up parallel Jest confirmation also passed
+all 859 tests and exited normally without a worker warning.
