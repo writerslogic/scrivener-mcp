@@ -21,6 +21,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Report redacted causes in release conformance checks
+- Compare Windows saved-file descriptor identities
 - Harden saved reads and Windows release verification
 - Validate saved reads through guarded descriptors
 - Cover native runtime launch paths on Windows
