@@ -4,12 +4,18 @@
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { JobQueueService, JobType } from '../../../src/services/queue/job-queue.js';
-import { Queue, Worker, QueueEvents } from 'bullmq';
+import { Queue, Worker, QueueEvents, type Processor, type WorkerOptions } from 'bullmq';
 import * as keydbDetector from '../../../src/services/queue/keydb-detector.js';
 import { AIClient } from '../../../src/services/ai/ai-client.js';
 
 // Mock BullMQ
 jest.mock('bullmq');
+
+const workerConstructor: new (
+	name: string,
+	processor: Processor,
+	options: WorkerOptions
+) => Worker = Worker;
 
 // Mock KeyDB detector
 jest.mock('../../../src/services/queue/keydb-detector.js', () => ({
@@ -311,29 +317,16 @@ describe('JobQueueService v2', () => {
 			await jobQueueService.initialize();
 		});
 
-		it('should set correct concurrency for document analysis', () => {
-			// Worker constructor should have been called with correct concurrency
-			const analyzeDocumentWorkerCall = (
-				Worker as jest.MockedClass<typeof Worker>
-			).mock.calls.find((call) => call[0] === JobType.ANALYZE_DOCUMENT);
+		it.each([
+			{ jobType: JobType.ANALYZE_DOCUMENT, concurrency: 5 },
+			{ jobType: JobType.BUILD_VECTOR_STORE, concurrency: 1 },
+			{ jobType: JobType.GENERATE_SUGGESTIONS, concurrency: 3 },
+		])('sets $jobType concurrency to $concurrency', ({ jobType, concurrency }) => {
+			const workerCall = jest
+				.mocked(workerConstructor)
+				.mock.calls.find(([name]) => name === jobType);
 
-			expect(analyzeDocumentWorkerCall?.[2]?.concurrency).toBe(5);
-		});
-
-		it('should set correct concurrency for vector store building', () => {
-			const vectorStoreWorkerCall = (
-				Worker as jest.MockedClass<typeof Worker>
-			).mock.calls.find((call) => call[0] === JobType.BUILD_VECTOR_STORE);
-
-			expect(vectorStoreWorkerCall?.[2]?.concurrency).toBe(1);
-		});
-
-		it('should set correct concurrency for suggestion generation', () => {
-			const suggestionsWorkerCall = (
-				Worker as jest.MockedClass<typeof Worker>
-			).mock.calls.find((call) => call[0] === JobType.GENERATE_SUGGESTIONS);
-
-			expect(suggestionsWorkerCall?.[2]?.concurrency).toBe(3);
+			expect(workerCall?.[2].concurrency).toBe(concurrency);
 		});
 	});
 

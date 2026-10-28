@@ -72,8 +72,20 @@ tar -xzf "$WORK/$ARCHIVE" -C "$SERVER" --strip-components 1
 cp "$ROOT/package-lock.json" "$SERVER/package-lock.json"
 (cd "$SERVER" && PATH="$WORK/node-full/bin:$PATH" npm ci --omit=dev --ignore-scripts --os=darwin --cpu=arm64 --no-audit --no-fund >/dev/null)
 
-say "Installing the SQLite binary that matches the bundled Node"
-(cd "$SERVER/node_modules/better-sqlite3" && "$FULL_NODE" ../prebuild-install/bin.js --runtime node --target "$("$FULL_NODE" -p process.versions.node)" >/dev/null)
+say "Verifying the shipped SQLite binary with the bundled Node"
+(cd "$SERVER" && "$FULL_NODE" -e '
+const { dirname, join } = require("node:path");
+const Database = require("better-sqlite3");
+const binary = join(dirname(require.resolve("better-sqlite3/package.json")), "prebuilds", `${process.platform}-${process.arch}.node`);
+const database = new Database(":memory:", { nativeBinding: binary });
+try {
+	if (database.prepare("SELECT 1 AS ready").get().ready !== 1) {
+		throw new Error("The bundled SQLite binary failed its query check");
+	}
+} finally {
+	database.close();
+}
+')
 
 say "Pruning files the server never loads"
 find "${SERVER:?}/node_modules" -type f \( -name '*.map' -o \( \( -name '*.md' -o -name '*.markdown' \) ! -iname 'license*' ! -iname 'licence*' ! -iname 'copying*' ! -iname 'notice*' \) \) -delete
