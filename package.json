@@ -59,7 +59,7 @@
 		"@modelcontextprotocol/sdk": "^1.32.1",
 		"better-sqlite3": "^12.11.1",
 		"bluepencil-node": "^0.1.1",
-		"bullmq": "^5.79.1",
+		"bullmq": "^6.4.2",
 		"chalk": "^5.6.2",
 		"cheerio": "^1.2.0",
 		"compromise": "^14.15.1",
