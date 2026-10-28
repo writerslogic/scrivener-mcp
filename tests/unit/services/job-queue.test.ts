@@ -54,6 +54,7 @@ jest.mock('../../../src/services/ai/ai-writing-service.js', () => ({
 		generateWithContext: jest.fn(() => Promise.resolve('AI suggestion')),
 		buildVectorStore: jest.fn(() => Promise.resolve()),
 		semanticSearch: jest.fn(() => Promise.resolve([])),
+		clearMemory: jest.fn(() => Promise.resolve()),
 	})),
 }));
 

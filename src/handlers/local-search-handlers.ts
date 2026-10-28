@@ -34,6 +34,10 @@ export const passageSearchOutputSchema: ToolSchema = {
 					type: 'integer',
 					description: 'Current number of indexed passages in the project.',
 				},
+				documents: {
+					type: 'integer',
+					description: 'Current number of nonempty indexed source documents.',
+				},
 			},
 			required: ['changedDocuments', 'removedDocuments', 'passages'],
 		},
@@ -100,7 +104,7 @@ export const passageSearchOutputSchema: ToolSchema = {
 					hmsScore: {
 						type: 'number',
 						description:
-							'HMS text-vector score, used only as a small hybrid ranking contribution.',
+							'HMS document relevance score from BM25 and the supplied local concept vectors.',
 					},
 					matchedConcepts: {
 						type: 'array',
@@ -139,7 +143,7 @@ export const localSearchHandlers: ToolDefinition[] = [
 		name: 'search_passages',
 		title: 'Search Local Manuscript Passages',
 		description:
-			'Search saved manuscript passages without a provider key. Combine BM25 keywords with bounded English story-concept cosine similarity and existing HMS vectors; return exact quotations, surrounding context, binder locations and saved revisions. Use semantic mode for supported story concepts and keyword mode for names or concepts outside the disclosed vocabulary.',
+			'Search saved manuscript passages without a provider key. HMS document search combines BM25 keywords with supplied bounded English story-concept vectors; return exact quotations, surrounding context, binder locations and saved revisions. Use semantic mode for supported story concepts and keyword mode for names or concepts outside the disclosed vocabulary.',
 		annotations: {
 			readOnlyHint: false,
 			destructiveHint: false,

@@ -54,6 +54,16 @@ verify Unicode and WAL recovery, and exercise rollback, reopen and competing-pro
 
 ## Format and fidelity coverage
 
+Holographic Memory 0.6.4 is a declared dependency. The release gate exercises its installed native
+binding and the forced JavaScript fallback on every CI job. Local checks also verified native
+cross-process ownership and restart recovery, exact Unicode passage byte ranges, metadata/version
+retention and vector-store scope isolation. Published native packages cover eight OS/architecture
+tuples; publishing a tuple does not establish live verification on that hardware. Scrivener's saved
+source revisions remain authoritative. HMS `flush()` does not release its native store lock, and the
+upstream Node API has no deterministic close method; compatible owners reuse the store, while
+another server selects a volatile local fallback rehydrated from SQLite. No embedding model is
+downloaded.
+
 | Construct                                  | Verified behavior                                                                                                                                     | Boundary                                                                                                                                                                 |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Mac package and Windows-shaped directories | XML attributes, binder hierarchy/order, renamed/case-varied manifest discovery                                                                        | Scrivener 2 numeric IDs under `Files/Docs` and Scrivener 1/iOS-only formats are unsupported; migrate through Scrivener 3                                                 |

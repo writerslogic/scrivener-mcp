@@ -99,7 +99,10 @@ describe('durable editorial workflows', () => {
 			idempotencyKey: 'chapter-review',
 		});
 		const done = await service.wait(workflow.id);
-		expect(done.state).toBe('completed');
+		expect({ state: done.state, error: done.error }).toEqual({
+			state: 'completed',
+			error: undefined,
+		});
 		expect(done.progress).toBe(100);
 		expect(done.cost.actual).toBe(0);
 		expect(done.usage.providerRequests).toBe(0);

@@ -58,11 +58,12 @@ async function closeCurrentServices(): Promise<void> {
 	jobQueueService = null;
 	aiWritingService = null;
 	configuration = undefined;
-	try {
-		await queue?.shutdown();
-	} finally {
-		writing?.clearMemory();
-	}
+	const results = await Promise.allSettled([queue?.shutdown(), writing?.clearMemory()]);
+	const failures = results.flatMap((result) =>
+		result.status === 'rejected' ? [result.reason] : []
+	);
+	if (failures.length === 1) throw failures[0];
+	if (failures.length > 1) throw new AggregateError(failures, 'Async services failed to close');
 }
 
 export async function analyzeWorkflowDocument(params: {
@@ -141,7 +142,7 @@ export async function initializeAsyncServices(
 		} catch (error) {
 			if (jobQueueService === queue) {
 				jobQueueService = null;
-				aiWritingService?.clearMemory();
+				await aiWritingService?.clearMemory();
 				aiWritingService = null;
 				configuration = undefined;
 			}
@@ -264,7 +265,7 @@ export async function buildVectorStore(params: {
 		}
 
 		if (params.rebuild) {
-			aiWritingService.clearMemory();
+			await aiWritingService.clearMemory();
 		}
 
 		await aiWritingService.buildVectorStore(params.documents);

@@ -360,3 +360,54 @@ with npm 10 and 11; a fresh registry install with npm 10 used the shipped binary
 The minimum Windows job now uses Visual Studio 2022 on `windows-2022`; the Node 24 job retains
 `windows-latest`. All eight cases and the strict aggregate remain required. Final candidate results
 are attached to PR #202; the failed original run is not counted as passing evidence.
+
+## Holographic Memory 0.6.4 integration
+
+The manager works in `/Volumes/A/scrivener-mcp-hms064` on `quality/hms-064-20261028`, preserving the
+original dirty checkouts. The published 0.6.4 npm package and release sources establish the
+integration contract; no model downloads or paid providers are part of development verification.
+
+| Acceptance                  | Implementation and verification target                                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installed native library    | Declare 0.6.4, use its published types, resolve from the installed server, and verify native and forced fallback from unrelated working directories.                               |
+| Effective passage retrieval | Use native document BM25 and supplied story-concept embeddings, stable project/source revisions and scoped queries; preserve exact UTF-16 source context.                          |
+| Incremental durable index   | Replace/delete changed passages, recover an interrupted synchronization from the existing SQLite store, and reuse a versioned project cache without rebuilding unchanged passages. |
+| Honest lifecycle            | Share compatible native owners safely, flush on release, and retain a weak idle reference for reopen; native 0.6.4 has no deterministic close API.                                 |
+| Consumers                   | Preserve vector-store metadata and scoped text after restart, use native batches and close owned consumers; keep analogy/triplet compatibility.                                    |
+| Release gate                | Focused provenance/relevance/restart/input cases, native/fallback compatibility, all existing release checks, installed-package MCP interactions and dependency audit.             |
+
+The manager owns dependencies, types, native loading/ownership, fallback and compatibility gates.
+One worker owns only `passage-search.ts` and its regression file; another owns the vector-store
+adapter and its direct consumers/tests. Their common wrapper contract is `memorizeDocuments`,
+`searchDocuments`, `deleteDocument`, published document result fields, an explicit embedding-space
+identity, and a forced-fallback configuration. SQLite remains authoritative; native indexes are
+derived, and source versions are checked by Scrivener services rather than treated as native CAS.
+
+The manager inspected and integrated consumer commit `c466a27` and passage commit `b44ffe1`. Native
+package loading was verified from `/`; Transformers was absent and the published binary did not
+export the feature-gated `LocalEmbedder`. Eight fallback and nine native compatibility cases passed,
+followed by a fresh-process native reopen retaining text, relationships and scoped document
+metadata. Fourteen isolated installed-package/MCP checks passed with the actual native dependency.
+
+Focused integration passed 41 tests, with 30 workflow/queue regressions passing after fixing a
+cross-realm filesystem-absence check and updating the queue's lifecycle fixture. Pure semantic
+scores retain absolute concept cosine so existing thresholds remain meaningful; native fusion owns
+hybrid ranking. Cache schema 2 intentionally replaces temporary per-revision indexes with a durable
+derived index. Closed wrappers reject operations, and callers await consumer cleanup. Complete final
+gate results and remote CI evidence will be attached to this section's integration PR.
+
+The complete local gate passed: formatting, lint, types, build, runtime policy, 75-tool registry, 29
+output-conformance paths, eight fallback/nine native cases plus native process restart, 90 Jest
+suites (1,013 passed; nine explicitly gated live-provider skips), and a zero-vulnerability audit. A
+frozen install succeeded with real-client configuration disabled. The installed package also
+exercises retrieval after a real MCP server restart, checking unchanged source revisions and exact
+manuscript context. Logs are retained in `logs/hms-064/` in the integration checkout.
+
+Integration PR [#203](https://github.com/writerslogic/scrivener-mcp/pull/203) carries the remote
+compatibility evidence. Its installed-package module check explicitly loads the production native
+binding, so packaging and post-pruning bundle checks cannot silently pass using the fallback.
+
+Primary contracts:
+[0.6.4 release](https://github.com/writerslogic/holographic-memory/releases/tag/v0.6.4),
+[Node declarations](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/index.d.ts) and
+[native store ownership](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/src/core/store_lock.rs).

@@ -662,7 +662,7 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 
 export const buildVectorStoreHandler: ToolDefinition = {
 	name: 'build_vector_store',
-	description: 'Build search index',
+	description: 'Refresh the active project local passage search index',
 	inputSchema: {
 		type: 'object',
 		properties: {},
@@ -671,36 +671,7 @@ export const buildVectorStoreHandler: ToolDefinition = {
 		const project = requireProject(context);
 
 		try {
-			// Get all project documents
-			const documents = await project.getAllDocuments();
-			const vectorDocuments = documents
-				.filter((doc) => doc.content)
-				.map((doc) => ({
-					id: doc.id,
-					content: doc.content || '',
-					metadata: {
-						title: doc.title,
-						type: doc.type,
-						wordCount: doc.content ? doc.content.split(' ').length : 0,
-						synopsis: doc.synopsis,
-					},
-				}));
-
-			if (vectorDocuments.length === 0) {
-				throw new Error('No documents with content found for indexing');
-			}
-
-			// Initialize HMS-backed vector store
-			const { HMSVectorStore } = await import('../services/ai/hms-vector-store.js');
-
-			const docs = vectorDocuments.map((doc) => ({
-				pageContent: doc.content,
-				metadata: { id: doc.id, ...doc.metadata },
-			}));
-
-			// The HMS store persists to its shared on-disk index, which semantic_search
-			// queries; the returned instance is intentionally not retained here.
-			await HMSVectorStore.fromDocuments(docs);
+			const indexed = await project.getEditorialServices().search.refresh();
 
 			return {
 				content: [
@@ -708,7 +679,8 @@ export const buildVectorStoreHandler: ToolDefinition = {
 						type: 'text',
 						text: compact({
 							vectorIndexed: true,
-							documentsIndexed: vectorDocuments.length,
+							documentsIndexed: indexed.documents,
+							passagesIndexed: indexed.passages,
 							status: 'indexed',
 						}),
 					},
@@ -720,7 +692,7 @@ export const buildVectorStoreHandler: ToolDefinition = {
 				content: [
 					{
 						type: 'text',
-						text: 'Vector store build failed. Ensure documents have content; details are in the server logs.',
+						text: 'Search index refresh failed; details are in the server logs.',
 					},
 				],
 			};

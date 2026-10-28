@@ -455,6 +455,15 @@ async function main() {
 		const { Client, StdioClientTransport, firstSession } = await check(
 			'installed-package-modules',
 			async () => {
+				await promisify(execFile)(
+					process.execPath,
+					[
+						'-e',
+						'require(process.argv[1]).loadNativeBinding()',
+						join(installed, 'dist/services/memory/hhm/native-loader.cjs'),
+					],
+					{ cwd: root, env, timeout: 20000, maxBuffer: 128 * 1024 }
+				);
 				const clientModule = await import(
 					pathToFileURL(
 						requireInstalled.resolve('@modelcontextprotocol/sdk/client/index.js')
@@ -1045,6 +1054,22 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 					'Dashboard resource did not declare its local-only CSP'
 				);
 				await tool(app, 'open_project', { path: projectPath });
+				const reopenedSearch = await tool(app, 'search_passages', {
+					query: 'fear',
+					mode: 'semantic',
+					limit: 3,
+				});
+				verify(
+					reopenedSearch.index.changedDocuments === 0 &&
+						reopenedSearch.results.some(
+							(item) =>
+								item.documentId === SAMPLE_DOCUMENT &&
+								item.revision === originalRevision &&
+								item.semanticScore > 0 &&
+								item.context.includes(item.quote)
+						),
+					'Installed passage search lost persisted source context or reindexed unchanged sources after restart'
+				);
 				verify(
 					(await tool(app, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT }))
 						.uiSupported === true,
