@@ -407,6 +407,12 @@ Integration PR [#203](https://github.com/writerslogic/scrivener-mcp/pull/203) ca
 compatibility evidence. Its installed-package module check explicitly loads the production native
 binding, so packaging and post-pruning bundle checks cannot silently pass using the fallback.
 
+The post-merge scan surfaced SDK transitive dependency advisory
+[GHSA-rmxm-3fg6-px4f](https://github.com/honojs/node-server/security/advisories/GHSA-rmxm-3fg6-px4f).
+The security follow-up sets the `@hono/node-server` override floor to 2.1.3 and resolves 2.1.5 in
+the lockfile, preserving the existing YAML and deepmerge fixes. npm audit reports no vulnerabilities
+with the patched tree; the same full compatibility, package and protocol gates apply.
+
 Primary contracts:
 [0.6.4 release](https://github.com/writerslogic/holographic-memory/releases/tag/v0.6.4),
 [Node declarations](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/index.d.ts) and
