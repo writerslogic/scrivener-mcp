@@ -43,11 +43,31 @@ interface MutationTarget {
 	projectFile?: string;
 }
 
-interface MutationClaim {
-	operationId: string;
+interface OperationOwner {
 	ownerPid: number;
 	host: string;
 	token: string;
+}
+
+interface MutationClaim extends OperationOwner {
+	operationId: string;
+}
+
+function assertOperationOwner(value: unknown): asserts value is OperationOwner {
+	const owner = value as Partial<OperationOwner> | null;
+	if (!owner || !Number.isSafeInteger(owner.ownerPid) || owner.ownerPid! <= 0 || owner.ownerPid! > 2_147_483_647 || typeof owner.host !== 'string' || !owner.host.length || owner.host.length > 255 || typeof owner.token !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(owner.token)) throw new Error('Malformed operation ownership record; manual inspection is required');
+}
+
+export function operationOwnerState(owner: OperationOwner, activeTokens: ReadonlySet<string>): 'alive' | 'dead' | 'unknown' {
+	assertOperationOwner(owner);
+	if (owner.host !== hostname()) return 'unknown';
+	if (owner.ownerPid === process.pid) return activeTokens.has(owner.token) ? 'alive' : 'unknown';
+	try {
+		process.kill(owner.ownerPid, 0);
+		return 'alive';
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'dead' : 'unknown';
+	}
 }
 
 export interface CommitOptions {
@@ -60,13 +80,13 @@ export interface CommitOptions {
 export class MutationCoordinator {
 	private store?: PersistentStore;
 	private indexInitialized = false;
-	private readonly suppliedStore: boolean;
+	private ownsStore: boolean;
 	readonly projectPath: string;
 
 	constructor(projectPath: string, store?: PersistentStore) {
 		this.projectPath = path.resolve(projectPath);
 		this.store = store;
-		this.suppliedStore = Boolean(store);
+		this.ownsStore = !store;
 	}
 
 	private state(): PersistentStore {
@@ -77,6 +97,7 @@ export class MutationCoordinator {
 			this.store = new PersistentStore(
 				path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
 			);
+			this.ownsStore = true;
 		}
 		if (!this.indexInitialized) {
 			const store = this.store;
@@ -223,26 +244,9 @@ export class MutationCoordinator {
 	private claim(): MutationClaim | undefined {
 		const value = this.state().get<unknown>(CLAIMS, 'project');
 		if (value === undefined) return undefined;
-		if (!value || typeof value !== 'object')
-			throw new Error(
-				'Malformed manuscript operation ownership record; manual inspection is required'
-			);
+		assertOperationOwner(value);
 		const claim = value as Partial<MutationClaim>;
-		if (
-			typeof claim.operationId !== 'string' ||
-			!/^[A-Za-z0-9_-]{1,128}$/.test(claim.operationId) ||
-			!Number.isSafeInteger(claim.ownerPid) ||
-			claim.ownerPid! <= 0 ||
-			claim.ownerPid! > 2_147_483_647 ||
-			typeof claim.host !== 'string' ||
-			!claim.host.length ||
-			claim.host.length > 255 ||
-			typeof claim.token !== 'string' ||
-			!/^[A-Za-z0-9_-]{1,128}$/.test(claim.token)
-		)
-			throw new Error(
-				'Malformed manuscript operation ownership record; manual inspection is required'
-			);
+		if (typeof claim.operationId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(claim.operationId)) throw new Error('Malformed manuscript operation ownership record; manual inspection is required');
 		return claim as MutationClaim;
 	}
 
@@ -296,26 +300,16 @@ export class MutationCoordinator {
 		return record;
 	}
 
-	private ownerAlive(claim: MutationClaim): 'alive' | 'dead' | 'unknown' {
-		if (claim.host !== hostname()) return 'unknown';
-		if (claim.ownerPid === process.pid)
-			return activeClaims.has(claim.token) ? 'alive' : 'unknown';
-		try {
-			process.kill(claim.ownerPid, 0);
-			return 'alive';
-		} catch (error) {
-			return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'dead' : 'unknown';
-		}
-	}
 
 	async recover(): Promise<MutationRecord[]> {
 		const store = this.state();
 		const recovered: MutationRecord[] = [];
 		const visited = new Set<string>();
+		let pending: string[] = [];
 		while (true) {
 			const claim = this.claim();
 			if (claim) {
-				const alive = this.ownerAlive(claim);
+				const alive = operationOwnerState(claim, activeClaims);
 				if (alive !== 'dead')
 					throw new Error(
 						alive === 'alive'
@@ -323,9 +317,11 @@ export class MutationCoordinator {
 							: 'Manuscript operation ownership is ambiguous; inspect the original server before recovery'
 					);
 			}
-			const operationId =
-				claim?.operationId ??
-				store.list<{ id: string }>(PENDING).find((record) => !visited.has(record.id))?.id;
+			if (!claim) {
+				while (pending.length && visited.has(pending[pending.length - 1])) pending.pop();
+				if (!pending.length) pending = store.list<{ id: string }>(PENDING).map((record) => record.id).filter((id) => !visited.has(id));
+			}
+			const operationId = claim?.operationId ?? pending.pop();
 			if (!operationId) return recovered;
 			visited.add(operationId);
 			const token = randomUUID();
@@ -377,11 +373,13 @@ export class MutationCoordinator {
 				} else store.delete(PENDING, record.id);
 				recovered.push(record);
 			} finally {
-				store.transaction(() => {
-					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
-						store.delete(CLAIMS, 'project');
-				});
-				activeClaims.delete(token);
+				try {
+					store.transaction(() => {
+						if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token) store.delete(CLAIMS, 'project');
+					});
+				} finally {
+					activeClaims.delete(token);
+				}
 			}
 		}
 	}
@@ -574,11 +572,13 @@ export class MutationCoordinator {
 			});
 			return record;
 		} finally {
-			store.transaction(() => {
-				if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
-					store.delete(CLAIMS, 'project');
-			});
-			activeClaims.delete(token);
+			try {
+				store.transaction(() => {
+					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token) store.delete(CLAIMS, 'project');
+				});
+			} finally {
+				activeClaims.delete(token);
+			}
 		}
 	}
 
@@ -602,7 +602,7 @@ export class MutationCoordinator {
 	}
 
 	close(): void {
-		if (this.store && !this.suppliedStore) this.store.close();
+		if (this.store && this.ownsStore) this.store.close();
 		this.store = undefined;
 		this.indexInitialized = false;
 	}
