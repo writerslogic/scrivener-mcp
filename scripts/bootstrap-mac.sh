@@ -14,7 +14,7 @@
 set -eu
 
 MIN_MAJOR=22
-NODE_LINE="v22"
+NODE_LINE="v24"
 PRIVATE_DIR="$HOME/.scrivener-mcp/node"
 
 say() { printf '%s\n' "$*"; }

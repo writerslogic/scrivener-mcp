@@ -405,6 +405,9 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 
 ## Development
 
+See the [compatibility and upgrade policy](docs/forward-compatibility.md) for runtime checks,
+protocol contracts, dependency upgrades and the stable release gate.
+
 ```bash
 git clone https://github.com/writerslogic/scrivener-mcp.git
 cd scrivener-mcp

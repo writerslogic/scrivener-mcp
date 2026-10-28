@@ -22,6 +22,25 @@ export interface ServerEntry {
 
 const SYSTEM_PATH = ['/usr/bin', '/bin', '/usr/sbin', '/sbin'];
 
+function versionParts(version: string): number[] | null {
+	if (typeof version !== 'string' || version.length > 64) return null;
+	const match = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version);
+	if (!match) return null;
+	const parts = match.slice(1).map(Number);
+	return parts.every(Number.isSafeInteger) ? parts : null;
+}
+
+function compareRuntimes(left: NodeRuntime, right: NodeRuntime): number {
+	if ((left.source === 'private') !== (right.source === 'private'))
+		return left.source === 'private' ? -1 : 1;
+	const a = versionParts(left.version)!;
+	const b = versionParts(right.version)!;
+	for (let index = 0; index < a.length; index++) {
+		if (a[index] !== b[index]) return b[index] - a[index];
+	}
+	return 0;
+}
+
 /**
  * Prefer a stable symlink (for example /opt/homebrew/bin/node) over the versioned file it
  * points to (/opt/homebrew/Cellar/node/26.8.1/bin/node), which disappears on the next upgrade.
@@ -53,8 +72,9 @@ export function probeRuntime(rawNode: string, source: string): NodeRuntime | nul
 	const node = stablePath(rawNode);
 	try {
 		const version = execFileSync(node, ['-v'], { encoding: 'utf8', timeout: 5000 }).trim();
-		const major = Number.parseInt(version.replace(/^v/, ''), 10);
-		if (!Number.isFinite(major)) return null;
+		const parts = versionParts(version);
+		if (!parts) return null;
+		const major = parts[0];
 		const npx = join(dirname(node), process.platform === 'win32' ? 'npx.cmd' : 'npx');
 		return { node, npx: existsSync(npx) ? npx : null, version, major, source };
 	} catch {
@@ -101,12 +121,18 @@ export function findRuntimes(): NodeRuntime[] {
 	const seen = new Set<string>();
 	const found: NodeRuntime[] = [];
 	for (const [path, source] of candidates) {
-		if (seen.has(path)) continue;
-		seen.add(path);
+		let identity: string;
+		try {
+			identity = realpathSync(path);
+		} catch {
+			continue;
+		}
+		if (seen.has(identity)) continue;
+		seen.add(identity);
 		const rt = probeRuntime(path, source);
 		if (rt) found.push(rt);
 	}
-	return found;
+	return found.sort(compareRuntimes);
 }
 
 /** Pick the runtime to write into client configs: the running one if usable, else the best found. */
@@ -117,12 +143,21 @@ export function chooseRuntime(
 	const usable = (rt: NodeRuntime | null): rt is NodeRuntime =>
 		rt !== null && isSupportedRuntime(rt) && rt.npx !== null;
 	if (usable(current)) return current;
-	return candidates.find(usable) ?? null;
+	let best: NodeRuntime | null = null;
+	for (const candidate of candidates) {
+		if (usable(candidate) && (!best || compareRuntimes(candidate, best) < 0)) best = candidate;
+	}
+	return best;
 }
 
 export function isSupportedRuntime(runtime: NodeRuntime): boolean {
-	const parts = runtime.version.replace(/^v/, '').split('.').map(Number);
-	return runtime.major > MIN_NODE_MAJOR || (runtime.major === MIN_NODE_MAJOR && parts[1] >= 13);
+	const parts = versionParts(runtime.version);
+	if (!parts || runtime.major !== parts[0]) return false;
+	const minimum = versionParts(MIN_NODE_VERSION)!;
+	for (let index = 0; index < parts.length; index++) {
+		if (parts[index] !== minimum[index]) return parts[index] > minimum[index];
+	}
+	return true;
 }
 
 /**

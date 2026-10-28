@@ -55,6 +55,7 @@ const manifest = {
   license: "AGPL-3.0-only",
   keywords: ["scrivener", "writing", "manuscript", "novel", "editing"],
   icon: "icon.png",
+  screenshots: ["server/assets/infographics/capability-map.png"],
   server: {
     type: "binary",
     entry_point: "runtime/bin/node",
@@ -77,36 +78,23 @@ npx -y "@anthropic-ai/mcpb@$MCPB_CLI_VERSION" pack "$SRC" "$ARCHIVE"
 
 say "Verifying the packed extension launches the way Claude Desktop will launch it"
 CHECK="$(mktemp -d)"
+trap 'rm -rf "$CHECK"' EXIT
 unzip -q "$ARCHIVE" -d "$CHECK"
 [ -x "$CHECK/runtime/bin/node" ] || die "The bundled node lost its executable bit in the archive."
-# Run the manifest's exact command, with ${__dirname} resolved, through an MCP handshake.
-CHECK="$CHECK" node --input-type=module -e '
+(cd "$CHECK" && CHECK="$CHECK" SCRIVENER_SOURCE_ROOT="$ROOT" node --input-type=module -e '
 import { readFileSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
+const { handshake } = await import(pathToFileURL(process.env.SCRIVENER_SOURCE_ROOT + "/dist/setup/doctor.js").href);
 const dir = process.env.CHECK;
 const m = JSON.parse(readFileSync(dir + "/manifest.json", "utf8")).server.mcp_config;
 const sub = (s) => s.replaceAll("${__dirname}", dir);
-const child = spawn(sub(m.command), m.args.map(sub), { env: { ...process.env, ...m.env }, stdio: ["pipe", "pipe", "inherit"] });
-let buf = "";
-const timer = setTimeout(() => { console.error("handshake timed out"); child.kill(); process.exit(1); }, 90000);
-child.stdout.on("data", (d) => {
-  buf += d;
-  for (const line of buf.split("\n")) {
-    if (!line.trim()) continue;
-    try {
-      const msg = JSON.parse(line);
-      if (msg.id === 1) {
-        child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
-        child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }) + "\n");
-      } else if (msg.id === 2) {
-        console.log("extension started, " + msg.result.tools.length + " tools");
-        clearTimeout(timer); child.kill(); process.exit(0);
-      }
-    } catch {}
-  }
-});
-child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "mcpb-check", version: "1" } } }) + "\n");
-'
+const result = await handshake({
+  command: sub(m.command), args: m.args.map(sub),
+  env: { ...m.env, HOME: dir, SCRIVENER_DATA_DIR: dir + "/state" }
+}, 90000);
+if (!result.ok) throw new Error(result.error);
+console.log("extension started, " + result.toolCount + " tools");
+')
 
 shasum -a 256 "$ARCHIVE" | tee "$ARCHIVE.sha256"
 say "Built $ARCHIVE"

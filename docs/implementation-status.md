@@ -192,3 +192,34 @@ native Scrivener GUI certification.
 security and code-quality evidence. Main integration requires all six supported OS/runtime jobs,
 replacing retired Node 20 context names while retaining strict updates, deletion/force-push
 protection and no bypass actors. No release tag, package publication or deployment is authorized.
+
+## Forward compatibility and Draftbridge quality
+
+The follow-up requests application longevity and confirms the desktop product is Draftbridge for
+Scrivener. Public integration uses `quality/future-integration-20261028` in
+`/Volumes/A/scrivener-mcp-future` from `a998746`; private desktop integration is isolated at
+`/Volumes/A/draftbridge-quality` from `d79932d`. Existing deleted files in `apps/mac` are unrelated
+and preserved. Private source stays in the private repository.
+
+| Concern                    | Contract / acceptance                                                                                                                                                           | Ownership / state                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Protocol diagnostics       | Use the installed SDK client for negotiation and schema validation; failed/empty/malformed listings never succeed; pagination, timeout, output bounds and redaction are tested  | Diagnostics worker; pending      |
+| Runtime drift              | Package, setup and CI floors must agree; stable versions are compared fully; malformed/prerelease/mismatched versions fail; newer runtimes get scheduled compatibility coverage | Manager; pending                 |
+| Desktop helper lifecycle   | Bounded concurrent stdout/stderr consumption, validated exit/report agreement, cancellation, timeout with kill escalation and cleanup; no real client changes in tests          | Manager; pending                 |
+| Desktop evidence / updates | Schema compatibility and unknown states fail honestly; diagnostics redact local/credential information; release candidates and destinations are validated                       | Private evidence worker; pending |
+| Desktop interactions       | Serialize mutations, reject stale refreshes, preserve errors and verification status; visible progress/cancellation and accessible controls                                     | Private UI worker; pending       |
+| Integration                | Actual public CLI report decoded by the private app; Swift/core/license tests, app builds, rendered light/dark screens and complete public release gate                         | Manager; pending                 |
+
+The manager owns public dependencies, CI and runtime policy plus the private process foundation.
+Private report/error types and their tests are explicitly delegated to the evidence worker; private
+interaction state is delegated to the UI worker. Workers use disjoint worktrees, do not validate or
+install dependencies, and request shared changes. Changes remain local during implementation.
+
+Manager integration note: concurrent unrelated edits appeared in the original public checkout; its
+files and manifest changes were preserved. Validation moved to the isolated public integration
+worktree with a frozen `npm ci` and disabled postinstall configuration. Private source remains
+isolated. Initial protocol/runtime checks passed 57 cases; the private integrated suite passed 89
+tests including actual public-helper decoding and cooperative MCP-child cancellation. Final
+candidate gates and native packaging are in progress.
+
+Current isolated integration: public `quality/future-integration-20261028` in `/Volumes/A/scrivener-mcp-future`, private `quality/desktop-20261028` in `/Volumes/A/draftbridge-quality`. Original public checkout has concurrent unrelated changes: do not reset, clean or copy its manifests. Public source passes 920 tests (82 suites, nine optional provider skips), and fourteen installed-package checks pass, including CLI privacy, compiled FIFO safety and clean stdin shutdown. The source-loader FIFO case was moved into the mandatory package gate after repeated loader-startup timeouts; its eight-second process deadline and forced cleanup remain. Canonical credential redaction now serves logger and setup, with the old setup import re-exported. An intermittent Jest worker-exit warning is under open-handle investigation; do not suppress it. All other source release checks passed earlier, but logger/refactor changes need their final checks. Native bundles now reuse the same verifier with `--installed-server` (new path still to exercise). Private suite passes 90 tests including tool-proof bounds, with real public helper/cancellation tests and 36 rendered previews; latest settings bounds/safety copy were visually inspected. Private release build passed before the final startup-proof tightening; unsigned DMG/native validation still needed. GitHub CLI works with existing host credentials using `env -u GH_TOKEN -u GITHUB_TOKEN gh ...`; the injected token is expired, and the connector cannot read the private app. No remote writes for this follow-up yet. Planned stable required check is `Release verification`, which depends on the entire eight-job matrix; migrate policy only after actual green CI, preserving strictness and other protections.

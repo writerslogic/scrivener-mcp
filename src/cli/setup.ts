@@ -28,6 +28,19 @@ import {
 	type ServerEntry,
 } from '../setup/runtime.js';
 
+async function verifyServer(entry: ServerEntry): Promise<HandshakeResult> {
+	const controller = new AbortController();
+	const abort = (): void => controller.abort();
+	process.once('SIGINT', abort);
+	process.once('SIGTERM', abort);
+	try {
+		return await handshake(entry, undefined, controller.signal);
+	} finally {
+		process.removeListener('SIGINT', abort);
+		process.removeListener('SIGTERM', abort);
+	}
+}
+
 interface Options {
 	demo: boolean;
 	demoDir?: string;
@@ -188,7 +201,9 @@ function resolveEntry(opts: Options): { runtime: NodeRuntime; entry: ServerEntry
 async function main(): Promise<number> {
 	const parsed = parseArgs(process.argv.slice(2));
 	if (typeof parsed === 'string') {
-		process.stderr.write(parsed === 'help' ? HELP : `${parsed}\n\n${HELP}`);
+		process.stderr.write(
+			parsed === 'help' ? HELP : String(redactDiagnostics(`${parsed}\n\n${HELP}`))
+		);
 		return parsed === 'help' ? 0 : 2;
 	}
 	const opts = parsed;
@@ -198,10 +213,10 @@ async function main(): Promise<number> {
 	if (typeof resolved === 'string') {
 		if (opts.json) {
 			process.stdout.write(
-				`${JSON.stringify({ schemaVersion: 1, mode, ok: false, error: resolved })}\n`
+				`${JSON.stringify(redactDiagnostics({ schemaVersion: 1, mode, ok: false, error: resolved }))}\n`
 			);
 		} else {
-			process.stderr.write(`${resolved}\n`);
+			process.stderr.write(`${String(redactDiagnostics(resolved))}\n`);
 		}
 		return 2;
 	}
@@ -260,7 +275,7 @@ async function main(): Promise<number> {
 			'\nNo supported AI apps were detected. Use --client <id> to force one, or --print for the JSON.'
 		);
 		if (opts.check && opts.verify) {
-			startup = await handshake(entry);
+			startup = await verifyServer(entry);
 			if (!startup.ok) problems++;
 			say(
 				startup.ok
@@ -288,7 +303,7 @@ async function main(): Promise<number> {
 			);
 		}
 		if (opts.verify) {
-			startup = await handshake(entry);
+			startup = await verifyServer(entry);
 			if (!startup.ok) problems++;
 			say(
 				startup.ok
@@ -341,7 +356,7 @@ async function main(): Promise<number> {
 		say(
 			'\nTesting that the server starts (the first run can take a minute while it downloads)...'
 		);
-		startup = await handshake(entry);
+		startup = await verifyServer(entry);
 		if (startup.ok) {
 			say(
 				`Start-up test passed: ${startup.toolCount} tools in ${(startup.ms / 1000).toFixed(1)}s.`
@@ -363,7 +378,7 @@ main().then(
 	(code) => process.exit(code),
 	(error) => {
 		process.stderr.write(
-			`Setup failed: ${error instanceof Error ? error.message : String(error)}\n`
+			`Setup failed: ${String(redactDiagnostics(error instanceof Error ? error.message : String(error)))}\n`
 		);
 		process.exit(1);
 	}
