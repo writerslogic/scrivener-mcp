@@ -6,6 +6,7 @@ import { delimiter, dirname, join } from 'node:path';
 export const MIN_NODE_MAJOR = 22;
 export const MIN_NODE_VERSION = '22.14.0';
 export const SUPPORTED_NODE_RANGE = '^22.14.0 || >=23.6.0';
+export const MIN_NODE_API_VERSION = 10;
 
 export interface NodeRuntime {
 	node: string;
