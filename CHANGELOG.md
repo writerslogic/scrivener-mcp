@@ -22,6 +22,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Keep minimum Windows CI on its supported native toolchain
 - Remove static credentials and interpolated observer code (#200)
 - Integrate verified SDK and native runtime upgrades
 - Preserve Redis proxy compatibility during driver upgrade
