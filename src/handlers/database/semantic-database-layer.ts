@@ -740,15 +740,18 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 	private async updateVectorStore(documents: ScrivenerDocument[]): Promise<void> {
 		try {
-			const vectorDocs: HMSDocument[] = documents.map((doc) => ({
+			const vectorDocs: HMSDocument[] = documents.filter((doc) => doc.content?.trim()).map((doc) => ({
 				pageContent: doc.content || '',
 				metadata: {
 					id: doc.id,
+					documentId: doc.id,
 					title: doc.title,
 					type: doc.type,
-					wordCount: doc.wordCount,
-					synopsis: doc.synopsis,
+					...(doc.wordCount === undefined ? {} : { wordCount: doc.wordCount }),
+					...(doc.synopsis === undefined ? {} : { synopsis: doc.synopsis }),
 				},
+				...(doc.path ? { sourceUri: doc.path } : {}),
+				...(doc.metadata?.revision ? { version: doc.metadata.revision } : {}),
 			}));
 
 			await this.vectorStore.addDocuments(vectorDocs);
@@ -884,10 +887,12 @@ Only use tables and columns defined in the schema.`;
 
 	async close(): Promise<void> {
 		try {
+			await this.vectorStore.close();
 			this.knowledgeGraphCache = null;
 			this.logger.info('Semantic database layer closed');
 		} catch (error) {
 			this.logger.error('Error closing semantic layer', { error: (error as Error).message });
+			throw toDatabaseError(error, 'semantic layer close');
 		}
 	}
 }
