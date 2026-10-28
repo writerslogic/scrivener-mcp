@@ -252,3 +252,41 @@ verification. Private CI must remain within the organization's verified free Act
 The expanded Windows run exposed a raw drive path passed to Node's ESM `--import` option in the
 shutdown smoke fixture. The observer now uses a file URL; the clean-stdin-exit and no-forced-signal
 assertions remain enabled on every platform.
+
+## Verified integration and Redis driver compatibility
+
+Public [PR #190](https://github.com/writerslogic/scrivener-mcp/pull/190) merged to main as
+`72ade1c`; its eight-job matrix passed both before merging and on main in
+[run 40707022045](https://github.com/writerslogic/scrivener-mcp/actions/runs/40707022045). Branch
+protection now requires the stable aggregate `Release verification`, retaining strict updates,
+deletion protection and force-push protection.
+
+Private [Draftbridge PR #4](https://github.com/writerslogic/draftbridge/pull/4) merged as `3ae3025`.
+[Main CI run 40707855355](https://github.com/writerslogic/draftbridge/actions/runs/40707855355)
+passed all 90 Swift tests, the release build and ten license/build-configuration tests. The added
+generator preserves padded rotated public keys, rejects malformed settings without disclosing their
+values, and compiles generated settings through Swift and CryptoKit. Private scanning remains
+unavailable because that GitHub feature is not enabled; no paid scanning feature was enabled.
+
+The post-merge dependency review in
+[PR #191](https://github.com/writerslogic/scrivener-mcp/pull/191) upgrades ioredis to 6. Its
+[migration guide](https://github.com/redis/ioredis/wiki/Upgrading-from-v5-to-v6) changes the default
+wire protocol to RESP3; both production constructors explicitly retain RESP2 for existing proxies
+and ACLs that deny `HELLO`. BullMQ keeps its own declared compatible ioredis version. The portable
+`redis-compatibility.test.ts` regression exercises actual detection and PING through a HELLO-denying
+loopback endpoint, without constructor mocks.
+
+An isolated local Redis 8.10.2 server with `HELLO` denied passed detection, cache set/get/SCAN
+invalidation, reconnect, a real BullMQ job and completion event, and shutdown using root ioredis
+6.0.0 with BullMQ 5.81.5. It used a disposable Unix socket and loopback proxy, not a developer's
+Redis data or client configuration. Integration validation runs in
+`/Volumes/A/scrivener-mcp-dependency`; logs remain under
+`/Volumes/A/scrivener-mcp-future/logs/implementation/future-final/dependency-*` and
+`redis-backend-check.log`. The existing dependency security overrides and vendored patch remain
+unchanged.
+
+The dependency candidate passed the complete local release gate: formatting, lint, types, build,
+runtime policy, registry (75 tools), output conformance (29 paths), HMS compatibility (seven cases),
+83 Jest suites (921 passed; nine optional-provider skips), zero-vulnerability audit and all fourteen
+installed-package checks. The private app's two real-helper contract tests also passed against this
+updated public checkout. Remote evidence for the final dependency candidate is attached to PR #191.

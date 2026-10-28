@@ -13,6 +13,7 @@ buffers and undocumented native compile-layout rules are outside this interface.
 | Windows, Node 22.13.0 and 24                           | Native CI passed the release gate and installed-package MCP sessions; setup uses absolute `node.exe`; synthetic case-varied/renamed projects exercise saved-file behavior | Live Windows Scrivener GUI behavior is unverified; POSIX FIFO/no-follow tests are inapplicable                                                       |
 | Linux, Node 22.13.0 and 24                             | Native CI passed the release gate and installed-package MCP sessions; Node 24 also passed Chromium and EPUBCheck                                                          | No native Scrivener process integration; native-app detection is ambiguous and writes need explicit acknowledgment                                   |
 | macOS, Node 22.13.0 and 24                             | Native CI passed the release gate and installed-package MCP sessions, including private-runtime setup                                                                     | These remote CI observations are separate from the local Node 26 measurements                                                                        |
+| Linux, latest Node 22 and Node 26                      | Expanded native CI passed the same release gate and installed-package sessions                                                                                            | This supplements the minimum-version and Node 24 jobs; native Scrivener GUI behavior remains outside Linux coverage                                  |
 | Node below 22.13.0                                     | Rejected by package/setup requirements                                                                                                                                    | The supported runtime policy starts at 22.13, above the dependency minimums; Node 18/20 are outside the current test matrix                          |
 | MCP core SDK 1.32.1 / 1.32.2, Apps protocol 2026-01-26 | Installed-package sessions negotiate Apps and resource metadata; a plain client receives useful text/structured data                                                      | Individual commercial hosts may implement different extension versions; their visual integration is not certified by the simulated-host browser test |
 
@@ -26,6 +27,10 @@ All six supported OS/runtime jobs passed in
 [CI run 40617784860](https://github.com/writerslogic/scrivener-mcp/actions/runs/40617784860) at
 `eecbe98`. This verifies the public server against redistributable saved-project fixtures, not every
 native Scrivener release or GUI interaction.
+
+The expanded eight-job matrix passed on main at `72ade1c` in
+[CI run 40707022045](https://github.com/writerslogic/scrivener-mcp/actions/runs/40707022045).
+`Release verification` now requires every matrix job to succeed before main integration.
 
 ## Format and fidelity coverage
 
