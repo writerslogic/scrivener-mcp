@@ -455,6 +455,15 @@ async function main() {
 		const { Client, StdioClientTransport, firstSession } = await check(
 			'installed-package-modules',
 			async () => {
+				await promisify(execFile)(
+					process.execPath,
+					[
+						'-e',
+						'require(process.argv[1]).loadNativeBinding()',
+						join(installed, 'dist/services/memory/hhm/native-loader.cjs'),
+					],
+					{ cwd: root, env, timeout: 20000, maxBuffer: 128 * 1024 }
+				);
 				const clientModule = await import(
 					pathToFileURL(
 						requireInstalled.resolve('@modelcontextprotocol/sdk/client/index.js')

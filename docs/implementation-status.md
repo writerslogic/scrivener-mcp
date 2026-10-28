@@ -403,6 +403,10 @@ frozen install succeeded with real-client configuration disabled. The installed 
 exercises retrieval after a real MCP server restart, checking unchanged source revisions and exact
 manuscript context. Logs are retained in `logs/hms-064/` in the integration checkout.
 
+Integration PR [#203](https://github.com/writerslogic/scrivener-mcp/pull/203) carries the remote
+compatibility evidence. Its installed-package module check explicitly loads the production native
+binding, so packaging and post-pruning bundle checks cannot silently pass using the fallback.
+
 Primary contracts:
 [0.6.4 release](https://github.com/writerslogic/holographic-memory/releases/tag/v0.6.4),
 [Node declarations](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/index.d.ts) and
