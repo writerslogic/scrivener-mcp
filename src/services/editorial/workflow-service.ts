@@ -30,6 +30,7 @@ export interface EditorialWorkflow {
 	projectId: string;
 	kind: WorkflowKind;
 	state: WorkflowState;
+	stateVersion?: number;
 	createdAt: string;
 	updatedAt: string;
 	scope: Array<{ documentId: string; revision: string; title: string; characters: number }>;
@@ -127,6 +128,7 @@ export class WorkflowService {
 		if (input.kind === 'review-chapter' && !input.documentIds?.length)
 			throw new Error('Review this chapter requires an explicit document scope');
 		const all = await this.source.list();
+		if (this.closed) throw new Error('Workflow service is closed');
 		const selected = input.documentIds
 			? new Set(input.documentIds)
 			: new Set(all.map((doc) => doc.documentId));
@@ -144,17 +146,8 @@ export class WorkflowService {
 			: randomUUID();
 		const prior = this.store.get<EditorialWorkflow>(this.namespace, id);
 		if (prior) {
-			if (
-				prior.kind !== input.kind ||
-				(prior.initialAllowExportWarnings ?? false) !==
-					(input.allowExportWarnings ?? false) ||
-				prior.scope.map((doc) => doc.documentId).join('\0') !==
-					documents.map((doc) => doc.documentId).join('\0')
-			)
-				throw new Error(
-					'Workflow idempotency key was already used for a different request'
-				);
-			return this.get(id);
+			this.requireSameRequest(prior, input, documents);
+			return this.inspect(prior);
 		}
 		const steps: WorkflowStep[] = [{ id: 'index', kind: 'index', state: 'pending' }];
 		if (input.kind !== 'audit-continuity') {
@@ -209,23 +202,37 @@ export class WorkflowService {
 					}
 				: {}),
 		};
-		this.store.transaction(() => {
-			if (this.store.get(this.namespace, id))
-				throw new Error(
-					'Workflow request was created concurrently; retry with the same key'
-				);
-			this.store.put(this.namespace, id, workflow);
+		const created = this.store.transaction(() => {
+			const existing = this.store.get<EditorialWorkflow>(this.namespace, id);
+			if (existing) {
+				this.requireSameRequest(existing, input, documents);
+				return false;
+			}
+			this.persist(workflow);
+			return true;
 		});
-		this.schedule(id);
-		return workflow;
+		if (created) this.schedule(id);
+		return created ? workflow : this.get(id);
 	}
 
-	get(id: string): EditorialWorkflow {
-		if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,128}$/.test(id))
-			throw new Error('Invalid workflow identifier');
-		const value = this.store.get<EditorialWorkflow>(this.namespace, id);
+	private requireSameRequest(
+		workflow: EditorialWorkflow,
+		input: { kind: WorkflowKind; allowExportWarnings?: boolean },
+		documents: SourceDocument[]
+	): void {
+		if (
+			workflow.kind !== input.kind ||
+			(workflow.initialAllowExportWarnings ?? false) !== (input.allowExportWarnings ?? false) ||
+			workflow.scope.length !== documents.length ||
+			workflow.scope.some((document, index) => document.documentId !== documents[index].documentId)
+		) throw new Error('Workflow idempotency key was already used for a different request');
+	}
+
+	private inspect(value: EditorialWorkflow | undefined): EditorialWorkflow {
 		if (!value || value.projectId !== this.source.projectId)
 			throw new Error('Editorial workflow was not found in this project');
+		if (typeof value.id !== 'string' || !/^[a-zA-Z0-9-]{1,128}$/.test(value.id))
+			throw new Error('Invalid workflow identifier');
 		if (value.state === 'running' && value.owner && processAlive(value.owner) === 'dead')
 			return {
 				...value,
@@ -235,20 +242,31 @@ export class WorkflowService {
 		return value;
 	}
 
+	private persist(workflow: EditorialWorkflow): void {
+		workflow.stateVersion = (workflow.stateVersion ?? 0) + 1;
+		workflow.updatedAt = new Date().toISOString();
+		this.store.put(this.namespace, workflow.id, workflow);
+	}
+
+	get(id: string): EditorialWorkflow {
+		if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,128}$/.test(id))
+			throw new Error('Invalid workflow identifier');
+		return this.inspect(this.store.get<EditorialWorkflow>(this.namespace, id));
+	}
+
 	list(): EditorialWorkflow[] {
 		return this.store
 			.list<EditorialWorkflow>(this.namespace)
-			.map((workflow) => this.get(workflow.id))
+			.map((workflow) => this.inspect(workflow))
 			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 	}
 
 	cancel(id: string): EditorialWorkflow {
 		return this.store.transaction(() => {
 			const workflow = this.get(id);
-			if (workflow.state === 'completed' || workflow.state === 'cancelled') return workflow;
+			if (workflow.state === 'completed') return workflow;
 			workflow.state = 'cancelled';
-			workflow.updatedAt = new Date().toISOString();
-			this.store.put(this.namespace, id, workflow);
+			this.persist(workflow);
 			return workflow;
 		});
 	}
@@ -278,9 +296,12 @@ export class WorkflowService {
 				'Workflow owner is still running or cannot be identified safely; wait for it to finish before resuming'
 			);
 		await this.validateScope(workflow);
+		if (this.closed) throw new Error('Workflow service is closed');
 		const ready = this.store.transaction(() => {
 			const current = this.get(id);
 			if (current.state === 'completed') return false;
+			if ((current.stateVersion ?? 0) !== (workflow.stateVersion ?? 0))
+				throw new Error('Workflow changed while resuming; inspect its current state before retrying');
 			if (current.owner && processAlive(current.owner) !== 'dead')
 				throw new Error('Workflow is owned by another active or ambiguous server');
 			if (options.allowExportWarnings !== undefined)
@@ -293,7 +314,7 @@ export class WorkflowService {
 					step.state = 'pending';
 					step.error = undefined;
 				}
-			this.store.put(this.namespace, id, current);
+			this.persist(current);
 			return true;
 		});
 		if (ready) this.schedule(id);
@@ -336,34 +357,36 @@ export class WorkflowService {
 			if (workflow.owner?.instance !== this.instance)
 				throw new Error('Workflow ownership changed during execution');
 			operation(workflow);
-			workflow.updatedAt = new Date().toISOString();
-			this.store.put(this.namespace, id, workflow);
+			this.persist(workflow);
 			return workflow;
 		});
 	}
 
 	private async run(id: string): Promise<void> {
 		try {
-			this.store.transaction(() => {
+			const ownsWorkflow = this.store.transaction(() => {
 				const workflow = this.get(id);
-				if (workflow.state !== 'ready' || this.closed) return;
+				if (workflow.state !== 'ready' || this.closed) return false;
 				if (workflow.owner && processAlive(workflow.owner) !== 'dead')
 					throw new Error('Workflow is owned by another server');
 				workflow.owner = { instance: this.instance, pid: process.pid, host: hostname() };
 				workflow.state = 'running';
-				this.store.put(this.namespace, id, workflow);
+				this.persist(workflow);
+				return true;
 			});
-			if (this.get(id).owner?.instance !== this.instance) return;
-			for (let index = 0; index < this.get(id).steps.length; index++) {
+			if (!ownsWorkflow) return;
+			for (let index = 0; ; index++) {
 				const current = this.get(id);
+				if (index >= current.steps.length) break;
 				if (this.closed || current.state === 'cancelled') break;
 				const step = current.steps[index];
 				if (step.state === 'completed') continue;
 				const docs = await this.validateScope(current);
-				if (this.get(id).state === 'cancelled' || this.closed) break;
-				this.update(id, (workflow) => {
-					workflow.steps[index].state = 'running';
+				if (this.closed) break;
+				const claimed = this.update(id, (workflow) => {
+					if (workflow.state !== 'cancelled') workflow.steps[index].state = 'running';
 				});
+				if (claimed.state === 'cancelled' || this.closed) break;
 				const document = step.documentId ? docs.get(step.documentId) : undefined;
 				let result: unknown;
 				switch (step.kind) {

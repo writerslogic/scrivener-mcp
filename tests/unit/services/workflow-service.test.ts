@@ -20,6 +20,19 @@ describe('durable editorial workflows', () => {
 	let exports: number;
 	let dependencies: WorkflowDependencies;
 
+	function openServices(): void {
+		store = new PersistentStore(join(dir, 'editorial.sqlite'));
+		search = new PassageSearch(source, store);
+		service = new WorkflowService(source, store, search, dependencies);
+	}
+
+	async function reopenServices(): Promise<void> {
+		await service.close();
+		await search.close();
+		store.close();
+		openServices();
+	}
+
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), 'scrivener-workflows-'));
 		const text = 'Mira  waited beside the door. Her hands shook.';
@@ -42,8 +55,6 @@ describe('durable editorial workflows', () => {
 				return doc;
 			},
 		};
-		store = new PersistentStore(join(dir, 'editorial.sqlite'));
-		search = new PassageSearch(source, store);
 		analyses = 0;
 		proposals = new Map();
 		exports = 0;
@@ -70,7 +81,7 @@ describe('durable editorial workflows', () => {
 				return { path: outputPath, documentIds };
 			},
 		};
-		service = new WorkflowService(source, store, search, dependencies);
+		openServices();
 	});
 
 	afterEach(async () => {
@@ -95,8 +106,7 @@ describe('durable editorial workflows', () => {
 		expect(done.scope[0].revision).toBe(doc.revision);
 		expect(proposals.size).toBe(1);
 		expect(doc.text).toBe(before);
-		await service.close();
-		service = new WorkflowService(source, store, search, dependencies);
+		await reopenServices();
 		const repeated = await service.start({
 			kind: 'review-chapter',
 			documentIds: [doc.documentId],
@@ -134,12 +144,7 @@ describe('durable editorial workflows', () => {
 		expect(cancelled.state).toBe('cancelled');
 		expect(cancelled.steps.find((step) => step.kind === 'analyze')?.state).toBe('completed');
 		expect(proposals.size).toBe(0);
-		await service.close();
-		await search.close();
-		store.close();
-		store = new PersistentStore(join(dir, 'editorial.sqlite'));
-		search = new PassageSearch(source, store);
-		service = new WorkflowService(source, store, search, dependencies);
+		await reopenServices();
 		await service.resume(workflow.id);
 		expect((await service.wait(workflow.id)).state).toBe('completed');
 		expect(analyses).toBe(1);
@@ -203,12 +208,7 @@ describe('durable editorial workflows', () => {
 		expect(failed.steps.find((step) => step.kind === 'analyze')?.state).toBe('completed');
 		expect(analyses).toBe(1);
 		expect(exports).toBe(0);
-		await service.close();
-		await search.close();
-		store.close();
-		store = new PersistentStore(join(dir, 'editorial.sqlite'));
-		search = new PassageSearch(source, store);
-		service = new WorkflowService(source, store, search, dependencies);
+		await reopenServices();
 		expect(service.get(started.id).allowExportWarnings).toBe(false);
 		await service.resume(started.id, { allowExportWarnings: true });
 		const completed = await service.wait(started.id);
@@ -250,21 +250,20 @@ describe('durable editorial workflows', () => {
 		expect(exports).toBe(1);
 	});
 
-	it.each([null, 'true', 1])(
-		'rejects non-boolean export acknowledgment %s on start and resume',
-		async (value) => {
+	it('rejects invalid export acknowledgments on start and resume', async () => {
+		const started = await service.start({ kind: 'beta-reader-draft' });
+		service.cancel(started.id);
+		await service.wait(started.id);
+		for (const value of [null, 'true', 1]) {
 			const allowExportWarnings = value as unknown as boolean;
 			await expect(
 				service.start({ kind: 'beta-reader-draft', allowExportWarnings })
 			).rejects.toThrow('must be a boolean');
-			const started = await service.start({ kind: 'beta-reader-draft' });
-			service.cancel(started.id);
-			await service.wait(started.id);
 			await expect(service.resume(started.id, { allowExportWarnings })).rejects.toThrow(
 				'must be a boolean'
 			);
 		}
-	);
+	});
 
 	it('rejects export acknowledgment for chapter and continuity workflows', async () => {
 		for (const kind of ['review-chapter', 'audit-continuity'] as const) {
@@ -277,6 +276,81 @@ describe('durable editorial workflows', () => {
 			await expect(service.resume(started.id, { allowExportWarnings: true })).rejects.toThrow(
 				'only to the beta-reader'
 			);
+		}
+	});
+
+	it('keeps a newer cancellation when an older resume is waiting for source validation', async () => {
+		const started = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		service.cancel(started.id);
+		await service.wait(started.id);
+		const legacy = service.get(started.id);
+		delete legacy.stateVersion;
+		store.put(`editorial-workflows:${source.projectId}`, started.id, legacy);
+		let entered!: () => void;
+		let release!: () => void;
+		const checking = new Promise<void>((notify) => { entered = notify; });
+		const blocked = new Promise<void>((notify) => { release = notify; });
+		const read = source.read;
+		source.read = async (id) => { entered(); await blocked; return read(id); };
+		const resuming = service.resume(started.id);
+		await checking;
+		service.cancel(started.id);
+		release();
+		await expect(resuming).rejects.toThrow('changed while resuming');
+		expect(service.get(started.id).state).toBe('cancelled');
+		expect(analyses).toBe(0);
+		expect(proposals.size).toBe(0);
+	});
+
+	it('rejects pending starts and resumes after the service and store have closed', async () => {
+		const cancelled = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		service.cancel(cancelled.id);
+		await service.wait(cancelled.id);
+		let releaseStart!: (documents: SourceDocument[]) => void;
+		let releaseResume!: (document: SourceDocument) => void;
+		source.list = () => new Promise<SourceDocument[]>((notify) => { releaseStart = notify; });
+		source.read = () => new Promise<SourceDocument>((notify) => { releaseResume = notify; });
+		const starting = service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		const resuming = service.resume(cancelled.id);
+		await service.close();
+		await search.close();
+		store.close();
+		releaseStart([doc]);
+		releaseResume(doc);
+		try {
+			await Promise.all([
+				expect(starting).rejects.toThrow('Workflow service is closed'),
+				expect(resuming).rejects.toThrow('Workflow service is closed'),
+			]);
+		} finally { openServices(); }
+		expect(service.list().map((workflow) => ({ id: workflow.id, state: workflow.state }))).toEqual([{ id: cancelled.id, state: 'cancelled' }]);
+	});
+
+	it('returns an identical request committed by another connection before creation without replaying its work', async () => {
+		let audits = 0;
+		const audit = dependencies.auditContinuity;
+		dependencies.auditContinuity = async (input) => { audits++; return audit(input); };
+		const request = { kind: 'audit-continuity' as const, idempotencyKey: 'concurrent-start' };
+		const original = await service.start(request);
+		const completed = await service.wait(original.id);
+		const namespace = `editorial-workflows:${source.projectId}`;
+		store.delete(namespace, original.id);
+		const other = new PersistentStore(join(dir, 'editorial.sqlite'));
+		const transaction = store.transaction.bind(store);
+		const commit = jest.spyOn(store, 'transaction').mockImplementation(<T>(operation: () => T): T => {
+			other.put(namespace, original.id, completed);
+			return transaction(operation);
+		});
+		try {
+			const repeated = await service.start(request);
+			expect(repeated.id).toBe(completed.id);
+			expect(repeated.steps).toEqual(completed.steps);
+			expect(repeated.state).toBe('completed');
+			expect((await service.wait(repeated.id)).usage).toEqual(completed.usage);
+			expect(audits).toBe(1);
+		} finally {
+			commit.mockRestore();
+			other.close();
 		}
 	});
 });

@@ -223,6 +223,8 @@ function chunkDocument(doc: SourceDocument): IndexedPassage[] {
 		throw new Error('Document exceeds the local passage index limit of 8 Mi UTF-16 code units');
 	const chunks: IndexedPassage[] = [];
 	let start = 0;
+	let line = 1;
+	let lineOffset = 0;
 	while (start < doc.text.length) {
 		while (start < doc.text.length && /\s/u.test(doc.text[start])) start++;
 		if (start >= doc.text.length) break;
@@ -247,6 +249,9 @@ function chunkDocument(doc: SourceDocument): IndexedPassage[] {
 		while (end > start && /\s/u.test(doc.text[end - 1])) end--;
 		if (end <= start) end = Math.min(start + 1400, doc.text.length);
 		const quote = doc.text.slice(start, end);
+		while (lineOffset < start) {
+			if (doc.text.charCodeAt(lineOffset++) === 10) line++;
+		}
 		chunks.push({
 			id: createHash('sha256')
 				.update(`${doc.projectId}:${doc.documentId}:${doc.revision}:${start}:${end}`)
@@ -258,7 +263,7 @@ function chunkDocument(doc: SourceDocument): IndexedPassage[] {
 			path: doc.path,
 			start,
 			end,
-			line: doc.text.slice(0, start).split('\n').length,
+			line,
 			quote,
 			concepts: concepts(quote),
 			terms: terms(quote),
@@ -271,9 +276,13 @@ function chunkDocument(doc: SourceDocument): IndexedPassage[] {
 export class PassageSearch {
 	private readonly namespace: string;
 	private engine?: HolographicMemorySystem;
-	private readonly externalEngine: boolean;
+	private externalEngine: boolean;
 	private cachePath?: string;
 	private loaded = new Set<string>();
+	private readonly cachedRevisions = new Map<string, string>();
+	private indexGeneration = 0;
+	private engineGeneration = -1;
+	private engineWork: Promise<void> = Promise.resolve();
 	private refreshing?: Promise<{
 		changedDocuments: number;
 		removedDocuments: number;
@@ -315,14 +324,17 @@ export class PassageSearch {
 	}> {
 		const documents = await this.source.list();
 		const current = new Map(documents.map((doc) => [doc.documentId, doc]));
-		const existing = this.store.list<IndexedDocument>(this.namespace);
+		if (current.size !== documents.length) throw new Error('Source returned duplicate document identities');
+		const existing = new Map(this.store.list<IndexedDocument>(this.namespace).map((doc) => [doc.documentId, doc]));
 		let changedDocuments = 0;
 		let removedDocuments = 0;
+		let total = 0;
 		const updates: IndexedDocument[] = [];
 		for (const doc of documents) {
 			if (doc.projectId !== this.source.projectId)
 				throw new Error('Source returned a document outside the project scope');
-			const prior = this.store.get<IndexedDocument>(this.namespace, doc.documentId);
+			const prior = existing.get(doc.documentId);
+			let next: IndexedDocument;
 			if (
 				!prior ||
 				prior.revision !== doc.revision ||
@@ -330,7 +342,7 @@ export class PassageSearch {
 				prior.title !== doc.title ||
 				prior.path !== doc.path
 			) {
-				updates.push({
+				next = {
 					version: INDEX_VERSION,
 					projectId: doc.projectId,
 					documentId: doc.documentId,
@@ -338,29 +350,24 @@ export class PassageSearch {
 					title: doc.title,
 					path: doc.path,
 					passages: chunkDocument(doc),
-				});
+				};
+				updates.push(next);
 				changedDocuments++;
-			}
+			} else next = prior;
+			total += next.passages.length;
+			if (total > MAX_PASSAGES)
+				throw new Error(`Local passage index exceeds ${MAX_PASSAGES} passages`);
 		}
-		const total =
-			existing
-				.filter(
-					(doc) =>
-						current.has(doc.documentId) &&
-						!updates.some((next) => next.documentId === doc.documentId)
-				)
-				.reduce((sum, doc) => sum + doc.passages.length, 0) +
-			updates.reduce((sum, doc) => sum + doc.passages.length, 0);
-		if (total > MAX_PASSAGES)
-			throw new Error(`Local passage index exceeds ${MAX_PASSAGES} passages`);
 		this.store.transaction(() => {
-			for (const prior of existing)
+			for (const prior of existing.values())
 				if (!current.has(prior.documentId)) {
 					this.store.delete(this.namespace, prior.documentId);
 					removedDocuments++;
 				}
 			for (const update of updates) this.store.put(this.namespace, update.documentId, update);
 		});
+		if (changedDocuments || removedDocuments || [...this.cachedRevisions].some(([id, revision]) => current.get(id)?.revision !== revision))
+			this.indexGeneration++;
 		return { changedDocuments, removedDocuments, passages: total };
 	}
 
@@ -421,6 +428,7 @@ export class PassageSearch {
 		)
 			throw new Error('Invalid document search scope');
 		const index = await this.refresh();
+		const generation = this.indexGeneration;
 		const scopedIds = options.documentIds ? new Set(options.documentIds) : undefined;
 		const entries = this.store
 			.list<IndexedDocument>(this.namespace)
@@ -428,8 +436,13 @@ export class PassageSearch {
 		const queryTerms = [...new Set(terms(query))];
 		const queryConcepts = concepts(query);
 		const hmsScores = new Map<string, number>();
-		if (entries.length && mode !== 'keyword') {
+		if (entries.length && mode === 'hybrid') {
+			const pending = this.engineWork.then(async () => {
+			if (this.engineGeneration !== -1 && this.engineGeneration !== generation)
+				await this.disposeEngine();
 			const engine = await this.getEngine();
+			this.engineGeneration = generation;
+			for (const entry of entries) this.cachedRevisions.set(entry.documentId, entry.revision);
 			const missing = entries.filter((entry) => !this.loaded.has(entry.id));
 			if (missing.length) {
 				await engine.memorizeBatch(
@@ -445,19 +458,29 @@ export class PassageSearch {
 				Math.min(this.loaded.size, MAX_PASSAGES)
 			))
 				hmsScores.set(hit.id, Math.max(0, Math.min(1, hit.similarity)));
+			});
+			this.engineWork = pending.catch(() => undefined);
+			await pending;
 		}
 		const documentFrequency = new Map<string, number>();
-		for (const entry of entries)
-			for (const term of new Set(entry.terms))
+		const queryTermSet = new Set(queryTerms);
+		let totalTerms = 0;
+		const weightedEntries = entries.map((entry) => {
+			const counts = new Map<string, number>();
+			for (const term of entry.terms) {
+				if (queryTermSet.has(term)) counts.set(term, (counts.get(term) ?? 0) + 1);
+			}
+			for (const term of counts.keys())
 				documentFrequency.set(term, (documentFrequency.get(term) ?? 0) + 1);
-		const averageLength =
-			entries.reduce((sum, entry) => sum + entry.terms.length, 0) /
-			Math.max(entries.length, 1);
-		const ranked = entries
-			.map((entry) => {
+			totalTerms += entry.terms.length;
+			return { entry, counts };
+		});
+		const averageLength = totalTerms / Math.max(entries.length, 1);
+		const ranked = weightedEntries
+			.map(({ entry, counts }) => {
 				let bm25 = 0;
 				for (const term of queryTerms) {
-					const count = entry.terms.filter((word) => word === term).length;
+					const count = counts.get(term) ?? 0;
 					if (!count) continue;
 					const frequency = documentFrequency.get(term) ?? 0;
 					bm25 +=
@@ -499,8 +522,14 @@ export class PassageSearch {
 			)
 			.slice(0, limit);
 		const results: PassageMatch[] = [];
+		const sourceDocuments = new Map<string, Promise<SourceDocument>>();
 		for (const hit of ranked) {
-			const doc = await this.source.read(hit.entry.documentId);
+			let pending = sourceDocuments.get(hit.entry.documentId);
+			if (!pending) {
+				pending = this.source.read(hit.entry.documentId);
+				sourceDocuments.set(hit.entry.documentId, pending);
+			}
+			const doc = await pending;
 			if (doc.projectId !== this.source.projectId || doc.revision !== hit.entry.revision)
 				continue;
 			const { id: _id, concepts: _concepts, terms: _terms, ...passage } = hit.entry;
@@ -531,13 +560,33 @@ export class PassageSearch {
 
 	async close(): Promise<void> {
 		this.closed = true;
+		const refresh = this.refreshing;
+		const failures: unknown[] = [];
 		await Promise.allSettled(this.activeSearches);
-		await this.refreshing;
-		if (!this.externalEngine) {
-			await this.engine?.destroy();
-			if (this.cachePath) await rm(this.cachePath, { recursive: true, force: true });
-		}
+		try { await refresh; } catch (error) { failures.push(error); }
+		try { await this.disposeEngine(); } catch (error) { failures.push(error); }
+		if (failures.length === 1) throw failures[0];
+		if (failures.length > 1) throw new Error('Passage search resources failed to close', { cause: failures });
+	}
+
+	private async disposeEngine(): Promise<void> {
+		const engine = this.engine;
+		const owned = !this.externalEngine;
+		const cachePath = this.cachePath;
 		this.engine = undefined;
+		this.externalEngine = false;
+		this.cachePath = undefined;
+		this.engineGeneration = -1;
 		this.loaded.clear();
+		this.cachedRevisions.clear();
+		const failures: unknown[] = [];
+		if (owned) {
+			try { await engine?.destroy(); } catch (error) { failures.push(error); }
+			try {
+				if (cachePath) await rm(cachePath, { recursive: true, force: true });
+			} catch (error) { failures.push(error); }
+		}
+		if (failures.length === 1) throw failures[0];
+		if (failures.length > 1) throw new Error('Passage search resources failed to close', { cause: failures });
 	}
 }
