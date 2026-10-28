@@ -1,9 +1,10 @@
 /**
- * AIClient provider-selection tests (deterministic, no network) plus a
- * key-gated integration test that performs a real Claude round-trip when
- * ANTHROPIC_API_KEY is present in the environment.
+ * AIClient provider-selection tests (deterministic, no network) plus an
+ * explicitly opted-in integration test with a real Claude round-trip. It requires
+ * SCRIVENER_RUN_LIVE_AI_TESTS=1 and ANTHROPIC_API_KEY.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import { AIClient, isProviderUnavailable } from '../../../../src/services/ai/ai-client.js';
 import { registerSamplingServer } from '../../../../src/services/ai/sampling-bridge.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -289,7 +290,7 @@ describe('AIClient embeddings', () => {
 		expect(create).toHaveBeenCalledWith({
 			model: 'openai/text-embedding-3-small',
 			input: ['x'],
-		});
+		}, { signal: expect.any(AbortSignal) });
 	});
 
 	it('falls back from OpenAI to OpenRouter on an account-level error', async () => {
@@ -335,7 +336,6 @@ describe('isProviderUnavailable', () => {
 	});
 });
 
-const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 liveAnthropic('AIClient live Claude round-trip', () => {
 	it('returns the requested token from a real Claude call', async () => {
 		const c = new AIClient();

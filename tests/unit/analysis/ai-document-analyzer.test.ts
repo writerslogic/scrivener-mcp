@@ -1,8 +1,9 @@
 /**
  * AIDocumentAnalyzer tests. Empty-input and no-key behavior are deterministic;
- * a key-gated live test exercises a real Claude analysis round-trip.
+ * an explicitly opted-in live test exercises a real Claude analysis round-trip.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../helpers/live-provider.js';
 import { AIDocumentAnalyzer } from '../../../src/analysis/ai-document-analyzer.js';
 import { AIClient } from '../../../src/services/ai/ai-client.js';
 
@@ -25,7 +26,6 @@ describe('AIDocumentAnalyzer', () => {
 		);
 	});
 
-	const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 	liveAnthropic('live Claude analysis', () => {
 		it('returns a conforming analysis with string fields and an issues array', async () => {
 			const analyzer = new AIDocumentAnalyzer();
