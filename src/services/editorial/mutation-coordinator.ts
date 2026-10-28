@@ -201,11 +201,20 @@ export class MutationCoordinator {
 					stat.size > MAX_RAW_BYTES
 				)
 					throw new Error('Saved content is not a supported regular file');
-				if (!constants.O_NOFOLLOW) {
-					// Windows lacks atomic no-follow opens; verify the opened file against its project path.
-					this.assertProjectPath(target);
-					const entry = await fs.lstat(target);
-					if (entry.isSymbolicLink() || !entry.isFile() || entry.dev !== stat.dev || entry.ino !== stat.ino) throw new Error('Saved content changed while opening; retry');
+				if (process.platform === 'win32' || !constants.O_NOFOLLOW) {
+					// Windows lacks atomic no-follow and may omit path volume IDs; compare descriptor identities.
+					const verification = await fs.open(target, SAVED_READ_FLAGS);
+					try {
+						this.assertProjectPath(target);
+						const [originalIdentity, currentIdentity, entry] = await Promise.all([
+							handle.stat({ bigint: true }),
+							verification.stat({ bigint: true }),
+							fs.lstat(target, { bigint: true }),
+						]);
+						if (entry.isSymbolicLink() || !entry.isFile() || !currentIdentity.isFile() || originalIdentity.dev !== currentIdentity.dev || originalIdentity.ino !== currentIdentity.ino || entry.ino !== currentIdentity.ino) throw new Error('Saved content changed while opening; retry');
+					} finally {
+						await verification.close();
+					}
 				}
 				const buffer = Buffer.alloc(stat.size + 1);
 				let count = 0;
