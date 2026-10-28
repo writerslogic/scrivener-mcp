@@ -1,0 +1,9 @@
+{
+	"name": "@scrivener-mcp/deepmerge-patched",
+	"version": "4.3.1-patch.1",
+	"private": true,
+	"description": "Development-only deepmerge 4.3.1 with prototype-poisoning protection",
+	"license": "MIT",
+	"main": "index.cjs",
+	"types": "index.d.ts"
+}

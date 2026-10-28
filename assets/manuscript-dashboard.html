@@ -169,6 +169,103 @@
 			.badge {
 				font-size: 0.85rem;
 			}
+			body {
+				max-width: 1440px;
+				margin: 0 auto;
+				padding: 28px;
+			}
+			header {
+				border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+				padding-bottom: 20px;
+			}
+			h1 {
+				letter-spacing: -0.025em;
+				font-size: 1.65rem;
+				line-height: 1.25;
+			}
+			h2 {
+				margin: 0 0 12px;
+				letter-spacing: -0.015em;
+			}
+			.eyebrow {
+				margin: 0 0 6px;
+				color: GrayText;
+				font-size: 0.75rem;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+			}
+			main section {
+				padding: 20px;
+				margin-bottom: 20px;
+				border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+				border-radius: 12px;
+				background: color-mix(in srgb, CanvasText 2%, Canvas);
+			}
+			nav {
+				align-self: start;
+				padding-right: 8px;
+			}
+			button {
+				min-height: 40px;
+				border-color: color-mix(in srgb, CanvasText 25%, Canvas);
+				border-radius: 7px;
+			}
+			button[data-primary='true'] {
+				background: #1d4ed8;
+				border-color: #1d4ed8;
+				color: #fff;
+			}
+			button[data-primary='true']:hover:not(:disabled) {
+				background: #1e40af;
+			}
+			nav button {
+				width: 100%;
+				border-radius: 6px;
+			}
+			th {
+				font-size: 0.8rem;
+				color: GrayText;
+			}
+			.subtle {
+				overflow-wrap: anywhere;
+			}
+			.scene-note {
+				display: block;
+				max-width: 36em;
+				margin: 4px 0 2px;
+				font-size: 0.85rem;
+			}
+			#context {
+				margin: 0;
+				min-height: 64px;
+			}
+			.notice {
+				font-size: 0.9rem;
+				margin: 12px 0;
+			}
+			#error:empty {
+				display: none;
+			}
+			#binder-filter {
+				width: 100%;
+				margin-bottom: 12px;
+				padding: 9px 10px;
+				color: inherit;
+				background: Canvas;
+				border: 1px solid GrayText;
+				border-radius: 7px;
+			}
+			#binder-filter-label {
+				font-size: 0.8rem;
+				color: GrayText;
+			}
+			fieldset {
+				border-radius: 8px;
+			}
+			pre {
+				background: Canvas;
+				border-radius: 6px;
+			}
 			@media (max-width: 700px) {
 				.layout,
 				.pair {
@@ -186,7 +283,10 @@
 	<body>
 		<a class="skip" href="#scenes">Skip binder navigation</a>
 		<header>
-			<h1>Manuscript dashboard</h1>
+			<div>
+				<p class="eyebrow">Scrivener · Editorial workspace</p>
+				<h1 id="project-title">Manuscript dashboard</h1>
+			</div>
 			<button id="refresh" disabled>Refresh</button>
 		</header>
 		<p id="status" class="notice" role="status" aria-live="polite">
@@ -196,6 +296,13 @@
 		<div class="layout">
 			<nav aria-label="Binder">
 				<h2>Binder</h2>
+				<label id="binder-filter-label" for="binder-filter">Find a document</label>
+				<input
+					id="binder-filter"
+					type="search"
+					placeholder="Filter binder titles"
+					autocomplete="off"
+				/>
 				<div id="binder"></div>
 			</nav>
 			<main>
@@ -317,13 +424,15 @@
 					...(documentId ? { documentId } : {}),
 				});
 				render(result);
-				status(`${result.pagination.total} manuscript scenes. Saved sources refreshed.`);
+				status(
+					`${result.pagination.total} manuscript scene${result.pagination.total === 1 ? '' : 's'}. Saved sources refreshed.`
+				);
 			}
 			async function reveal(documentId, passage) {
 				await refresh(documentId);
 				if (passage) {
 					const location = document.getElementById('source-location');
-					location.textContent = `${passage.path || passage.title || documentId} · line ${passage.line || 1} · source revision ${passage.revision || 'unavailable'}`;
+					location.textContent = `${passage.path || passage.title || documentId} · line ${passage.line || 1} · source revision ${passage.revision || 'unavailable'}${passage.revision && state?.context?.revision !== passage.revision ? ' · evidence is stale; current saved source has changed' : ''}`;
 					document.getElementById('context').textContent = passage.quote || '';
 				}
 				document.getElementById('context').focus();
@@ -340,16 +449,40 @@
 				}
 				return list;
 			}
+			function renderBinder() {
+				const term = document
+					.getElementById('binder-filter')
+					.value.normalize('NFKC')
+					.toLocaleLowerCase();
+				const filter = (items) =>
+					(items || []).flatMap((item) => {
+						if (
+							!term ||
+							item.title.normalize('NFKC').toLocaleLowerCase().includes(term)
+						)
+							return [item];
+						const children = filter(item.children);
+						return children.length ? [{ ...item, children }] : [];
+					});
+				document.getElementById('binder').replaceChildren(binderList(filter(state.binder)));
+			}
 			function render(data) {
 				if (!data || !Array.isArray(data.scenes)) return;
 				state = data;
-				document.getElementById('binder').replaceChildren(binderList(data.binder));
+				document.getElementById('project-title').textContent =
+					data.projectTitle || 'Manuscript dashboard';
+				renderBinder();
 				const rows = document.getElementById('scene-rows');
 				rows.replaceChildren();
 				for (const scene of data.scenes) {
 					const row = element('tr'),
 						title = element('td');
 					title.append(button(scene.title, () => reveal(scene.documentId)));
+					if (scene.synopsis) {
+						const note = element('small', scene.synopsis);
+						note.className = 'scene-note subtle';
+						title.append(note);
+					}
 					row.append(
 						title,
 						element('td', scene.words),
@@ -378,7 +511,7 @@
 					document.getElementById('context').textContent = data.context.text;
 				}
 				renderFindings(data.findings || []);
-				renderReviews(data.proposals || []);
+				renderReviews(data.proposals || [], data.applications || []);
 			}
 			function renderFindings(findings) {
 				const root = document.getElementById('findings');
@@ -423,7 +556,7 @@
 					root.append(card);
 				}
 			}
-			function renderReviews(proposals) {
+			function renderReviews(proposals, applications) {
 				const root = document.getElementById('reviews');
 				root.replaceChildren();
 				if (!proposals.length)
@@ -433,6 +566,23 @@
 							'No proposed changes. Ask for a chapter review or propose an edit.'
 						)
 					);
+				for (const application of applications
+					.filter((item) => item.state === 'committed')
+					.slice(-20)) {
+					root.append(
+						button(
+							`Undo ${proposals.find((proposal) => proposal.id === application.proposalId)?.title || 'applied change'}`,
+							async () => {
+								await call('review_changes', {
+									action: 'undo',
+									operationId: application.id,
+								});
+								await refresh();
+								status('Application undone.');
+							}
+						)
+					);
+				}
 				for (const proposal of proposals) {
 					const card = element('details');
 					card.append(
@@ -497,7 +647,7 @@
 						const result = response.result;
 						await refresh();
 						status('Selected changes applied.');
-						const operationId = result.operationId || result.mutation?.operationId;
+						const operationId = result.id;
 						if (operationId) {
 							const undo = button('Undo this application', async () => {
 								await call('review_changes', { action: 'undo', operationId });
@@ -507,6 +657,7 @@
 							document.getElementById('reviews').prepend(undo);
 						}
 					});
+					apply.dataset.primary = 'true';
 					apply.disabled = true;
 					group.addEventListener('change', () => {
 						lastPreview = null;
@@ -576,6 +727,8 @@
 				if (hostOrigin !== '*' && event.origin !== hostOrigin) return;
 				const message = event.data;
 				if (message.id !== undefined && pending.has(message.id)) {
+					if (message.id === 1 && event.origin !== 'null' && !message.error)
+						hostOrigin = event.origin;
 					const item = pending.get(message.id);
 					pending.delete(message.id);
 					clearTimeout(item.timer);
@@ -601,6 +754,9 @@
 			document
 				.getElementById('refresh')
 				.addEventListener('click', () => run(() => refresh()));
+			document.getElementById('binder-filter').addEventListener('input', () => {
+				if (state) renderBinder();
+			});
 			document.getElementById('previous').addEventListener('click', () =>
 				run(async () => {
 					offset = Math.max(0, offset - 50);
@@ -624,6 +780,10 @@
 					appCapabilities: { availableDisplayModes: ['inline'] },
 				})
 					.then((result) => {
+						if (result.protocolVersion !== '2026-01-26')
+							throw new Error(
+								'Your client uses an unsupported MCP Apps protocol version. Use the text dashboard tools.'
+							);
 						hostContext(result.hostContext);
 						connected = !!result.hostCapabilities?.serverTools;
 						document.getElementById('refresh').disabled = !connected;

@@ -558,7 +558,7 @@ export class PredictiveCache<T> {
 					}
 				}
 			}
-		}, prefetchInterval);
+		}, prefetchInterval).unref();
 	}
 
 	private startModelUpdateLoop(): void {
@@ -568,7 +568,7 @@ export class PredictiveCache<T> {
 			if (this.totalAccesses % this.modelUpdateInterval === 0) {
 				await this.updateModel();
 			}
-		}, updateInterval);
+		}, updateInterval).unref();
 	}
 
 	private startCacheMaintenanceLoop(): void {
@@ -596,7 +596,7 @@ export class PredictiveCache<T> {
 					expiredEntries: keysToDelete.length,
 				});
 			}
-		}, maintenanceInterval);
+		}, maintenanceInterval).unref();
 	}
 
 	private estimateSize(value: T): number {

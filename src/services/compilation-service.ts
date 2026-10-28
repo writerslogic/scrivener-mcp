@@ -615,7 +615,9 @@ export class CompilationService {
 					}
 				}
 			} catch (error) {
-				logger.warn('Invalid regex pattern:', { query, error });
+				logger.warn('Invalid regex pattern', {
+					errorType: error instanceof Error ? error.name : 'UnknownError',
+				});
 			}
 		} else {
 			const searchContent = options.caseSensitive ? content : content.toLowerCase();

@@ -203,7 +203,7 @@ export async function createDocument(
 				}
 			}
 
-			logger.info(`Document created: ${id} (${options.title})`);
+			logger.info('Document created', { documentId: id });
 
 			return {
 				id,
@@ -212,7 +212,7 @@ export async function createDocument(
 			};
 		},
 		context,
-		`create document "${options.title}"`
+		'create document'
 	);
 }
 

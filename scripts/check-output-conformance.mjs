@@ -29,6 +29,13 @@ import { analysisHandlers } from '../dist/handlers/analysis-handlers.js';
 import { compilationHandlers } from '../dist/handlers/compilation-handlers.js';
 import { relationshipHandlers } from '../dist/handlers/relationship-handlers.js';
 import { documentGraphHandlers } from '../dist/handlers/document-graph-handlers.js';
+import { dashboardHandler } from '../dist/handlers/dashboard-handlers.js';
+import { reviewChangesHandler } from '../dist/handlers/review-handlers.js';
+import { localSearchHandlers } from '../dist/handlers/local-search-handlers.js';
+import { storyHandlers, continuityHandlers } from '../dist/handlers/story-handlers.js';
+import { workflowHandlers } from '../dist/handlers/workflow-handlers.js';
+import { exportManuscriptHandler } from '../dist/handlers/export-preset-handlers.js';
+import { semanticSearchHandler } from '../dist/handlers/analysis-handlers/advanced.js';
 
 const out = (l) => process.stdout.write(`${l}\n`);
 const ajv = new Ajv({ strict: false, allErrors: true });
@@ -44,6 +51,14 @@ const all = [
 	...compilationHandlers,
 	...relationshipHandlers,
 	...documentGraphHandlers,
+	dashboardHandler,
+	reviewChangesHandler,
+	...localSearchHandlers,
+	...storyHandlers,
+	...continuityHandlers,
+	...workflowHandlers,
+	exportManuscriptHandler,
+	semanticSearchHandler,
 ];
 const byName = new Map(all.map((h) => [h.name, h]));
 
@@ -62,6 +77,23 @@ const byName = new Map(all.map((h) => [h.name, h]));
 // the AI tools are intentionally NOT exercised here (they need a graph/HMS
 // backend or Claude credits absent in this harness) — see the SKIPPED note above.
 const PLAN = [
+	['manuscript_dashboard', {}],
+	['review_changes', { action: 'list' }],
+	['search_passages', { query: 'fear', mode: 'semantic' }],
+	['semantic_search', { query: 'fear' }],
+	['search', { query: 'storm' }],
+	['check_consistency', {}],
+	['continuity_findings', { action: 'list' }],
+	['manage_series', { action: 'list' }],
+	[
+		'story_bible',
+		(context) => ({
+			action: 'list',
+			scope: { kind: 'project', id: context.project.getEditorialServices().source.projectId },
+		}),
+	],
+	['editorial_workflow', { action: 'list' }],
+	['export_manuscript', { preset: 'ebook' }],
 	['get_structure', {}],
 	['get_statistics', {}],
 	['get_compile_settings', {}],
@@ -78,7 +110,7 @@ const PLAN = [
 	['analyze_document', 'NEEDS_DOC'],
 	[
 		'create_document',
-		{ title: 'Conformance Probe', content: 'A sample paragraph about a storm.' },
+		{ title: 'Conformance Probe', content: 'A sample paragraph about a storm.', force: true },
 	],
 	['get_document_info', 'NEEDS_DOC'],
 	['read_annotations', 'NEEDS_DOC'],
@@ -100,8 +132,11 @@ async function main() {
 	// (or depending on) Claude credits.
 	delete process.env.ANTHROPIC_API_KEY;
 	delete process.env.OPENAI_API_KEY;
+	process.env.SCRIVENER_LOCAL_ONLY = 'true';
+	process.env.SCRIVENER_DISABLE_KEY_DISCOVERY = '1';
 
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scriv-conf-'));
+	process.env.SCRIVENER_DATA_DIR = path.join(tmp, 'server-state');
 	const projPath = path.join(tmp, 'sample-project.scriv');
 	copyDir(path.join(process.cwd(), 'tests', 'sample-project.scriv'), projPath);
 
@@ -148,10 +183,10 @@ async function main() {
 				record({ name, status: 'FAIL', detail: 'not registered' });
 				continue;
 			}
-			let args = argsSpec;
+			let args = typeof argsSpec === 'function' ? argsSpec(context) : argsSpec;
 			if (argsSpec === 'NEEDS_DOC') {
 				if (!anyDocId) {
-					record({ name, status: 'SKIP', detail: 'no document id available' });
+					record({ name, status: 'FAIL', detail: 'no document id available' });
 					continue;
 				}
 				args = { documentId: anyDocId };
@@ -176,7 +211,7 @@ async function main() {
 					record({ name, status: 'FAIL', detail: ajv.errorsText(validate.errors) });
 				}
 			} catch (err) {
-				record({ name, status: 'SKIP', detail: `handler threw: ${err.message}` });
+				record({ name, status: 'FAIL', detail: `handler threw: ${err.message}` });
 			}
 		}
 

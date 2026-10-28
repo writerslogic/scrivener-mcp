@@ -86,7 +86,7 @@ export class BinderEditor {
 				addBinderItem(binder, newItem);
 			}
 
-			logger.info(`Created document ${id} with title "${sanitizedTitle}"`);
+			logger.info('Created document', { documentId: id });
 			return id;
 		} catch (error) {
 			throw handleError(error, 'createDocument');

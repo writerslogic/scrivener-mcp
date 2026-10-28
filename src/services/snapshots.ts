@@ -246,7 +246,14 @@ export async function planSnapshot(
 	date: Date
 ): Promise<SnapshotEntry> {
 	const dir = snapshotDir(projectPath, documentId);
-	if (!dir || typeof title !== 'string' || title.length > 512 || !(date instanceof Date) || !Number.isFinite(date.getTime())) throw createError(ErrorCode.INVALID_INPUT, {}, 'Invalid snapshot identity, title, or date');
+	if (
+		!dir ||
+		typeof title !== 'string' ||
+		title.length > 512 ||
+		!(date instanceof Date) ||
+		!Number.isFinite(date.getTime())
+	)
+		throw createError(ErrorCode.INVALID_INPUT, {}, 'Invalid snapshot identity, title, or date');
 	const { stem: baseStem, indexDate } = formatSnapshotStamp(date);
 	const existing = await listSnapshotRtfStems(dir);
 	let stem = baseStem;
@@ -254,9 +261,23 @@ export async function planSnapshot(
 	return { documentId, snapshotId: stem, title: title.trim(), date: indexDate };
 }
 
-export async function writePlannedSnapshot(projectPath: string, entry: SnapshotEntry, content: string): Promise<void> {
+export async function writePlannedSnapshot(
+	projectPath: string,
+	entry: SnapshotEntry,
+	content: string
+): Promise<void> {
 	const dir = snapshotDir(projectPath, entry.documentId);
-	if (!dir || !/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}[+-]\d{4}(?:-\d+)?$/.test(entry.snapshotId) || typeof entry.title !== 'string' || entry.title.length > 512 || typeof entry.date !== 'string' || entry.date.length > 40 || typeof content !== 'string' || Buffer.byteLength(content) > 64 * 1024 * 1024) throw new Error('Invalid planned snapshot');
+	if (
+		!dir ||
+		!/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}[+-]\d{4}(?:-\d+)?$/.test(entry.snapshotId) ||
+		typeof entry.title !== 'string' ||
+		entry.title.length > 512 ||
+		typeof entry.date !== 'string' ||
+		entry.date.length > 40 ||
+		typeof content !== 'string' ||
+		Buffer.byteLength(content) > 64 * 1024 * 1024
+	)
+		throw new Error('Invalid planned snapshot');
 	const rtfPath = path.join(dir, `${entry.snapshotId}.rtf`);
 	const indexPath = path.join(dir, 'index.xml');
 	const priorStems = await listSnapshotRtfStems(dir);
@@ -265,11 +286,14 @@ export async function writePlannedSnapshot(projectPath: string, entry: SnapshotE
 	let prior: Array<{ title: string; date: string }> | undefined;
 	try {
 		const xml = await fs.readFile(indexPath, 'utf8');
-		const parsed = await parseStringPromise(xml, PARSE_OPTS) as { Snapshots?: { Snapshot?: unknown } | string };
+		const parsed = (await parseStringPromise(xml, PARSE_OPTS)) as {
+			Snapshots?: { Snapshot?: unknown } | string;
+		};
 		if (parsed.Snapshots === undefined) throw new Error('Invalid snapshot index root');
 		const root = typeof parsed.Snapshots === 'object' ? parsed.Snapshots : undefined;
 		prior = asArray(root?.Snapshot).map((raw) => {
-			const record = raw && typeof raw === 'object' ? raw as { Title?: unknown; Date?: unknown } : {};
+			const record =
+				raw && typeof raw === 'object' ? (raw as { Title?: unknown; Date?: unknown }) : {};
 			return { title: textOf(record.Title), date: textOf(record.Date) };
 		});
 	} catch (error) {
@@ -278,27 +302,44 @@ export async function writePlannedSnapshot(projectPath: string, entry: SnapshotE
 	const metadata = new Map<string, { title: string; date: string }>();
 	if (prior === undefined) {
 		for (const stem of otherStems) {
-			const stamp = stem.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})-(\d{2})-(\d{2})([+-]\d{4})(?:-\d+)?$/);
-			if (!stamp) throw new Error('An unindexed snapshot has an unsupported timestamp; inspect its metadata before retrying');
-			metadata.set(stem, { title: '', date: `${stamp[1]} ${stamp[2]}:${stamp[3]}:${stamp[4]} ${stamp[5]}` });
+			const stamp = stem.match(
+				/^(\d{4}-\d{2}-\d{2})-(\d{2})-(\d{2})-(\d{2})([+-]\d{4})(?:-\d+)?$/
+			);
+			if (!stamp)
+				throw new Error(
+					'An unindexed snapshot has an unsupported timestamp; inspect its metadata before retrying'
+				);
+			metadata.set(stem, {
+				title: '',
+				date: `${stamp[1]} ${stamp[2]}:${stamp[3]}:${stamp[4]} ${stamp[5]}`,
+			});
 		}
 	} else if (prior.length === completedStems.length) {
-		for (let index = 0; index < completedStems.length; index++) metadata.set(completedStems[index], prior[index]);
+		for (let index = 0; index < completedStems.length; index++)
+			metadata.set(completedStems[index], prior[index]);
 		const planned = metadata.get(entry.snapshotId);
-		if (planned?.title !== entry.title || planned.date !== entry.date) throw new Error('Planned snapshot ID conflicts with existing snapshot metadata');
+		if (planned?.title !== entry.title || planned.date !== entry.date)
+			throw new Error('Planned snapshot ID conflicts with existing snapshot metadata');
 	} else if (prior.length === otherStems.length) {
-		for (let index = 0; index < otherStems.length; index++) metadata.set(otherStems[index], prior[index]);
-	} else throw new Error('Snapshot index and saved files do not agree; inspect the existing snapshots before retrying');
+		for (let index = 0; index < otherStems.length; index++)
+			metadata.set(otherStems[index], prior[index]);
+	} else
+		throw new Error(
+			'Snapshot index and saved files do not agree; inspect the existing snapshots before retrying'
+		);
 	metadata.set(entry.snapshotId, { title: entry.title, date: entry.date });
 	await fs.mkdir(dir, { recursive: true });
 	try {
 		const existing = await fs.readFile(rtfPath, 'utf8');
-		if (existing !== content) throw new Error('Planned snapshot ID already contains different saved content');
+		if (existing !== content)
+			throw new Error('Planned snapshot ID already contains different saved content');
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 		await safeWriteFile(rtfPath, content);
 	}
-	const ordered = [...metadata.entries()].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0).map(([, value]) => value);
+	const ordered = [...metadata.entries()]
+		.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+		.map(([, value]) => value);
 	await safeWriteFile(indexPath, buildSnapshotIndex(ordered));
 }
 

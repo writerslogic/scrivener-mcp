@@ -142,7 +142,10 @@ export const reviewChangesHandler: ToolDefinition = {
 		switch (request.action) {
 			case 'list':
 				result = {
-					proposals: review.list(),
+					proposals: review.list().map(({ before, ...proposal }) => ({
+						...proposal,
+						beforeLength: before.length,
+					})),
 					applications: review.listApplications(),
 					batches: review.listBatches(),
 				};

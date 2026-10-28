@@ -1,7 +1,18 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { access, cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import {
+	access,
+	cp,
+	mkdir,
+	mkdtemp,
+	readFile,
+	readdir,
+	realpath,
+	rm,
+	stat,
+	writeFile,
+} from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -32,56 +43,106 @@ function options(argv) {
 	const parsed = {};
 	for (let index = 0; index < argv.length; index++) {
 		const flag = argv[index];
-		verify(flag === '--package' || flag === '--npm-cli', 'Use --package <absolute.tgz> and optional --npm-cli <npm-cli.js>');
-		verify(typeof argv[index + 1] === 'string' && !argv[index + 1].startsWith('--'), 'A command-line option has no value');
+		verify(
+			flag === '--package' || flag === '--npm-cli',
+			'Use --package <absolute.tgz> and optional --npm-cli <npm-cli.js>'
+		);
+		verify(
+			typeof argv[index + 1] === 'string' && !argv[index + 1].startsWith('--'),
+			'A command-line option has no value'
+		);
 		parsed[flag.slice(2)] = argv[++index];
 	}
-	if (parsed.package) verify(isAbsolute(parsed.package) && parsed.package.endsWith('.tgz'), '--package requires an absolute .tgz file');
+	if (parsed.package)
+		verify(
+			isAbsolute(parsed.package) && parsed.package.endsWith('.tgz'),
+			'--package requires an absolute .tgz file'
+		);
 	return parsed;
 }
 
 async function exists(file) {
-	try { await access(file); return true; }
-	catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+	try {
+		await access(file);
+		return true;
+	} catch (error) {
+		if (error.code === 'ENOENT') return false;
+		throw error;
+	}
 }
 
 function within(root, file) {
 	const part = relative(root, resolve(file));
-	return !isAbsolute(part) && part !== '..' && !part.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`);
+	return (
+		!isAbsolute(part) &&
+		part !== '..' &&
+		!part.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
+	);
 }
 
 async function npmCli(explicit) {
-	const candidates = [explicit, process.env.npm_execpath,
+	const candidates = [
+		explicit,
+		process.env.npm_execpath,
 		join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
 		join(dirname(process.execPath), '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
 	];
 	for (const entry of (process.env.PATH ?? '').split(delimiter).filter(Boolean)) {
-		candidates.push(join(entry, 'npm'), join(entry, 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+		candidates.push(
+			join(entry, 'npm'),
+			join(entry, 'node_modules', 'npm', 'bin', 'npm-cli.js')
+		);
 	}
 	for (const candidate of candidates.filter(Boolean)) {
-		if (!await exists(candidate)) continue;
+		if (!(await exists(candidate))) continue;
 		const file = await realpath(candidate);
 		if (file.endsWith('npm-cli.js') && (await stat(file)).isFile()) return file;
 	}
-	throw new SmokeFailure('Cannot locate npm-cli.js; supply --npm-cli with the installed npm JavaScript entry point');
+	throw new SmokeFailure(
+		'Cannot locate npm-cli.js; supply --npm-cli with the installed npm JavaScript entry point'
+	);
 }
 
 function cleanEnvironment(root) {
 	const env = {};
-	for (const name of ['PATH', 'SystemRoot', 'SYSTEMROOT', 'WINDIR', 'ComSpec', 'COMSPEC', 'PATHEXT', 'PROCESSOR_ARCHITECTURE', 'OS', 'SystemDrive']) {
+	for (const name of [
+		'PATH',
+		'SystemRoot',
+		'SYSTEMROOT',
+		'WINDIR',
+		'ComSpec',
+		'COMSPEC',
+		'PATHEXT',
+		'PROCESSOR_ARCHITECTURE',
+		'OS',
+		'SystemDrive',
+	]) {
 		if (process.env[name]) env[name] = process.env[name];
 	}
 	return {
 		...env,
-		HOME: join(root, 'isolated-home'), USERPROFILE: join(root, 'isolated-home'),
-		APPDATA: join(root, 'isolated-home', 'AppData', 'Roaming'), LOCALAPPDATA: join(root, 'isolated-home', 'AppData', 'Local'),
-		XDG_CONFIG_HOME: join(root, 'isolated-home', '.config'), XDG_CACHE_HOME: join(root, 'isolated-home', '.cache'),
-		TMPDIR: join(root, 'temp'), TMP: join(root, 'temp'), TEMP: join(root, 'temp'),
-		CI: 'true', SCRIVENER_SKIP_POSTINSTALL: 'true', SCRIVENER_DISABLE_KEY_DISCOVERY: '1',
-		SCRIVENER_SKIP_SETUP: 'true', SCRIVENER_QUIET: 'true', SCRIVENER_LOCAL_ONLY: 'true',
-		SCRIVENER_DATA_DIR: join(root, 'server-state'), LOG_LEVEL: 'ERROR',
-		NPM_CONFIG_CACHE: join(root, 'npm-cache'), NPM_CONFIG_USERCONFIG: join(root, 'npm-userconfig'),
-		NPM_CONFIG_GLOBALCONFIG: join(root, 'npm-globalconfig'), NPM_CONFIG_AUDIT: 'false', NPM_CONFIG_FUND: 'false',
+		HOME: join(root, 'isolated-home'),
+		USERPROFILE: join(root, 'isolated-home'),
+		APPDATA: join(root, 'isolated-home', 'AppData', 'Roaming'),
+		LOCALAPPDATA: join(root, 'isolated-home', 'AppData', 'Local'),
+		XDG_CONFIG_HOME: join(root, 'isolated-home', '.config'),
+		XDG_CACHE_HOME: join(root, 'isolated-home', '.cache'),
+		TMPDIR: join(root, 'temp'),
+		TMP: join(root, 'temp'),
+		TEMP: join(root, 'temp'),
+		CI: 'true',
+		SCRIVENER_SKIP_POSTINSTALL: 'true',
+		SCRIVENER_DISABLE_KEY_DISCOVERY: '1',
+		SCRIVENER_SKIP_SETUP: 'true',
+		SCRIVENER_QUIET: 'true',
+		SCRIVENER_LOCAL_ONLY: 'true',
+		SCRIVENER_DATA_DIR: join(root, 'server-state'),
+		LOG_LEVEL: 'ERROR',
+		NPM_CONFIG_CACHE: join(root, 'npm-cache'),
+		NPM_CONFIG_USERCONFIG: join(root, 'npm-userconfig'),
+		NPM_CONFIG_GLOBALCONFIG: join(root, 'npm-globalconfig'),
+		NPM_CONFIG_AUDIT: 'false',
+		NPM_CONFIG_FUND: 'false',
 	};
 }
 
@@ -89,41 +150,77 @@ function boundedCapture() {
 	let tail = '';
 	let bytes = 0;
 	return {
-		add(chunk) { bytes += chunk.length; tail = (tail + chunk.toString('utf8')).slice(-32768); },
-		get bytes() { return bytes; },
-		get npmCode() { return tail.match(/npm (?:error|ERR!) code ([A-Z0-9_]+)/u)?.[1]; },
+		add(chunk) {
+			bytes += chunk.length;
+			tail = (tail + chunk.toString('utf8')).slice(-32768);
+		},
+		get bytes() {
+			return bytes;
+		},
+		get npmCode() {
+			return tail.match(/npm (?:error|ERR!) code ([A-Z0-9_]+)/u)?.[1];
+		},
 	};
 }
 
 async function runNpm(cli, args, cwd, env) {
 	const captured = boundedCapture();
 	await new Promise((resolveProcess, reject) => {
-		const child = spawn(process.execPath, [cli, ...args], { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32' });
+		const child = spawn(process.execPath, [cli, ...args], {
+			cwd,
+			env,
+			stdio: ['ignore', 'pipe', 'pipe'],
+			windowsHide: true,
+			detached: process.platform !== 'win32',
+		});
 		let timedOut = false;
 		let force;
 		const terminate = () => {
 			if (!child.pid) return;
 			if (process.platform === 'win32') {
-				const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { env, stdio: 'ignore', windowsHide: true });
+				const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+					env,
+					stdio: 'ignore',
+					windowsHide: true,
+				});
 				killer.on('error', () => child.kill());
 			} else {
-				try { process.kill(-child.pid, 'SIGTERM'); } catch { child.kill(); }
-				force = setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 3000);
+				try {
+					process.kill(-child.pid, 'SIGTERM');
+				} catch {
+					child.kill();
+				}
+				force = setTimeout(() => {
+					try {
+						process.kill(-child.pid, 'SIGKILL');
+					} catch {}
+				}, 3000);
 				force.unref();
 			}
 		};
-		const timer = setTimeout(() => { timedOut = true; terminate(); }, 600000);
+		const timer = setTimeout(() => {
+			timedOut = true;
+			terminate();
+		}, 600000);
 		timer.unref();
 		child.stdout.on('data', (chunk) => captured.add(chunk));
 		child.stderr.on('data', (chunk) => captured.add(chunk));
 		child.once('error', () => {
-			clearTimeout(timer); clearTimeout(force);
+			clearTimeout(timer);
+			clearTimeout(force);
 			reject(new SmokeFailure('Unable to start the npm JavaScript CLI'));
 		});
 		child.once('close', (code) => {
-			clearTimeout(timer); clearTimeout(force);
-			if (timedOut) reject(new SmokeFailure('npm operation exceeded the ten-minute deadline'));
-			else if (code !== 0) reject(new SmokeFailure(`npm operation failed: exit ${Number.isInteger(code) ? code : 'unknown'}${captured.npmCode ? `, ${captured.npmCode}` : ''}; bounded output withheld`));
+			clearTimeout(timer);
+			clearTimeout(force);
+			if (timedOut)
+				reject(new SmokeFailure('npm operation exceeded the ten-minute deadline'));
+			else if (code !== 0)
+				reject(
+					new SmokeFailure(
+						`npm operation failed: exit ${Number.isInteger(code) ? code : 'unknown'}${captured.npmCode ? `, ${captured.npmCode}` : ''}; bounded output withheld`
+					)
+				);
 			else resolveProcess();
 		});
 	});
@@ -131,27 +228,49 @@ async function runNpm(cli, args, cwd, env) {
 
 async function tool(client, name, args, expectError = false) {
 	let response;
-	try { response = await client.callTool({ name, arguments: args }, undefined, { timeout: 60000 }); }
-	catch { throw new SmokeFailure(`MCP request failed for ${name}; transport details withheld`); }
-	if (expectError) { verify(response.isError === true, `${name} unexpectedly accepted a guarded operation`); return response; }
+	try {
+		response = await client.callTool({ name, arguments: args }, undefined, { timeout: 60000 });
+	} catch {
+		throw new SmokeFailure(`MCP request failed for ${name}; transport details withheld`);
+	}
+	if (expectError) {
+		verify(response.isError === true, `${name} unexpectedly accepted a guarded operation`);
+		return response;
+	}
 	verify(!response.isError, `${name} returned an error; response content withheld`);
-	verify(Array.isArray(response.content) && response.content.some((item) => item.type === 'text' && typeof item.text === 'string' && item.text.length > 0), `${name} returned no usable text fallback`);
+	verify(
+		Array.isArray(response.content) &&
+			response.content.some(
+				(item) =>
+					item.type === 'text' && typeof item.text === 'string' && item.text.length > 0
+			),
+		`${name} returned no usable text fallback`
+	);
 	return response.structuredContent ?? {};
 }
 
 function passage(context, evidence) {
-	verify(evidence.projectId === context.projectId && evidence.revision === context.revision, 'Evidence identity or saved revision does not match its source');
-	verify(context.text.slice(evidence.start, evidence.end) === evidence.quote && evidence.quote.length > 0, 'Evidence does not quote the source at its recorded offsets');
+	verify(
+		evidence.projectId === context.projectId && evidence.revision === context.revision,
+		'Evidence identity or saved revision does not match its source'
+	);
+	verify(
+		context.text.slice(evidence.start, evidence.end) === evidence.quote &&
+			evidence.quote.length > 0,
+		'Evidence does not quote the source at its recorded offsets'
+	);
 	return evidence;
 }
 
 async function hash(file) {
-	return createHash('sha256').update(await readFile(file)).digest('hex');
+	return createHash('sha256')
+		.update(await readFile(file))
+		.digest('hex');
 }
 
 async function snapshotCount(projectPath, documentId) {
 	const folder = join(projectPath, 'Snapshots', `${documentId}.snapshots`);
-	if (!await exists(folder)) return 0;
+	if (!(await exists(folder))) return 0;
 	return (await readdir(folder)).filter((name) => name.endsWith('.rtf')).length;
 }
 
@@ -162,7 +281,10 @@ async function awaitWorkflow(client, id) {
 		const workflow = result.workflows?.[0];
 		verify(workflow && workflow.id === id, 'Workflow status lost its durable identity');
 		if (workflow.state === 'completed') return workflow;
-		verify(workflow.state === 'ready' || workflow.state === 'running', 'Guided workflow failed or was interrupted; result content withheld');
+		verify(
+			workflow.state === 'ready' || workflow.state === 'running',
+			'Guided workflow failed or was interrupted; result content withheld'
+		);
 		await new Promise((notify) => setTimeout(notify, 200));
 	}
 	throw new SmokeFailure('Guided workflow did not finish within one minute');
@@ -170,41 +292,123 @@ async function awaitWorkflow(client, id) {
 
 async function main() {
 	const opts = options(process.argv.slice(2));
-	const root = await mkdtemp(join(tmpdir(), 'scrivener-release-smoke-'));
+	const root = await realpath(await mkdtemp(join(tmpdir(), 'scrivener-release-smoke-')));
 	try {
 		const env = cleanEnvironment(root);
-		for (const folder of ['isolated-home', 'temp', 'npm-cache', 'server-state', 'package']) await mkdir(join(root, folder), { mode: 0o700 });
+		for (const folder of ['isolated-home', 'temp', 'npm-cache', 'server-state', 'package'])
+			await mkdir(join(root, folder), { mode: 0o700 });
 		await writeFile(env.NPM_CONFIG_USERCONFIG, '');
 		await writeFile(env.NPM_CONFIG_GLOBALCONFIG, '');
 		const cli = await npmCli(opts['npm-cli']);
 		let tarball = opts.package;
 		if (!tarball) {
 			await check('pack-local-candidate', async () => {
-				await runNpm(cli, ['pack', '--ignore-scripts', '--json', '--pack-destination', join(root, 'package')], SOURCE_ROOT, env);
-				const archives = (await readdir(join(root, 'package'))).filter((name) => name.endsWith('.tgz'));
-				verify(archives.length === 1, 'npm pack did not create exactly one package archive');
+				await runNpm(
+					cli,
+					[
+						'pack',
+						'--ignore-scripts',
+						'--json',
+						'--pack-destination',
+						join(root, 'package'),
+					],
+					SOURCE_ROOT,
+					env
+				);
+				const archives = (await readdir(join(root, 'package'))).filter((name) =>
+					name.endsWith('.tgz')
+				);
+				verify(
+					archives.length === 1,
+					'npm pack did not create exactly one package archive'
+				);
 				tarball = join(root, 'package', archives[0]);
 			});
 		}
-		verify((await stat(tarball)).isFile() && (await stat(tarball)).size <= 128 * 1024 * 1024, 'Package archive is missing or exceeds 128 MiB');
-		await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'scrivener-release-smoke', version: '1.0.0', private: true }));
-		await check('install-local-package', () => runNpm(cli, ['install', tarball, '--omit=dev', '--no-package-lock', '--no-audit', '--no-fund'], root, env));
+		verify(
+			(await stat(tarball)).isFile() && (await stat(tarball)).size <= 128 * 1024 * 1024,
+			'Package archive is missing or exceeds 128 MiB'
+		);
+		await writeFile(
+			join(root, 'package.json'),
+			JSON.stringify({ name: 'scrivener-release-smoke', version: '1.0.0', private: true })
+		);
+		await check('install-local-package', () =>
+			runNpm(cli, ['install', tarball, '--omit=dev', '--no-audit', '--no-fund'], root, env)
+		);
 		const installed = join(root, 'node_modules', 'scrivener-mcp');
+		await check('installed-consumer-dependency-audit', async () => {
+			await runNpm(cli, ['audit', '--omit=dev'], root, env);
+		});
 		const entry = join(installed, 'dist', 'index.js');
 		const requireInstalled = createRequire(join(installed, 'package.json'));
-		const { Client, StdioClientTransport, firstSession } = await check('installed-package-modules', async () => {
-			const clientModule = await import(pathToFileURL(requireInstalled.resolve('@modelcontextprotocol/sdk/client/index.js')).href);
-			const transportModule = await import(pathToFileURL(requireInstalled.resolve('@modelcontextprotocol/sdk/client/stdio.js')).href);
-			const setupModule = await import(pathToFileURL(join(installed, 'dist', 'setup', 'first-session.js')).href);
-			verify(typeof clientModule.Client === 'function' && typeof transportModule.StdioClientTransport === 'function' && typeof setupModule.firstSession === 'function', 'Installed package or SDK is missing a required runtime entry point');
-			return { Client: clientModule.Client, StdioClientTransport: transportModule.StdioClientTransport, firstSession: setupModule.firstSession };
-		});
+		const { Client, StdioClientTransport, firstSession } = await check(
+			'installed-package-modules',
+			async () => {
+				const clientModule = await import(
+					pathToFileURL(
+						requireInstalled.resolve('@modelcontextprotocol/sdk/client/index.js')
+					).href
+				);
+				const transportModule = await import(
+					pathToFileURL(
+						requireInstalled.resolve('@modelcontextprotocol/sdk/client/stdio.js')
+					).href
+				);
+				const setupModule = await import(
+					pathToFileURL(join(installed, 'dist', 'setup', 'first-session.js')).href
+				);
+				verify(
+					typeof clientModule.Client === 'function' &&
+						typeof transportModule.StdioClientTransport === 'function' &&
+						typeof setupModule.firstSession === 'function',
+					'Installed package or SDK is missing a required runtime entry point'
+				);
+				return {
+					Client: clientModule.Client,
+					StdioClientTransport: transportModule.StdioClientTransport,
+					firstSession: setupModule.firstSession,
+				};
+			}
+		);
 		const first = await check('installed-first-session-analysis-and-preview', async () => {
 			verify((await stat(entry)).isFile(), 'Installed package is missing the startup entry');
-			verify((await readFile(join(installed, 'assets', 'manuscript-dashboard.html'))).length > 100, 'Installed package is missing its dashboard asset');
-			const result = await firstSession({ command: process.execPath, args: [entry], env }, join(root, 'first-session'));
-			verify(result.ok && result.checks?.protocol === true && result.checks.analysis === true && result.checks.editPreview === true && result.checks.manuscriptUnchanged === true && within(root, result.projectPath), 'Installed first session failed or left its isolated sample');
-			verify((await hash(join(result.projectPath, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf'))) === (await hash(join(installed, 'assets', 'sample-project', 'Welcome.scriv', 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf'))), 'First session changed the sample manuscript during its preview');
+			verify(
+				(await readFile(join(installed, 'assets', 'manuscript-dashboard.html'))).length >
+					100,
+				'Installed package is missing its dashboard asset'
+			);
+			const result = await firstSession(
+				{ command: process.execPath, args: [entry], env },
+				join(root, 'first-session')
+			);
+			verify(
+				result.ok &&
+					result.checks?.protocol === true &&
+					result.checks.analysis === true &&
+					result.checks.editPreview === true &&
+					result.checks.manuscriptUnchanged === true &&
+					within(root, result.projectPath),
+				'Installed first session failed or left its isolated sample'
+			);
+			verify(
+				(await hash(
+					join(result.projectPath, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf')
+				)) ===
+					(await hash(
+						join(
+							installed,
+							'assets',
+							'sample-project',
+							'Welcome.scriv',
+							'Files',
+							'Data',
+							SAMPLE_DOCUMENT,
+							'content.rtf'
+						)
+					)),
+				'First session changed the sample manuscript during its preview'
+			);
 			return result;
 		});
 		const projectPath = first.projectPath;
@@ -212,12 +416,35 @@ async function main() {
 		const originalRaw = await readFile(originalFile, 'utf8');
 		const originalRevision = await hash(originalFile);
 		const openSession = async (apps) => {
-			const transport = new StdioClientTransport({ command: process.execPath, args: [entry], cwd: root, env, stderr: 'pipe' });
+			const transport = new StdioClientTransport({
+				command: process.execPath,
+				args: [entry],
+				cwd: root,
+				env,
+				stderr: 'pipe',
+			});
 			const stderr = boundedCapture();
 			transport.stderr?.on('data', (chunk) => stderr.add(chunk));
-			const client = new Client({ name: apps ? 'release-apps-smoke' : 'release-text-smoke', version: '1' }, { capabilities: apps ? { extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: [APP_MIME] } } } : {} });
-			try { await client.connect(transport); }
-			catch { await transport.close(); throw new SmokeFailure('Installed server initialization failed; bounded stderr withheld'); }
+			const client = new Client(
+				{ name: apps ? 'release-apps-smoke' : 'release-text-smoke', version: '1' },
+				{
+					capabilities: apps
+						? {
+								extensions: {
+									'io.modelcontextprotocol/ui': { mimeTypes: [APP_MIME] },
+								},
+							}
+						: {},
+				}
+			);
+			try {
+				await client.connect(transport);
+			} catch {
+				await transport.close();
+				throw new SmokeFailure(
+					'Installed server initialization failed; bounded stderr withheld'
+				);
+			}
 			return client;
 		};
 		const client = await openSession(false);
@@ -228,157 +455,499 @@ async function main() {
 			let candidates;
 			await check('text-client-progressive-tools-and-fallback', async () => {
 				const initial = await client.listTools();
-				verify(initial.tools.some((item) => item.name === 'open_project') && !initial.tools.some((item) => item.name === 'review_changes'), 'Startup tools do not use progressive disclosure');
-				const textDashboard = initial.tools.find((item) => item.name === 'manuscript_dashboard');
-				verify(!textDashboard?._meta?.ui && !textDashboard?._meta?.['ui/resourceUri'], 'Text client unexpectedly received MCP Apps metadata');
+				verify(
+					initial.tools.some((item) => item.name === 'open_project') &&
+						!initial.tools.some((item) => item.name === 'review_changes'),
+					'Startup tools do not use progressive disclosure'
+				);
+				const textDashboard = initial.tools.find(
+					(item) => item.name === 'manuscript_dashboard'
+				);
+				verify(
+					!textDashboard?._meta?.ui && !textDashboard?._meta?.['ui/resourceUri'],
+					'Text client unexpectedly received MCP Apps metadata'
+				);
 				await tool(client, 'open_project', { path: projectPath });
 				const listed = await client.listTools();
-				verify(listed.tools.some((item) => item.name === 'review_changes') && listed.tools.some((item) => item.name === 'search_passages'), 'Opening a project did not expose its editing and search tools');
-				const dashboard = await tool(client, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT });
-				verify(dashboard.uiSupported === false && dashboard.context?.documentId === SAMPLE_DOCUMENT && dashboard.context.revision === originalRevision, 'Text dashboard did not return saved source context');
-				verify((await client.listResources()).resources.length === 0, 'Text client unexpectedly received app resources');
+				verify(
+					listed.tools.some((item) => item.name === 'review_changes') &&
+						listed.tools.some((item) => item.name === 'search_passages'),
+					'Opening a project did not expose its editing and search tools'
+				);
+				const dashboard = await tool(client, 'manuscript_dashboard', {
+					documentId: SAMPLE_DOCUMENT,
+				});
+				verify(
+					dashboard.uiSupported === false &&
+						dashboard.context?.documentId === SAMPLE_DOCUMENT &&
+						dashboard.context.revision === originalRevision,
+					'Text dashboard did not return saved source context'
+				);
+				verify(
+					(await client.listResources()).resources.length === 0,
+					'Text client unexpectedly received app resources'
+				);
 				let denied = false;
-				try { await client.readResource({ uri: APP_URI }); } catch (error) { denied = error.code === -32602; }
+				try {
+					await client.readResource({ uri: APP_URI });
+				} catch (error) {
+					denied = error.code === -32602;
+				}
 				verify(denied, 'Unnegotiated app resource access was not rejected');
 				contexts = new Map([[SAMPLE_DOCUMENT, dashboard.context]]);
 				const saved = await tool(client, 'review_changes', { action: 'list' });
-				verify(saved.result.proposals.some((proposal) => proposal.id === first.proposalId), 'First-session proposal was not durable across server restart');
+				verify(
+					saved.result.proposals.some((proposal) => proposal.id === first.proposalId),
+					'First-session proposal was not durable across server restart'
+				);
 			});
 			await check('installed-local-concept-passage-search', async () => {
-				const result = await tool(client, 'search_passages', { query: 'fear', mode: 'semantic', limit: 3 });
+				const result = await tool(client, 'search_passages', {
+					query: 'fear',
+					mode: 'semantic',
+					limit: 3,
+				});
 				const match = result.results?.find((item) => item.documentId === SAMPLE_DOCUMENT);
-				verify(match && match.semanticScore > 0 && match.keywordScore === 0 && match.context.includes(match.quote), 'Local conceptual retrieval did not find a non-keyword passage');
+				verify(
+					match &&
+						match.semanticScore > 0 &&
+						match.keywordScore === 0 &&
+						match.context.includes(match.quote),
+					'Local conceptual retrieval did not find a non-keyword passage'
+				);
 				passage(contexts.get(SAMPLE_DOCUMENT), match);
-				verify(result.limitations.includes('bounded'), 'Local retrieval did not disclose its concept coverage');
+				verify(
+					result.limitations.includes('bounded'),
+					'Local retrieval did not disclose its concept coverage'
+				);
 			});
 			await check('installed-facts-continuity-and-series-lifecycle', async () => {
-				const analysis = await tool(client, 'check_consistency', { checkTypes: ['characters'] });
+				const analysis = await tool(client, 'check_consistency', {
+					checkTypes: ['characters'],
+				});
 				candidates = analysis.candidates.filter((fact) => fact.predicate === 'eye-color');
 				const left = candidates[0];
-				const right = candidates.find((fact) => fact.subject === left?.subject && fact.value !== left?.value);
-				verify(left && right && left.confidence !== 'confirmed' && right.confidence !== 'confirmed', 'Sample continuity extraction did not return distinct inferred attributes');
-				for (const fact of [left, right]) for (const evidence of fact.sources) {
-					if (!contexts.has(evidence.documentId)) contexts.set(evidence.documentId, (await tool(client, 'manuscript_dashboard', { documentId: evidence.documentId })).context);
-					passage(contexts.get(evidence.documentId), evidence);
-				}
+				const right = candidates.find(
+					(fact) => fact.subject === left?.subject && fact.value !== left?.value
+				);
+				verify(
+					left &&
+						right &&
+						left.confidence !== 'confirmed' &&
+						right.confidence !== 'confirmed',
+					'Sample continuity extraction did not return distinct inferred attributes'
+				);
+				for (const fact of [left, right])
+					for (const evidence of fact.sources) {
+						if (!contexts.has(evidence.documentId))
+							contexts.set(
+								evidence.documentId,
+								(
+									await tool(client, 'manuscript_dashboard', {
+										documentId: evidence.documentId,
+									})
+								).context
+							);
+						passage(contexts.get(evidence.documentId), evidence);
+					}
 				const projectId = contexts.get(SAMPLE_DOCUMENT).projectId;
 				const scope = { kind: 'project', id: projectId };
-				const fact = (candidate, id) => ({ id, kind: candidate.kind, subject: candidate.subject, predicate: candidate.predicate, value: candidate.value, confidence: 'confirmed', sources: candidate.sources, storyTime: 'release-smoke-same-time' });
-				await tool(client, 'story_bible', { action: 'curate', scope, fact: fact(left, 'release-canon-left') });
-				await tool(client, 'story_bible', { action: 'curate', scope, fact: fact(right, 'release-canon-right') });
-				const confirmed = (await tool(client, 'check_consistency', { checkTypes: ['characters'] })).issues.find((item) => item.confidence === 'confirmed' && item.factIds.includes('release-canon-left') && item.factIds.includes('release-canon-right'));
-				verify(confirmed?.evidence.length >= 2 && confirmed.basis === 'canon-conflict', 'Confirmed continuity findings lost their supporting passages');
-				for (const [action, status] of [['confirm', 'confirmed'], ['dismiss', 'dismissed'], ['resolve', 'resolved']]) {
-					const changed = await tool(client, 'continuity_findings', { action, findingId: confirmed.id, note: 'Synthetic release fixture review' });
-					verify(changed.findings[0]?.status === status, 'Continuity review state was not persisted');
+				const fact = (candidate, id) => ({
+					id,
+					kind: candidate.kind,
+					subject: candidate.subject,
+					predicate: candidate.predicate,
+					value: candidate.value,
+					confidence: 'confirmed',
+					sources: candidate.sources,
+					storyTime: 'release-smoke-same-time',
+				});
+				await tool(client, 'story_bible', {
+					action: 'curate',
+					scope,
+					fact: fact(left, 'release-canon-left'),
+				});
+				await tool(client, 'story_bible', {
+					action: 'curate',
+					scope,
+					fact: fact(right, 'release-canon-right'),
+				});
+				const confirmed = (
+					await tool(client, 'check_consistency', { checkTypes: ['characters'] })
+				).issues.find(
+					(item) =>
+						item.confidence === 'confirmed' &&
+						item.factIds.includes('release-canon-left') &&
+						item.factIds.includes('release-canon-right')
+				);
+				verify(
+					confirmed?.evidence.length >= 2 && confirmed.basis === 'canon-conflict',
+					'Confirmed continuity findings lost their supporting passages'
+				);
+				for (const [action, status] of [
+					['confirm', 'confirmed'],
+					['dismiss', 'dismissed'],
+					['resolve', 'resolved'],
+				]) {
+					const changed = await tool(client, 'continuity_findings', {
+						action,
+						findingId: confirmed.id,
+						note: 'Synthetic release fixture review',
+					});
+					verify(
+						changed.findings[0]?.status === status,
+						'Continuity review state was not persisted'
+					);
 				}
-				verify((await tool(client, 'continuity_findings', { action: 'recheck', findingId: confirmed.id })).findings.some((item) => item.id === confirmed.id), 'Finding recheck lost its stable identity');
-				const corrected = await tool(client, 'story_bible', { action: 'correct', scope, factId: 'release-canon-right', patch: { value: left.value, sources: left.sources } });
-				verify(corrected.facts[0]?.supersedes === 'release-canon-right', 'Fact correction did not preserve provenance history');
-				seriesId = (await tool(client, 'manage_series', { action: 'create', name: 'Synthetic release series' })).series[0]?.id;
+				verify(
+					(
+						await tool(client, 'continuity_findings', {
+							action: 'recheck',
+							findingId: confirmed.id,
+						})
+					).findings.some((item) => item.id === confirmed.id),
+					'Finding recheck lost its stable identity'
+				);
+				const corrected = await tool(client, 'story_bible', {
+					action: 'correct',
+					scope,
+					factId: 'release-canon-right',
+					patch: { value: left.value, sources: left.sources },
+				});
+				verify(
+					corrected.facts[0]?.supersedes === 'release-canon-right',
+					'Fact correction did not preserve provenance history'
+				);
+				seriesId = (
+					await tool(client, 'manage_series', {
+						action: 'create',
+						name: 'Synthetic release series',
+					})
+				).series[0]?.id;
 				verify(typeof seriesId === 'string', 'Series creation returned no identity');
-				await tool(client, 'story_bible', { action: 'curate', scope: { kind: 'series', id: seriesId }, fact: fact(left, 'release-series-fact') });
+				await tool(client, 'story_bible', {
+					action: 'curate',
+					scope: { kind: 'series', id: seriesId },
+					fact: fact(left, 'release-series-fact'),
+				});
 				const projectFacts = await tool(client, 'story_bible', { action: 'list', scope });
-				verify(!projectFacts.facts.some((item) => item.id === 'release-series-fact'), 'Series facts leaked into the explicit project scope');
+				verify(
+					!projectFacts.facts.some((item) => item.id === 'release-series-fact'),
+					'Series facts leaked into the explicit project scope'
+				);
 				const secondProject = join(root, 'Second.scriv');
-				await cp(join(installed, 'assets', 'sample-project', 'Welcome.scriv'), secondProject, { recursive: true, errorOnExist: true, force: false });
+				await cp(
+					join(installed, 'assets', 'sample-project', 'Welcome.scriv'),
+					secondProject,
+					{ recursive: true, errorOnExist: true, force: false }
+				);
 				await tool(client, 'close_project', {});
 				await tool(client, 'open_project', { path: secondProject });
-				verify((await tool(client, 'manage_series', { action: 'list' })).series.length === 0, 'A new project automatically inherited unrelated series membership');
+				verify(
+					(await tool(client, 'manage_series', { action: 'list' })).series.length === 0,
+					'A new project automatically inherited unrelated series membership'
+				);
 				await tool(client, 'manage_series', { action: 'join', seriesId });
-				const shared = await tool(client, 'story_bible', { action: 'list', scope: { kind: 'series', id: seriesId } });
-				verify(shared.facts.some((item) => item.id === 'release-series-fact' && !item.stale), 'Explicit series join could not resolve the other project provenance');
+				const shared = await tool(client, 'story_bible', {
+					action: 'list',
+					scope: { kind: 'series', id: seriesId },
+				});
+				verify(
+					shared.facts.some((item) => item.id === 'release-series-fact' && !item.stale),
+					'Explicit series join could not resolve the other project provenance'
+				);
 				await tool(client, 'manage_series', { action: 'leave', seriesId });
-				await tool(client, 'story_bible', { action: 'list', scope: { kind: 'series', id: seriesId } }, true);
+				await tool(
+					client,
+					'story_bible',
+					{ action: 'list', scope: { kind: 'series', id: seriesId } },
+					true
+				);
 				await tool(client, 'close_project', {});
 				await tool(client, 'open_project', { path: projectPath });
 			});
 			await check('installed-review-select-retry-snapshots-and-guarded-undo', async () => {
 				const context = contexts.get(SAMPLE_DOCUMENT);
-				const request = { action: 'propose', documentId: SAMPLE_DOCUMENT, expectedRevision: originalRevision, title: 'Synthetic release edit', idempotencyKey: 'release-review', edits: [{ start: 0, end: 0, text: 'A different opening. ' }, { start: context.text.length, end: context.text.length, text: ' A closing thought.' }] };
+				const request = {
+					action: 'propose',
+					documentId: SAMPLE_DOCUMENT,
+					expectedRevision: originalRevision,
+					title: 'Synthetic release edit',
+					idempotencyKey: 'release-review',
+					edits: [
+						{ start: 0, end: 0, text: 'A different opening. ' },
+						{
+							start: context.text.length,
+							end: context.text.length,
+							text: ' A closing thought.',
+						},
+					],
+				};
 				const proposal = (await tool(client, 'review_changes', request)).result;
-				verify((await tool(client, 'review_changes', request)).result.id === proposal.id, 'Proposal retry created duplicate review state');
-				const preview = (await tool(client, 'review_changes', { action: 'preview', proposalId: proposal.id, editIds: [proposal.edits[0].id] })).result;
-				verify(preview.before !== preview.after && (await hash(originalFile)) === originalRevision, 'Review preview changed the manuscript or lacked a real diff');
-				verify(preview.fidelity.mode === 'preserved' && preview.fidelity.atRisk.length === 0, 'A clean sample insertion could not preserve original formatting');
+				verify(
+					(await tool(client, 'review_changes', request)).result.id === proposal.id,
+					'Proposal retry created duplicate review state'
+				);
+				const preview = (
+					await tool(client, 'review_changes', {
+						action: 'preview',
+						proposalId: proposal.id,
+						editIds: [proposal.edits[0].id],
+					})
+				).result;
+				verify(
+					preview.before !== preview.after &&
+						(await hash(originalFile)) === originalRevision,
+					'Review preview changed the manuscript or lacked a real diff'
+				);
+				verify(
+					preview.fidelity.mode === 'preserved' && preview.fidelity.atRisk.length === 0,
+					'A clean sample insertion could not preserve original formatting'
+				);
 				const operationId = randomUUID();
-				const applyArgs = { action: 'apply', proposalId: proposal.id, editIds: [proposal.edits[0].id], force: true, operationId };
+				const applyArgs = {
+					action: 'apply',
+					proposalId: proposal.id,
+					editIds: [proposal.edits[0].id],
+					force: true,
+					operationId,
+				};
 				const applied = (await tool(client, 'review_changes', applyArgs)).result;
-				verify(applied.state === 'committed' && applied.id === operationId, 'Review application was not durably committed');
+				verify(
+					applied.state === 'committed' && applied.id === operationId,
+					'Review application was not durably committed'
+				);
 				const appliedRaw = await readFile(originalFile, 'utf8');
-				verify(appliedRaw !== originalRaw && (await tool(client, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT })).context.text === preview.after, 'Selective acceptance did not apply exactly the previewed edit');
+				verify(
+					appliedRaw !== originalRaw &&
+						(
+							await tool(client, 'manuscript_dashboard', {
+								documentId: SAMPLE_DOCUMENT,
+							})
+						).context.text === preview.after,
+					'Selective acceptance did not apply exactly the previewed edit'
+				);
 				const savedSnapshots = await snapshotCount(projectPath, SAMPLE_DOCUMENT);
-				verify(savedSnapshots > 0 && applied.fidelity.snapshotId, 'Reviewed application did not create a native snapshot');
-				verify((await tool(client, 'review_changes', applyArgs)).result.id === operationId && (await readFile(originalFile, 'utf8')) === appliedRaw && (await snapshotCount(projectPath, SAMPLE_DOCUMENT)) === savedSnapshots, 'Application retry duplicated a manuscript write or snapshot');
-				const rejected = (await tool(client, 'review_changes', { action: 'reject', proposalId: proposal.id, editIds: [proposal.edits[1].id] })).result;
-				verify(rejected.edits.find((edit) => edit.id === proposal.edits[1].id)?.status === 'rejected', 'Selective rejection was not persisted');
+				verify(
+					savedSnapshots > 0 && applied.fidelity.snapshotId,
+					'Reviewed application did not create a native snapshot'
+				);
+				verify(
+					(await tool(client, 'review_changes', applyArgs)).result.id === operationId &&
+						(await readFile(originalFile, 'utf8')) === appliedRaw &&
+						(await snapshotCount(projectPath, SAMPLE_DOCUMENT)) === savedSnapshots,
+					'Application retry duplicated a manuscript write or snapshot'
+				);
+				const rejected = (
+					await tool(client, 'review_changes', {
+						action: 'reject',
+						proposalId: proposal.id,
+						editIds: [proposal.edits[1].id],
+					})
+				).result;
+				verify(
+					rejected.edits.find((edit) => edit.id === proposal.edits[1].id)?.status ===
+						'rejected',
+					'Selective rejection was not persisted'
+				);
 				const externallySaved = appliedRaw.replace('Mara', 'ExternallySavedMara');
-				verify(externallySaved !== appliedRaw, 'Synthetic external revision fixture did not change');
+				verify(
+					externallySaved !== appliedRaw,
+					'Synthetic external revision fixture did not change'
+				);
 				await writeFile(originalFile, externallySaved);
-				await tool(client, 'review_changes', { action: 'undo', operationId, force: true }, true);
-				verify((await readFile(originalFile, 'utf8')) === externallySaved, 'Stale undo overwrote a subsequent saved edit');
-				const refreshed = await tool(client, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT });
-				verify(refreshed.context.revision !== applied.afterRevision && refreshed.context.text.includes('ExternallySavedMara'), 'Saved external changes did not refresh manuscript reads');
+				await tool(
+					client,
+					'review_changes',
+					{ action: 'undo', operationId, force: true },
+					true
+				);
+				verify(
+					(await readFile(originalFile, 'utf8')) === externallySaved,
+					'Stale undo overwrote a subsequent saved edit'
+				);
+				const refreshed = await tool(client, 'manuscript_dashboard', {
+					documentId: SAMPLE_DOCUMENT,
+				});
+				verify(
+					refreshed.context.revision !== applied.afterRevision &&
+						refreshed.context.text.includes('ExternallySavedMara'),
+					'Saved external changes did not refresh manuscript reads'
+				);
 				await writeFile(originalFile, appliedRaw);
 				await tool(client, 'review_changes', { action: 'undo', operationId, force: true });
-				verify((await readFile(originalFile, 'utf8')) === originalRaw, 'Guarded undo did not restore exact native RTF bytes');
+				verify(
+					(await readFile(originalFile, 'utf8')) === originalRaw,
+					'Guarded undo did not restore exact native RTF bytes'
+				);
 			});
 			await check('installed-guided-workflows-and-export-validation', async () => {
 				const otherDocument = [...contexts.keys()].find((id) => id !== SAMPLE_DOCUMENT);
 				verify(otherDocument, 'Sample has no second manuscript scene');
 				for (const kind of ['review-chapter', 'audit-continuity', 'beta-reader-draft']) {
-					const scope = kind === 'beta-reader-draft' ? [otherDocument] : [SAMPLE_DOCUMENT];
-					const started = await tool(client, 'editorial_workflow', { action: 'start', kind, documentIds: scope, idempotencyKey: `release-${kind}` });
+					const scope =
+						kind === 'beta-reader-draft' ? [otherDocument] : [SAMPLE_DOCUMENT];
+					const started = await tool(client, 'editorial_workflow', {
+						action: 'start',
+						kind,
+						documentIds: scope,
+						idempotencyKey: `release-${kind}`,
+					});
 					const workflow = await awaitWorkflow(client, started.workflows[0].id);
-					verify(workflow.progress === 100 && workflow.cost.actual === 0 && workflow.usage.providerRequests === 0 && workflow.steps.every((step) => step.state === 'completed'), 'Guided workflow did not report real local progress and usage');
-					const resumed = (await tool(client, 'editorial_workflow', { action: 'resume', workflowId: workflow.id })).workflows[0];
-					verify(resumed.state === 'completed' && resumed.usage.localSteps === workflow.usage.localSteps, 'Resuming a completed workflow replayed its steps');
+					verify(
+						workflow.progress === 100 &&
+							workflow.cost.actual === 0 &&
+							workflow.usage.providerRequests === 0 &&
+							workflow.steps.every((step) => step.state === 'completed'),
+						'Guided workflow did not report real local progress and usage'
+					);
+					const resumed = (
+						await tool(client, 'editorial_workflow', {
+							action: 'resume',
+							workflowId: workflow.id,
+						})
+					).workflows[0];
+					verify(
+						resumed.state === 'completed' &&
+							resumed.usage.localSteps === workflow.usage.localSteps,
+						'Resuming a completed workflow replayed its steps'
+					);
 					if (kind === 'beta-reader-draft') {
-						const artifact = workflow.steps.find((step) => step.kind === 'export')?.result;
-						verify(artifact?.path && within(root, artifact.path) && Array.isArray(artifact.metadata?.validation) && artifact.metadata.validation.length > 0, 'Beta workflow returned no validated local artifact');
-						verify((await readFile(artifact.path)).subarray(0, 2).toString() === 'PK', 'Beta export is not a ZIP-based DOCX');
+						const artifact = workflow.steps.find(
+							(step) => step.kind === 'export'
+						)?.result;
+						verify(
+							artifact?.path &&
+								within(root, artifact.path) &&
+								Array.isArray(artifact.metadata?.validation) &&
+								artifact.metadata.validation.length > 0,
+							'Beta workflow returned no validated local artifact'
+						);
+						verify(
+							(await readFile(artifact.path)).subarray(0, 2).toString() === 'PK',
+							'Beta export is not a ZIP-based DOCX'
+						);
 						workflowId = workflow.id;
 					}
 				}
 				for (const preset of ['submission-manuscript', 'ebook']) {
-					const preflight = (await tool(client, 'export_manuscript', { action: 'preflight', preset, documentIds: [otherDocument] })).result;
-					verify(preflight.ready && preflight.findings.every((item) => item.severity !== 'error'), 'Clean sample export did not pass preflight');
-					const outputPath = join(root, `${preset}.${preset === 'ebook' ? 'epub' : 'docx'}`);
-					const exported = (await tool(client, 'export_manuscript', { action: 'export', preset, documentIds: [otherDocument], outputPath })).result;
-					verify(exported.path === outputPath && exported.bytes > 0 && exported.bytes === (await stat(outputPath)).size && exported.metadata.validation.length > 0, 'Preset exporter did not report real archive validation');
-					verify((await readFile(outputPath)).subarray(0, 2).toString() === 'PK', 'Preset output is not a valid archive container');
+					const preflight = (
+						await tool(client, 'export_manuscript', {
+							action: 'preflight',
+							preset,
+							documentIds: [otherDocument],
+						})
+					).result;
+					verify(
+						preflight.ready &&
+							preflight.findings.every((item) => item.severity !== 'error'),
+						'Clean sample export did not pass preflight'
+					);
+					const outputPath = join(
+						root,
+						`${preset}.${preset === 'ebook' ? 'epub' : 'docx'}`
+					);
+					const exported = (
+						await tool(client, 'export_manuscript', {
+							action: 'export',
+							preset,
+							documentIds: [otherDocument],
+							outputPath,
+						})
+					).result;
+					verify(
+						exported.path === outputPath &&
+							exported.bytes > 0 &&
+							exported.bytes === (await stat(outputPath)).size &&
+							exported.metadata.validation.length > 0,
+						'Preset exporter did not report real archive validation'
+					);
+					verify(
+						(await readFile(outputPath)).subarray(0, 2).toString() === 'PK',
+						'Preset output is not a valid archive container'
+					);
 				}
 			});
 			await tool(client, 'close_project', {});
-		} finally { await client.close(); }
+		} finally {
+			await client.close();
+		}
 		const app = await openSession(true);
 		try {
 			await check('apps-client-resource-negotiation-and-durable-restart', async () => {
 				const listing = await app.listTools();
-				const dashboard = listing.tools.find((item) => item.name === 'manuscript_dashboard');
-				verify(dashboard?._meta?.ui?.resourceUri === APP_URI, 'Apps client did not receive the dashboard resource link');
-				verify((await app.listResources()).resources.some((item) => item.uri === APP_URI && item.mimeType === APP_MIME), 'Apps client resource discovery lost the declared MIME type');
-				const resource = (await app.readResource({ uri: APP_URI })).contents.find((item) => item.uri === APP_URI);
-				verify(resource?.mimeType === APP_MIME && resource.text.includes('aria-live') && resource.text.includes('ui/initialize'), 'Installed dashboard asset lacks accessible content or the Apps bridge');
-				verify(resource._meta?.ui?.csp?.connectDomains?.length === 0 && resource._meta.ui.csp.resourceDomains.length === 0, 'Dashboard resource did not declare its local-only CSP');
+				const dashboard = listing.tools.find(
+					(item) => item.name === 'manuscript_dashboard'
+				);
+				verify(
+					dashboard?._meta?.ui?.resourceUri === APP_URI,
+					'Apps client did not receive the dashboard resource link'
+				);
+				verify(
+					(await app.listResources()).resources.some(
+						(item) => item.uri === APP_URI && item.mimeType === APP_MIME
+					),
+					'Apps client resource discovery lost the declared MIME type'
+				);
+				const resource = (await app.readResource({ uri: APP_URI })).contents.find(
+					(item) => item.uri === APP_URI
+				);
+				verify(
+					resource?.mimeType === APP_MIME &&
+						resource.text.includes('aria-live') &&
+						resource.text.includes('ui/initialize'),
+					'Installed dashboard asset lacks accessible content or the Apps bridge'
+				);
+				verify(
+					resource._meta?.ui?.csp?.connectDomains?.length === 0 &&
+						resource._meta.ui.csp.resourceDomains.length === 0,
+					'Dashboard resource did not declare its local-only CSP'
+				);
 				await tool(app, 'open_project', { path: projectPath });
-				verify((await tool(app, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT })).uiSupported === true, 'Dashboard handler lost negotiated client capability');
-				verify((await tool(app, 'manage_series', { action: 'list' })).series.some((item) => item.id === seriesId), 'Selected series membership was not durable across server restart');
-				const restored = (await tool(app, 'editorial_workflow', { action: 'get', workflowId })).workflows[0];
-				verify(restored.state === 'completed' && restored.progress === 100, 'Completed workflow did not survive server restart');
-				verify((await readFile(originalFile, 'utf8')) === originalRaw, 'Read-only analyses or workflows changed manuscript bytes');
+				verify(
+					(await tool(app, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT }))
+						.uiSupported === true,
+					'Dashboard handler lost negotiated client capability'
+				);
+				verify(
+					(await tool(app, 'manage_series', { action: 'list' })).series.some(
+						(item) => item.id === seriesId
+					),
+					'Selected series membership was not durable across server restart'
+				);
+				const restored = (
+					await tool(app, 'editorial_workflow', { action: 'get', workflowId })
+				).workflows[0];
+				verify(
+					restored.state === 'completed' && restored.progress === 100,
+					'Completed workflow did not survive server restart'
+				);
+				verify(
+					(await readFile(originalFile, 'utf8')) === originalRaw,
+					'Read-only analyses or workflows changed manuscript bytes'
+				);
 				await tool(app, 'close_project', {});
 			});
-		} finally { await app.close(); }
-		process.stdout.write(`${JSON.stringify({ ok: true, platform: process.platform, node: process.version, checks })}\n`);
+		} finally {
+			await app.close();
+		}
+		process.stdout.write(
+			`${JSON.stringify({ ok: true, platform: process.platform, node: process.version, checks })}\n`
+		);
 	} finally {
 		await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 	}
 }
 
-try { await main(); }
-catch (error) {
-	const code = typeof error?.code === 'string' && /^[A-Z0-9_]+$/u.test(error.code) ? ` (${error.code})` : '';
-	process.stderr.write(`FAIL ${stage}: ${error instanceof SmokeFailure ? error.message : `Unexpected failure${code}; raw diagnostics and manuscript content withheld`}\n`);
+try {
+	await main();
+} catch (error) {
+	const code =
+		typeof error?.code === 'string' && /^[A-Z0-9_]+$/u.test(error.code)
+			? ` (${error.code})`
+			: '';
+	process.stderr.write(
+		`FAIL ${stage}: ${error instanceof SmokeFailure ? error.message : `Unexpected failure${code}; raw diagnostics and manuscript content withheld`}\n`
+	);
 	process.exitCode = 1;
 }

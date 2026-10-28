@@ -9,13 +9,7 @@ import { parseStringPromise, Builder } from 'xml2js';
 import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type { ProjectStructure, BinderItem } from '../types/internal.js';
-import {
-	ensureDir,
-	safeParse,
-	safeStringify,
-	safeWriteFile,
-	buildPath,
-} from '../utils/common.js';
+import { ensureDir, safeParse, safeStringify, safeWriteFile, buildPath } from '../utils/common.js';
 import { findScrivxPath, getDefaultScrivxPath } from '../utils/scrivener-utils.js';
 import { exposeXmlAttributes, encodeNewBinderAttributes } from '../utils/scrivener-xml.js';
 import { MutationCoordinator } from './editorial/mutation-coordinator.js';
@@ -133,7 +127,11 @@ export class ProjectLoader {
 			throw createError(ErrorCode.INVALID_STATE, 'No project loaded to save');
 		}
 
-		if (!this.loadedRevision) throw createError(ErrorCode.INVALID_STATE, 'Load the project before saving so its saved revision can be checked');
+		if (!this.loadedRevision)
+			throw createError(
+				ErrorCode.INVALID_STATE,
+				'Load the project before saving so its saved revision can be checked'
+			);
 		logger.info(`Saving project to ${this.scrivxPath}`);
 
 		// Create backup if enabled
@@ -158,7 +156,9 @@ export class ProjectLoader {
 					`Refusing to write malformed project XML to ${this.scrivxPath}`
 				);
 			}
-			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, xml, { expectedRevision: this.loadedRevision });
+			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, xml, {
+				expectedRevision: this.loadedRevision,
+			});
 			this.loadedRevision = mutation.afterRevision;
 			this.projectStructure = projectToSave;
 			this.lastLoadTime = Date.now();
@@ -174,6 +174,7 @@ export class ProjectLoader {
 			}
 			throw createError(
 				ErrorCode.IO_ERROR,
+				{ operation: 'saveProject' },
 				`Failed to save project: ${(error as Error).message}`
 			);
 		}
@@ -251,21 +252,36 @@ export class ProjectLoader {
 	async restoreFromBackup(backupPath: string): Promise<void> {
 		try {
 			const resolved = path.resolve(backupPath);
-			if (path.dirname(resolved) !== path.join(this.projectPath, '.backups') || path.extname(resolved).toLowerCase() !== '.scrivx') throw new Error('Restore requires a project backup returned by listBackups');
+			if (
+				path.dirname(resolved) !== path.join(this.projectPath, '.backups') ||
+				path.extname(resolved).toLowerCase() !== '.scrivx'
+			)
+				throw new Error('Restore requires a project backup returned by listBackups');
 			const backup = await this.coordinator.readProjectArtifact(resolved);
 			if (!backup.exists) throw new Error('Project backup was not found');
-			const parsed = await parseStringPromise(backup.raw, { explicitArray: false, mergeAttrs: false });
-			if (!parsed?.ScrivenerProject) throw new Error('Project backup does not contain a ScrivenerProject');
+			const parsed = await parseStringPromise(backup.raw, {
+				explicitArray: false,
+				mergeAttrs: false,
+			});
+			if (!parsed?.ScrivenerProject)
+				throw new Error('Project backup does not contain a ScrivenerProject');
 			const current = await this.coordinator.readProjectFile(this.scrivxPath);
 			const expectedRevision = this.loadedRevision ?? current.revision;
-			if (current.revision !== expectedRevision) throw new Error('Stale project revision; reload the saved binder before restoring');
+			if (current.revision !== expectedRevision)
+				throw new Error('Stale project revision; reload the saved binder before restoring');
 			await this.createBackup();
-			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, backup.raw, { expectedRevision });
+			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, backup.raw, {
+				expectedRevision,
+			});
 			this.loadedRevision = mutation.afterRevision;
 			await this.reloadProject();
 			logger.info('Project restored successfully');
 		} catch (error) {
-			throw createError(ErrorCode.IO_ERROR, `Failed to restore from backup: ${(error as Error).message}`);
+			throw createError(
+				ErrorCode.IO_ERROR,
+				{ operation: 'restoreFromBackup' },
+				`Failed to restore from backup: ${(error as Error).message}`
+			);
 		}
 	}
 
@@ -299,7 +315,10 @@ export class ProjectLoader {
 			return backups;
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-			throw createError(ErrorCode.IO_ERROR, `Failed to list project backups: ${(error as Error).message}`);
+			throw createError(
+				ErrorCode.IO_ERROR,
+				`Failed to list project backups: ${(error as Error).message}`
+			);
 		}
 	}
 

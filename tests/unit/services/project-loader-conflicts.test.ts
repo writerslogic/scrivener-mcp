@@ -3,11 +3,16 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { ProjectLoader } from '../../../src/services/project-loader.js';
-import { MutationCoordinator, documentRevision, type MutationRecord } from '../../../src/services/editorial/mutation-coordinator.js';
+import {
+	MutationCoordinator,
+	documentRevision,
+	type MutationRecord,
+} from '../../../src/services/editorial/mutation-coordinator.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 import type { ProjectStructure, BinderItem } from '../../../src/types/internal.js';
 
-const SOURCE = '<?xml version="1.0" encoding="UTF-8"?><ScrivenerProject Identifier="test-project" Vendor="keep"><Binder><BinderItem UUID="11111111-1111-4111-8111-111111111111" Type="Text"><Title>Original</Title></BinderItem></Binder></ScrivenerProject>';
+const SOURCE =
+	'<?xml version="1.0" encoding="UTF-8"?><ScrivenerProject Identifier="test-project" Vendor="keep"><Binder><BinderItem UUID="11111111-1111-4111-8111-111111111111" Type="Text"><Title>Original</Title></BinderItem></Binder></ScrivenerProject>';
 let root: string;
 let file: string;
 let loaders: ProjectLoader[];
@@ -89,7 +94,19 @@ test('binder journal recovery recognizes an already renamed file and never overw
 	const store = new PersistentStore(path.join(root, '.scrivener-mcp', 'editorial.sqlite'));
 	try {
 		const afterRaw = SOURCE.replace('Original', 'Reviewed');
-		const record: MutationRecord = { id: randomUUID(), documentId: path.basename(file), targetKind: 'binder', projectFile: path.basename(file), beforeRaw: SOURCE, afterRaw, beforeRevision: documentRevision(SOURCE), afterRevision: documentRevision(afterRaw), beforeExists: true, state: 'prepared', createdAt: new Date().toISOString() };
+		const record: MutationRecord = {
+			id: randomUUID(),
+			documentId: path.basename(file),
+			targetKind: 'binder',
+			projectFile: path.basename(file),
+			beforeRaw: SOURCE,
+			afterRaw,
+			beforeRevision: documentRevision(SOURCE),
+			afterRevision: documentRevision(afterRaw),
+			beforeExists: true,
+			state: 'prepared',
+			createdAt: new Date().toISOString(),
+		};
 		store.put('mutations', record.id, record);
 		await fs.writeFile(file, afterRaw);
 		expect((await coordinator.recover())[0].state).toBe('committed');
@@ -100,7 +117,11 @@ test('binder journal recovery recognizes an already renamed file and never overw
 		await fs.writeFile(file, external);
 		expect((await coordinator.recover())[0].state).toBe('conflicted');
 		expect(await fs.readFile(file, 'utf8')).toBe(external);
-		await expect(coordinator.commitProjectFile(path.join(root, '..', 'outside.scrivx'), afterRaw, { expectedRevision: record.beforeRevision })).rejects.toThrow(/inside the project/i);
+		await expect(
+			coordinator.commitProjectFile(path.join(root, '..', 'outside.scrivx'), afterRaw, {
+				expectedRevision: record.beforeRevision,
+			})
+		).rejects.toThrow(/inside the project/i);
 	} finally {
 		coordinator.close();
 		store.close();

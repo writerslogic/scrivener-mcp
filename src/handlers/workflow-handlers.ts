@@ -171,7 +171,8 @@ const workflowOutputSchema: ToolSchema = {
 					},
 					allowExportWarnings: {
 						type: 'boolean',
-						description: 'Persisted author acknowledgment of disclosed beta-reader export warnings; omitted for other workflows.',
+						description:
+							'Persisted author acknowledgment of disclosed beta-reader export warnings; omitted for other workflows.',
 					},
 					error: {
 						type: 'string',
@@ -253,7 +254,8 @@ export const workflowHandlers: ToolDefinition[] = [
 				},
 				allowExportWarnings: {
 					type: 'boolean',
-					description: 'For beta-reader start or resume only: explicitly acknowledge disclosed export warnings. Omit on resume to retain the prior decision; completed exports never rerun.',
+					description:
+						'For beta-reader start or resume only: explicitly acknowledge disclosed export warnings. Omit on resume to retain the prior decision; completed exports never rerun.',
 				},
 			},
 			required: ['action'],
@@ -263,17 +265,26 @@ export const workflowHandlers: ToolDefinition[] = [
 			const project = requireProject(context);
 			const { workflows } = await project.getEditorialServices();
 			const action = getStringArg(args, 'action');
-			if (args.allowExportWarnings !== undefined && typeof args.allowExportWarnings !== 'boolean')
+			if (
+				args.allowExportWarnings !== undefined &&
+				typeof args.allowExportWarnings !== 'boolean'
+			)
 				throw new Error('allowExportWarnings must be a boolean');
 			if (args.allowExportWarnings !== undefined && action !== 'start' && action !== 'resume')
-				throw new Error('Export warning acknowledgment is valid only when starting or resuming a beta-reader workflow');
+				throw new Error(
+					'Export warning acknowledgment is valid only when starting or resuming a beta-reader workflow'
+				);
 			let values: EditorialWorkflow[];
 			if (action === 'list') values = workflows.list();
 			else if (action === 'get') values = [workflows.get(getStringArg(args, 'workflowId'))];
 			else if (action === 'cancel')
 				values = [workflows.cancel(getStringArg(args, 'workflowId'))];
 			else if (action === 'resume')
-				values = [await workflows.resume(getStringArg(args, 'workflowId'), { allowExportWarnings: args.allowExportWarnings as boolean | undefined })];
+				values = [
+					await workflows.resume(getStringArg(args, 'workflowId'), {
+						allowExportWarnings: args.allowExportWarnings as boolean | undefined,
+					}),
+				];
 			else if (action === 'start') {
 				if (args.rootFolderId && args.documentIds)
 					throw new Error('Choose rootFolderId or documentIds, not both');

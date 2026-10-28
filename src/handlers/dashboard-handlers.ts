@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PacingAnalyzer } from '../analysis/analyzers/pacing-analyzer.js';
+import { findSubtree } from '../utils/binder-tree.js';
 import type { ToolDefinition } from './types.js';
 import { requireProject } from './types.js';
 
@@ -56,6 +57,10 @@ export const dashboardHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			projectTitle: {
+				type: 'string',
+				description: 'Human-readable title of the selected project.',
+			},
 			projectId: {
 				type: 'string',
 				description: 'Stable project identity shared with evidence and search.',
@@ -110,6 +115,12 @@ export const dashboardHandler: ToolDefinition = {
 				items: { type: 'object' },
 				description: 'Persistent review proposals, edit states and application identities.',
 			},
+			applications: {
+				type: 'array',
+				items: { type: 'object' },
+				description:
+					'Durable application history for revision-guarded undo after restarting the server.',
+			},
 			context: {
 				type: ['object', 'null'],
 				description:
@@ -136,6 +147,8 @@ export const dashboardHandler: ToolDefinition = {
 		const project = requireProject(context);
 		const { source, bible, continuity, review } = project.getEditorialServices();
 		const documents = await source.list();
+		const binder = await project.getProjectStructure();
+		const projectMetadata = await project.getProjectMetadata();
 		const facts = await bible.listFacts({ kind: 'project', id: source.projectId });
 		const names = new Set(
 			facts
@@ -149,6 +162,7 @@ export const dashboardHandler: ToolDefinition = {
 		const pacing = new PacingAnalyzer();
 		const scenes = [];
 		for (const document of documents.slice(request.offset, request.offset + request.limit)) {
+			const info = findSubtree(binder, document.documentId);
 			const appearances = [];
 			for (const name of names) {
 				if (!name.trim()) continue;
@@ -175,19 +189,44 @@ export const dashboardHandler: ToolDefinition = {
 				title: document.title,
 				path: document.path,
 				revision: document.revision,
+				synopsis: info?.synopsis ?? '',
+				label: info?.label,
+				status: info?.status,
 				words: document.text.match(/\S+/g)?.length ?? 0,
 				pacing: await pacing.analyzePacing(document.text),
 				appearances,
 			});
 		}
-		const selected = request.documentId ? await source.read(request.documentId) : undefined;
+		let selected = request.documentId
+			? documents.find((document) => document.documentId === request.documentId)
+			: undefined;
+		if (request.documentId && !selected) {
+			const info = await project.getDocumentInfo(request.documentId);
+			if (!info.document || info.document.type !== 'Text' || info.location !== 'active')
+				throw new Error('Selected context is not an active text document');
+			const version = await project.readDocumentVersion(request.documentId);
+			selected = {
+				projectId: source.projectId,
+				documentId: info.document.id,
+				title: info.document.title,
+				path: info.document.path,
+				revision: version.revision,
+				text: version.text,
+				order: -1,
+				metadata: info.document.customMetadata ?? {},
+			};
+		}
 		const result = {
+			projectTitle: projectMetadata.title || project.title,
 			projectId: source.projectId,
 			uiSupported: context.uiSupported === true,
-			binder: await project.getProjectStructure(),
+			binder,
 			scenes,
 			findings: continuity.list(),
-			proposals: review.list(),
+			proposals: review
+				.list()
+				.map(({ before, ...proposal }) => ({ ...proposal, beforeLength: before.length })),
+			applications: review.listApplications(),
 			context: selected
 				? {
 						...selected,

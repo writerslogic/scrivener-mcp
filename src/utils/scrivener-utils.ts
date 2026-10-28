@@ -151,6 +151,19 @@ export async function findScrivxPath(
 	if (scrivxEntries.length === 1) {
 		return path.join(normalizedProjectPath, scrivxEntries[0].name);
 	}
+	if (
+		scrivxEntries.length === 0 &&
+		entries.some(
+			(entry) =>
+				entry.isDirectory() &&
+				path.extname(entry.name).toLowerCase() === SCRIVENER_EXTENSIONS.PROJECT
+		)
+	)
+		throw new AppError(
+			`"${normalizedProjectPath}" looks like a parent folder. Pass the .scriv project folder or its .scrivx file.`,
+			ErrorCode.INVALID_INPUT,
+			{ projectPath: normalizedProjectPath }
+		);
 
 	throw new AppError(
 		`Scrivener project file not found at "${defaultScrivxPath}"`,

@@ -23,7 +23,15 @@ import type { RTFContent } from '../parsers/rtf-handler.js';
 import { EXPORT_PRESETS, type ExportPreset } from './export-presets.js';
 
 type EpubFn = (
-	options: { title: string; author?: string },
+	options: {
+		title: string;
+		author?: string;
+		description?: string;
+		version?: number;
+		css?: string;
+		prependChapterTitles?: boolean;
+		numberChaptersInTOC?: boolean;
+	},
 	content: Array<{ title: string; content: string }>
 ) => Promise<Buffer>;
 
@@ -230,12 +238,10 @@ export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promi
 
 export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promise<Buffer> {
 	const chapters = sections
-		.filter((s) => !s.isFolder || s.text.trim().length > 0)
-		.map((s) => ({
-			title: s.title,
-			content:
-				`<h${Math.min(s.depth + 1, 6)}>${escapeHtml(s.title)}</h${Math.min(s.depth + 1, 6)}>` +
-				(styledParagraphs(s)
+		.filter((s) => !!meta.preset || !s.isFolder || s.text.trim().length > 0)
+		.map((s) => {
+			const paragraphs =
+				styledParagraphs(s)
 					.map(
 						(paragraph) =>
 							`<p>${paragraph
@@ -250,12 +256,30 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 								})
 								.join('')}</p>`
 					)
-					.join('\n') || '<p></p>') +
-				(s.notes ?? []).map((note) => `<aside><p>${escapeHtml(note)}</p></aside>`).join(''),
-		}));
+					.join('\n') || '<p></p>';
+			const notes = (s.notes ?? [])
+				.map((note) => `<aside><p>${escapeHtml(note)}</p></aside>`)
+				.join('');
+			const level = Math.min(s.depth + 1, 6);
+			return {
+				title: s.title,
+				content: `<h${level}>${escapeHtml(s.title)}</h${level}>${paragraphs}${notes}`,
+			};
+		});
 
 	const result = await generateEpub(
-		{ title: meta.title, author: meta.author || 'Unknown' },
+		{
+			title: meta.title,
+			author: meta.author || 'Unknown',
+			description: `Manuscript export: ${meta.title}`,
+			version: 3,
+			prependChapterTitles: false,
+			numberChaptersInTOC: false,
+			css:
+				meta.preset === 'ebook'
+					? 'body { font-family: serif; line-height: 1.5; margin: 5%; } p { text-indent: 1.2em; margin: 0 0 .5em; } h1, h2, h3 { text-align: center; break-after: avoid; } aside { font-size: .9em; margin: 1em; }'
+					: undefined,
+		},
 		chapters.length > 0 ? chapters : [{ title: meta.title, content: '<p></p>' }]
 	);
 	return Buffer.isBuffer(result) ? result : Buffer.from(result as ArrayBuffer);

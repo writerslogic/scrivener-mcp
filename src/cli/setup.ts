@@ -18,7 +18,6 @@ import { firstSession } from '../setup/first-session.js';
 import { redactDiagnostics } from '../setup/redaction.js';
 import { installLinks } from '../setup/links.js';
 import {
-	MIN_NODE_MAJOR,
 	MIN_NODE_VERSION,
 	isSupportedRuntime,
 	chooseRuntime,
@@ -260,6 +259,15 @@ async function main(): Promise<number> {
 		say(
 			'\nNo supported AI apps were detected. Use --client <id> to force one, or --print for the JSON.'
 		);
+		if (opts.check && opts.verify) {
+			startup = await handshake(entry);
+			if (!startup.ok) problems++;
+			say(
+				startup.ok
+					? `Server starts with ${startup.toolCount} tools. No supported client was detected.`
+					: `Server startup failed: ${startup.error}`
+			);
+		}
 		return finish();
 	}
 

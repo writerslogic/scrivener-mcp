@@ -134,7 +134,7 @@ export class SemanticDatabaseLayer {
 		}
 	): Promise<SemanticQueryResult> {
 		try {
-			this.logger.info(`Processing semantic query: ${naturalLanguage}`);
+			this.logger.info('Processing semantic query');
 
 			const {
 				includeEntities = true,

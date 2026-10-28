@@ -11,7 +11,11 @@ import * as fsp from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { randomUUID } from 'node:crypto';
-import { MutationCoordinator, documentRevision, type MutationRecord } from '../../../src/services/editorial/mutation-coordinator.js';
+import {
+	MutationCoordinator,
+	documentRevision,
+	type MutationRecord,
+} from '../../../src/services/editorial/mutation-coordinator.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 import {
 	parseSnapshotIndex,
@@ -192,31 +196,67 @@ describe('createSnapshot', () => {
 	it('keeps same-second collision titles attached to their exact files after lexical reordering', async () => {
 		const when = new Date(2025, 0, 1, 8, 0, 0);
 		const entries = [];
-		for (let index = 0; index < 12; index++) entries.push(await createSnapshot(project, DOC_ID, `Snapshot ${index}`, when));
-		const listed = new Map((await listDocumentSnapshots(project, DOC_ID)).map((entry) => [entry.snapshotId, entry]));
+		for (let index = 0; index < 12; index++)
+			entries.push(await createSnapshot(project, DOC_ID, `Snapshot ${index}`, when));
+		const listed = new Map(
+			(await listDocumentSnapshots(project, DOC_ID)).map((entry) => [entry.snapshotId, entry])
+		);
 		for (const entry of entries) expect(listed.get(entry.snapshotId)).toEqual(entry);
 	});
 
 	it('recovers a journaled snapshot after its RTF rename but before index publication', async () => {
-		const first = await createSnapshot(project, DOC_ID, 'Existing snapshot', new Date(2025, 0, 1, 8, 0, 0));
-		const planned = await planSnapshot(project, DOC_ID, 'Recovered snapshot', new Date(2025, 0, 2, 8, 0, 0));
-		const raw = await fsp.readFile(path.join(project, 'Files', 'Data', DOC_ID, 'content.rtf'), 'utf8');
+		const first = await createSnapshot(
+			project,
+			DOC_ID,
+			'Existing snapshot',
+			new Date(2025, 0, 1, 8, 0, 0)
+		);
+		const planned = await planSnapshot(
+			project,
+			DOC_ID,
+			'Recovered snapshot',
+			new Date(2025, 0, 2, 8, 0, 0)
+		);
+		const raw = await fsp.readFile(
+			path.join(project, 'Files', 'Data', DOC_ID, 'content.rtf'),
+			'utf8'
+		);
 		const store = new PersistentStore(path.join(project, '.scrivener-mcp', 'editorial.sqlite'));
 		const coordinator = new MutationCoordinator(project);
 		try {
 			const id = randomUUID();
-			const record: MutationRecord = { id, documentId: DOC_ID, targetKind: 'snapshot', beforeRaw: raw, afterRaw: raw, beforeRevision: documentRevision(raw), afterRevision: documentRevision(raw), beforeExists: true, state: 'prepared', createdAt: new Date().toISOString(), snapshot: planned, snapshotId: planned.snapshotId };
+			const record: MutationRecord = {
+				id,
+				documentId: DOC_ID,
+				targetKind: 'snapshot',
+				beforeRaw: raw,
+				afterRaw: raw,
+				beforeRevision: documentRevision(raw),
+				afterRevision: documentRevision(raw),
+				beforeExists: true,
+				state: 'prepared',
+				createdAt: new Date().toISOString(),
+				snapshot: planned,
+				snapshotId: planned.snapshotId,
+			};
 			store.put('mutations', id, record);
 			store.put('mutation-pending', id, { id });
-			await fsp.writeFile(path.join(project, 'Snapshots', `${DOC_ID}.snapshots`, `${planned.snapshotId}.rtf`), raw);
+			await fsp.writeFile(
+				path.join(project, 'Snapshots', `${DOC_ID}.snapshots`, `${planned.snapshotId}.rtf`),
+				raw
+			);
 			expect((await coordinator.recover())[0].state).toBe('committed');
 			expect(await listDocumentSnapshots(project, DOC_ID)).toEqual([first, planned]);
 			expect(await coordinator.recover()).toEqual([]);
-			expect(await fsp.readFile(path.join(project, 'Files', 'Data', DOC_ID, 'content.rtf'), 'utf8')).toBe(raw);
+			expect(
+				await fsp.readFile(
+					path.join(project, 'Files', 'Data', DOC_ID, 'content.rtf'),
+					'utf8'
+				)
+			).toBe(raw);
 		} finally {
 			coordinator.close();
 			store.close();
 		}
 	});
-
 });

@@ -267,6 +267,11 @@ export class ProjectExporter {
 		};
 		const walk = async (docs: ScrivenerDocument[], depth: number): Promise<void> => {
 			for (const doc of docs) {
+				if (selected && doc.type !== 'Text') {
+					const containsSelected = (node: ScrivenerDocument): boolean =>
+						selected.has(node.id) || (node.children ?? []).some(containsSelected);
+					if (!containsSelected(doc)) continue;
+				}
 				if (!front.has(doc.id)) await append(doc, depth);
 				if (doc.children?.length) await walk(doc.children, depth + 1);
 			}
@@ -317,7 +322,9 @@ export class ProjectExporter {
 				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 				const parent = path.dirname(existing);
 				if (parent === existing)
-					throw new Error('Export destination has no accessible parent');
+					throw new Error('Export destination has no accessible parent', {
+						cause: error,
+					});
 				existing = parent;
 			}
 		}

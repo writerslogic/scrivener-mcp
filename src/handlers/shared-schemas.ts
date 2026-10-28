@@ -37,7 +37,6 @@ export const SHARED_DEFS = {
 	force: {
 		type: 'boolean' as const,
 		description:
-			'Write even if the project appears open in Scrivener. Default false, which refuses ' +
-			'the write to protect against your changes being overwritten by Scrivener on save.',
+			'Explicitly acknowledge native-app overwrite risk when Scrivener is open or detection is ambiguous. Default false. Never overrides saved revision checks or another server instance.',
 	},
 } as const;

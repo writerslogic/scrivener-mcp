@@ -186,10 +186,16 @@ describe('durable editorial workflows', () => {
 		const exportBeta = dependencies.exportBeta;
 		dependencies.exportBeta = async (input) => {
 			if (!input.allowWarnings)
-				throw new Error('Export preflight: unsupported image; acknowledge disclosed warnings to resume');
+				throw new Error(
+					'Export preflight: unsupported image; acknowledge disclosed warnings to resume'
+				);
 			return exportBeta(input);
 		};
-		const request = { kind: 'beta-reader-draft' as const, idempotencyKey: 'beta-warning', allowExportWarnings: false };
+		const request = {
+			kind: 'beta-reader-draft' as const,
+			idempotencyKey: 'beta-warning',
+			allowExportWarnings: false,
+		};
 		const started = await service.start(request);
 		const failed = await service.wait(started.id);
 		expect(failed.state).toBe('failed');
@@ -211,7 +217,9 @@ describe('durable editorial workflows', () => {
 		expect(analyses).toBe(1);
 		expect(exports).toBe(1);
 		expect((await service.start(request)).id).toBe(started.id);
-		await expect(service.start({ ...request, allowExportWarnings: true })).rejects.toThrow('different request');
+		await expect(service.start({ ...request, allowExportWarnings: true })).rejects.toThrow(
+			'different request'
+		);
 		const repeated = await service.resume(started.id, { allowExportWarnings: false });
 		expect(repeated.state).toBe('completed');
 		expect(repeated.allowExportWarnings).toBe(true);
@@ -224,10 +232,16 @@ describe('durable editorial workflows', () => {
 		let interrupted = false;
 		dependencies.exportBeta = async (input) => {
 			if (!input.allowWarnings) throw new Error('Export warnings require acknowledgment');
-			if (!interrupted) { interrupted = true; throw new Error('Transient local export failure'); }
+			if (!interrupted) {
+				interrupted = true;
+				throw new Error('Transient local export failure');
+			}
 			return exportBeta(input);
 		};
-		const started = await service.start({ kind: 'beta-reader-draft', allowExportWarnings: true });
+		const started = await service.start({
+			kind: 'beta-reader-draft',
+			allowExportWarnings: true,
+		});
 		expect((await service.wait(started.id)).state).toBe('failed');
 		await service.resume(started.id);
 		expect((await service.wait(started.id)).allowExportWarnings).toBe(true);
@@ -236,22 +250,33 @@ describe('durable editorial workflows', () => {
 		expect(exports).toBe(1);
 	});
 
-	it.each([null, 'true', 1])('rejects non-boolean export acknowledgment %s on start and resume', async (value) => {
-		const allowExportWarnings = value as unknown as boolean;
-		await expect(service.start({ kind: 'beta-reader-draft', allowExportWarnings })).rejects.toThrow('must be a boolean');
-		const started = await service.start({ kind: 'beta-reader-draft' });
-		service.cancel(started.id);
-		await service.wait(started.id);
-		await expect(service.resume(started.id, { allowExportWarnings })).rejects.toThrow('must be a boolean');
-	});
+	it.each([null, 'true', 1])(
+		'rejects non-boolean export acknowledgment %s on start and resume',
+		async (value) => {
+			const allowExportWarnings = value as unknown as boolean;
+			await expect(
+				service.start({ kind: 'beta-reader-draft', allowExportWarnings })
+			).rejects.toThrow('must be a boolean');
+			const started = await service.start({ kind: 'beta-reader-draft' });
+			service.cancel(started.id);
+			await service.wait(started.id);
+			await expect(service.resume(started.id, { allowExportWarnings })).rejects.toThrow(
+				'must be a boolean'
+			);
+		}
+	);
 
 	it('rejects export acknowledgment for chapter and continuity workflows', async () => {
 		for (const kind of ['review-chapter', 'audit-continuity'] as const) {
-			await expect(service.start({ kind, documentIds: [doc.documentId], allowExportWarnings: false })).rejects.toThrow('only to the beta-reader');
+			await expect(
+				service.start({ kind, documentIds: [doc.documentId], allowExportWarnings: false })
+			).rejects.toThrow('only to the beta-reader');
 			const started = await service.start({ kind, documentIds: [doc.documentId] });
 			service.cancel(started.id);
 			await service.wait(started.id);
-			await expect(service.resume(started.id, { allowExportWarnings: true })).rejects.toThrow('only to the beta-reader');
+			await expect(service.resume(started.id, { allowExportWarnings: true })).rejects.toThrow(
+				'only to the beta-reader'
+			);
 		}
 	});
 });

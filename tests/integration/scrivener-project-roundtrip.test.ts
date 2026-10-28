@@ -76,10 +76,14 @@ describe('ScrivenerProject — fixture round-trip', () => {
 		expect(doc.content).toBe(testContent);
 		const after = await project.readDocumentVersion(CHAPTER1_ID);
 		expect(after.revision).not.toBe(before.revision);
-		const snapshots = (await project.listSnapshots(CHAPTER1_ID)).flatMap((group) => group.snapshots);
+		const snapshots = (await project.listSnapshots(CHAPTER1_ID)).flatMap(
+			(group) => group.snapshots
+		);
 		const snapshot = snapshots.find((entry) => entry.title === 'Before reviewed edit');
 		expect(snapshot).toBeDefined();
-		expect((await project.readSnapshot(CHAPTER1_ID, snapshot!.snapshotId)).text).toBe(before.text);
+		expect((await project.readSnapshot(CHAPTER1_ID, snapshot!.snapshotId)).text).toBe(
+			before.text
+		);
 	});
 
 	it('throws for an unknown document ID', async () => {
@@ -91,9 +95,7 @@ describe('ScrivenerProject — fixture round-trip', () => {
 			const info = await project.getDocumentInfo(TITLE_PAGE_ID);
 
 			expect(info.document?.synopsis).toBe('Title page to the manuscript.');
-			expect(info.document?.notes).toContain(
-				'This is the title page of the manuscript.'
-			);
+			expect(info.document?.notes).toContain('This is the title page of the manuscript.');
 			expect(info.document?.notes).toContain('Section Type');
 			expect(info.metadata.synopsis).toBe('Title page to the manuscript.');
 		});

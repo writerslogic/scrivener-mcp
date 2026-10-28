@@ -17,7 +17,7 @@ npm install -g scrivener-mcp
 
 The installer automatically configures **Claude Desktop** only, then restart Claude Desktop.
 **Claude Code** and other clients are not configured by the install step -- run
-`npx scrivener-setup` (below) or add the server manually.
+`npx --package scrivener-mcp scrivener-setup` (below) or add the server manually.
 
 ### Manual Configuration
 
@@ -29,7 +29,7 @@ file paths and verification steps.
 You can also run the interactive setup wizard:
 
 ```bash
-npx scrivener-setup
+npx --package scrivener-mcp scrivener-setup
 ```
 
 The setup tool detects Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, and BoltAI
@@ -77,7 +77,7 @@ so a valid call never dead-ends:
    `get_compile_settings`, `get_manuscript_briefing`, `list_snapshots`, `read_snapshot`,
    `compare_snapshot`, `create_snapshot`) plus `list_skills` and `use_skill`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read,
-   write, create, delete, move, rename, search, and find tools (roughly 18 more tools).
+   write, create, delete, move, local passage search, review and dashboard tools.
 3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load
    additional skill groups. Available on-demand skills:
     - **analysis** -- writing quality, pacing, style, critique, character consistency
@@ -353,3 +353,52 @@ flushes all pending changes.
 
 Scrivener MCP is licensed under AGPL-3.0 for personal and open-source use. Commercial license
 available for proprietary integration. See [COMMERCIAL_LICENSE.md](../COMMERCIAL_LICENSE.md).
+
+## First successful editorial session
+
+The public server provides persistent edit review, source-backed continuity, an optional MCP Apps
+dashboard, local passage retrieval, an explicitly scoped series bible, durable editorial workflows
+and export presets. No paid application is required. See
+[editorial workflows](editorial-workflows.md) and [export coverage](export-presets.md).
+
+Run `scrivener-setup --demo` after installation. It starts the actual MCP server in a new sample
+copy, runs a real local analysis, persists a proposed edit and verifies that preview leaves the
+sample manuscript unchanged. It changes no client configuration. Use the printed sample path with
+`open_project` in your client, then call `manuscript_dashboard` or ask “Review this chapter.” Keep
+the sample until you are ready to use your own project.
+
+For an unpublished checkout, run `npm ci`, `npm run build`, then:
+
+```bash
+node dist/cli/setup.js --demo --node "$(command -v node)" --script "$PWD/dist/index.js"
+```
+
+On Windows, follow the [PowerShell installation path](install-windows.md). The sample is original
+CC0 material under `assets/sample-project`; the fixture license is included in the package. Existing
+destination directories are refused. Tests and demos never configure the developer's actual client
+or edit an original manuscript.
+
+## Provider and privacy choices
+
+Local passage retrieval, continuity comparisons, the bible, pacing, review/undo, workflows and
+exports work without a provider key. Search uses a bounded English story-concept vocabulary with
+explicit coverage limits; it is not a general pretrained embedding model. Provider-supported writing
+interpretation remains optional through existing AI tools and client conversation.
+
+Set `SCRIVENER_LOCAL_ONLY=true` in the MCP server environment to disable provider requests, provider
+key discovery and client sampling. Otherwise explicit keys or the existing key-discovery paths can
+enable Anthropic, OpenAI or OpenRouter, and a sampling-capable client can supply its model. Such
+calls can send selected manuscript text to that provider/client and may incur charges. Client chat
+subscriptions are separate from server-side workflow costs. `SCRIVENER_DISABLE_KEY_DISCOVERY=1`
+disables automatic key discovery while allowing explicit keys.
+
+`SCRIVENER_DATA_DIR` selects the server's local series registry directory (default
+`~/.scrivener-mcp`). Only explicitly joined projects contribute series facts. Per-project review
+history, source evidence and workflow checkpoints live in `.scrivener-mcp/editorial.sqlite`; back up
+that directory with the manuscript. Do not delete it as though it were only a cache.
+`scrivener-setup --check --json` emits redacted diagnostics without changing client configuration.
+
+All reads concern saved files. Close the project in Scrivener before applying edits. Ambiguous
+native detection requires explicit acknowledgment; revisions and server-instance conflicts remain
+enforced even with `force: true`. The server cannot read unsaved native buffers or guarantee safe
+simultaneous native/server writes.

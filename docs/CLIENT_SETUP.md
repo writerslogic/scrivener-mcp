@@ -9,7 +9,7 @@ The setup tool finds your installed AI apps, adds Scrivener MCP to each one, and
 server once to prove it works:
 
 ```bash
-npx scrivener-setup
+npx --package scrivener-mcp scrivener-setup
 ```
 
 It supports Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, and BoltAI, and opens an
@@ -21,8 +21,8 @@ install dialog for Raycast. What it does for you:
 - **Repairs old entries.** An older `npx scrivener-mcp` entry is updated instead of skipped.
 - **Never damages a config.** Other servers and settings are kept, a dated backup is saved next to
   the file, and a file that is not valid JSON is left untouched.
-- **Checks the result.** `npx scrivener-setup --check` reports each app's state and runs the
-  start-up test without changing anything.
+- **Checks the result.** `npx --package scrivener-mcp scrivener-setup --check` reports each app's
+  state and runs the start-up test without changing anything.
 
 Useful options: `--client cursor` (one app only), `--remove`, `--links` (one-click install links),
 `--print` (the JSON for manual setup), `--yes` (no questions), and `--json` (for scripts).
@@ -216,8 +216,8 @@ Create or edit `.cursor/mcp.json` in your project root:
 
 ### Global config
 
-Cursor reads `~/.cursor/mcp.json` for every project. `npx scrivener-setup` writes it for you, or
-paste the `mcpServers.scrivener` snippet above into that file yourself.
+Cursor reads `~/.cursor/mcp.json` for every project. `npx --package scrivener-mcp scrivener-setup`
+writes it for you, or paste the `mcpServers.scrivener` snippet above into that file yourself.
 
 ### Verify
 
@@ -311,43 +311,44 @@ For more help, see [Getting Started](./getting-started.md) and
 
 ## BoltAI
 
-BoltAI keeps its servers in `~/.boltai/mcp.json`. `npx scrivener-setup --client boltai` writes the
-entry. After it runs, open **Settings > Plugins**, click the **...** menu, and choose **Reload
-Config**. You can also choose **Import from Claude** or **Import from Cursor** in the same menu to
-copy servers you already set up there.
+BoltAI keeps its servers in `~/.boltai/mcp.json`.
+`npx --package scrivener-mcp scrivener-setup --client boltai` writes the entry. After it runs, open
+**Settings > Plugins**, click the **...** menu, and choose **Reload Config**. You can also choose
+**Import from Claude** or **Import from Cursor** in the same menu to copy servers you already set up
+there.
 
 ## LM Studio
 
 LM Studio reads `~/.lmstudio/mcp.json` (the **Edit mcp.json** button in its Program tab opens the
-same file). Use `npx scrivener-setup --client lm-studio`, or `npx scrivener-setup --links` for a
-one-click `lmstudio://` link.
+same file). Use `npx --package scrivener-mcp scrivener-setup --client lm-studio`, or
+`npx --package scrivener-mcp scrivener-setup --links` for a one-click `lmstudio://` link.
 
 ## Raycast
 
 Raycast stores servers in its own database, so there is no file to edit.
-`npx scrivener-setup --client raycast` opens Raycast's **Install Server** dialog with everything
-filled in. Click **Install** there. Raycast runs servers with the PATH from your default shell, so
-`npx` must work in a new Terminal window.
+`npx --package scrivener-mcp scrivener-setup --client raycast` opens Raycast's **Install Server**
+dialog with everything filled in. Click **Install** there. Raycast runs servers with the PATH from
+your default shell, so `npx` must work in a new Terminal window.
 
 ## VS Code
 
 VS Code uses a different file format from the other apps: a top-level `servers` key and an explicit
 `"type": "stdio"`. The setup tool handles this and writes to
 `~/Library/Application Support/Code/User/mcp.json` on a Mac. By hand, run `code --add-mcp` with the
-JSON from `npx scrivener-setup --links`.
+JSON from `npx --package scrivener-mcp scrivener-setup --links`.
 
 ## One-click install links
 
-`npx scrivener-setup --links` prints ready-made links for Cursor, LM Studio, and Raycast, plus the
-`code --add-mcp` command for VS Code, each containing the full path to `npx` on your machine. A link
-only opens the app's own install dialog and cannot install or repair Node.js. If a link opens but
-the server fails to start, run the one-line installer above.
+`npx --package scrivener-mcp scrivener-setup --links` prints ready-made links for Cursor, LM Studio,
+and Raycast, plus the `code --add-mcp` command for VS Code, each containing the full path to `npx`
+on your machine. A link only opens the app's own install dialog and cannot install or repair
+Node.js. If a link opens but the server fails to start, run the one-line installer above.
 
 If you installed the Draftbridge Mac app, you do not need Node.js at all. The app carries its own
 runtime, and you can generate links that point at it:
 
 ```bash
-npx scrivener-setup --links \
+npx --package scrivener-mcp scrivener-setup --links \
   --node "/Applications/Draftbridge.app/Contents/Resources/runtime/bin/node" \
   --script "/Applications/Draftbridge.app/Contents/Resources/server/dist/index.js"
 ```

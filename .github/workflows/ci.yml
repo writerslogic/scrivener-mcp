@@ -15,8 +15,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        node-version: [20.x]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [22.13.0, 24.x]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -32,6 +32,9 @@ jobs:
 
       - name: Type checking
         run: npm run typecheck
+
+      - name: Formatting
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint
@@ -50,3 +53,17 @@ jobs:
 
       - name: Test
         run: npm test -- --testTimeout=30000
+
+      - name: Installed package and protocol smoke
+        run: node scripts/check-release-smoke.mjs
+
+      - name: Dashboard browser interactions
+        if: runner.os == 'Linux' && matrix.node-version == '24.x'
+        run: node scripts/check-dashboard.mjs
+
+      - name: EPUBCheck validation
+        if: runner.os == 'Linux' && matrix.node-version == '24.x'
+        run: node scripts/check-epub-export.mjs
+
+      - name: Dependency audit
+        run: npm audit

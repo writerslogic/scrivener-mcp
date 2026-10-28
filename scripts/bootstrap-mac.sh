@@ -28,6 +28,12 @@ node_ok() {
 	major=${major%%.*}
 	case "$major" in ''|*[!0-9]*) return 1 ;; esac
 	[ "$major" -ge "$MIN_MAJOR" ] || return 1
+	if [ "$major" -eq 22 ]; then
+		minor=${ver#v22.}
+		minor=${minor%%.*}
+		case "$minor" in ''|*[!0-9]*) return 1 ;; esac
+		[ "$minor" -ge 13 ] || return 1
+	fi
 	[ -x "$(dirname "$1")/npx" ] || return 1
 	return 0
 }

@@ -271,34 +271,40 @@ async function main() {
 	logger.info('Scrivener MCP Server started');
 }
 
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-	logger.info('Shutting down...');
-
-	// Clean up resources
-	await shutdownAsyncServices();
-	if (context?.project) {
-		await context.project.close();
-	}
-
-	if (context?.memoryManager) {
-		await context.memoryManager.stopAutoSave();
-	}
-
-	// Clean up HHM system
-	if (hhmInitialized) {
+let shuttingDown = false;
+async function shutdown(): Promise<void> {
+	if (shuttingDown) return;
+	shuttingDown = true;
+	let failed = false;
+	const operations = [
+		async () => {
+			await context?.memoryManager?.stopAutoSave();
+		},
+		async () => {
+			await context?.project?.close();
+		},
+		async () => {
+			await shutdownAsyncServices();
+		},
+		async () => {
+			if (hhmInitialized) {
+				const { getHHMSystem } = await import('./handlers/memory-handlers.js');
+				await getHHMSystem().destroy();
+			}
+		},
+	];
+	for (const operation of operations) {
 		try {
-			const { getHHMSystem } = await import('./handlers/memory-handlers.js');
-			const hhmSystem = getHHMSystem();
-			await hhmSystem.destroy();
-			logger.info('HHM system shutdown complete');
+			await operation();
 		} catch (error) {
-			logger.warn('Error during HHM shutdown', { error });
+			failed = true;
+			logger.error('A server resource failed to shut down', { error });
 		}
 	}
-
-	process.exit(0);
-});
+	process.exit(failed ? 1 : 0);
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 // Error handling
 process.on('uncaughtException', (error) => {

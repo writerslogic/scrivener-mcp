@@ -438,7 +438,10 @@ export class RTFHandler {
 						tokens.push({ type: 'text', value: '\n' });
 						i += controlMatch[0].length;
 					} else if (this.SPECIAL_CHARS.has(`\\${wordName}`)) {
-						tokens.push({ type: 'text', value: this.SPECIAL_CHARS.get(`\\${wordName}`)! });
+						tokens.push({
+							type: 'text',
+							value: this.SPECIAL_CHARS.get(`\\${wordName}`)!,
+						});
 						i += controlMatch[0].length;
 					} else if (wordName === 'uc') {
 						const n = parseInt(wordParam, 10);

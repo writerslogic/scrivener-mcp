@@ -95,6 +95,7 @@ export type {
 
 export class ScrivenerProject {
 	private editorial?: EditorialServices;
+	private savedRefresh?: Promise<void>;
 	private documentInfo: ProjectDocumentInfo;
 	private writer: ProjectWriter;
 	private trash: ProjectTrash;
@@ -233,6 +234,9 @@ export class ScrivenerProject {
 	 */
 	async loadProject(): Promise<void> {
 		logger.info('Loading Scrivener project');
+		this.documentManager
+			.getMutationCoordinator()
+			.assertProjectPath(path.join(this.projectPath, '.scrivener-mcp'));
 
 		// Create .scrivener-mcp directory for project-specific data
 		await ensureProjectDataDirectory(this.projectPath);
@@ -290,6 +294,7 @@ export class ScrivenerProject {
 	 * Get project structure
 	 */
 	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
+		await this.refreshSavedStructure();
 		return await this.documentManager.getProjectStructure(includeTrash);
 	}
 
@@ -297,10 +302,12 @@ export class ScrivenerProject {
 	 * Get all documents
 	 */
 	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
+		await this.refreshSavedStructure();
 		return await this.documentManager.getAllDocuments(includeTrash);
 	}
 
 	async getDocumentsUnderFolder(folderId: string): Promise<ScrivenerDocument[]> {
+		await this.refreshSavedStructure();
 		return await this.documentManager.getDocumentsUnderFolder(folderId);
 	}
 
@@ -351,16 +358,14 @@ export class ScrivenerProject {
 	}
 
 	async readDocumentVersion(documentId: string): Promise<{ text: string; revision: string }> {
-		const saved = await this.documentManager.getMutationCoordinator().readRaw(documentId);
-		const { RTFHandler } = await import('./services/parsers/rtf-handler.js');
-		return {
-			text: saved.raw ? (await new RTFHandler().parseRTF(saved.raw)).plainText : '',
-			revision: saved.revision,
-		};
+		return this.documentManager.readDocumentVersion(documentId);
 	}
 
 	getEditorialServices(): EditorialServices {
 		if (this.editorial) return this.editorial;
+		this.documentManager
+			.getMutationCoordinator()
+			.assertProjectPath(path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite'));
 		const store = new PersistentStore(
 			path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
 		);
@@ -378,14 +383,24 @@ export class ScrivenerProject {
 					if (await this.isProjectModified()) await this.refreshProject();
 					return manuscriptDocuments(await this.getProjectStructure());
 				},
-				(id) => this.documentManager.readDocumentRaw(id)
+				(id) => this.documentManager.readDocumentRaw(id),
+				() => this.getAllDocuments()
 			);
 			registerProject(seriesStore, source);
 			const review = new ReviewService(
 				this.projectPath,
 				this.documentManager,
 				this.writer,
-				store
+				store,
+				async (id) => {
+					const document = (await this.getAllDocuments()).find(
+						(item) => item.id === id && item.type === 'Text'
+					);
+					if (!document)
+						throw new Error(
+							'Review target is not an active text document in the selected project'
+						);
+				}
 			);
 			const bible = new SeriesBible(source, store, seriesStore, (id) =>
 				id === source.projectId
@@ -397,8 +412,15 @@ export class ScrivenerProject {
 			const workflows = new WorkflowService(source, store, search, {
 				propose: (input) => review.propose(input),
 				auditContinuity: (input) => continuity.analyze(input),
-				exportBeta: async ({ documentIds, outputPath }) =>
-					this.exporter.exportPreset({ preset: 'beta-reader', documentIds }, outputPath),
+				exportBeta: async ({ documentIds, outputPath, allowWarnings }) => {
+					const options = { preset: 'beta-reader' as const, documentIds, allowWarnings };
+					const preflight = await this.exporter.preflight(options);
+					if (!preflight.ready)
+						throw new Error(
+							`Beta-reader export preflight: ${preflight.findings.map((finding) => finding.message).join(' ')} Review these findings before resuming with allowExportWarnings: true.`
+						);
+					return this.exporter.exportPreset(options, outputPath);
+				},
 			});
 			this.editorial = {
 				source,
@@ -658,6 +680,16 @@ export class ScrivenerProject {
 		this.documentManager.clearCache();
 		const structure = await this.projectLoader.reloadProject();
 		this.documentManager.setProjectStructure(structure);
+		if (this.indexInitialized)
+			await documentIndexer.buildIndex(await this.documentManager.getAllDocuments());
+	}
+
+	private async refreshSavedStructure(): Promise<void> {
+		if (!(await this.projectLoader.isProjectModified())) return;
+		this.savedRefresh ??= this.refreshProject().finally(() => {
+			this.savedRefresh = undefined;
+		});
+		await this.savedRefresh;
 	}
 
 	async isProjectModified(): Promise<boolean> {
@@ -708,6 +740,7 @@ export class ScrivenerProject {
 		metadata: Record<string, string>;
 		location: 'active' | 'trash' | 'unknown';
 	}> {
+		await this.refreshSavedStructure();
 		return this.documentInfo.getDocumentInfo(documentId);
 	}
 
@@ -806,8 +839,19 @@ export class ScrivenerProject {
 		// Shutdown async services (job queue, AI services)
 		await shutdownAsyncServices();
 
-		await this.databaseService.close();
-		await this.documentManager.close();
+		const resources = await Promise.allSettled([
+			this.databaseService.close(),
+			this.documentManager.close(),
+			Promise.resolve().then(() => this.projectLoader.close()),
+		]);
+		const failures = resources.filter(
+			(result): result is PromiseRejectedResult => result.status === 'rejected'
+		);
+		if (failures.length === 1) throw failures[0].reason;
+		if (failures.length > 1)
+			throw new Error('Multiple project resources failed to close', {
+				cause: failures.map((result) => result.reason),
+			});
 
 		logger.info('Project closed');
 	}

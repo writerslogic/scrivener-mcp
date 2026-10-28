@@ -227,7 +227,9 @@ export class DocumentManager {
 
 	async readDocumentVersion(documentId: string): Promise<{ text: string; revision: string }> {
 		const saved = await this.writer.coordinator.readRaw(documentId);
-		const parsed = saved.exists ? await this.rtfHandler.parseRTF(saved.raw) : { plainText: '', formattedText: [], metadata: {} };
+		const parsed = saved.exists
+			? await this.rtfHandler.parseRTF(saved.raw)
+			: { plainText: '', formattedText: [], metadata: {} };
 		this.documentCache.set(`doc:${documentId}`, parsed);
 		this.cachedRevisions.set(documentId, saved.revision);
 		this.observedRevisions.set(documentId, saved.revision);

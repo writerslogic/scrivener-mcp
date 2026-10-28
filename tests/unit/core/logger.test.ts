@@ -48,4 +48,33 @@ describe('logger error serialization', () => {
 		expect(out).toContain('abc');
 		expect(out).toContain('3');
 	});
+
+	it('redacts manuscript payload fields and credentials without losing operational context', () => {
+		getLogger('test-private-logger').error(
+			'operation failed for sk-ant-private-fixture-token',
+			{
+				documentId: 'safe-identity',
+				content: 'A private manuscript passage',
+				prompt: 'Private provider prompt',
+				query: 'A private passage query',
+				apiKey: 'sk-ant-secret-fixture-token',
+				error: new Error(
+					'Authorization Bearer private-token-fixture at https://user:password@example.test'
+				),
+			}
+		);
+		const out = writes.join('');
+		for (const value of [
+			'A private manuscript passage',
+			'Private provider prompt',
+			'A private passage query',
+			'sk-ant-private-fixture-token',
+			'sk-ant-secret-fixture-token',
+			'private-token-fixture',
+			'user:password',
+		])
+			expect(out).not.toContain(value);
+		expect(out).toContain('safe-identity');
+		expect(out).toContain('[redacted]');
+	});
 });

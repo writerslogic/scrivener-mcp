@@ -57,9 +57,17 @@ describe('ScrivenerProject', () => {
 		jest.clearAllMocks();
 		project = new ScrivenerProject(projectPath);
 		mockDocumentManager = (project as any).documentManager;
+		if (jest.isMockFunction(mockDocumentManager.getMutationCoordinator))
+			mockDocumentManager.getMutationCoordinator.mockReturnValue({
+				assertProjectPath: jest.fn(),
+			} as never);
 		mockCompilationService = (project as any).compilationService;
 		mockDatabaseService = (project as any).databaseService;
 		mockProjectLoader = (project as any).projectLoader;
+	});
+
+	afterEach(async () => {
+		await project.close();
 	});
 
 	describe('recoverFromTrash', () => {
@@ -327,6 +335,7 @@ describe('ScrivenerProject', () => {
 
 			// The close method lets errors propagate
 			await expect(project.close()).rejects.toThrow('DB close failed');
+			mockDatabaseService.close.mockResolvedValue(undefined);
 		});
 	});
 
@@ -475,8 +484,12 @@ describe('ScrivenerProject', () => {
 			fixtureDirectory = await fs.mkdtemp(path.join(tmpdir(), 'scrivener-project-fidelity-'));
 			documentPath = path.join(fixtureDirectory, 'Files', 'Data', documentId, 'content.rtf');
 			await fs.mkdir(path.dirname(documentPath), { recursive: true });
-			const ActualDocumentManager = jest.requireActual<typeof import('../../src/services/document-manager.js')>('../../src/services/document-manager.js').DocumentManager;
-			(DocumentManager as jest.MockedClass<typeof DocumentManager>).mockImplementationOnce((root) => new ActualDocumentManager(root));
+			const ActualDocumentManager = jest.requireActual<
+				typeof import('../../src/services/document-manager.js')
+			>('../../src/services/document-manager.js').DocumentManager;
+			(DocumentManager as jest.MockedClass<typeof DocumentManager>).mockImplementationOnce(
+				(root) => new ActualDocumentManager(root)
+			);
 			project = new ScrivenerProject(fixtureDirectory);
 		});
 
@@ -502,11 +515,15 @@ describe('ScrivenerProject', () => {
 			const stored = await fs.readFile(documentPath, 'utf8');
 			expect(stored).toContain('{\\fonttbl\\f0 Times;}');
 			expect(await project.readDocument(documentId)).toBe('hello there world');
-			expect((await project.readSnapshot(documentId, report.snapshotId!)).text).toBe('hello world');
+			expect((await project.readSnapshot(documentId, report.snapshotId!)).text).toBe(
+				'hello world'
+			);
 		});
 
 		it('reports mode "created" when there is no prior content', async () => {
-			const report = await project.writeDocumentPreserving(documentId, 'brand new', { force: true });
+			const report = await project.writeDocumentPreserving(documentId, 'brand new', {
+				force: true,
+			});
 			expect(report.mode).toBe('created');
 			expect(report.snapshotId).toBeUndefined();
 			expect(await project.readDocument(documentId)).toBe('brand new');

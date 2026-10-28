@@ -146,7 +146,8 @@ export class WorkflowService {
 		if (prior) {
 			if (
 				prior.kind !== input.kind ||
-				(prior.initialAllowExportWarnings ?? false) !== (input.allowExportWarnings ?? false) ||
+				(prior.initialAllowExportWarnings ?? false) !==
+					(input.allowExportWarnings ?? false) ||
 				prior.scope.map((doc) => doc.documentId).join('\0') !==
 					documents.map((doc) => doc.documentId).join('\0')
 			)
@@ -201,10 +202,12 @@ export class WorkflowService {
 				basis: 'Local deterministic analysis, continuity, proposals and export. No provider calls or token charges; client chat costs are outside this server.',
 			},
 			idempotencyKey: input.idempotencyKey,
-			...(input.kind === 'beta-reader-draft' ? {
-				allowExportWarnings: input.allowExportWarnings ?? false,
-				initialAllowExportWarnings: input.allowExportWarnings ?? false,
-			} : {}),
+			...(input.kind === 'beta-reader-draft'
+				? {
+						allowExportWarnings: input.allowExportWarnings ?? false,
+						initialAllowExportWarnings: input.allowExportWarnings ?? false,
+					}
+				: {}),
 		};
 		this.store.transaction(() => {
 			if (this.store.get(this.namespace, id))
@@ -250,7 +253,10 @@ export class WorkflowService {
 		});
 	}
 
-	async resume(id: string, options: { allowExportWarnings?: boolean } = {}): Promise<EditorialWorkflow> {
+	async resume(
+		id: string,
+		options: { allowExportWarnings?: boolean } = {}
+	): Promise<EditorialWorkflow> {
 		if (this.closed) throw new Error('Workflow service is closed');
 		if (!options || typeof options !== 'object' || Array.isArray(options))
 			throw new Error('Workflow resume options must be an object');
@@ -258,8 +264,13 @@ export class WorkflowService {
 		validateExportWarningAcknowledgment(options.allowExportWarnings, workflow.kind);
 		if (workflow.state === 'completed') return workflow;
 		if (this.running.has(id)) {
-			if (options.allowExportWarnings !== undefined && options.allowExportWarnings !== (workflow.allowExportWarnings ?? false))
-				throw new Error('Workflow is still running; wait for it to stop before changing export acknowledgment');
+			if (
+				options.allowExportWarnings !== undefined &&
+				options.allowExportWarnings !== (workflow.allowExportWarnings ?? false)
+			)
+				throw new Error(
+					'Workflow is still running; wait for it to stop before changing export acknowledgment'
+				);
 			return workflow;
 		}
 		if (workflow.owner && processAlive(workflow.owner) !== 'dead')

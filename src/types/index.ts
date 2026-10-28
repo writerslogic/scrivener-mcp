@@ -1,6 +1,7 @@
 /**
  * Core type definitions
  */
+import type { ExportPreset } from '../services/export/export-presets.js';
 
 // Re-export ScrivenerProject as Project for compatibility
 export { ScrivenerProject as Project } from '../scrivener-project.js';
@@ -258,7 +259,7 @@ export interface CompilationOptions {
 }
 
 export interface ExportOptions {
-	preset?: import('../services/export/export-presets.js').ExportPreset;
+	preset?: ExportPreset;
 	documentIds?: string[];
 	frontMatterIds?: string[];
 	includeAnnotations?: boolean;

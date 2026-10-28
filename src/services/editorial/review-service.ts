@@ -114,7 +114,6 @@ function selectedEdits(proposal: ChangeProposal, editIds?: string[]): ProposedEd
 }
 
 function compose(proposal: ChangeProposal, additional: string[] = []): string {
-	let text = proposal.before;
 	const edits = proposal.edits.filter(
 		(edit) => edit.status === 'accepted' || additional.includes(edit.id)
 	);
@@ -123,15 +122,34 @@ function compose(proposal: ChangeProposal, additional: string[] = []): string {
 		proposal.before.length
 	);
 	if (length > MAX_TEXT) throw new Error('Proposed manuscript text exceeds the supported length');
-	for (const edit of [...edits].sort((a, b) => b.start - a.start))
-		text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
-	return text;
+	const pieces: string[] = [];
+	let cursor = 0;
+	for (const edit of [...edits].sort((a, b) => a.start - b.start)) {
+		pieces.push(proposal.before.slice(cursor, edit.start), edit.text);
+		cursor = edit.end;
+	}
+	pieces.push(proposal.before.slice(cursor));
+	return pieces.join('');
 }
 
 function applicationOwner(application: ReviewApplication): 'alive' | 'dead' | 'unknown' {
-	if (!Number.isSafeInteger(application.ownerPid) || application.ownerPid <= 0 || application.ownerPid > 2_147_483_647 || typeof application.host !== 'string' || !application.host.length || application.host.length > 255 || typeof application.token !== 'string' || !application.token.length || application.token.length > 128) throw new Error('Malformed review application ownership record; manual inspection is required');
+	if (
+		!Number.isSafeInteger(application.ownerPid) ||
+		application.ownerPid <= 0 ||
+		application.ownerPid > 2_147_483_647 ||
+		typeof application.host !== 'string' ||
+		!application.host.length ||
+		application.host.length > 255 ||
+		typeof application.token !== 'string' ||
+		!application.token.length ||
+		application.token.length > 128
+	)
+		throw new Error(
+			'Malformed review application ownership record; manual inspection is required'
+		);
 	if (application.host !== hostname()) return 'unknown';
-	if (application.ownerPid === process.pid) return running.has(application.token) ? 'alive' : 'unknown';
+	if (application.ownerPid === process.pid)
+		return running.has(application.token) ? 'alive' : 'unknown';
 	try {
 		process.kill(application.ownerPid, 0);
 		return 'alive';
@@ -145,7 +163,8 @@ export class ReviewService {
 		_projectPath: string,
 		private readonly documents: DocumentManager,
 		private readonly writer: ProjectWriter,
-		private readonly store: PersistentStore
+		private readonly store: PersistentStore,
+		private readonly validateDocument?: (documentId: string) => Promise<void>
 	) {}
 
 	list(): ChangeProposal[] {
@@ -176,6 +195,7 @@ export class ReviewService {
 		title?: string;
 		idempotencyKey?: string;
 	}): Promise<ChangeProposal> {
+		await this.validateDocument?.(input.documentId);
 		if (!Array.isArray(input.edits) || input.edits.length < 1 || input.edits.length > 1000)
 			throw new Error('A proposal must contain between 1 and 1000 edits');
 		if (
@@ -274,6 +294,7 @@ export class ReviewService {
 
 	async preview(proposalId: string, editIds?: string[]): Promise<ProposalPreview> {
 		const proposal = this.get(proposalId);
+		await this.validateDocument?.(proposal.documentId);
 		const selection = selectedEdits(proposal, editIds);
 		const after = compose(
 			proposal,
@@ -315,6 +336,7 @@ export class ReviewService {
 	): Promise<ReviewApplication> {
 		await this.recover();
 		let proposal = this.get(proposalId);
+		await this.validateDocument?.(proposal.documentId);
 		const id = identity(
 			options.operationId ?? stableUuid(['application', proposal.id, proposal.sequence + 1]),
 			'operation ID'
@@ -427,6 +449,7 @@ export class ReviewService {
 		)
 			throw new Error('Completed review application was not found');
 		const undoId = stableUuid(['undo', operationId]);
+		await this.validateDocument?.(mutation.documentId);
 		const prior = this.documents.getMutationCoordinator().get(undoId);
 		if (prior?.state === 'committed') {
 			this.finalizeUndo(application, prior);
@@ -477,7 +500,10 @@ export class ReviewService {
 			if (application.state === 'preparing') {
 				const owner = applicationOwner(application);
 				if (owner === 'alive') continue;
-				if (owner === 'unknown') throw new Error('Review application ownership is ambiguous; inspect the original server before recovery');
+				if (owner === 'unknown')
+					throw new Error(
+						'Review application ownership is ambiguous; inspect the original server before recovery'
+					);
 			}
 			const mutation = this.documents.getMutationCoordinator().get(application.id);
 			if (mutation?.state === 'committed')

@@ -6,13 +6,14 @@ import {
 	chooseRuntime,
 	serverEntry,
 	stablePath,
+	isSupportedRuntime,
 	type NodeRuntime,
 } from '../../../src/setup/runtime.js';
 
 const rt = (major: number, npx: string | null, node = '/n/bin/node'): NodeRuntime => ({
 	node,
 	npx,
-	version: `v${major}.0.0`,
+	version: major === 22 ? 'v22.13.0' : `v${major}.0.0`,
 	major,
 	source: 'test',
 });
@@ -24,8 +25,18 @@ describe('runtime selection', () => {
 	});
 
 	it('skips a running Node that is too old and uses a found one', () => {
-		const found = rt(20, '/n/bin/npx');
+		const found = rt(24, '/n/bin/npx');
 		expect(chooseRuntime([found], rt(16, '/c/bin/npx'))).toBe(found);
+	});
+
+	it.each([
+		['v22.12.99', false],
+		['v22.13.0', true],
+		['v22.13.1', true],
+	])('enforces the runtime floor at %s', (version, expected) => {
+		expect(isSupportedRuntime({ ...rt(22, '/n/bin/npx'), version: String(version) })).toBe(
+			expected
+		);
 	});
 
 	it('skips candidates without npx and returns null when nothing is usable', () => {
