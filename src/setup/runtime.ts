@@ -38,7 +38,7 @@ export function stablePath(
 	}
 	const dirs = [...pathDirs, '/opt/homebrew/bin', '/usr/local/bin'].filter(Boolean);
 	for (const dir of dirs) {
-		const candidate = join(dir, 'node');
+		const candidate = join(dir, process.platform === 'win32' ? 'node.exe' : 'node');
 		try {
 			if (existsSync(candidate) && realpathSync(candidate) === real) return candidate;
 		} catch {
