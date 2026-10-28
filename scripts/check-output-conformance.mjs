@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import Ajv from 'ajv';
+import { redactDiagnostics } from '../dist/setup/redaction.js';
 import { ContentAnalyzer } from '../dist/analysis/base-analyzer.js';
 import { ContentEnhancer } from '../dist/services/enhancements/content-enhancer.js';
 import { projectHandlers } from '../dist/handlers/project-handlers.js';
@@ -228,6 +229,22 @@ async function main() {
 }
 
 main().catch((err) => {
-	out(`harness error: ${err.stack || err.message}`);
+	const seen = new Set();
+	let failure = err;
+	while (failure && !seen.has(failure) && seen.size < 4) {
+		seen.add(failure);
+		out(
+			`harness error: ${JSON.stringify(
+				redactDiagnostics({
+					name: failure.name,
+					code: failure.code,
+					message: failure.message ?? String(failure),
+					stack: failure.stack,
+					originalError: failure.details?.originalError,
+				})
+			)}`
+		);
+		failure = failure.cause ?? failure.details?.cause;
+	}
 	process.exit(1);
 });

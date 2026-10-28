@@ -134,63 +134,51 @@ checks.
 
 ## Maintenance and main integration
 
-Follow-up authorization: merge/push main, merge reviewed open PRs, address quality findings,
-consolidate code/tests, reduce redundant comments, and remove stray repository artifacts. The
-original local-only delivery ended at `ac2f2f8`; this follow-up uses `cleanup/pre-main-20261027`
-with the same manager and three existing isolated workers.
+The follow-up authorizes merging/pushing main, merging open PRs, quality fixes, consolidation,
+comment reduction and artifact cleanup. The original local delivery ended at `ac2f2f8`; maintenance
+uses `cleanup/pre-main-20261027` and the same three isolated implementation workers. Reviewed
+maintenance PRs [#188](https://github.com/writerslogic/scrivener-mcp/pull/188) (SDK 1.32.2) and
+[#187](https://github.com/writerslogic/scrivener-mcp/pull/187) (changelog) are merged.
 
-Initial remote audit found no open scanning alerts. Maintenance PRs #188 (SDK 1.32.2) and #187
-(changelog) were inspected and merged after their required checks passed; the connector lacked merge
-scope, so the authenticated GitHub CLI performed the merges. Repository rules currently require
-retired Node 20 job names; final integration must retain strict protection while aligning required
-checks with the six supported OS/runtime jobs.
+- Persistence reuses prepared SQL, closes failed initializations, rejects async transaction
+  callbacks before invocation, and reconciles interrupted undo. Proposal creation reads/parses once.
+- Continuity/bible requests reuse scoped source snapshots and document maps, validate source
+  identity/Unicode ranges, and preserve historical foreign evidence and author decisions.
+- Retrieval uses linear token/chunk accounting, reads each matched source once, avoids unused HMS
+  work in semantic mode, and replaces stale owned caches. Workflows protect cancellation/resume,
+  service closure, and identical concurrent starts without replaying completed work.
+- Spooling shares one bounded writer, rejects path-shaped labels and preserves JSON data properties.
+  Fixture restarts, lifecycle and UUID cases are consolidated; seven trivial path/environment
+  wrapper tests are removed. The initial comment-only batch removed 592 restatements/dividers across
+  77 files with unchanged executable syntax; necessary constraints and licenses remain.
+- The obsolete ESLint legacy configuration and tracked HMS runtime database are removed from Git;
+  local database files are preserved and ignored. Lockfiles and fixture Data directories remain
+  trackable. LF source checkout is enforced while native fixtures retain exact saved bytes; a
+  simulated CRLF checkout preserved all 37 fixture files byte-for-byte.
+- Windows fixtures use native paths and disposable Node/npm layouts. Stable runtime lookup uses
+  node.exe/junctions, and ProjectLoader teardown closes its SQLite owner before fixture deletion.
+  The no-follow fallback compares bigint identities from two descriptors plus final path inode/type;
+  it does not trust older Windows path-stat device values. Reads remain bounded and handles close on
+  all paths; Windows concurrent replacement remains best effort. Conformance failures expose
+  redacted nested causes rather than hiding the underlying error.
 
-Repository cleanup removes the obsolete ESLint legacy configuration and stops tracking the HMS
-runtime database while preserving its local files. Runtime state stays ignored; npm's canonical
-lockfile and sample-project Data directories remain visible to Git. Comment cleanup removed 592
-dividers, section labels and restatements across 77 files, verified to preserve executable syntax.
-Seven trivial environment/path-wrapper tests were removed; UUID cases share a parameterized table.
-Focused formatter/utility checks: 55 tests passed. All three worker contributions were inspected and
-integrated. Cached prepared statements and shared source snapshots remove redundant SQL/read work;
-search uses linear token/chunk accounting, semantic-only requests avoid HMS, and changed-source HMS
-caches are replaced safely. Recovery reconciles interrupted undo; provenance validates source
-identity/Unicode bounds and retains foreign history; workflows protect cancellation/resume and
-identical concurrent starts. Fixture restarts and repeated lifecycle cases are consolidated.
+Final local gate: all ten release commands exited zero in
+`logs/implementation/maintenance-final-verified/`: formatting, lint (zero warnings), typecheck,
+build, registry (75 tools), output conformance (29 paths), HMS (seven cases), Jest (81 suites, 875
+passed, nine optional provider skips), audit (zero vulnerabilities), and all eleven installed
+package/protocol checks. Chromium and both EPUBCheck fixtures also pass. POSIX FIFO/no-follow checks
+are explicitly inapplicable on Windows; native descriptor and fixture coverage stays enabled.
 
-The maintenance candidate passes formatting, lint, typecheck, build, registry (75 tools), output
-conformance (29 paths), HMS (seven cases), and audit (zero vulnerabilities). Jest passes 81 suites
-with 859 tests and nine unchanged optional provider skips; a complete open-handle diagnostic run
-also exits cleanly with no reported handles after a parallel worker-exit warning. Installed package
-smoke passes all eleven checks on SDK 1.32.2; Chromium and both EPUBCheck fixtures pass. Logs use
-`logs/implementation/maintenance-*`. Remote CI/scanning run on the integration branch; strict branch
-checks require the six supported OS/runtime jobs before main integration. The GitHub Dependabot
-deepmerge alert (#71) is addressed by the existing tested local security patch and should close when
-the patched lockfile reaches main; it is not dismissed. Secret-scanning and code-scanning open-alert
-queries returned no other findings.
+Security review: CodeQL #59 is fixed with descriptor-based reads and real race/special-file
+regressions. Cache identity is strengthened to private process-keyed HMAC-SHA256 with credential
+rotation coverage. Alerts #57 (configuration identity, never a persisted password/login verifier)
+and #58/#60 (legacy 40-hex SHA-1 compatibility sidecar, never a security guard) are documented false
+positives; no query or security check is disabled. All revision/conflict/undo guards use SHA-256.
+Case-varied native checksum duplicates now collapse while preserving spelling, unrelated entries and
+line endings. The existing tested deepmerge development patch addresses Dependabot #71; it is not
+dismissed. Secret scanning returned no open findings.
 
-Windows CI exposed Git checkout CRLF conversion against the repository’s LF formatting policy.
-`.gitattributes` now enforces source LF while treating native `.scriv` fixtures as opaque bytes; CI
-keeps all matrix jobs running to expose platform failures together. GitHub code quality found one
-unused EPUBCheck-script import, now removed. The follow-up parallel Jest confirmation also passed
-all 859 tests and exited normally without a worker warning.
-
-The subsequent Windows failures were exact-path assertions built with POSIX separators, an unclosed
-test-owned ProjectLoader SQLite connection, and a POSIX-only runtime fixture. Native path
-assertions, loader teardown and disposable dual-platform Node/npm fixtures correct those causes.
-Production stablePath now locates node.exe through Windows directory junctions.
-
-CodeQL #57 is addressed with process-keyed HMAC configuration fingerprints and credential-rotation
-coverage. #59 is addressed with guarded descriptor opens, bounded reads, final metadata checks and
-real symlink/FIFO regressions. Windows lacks the atomic POSIX flags and retains post-open identity
-checks; concurrent path replacement there remains best effort. #58 was classified as a non-security
-compatibility checksum: the legacy SHA-1 sidecar never authorizes a mutation; all
-revision/conflict/undo guards use SHA-256. Its disposition is recorded on the GitHub alert, without
-disabling any rule. Case-varied checksum duplicates now collapse while preserving native key
-spelling, unrelated entries and line endings.
-
-The revised candidate passes the complete release gate: 81 suites, 870 tests passed, nine optional
-provider skips on macOS; zero lint warnings, zero audit vulnerabilities; all eleven
-installed-package checks. Logs: `logs/implementation/maintenance-release/`. POSIX-specific
-FIFO/no-follow tests skip on Windows, where native descriptor and fixture coverage remains enabled.
-A simulated Git checkout with core.autocrlf=true retained LF source and all 37 native fixture files
-byte-for-byte.
+[Integration PR #189](https://github.com/writerslogic/scrivener-mcp/pull/189) carries live CI,
+security and code-quality evidence. Main integration requires all six supported OS/runtime jobs,
+replacing retired Node 20 context names while retaining strict updates, deletion/force-push
+protection and no bypass actors. No release tag, package publication or deployment is authorized.
