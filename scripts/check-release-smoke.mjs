@@ -566,7 +566,11 @@ async function main() {
 				`import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => writeFileSync(${JSON.stringify(marker)}, 'SIGTERM')); process.once('exit', code => writeFileSync(${JSON.stringify(exitStatus)}, String(code)));`,
 				{ mode: 0o600 }
 			);
-			const session = await openSession(false, ['--import', observer, entry]);
+			const session = await openSession(false, [
+				'--import',
+				pathToFileURL(observer).href,
+				entry,
+			]);
 			try {
 				verify(
 					(await session.listTools()).tools.length > 0,

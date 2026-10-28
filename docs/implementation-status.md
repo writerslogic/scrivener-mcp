@@ -248,3 +248,7 @@ deletion/force-push protections. Remote evidence is attached to the integration 
 [branch checks](https://github.com/writerslogic/scrivener-mcp/actions?query=branch%3Aquality%2Ffuture-integration-20261028).
 No paid provider calls, release publication, signing, notarization or deployment are part of this
 verification. Private CI must remain within the organization's verified free Actions allowance.
+
+The expanded Windows run exposed a raw drive path passed to Node's ESM `--import` option in the
+shutdown smoke fixture. The observer now uses a file URL; the clean-stdin-exit and no-forced-signal
+assertions remain enabled on every platform.
