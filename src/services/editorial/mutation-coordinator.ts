@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
-import { lstatSync, realpathSync } from 'node:fs';
+import { constants, lstatSync, realpathSync } from 'node:fs';
 import { hostname } from 'node:os';
 import * as path from 'node:path';
 import { safeWriteFile } from '../../utils/common.js';
@@ -9,6 +9,7 @@ import { planSnapshot, writePlannedSnapshot, type SnapshotEntry } from '../snaps
 import { PersistentStore } from './persistent-store.js';
 
 const MAX_RAW_BYTES = 64 * 1024 * 1024;
+const SAVED_READ_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0) | (constants.O_NOCTTY ?? 0);
 const JOURNAL = 'mutations';
 const CLAIMS = 'mutation-claims';
 const PENDING = 'mutation-pending';
@@ -190,15 +191,7 @@ export class MutationCoordinator {
 		target: string
 	): Promise<{ raw: string; exists: boolean; revision: string }> {
 		try {
-			const visible = await fs.stat(target);
-			if (
-				!visible.isFile() ||
-				!Number.isSafeInteger(visible.size) ||
-				visible.size < 0 ||
-				visible.size > MAX_RAW_BYTES
-			)
-				throw new Error('Saved content is not a supported regular file');
-			const handle = await fs.open(target, 'r');
+			const handle = await fs.open(target, SAVED_READ_FLAGS);
 			try {
 				const stat = await handle.stat();
 				if (
@@ -208,6 +201,12 @@ export class MutationCoordinator {
 					stat.size > MAX_RAW_BYTES
 				)
 					throw new Error('Saved content is not a supported regular file');
+				if (!constants.O_NOFOLLOW) {
+					// Windows lacks atomic no-follow opens; verify the opened file against its project path.
+					this.assertProjectPath(target);
+					const entry = await fs.lstat(target);
+					if (entry.isSymbolicLink() || !entry.isFile() || entry.dev !== stat.dev || entry.ino !== stat.ino) throw new Error('Saved content changed while opening; retry');
+				}
 				const buffer = Buffer.alloc(stat.size + 1);
 				let count = 0;
 				while (count < buffer.length) {
@@ -618,11 +617,20 @@ export class MutationCoordinator {
 			throw error;
 		}
 		const key = `${documentId}/content.rtf=`;
+		const canonicalKey = key.toLowerCase();
+		// Scrivener's native checksum sidecar uses SHA-1; revision and conflict checks use SHA-256.
 		const hash = createHash('sha1').update(raw).digest('hex');
-		const lines = existing.split('\n').filter(Boolean);
-		const index = lines.findIndex((line) => line.startsWith(key));
-		if (index < 0) lines.push(`${key}${hash}`);
-		else lines[index] = `${key}${hash}`;
+		const lines: string[] = [];
+		let updated = false;
+		for (const line of existing.split('\n').filter(Boolean)) {
+			if (line.slice(0, key.length).toLowerCase() !== canonicalKey) {
+				lines.push(line);
+			} else if (!updated) {
+				lines.push(`${line.slice(0, key.length)}${hash}${line.endsWith('\r') ? '\r' : ''}`);
+				updated = true;
+			}
+		}
+		if (!updated) lines.push(`${key}${hash}${existing.includes('\r\n') ? '\r' : ''}`);
 		await safeWriteFile(checksumPath, `${lines.join('\n')}\n`);
 	}
 

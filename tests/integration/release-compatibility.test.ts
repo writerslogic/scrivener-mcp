@@ -35,6 +35,7 @@ describe.each(COMPATIBILITY_LAYOUTS)('release compatibility: %s synthetic layout
 		await second?.close();
 		second = undefined;
 		await documents.close();
+		loader.close();
 		await rm(root, { recursive: true, force: true });
 	});
 
