@@ -84,7 +84,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.0",
-		"@jest/globals": "^29.7.0",
+		"@jest/globals": "^30.5.2",
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/cheerio": "^1.0.0",
 		"@types/ioredis": "^5.0.0",
