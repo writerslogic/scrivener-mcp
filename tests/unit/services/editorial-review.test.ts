@@ -5,6 +5,7 @@ import { constants, renameSync, symlinkSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import * as fs from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { tmpdir, hostname } from 'node:os';
 import * as path from 'node:path';
 import { DocumentManager } from '../../../src/services/document-manager.js';
@@ -25,6 +26,11 @@ import {
 jest.mock('../../../src/utils/scrivener-app.js', () => ({
 	isProjectOpenInScrivener: jest.fn(async () => 'unknown'),
 }));
+
+jest.mock('node:fs/promises', () => {
+	const actual = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+	return { ...actual, __esModule: true, default: actual };
+});
 
 const DOCUMENT = '6C1142A0-64E4-4B4D-8754-73BD6E36EC5B';
 const RICH =
@@ -673,4 +679,64 @@ test('native checksum updates preserve key spelling and unrelated entries while 
 	expect(await fs.readFile(checksum, 'utf8')).toBe(
 		`${nativeKey}${hash}\r\n${unrelated}\r\n${notes}\r\n`
 	);
+});
+
+test.each([
+	'same-file',
+	'different-device',
+	'different-file',
+	'different-path',
+	'verification-open-failure',
+])('Windows descriptor verification handles zero path-stat device IDs: %s', async (scenario) => {
+	const realFs = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+	const replacement = path.join(root, 'different-file.rtf');
+	await realFs.writeFile(replacement, RICH);
+	const opened: Array<{ handle: FileHandle; stat: () => Promise<unknown> }> = [];
+	let restoreIdentity: (() => void) | undefined;
+	const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+	Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+	const pathStat = jest.spyOn(fs, 'lstat').mockImplementation(async (target) => {
+		const entry = await realFs.lstat(scenario === 'different-path' ? replacement : target, {
+			bigint: true,
+		});
+		entry.dev = 0n;
+		return entry;
+	});
+	const open = jest.spyOn(fs, 'open').mockImplementation(async (target, flags, mode) => {
+		if (opened.length === 1 && scenario === 'verification-open-failure')
+			throw new Error('verification open failed');
+		const handle = await realFs.open(
+			opened.length === 1 && scenario === 'different-file' ? replacement : target,
+			flags,
+			mode
+		);
+		opened.push({ handle, stat: handle.stat.bind(handle) });
+		if (opened.length === 2 && scenario === 'different-device') {
+			const identity = await handle.stat({ bigint: true });
+			identity.dev += 1n;
+			const identitySpy = jest.spyOn(handle, 'stat').mockResolvedValue(identity);
+			restoreIdentity = () => identitySpy.mockRestore();
+		}
+		return handle;
+	});
+	try {
+		const result = documents.getMutationCoordinator().readRaw(DOCUMENT);
+		if (scenario === 'same-file')
+			await expect(result).resolves.toEqual({
+				raw: RICH,
+				exists: true,
+				revision: documentRevision(RICH),
+			});
+		else
+			await expect(result).rejects.toThrow(/changed while opening|verification open failed/i);
+		for (const descriptor of opened)
+			await expect(descriptor.stat()).rejects.toThrow(/closed|EBADF|not open/i);
+	} finally {
+		restoreIdentity?.();
+		open.mockRestore();
+		pathStat.mockRestore();
+		Object.defineProperty(process, 'platform', platform);
+		for (const descriptor of opened)
+			if (descriptor.handle.fd !== -1) await descriptor.handle.close();
+	}
 });
