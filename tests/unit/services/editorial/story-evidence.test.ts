@@ -8,11 +8,13 @@ import {
 	ContinuityService,
 	extractContinuityCandidates,
 } from '../../../../src/services/editorial/continuity-service.js';
-import { sourcePassage, verifyPassage } from '../../../../src/services/editorial/provenance.js';
+import { passageState, sourcePassage, verifyPassage } from '../../../../src/services/editorial/provenance.js';
 import type { ManuscriptSource, SourceDocument } from '../../../../src/services/editorial/types.js';
 
 class FixtureSource implements ManuscriptSource {
 	readonly projectPath: string;
+	reads = 0;
+	lists = 0;
 	private documents = new Map<string, SourceDocument>();
 	constructor(
 		readonly projectId: string,
@@ -40,9 +42,11 @@ class FixtureSource implements ManuscriptSource {
 		return document;
 	}
 	async list(): Promise<SourceDocument[]> {
+		this.lists++;
 		return [...this.documents.values()];
 	}
 	async read(documentId: string): Promise<SourceDocument> {
+		this.reads++;
 		const document = this.documents.get(documentId);
 		if (!document)
 			throw Object.assign(new Error('Document was not found'), { code: 'NOT_FOUND' });
@@ -80,12 +84,16 @@ it('verifies Unicode source offsets, line locations and exact quotation/revision
 	expect(() => sourcePassage(document, -1, 3)).toThrow(/range/);
 	expect(() => sourcePassage(document, 3, 3)).toThrow(/range/);
 	expect(() => sourcePassage(document, 3, document.text.length + 1)).toThrow(/range/);
-});
-
-it.each([9999, 10000, 10001])('bounds quoted evidence at %i UTF-16 units', (length) => {
-	const document = new FixtureSource('project-a', root).set('long', 'a'.repeat(length));
-	if (length <= 10000) expect(sourcePassage(document, 0, length).quote).toHaveLength(length);
-	else expect(() => sourcePassage(document, 0, length)).toThrow(/10000/);
+	expect(() => sourcePassage(document, 1, 3)).toThrow(/Unicode/);
+	expect(() => sourcePassage(document, 0, 1)).toThrow(/Unicode/);
+	expect(passageState({ ...document, projectId: 'other-project' }, passage)).toBe('stale');
+	expect(passageState({ ...document, documentId: 'other-document' }, passage)).toBe('stale');
+	expect(passageState(document, { ...passage, start: 1, end: 2, quote: document.text.slice(1, 2) })).toBe('stale');
+	for (const length of [9999, 10000, 10001]) {
+		const long = source.set('long', 'a'.repeat(length));
+		if (length <= 10000) expect(sourcePassage(long, 0, length).quote).toHaveLength(length);
+		else expect(() => sourcePassage(long, 0, length)).toThrow(/10000/);
+	}
 });
 
 it('isolates project scopes and requires explicit series membership before combining verified provenance', async () => {
@@ -173,9 +181,9 @@ it('persists idempotent curated corrections without silently overwriting competi
 	expect((await bible.correct(scope, original.id, { confidence: 'confirmed' })).id).toBe(
 		corrected.id
 	);
-	await expect(bible.correct(scope, original.id, { value: 'blue' })).rejects.toThrow(
-		/already been corrected/
-	);
+	for (const patch of [{ value: 'blue' }, { confidence: 'inferred' as const }]) {
+		await expect(bible.correct(scope, original.id, patch)).rejects.toThrow(/already been corrected/);
+	}
 	bible = new SeriesBible(source, store('facts'));
 	expect((await bible.listFacts(scope)).map((fact) => fact.id)).toEqual([corrected.id]);
 	expect(await bible.listFacts(scope, { includeSuperseded: true })).toHaveLength(2);
@@ -206,7 +214,16 @@ it('uses binder order, quotes and revision-bound persistent decisions for inferr
 	source.set(second.documentId, 'Mara has brown eyes.', 1);
 	expect((await service.recheck(finding.id))[0].stale).toBe(true);
 	expect(() => service.transition(finding.id, 'confirm')).toThrow(/Recheck stale/);
-	expect((await service.analyze()).issues).toHaveLength(1);
+	const replacement = service.list()[0];
+	expect(replacement.id).not.toBe(finding.id);
+	source.set(second.documentId, 'Mara has blue eyes.', 1);
+	const checked = await service.recheck(replacement.id);
+	expect(checked[0]).toMatchObject({ status: 'resolved', resolution: 'no-longer-detected', stale: true });
+	expect(service.list()).toEqual([]);
+	source.set(second.documentId, 'Mara has brown eyes.', 1);
+	expect((await service.analyze()).issues[0].id).toBe(replacement.id);
+	expect(service.list()[0].status).toBe('open');
+	expect(service.list({ includeResolved: true }).find((issue) => issue.id === finding.id)?.status).toBe('dismissed');
 });
 
 it('only labels opposing confirmed immutable facts as confirmed canon conflicts', async () => {
@@ -275,24 +292,6 @@ it('compares a confirmed alias to its canonical character without crossing proje
 	]);
 });
 
-it('rechecks actual findings after an edit and closes obsolete concerns without overwriting author dismissals', async () => {
-	const source = new FixtureSource('project-a', root);
-	source.set('first', 'Mara has blue eyes.', 0);
-	source.set('second', 'Mara has green eyes.', 1);
-	const database = store('recheck');
-	const service = new ContinuityService(source, database, new SeriesBible(source, database));
-	const original = (await service.analyze()).issues[0];
-	source.set('second', 'Mara has blue eyes.', 1);
-	const checked = await service.recheck(original.id);
-	expect(checked[0].status).toBe('resolved');
-	expect(checked[0].resolution).toBe('no-longer-detected');
-	expect(checked[0].stale).toBe(true);
-	expect(service.list()).toEqual([]);
-	source.set('second', 'Mara has green eyes.', 1);
-	expect((await service.analyze()).issues[0].id).toBe(original.id);
-	expect(service.list()[0].status).toBe('open');
-});
-
 it('honors a curated intentional variation in the corresponding narrative evidence', async () => {
 	const source = new FixtureSource('project-a', root);
 	source.set('first', 'Mara has blue eyes.', 0);
@@ -310,6 +309,49 @@ it('honors a curated intentional variation in the corresponding narrative eviden
 		sources: [sourcePassage(variant, 0, variant.text.length)],
 	});
 	expect((await new ContinuityService(source, database, bible).analyze()).issues).toEqual([]);
+});
+
+it('rechecks historical foreign evidence after correction and safely marks departed series context stale', async () => {
+	const a = new FixtureSource('project-a', root);
+	const b = new FixtureSource('project-b', root);
+	const docA = a.set('a', 'Mara has blue eyes.');
+	const docB = b.set('b', 'Mara has green eyes.');
+	const shared = store('shared-history');
+	const database = store('project-history');
+	const resolver = async (id: string) => id === b.projectId ? b : a;
+	const bibleA = new SeriesBible(a, database, shared, resolver);
+	const bibleB = new SeriesBible(b, store('foreign-history'), shared, resolver);
+	const series = bibleA.createSeries('History');
+	bibleB.joinSeries(series.id);
+	const scope: StoryScope = { kind: 'series', id: series.id };
+	const fact = { scope, kind: 'character' as const, subject: 'Mara', predicate: 'eye-color', confidence: 'confirmed' as const, storyTime: 'present' };
+	await bibleA.curate({ ...fact, value: 'blue', sources: [sourcePassage(docA, 0, docA.text.length)] });
+	const foreign = await bibleB.curate({ ...fact, value: 'green', sources: [sourcePassage(docB, 0, docB.text.length)] });
+	const service = new ContinuityService(a, database, bibleA);
+	a.reads = 0;
+	const finding = (await service.analyze({ seriesId: series.id })).issues[0];
+	expect(finding).toBeDefined();
+	expect(a.reads).toBe(0);
+	await bibleB.correct(scope, foreign.id, { value: 'blue', confidence: 'inferred', sources: [] });
+	a.lists = 0;
+	b.reads = 0;
+	const checked = await service.recheck(finding.id);
+	expect(checked[0]).toMatchObject({ status: 'resolved', stale: false });
+	expect(a.lists).toBe(1);
+	expect(b.reads).toBe(1);
+	bibleA.leaveSeries(series.id);
+	expect((await service.recheck(finding.id))[0].stale).toBe(true);
+});
+
+it('applies the continuity analysis budget to an explicit chapter scope in a larger manuscript', async () => {
+	const source = new FixtureSource('project-a', root);
+	for (let order = 0; order < 5001; order++) source.set(`scene-${order}`, '', order);
+	const database = store('chapter-budget');
+	const service = new ContinuityService(source, database, new SeriesBible(source, database));
+	const report = await service.analyze({ documentIds: ['scene-5000'] });
+	expect(report.analyzedDocuments).toBe(1);
+	expect(report.issues).toEqual([]);
+	await expect(service.analyze()).rejects.toThrow(/analyze a chapter/);
 });
 
 it('imports legacy memory without fabricated quotations or silently declaring it canon', async () => {

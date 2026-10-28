@@ -1,5 +1,5 @@
 import type { PersistentStore } from './persistent-store.js';
-import type { FactView, SeriesBible } from './series-bible.js';
+import type { SeriesBible } from './series-bible.js';
 import type {
 	FactConfidence,
 	SourceDocument,
@@ -13,6 +13,7 @@ import {
 	stableStoryId,
 	storyIdentifier,
 	storyText,
+	passageKey,
 } from './provenance.js';
 
 export type FindingStatus = 'open' | 'confirmed' | 'dismissed' | 'resolved';
@@ -171,33 +172,36 @@ export class ContinuityService {
 				options.documentIds.length > 5000)
 		)
 			throw new Error('Document scope must contain 1 to 5000 document ids');
-		const documents = await this.source.list();
-		if (
-			documents.length > 5000 ||
-			documents.reduce((length, document) => length + document.text.length, 0) > 50000000
-		)
-			throw new Error('Continuity scope is too large; analyze a chapter at a time');
+		return this.analyzeSnapshot(options, await this.source.list());
+	}
+
+	private async analyzeSnapshot(options: ContinuityOptions, documents: SourceDocument[]): Promise<ContinuityReport> {
+		const checkTypes = options.checkTypes ?? ['all'];
+		const documentById = new Map(documents.map((document) => [document.documentId, document]));
 		const wanted = options.documentIds
 			? new Set(options.documentIds.map((id) => storyIdentifier(id, 'Document id')))
 			: undefined;
 		if (
 			wanted &&
-			[...wanted].some((id) => !documents.some((document) => document.documentId === id))
+			[...wanted].some((id) => !documentById.has(id))
 		)
 			throw new Error('A requested document is outside the current manuscript');
 		const scoped = documents
 			.filter((document) => !wanted || wanted.has(document.documentId))
 			.sort((a, b) => a.order - b.order);
+		if (scoped.length > 5000 || scoped.reduce((length, document) => length + document.text.length, 0) > 50000000) throw new Error('Continuity scope is too large; analyze a chapter at a time');
 		const candidates = scoped.flatMap(extractContinuityCandidates);
 		if (candidates.length > 10000)
 			throw new Error('Continuity analysis exceeds 10000 candidates; narrow the scope');
 		const projectFacts = await this.bible.listFacts({
 			kind: 'project',
 			id: this.source.projectId,
-		});
+		}, { sourceDocuments: documents });
 		const seriesFacts = options.seriesId
-			? await this.bible.listFacts({ kind: 'series', id: options.seriesId })
+			? await this.bible.listFacts({ kind: 'series', id: options.seriesId }, { sourceDocuments: documents })
 			: [];
+		const currentPassages = new Set([...projectFacts, ...seriesFacts].flatMap((fact) => fact.sourceStates.filter((passage) => passage.state === 'current').map((passage) => passageKey(passage.source))));
+		const sourceOrder = (passage: SourcePassage): number => passage.projectId === this.source.projectId ? documentById.get(passage.documentId)?.order ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
 		const canon = [...projectFacts, ...seriesFacts].filter((fact) => !fact.stale);
 		for (const candidate of candidates) {
 			if (
@@ -248,7 +252,7 @@ export class ContinuityService {
 					if (
 						left.storyTime !== right.storyTime &&
 						(left.storyTime || right.storyTime) &&
-						!IMMUTABLE.has(left.predicate)
+						!IMMUTABLE.has(normalized(left.predicate))
 					)
 						continue;
 					if (left.confidence === 'uncertain' || right.confidence === 'uncertain')
@@ -265,37 +269,12 @@ export class ContinuityService {
 					const type = this.category(left.kind);
 					if (!checkTypes.includes('all') && !checkTypes.includes(this.checkFor(type)))
 						continue;
-					const evidence = [...left.sources, ...right.sources]
-						.filter(
-							(passage, index, passages) =>
-								passages.findIndex(
-									(entry) =>
-										entry.projectId === passage.projectId &&
-										entry.documentId === passage.documentId &&
-										entry.start === passage.start &&
-										entry.revision === passage.revision
-								) === index
-						)
-						.sort((a, b) => {
-							const orderA =
-								a.projectId === this.source.projectId
-									? (documents.find(
-											(document) => document.documentId === a.documentId
-										)?.order ?? Number.MAX_SAFE_INTEGER)
-									: Number.MAX_SAFE_INTEGER;
-							const orderB =
-								b.projectId === this.source.projectId
-									? (documents.find(
-											(document) => document.documentId === b.documentId
-										)?.order ?? Number.MAX_SAFE_INTEGER)
-									: Number.MAX_SAFE_INTEGER;
-							return orderA - orderB || a.start - b.start;
-						});
+					const evidence = [...new Map([...left.sources, ...right.sources].map((passage) => [passageKey(passage), passage])).values()].sort((a, b) => sourceOrder(a) - sourceOrder(b) || a.start - b.start);
 					if (evidence.length < 2) continue;
 					const confirmed =
 						left.confidence === 'confirmed' &&
 						right.confidence === 'confirmed' &&
-						(IMMUTABLE.has(left.predicate) ||
+						(IMMUTABLE.has(normalized(left.predicate)) ||
 							Boolean(left.storyTime && left.storyTime === right.storyTime));
 					const values = [normalized(left.value), normalized(right.value)].sort();
 					const id = stableStoryId(
@@ -316,9 +295,7 @@ export class ContinuityService {
 					const location =
 						evidence.find((passage) => passage.projectId === this.source.projectId) ??
 						evidence[0];
-					const order =
-						documents.find((document) => document.documentId === location.documentId)
-							?.order ?? Number.MAX_SAFE_INTEGER;
+					const order = sourceOrder(location);
 					detected.set(id, {
 						id,
 						type,
@@ -385,25 +362,8 @@ export class ContinuityService {
 				previous.status = 'resolved';
 				previous.resolution = 'no-longer-detected';
 				previous.stale = previous.evidence.some((passage) => {
-					if (passage.projectId === this.source.projectId)
-						return (
-							passageState(
-								documents.find(
-									(document) => document.documentId === passage.documentId
-								),
-								passage
-							) !== 'current'
-						);
-					return ![...projectFacts, ...seriesFacts].some(
-						(fact) =>
-							!fact.stale &&
-							fact.sources.some(
-								(source) =>
-									source.projectId === passage.projectId &&
-									source.documentId === passage.documentId &&
-									source.revision === passage.revision
-							)
-					);
+					const document = passage.projectId === this.source.projectId ? documentById.get(passage.documentId) : undefined;
+					return document ? passageState(document, passage) !== 'current' : !currentPassages.has(passageKey(passage));
 				});
 				previous.checkedAt = now;
 				previous.updatedAt = now;
@@ -474,79 +434,42 @@ export class ContinuityService {
 
 	async recheck(id?: string): Promise<ContinuityFinding[]> {
 		if (id !== undefined) storyIdentifier(id, 'Finding id');
-		let findings = id
-			? [this.store.get<ContinuityFinding>(FINDINGS, id)]
-			: this.list({ includeResolved: true });
-		if (findings.some((finding) => !finding))
-			throw new Error('Continuity finding was not found');
-		for (const seriesId of new Set(
-			(findings as ContinuityFinding[]).map((finding) => finding.seriesId)
-		))
-			await this.analyze({ seriesId });
-		findings = id
-			? [this.store.get<ContinuityFinding>(FINDINGS, id)]
-			: this.list({ includeResolved: true });
-		const documentCache = new Map<string, Promise<SourceDocument | undefined>>();
-		const states = new Map<string, boolean>();
-		const foreignCache = new Map<string, Promise<FactView[]>>();
-		for (const finding of findings as ContinuityFinding[]) {
-			let stale = false;
-			for (const passage of finding.evidence) {
-				const key = `${passage.projectId}:${passage.documentId}`;
-				if (passage.projectId !== this.source.projectId) {
-					const cacheKey = finding.seriesId ?? '';
-					let pending = foreignCache.get(cacheKey);
-					if (!pending) {
-						pending = finding.seriesId
-							? this.bible.listFacts({ kind: 'series', id: finding.seriesId })
-							: Promise.resolve([]);
-						foreignCache.set(cacheKey, pending);
-					}
-					const facts = await pending;
-					if (
-						!facts.some(
-							(fact) =>
-								fact.sources.some(
-									(source) =>
-										source.projectId === passage.projectId &&
-										source.documentId === passage.documentId &&
-										source.revision === passage.revision
-								) && !fact.stale
-						)
-					)
-						stale = true;
-					continue;
-				}
-				let pending = documentCache.get(key);
-				if (!pending) {
-					pending = this.source.read(passage.documentId).catch((error: unknown) => {
-						if (
-							error &&
-							typeof error === 'object' &&
-							'code' in error &&
-							['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(
-								String(error.code)
-							)
-						)
-							return undefined;
-						throw error;
-					});
-					documentCache.set(key, pending);
-				}
-				if (passageState(await pending, passage) !== 'current') stale = true;
-			}
-			states.set(finding.id, stale);
+		const requested = id ? this.store.get<ContinuityFinding>(FINDINGS, id) : undefined;
+		if (id && !requested) throw new Error('Continuity finding was not found');
+		const initial = requested ? [requested] : this.list({ includeResolved: true });
+		if (!initial.length) return [];
+		const memberships = new Set(this.bible.listSeries().map((series) => series.id));
+		const documents = await this.source.list();
+		for (const seriesId of new Set(initial.map((finding) => finding.seriesId))) {
+			if (!seriesId || memberships.has(seriesId)) await this.analyzeSnapshot({ seriesId }, documents);
 		}
-		return this.store.transaction(() =>
-			(findings as ContinuityFinding[]).map((before) => {
-				const finding = this.store.get<ContinuityFinding>(FINDINGS, before.id);
-				if (!finding) throw new Error('Continuity finding disappeared while rechecking');
-				finding.stale = states.get(finding.id) ?? true;
-				finding.checkedAt = new Date().toISOString();
-				this.store.put(FINDINGS, finding.id, finding);
-				return finding;
-			})
-		);
+		const findings = id ? [this.store.get<ContinuityFinding>(FINDINGS, id)!] : this.list({ includeResolved: true });
+		const groups = new Map<string | undefined, ContinuityFinding[]>();
+		for (const finding of findings) {
+			const group = groups.get(finding.seriesId) ?? [];
+			group.push(finding);
+			groups.set(finding.seriesId, group);
+		}
+		const states = new Map<string, boolean>();
+		for (const [seriesId, group] of groups) {
+			if (seriesId && !memberships.has(seriesId)) {
+				for (const finding of group) states.set(finding.id, true);
+				continue;
+			}
+			const passages = [...new Map(group.flatMap((finding) => finding.evidence).map((passage) => [passageKey(passage), passage])).values()];
+			const scope = seriesId ? { kind: 'series' as const, id: seriesId } : { kind: 'project' as const, id: this.source.projectId };
+			const checked = await this.bible.checkPassages(scope, passages, documents);
+			const current = new Set(checked.filter((passage) => passage.state === 'current').map((passage) => passageKey(passage.source)));
+			for (const finding of group) states.set(finding.id, finding.evidence.some((passage) => !current.has(passageKey(passage))));
+		}
+		return this.store.transaction(() => findings.map((before) => {
+			const finding = this.store.get<ContinuityFinding>(FINDINGS, before.id);
+			if (!finding) throw new Error('Continuity finding disappeared while rechecking');
+			finding.stale = states.get(finding.id) ?? true;
+			finding.checkedAt = new Date().toISOString();
+			this.store.put(FINDINGS, finding.id, finding);
+			return finding;
+		}));
 	}
 
 	private category(kind: StoryFact['kind']): ContinuityFinding['type'] {
