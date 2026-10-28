@@ -1,7 +1,10 @@
+import { availableParallelism } from 'node:os';
+
 /** @type {import('jest').Config} */
 export default {
 	preset: 'ts-jest/presets/default-esm',
 	testEnvironment: 'node',
+	maxWorkers: Math.min(4, Math.max(1, availableParallelism() - 1)),
 	extensionsToTreatAsEsm: ['.ts'],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',

@@ -305,6 +305,7 @@ async function shutdown(): Promise<void> {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+process.stdin.once('end', shutdown);
 
 // Error handling
 process.on('uncaughtException', (error) => {

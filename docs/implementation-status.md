@@ -192,3 +192,63 @@ native Scrivener GUI certification.
 security and code-quality evidence. Main integration requires all six supported OS/runtime jobs,
 replacing retired Node 20 context names while retaining strict updates, deletion/force-push
 protection and no bypass actors. No release tag, package publication or deployment is authorized.
+
+## Forward compatibility and Draftbridge quality
+
+The follow-up requests application longevity and confirms the desktop product is Draftbridge for
+Scrivener. Public integration uses `quality/future-integration-20261028` in
+`/Volumes/A/scrivener-mcp-future` from `a998746`; private desktop integration is isolated at
+`/Volumes/A/draftbridge-quality` from `d79932d`. Existing deleted files in `apps/mac` are unrelated
+and preserved. Private source stays in the private repository.
+
+| Concern                    | Contract / acceptance                                                                                                                                                           | Ownership / state                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Protocol diagnostics       | Use the installed SDK client for negotiation and schema validation; failed/empty/malformed listings never succeed; pagination, timeout, output bounds and redaction are tested  | Diagnostics worker; integrated      |
+| Runtime drift              | Package, setup and CI floors must agree; stable versions are compared fully; malformed/prerelease/mismatched versions fail; newer runtimes get scheduled compatibility coverage | Manager; verified locally           |
+| Desktop helper lifecycle   | Bounded concurrent stdout/stderr consumption, validated exit/report agreement, cancellation, timeout with kill escalation and cleanup; no real client changes in tests          | Manager; verified locally           |
+| Desktop evidence / updates | Schema compatibility and unknown states fail honestly; diagnostics redact local/credential information; release candidates and destinations are validated                       | Private evidence worker; integrated |
+| Desktop interactions       | Serialize mutations, reject stale refreshes, preserve errors and verification status; visible progress/cancellation and accessible controls                                     | Private UI worker; integrated       |
+| Integration                | Actual public CLI report decoded by the private app; Swift/core/license tests, app builds, rendered light/dark screens and complete public release gate                         | Manager; verified locally           |
+
+The manager owns public dependencies, CI and runtime policy plus the private process foundation.
+Private report/error types and their tests are explicitly delegated to the evidence worker; private
+interaction state is delegated to the UI worker. Workers use disjoint worktrees, do not validate or
+install dependencies, and request shared changes. Changes remain local during implementation.
+
+Validation uses the isolated checkouts above; concurrent unrelated changes in the original public
+checkout and deleted private files remain untouched. No dependency manifests or lockfiles changed.
+
+The complete local public gate passed in `logs/implementation/future-final/`: formatting, lint,
+types, build, runtime policy, registry (75 tools), output conformance (29 paths), HMS compatibility
+(seven cases), Jest (82 suites, 920 passed, nine optional-provider skips), audit (zero
+vulnerabilities) and fourteen installed-package checks. A separate serial open-handle run found no
+retained handles. Jest now caps worker concurrency at four. The FIFO regression runs against
+installed compiled code with its original eight-second bound, avoiding source-loader startup
+contention. Setup and logger redaction share one implementation; the previous setup import remains a
+compatible re-export.
+
+The unsigned Apple-silicon Draftbridge DMG built with checksum-verified Node 24.22.1. Its pruned
+production server passed all twelve bundled-package/MCP checks, and `hdiutil verify` accepted the
+image checksum. An intentionally corrupt Node cache entry was replaced by a checksum-valid archive.
+Disposable build sources were removed and the source license configuration stayed unchanged. The
+desktop suite passed 90 tests, including real helper decoding and cancellation of the helper's MCP
+child. Thirty-six light/dark previews were rendered; progress, cancellation, error and bounded
+settings layouts were inspected. Signing, notarization, live VoiceOver and native Scrivener GUI
+interactions have not been performed for this candidate.
+
+The packed MCPB also passed manifest validation and an actual SDK-negotiated startup using its
+extracted command and bundled runtime (16 progressively loaded tools). Its SHA-256 is
+`aa3d386eb60370d5997bfc3e1492a7312b8bc1fedc537a516f2e3cfd2a626846`. The final desktop gate passed
+all 90 tests against the staged production helper, a release build and four license tests.
+
+Integration policy requires `Release verification`, dependent on the complete eight-job matrix;
+promote that stable context after its first green CI run, retaining strict updates and the existing
+deletion/force-push protections. Remote evidence is attached to the integration PR for
+`quality/future-integration-20261028` and its
+[branch checks](https://github.com/writerslogic/scrivener-mcp/actions?query=branch%3Aquality%2Ffuture-integration-20261028).
+No paid provider calls, release publication, signing, notarization or deployment are part of this
+verification. Private CI must remain within the organization's verified free Actions allowance.
+
+The expanded Windows run exposed a raw drive path passed to Node's ESM `--import` option in the
+shutdown smoke fixture. The observer now uses a file URL; the clean-stdin-exit and no-forced-signal
+assertions remain enabled on every platform.

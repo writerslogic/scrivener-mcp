@@ -3,6 +3,7 @@
  */
 
 import { getEnv, isDevelopment, toLogContext, type LogContext } from '../utils/common.js';
+import { redactDiagnostics } from '../utils/redaction.js';
 
 export type { LogContext } from '../utils/common.js';
 
@@ -27,11 +28,7 @@ function serializeErrors(key: string, value: unknown): unknown {
 		)
 	)
 		return '[redacted]';
-	if (typeof value === 'string')
-		return value
-			.replace(/\b(?:sk-ant|sk-or|sk)-[A-Za-z0-9_-]{8,}/g, '[redacted]')
-			.replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
-			.replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/g, '$1[redacted]@');
+	if (typeof value === 'string') return redactDiagnostics(value);
 	if (value instanceof Error) {
 		return {
 			name: value.name,

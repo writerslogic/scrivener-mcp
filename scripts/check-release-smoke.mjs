@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
 import {
 	access,
@@ -44,8 +45,8 @@ function options(argv) {
 	for (let index = 0; index < argv.length; index++) {
 		const flag = argv[index];
 		verify(
-			flag === '--package' || flag === '--npm-cli',
-			'Use --package <absolute.tgz> and optional --npm-cli <npm-cli.js>'
+			['--package', '--installed-server', '--npm-cli'].includes(flag),
+			'Use --package <absolute.tgz> or --installed-server <absolute-directory>, and optional --npm-cli <npm-cli.js>'
 		);
 		verify(
 			typeof argv[index + 1] === 'string' && !argv[index + 1].startsWith('--'),
@@ -57,6 +58,15 @@ function options(argv) {
 		verify(
 			isAbsolute(parsed.package) && parsed.package.endsWith('.tgz'),
 			'--package requires an absolute .tgz file'
+		);
+	verify(
+		!(parsed.package && parsed['installed-server']),
+		'Choose a package or an installed server'
+	);
+	if (parsed['installed-server'])
+		verify(
+			isAbsolute(parsed['installed-server']),
+			'--installed-server requires an absolute directory'
 		);
 	return parsed;
 }
@@ -300,47 +310,147 @@ async function main() {
 		await writeFile(env.NPM_CONFIG_USERCONFIG, '');
 		await writeFile(env.NPM_CONFIG_GLOBALCONFIG, '');
 		const cli = await npmCli(opts['npm-cli']);
-		let tarball = opts.package;
-		if (!tarball) {
-			await check('pack-local-candidate', async () => {
-				await runNpm(
+		let installed = opts['installed-server'];
+		if (!installed) {
+			let tarball = opts.package;
+			if (!tarball) {
+				await check('pack-local-candidate', async () => {
+					await runNpm(
+						cli,
+						[
+							'pack',
+							'--ignore-scripts',
+							'--json',
+							'--pack-destination',
+							join(root, 'package'),
+						],
+						SOURCE_ROOT,
+						env
+					);
+					const archives = (await readdir(join(root, 'package'))).filter((name) =>
+						name.endsWith('.tgz')
+					);
+					verify(
+						archives.length === 1,
+						'npm pack did not create exactly one package archive'
+					);
+					tarball = join(root, 'package', archives[0]);
+				});
+			}
+			verify(
+				(await stat(tarball)).isFile() && (await stat(tarball)).size <= 128 * 1024 * 1024,
+				'Package archive is missing or exceeds 128 MiB'
+			);
+			await writeFile(
+				join(root, 'package.json'),
+				JSON.stringify({ name: 'scrivener-release-smoke', version: '1.0.0', private: true })
+			);
+			await check('install-local-package', () =>
+				runNpm(
 					cli,
-					[
-						'pack',
-						'--ignore-scripts',
-						'--json',
-						'--pack-destination',
-						join(root, 'package'),
-					],
-					SOURCE_ROOT,
+					['install', tarball, '--omit=dev', '--no-audit', '--no-fund'],
+					root,
 					env
-				);
-				const archives = (await readdir(join(root, 'package'))).filter((name) =>
-					name.endsWith('.tgz')
-				);
-				verify(
-					archives.length === 1,
-					'npm pack did not create exactly one package archive'
-				);
-				tarball = join(root, 'package', archives[0]);
-			});
+				)
+			);
+			installed = join(root, 'node_modules', 'scrivener-mcp');
 		}
 		verify(
-			(await stat(tarball)).isFile() && (await stat(tarball)).size <= 128 * 1024 * 1024,
-			'Package archive is missing or exceeds 128 MiB'
+			JSON.parse(await readFile(join(installed, 'package.json'), 'utf8')).name ===
+				'scrivener-mcp',
+			'Installed server package identity is invalid'
 		);
-		await writeFile(
-			join(root, 'package.json'),
-			JSON.stringify({ name: 'scrivener-release-smoke', version: '1.0.0', private: true })
-		);
-		await check('install-local-package', () =>
-			runNpm(cli, ['install', tarball, '--omit=dev', '--no-audit', '--no-fund'], root, env)
-		);
-		const installed = join(root, 'node_modules', 'scrivener-mcp');
 		await check('installed-consumer-dependency-audit', async () => {
-			await runNpm(cli, ['audit', '--omit=dev'], root, env);
+			await runNpm(
+				cli,
+				['audit', '--omit=dev'],
+				opts['installed-server'] ? installed : root,
+				env
+			);
 		});
 		const entry = join(installed, 'dist', 'index.js');
+		await check('installed-cli-redacted-diagnostics', async () => {
+			for (const mode of ['entry', 'arguments']) {
+				const secret =
+					mode === 'entry' ? 'sk-ant-private-fixture-value' : 'cHJpdmF0ZTpwYXNz';
+				const args =
+					mode === 'entry'
+						? [
+								'--json',
+								'--node',
+								process.execPath,
+								'--script',
+								join(env.HOME, `${secret}.js`),
+							]
+						: ['--client', `Basic ${secret}`];
+				let result;
+				try {
+					await promisify(execFile)(
+						process.execPath,
+						[join(installed, 'dist/cli/setup.js'), ...args],
+						{
+							cwd: root,
+							env,
+							encoding: 'utf8',
+							timeout: 20000,
+							maxBuffer: 128 * 1024,
+						}
+					);
+				} catch (error) {
+					verify(
+						error.code === 2,
+						'CLI diagnostic did not return its expected error status'
+					);
+					result = error;
+				}
+				verify(result, 'CLI accepted an invalid diagnostic request');
+				verify(
+					!(result.stdout + result.stderr).includes(secret),
+					'CLI diagnostic exposed a credential'
+				);
+				if (mode === 'entry') {
+					const report = JSON.parse(result.stdout);
+					verify(
+						report.schemaVersion === 1 && !report.ok && !report.error.includes(root),
+						'CLI diagnostic exposed its private home path or returned an invalid report'
+					);
+				}
+			}
+		});
+		if (process.platform !== 'win32') {
+			await check('installed-saved-reader-nonblocking-fifo', async () => {
+				const project = join(root, 'fifo.scriv');
+				const document = join(project, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
+				await mkdir(dirname(document), { recursive: true, mode: 0o700 });
+				await promisify(execFile)('mkfifo', [document], { cwd: root, env, timeout: 5000 });
+				const script = `const [module, project, document] = process.argv.slice(1); const { MutationCoordinator } = await import(module); const coordinator = new MutationCoordinator(project); let result; try { await coordinator.readRaw(document); result = { unexpectedSuccess: true }; } catch (error) { result = { error: error.message }; } finally { coordinator.close(); } process.stdout.write(JSON.stringify(result), () => process.exit(0));`;
+				const result = await promisify(execFile)(
+					process.execPath,
+					[
+						'--input-type=module',
+						'-e',
+						script,
+						pathToFileURL(
+							join(installed, 'dist/services/editorial/mutation-coordinator.js')
+						).href,
+						project,
+						SAMPLE_DOCUMENT,
+					],
+					{
+						cwd: root,
+						env,
+						encoding: 'utf8',
+						timeout: 8000,
+						killSignal: 'SIGKILL',
+						maxBuffer: 4096,
+					}
+				);
+				verify(
+					/regular file/i.test(JSON.parse(result.stdout).error ?? ''),
+					'Installed reader did not reject a FIFO as a non-regular file'
+				);
+			});
+		}
 		const requireInstalled = createRequire(join(installed, 'package.json'));
 		const { Client, StdioClientTransport, firstSession } = await check(
 			'installed-package-modules',
@@ -415,12 +525,12 @@ async function main() {
 		const originalFile = join(projectPath, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
 		const originalRaw = await readFile(originalFile, 'utf8');
 		const originalRevision = await hash(originalFile);
-		const openSession = async (apps) => {
+		const openSession = async (apps, args = [entry], sessionEnvironment = env) => {
 			const transport = new StdioClientTransport({
 				command: process.execPath,
-				args: [entry],
+				args,
 				cwd: root,
-				env,
+				env: sessionEnvironment,
 				stderr: 'pipe',
 			});
 			const stderr = boundedCapture();
@@ -447,6 +557,34 @@ async function main() {
 			}
 			return client;
 		};
+		await check('installed-server-graceful-stdio-close', async () => {
+			const marker = join(root, 'unexpected-sigterm');
+			const exitStatus = join(root, 'stdio-exit-status');
+			const observer = join(root, 'observe-termination.mjs');
+			await writeFile(
+				observer,
+				`import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => writeFileSync(${JSON.stringify(marker)}, 'SIGTERM')); process.once('exit', code => writeFileSync(${JSON.stringify(exitStatus)}, String(code)));`,
+				{ mode: 0o600 }
+			);
+			const session = await openSession(false, [
+				'--import',
+				pathToFileURL(observer).href,
+				entry,
+			]);
+			try {
+				verify(
+					(await session.listTools()).tools.length > 0,
+					'EOF fixture server listed no tools'
+				);
+			} finally {
+				await session.close();
+			}
+			verify(!(await exists(marker)), 'Installed server required SIGTERM after stdin closed');
+			verify(
+				(await exists(exitStatus)) && (await readFile(exitStatus, 'utf8')) === '0',
+				'Installed server failed to shut down cleanly after stdin closed'
+			);
+		});
 		const client = await openSession(false);
 		let seriesId;
 		let workflowId;

@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '34 8 * * 2'
 
 permissions:
   contents: read
@@ -18,6 +20,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [22.13.0, 24.x]
+        include:
+          - os: ubuntu-latest
+            node-version: 22.x
+          - os: ubuntu-latest
+            node-version: 26.x
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -42,6 +49,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Runtime policy
+        run: node scripts/check-runtime-policy.mjs
 
       - name: Tool registry gate
         run: node scripts/check-tool-registry.mjs
@@ -68,3 +78,14 @@ jobs:
 
       - name: Dependency audit
         run: npm audit
+
+  release-gate:
+    name: Release verification
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the complete compatibility matrix
+        env:
+          MATRIX_RESULT: ${{ needs.build.result }}
+        run: test "$MATRIX_RESULT" = success
