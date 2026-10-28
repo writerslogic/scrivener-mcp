@@ -7,9 +7,14 @@ export default {
 	maxWorkers: Math.min(4, Math.max(1, availableParallelism() - 1)),
 	extensionsToTreatAsEsm: ['.ts'],
 	moduleNameMapper: {
+		'^(.*/native-loader)\\.cjs$': '$1.cts',
 		'^(\\.{1,2}/.*)\\.js$': '$1',
 	},
 	transform: {
+		'^.+\\.cts$': [
+			'ts-jest',
+			{ tsconfig: { module: 'commonjs', target: 'es2022' }, useESM: false },
+		],
 		'^.+\\.tsx?$': [
 			'ts-jest',
 			{

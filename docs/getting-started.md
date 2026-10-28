@@ -180,15 +180,16 @@ You can also set custom metadata fields:
 
 ## Semantic Search
 
-Semantic indexing and similarity scoring do not require a native binary or external embedding API.
-The built-in JavaScript Holographic Memory System (HMS) provides the local fallback. The public
-`semantic_search` tool uses that local index, but its current end-to-end query pipeline also calls
-the configured chat provider for natural-language query interpretation and result explanations.
-Configure Anthropic, OpenAI, or OpenRouter before using that tool.
+Holographic Memory 0.6.4 is installed with the server and selects the published native binary for
+your platform. Passage search combines BM25 with local story-concept vectors and returns exact
+quotations, source locations and saved revisions. `search_passages` and `semantic_search` work
+without an API key; provider-assisted interpretation and explanations are optional.
 
-If the optional `holographic-memory` package is installed, the server transparently upgrades to a
-faster Rust-based engine. You do not need to change any settings or commands; the upgrade is
-automatic. Most users will not need the native engine for a typical novel-length project.
+Conceptual matching covers a bounded English story vocabulary, not a downloaded language model. Use
+keyword mode for unfamiliar names or concepts. No model is downloaded and no external embedding
+service receives manuscript text. A JavaScript BM25/concept-vector fallback remains available when
+the native binding is unavailable or another server owns the native cache. Set
+`SCRIVENER_HMS_ENGINE=fallback` to select it explicitly.
 
 ## Project Memory
 
@@ -326,8 +327,8 @@ The server was attaching data in a way that MCP clients couldn't read. Update to
 **"HMS system not initialized"** The Holographic Memory System has a built-in JavaScript fallback.
 This error usually means no project is open or the memory/index layer has not initialized yet. Open
 a project, then activate the memory skill with `use_skill("memory")` or ask the client to do so. If
-`holographic-memory` is installed, the server uses the faster Rust engine automatically, but the
-native module is not required.
+the native binding is available, the server uses it automatically; the local JavaScript fallback
+does not require a native binary.
 
 **Scrivener shows old content after writing** Scrivener caches document content in memory. Close and
 reopen the project in Scrivener, or switch away from the modified document and back, to see changes

@@ -88,9 +88,26 @@ describe('AIWritingService — deterministic (stubbed client)', () => {
 		});
 	});
 
-	it('clearMemory does not throw before any build', () => {
+	it('serializes build, clearing and rebuilding without retaining stale passages', async () => {
 		const { svc } = stub('{}');
-		expect(() => svc.clearMemory()).not.toThrow();
+		const first = {
+			id: 'scene',
+			title: 'Scene',
+			type: 'Text' as const,
+			path: '',
+			content: 'harbor lighthouse',
+		};
+		try {
+			await Promise.all([
+				svc.buildVectorStore([first]),
+				svc.clearMemory(),
+				svc.buildVectorStore([{ ...first, content: 'orchard violet' }]),
+			]);
+			expect(await svc.semanticSearch('harbor')).toEqual([]);
+			expect((await svc.semanticSearch('orchard'))[0].metadata.id).toBe('scene');
+		} finally {
+			await svc.close();
+		}
 	});
 });
 

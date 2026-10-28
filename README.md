@@ -145,17 +145,15 @@ Any other MCP client: point it at `npx scrivener-mcp` as a stdio server.
 <details>
 <summary><strong>Optional: AI-powered features</strong></summary>
 
-Document management, deterministic analysis, keyword search, and project memory work with no API key
-at all. Writing analysis, generation, enhancement, and semantic search need one — Anthropic, OpenAI,
-or OpenRouter. Set more than one and Claude handles chat by default; override with
-`AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` (OpenRouter defaults to
-`anthropic/claude-sonnet-4.6`, change it with `OPENROUTER_MODEL`). If the active provider fails on
-an account-level error — bad key, no credit, an outage — the server retries on the next one you've
-configured. If your MCP client supports
+Document management, deterministic analysis, local passage search, and project memory work with no
+API key. Provider-assisted interpretation, generation and enhancement use Anthropic, OpenAI or
+OpenRouter. Set more than one and Claude handles chat by default; override with `AI_PROVIDER=openai`
+or `AI_PROVIDER=openrouter` (OpenRouter defaults to `anthropic/claude-sonnet-4.6`, change it with
+`OPENROUTER_MODEL`). If the active provider fails on an account-level error — bad key, no credit, an
+outage — the server retries on the next one you've configured. If your MCP client supports
 [sampling](https://modelcontextprotocol.io/docs/concepts/sampling), chat-based features can run
-through the client's own model instead, no separate key needed. Semantic indexing itself always runs
-locally through the Holographic Memory System; only `semantic_search`'s query interpretation needs a
-provider.
+through the client's own model instead, no separate key needed. Passage retrieval runs locally
+through Holographic Memory 0.6.4; interpretation and explanations are optional provider features.
 
 Keys are picked up automatically from:
 
@@ -198,9 +196,10 @@ catches contradictions — dialogue that doesn't sound like them, a limp that di
 chapter.
 
 **Search by meaning.** "Find scenes where the protagonist feels isolated" works even if that word
-never appears. Indexing and similarity scoring run locally through the
-[Holographic Memory System](https://www.npmjs.com/package/holographic-memory); `semantic_search`
-also needs a configured AI provider to interpret the query and explain the results.
+never appears, within the disclosed English story-concept vocabulary. The installed
+[Holographic Memory System](https://www.npmjs.com/package/holographic-memory) combines native BM25
+with supplied local concept vectors. Results include exact passages, locations and saved revisions;
+changed passages are replaced incrementally. Provider interpretation and explanations are optional.
 
 **Track relationships.** Query how characters, locations, themes, and plot threads connect. No Neo4j
 required — relationships live in the semantic memory engine and persist with the project; Neo4j adds

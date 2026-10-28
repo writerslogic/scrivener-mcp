@@ -80,12 +80,19 @@ export class AIWritingService {
 
 	async buildVectorStore(documents: ScrivenerDocument[]): Promise<void> {
 		return this.transition(async () => {
-			const docs: HMSDocument[] = documents.filter((doc) => doc.content?.trim()).map((doc) => ({
-				pageContent: doc.content || '',
-				metadata: { id: doc.id, documentId: doc.id, title: doc.title || '', type: doc.type },
-				...(doc.path ? { sourceUri: doc.path } : {}),
-				...(doc.metadata?.revision ? { version: doc.metadata.revision } : {}),
-			}));
+			const docs: HMSDocument[] = documents
+				.filter((doc) => doc.content?.trim())
+				.map((doc) => ({
+					pageContent: doc.content || '',
+					metadata: {
+						id: doc.id,
+						documentId: doc.id,
+						title: doc.title || '',
+						type: doc.type,
+					},
+					...(doc.path ? { sourceUri: doc.path } : {}),
+					...(doc.metadata?.revision ? { version: doc.metadata.revision } : {}),
+				}));
 			if (!docs.length) return;
 			if (this.vectorStore) await this.vectorStore.addDocuments(docs);
 			else {

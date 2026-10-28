@@ -740,19 +740,21 @@ Format as JSON: {summary, themes: [], patterns: [], suggestions: []}`;
 
 	private async updateVectorStore(documents: ScrivenerDocument[]): Promise<void> {
 		try {
-			const vectorDocs: HMSDocument[] = documents.filter((doc) => doc.content?.trim()).map((doc) => ({
-				pageContent: doc.content || '',
-				metadata: {
-					id: doc.id,
-					documentId: doc.id,
-					title: doc.title,
-					type: doc.type,
-					...(doc.wordCount === undefined ? {} : { wordCount: doc.wordCount }),
-					...(doc.synopsis === undefined ? {} : { synopsis: doc.synopsis }),
-				},
-				...(doc.path ? { sourceUri: doc.path } : {}),
-				...(doc.metadata?.revision ? { version: doc.metadata.revision } : {}),
-			}));
+			const vectorDocs: HMSDocument[] = documents
+				.filter((doc) => doc.content?.trim())
+				.map((doc) => ({
+					pageContent: doc.content || '',
+					metadata: {
+						id: doc.id,
+						documentId: doc.id,
+						title: doc.title,
+						type: doc.type,
+						...(doc.wordCount === undefined ? {} : { wordCount: doc.wordCount }),
+						...(doc.synopsis === undefined ? {} : { synopsis: doc.synopsis }),
+					},
+					...(doc.path ? { sourceUri: doc.path } : {}),
+					...(doc.metadata?.revision ? { version: doc.metadata.revision } : {}),
+				}));
 
 			await this.vectorStore.addDocuments(vectorDocs);
 		} catch (error) {

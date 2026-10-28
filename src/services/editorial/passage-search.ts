@@ -206,7 +206,12 @@ export interface PassageSearchResult {
 	mode: 'hybrid' | 'keyword' | 'semantic';
 	method: string;
 	limitations: string;
-	index: { changedDocuments: number; removedDocuments: number; passages: number; documents: number };
+	index: {
+		changedDocuments: number;
+		removedDocuments: number;
+		passages: number;
+		documents: number;
+	};
 }
 
 function concepts(text: string): string[] {
@@ -295,7 +300,10 @@ const volatileCatalogs = new WeakMap<HolographicMemorySystem, SyncCatalog>();
 
 function sequence<T>(key: string, operation: () => Promise<T>): Promise<T> {
 	const task = (indexWork.get(key) ?? Promise.resolve()).then(operation);
-	const settled = task.then(() => undefined, () => undefined);
+	const settled = task.then(
+		() => undefined,
+		() => undefined
+	);
 	indexWork.set(key, settled);
 	void settled.then(() => {
 		if (indexWork.get(key) === settled) indexWork.delete(key);
@@ -311,7 +319,7 @@ function embedding(names: string[]): number[] | undefined {
 	if (!names.length) return undefined;
 	const present = new Set(names);
 	const magnitude = Math.sqrt(names.length);
-	return CONCEPTS.map((concept) => present.has(concept.name) ? 1 / magnitude : 0);
+	return CONCEPTS.map((concept) => (present.has(concept.name) ? 1 / magnitude : 0));
 }
 
 function documentInput(passage: IndexedPassage): HMSDocumentInput {
@@ -339,19 +347,28 @@ function documentInput(passage: IndexedPassage): HMSDocumentInput {
 
 function checkedHit(hit: HMSDocumentResult, passage: IndexedPassage | undefined): IndexedPassage {
 	if (
-		!passage || typeof hit.id !== 'string' || !hit.id || hit.id.length > 256 ||
-		hit.documentId !== passage.id || hit.version !== passage.revision ||
-		hit.sourceUri !== sourceUri(passage) || hit.startByte !== 0 ||
+		!passage ||
+		typeof hit.id !== 'string' ||
+		!hit.id ||
+		hit.id.length > 256 ||
+		hit.documentId !== passage.id ||
+		hit.version !== passage.revision ||
+		hit.sourceUri !== sourceUri(passage) ||
+		hit.startByte !== 0 ||
 		hit.endByte !== Buffer.byteLength(passage.quote, 'utf8') ||
 		(hit.text !== undefined && hit.text !== passage.quote) ||
 		hit.metadata?.projectId !== passage.projectId ||
 		hit.metadata?.sourceDocumentId !== passage.documentId ||
-		hit.metadata?.passageId !== passage.id || hit.metadata?.revision !== passage.revision ||
+		hit.metadata?.passageId !== passage.id ||
+		hit.metadata?.revision !== passage.revision ||
 		hit.metadata?.indexVersion !== INDEX_VERSION ||
-		hit.metadata?.start !== passage.start || hit.metadata?.end !== passage.end ||
-		!Number.isFinite(hit.score) || !Number.isFinite(hit.lexicalScore) ||
+		hit.metadata?.start !== passage.start ||
+		hit.metadata?.end !== passage.end ||
+		!Number.isFinite(hit.score) ||
+		!Number.isFinite(hit.lexicalScore) ||
 		(hit.semanticScore !== undefined && !Number.isFinite(hit.semanticScore))
-	) throw new Error('Local passage index returned inconsistent source provenance');
+	)
+		throw new Error('Local passage index returned inconsistent source provenance');
 	return passage;
 }
 
@@ -375,7 +392,12 @@ export class PassageSearch {
 	) {
 		this.namespace = `passage-documents:${source.projectId}`;
 		this.syncNamespace = `passage-hms:${source.projectId}`;
-		this.cachePath = join(resolve(source.projectPath), '.scrivener-mcp', 'cache', 'passage-hms-v2');
+		this.cachePath = join(
+			resolve(source.projectPath),
+			'.scrivener-mcp',
+			'cache',
+			'passage-hms-v2'
+		);
 		this.engine = hms;
 		this.externalEngine = !!hms;
 	}
@@ -393,7 +415,8 @@ export class PassageSearch {
 
 	private async refreshIndex(): Promise<IndexSummary> {
 		const documents = await this.source.list();
-		if (documents.length > 10000) throw new Error('Local passage index exceeds 10000 documents');
+		if (documents.length > 10000)
+			throw new Error('Local passage index exceeds 10000 documents');
 		const current = new Set(documents.map((doc) => doc.documentId));
 		if (new Set(documents.map((doc) => doc.documentId.toLowerCase())).size !== documents.length)
 			throw new Error('Source returned duplicate document identities');
@@ -401,7 +424,6 @@ export class PassageSearch {
 			this.store.list<IndexedDocument>(this.namespace).map((doc) => [doc.documentId, doc])
 		);
 		let changedDocuments = 0;
-		let removedDocuments = 0;
 		let total = 0;
 		let indexedDocuments = 0;
 		const updates: IndexedDocument[] = [];
@@ -411,12 +433,19 @@ export class PassageSearch {
 			const prior = existing.get(doc.documentId);
 			let next: IndexedDocument;
 			if (
-				!prior || prior.revision !== doc.revision || prior.version !== INDEX_VERSION ||
-				prior.title !== doc.title || prior.path !== doc.path
+				!prior ||
+				prior.revision !== doc.revision ||
+				prior.version !== INDEX_VERSION ||
+				prior.title !== doc.title ||
+				prior.path !== doc.path
 			) {
 				next = {
-					version: INDEX_VERSION, projectId: doc.projectId, documentId: doc.documentId,
-					revision: doc.revision, title: doc.title, path: doc.path,
+					version: INDEX_VERSION,
+					projectId: doc.projectId,
+					documentId: doc.documentId,
+					revision: doc.revision,
+					title: doc.title,
+					path: doc.path,
 					passages: chunkDocument(doc),
 				};
 				updates.push(next);
@@ -428,11 +457,13 @@ export class PassageSearch {
 				throw new Error(`Local passage index exceeds ${MAX_PASSAGES} passages`);
 		}
 		const removed = [...existing.values()].filter((prior) => !current.has(prior.documentId));
-		removedDocuments = removed.length;
-		if (removed.length || updates.length) this.store.transaction(() => {
-			for (const prior of removed) this.store.delete(this.namespace, prior.documentId);
-			for (const update of updates) this.store.put(this.namespace, update.documentId, update);
-		});
+		const removedDocuments = removed.length;
+		if (removed.length || updates.length)
+			this.store.transaction(() => {
+				for (const prior of removed) this.store.delete(this.namespace, prior.documentId);
+				for (const update of updates)
+					this.store.put(this.namespace, update.documentId, update);
+			});
 		return { changedDocuments, removedDocuments, passages: total, documents: indexedDocuments };
 	}
 
@@ -451,13 +482,22 @@ export class PassageSearch {
 			const storagePath = join(this.cachePath, 'index.db');
 			try {
 				const info = await lstat(storagePath);
-				if (info.isSymbolicLink()) throw new Error('Local passage cache cannot be a symlink');
+				if (info.isSymbolicLink())
+					throw new Error('Local passage cache cannot be a symlink');
 				this.bootstrapNative = false;
 			} catch (error) {
-				if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+				if (!(
+					typeof error === 'object' &&
+					error !== null &&
+					'code' in error &&
+					error.code === 'ENOENT'
+				))
+					throw error;
 			}
 			this.engine = new HolographicMemorySystem({
-				storagePath, dimensions: CONCEPTS.length, embeddingSpace: EMBEDDING_SPACE,
+				storagePath,
+				dimensions: CONCEPTS.length,
+				embeddingSpace: EMBEDDING_SPACE,
 			});
 			return this.engine;
 		})();
@@ -475,55 +515,98 @@ export class PassageSearch {
 	}> {
 		const index = await this.refreshIndex();
 		const entries = this.store.list<IndexedDocument>(this.namespace).flatMap((doc) => {
-			if (doc.version !== INDEX_VERSION || doc.projectId !== this.source.projectId ||
-				doc.passages.some((entry) => entry.projectId !== doc.projectId || entry.documentId !== doc.documentId ||
-					entry.revision !== doc.revision || !/^[a-f0-9]{64}$/.test(entry.id) ||
-					!Number.isSafeInteger(entry.start) || !Number.isSafeInteger(entry.end) ||
-					!Number.isSafeInteger(entry.line) || entry.start < 0 || entry.end <= entry.start || entry.line < 1 ||
-					entry.end - entry.start !== entry.quote.length || entry.quote.length > 1400))
+			if (
+				doc.version !== INDEX_VERSION ||
+				doc.projectId !== this.source.projectId ||
+				doc.passages.some(
+					(entry) =>
+						entry.projectId !== doc.projectId ||
+						entry.documentId !== doc.documentId ||
+						entry.revision !== doc.revision ||
+						!/^[a-f0-9]{64}$/.test(entry.id) ||
+						!Number.isSafeInteger(entry.start) ||
+						!Number.isSafeInteger(entry.end) ||
+						!Number.isSafeInteger(entry.line) ||
+						entry.start < 0 ||
+						entry.end <= entry.start ||
+						entry.line < 1 ||
+						entry.end - entry.start !== entry.quote.length ||
+						entry.quote.length > 1400
+				)
+			)
 				throw new Error('Local passage catalog contains inconsistent source provenance');
 			return doc.passages;
 		});
-		if (entries.length !== index.passages || new Set(entries.map((entry) => entry.id)).size !== entries.length)
+		if (
+			entries.length !== index.passages ||
+			new Set(entries.map((entry) => entry.id)).size !== entries.length
+		)
 			throw new Error('Local passage catalog contains inconsistent identities');
 		const engine = await this.getEngine();
 		await this.synchronize(engine, entries);
 		return { index, entries, engine };
 	}
 
-	private async synchronize(engine: HolographicMemorySystem, entries: IndexedPassage[]): Promise<void> {
+	private async synchronize(
+		engine: HolographicMemorySystem,
+		entries: IndexedPassage[]
+	): Promise<void> {
 		const persistent = engine.getStats().persistentDocuments === true;
-		let catalog = (persistent ? this.store.get<SyncCatalog>(this.syncNamespace, 'v2') : volatileCatalogs.get(engine)) ?? {
-			version: INDEX_VERSION, projectId: this.source.projectId, applied: [], pending: [],
+		let catalog = (persistent
+			? this.store.get<SyncCatalog>(this.syncNamespace, 'v2')
+			: volatileCatalogs.get(engine)) ?? {
+			version: INDEX_VERSION,
+			projectId: this.source.projectId,
+			applied: [],
+			pending: [],
 		};
 		if (
-			catalog.version !== INDEX_VERSION || catalog.projectId !== this.source.projectId ||
-			![catalog.applied, catalog.pending].every((ids) => Array.isArray(ids) && ids.length <= MAX_PASSAGES &&
-				ids.every((id) => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id)))
-		) throw new Error('Local passage synchronization catalog is invalid');
+			catalog.version !== INDEX_VERSION ||
+			catalog.projectId !== this.source.projectId ||
+			![catalog.applied, catalog.pending].every(
+				(ids) =>
+					Array.isArray(ids) &&
+					ids.length <= MAX_PASSAGES &&
+					ids.every((id) => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id))
+			)
+		)
+			throw new Error('Local passage synchronization catalog is invalid');
 		const save = (next: SyncCatalog) => {
 			if (persistent) this.store.put(this.syncNamespace, 'v2', next);
 			else volatileCatalogs.set(engine, next);
 			catalog = next;
 		};
 		const wanted = new Set(entries.map((entry) => entry.id));
-		const obsolete = [...new Set([...catalog.applied, ...catalog.pending])].filter((id) => !wanted.has(id));
+		const obsolete = [...new Set([...catalog.applied, ...catalog.pending])].filter(
+			(id) => !wanted.has(id)
+		);
 		if (obsolete.length) {
 			for (const id of obsolete) await engine.deleteDocument(id);
 			await engine.flush();
-			save({ ...catalog, applied: catalog.applied.filter((id) => wanted.has(id)), pending: catalog.pending.filter((id) => wanted.has(id)) });
+			save({
+				...catalog,
+				applied: catalog.applied.filter((id) => wanted.has(id)),
+				pending: catalog.pending.filter((id) => wanted.has(id)),
+			});
 		}
 		const applied = new Set(catalog.applied);
 		const pending = new Set(catalog.pending);
-		const missing = entries.filter((entry) => (persistent && this.bootstrapNative) || !applied.has(entry.id) || pending.has(entry.id));
+		const missing = entries.filter(
+			(entry) =>
+				(persistent && this.bootstrapNative) ||
+				!applied.has(entry.id) ||
+				pending.has(entry.id)
+		);
 		if (missing.length) {
 			for (const entry of missing) pending.add(entry.id);
 			save({ ...catalog, pending: [...pending] });
 			for (let offset = 0; offset < missing.length; offset += BATCH_SIZE) {
 				const batch = missing.slice(offset, offset + BATCH_SIZE);
-				for (const entry of batch) await engine.deleteDocument(entry.id);
 				const ids = await engine.memorizeDocuments(batch.map(documentInput));
-				if (ids.length !== batch.length || ids.some((id) => !Number.isSafeInteger(id) || id < 0))
+				if (
+					ids.length !== batch.length ||
+					ids.some((id) => !Number.isSafeInteger(id) || id < 0)
+				)
 					throw new Error('Local passage index did not store every complete passage');
 			}
 			await engine.flush();
@@ -536,11 +619,17 @@ export class PassageSearch {
 		if (this.closed) return Promise.reject(new Error('Passage search service is closed'));
 		const task = this.searchPassages(query, options);
 		this.activeSearches.add(task);
-		void task.then(() => this.activeSearches.delete(task), () => this.activeSearches.delete(task));
+		void task.then(
+			() => this.activeSearches.delete(task),
+			() => this.activeSearches.delete(task)
+		);
 		return task;
 	}
 
-	private async searchPassages(query: string, options: PassageSearchOptions): Promise<PassageSearchResult> {
+	private async searchPassages(
+		query: string,
+		options: PassageSearchOptions
+	): Promise<PassageSearchResult> {
 		if (typeof query !== 'string' || !query.trim() || query.length > 2048)
 			throw new Error('Search query must contain 1 to 2048 UTF-16 code units');
 		const limit = options.limit ?? 10;
@@ -550,41 +639,90 @@ export class PassageSearch {
 			throw new Error('Search limit must be an integer from 1 to 50');
 		if (!Number.isInteger(contextChars) || contextChars < 0 || contextChars > 2000)
 			throw new Error('Search context must be an integer from 0 to 2000');
-		if (!['hybrid', 'keyword', 'semantic'].includes(mode)) throw new Error('Unknown passage search mode');
-		if (options.documentIds && (!Array.isArray(options.documentIds) || options.documentIds.length > 10000 ||
-			options.documentIds.some((id) => typeof id !== 'string' || !id || id.length > 128)))
+		if (!['hybrid', 'keyword', 'semantic'].includes(mode))
+			throw new Error('Unknown passage search mode');
+		if (
+			options.documentIds &&
+			(!Array.isArray(options.documentIds) ||
+				options.documentIds.length > 10000 ||
+				options.documentIds.some((id) => typeof id !== 'string' || !id || id.length > 128))
+		)
 			throw new Error('Invalid document search scope');
 		const queryConcepts = concepts(query);
 		const { index, ranked } = await sequence(this.cachePath, async () => {
 			const { index, entries, engine } = await this.updateIndex();
 			const scopedIds = options.documentIds ? new Set(options.documentIds) : undefined;
 			const scoped = entries.filter((entry) => !scopedIds || scopedIds.has(entry.documentId));
-			if (!scoped.length || (mode === 'semantic' && !queryConcepts.length)) return { index, ranked: [] };
+			if (!scoped.length || (mode === 'semantic' && !queryConcepts.length))
+				return { index, ranked: [] };
 			const byId = new Map(scoped.map((entry) => [entry.id, entry]));
 			const k = Math.min(scoped.length, Math.max(100, limit * 4), 1000);
 			const hits = await engine.searchDocuments(query, {
-				k, candidateLimit: Math.min(4096, Math.max(k, limit * 32)),
-				...(scopedIds ? { documentIds: [...byId.keys()], filter: { projectId: this.source.projectId, indexVersion: INDEX_VERSION } } : {}),
+				k,
+				candidateLimit: Math.min(4096, Math.max(k, limit * 32)),
+				...(scopedIds
+					? {
+							documentIds: [...byId.keys()],
+							filter: {
+								projectId: this.source.projectId,
+								indexVersion: INDEX_VERSION,
+							},
+						}
+					: {}),
 				embedding: embedding(queryConcepts),
-				lexicalWeight: mode === 'semantic' ? 0 : mode === 'hybrid' && queryConcepts.length ? 0.5 : 1,
-				semanticWeight: mode === 'keyword' || !queryConcepts.length ? 0 : mode === 'semantic' ? 1 : 0.5,
+				lexicalWeight:
+					mode === 'semantic' ? 0 : mode === 'hybrid' && queryConcepts.length ? 0.5 : 1,
+				semanticWeight:
+					mode === 'keyword' || !queryConcepts.length ? 0 : mode === 'semantic' ? 1 : 0.5,
 				fusion: 'blend',
 			});
-			if (hits.length > k) throw new Error('Local passage index exceeded its retrieval limit');
+			if (hits.length > k)
+				throw new Error('Local passage index exceeded its retrieval limit');
 			const seen = new Set<string>();
 			const ranked: RankedPassage[] = [];
 			for (const hit of hits) {
 				const entry = checkedHit(hit, byId.get(hit.documentId));
-				if (seen.has(entry.id)) throw new Error('Local passage index returned duplicate passages');
+				if (seen.has(entry.id))
+					throw new Error('Local passage index returned duplicate passages');
 				seen.add(entry.id);
-				const matchedConcepts = queryConcepts.filter((concept) => entry.concepts.includes(concept));
-				const keywordScore = Math.max(0, hit.lexicalScore) / (Math.max(0, hit.lexicalScore) + 1);
-				const semanticScore = matchedConcepts.length / Math.sqrt(Math.max(1, queryConcepts.length * entry.concepts.length));
-				if (mode === 'semantic' ? semanticScore <= 0 : mode === 'keyword' ? keywordScore <= 0 : keywordScore <= 0 && semanticScore <= 0) continue;
-				const score = Math.max(0, Math.min(1, hit.score));
-				ranked.push({ entry, keywordScore, semanticScore, hmsScore: score, matchedConcepts, score });
+				const matchedConcepts = queryConcepts.filter((concept) =>
+					entry.concepts.includes(concept)
+				);
+				const keywordScore =
+					Math.max(0, hit.lexicalScore) / (Math.max(0, hit.lexicalScore) + 1);
+				const semanticScore =
+					matchedConcepts.length /
+					Math.sqrt(Math.max(1, queryConcepts.length * entry.concepts.length));
+				if (
+					mode === 'semantic'
+						? semanticScore <= 0
+						: mode === 'keyword'
+							? keywordScore <= 0
+							: keywordScore <= 0 && semanticScore <= 0
+				)
+					continue;
+				const hmsScore = Math.max(0, Math.min(1, hit.score));
+				const score =
+					mode === 'semantic'
+						? semanticScore
+						: mode === 'keyword'
+							? keywordScore
+							: hmsScore;
+				ranked.push({
+					entry,
+					keywordScore,
+					semanticScore,
+					hmsScore,
+					matchedConcepts,
+					score,
+				});
 			}
-			ranked.sort((a, b) => b.score - a.score || a.entry.documentId.localeCompare(b.entry.documentId) || a.entry.start - b.entry.start);
+			ranked.sort(
+				(a, b) =>
+					b.score - a.score ||
+					a.entry.documentId.localeCompare(b.entry.documentId) ||
+					a.entry.start - b.entry.start
+			);
 			return { index, ranked: ranked.slice(0, limit) };
 		});
 		const results: PassageMatch[] = [];
@@ -596,21 +734,45 @@ export class PassageSearch {
 				documents.set(hit.entry.documentId, pending);
 			}
 			const doc = await pending;
-			if (doc.projectId !== this.source.projectId || doc.documentId !== hit.entry.documentId ||
-				doc.revision !== hit.entry.revision || doc.text.slice(hit.entry.start, hit.entry.end) !== hit.entry.quote) continue;
+			if (
+				doc.projectId !== this.source.projectId ||
+				doc.documentId !== hit.entry.documentId ||
+				doc.revision !== hit.entry.revision ||
+				doc.text.slice(hit.entry.start, hit.entry.end) !== hit.entry.quote
+			)
+				continue;
 			const { id: _id, concepts: _concepts, ...passage } = hit.entry;
 			let contextStart = Math.max(0, passage.start - contextChars);
 			let contextEnd = Math.min(doc.text.length, passage.end + contextChars);
-			if (/[\uDC00-\uDFFF]/u.test(doc.text[contextStart] ?? '') && /[\uD800-\uDBFF]/u.test(doc.text[contextStart - 1] ?? '')) contextStart--;
-			if (/[\uDC00-\uDFFF]/u.test(doc.text[contextEnd] ?? '') && /[\uD800-\uDBFF]/u.test(doc.text[contextEnd - 1] ?? '')) contextEnd++;
-			results.push({ ...passage, context: doc.text.slice(contextStart, contextEnd), contextStart, contextEnd,
-				score: hit.score, keywordScore: hit.keywordScore, semanticScore: hit.semanticScore,
-				hmsScore: hit.hmsScore, matchedConcepts: hit.matchedConcepts });
+			if (
+				/[\uDC00-\uDFFF]/u.test(doc.text[contextStart] ?? '') &&
+				/[\uD800-\uDBFF]/u.test(doc.text[contextStart - 1] ?? '')
+			)
+				contextStart--;
+			if (
+				/[\uDC00-\uDFFF]/u.test(doc.text[contextEnd] ?? '') &&
+				/[\uD800-\uDBFF]/u.test(doc.text[contextEnd - 1] ?? '')
+			)
+				contextEnd++;
+			results.push({
+				...passage,
+				context: doc.text.slice(contextStart, contextEnd),
+				contextStart,
+				contextEnd,
+				score: hit.score,
+				keywordScore: hit.keywordScore,
+				semanticScore: hit.semanticScore,
+				hmsScore: hit.hmsScore,
+				matchedConcepts: hit.matchedConcepts,
+			});
 		}
 		return {
-			results, query, mode,
+			results,
+			query,
+			mode,
 			method: 'HMS document BM25 + supplied local story-concept vectors (v2)',
-			limitations: 'Conceptual retrieval uses a bounded English story-concept vocabulary, not a general language embedding model. HMS fuses BM25 with these supplied concept vectors; unknown concepts need keyword search. No provider is contacted.',
+			limitations:
+				'Conceptual retrieval uses a bounded English story-concept vocabulary, not a general language embedding model. HMS fuses BM25 with these supplied concept vectors; unknown concepts need keyword search. No provider is contacted.',
 			index,
 		};
 	}
@@ -622,14 +784,23 @@ export class PassageSearch {
 		this.closing = (async () => {
 			await Promise.allSettled(this.activeSearches);
 			const failures: unknown[] = [];
-			try { await refresh; } catch (error) { failures.push(error); }
+			try {
+				await refresh;
+			} catch (error) {
+				failures.push(error);
+			}
 			const engine = this.engine;
 			this.engine = undefined;
 			if (!this.externalEngine) {
-				try { await engine?.destroy(); } catch (error) { failures.push(error); }
+				try {
+					await engine?.destroy();
+				} catch (error) {
+					failures.push(error);
+				}
 			}
 			if (failures.length === 1) throw failures[0];
-			if (failures.length > 1) throw new Error('Passage search resources failed to close', { cause: failures });
+			if (failures.length > 1)
+				throw new Error('Passage search resources failed to close', { cause: failures });
 		})();
 		return this.closing;
 	}

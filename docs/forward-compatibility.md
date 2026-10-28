@@ -79,6 +79,15 @@ compile alone does not establish protocol compatibility.
 
 ## Persistent state and desktop integration
 
+HMS uses the published 0.6.4 document contracts and validates native/fallback behavior through
+`node scripts/check-hms-compatibility.mjs`; no separate native-package checkout is required. The
+gate tests an unrelated launch directory, process restart, metadata and UTF-8 ranges, supplied
+embedding vectors, replacement/deletion and cross-process ownership. The package's feature-gated
+`LocalEmbedder` declaration does not establish that a published binary implements it; Scrivener does
+not call it or install Transformers. A future concept-vocabulary change must update the embedding
+revision, passage index version and cache path together. Preserve existing caches until their owners
+stop; `flush()` does not release the native lock.
+
 Editorial database schema changes must retain legacy records, reject unsupported future schemas, and
 pass recovery/restart fixtures. Proposal revisions and source provenance remain explicit;
 configuration or SDK upgrades must not bypass manuscript conflict checks.
