@@ -43,9 +43,9 @@ const manifest = {
   description: "Let Claude read, search, and safely edit your Scrivener 3 projects.",
   long_description:
     "Draftbridge connects Claude to the Scrivener 3 projects on your Mac. Ask for word counts, " +
-    "search by meaning, get feedback on a chapter, and revise a scene. It refuses to write while " +
-    "Scrivener has the project open, and takes a Scrivener snapshot before risky edits. It runs " +
-    "entirely on your Mac. Text Claude reads from your project is sent to Claude under your " +
+    "search by meaning, get feedback on a chapter, and revise a scene. Close Scrivener before " +
+    "applying edits. Proposed changes have previews, native snapshots, and guarded undo. " +
+    "The server runs on your Mac. Text Claude reads from your project is sent to Claude under your " +
     "Claude account terms.",
   author: { name: "WritersLogic, Inc.", url: "https://github.com/writerslogic" },
   repository: { type: "git", url: "https://github.com/writerslogic/scrivener-mcp" },
