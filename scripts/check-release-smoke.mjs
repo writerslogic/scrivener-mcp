@@ -563,7 +563,10 @@ async function main() {
 			const observer = join(root, 'observe-termination.mjs');
 			await writeFile(
 				observer,
-				`import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => writeFileSync(${JSON.stringify(marker)}, 'SIGTERM')); process.once('exit', code => writeFileSync(${JSON.stringify(exitStatus)}, String(code)));`,
+				`import { writeFileSync } from 'node:fs';
+process.on('SIGTERM', () => writeFileSync(new URL('./unexpected-sigterm', import.meta.url), 'SIGTERM'));
+process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import.meta.url), String(code)));
+`,
 				{ mode: 0o600 }
 			);
 			const session = await openSession(false, [
