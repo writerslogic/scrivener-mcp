@@ -68,7 +68,7 @@
 		"compromise-numbers": "^1.4.0",
 		"docx": "^9.7.1",
 		"epub-gen-memory": "^1.1.2",
-		"ioredis": "^5.11.1",
+		"ioredis": "^6.0.0",
 		"jszip": "^3.10.2",
 		"lru-cache": "^11.5.1",
 		"narrative-lens": "^0.1.0",

@@ -1,13 +1,11 @@
-/**
- * KeyDB/Redis connection detector and manager
- */
-
 import { Redis } from 'ioredis';
 import { getLogger } from '../../core/logger.js';
 import { NetworkResilience, NetworkHealthMonitor } from '../../utils/network-resilience.js';
 
 const logger = getLogger('keydb-detector');
 const networkMonitor = new NetworkHealthMonitor();
+// Existing Redis/KeyDB proxies may deny HELLO even when ordinary commands are permitted.
+const REDIS_PROTOCOL = 2;
 
 export interface ConnectionInfo {
 	type: 'keydb' | 'redis' | 'none';
@@ -17,12 +15,10 @@ export interface ConnectionInfo {
 }
 
 export async function detectConnection(): Promise<ConnectionInfo> {
-	// Priority order: KEYDB_URL > REDIS_URL > localhost:6379
 	const urls = [process.env.KEYDB_URL, process.env.REDIS_URL, 'redis://localhost:6379'].filter(
 		Boolean
 	);
 
-	// Test network connectivity first for better error handling
 	const connectionCandidates = urls
 		.map((url) => {
 			try {
@@ -40,7 +36,6 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 		})
 		.filter(Boolean) as Array<{ url: string; host: string; port: number; priority: number }>;
 
-	// Find the best connection using network resilience
 	const bestConnection = await NetworkResilience.findBestConnection(connectionCandidates, {
 		timeout: 3000,
 		retries: 1,
@@ -49,7 +44,6 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 	});
 
 	if (bestConnection) {
-		// Record the latency for adaptive timeouts
 		networkMonitor.recordLatency(bestConnection.latency);
 		logger.debug('Best connection found', {
 			host: bestConnection.host,
@@ -63,30 +57,27 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 		try {
 			const startTime = Date.now();
 
-			// Use adaptive timeout based on network conditions
 			const adaptiveTimeout = bestConnection
-				? Math.max(3000, bestConnection.latency * 3) // 3x latency or min 3s
-				: 5000; // fallback to 5s
+				? Math.max(3000, bestConnection.latency * 3)
+				: 5000;
 
 			client = new Redis(url as string, {
+				protocol: REDIS_PROTOCOL,
 				connectTimeout: adaptiveTimeout,
-				retryStrategy: () => null, // Don't retry (we handle retries at higher level)
+				retryStrategy: () => null,
 				lazyConnect: true,
 			});
-			// A failed probe is an expected outcome handled by the catch below. Without a listener,
-			// ioredis prints "Unhandled error event" to stderr on every start when no server runs.
+			// Missing optional servers are expected; suppress ioredis's unhandled-error output.
 			client.on('error', () => undefined);
 
 			await client.connect();
 
-			// Check if it's KeyDB or Redis
 			const info = await client.info('server');
 			const isKeyDB = info.includes('keydb_version');
 			const version = extractVersion(info, isKeyDB);
 
 			await client.quit();
 
-			// Record successful connection latency
 			const connectionLatency = Date.now() - startTime;
 			networkMonitor.recordLatency(connectionLatency);
 
@@ -106,7 +97,6 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 			};
 		} catch (error) {
 			client?.disconnect();
-			// Continue to next URL
 			logger.debug(`Failed to connect to ${url}`, {
 				error: (error as Error).message,
 				networkHealth: networkMonitor.getHealthScore(),
@@ -131,9 +121,9 @@ function extractVersion(info: string, isKeyDB: boolean): string {
 
 export function createBullMQConnection(url: string): Redis {
 	const client = new Redis(url, {
+		protocol: REDIS_PROTOCOL,
 		maxRetriesPerRequest: null, // Required for BullMQ
 		enableReadyCheck: false,
-		// KeyDB optimizations
 		enableOfflineQueue: true,
 		connectTimeout: 5000,
 		disconnectTimeout: 2000,
