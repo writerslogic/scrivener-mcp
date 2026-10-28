@@ -21,6 +21,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Harden saved reads and Windows release verification
+- Validate saved reads through guarded descriptors
+- Cover native runtime launch paths on Windows
+- Preserve cross-platform source and fixture line endings
 - Integrate editorial cleanup and current compatibility evidence
 - Reuse scoped provenance and preserve historical continuity checks
 - Retire project memory before closing shared resources
