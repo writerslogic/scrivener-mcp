@@ -15,6 +15,7 @@ import {
 	storyIdentifier,
 	storyText,
 	verifyPassage,
+	sourceKey,
 } from './provenance.js';
 
 export type StoryScope = StoryFact['scope'];
@@ -52,6 +53,8 @@ export type FactCorrection = Partial<
 		'subject' | 'predicate' | 'value' | 'confidence' | 'sources' | 'storyTime' | 'intentional'
 	>
 >;
+
+type EvidenceReader = (passage: SourcePassage) => Promise<SourceDocument | undefined>;
 
 const FACTS = 'story:facts';
 const SERIES = 'story:series';
@@ -163,11 +166,9 @@ export class SeriesBible {
 			id: undefined,
 			supersedes: original.id,
 		});
-		if (
+		const unchanged =
 			this.signature(original) ===
-			this.signature({ ...updated, supersedes: original.supersedes })
-		)
-			return original;
+			this.signature({ ...updated, supersedes: original.supersedes });
 		return store.transaction(() => {
 			this.storeFor(scope);
 			for (const passage of updated.sources)
@@ -179,6 +180,7 @@ export class SeriesBible {
 					'This fact has already been corrected; read the current fact before applying another correction'
 				);
 			}
+			if (unchanged) return original;
 			store.put(FACTS, updated.id, updated);
 			store.put(CORRECTIONS, original.id, { id: updated.id });
 			return updated;
@@ -187,35 +189,18 @@ export class SeriesBible {
 
 	async listFacts(
 		scope: StoryScope,
-		options: { includeSuperseded?: boolean } = {}
+		options: { includeSuperseded?: boolean; sourceDocuments?: readonly SourceDocument[] } = {}
 	): Promise<FactView[]> {
 		const store = this.storeFor(scope);
 		const facts = store
 			.list<StoryFact>(FACTS)
-			.filter(
-				(fact) =>
-					fact.scope.kind === scope.kind &&
-					fact.scope.id === scope.id &&
-					(options.includeSuperseded || !store.get(CORRECTIONS, fact.id))
-			);
-		const documents = new Map<string, Promise<SourceDocument | undefined>>();
-		const resolve = (passage: SourcePassage): Promise<SourceDocument | undefined> => {
-			const key = `${passage.projectId}:${passage.documentId}`;
-			let pending = documents.get(key);
-			if (!pending) {
-				pending = this.readEvidence(scope, passage);
-				documents.set(key, pending);
-			}
-			return pending;
-		};
+			.filter((fact) => fact.scope.kind === scope.kind && fact.scope.id === scope.id);
+		const superseded = new Set(facts.flatMap((fact) => fact.supersedes ? [fact.supersedes] : []));
+		const read = this.evidenceReader(scope, options.sourceDocuments);
 		const results: FactView[] = [];
 		for (const fact of facts) {
-			const sourceStates: FactView['sourceStates'] = [];
-			for (const passage of fact.sources)
-				sourceStates.push({
-					source: passage,
-					state: passageState(await resolve(passage), passage),
-				});
+			if (!options.includeSuperseded && superseded.has(fact.id)) continue;
+			const sourceStates = await this.sourceStates(fact.sources, read);
 			results.push({
 				...fact,
 				sourceStates,
@@ -223,6 +208,16 @@ export class SeriesBible {
 			});
 		}
 		return results;
+	}
+
+	async checkPassages(scope: StoryScope, passages: readonly SourcePassage[], sourceDocuments?: readonly SourceDocument[]): Promise<FactView['sourceStates']> {
+		return this.sourceStates(passages, this.evidenceReader(scope, sourceDocuments));
+	}
+
+	private async sourceStates(passages: readonly SourcePassage[], read: EvidenceReader): Promise<FactView['sourceStates']> {
+		const states: FactView['sourceStates'] = [];
+		for (const passage of passages) states.push({ source: passage, state: passageState(await read(passage), passage) });
+		return states;
 	}
 
 	async recheck(
@@ -348,36 +343,35 @@ export class SeriesBible {
 		throw new Error('Source project is outside the explicitly selected scope');
 	}
 
-	private async readEvidence(
-		scope: StoryScope,
-		passage: SourcePassage
-	): Promise<SourceDocument | undefined> {
-		if (
-			scope.kind === 'series' &&
-			!this.requireSeries(scope.id).projects.some(
-				(project) => project.projectId === passage.projectId
-			)
-		)
-			return undefined;
-		if (scope.kind === 'project' && passage.projectId !== this.source.projectId)
-			return undefined;
-		const source =
-			passage.projectId === this.source.projectId
-				? this.source
-				: await this.resolveSource?.(passage.projectId);
-		if (!source) return undefined;
-		try {
-			return await source.read(passage.documentId);
-		} catch (error) {
-			if (
-				error &&
-				typeof error === 'object' &&
-				'code' in error &&
-				['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(String(error.code))
-			)
-				return undefined;
-			throw error;
-		}
+	private evidenceReader(scope: StoryScope, sourceDocuments: readonly SourceDocument[] = []): EvidenceReader {
+		this.storeFor(scope);
+		const allowed = new Set(scope.kind === 'series' ? this.requireSeries(scope.id).projects.map((project) => project.projectId) : [this.source.projectId]);
+		const sources = new Map<string, Promise<ManuscriptSource | undefined>>([[this.source.projectId, Promise.resolve(this.source)]]);
+		const documents = new Map<string, Promise<SourceDocument | undefined>>(sourceDocuments.filter((document) => document.projectId === this.source.projectId).map((document) => [sourceKey(document), Promise.resolve(document)]));
+		return (passage) => {
+			if (!allowed.has(passage.projectId)) return Promise.resolve(undefined);
+			const key = sourceKey(passage);
+			let pending = documents.get(key);
+			if (!pending) {
+				pending = (async () => {
+					let source = sources.get(passage.projectId);
+					if (!source) {
+						source = this.resolveSource?.(passage.projectId) ?? Promise.resolve(undefined);
+						sources.set(passage.projectId, source);
+					}
+					const resolved = await source;
+					if (!resolved) return undefined;
+					try {
+						return await resolved.read(passage.documentId);
+					} catch (error) {
+						if (error && typeof error === 'object' && 'code' in error && ['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(String(error.code))) return undefined;
+						throw error;
+					}
+				})();
+				documents.set(key, pending);
+			}
+			return pending;
+		};
 	}
 
 	private async prepareFact(input: CurateFactInput): Promise<StoryFact> {
@@ -394,12 +388,13 @@ export class SeriesBible {
 		if (input.intentional !== undefined && typeof input.intentional !== 'boolean')
 			throw new Error('intentional must be a boolean');
 		const sources: SourcePassage[] = [];
+		const read = this.evidenceReader(input.scope);
 		for (const passage of input.sources) {
 			if (!passage || typeof passage !== 'object')
 				throw new Error('Each fact source must be a source passage');
 			storyIdentifier(passage.documentId, 'Source document id');
 			this.authorizeSource(input.scope, passage.projectId);
-			const document = await this.readEvidence(input.scope, passage);
+			const document = await read(passage);
 			if (!document)
 				throw new Error(
 					'Source document is unavailable; open or register the selected project before curating its facts'

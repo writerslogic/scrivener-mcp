@@ -183,6 +183,7 @@ it.each([9999, 10000, 10001])(
 			expect(result.every((item) => item.text === '')).toBe(true);
 		} else {
 			await expect(source.list()).rejects.toThrow(/10000 documents/);
+			await expect(source.read(documents[0].id)).rejects.toThrow(/10000 documents/);
 			expect(materialized).toBe(0);
 		}
 	}
@@ -190,13 +191,16 @@ it.each([9999, 10000, 10001])(
 
 it('rejects repeated binder document identities even when UUID letter casing differs', async () => {
 	const upper = 'ABCDEF12-ABCD-4ABC-8ABC-ABCDEF123456';
+	let materialized = 0;
 	const source = new ProjectSource(
 		root,
 		openStore(join(root, 'duplicates.sqlite')),
 		async () => [document(upper, 'Original'), document(upper.toLowerCase(), 'Duplicate')],
-		async () => ''
+		async () => { materialized++; return ''; }
 	);
 	await expect(source.list()).rejects.toThrow(/duplicate document identities/);
+	await expect(source.read(upper)).rejects.toThrow(/duplicate document identities/);
+	expect(materialized).toBe(0);
 });
 
 it('refuses to register a copied identity while the original project exists and preserves the original registration', async () => {
