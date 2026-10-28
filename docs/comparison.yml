@@ -122,7 +122,7 @@ features:
       zaphodsdad: 'no'
 
     - label: Windows support
-      scrivener-mcp: 'CI configured; synthetic layouts tested'
+      scrivener-mcp: 'native CI verified; synthetic projects'
       jiayun: 'yes (prebuilt binary)'
       twelvetake: 'yes'
       scrivener-assistant: 'not documented'

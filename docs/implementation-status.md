@@ -55,8 +55,8 @@ client chat charges remain outside that estimate.
 
 Local environment: macOS arm64, Node `v26.8.1`, npm `11.19.0`, Java Temurin `17.0.19`. Supported
 runtime floor is Node 22.13.0; CI covers macOS/Linux/Windows on 22.13.0 and 24. Node 18/20 claims
-and shell-dependent Windows prepare/clean paths were corrected. No native Windows CI run is claimed
-from this local session.
+and shell-dependent Windows prepare/clean paths were corrected. The local delivery evidence below is
+supplemented by the native Windows/macOS/Linux CI results in the maintenance record.
 
 Verified integration evidence:
 
@@ -174,9 +174,19 @@ regressions. Cache identity is strengthened to private process-keyed HMAC-SHA256
 rotation coverage. Alerts #57 (configuration identity, never a persisted password/login verifier)
 and #58/#60 (legacy 40-hex SHA-1 compatibility sidecar, never a security guard) are documented false
 positives; no query or security check is disabled. All revision/conflict/undo guards use SHA-256.
-Case-varied native checksum duplicates now collapse while preserving spelling, unrelated entries and
-line endings. The existing tested deepmerge development patch addresses Dependabot #71; it is not
+CodeQL #61 was independently reviewed: the second read-only descriptor verifies identity after
+opening, and all content reads use the validated original descriptor. Descriptor/path substitution
+and handle cleanup regressions pass; Windows pathname confinement remains best effort. Case-varied
+native checksum duplicates now collapse while preserving spelling, unrelated entries and line
+endings. The existing tested deepmerge development patch addresses Dependabot #71; it is not
 dismissed. Secret scanning returned no open findings.
+
+[CI run 40617784860](https://github.com/writerslogic/scrivener-mcp/actions/runs/40617784860) passed
+all six native OS/runtime jobs at `eecbe98`: macOS, Linux and Windows on Node 22.13.0 and 24. Each
+ran the complete release gate and installed-package/protocol checks; Linux Node 24 also ran Chromium
+and EPUBCheck. CodeQL security, JavaScript/TypeScript and Ruby code quality, dependency review and
+the extension build passed. These are remote CI observations, separate from local measurements and
+native Scrivener GUI certification.
 
 [Integration PR #189](https://github.com/writerslogic/scrivener-mcp/pull/189) carries live CI,
 security and code-quality evidence. Main integration requires all six supported OS/runtime jobs,
