@@ -13,134 +13,134 @@
 #   refreshed - when the machine-checkable columns (stars, forks, activity,
 #               published version) were last pulled. The workflow owns it.
 
-verified: "2026-10-22"
+verified: '2026-10-22'
 
 repos:
-  scrivener-mcp:
-    github: writerslogic/scrivener-mcp
-    npm: scrivener-mcp
-    display: "**scrivener-mcp**"
-  jiayun:
-    github: jiayun/scrivener-mcp
-    display: "jiayun"
-  twelvetake:
-    github: null
-    npm: "@twelvetake/scrivener-mcp"
-    display: "TwelveTake"
-    note: "removed from npm; source was never public"
-    status_note: "removed from npm"
-    community_note: "source repository unavailable"
-  scrivener-assistant:
-    github: elnino1/scrivener-assistant
-    display: "Scrivener Assistant"
-  ricopicone:
-    github: ricopicone/scrivener-mcp
-    display: "ricopicone"
-  zaphodsdad:
-    github: zaphodsdad/scrivener-mcp
-    display: "zaphodsdad"
+    scrivener-mcp:
+        github: writerslogic/scrivener-mcp
+        npm: scrivener-mcp
+        display: '**scrivener-mcp**'
+    jiayun:
+        github: jiayun/scrivener-mcp
+        display: 'jiayun'
+    twelvetake:
+        github: null
+        npm: '@twelvetake/scrivener-mcp'
+        display: 'TwelveTake'
+        note: 'removed from npm; source was never public'
+        status_note: 'removed from npm'
+        community_note: 'source repository unavailable'
+    scrivener-assistant:
+        github: elnino1/scrivener-assistant
+        display: 'Scrivener Assistant'
+    ricopicone:
+        github: ricopicone/scrivener-mcp
+        display: 'ricopicone'
+    zaphodsdad:
+        github: zaphodsdad/scrivener-mcp
+        display: 'zaphodsdad'
 
 features:
-  - label: Public MCP tools
-    scrivener-mcp: "57"
-    jiayun: "30"
-    twelvetake: "22"
-    scrivener-assistant: "38"
-    ricopicone: "18"
-    zaphodsdad: "10"
+    - label: Public MCP tools
+      scrivener-mcp: '75'
+      jiayun: '30'
+      twelvetake: '22'
+      scrivener-assistant: '38'
+      ricopicone: '18'
+      zaphodsdad: '10'
 
-  - label: Manuscript access
-    scrivener-mcp: "read/write"
-    jiayun: "read/write"
-    twelvetake: "read/write"
-    scrivener-assistant: "read-only; writes sidecar data/metadata"
-    ricopicone: "read-only by default; opt-in content/notes/synopsis writes"
-    zaphodsdad: "read-only"
+    - label: Manuscript access
+      scrivener-mcp: 'read/write'
+      jiayun: 'read/write'
+      twelvetake: 'read/write'
+      scrivener-assistant: 'read-only; writes sidecar data/metadata'
+      ricopicone: 'read-only by default; opt-in content/notes/synopsis writes'
+      zaphodsdad: 'read-only'
 
-  - label: RTF handling
-    scrivener-mcp: "formatted reads; fidelity-preserving span writes"
-    jiayun: "reads/writes document content"
-    twelvetake: "reads/writes document content"
-    scrivener-assistant: "converts RTF to text; manuscript read-only"
-    ricopicone: "RTF-to-text reads; snapshot-protected content writes"
-    zaphodsdad: "converts RTF to text; read-only"
+    - label: RTF handling
+      scrivener-mcp: 'formatted reads; fidelity-preserving span writes'
+      jiayun: 'reads/writes document content'
+      twelvetake: 'reads/writes document content'
+      scrivener-assistant: 'converts RTF to text; manuscript read-only'
+      ricopicone: 'RTF-to-text reads; snapshot-protected content writes'
+      zaphodsdad: 'converts RTF to text; read-only'
 
-  - label: Built-in writing analysis
-    scrivener-mcp: "readability, pacing, style, emotion, AI critique"
-    jiayun: "readability, style, sentiment"
-    twelvetake: "continuity comparison"
-    scrivener-assistant: "agent-driven five-point review workflow"
-    ricopicone: "no dedicated analysis tool"
-    zaphodsdad: "no dedicated analysis tool"
+    - label: Built-in writing analysis
+      scrivener-mcp: 'readability, pacing, style, emotion, AI critique'
+      jiayun: 'readability, style, sentiment'
+      twelvetake: 'continuity comparison'
+      scrivener-assistant: 'agent-driven five-point review workflow'
+      ricopicone: 'no dedicated analysis tool'
+      zaphodsdad: 'no dedicated analysis tool'
 
-  - label: Content generation/enhancement
-    scrivener-mcp: "generation + 12 targeted enhancement types"
-    jiayun: "no"
-    twelvetake: "no"
-    scrivener-assistant: "brainstorm/draft agent workflow"
-    ricopicone: "no"
-    zaphodsdad: "no"
+    - label: Content generation/enhancement
+      scrivener-mcp: 'generation + 12 targeted enhancement types'
+      jiayun: 'no'
+      twelvetake: 'no'
+      scrivener-assistant: 'brainstorm/draft agent workflow'
+      ricopicone: 'no'
+      zaphodsdad: 'no'
 
-  - label: Local semantic retrieval
-    scrivener-mcp: "HMS index and similarity search"
-    jiayun: "no"
-    twelvetake: "no"
-    scrivener-assistant: "no"
-    ricopicone: "no"
-    zaphodsdad: "no"
+    - label: Local semantic retrieval
+      scrivener-mcp: 'local concept vectors, BM25 and quoted passages'
+      jiayun: 'no'
+      twelvetake: 'no'
+      scrivener-assistant: 'no'
+      ricopicone: 'no'
+      zaphodsdad: 'no'
 
-  - label: Continuity/project memory
-    scrivener-mcp: "persistent memory + consistency checks"
-    jiayun: "persistent notes + consistency checks"
-    twelvetake: "mention/description comparison"
-    scrivener-assistant: "world bible, story state, characters, locations, review history"
-    ricopicone: "no persistent memory"
-    zaphodsdad: "no persistent memory"
+    - label: Continuity/project memory
+      scrivener-mcp: 'persistent memory + consistency checks'
+      jiayun: 'persistent notes + consistency checks'
+      twelvetake: 'mention/description comparison'
+      scrivener-assistant: 'world bible, story state, characters, locations, review history'
+      ricopicone: 'no persistent memory'
+      zaphodsdad: 'no persistent memory'
 
-  - label: Relationship tooling
-    scrivener-mcp: "persistent relationships, networks, reference graph; optional Neo4j"
-    jiayun: "no"
-    twelvetake: "no"
-    scrivener-assistant: "human-editable relations data"
-    ricopicone: "no"
-    zaphodsdad: "no"
+    - label: Relationship tooling
+      scrivener-mcp: 'persistent relationships, networks, reference graph; optional Neo4j'
+      jiayun: 'no'
+      twelvetake: 'no'
+      scrivener-assistant: 'human-editable relations data'
+      ricopicone: 'no'
+      zaphodsdad: 'no'
 
-  - label: Token optimization
-    scrivener-mcp: "progressive skill loading, compact output, paged reads"
-    jiayun: "no documented equivalent"
-    twelvetake: "no documented equivalent"
-    scrivener-assistant: "no documented equivalent"
-    ricopicone: "scoped binder/chapter reads"
-    zaphodsdad: "scoped overview/read tools"
+    - label: Token optimization
+      scrivener-mcp: 'progressive skill loading, compact output, paged reads'
+      jiayun: 'no documented equivalent'
+      twelvetake: 'no documented equivalent'
+      scrivener-assistant: 'no documented equivalent'
+      ricopicone: 'scoped binder/chapter reads'
+      zaphodsdad: 'scoped overview/read tools'
 
-  - label: Export / compilation
-    scrivener-mcp: "Markdown, HTML, JSON, DOCX, EPUB, PDF"
-    jiayun: "compile + whole-draft export"
-    twelvetake: "PDF"
-    scrivener-assistant: "saves AI drafts; no manuscript export documented"
-    ricopicone: "no"
-    zaphodsdad: "no"
+    - label: Export / compilation
+      scrivener-mcp: 'Markdown, HTML, JSON, DOCX, EPUB, PDF'
+      jiayun: 'compile + whole-draft export'
+      twelvetake: 'PDF'
+      scrivener-assistant: 'saves AI drafts; no manuscript export documented'
+      ricopicone: 'no'
+      zaphodsdad: 'no'
 
-  - label: Windows support
-    scrivener-mcp: "yes"
-    jiayun: "yes (prebuilt binary)"
-    twelvetake: "yes"
-    scrivener-assistant: "not documented"
-    ricopicone: "not documented"
-    zaphodsdad: "yes"
+    - label: Windows support
+      scrivener-mcp: 'CI configured; synthetic layouts tested'
+      jiayun: 'yes (prebuilt binary)'
+      twelvetake: 'yes'
+      scrivener-assistant: 'not documented'
+      ricopicone: 'not documented'
+      zaphodsdad: 'yes'
 
-  - label: Installation
-    scrivener-mcp: "npm, Homebrew, Docker, Smithery, or the Draftbridge Mac app"
-    jiayun: "crates.io, prebuilt binary, or source"
-    twelvetake: "npm package (deprecated)"
-    scrivener-assistant: "MCPB or source"
-    ricopicone: "source / `uv`"
-    zaphodsdad: "source / `pip install -e`"
+    - label: Installation
+      scrivener-mcp: 'npm, Homebrew, Docker, Smithery, or the Draftbridge Mac app'
+      jiayun: 'crates.io, prebuilt binary, or source'
+      twelvetake: 'npm package (deprecated)'
+      scrivener-assistant: 'MCPB or source'
+      ricopicone: 'source / `uv`'
+      zaphodsdad: 'source / `pip install -e`'
 
-  - label: License
-    scrivener-mcp: "AGPL-3.0 / commercial dual-license"
-    jiayun: "MIT"
-    twelvetake: "MIT"
-    scrivener-assistant: "MIT"
-    ricopicone: "not declared"
-    zaphodsdad: "MIT"
+    - label: License
+      scrivener-mcp: 'AGPL-3.0 / commercial dual-license'
+      jiayun: 'MIT'
+      twelvetake: 'MIT'
+      scrivener-assistant: 'MIT'
+      ricopicone: 'not declared'
+      zaphodsdad: 'MIT'

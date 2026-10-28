@@ -225,7 +225,9 @@ export class DocumentManager {
 		return this.observedRevisions.get(documentId);
 	}
 
-	async readDocumentVersion(documentId: string): Promise<{ text: string; revision: string; exists: boolean }> {
+	async readDocumentVersion(
+		documentId: string
+	): Promise<{ text: string; revision: string; exists: boolean }> {
 		const saved = await this.writer.coordinator.readRaw(documentId);
 		const parsed = saved.exists
 			? await this.rtfHandler.parseRTF(saved.raw)

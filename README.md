@@ -417,10 +417,11 @@ npm run typecheck    # Type checking only
 
 ## Why This One?
 
-A few Scrivener MCP servers exist. Feature claims below come from each project's own docs, published
-package, and advertised tools, last re-read on **2026-10-22**; stars, forks, activity, and published
-version were refreshed <!-- comparison-refreshed -->2026-10-26<!-- /comparison-refreshed -->. "No"
-means undocumented — not necessarily impossible through the connected AI client.
+A few Scrivener MCP servers exist. Our column describes the current server; other feature claims
+come from each project's own docs, published package, and advertised tools, last re-read on
+**2026-10-22**; stars, forks, activity, and published version were refreshed
+<!-- comparison-refreshed -->2026-10-26<!-- /comparison-refreshed -->. "No" means undocumented — not
+necessarily impossible through the connected AI client.
 
 <!-- comparison-start -->
 

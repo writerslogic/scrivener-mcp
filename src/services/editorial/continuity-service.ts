@@ -175,33 +175,52 @@ export class ContinuityService {
 		return this.analyzeSnapshot(options, await this.source.list());
 	}
 
-	private async analyzeSnapshot(options: ContinuityOptions, documents: SourceDocument[]): Promise<ContinuityReport> {
+	private async analyzeSnapshot(
+		options: ContinuityOptions,
+		documents: SourceDocument[]
+	): Promise<ContinuityReport> {
 		const checkTypes = options.checkTypes ?? ['all'];
 		const documentById = new Map(documents.map((document) => [document.documentId, document]));
 		const wanted = options.documentIds
 			? new Set(options.documentIds.map((id) => storyIdentifier(id, 'Document id')))
 			: undefined;
-		if (
-			wanted &&
-			[...wanted].some((id) => !documentById.has(id))
-		)
+		if (wanted && [...wanted].some((id) => !documentById.has(id)))
 			throw new Error('A requested document is outside the current manuscript');
 		const scoped = documents
 			.filter((document) => !wanted || wanted.has(document.documentId))
 			.sort((a, b) => a.order - b.order);
-		if (scoped.length > 5000 || scoped.reduce((length, document) => length + document.text.length, 0) > 50000000) throw new Error('Continuity scope is too large; analyze a chapter at a time');
+		if (
+			scoped.length > 5000 ||
+			scoped.reduce((length, document) => length + document.text.length, 0) > 50000000
+		)
+			throw new Error('Continuity scope is too large; analyze a chapter at a time');
 		const candidates = scoped.flatMap(extractContinuityCandidates);
 		if (candidates.length > 10000)
 			throw new Error('Continuity analysis exceeds 10000 candidates; narrow the scope');
-		const projectFacts = await this.bible.listFacts({
-			kind: 'project',
-			id: this.source.projectId,
-		}, { sourceDocuments: documents });
+		const projectFacts = await this.bible.listFacts(
+			{
+				kind: 'project',
+				id: this.source.projectId,
+			},
+			{ sourceDocuments: documents }
+		);
 		const seriesFacts = options.seriesId
-			? await this.bible.listFacts({ kind: 'series', id: options.seriesId }, { sourceDocuments: documents })
+			? await this.bible.listFacts(
+					{ kind: 'series', id: options.seriesId },
+					{ sourceDocuments: documents }
+				)
 			: [];
-		const currentPassages = new Set([...projectFacts, ...seriesFacts].flatMap((fact) => fact.sourceStates.filter((passage) => passage.state === 'current').map((passage) => passageKey(passage.source))));
-		const sourceOrder = (passage: SourcePassage): number => passage.projectId === this.source.projectId ? documentById.get(passage.documentId)?.order ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+		const currentPassages = new Set(
+			[...projectFacts, ...seriesFacts].flatMap((fact) =>
+				fact.sourceStates
+					.filter((passage) => passage.state === 'current')
+					.map((passage) => passageKey(passage.source))
+			)
+		);
+		const sourceOrder = (passage: SourcePassage): number =>
+			passage.projectId === this.source.projectId
+				? (documentById.get(passage.documentId)?.order ?? Number.MAX_SAFE_INTEGER)
+				: Number.MAX_SAFE_INTEGER;
 		const canon = [...projectFacts, ...seriesFacts].filter((fact) => !fact.stale);
 		for (const candidate of candidates) {
 			if (
@@ -269,7 +288,14 @@ export class ContinuityService {
 					const type = this.category(left.kind);
 					if (!checkTypes.includes('all') && !checkTypes.includes(this.checkFor(type)))
 						continue;
-					const evidence = [...new Map([...left.sources, ...right.sources].map((passage) => [passageKey(passage), passage])).values()].sort((a, b) => sourceOrder(a) - sourceOrder(b) || a.start - b.start);
+					const evidence = [
+						...new Map(
+							[...left.sources, ...right.sources].map((passage) => [
+								passageKey(passage),
+								passage,
+							])
+						).values(),
+					].sort((a, b) => sourceOrder(a) - sourceOrder(b) || a.start - b.start);
 					if (evidence.length < 2) continue;
 					const confirmed =
 						left.confidence === 'confirmed' &&
@@ -362,8 +388,13 @@ export class ContinuityService {
 				previous.status = 'resolved';
 				previous.resolution = 'no-longer-detected';
 				previous.stale = previous.evidence.some((passage) => {
-					const document = passage.projectId === this.source.projectId ? documentById.get(passage.documentId) : undefined;
-					return document ? passageState(document, passage) !== 'current' : !currentPassages.has(passageKey(passage));
+					const document =
+						passage.projectId === this.source.projectId
+							? documentById.get(passage.documentId)
+							: undefined;
+					return document
+						? passageState(document, passage) !== 'current'
+						: !currentPassages.has(passageKey(passage));
 				});
 				previous.checkedAt = now;
 				previous.updatedAt = now;
@@ -441,9 +472,12 @@ export class ContinuityService {
 		const memberships = new Set(this.bible.listSeries().map((series) => series.id));
 		const documents = await this.source.list();
 		for (const seriesId of new Set(initial.map((finding) => finding.seriesId))) {
-			if (!seriesId || memberships.has(seriesId)) await this.analyzeSnapshot({ seriesId }, documents);
+			if (!seriesId || memberships.has(seriesId))
+				await this.analyzeSnapshot({ seriesId }, documents);
 		}
-		const findings = id ? [this.store.get<ContinuityFinding>(FINDINGS, id)!] : this.list({ includeResolved: true });
+		const findings = id
+			? [this.store.get<ContinuityFinding>(FINDINGS, id)!]
+			: this.list({ includeResolved: true });
 		const groups = new Map<string | undefined, ContinuityFinding[]>();
 		for (const finding of findings) {
 			const group = groups.get(finding.seriesId) ?? [];
@@ -456,20 +490,38 @@ export class ContinuityService {
 				for (const finding of group) states.set(finding.id, true);
 				continue;
 			}
-			const passages = [...new Map(group.flatMap((finding) => finding.evidence).map((passage) => [passageKey(passage), passage])).values()];
-			const scope = seriesId ? { kind: 'series' as const, id: seriesId } : { kind: 'project' as const, id: this.source.projectId };
+			const passages = [
+				...new Map(
+					group
+						.flatMap((finding) => finding.evidence)
+						.map((passage) => [passageKey(passage), passage])
+				).values(),
+			];
+			const scope = seriesId
+				? { kind: 'series' as const, id: seriesId }
+				: { kind: 'project' as const, id: this.source.projectId };
 			const checked = await this.bible.checkPassages(scope, passages, documents);
-			const current = new Set(checked.filter((passage) => passage.state === 'current').map((passage) => passageKey(passage.source)));
-			for (const finding of group) states.set(finding.id, finding.evidence.some((passage) => !current.has(passageKey(passage))));
+			const current = new Set(
+				checked
+					.filter((passage) => passage.state === 'current')
+					.map((passage) => passageKey(passage.source))
+			);
+			for (const finding of group)
+				states.set(
+					finding.id,
+					finding.evidence.some((passage) => !current.has(passageKey(passage)))
+				);
 		}
-		return this.store.transaction(() => findings.map((before) => {
-			const finding = this.store.get<ContinuityFinding>(FINDINGS, before.id);
-			if (!finding) throw new Error('Continuity finding disappeared while rechecking');
-			finding.stale = states.get(finding.id) ?? true;
-			finding.checkedAt = new Date().toISOString();
-			this.store.put(FINDINGS, finding.id, finding);
-			return finding;
-		}));
+		return this.store.transaction(() =>
+			findings.map((before) => {
+				const finding = this.store.get<ContinuityFinding>(FINDINGS, before.id);
+				if (!finding) throw new Error('Continuity finding disappeared while rechecking');
+				finding.stale = states.get(finding.id) ?? true;
+				finding.checkedAt = new Date().toISOString();
+				this.store.put(FINDINGS, finding.id, finding);
+				return finding;
+			})
+		);
 	}
 
 	private category(kind: StoryFact['kind']): ContinuityFinding['type'] {

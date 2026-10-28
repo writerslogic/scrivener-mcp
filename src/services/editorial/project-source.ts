@@ -55,7 +55,10 @@ export class ProjectSource implements ManuscriptSource {
 		const documents = this.selectDocuments(await this.documents());
 		const order = documents.findIndex((document) => document.id === documentId);
 		if (order < 0) {
-			const supplemental = this.selectDocuments(await this.allDocuments?.() ?? [], false).find((document) => document.id === documentId);
+			const supplemental = this.selectDocuments(
+				(await this.allDocuments?.()) ?? [],
+				false
+			).find((document) => document.id === documentId);
 			if (!supplemental)
 				throw createError(
 					ErrorCode.DOCUMENT_NOT_FOUND,
@@ -67,14 +70,20 @@ export class ProjectSource implements ManuscriptSource {
 		return this.materialize(documents[order], order);
 	}
 
-	private selectDocuments(documents: ScrivenerDocument[], manuscript = true): ScrivenerDocument[] {
+	private selectDocuments(
+		documents: ScrivenerDocument[],
+		manuscript = true
+	): ScrivenerDocument[] {
 		const selected = documents.filter((document) => document.type === 'Text');
-		if (manuscript && selected.length > MAX_SOURCE_DOCUMENTS) throw new Error('Manuscript scope exceeds 10000 documents');
+		if (manuscript && selected.length > MAX_SOURCE_DOCUMENTS)
+			throw new Error('Manuscript scope exceeds 10000 documents');
 		const identities = new Set<string>();
 		for (const document of selected) {
-			if (typeof document.id !== 'string' || !document.id) throw new Error('Binder contains an invalid document identity');
+			if (typeof document.id !== 'string' || !document.id)
+				throw new Error('Binder contains an invalid document identity');
 			const identity = document.id.toLowerCase();
-			if (identities.has(identity)) throw new Error('Binder contains duplicate document identities');
+			if (identities.has(identity))
+				throw new Error('Binder contains duplicate document identities');
 			identities.add(identity);
 		}
 		return selected;

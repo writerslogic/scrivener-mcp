@@ -222,10 +222,14 @@ export class WorkflowService {
 	): void {
 		if (
 			workflow.kind !== input.kind ||
-			(workflow.initialAllowExportWarnings ?? false) !== (input.allowExportWarnings ?? false) ||
+			(workflow.initialAllowExportWarnings ?? false) !==
+				(input.allowExportWarnings ?? false) ||
 			workflow.scope.length !== documents.length ||
-			workflow.scope.some((document, index) => document.documentId !== documents[index].documentId)
-		) throw new Error('Workflow idempotency key was already used for a different request');
+			workflow.scope.some(
+				(document, index) => document.documentId !== documents[index].documentId
+			)
+		)
+			throw new Error('Workflow idempotency key was already used for a different request');
 	}
 
 	private inspect(value: EditorialWorkflow | undefined): EditorialWorkflow {
@@ -301,7 +305,9 @@ export class WorkflowService {
 			const current = this.get(id);
 			if (current.state === 'completed') return false;
 			if ((current.stateVersion ?? 0) !== (workflow.stateVersion ?? 0))
-				throw new Error('Workflow changed while resuming; inspect its current state before retrying');
+				throw new Error(
+					'Workflow changed while resuming; inspect its current state before retrying'
+				);
 			if (current.owner && processAlive(current.owner) !== 'dead')
 				throw new Error('Workflow is owned by another active or ambiguous server');
 			if (options.allowExportWarnings !== undefined)

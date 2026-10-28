@@ -8,7 +8,10 @@ import { DocumentManager } from '../../../src/services/document-manager.js';
 import { ProjectWriter } from '../../../src/services/project-writer.js';
 import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 import { createSnapshot, listDocumentSnapshots } from '../../../src/services/snapshots.js';
-import { ReviewService, type ChangeProposal } from '../../../src/services/editorial/review-service.js';
+import {
+	ReviewService,
+	type ChangeProposal,
+} from '../../../src/services/editorial/review-service.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 import {
 	MutationCoordinator,
@@ -294,8 +297,15 @@ test('live process ownership blocks recovery, then a dead process reservation re
 		expect((await documents.getMutationCoordinator().recover())[0].state).toBe('prepared');
 		expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
 		for (const host of [hostname(), `${hostname()}-different-host`]) {
-			store.put('mutation-claims', 'project', { operationId: id, ownerPid: process.pid, host, token: 'ambiguous' });
-			await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(/ambiguous/i);
+			store.put('mutation-claims', 'project', {
+				operationId: id,
+				ownerPid: process.pid,
+				host,
+				token: 'ambiguous',
+			});
+			await expect(documents.getMutationCoordinator().recover()).rejects.toThrow(
+				/ambiguous/i
+			);
 		}
 		store.delete('mutation-claims', 'project');
 	} finally {
@@ -485,7 +495,6 @@ test('project scope validation rejects removed targets without persisting or app
 	expect(reviews.listApplications()).toEqual([]);
 	expect(await fs.readFile(file(), 'utf8')).toBe(before);
 });
-
 
 test.each(['missing', 'empty'])('proposal source distinguishes %s saved content', async (state) => {
 	if (state === 'missing') await fs.unlink(file());

@@ -324,8 +324,11 @@ export class PassageSearch {
 	}> {
 		const documents = await this.source.list();
 		const current = new Map(documents.map((doc) => [doc.documentId, doc]));
-		if (current.size !== documents.length) throw new Error('Source returned duplicate document identities');
-		const existing = new Map(this.store.list<IndexedDocument>(this.namespace).map((doc) => [doc.documentId, doc]));
+		if (current.size !== documents.length)
+			throw new Error('Source returned duplicate document identities');
+		const existing = new Map(
+			this.store.list<IndexedDocument>(this.namespace).map((doc) => [doc.documentId, doc])
+		);
 		let changedDocuments = 0;
 		let removedDocuments = 0;
 		let total = 0;
@@ -366,7 +369,13 @@ export class PassageSearch {
 				}
 			for (const update of updates) this.store.put(this.namespace, update.documentId, update);
 		});
-		if (changedDocuments || removedDocuments || [...this.cachedRevisions].some(([id, revision]) => current.get(id)?.revision !== revision))
+		if (
+			changedDocuments ||
+			removedDocuments ||
+			[...this.cachedRevisions].some(
+				([id, revision]) => current.get(id)?.revision !== revision
+			)
+		)
 			this.indexGeneration++;
 		return { changedDocuments, removedDocuments, passages: total };
 	}
@@ -438,26 +447,27 @@ export class PassageSearch {
 		const hmsScores = new Map<string, number>();
 		if (entries.length && mode === 'hybrid') {
 			const pending = this.engineWork.then(async () => {
-			if (this.engineGeneration !== -1 && this.engineGeneration !== generation)
-				await this.disposeEngine();
-			const engine = await this.getEngine();
-			this.engineGeneration = generation;
-			for (const entry of entries) this.cachedRevisions.set(entry.documentId, entry.revision);
-			const missing = entries.filter((entry) => !this.loaded.has(entry.id));
-			if (missing.length) {
-				await engine.memorizeBatch(
-					missing.map((entry) => ({
-						id: entry.id,
-						text: `${entry.quote}\n${entry.concepts.map((concept) => `storyconcept${concept}`).join(' ')}`,
-					}))
-				);
-				for (const entry of missing) this.loaded.add(entry.id);
-			}
-			for (const hit of await engine.queryText(
-				`${query}\n${queryConcepts.map((concept) => `storyconcept${concept}`).join(' ')}`,
-				Math.min(this.loaded.size, MAX_PASSAGES)
-			))
-				hmsScores.set(hit.id, Math.max(0, Math.min(1, hit.similarity)));
+				if (this.engineGeneration !== -1 && this.engineGeneration !== generation)
+					await this.disposeEngine();
+				const engine = await this.getEngine();
+				this.engineGeneration = generation;
+				for (const entry of entries)
+					this.cachedRevisions.set(entry.documentId, entry.revision);
+				const missing = entries.filter((entry) => !this.loaded.has(entry.id));
+				if (missing.length) {
+					await engine.memorizeBatch(
+						missing.map((entry) => ({
+							id: entry.id,
+							text: `${entry.quote}\n${entry.concepts.map((concept) => `storyconcept${concept}`).join(' ')}`,
+						}))
+					);
+					for (const entry of missing) this.loaded.add(entry.id);
+				}
+				for (const hit of await engine.queryText(
+					`${query}\n${queryConcepts.map((concept) => `storyconcept${concept}`).join(' ')}`,
+					Math.min(this.loaded.size, MAX_PASSAGES)
+				))
+					hmsScores.set(hit.id, Math.max(0, Math.min(1, hit.similarity)));
 			});
 			this.engineWork = pending.catch(() => undefined);
 			await pending;
@@ -563,10 +573,19 @@ export class PassageSearch {
 		const refresh = this.refreshing;
 		const failures: unknown[] = [];
 		await Promise.allSettled(this.activeSearches);
-		try { await refresh; } catch (error) { failures.push(error); }
-		try { await this.disposeEngine(); } catch (error) { failures.push(error); }
+		try {
+			await refresh;
+		} catch (error) {
+			failures.push(error);
+		}
+		try {
+			await this.disposeEngine();
+		} catch (error) {
+			failures.push(error);
+		}
 		if (failures.length === 1) throw failures[0];
-		if (failures.length > 1) throw new Error('Passage search resources failed to close', { cause: failures });
+		if (failures.length > 1)
+			throw new Error('Passage search resources failed to close', { cause: failures });
 	}
 
 	private async disposeEngine(): Promise<void> {
@@ -581,12 +600,19 @@ export class PassageSearch {
 		this.cachedRevisions.clear();
 		const failures: unknown[] = [];
 		if (owned) {
-			try { await engine?.destroy(); } catch (error) { failures.push(error); }
+			try {
+				await engine?.destroy();
+			} catch (error) {
+				failures.push(error);
+			}
 			try {
 				if (cachePath) await rm(cachePath, { recursive: true, force: true });
-			} catch (error) { failures.push(error); }
+			} catch (error) {
+				failures.push(error);
+			}
 		}
 		if (failures.length === 1) throw failures[0];
-		if (failures.length > 1) throw new Error('Passage search resources failed to close', { cause: failures });
+		if (failures.length > 1)
+			throw new Error('Passage search resources failed to close', { cause: failures });
 	}
 }

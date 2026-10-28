@@ -135,19 +135,35 @@ checks.
 ## Maintenance and main integration
 
 Follow-up authorization: merge/push main, merge reviewed open PRs, address quality findings,
-consolidate code/tests, reduce redundant comments, and remove stray repository artifacts.
-The original local-only delivery ended at `ac2f2f8`; this follow-up uses
-`cleanup/pre-main-20261027` with the same manager and three existing isolated workers.
+consolidate code/tests, reduce redundant comments, and remove stray repository artifacts. The
+original local-only delivery ended at `ac2f2f8`; this follow-up uses `cleanup/pre-main-20261027`
+with the same manager and three existing isolated workers.
 
 Initial remote audit found no open scanning alerts. Maintenance PRs #188 (SDK 1.32.2) and #187
-(changelog) were inspected and merged after their required checks passed; the connector lacked
-merge scope, so the authenticated GitHub CLI performed the merges. Repository rules currently
-require retired Node 20 job names; final integration must retain strict protection while aligning
-required checks with the six supported OS/runtime jobs.
+(changelog) were inspected and merged after their required checks passed; the connector lacked merge
+scope, so the authenticated GitHub CLI performed the merges. Repository rules currently require
+retired Node 20 job names; final integration must retain strict protection while aligning required
+checks with the six supported OS/runtime jobs.
 
 Repository cleanup removes the obsolete ESLint legacy configuration and stops tracking the HMS
 runtime database while preserving its local files. Runtime state stays ignored; npm's canonical
 lockfile and sample-project Data directories remain visible to Git. Comment cleanup removed 592
 dividers, section labels and restatements across 77 files, verified to preserve executable syntax.
 Seven trivial environment/path-wrapper tests were removed; UUID cases share a parameterized table.
-Focused formatter/utility checks: 55 tests passed. Worker integration and final validation pending.
+Focused formatter/utility checks: 55 tests passed. All three worker contributions were inspected and
+integrated. Cached prepared statements and shared source snapshots remove redundant SQL/read work;
+search uses linear token/chunk accounting, semantic-only requests avoid HMS, and changed-source HMS
+caches are replaced safely. Recovery reconciles interrupted undo; provenance validates source
+identity/Unicode bounds and retains foreign history; workflows protect cancellation/resume and
+identical concurrent starts. Fixture restarts and repeated lifecycle cases are consolidated.
+
+The maintenance candidate passes formatting, lint, typecheck, build, registry (75 tools), output
+conformance (29 paths), HMS (seven cases), and audit (zero vulnerabilities). Jest passes 81 suites
+with 859 tests and nine unchanged optional provider skips; a complete open-handle diagnostic run
+also exits cleanly with no reported handles after a parallel worker-exit warning. Installed package
+smoke passes all eleven checks on SDK 1.32.2; Chromium and both EPUBCheck fixtures pass. Logs use
+`logs/implementation/maintenance-*`. Remote CI/scanning run on the integration branch; strict branch
+checks require the six supported OS/runtime jobs before main integration. The GitHub Dependabot
+deepmerge alert (#71) is addressed by the existing tested local security patch and should close when
+the patched lockfile reaches main; it is not dismissed. Secret-scanning and code-scanning open-alert
+queries returned no other findings.

@@ -19,22 +19,38 @@ export class PersistentStore {
 			chmodSync(file, 0o600);
 			this.db.pragma('busy_timeout = 5000');
 			const version = this.db.pragma('user_version', { simple: true }) as number;
-			if (version > 1) throw new Error('Editorial database schema is newer than this server supports');
+			if (version > 1)
+				throw new Error('Editorial database schema is newer than this server supports');
 			this.db.pragma('journal_mode = WAL');
 			this.db.pragma('synchronous = FULL');
 			if (version === 0) {
-				this.db.transaction(() => {
-					const current = this.db.pragma('user_version', { simple: true }) as number;
-					if (current > 1) throw new Error('Editorial database schema is newer than this server supports');
-					this.db.exec('CREATE TABLE IF NOT EXISTS editorial_state (namespace TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace, id))');
-					this.db.pragma('user_version = 1');
-				}).immediate();
+				this.db
+					.transaction(() => {
+						const current = this.db.pragma('user_version', { simple: true }) as number;
+						if (current > 1)
+							throw new Error(
+								'Editorial database schema is newer than this server supports'
+							);
+						this.db.exec(
+							'CREATE TABLE IF NOT EXISTS editorial_state (namespace TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace, id))'
+						);
+						this.db.pragma('user_version = 1');
+					})
+					.immediate();
 			}
 			this.statements = {
-				get: this.db.prepare('SELECT value FROM editorial_state WHERE namespace = ? AND id = ?'),
-				list: this.db.prepare('SELECT value FROM editorial_state WHERE namespace = ? ORDER BY id'),
-				put: this.db.prepare('INSERT INTO editorial_state(namespace, id, value) VALUES (?, ?, ?) ON CONFLICT(namespace, id) DO UPDATE SET value = excluded.value'),
-				delete: this.db.prepare('DELETE FROM editorial_state WHERE namespace = ? AND id = ?'),
+				get: this.db.prepare(
+					'SELECT value FROM editorial_state WHERE namespace = ? AND id = ?'
+				),
+				list: this.db.prepare(
+					'SELECT value FROM editorial_state WHERE namespace = ? ORDER BY id'
+				),
+				put: this.db.prepare(
+					'INSERT INTO editorial_state(namespace, id, value) VALUES (?, ?, ?) ON CONFLICT(namespace, id) DO UPDATE SET value = excluded.value'
+				),
+				delete: this.db.prepare(
+					'DELETE FROM editorial_state WHERE namespace = ? AND id = ?'
+				),
 			};
 		} catch (error) {
 			this.db.close();
@@ -64,12 +80,20 @@ export class PersistentStore {
 	}
 
 	transaction<T>(operation: () => T): T {
-		if (['[object AsyncFunction]', '[object AsyncGeneratorFunction]'].includes(Object.prototype.toString.call(operation))) throw new Error('Persistent transactions must be synchronous');
-		return this.db.transaction(() => {
-			const result = operation();
-			if (result && typeof (result as { then?: unknown }).then === 'function') throw new Error('Persistent transactions must be synchronous');
-			return result;
-		}).immediate();
+		if (
+			['[object AsyncFunction]', '[object AsyncGeneratorFunction]'].includes(
+				Object.prototype.toString.call(operation)
+			)
+		)
+			throw new Error('Persistent transactions must be synchronous');
+		return this.db
+			.transaction(() => {
+				const result = operation();
+				if (result && typeof (result as { then?: unknown }).then === 'function')
+					throw new Error('Persistent transactions must be synchronous');
+				return result;
+			})
+			.immediate();
 	}
 
 	close(): void {

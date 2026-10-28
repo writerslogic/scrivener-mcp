@@ -27,7 +27,8 @@ describe('local passage retrieval', () => {
 
 	function reviseDocument(index: number, text: string): void {
 		documents[index] = {
-			...documents[index], text,
+			...documents[index],
+			text,
 			revision: createHash('sha256').update(text).digest('hex'),
 		};
 	}
@@ -79,11 +80,16 @@ describe('local passage retrieval', () => {
 		});
 		expect(unknown.results).toEqual([]);
 		expect(unknown.limitations).toContain('bounded English');
-		await expect(access(join(dir, '.scrivener-mcp', 'cache'))).rejects.toMatchObject({ code: 'ENOENT' });
+		await expect(access(join(dir, '.scrivener-mcp', 'cache'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
 	});
 
 	it('keeps exact passages, Unicode offsets, context and revisions through incremental changes and restart', async () => {
-		reviseDocument(0, `Prelude 🌙\n\n${'A quiet threshold. '.repeat(90)}\n\nHer closest friend sold their plan to the enemy.`);
+		reviseDocument(
+			0,
+			`Prelude 🌙\n\n${'A quiet threshold. '.repeat(90)}\n\nHer closest friend sold their plan to the enemy.`
+		);
 		const first = await search.search('betrayal', { mode: 'semantic', contextChars: 80 });
 		const hit = first.results[0];
 		expect(hit.documentId).toBe(documents[0].documentId);
@@ -119,8 +125,15 @@ describe('local passage retrieval', () => {
 		reviseDocument(0, 'Rain swept over the harbor 🌙.\n'.repeat(200));
 		let reads = 0;
 		const read = source.read;
-		source.read = async (id) => { reads++; return read(id); };
-		const result = await search.search('storm', { mode: 'semantic', limit: 4, documentIds: [documents[0].documentId] });
+		source.read = async (id) => {
+			reads++;
+			return read(id);
+		};
+		const result = await search.search('storm', {
+			mode: 'semantic',
+			limit: 4,
+			documentIds: [documents[0].documentId],
+		});
 		expect(result.results).toHaveLength(4);
 		expect(reads).toBe(1);
 		for (const hit of result.results) {
@@ -133,7 +146,10 @@ describe('local passage retrieval', () => {
 	it('retains BM25 term-frequency ranking and omits a source that changed during retrieval', async () => {
 		reviseDocument(0, 'lantern lantern lantern lantern harbor');
 		reviseDocument(1, 'lantern bread bread bread harbor');
-		const options = { mode: 'keyword' as const, documentIds: documents.slice(0, 2).map((doc) => doc.documentId) };
+		const options = {
+			mode: 'keyword' as const,
+			documentIds: documents.slice(0, 2).map((doc) => doc.documentId),
+		};
 		const result = await search.search('lantern harbor', options);
 		expect(result.results.map((hit) => hit.documentId)).toEqual(options.documentIds);
 		expect(result.results[0].keywordScore).toBeGreaterThan(result.results[1].keywordScore);
@@ -152,7 +168,10 @@ describe('local passage retrieval', () => {
 		expect((await readdir(cache)).length).toBeGreaterThan(0);
 		const primary = new Error('Synthetic source refresh failure');
 		let reject!: (error: Error) => void;
-		source.list = () => new Promise<SourceDocument[]>((_resolve, fail) => { reject = fail; });
+		source.list = () =>
+			new Promise<SourceDocument[]>((_resolve, fail) => {
+				reject = fail;
+			});
 		const refresh = search.refresh().catch((error: unknown) => error);
 		const closing = search.close();
 		reject(primary);
@@ -164,10 +183,12 @@ describe('local passage retrieval', () => {
 	it('reuses unchanged HMS vectors and discards saved revisions removed or replaced by another indexer', async () => {
 		const engines: HolographicMemorySystem[] = [];
 		const memorize = HolographicMemorySystem.prototype.memorizeBatch;
-		const spy = jest.spyOn(HolographicMemorySystem.prototype, 'memorizeBatch').mockImplementation(async function (this: HolographicMemorySystem, items, trace) {
-			if (!engines.includes(this)) engines.push(this);
-			await memorize.call(this, items, trace);
-		});
+		const spy = jest
+			.spyOn(HolographicMemorySystem.prototype, 'memorizeBatch')
+			.mockImplementation(async function (this: HolographicMemorySystem, items, trace) {
+				if (!engines.includes(this)) engines.push(this);
+				await memorize.call(this, items, trace);
+			});
 		const other = new PassageSearch(source, store);
 		try {
 			const options = { mode: 'hybrid' as const, documentIds: [documents[0].documentId] };
@@ -188,6 +209,9 @@ describe('local passage retrieval', () => {
 			expect(engines[1].getStats().totalMemories).toBe(0);
 			expect(engines[2].getStats().totalMemories).toBe(remaining.index.passages);
 			expect(await readdir(join(dir, '.scrivener-mcp', 'cache'))).toHaveLength(1);
-		} finally { spy.mockRestore(); await other.close(); }
+		} finally {
+			spy.mockRestore();
+			await other.close();
+		}
 	});
 });

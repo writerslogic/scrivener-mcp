@@ -149,7 +149,10 @@ export const dashboardHandler: ToolDefinition = {
 		const documents = await source.list();
 		const binder = await project.getProjectStructure();
 		const projectMetadata = await project.getProjectMetadata();
-		const facts = await bible.listFacts({ kind: 'project', id: source.projectId });
+		const facts = await bible.listFacts(
+			{ kind: 'project', id: source.projectId },
+			{ sourceDocuments: documents }
+		);
 		const names = new Set(
 			facts
 				.filter((fact) => fact.kind === 'character' || fact.kind === 'alias')

@@ -41,6 +41,7 @@ wheels/
 *.egg
 MANIFEST
 .pytest_cache/
+.ruff_cache/
 .coverage
 .tox/
 .hypothesis/

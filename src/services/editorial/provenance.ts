@@ -6,7 +6,13 @@ export function sourceKey(source: Pick<SourcePassage, 'projectId' | 'documentId'
 }
 
 export function passageKey(passage: SourcePassage): string {
-	return JSON.stringify([passage.projectId, passage.documentId, passage.revision, passage.start, passage.end]);
+	return JSON.stringify([
+		passage.projectId,
+		passage.documentId,
+		passage.revision,
+		passage.start,
+		passage.end,
+	]);
 }
 
 export function stableStoryId(...parts: string[]): string {
@@ -33,11 +39,24 @@ export function storyText(value: unknown, label: string, max = 2000): string {
 }
 
 function validPassageRange(text: string, start: number, end: number): boolean {
-	if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > text.length || end - start > 10000) return false;
+	if (
+		!Number.isSafeInteger(start) ||
+		!Number.isSafeInteger(end) ||
+		start < 0 ||
+		end <= start ||
+		end > text.length ||
+		end - start > 10000
+	)
+		return false;
 	return [start, end].every((offset) => {
 		const previous = text.charCodeAt(offset - 1);
 		const current = text.charCodeAt(offset);
-		return !(previous >= 0xd800 && previous <= 0xdbff && current >= 0xdc00 && current <= 0xdfff);
+		return !(
+			previous >= 0xd800 &&
+			previous <= 0xdbff &&
+			current >= 0xdc00 &&
+			current <= 0xdfff
+		);
 	});
 }
 
@@ -48,7 +67,12 @@ export function sourcePassage(document: SourceDocument, start: number, end: numb
 		);
 	}
 	let line = 1;
-	for (let newline = document.text.indexOf('\n'); newline >= 0 && newline < start; newline = document.text.indexOf('\n', newline + 1)) line++;
+	for (
+		let newline = document.text.indexOf('\n');
+		newline >= 0 && newline < start;
+		newline = document.text.indexOf('\n', newline + 1)
+	)
+		line++;
 	return {
 		projectId: document.projectId,
 		documentId: document.documentId,

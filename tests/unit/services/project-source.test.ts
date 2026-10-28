@@ -196,7 +196,10 @@ it('rejects repeated binder document identities even when UUID letter casing dif
 		root,
 		openStore(join(root, 'duplicates.sqlite')),
 		async () => [document(upper, 'Original'), document(upper.toLowerCase(), 'Duplicate')],
-		async () => { materialized++; return ''; }
+		async () => {
+			materialized++;
+			return '';
+		}
 	);
 	await expect(source.list()).rejects.toThrow(/duplicate document identities/);
 	await expect(source.read(upper)).rejects.toThrow(/duplicate document identities/);

@@ -16,7 +16,10 @@ function registeredPathExists(file: string): boolean {
 		return true;
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-		throw new Error('Cannot verify a registered project location; registration was not changed');
+		throw new Error(
+			'Cannot verify a registered project location; registration was not changed',
+			{ cause: error }
+		);
 	}
 }
 

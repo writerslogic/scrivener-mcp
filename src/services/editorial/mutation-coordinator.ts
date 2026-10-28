@@ -55,10 +55,24 @@ interface MutationClaim extends OperationOwner {
 
 function assertOperationOwner(value: unknown): asserts value is OperationOwner {
 	const owner = value as Partial<OperationOwner> | null;
-	if (!owner || !Number.isSafeInteger(owner.ownerPid) || owner.ownerPid! <= 0 || owner.ownerPid! > 2_147_483_647 || typeof owner.host !== 'string' || !owner.host.length || owner.host.length > 255 || typeof owner.token !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(owner.token)) throw new Error('Malformed operation ownership record; manual inspection is required');
+	if (
+		!owner ||
+		!Number.isSafeInteger(owner.ownerPid) ||
+		owner.ownerPid! <= 0 ||
+		owner.ownerPid! > 2_147_483_647 ||
+		typeof owner.host !== 'string' ||
+		!owner.host.length ||
+		owner.host.length > 255 ||
+		typeof owner.token !== 'string' ||
+		!/^[A-Za-z0-9_-]{1,128}$/.test(owner.token)
+	)
+		throw new Error('Malformed operation ownership record; manual inspection is required');
 }
 
-export function operationOwnerState(owner: OperationOwner, activeTokens: ReadonlySet<string>): 'alive' | 'dead' | 'unknown' {
+export function operationOwnerState(
+	owner: OperationOwner,
+	activeTokens: ReadonlySet<string>
+): 'alive' | 'dead' | 'unknown' {
 	assertOperationOwner(owner);
 	if (owner.host !== hostname()) return 'unknown';
 	if (owner.ownerPid === process.pid) return activeTokens.has(owner.token) ? 'alive' : 'unknown';
@@ -246,7 +260,13 @@ export class MutationCoordinator {
 		if (value === undefined) return undefined;
 		assertOperationOwner(value);
 		const claim = value as Partial<MutationClaim>;
-		if (typeof claim.operationId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(claim.operationId)) throw new Error('Malformed manuscript operation ownership record; manual inspection is required');
+		if (
+			typeof claim.operationId !== 'string' ||
+			!/^[A-Za-z0-9_-]{1,128}$/.test(claim.operationId)
+		)
+			throw new Error(
+				'Malformed manuscript operation ownership record; manual inspection is required'
+			);
 		return claim as MutationClaim;
 	}
 
@@ -300,7 +320,6 @@ export class MutationCoordinator {
 		return record;
 	}
 
-
 	async recover(): Promise<MutationRecord[]> {
 		const store = this.state();
 		const recovered: MutationRecord[] = [];
@@ -319,7 +338,11 @@ export class MutationCoordinator {
 			}
 			if (!claim) {
 				while (pending.length && visited.has(pending[pending.length - 1])) pending.pop();
-				if (!pending.length) pending = store.list<{ id: string }>(PENDING).map((record) => record.id).filter((id) => !visited.has(id));
+				if (!pending.length)
+					pending = store
+						.list<{ id: string }>(PENDING)
+						.map((record) => record.id)
+						.filter((id) => !visited.has(id));
 			}
 			const operationId = claim?.operationId ?? pending.pop();
 			if (!operationId) return recovered;
@@ -375,7 +398,8 @@ export class MutationCoordinator {
 			} finally {
 				try {
 					store.transaction(() => {
-						if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token) store.delete(CLAIMS, 'project');
+						if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
+							store.delete(CLAIMS, 'project');
 					});
 				} finally {
 					activeClaims.delete(token);
@@ -574,7 +598,8 @@ export class MutationCoordinator {
 		} finally {
 			try {
 				store.transaction(() => {
-					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token) store.delete(CLAIMS, 'project');
+					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
+						store.delete(CLAIMS, 'project');
 				});
 			} finally {
 				activeClaims.delete(token);

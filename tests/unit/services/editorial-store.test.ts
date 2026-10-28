@@ -20,11 +20,13 @@ it('migrates the empty schema, rolls back interrupted transitions and preserves 
 	const store = new PersistentStore(file);
 	try {
 		store.put('identity', 'project', 'stable-project');
-		expect(() => store.transaction(() => {
-			store.put('review', 'operation', { state: 'committed' });
-			store.put('identity', 'project', 'wrong-project');
-			throw new Error('simulated interruption');
-		})).toThrow('simulated interruption');
+		expect(() =>
+			store.transaction(() => {
+				store.put('review', 'operation', { state: 'committed' });
+				store.put('identity', 'project', 'wrong-project');
+				throw new Error('simulated interruption');
+			})
+		).toThrow('simulated interruption');
 	} finally {
 		store.close();
 	}
@@ -32,10 +34,12 @@ it('migrates the empty schema, rolls back interrupted transitions and preserves 
 	try {
 		expect(reopened.get('identity', 'project')).toBe('stable-project');
 		expect(reopened.list('review')).toEqual([]);
-		expect(() => reopened.transaction(() => {
-			reopened.put('review', 'escaped', { state: 'unexpected' });
-			return Promise.resolve();
-		})).toThrow('must be synchronous');
+		expect(() =>
+			reopened.transaction(() => {
+				reopened.put('review', 'escaped', { state: 'unexpected' });
+				return Promise.resolve();
+			})
+		).toThrow('must be synchronous');
 		expect(reopened.list('review')).toEqual([]);
 	} finally {
 		reopened.close();
@@ -61,11 +65,13 @@ it('migrates the empty schema, rolls back interrupted transitions and preserves 
 it('rejects native async transactions before their writes can escape a rollback', async () => {
 	const store = new PersistentStore(file);
 	try {
-		expect(() => store.transaction(async () => {
-			store.put('review', 'before-await', { state: 'unexpected' });
-			await Promise.resolve();
-			store.put('review', 'after-await', { state: 'unexpected' });
-		})).toThrow('must be synchronous');
+		expect(() =>
+			store.transaction(async () => {
+				store.put('review', 'before-await', { state: 'unexpected' });
+				await Promise.resolve();
+				store.put('review', 'after-await', { state: 'unexpected' });
+			})
+		).toThrow('must be synchronous');
 		await Promise.resolve();
 		expect(store.list('review')).toEqual([]);
 	} finally {

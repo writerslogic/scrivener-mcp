@@ -357,7 +357,9 @@ export class ScrivenerProject {
 		return this.writer.writeDocumentPreserving(documentId, newText, options);
 	}
 
-	async readDocumentVersion(documentId: string): Promise<{ text: string; revision: string }> {
+	async readDocumentVersion(
+		documentId: string
+	): Promise<{ text: string; revision: string; exists: boolean }> {
 		return this.documentManager.readDocumentVersion(documentId);
 	}
 

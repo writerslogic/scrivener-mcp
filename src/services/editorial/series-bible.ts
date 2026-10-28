@@ -195,7 +195,9 @@ export class SeriesBible {
 		const facts = store
 			.list<StoryFact>(FACTS)
 			.filter((fact) => fact.scope.kind === scope.kind && fact.scope.id === scope.id);
-		const superseded = new Set(facts.flatMap((fact) => fact.supersedes ? [fact.supersedes] : []));
+		const superseded = new Set(
+			facts.flatMap((fact) => (fact.supersedes ? [fact.supersedes] : []))
+		);
 		const read = this.evidenceReader(scope, options.sourceDocuments);
 		const results: FactView[] = [];
 		for (const fact of facts) {
@@ -210,13 +212,21 @@ export class SeriesBible {
 		return results;
 	}
 
-	async checkPassages(scope: StoryScope, passages: readonly SourcePassage[], sourceDocuments?: readonly SourceDocument[]): Promise<FactView['sourceStates']> {
+	async checkPassages(
+		scope: StoryScope,
+		passages: readonly SourcePassage[],
+		sourceDocuments?: readonly SourceDocument[]
+	): Promise<FactView['sourceStates']> {
 		return this.sourceStates(passages, this.evidenceReader(scope, sourceDocuments));
 	}
 
-	private async sourceStates(passages: readonly SourcePassage[], read: EvidenceReader): Promise<FactView['sourceStates']> {
+	private async sourceStates(
+		passages: readonly SourcePassage[],
+		read: EvidenceReader
+	): Promise<FactView['sourceStates']> {
 		const states: FactView['sourceStates'] = [];
-		for (const passage of passages) states.push({ source: passage, state: passageState(await read(passage), passage) });
+		for (const passage of passages)
+			states.push({ source: passage, state: passageState(await read(passage), passage) });
 		return states;
 	}
 
@@ -343,11 +353,24 @@ export class SeriesBible {
 		throw new Error('Source project is outside the explicitly selected scope');
 	}
 
-	private evidenceReader(scope: StoryScope, sourceDocuments: readonly SourceDocument[] = []): EvidenceReader {
+	private evidenceReader(
+		scope: StoryScope,
+		sourceDocuments: readonly SourceDocument[] = []
+	): EvidenceReader {
 		this.storeFor(scope);
-		const allowed = new Set(scope.kind === 'series' ? this.requireSeries(scope.id).projects.map((project) => project.projectId) : [this.source.projectId]);
-		const sources = new Map<string, Promise<ManuscriptSource | undefined>>([[this.source.projectId, Promise.resolve(this.source)]]);
-		const documents = new Map<string, Promise<SourceDocument | undefined>>(sourceDocuments.filter((document) => document.projectId === this.source.projectId).map((document) => [sourceKey(document), Promise.resolve(document)]));
+		const allowed = new Set(
+			scope.kind === 'series'
+				? this.requireSeries(scope.id).projects.map((project) => project.projectId)
+				: [this.source.projectId]
+		);
+		const sources = new Map<string, Promise<ManuscriptSource | undefined>>([
+			[this.source.projectId, Promise.resolve(this.source)],
+		]);
+		const documents = new Map<string, Promise<SourceDocument | undefined>>(
+			sourceDocuments
+				.filter((document) => document.projectId === this.source.projectId)
+				.map((document) => [sourceKey(document), Promise.resolve(document)])
+		);
 		return (passage) => {
 			if (!allowed.has(passage.projectId)) return Promise.resolve(undefined);
 			const key = sourceKey(passage);
@@ -356,7 +379,8 @@ export class SeriesBible {
 				pending = (async () => {
 					let source = sources.get(passage.projectId);
 					if (!source) {
-						source = this.resolveSource?.(passage.projectId) ?? Promise.resolve(undefined);
+						source =
+							this.resolveSource?.(passage.projectId) ?? Promise.resolve(undefined);
 						sources.set(passage.projectId, source);
 					}
 					const resolved = await source;
@@ -364,7 +388,15 @@ export class SeriesBible {
 					try {
 						return await resolved.read(passage.documentId);
 					} catch (error) {
-						if (error && typeof error === 'object' && 'code' in error && ['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(String(error.code))) return undefined;
+						if (
+							error &&
+							typeof error === 'object' &&
+							'code' in error &&
+							['ENOENT', 'NOT_FOUND', 'DOCUMENT_NOT_FOUND'].includes(
+								String(error.code)
+							)
+						)
+							return undefined;
 						throw error;
 					}
 				})();

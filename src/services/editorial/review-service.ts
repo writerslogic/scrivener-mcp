@@ -99,7 +99,8 @@ function selectedEdits(proposal: ChangeProposal, editIds?: string[]): ProposedEd
 	)
 		throw new Error('Invalid edit selection');
 	const selectedIds = editIds ? new Set(editIds) : undefined;
-	if (selectedIds && selectedIds.size !== editIds!.length) throw new Error('Invalid edit selection');
+	if (selectedIds && selectedIds.size !== editIds!.length)
+		throw new Error('Invalid edit selection');
 	const selected = selectedIds
 		? proposal.edits.filter((edit) => selectedIds.has(edit.id))
 		: proposal.edits.filter((edit) => edit.status === 'pending');
@@ -129,7 +130,6 @@ function compose(proposal: ChangeProposal, additional: string[] = []): string {
 	pieces.push(proposal.before.slice(cursor));
 	return pieces.join('');
 }
-
 
 export class ReviewService {
 	constructor(
@@ -184,9 +184,19 @@ export class ReviewService {
 			throw new Error('Invalid proposal idempotency key');
 		let replacementLength = 0;
 		for (const edit of input.edits) {
-			if (!edit || !Number.isSafeInteger(edit.start) || !Number.isSafeInteger(edit.end) || edit.start < 0 || edit.end < edit.start || typeof edit.text !== 'string' || edit.text.length > MAX_TEXT) throw new Error('Invalid proposed edit range or text');
+			if (
+				!edit ||
+				!Number.isSafeInteger(edit.start) ||
+				!Number.isSafeInteger(edit.end) ||
+				edit.start < 0 ||
+				edit.end < edit.start ||
+				typeof edit.text !== 'string' ||
+				edit.text.length > MAX_TEXT
+			)
+				throw new Error('Invalid proposed edit range or text');
 			replacementLength += edit.text.length;
-			if (replacementLength > MAX_TEXT) throw new Error('Proposed manuscript text exceeds the supported length');
+			if (replacementLength > MAX_TEXT)
+				throw new Error('Proposed manuscript text exceeds the supported length');
 		}
 		await this.validateDocument?.(input.documentId);
 		const id = input.idempotencyKey
@@ -198,7 +208,12 @@ export class ReviewService {
 				prior.documentId !== input.documentId ||
 				prior.title !== (input.title ?? 'Proposed manuscript changes') ||
 				prior.edits.length !== input.edits.length ||
-				prior.edits.some((edit, index) => edit.start !== input.edits[index].start || edit.end !== input.edits[index].end || edit.text !== input.edits[index].text) ||
+				prior.edits.some(
+					(edit, index) =>
+						edit.start !== input.edits[index].start ||
+						edit.end !== input.edits[index].end ||
+						edit.text !== input.edits[index].text
+				) ||
 				(input.expectedRevision !== undefined &&
 					input.expectedRevision !== prior.sourceRevision)
 			)
@@ -206,8 +221,10 @@ export class ReviewService {
 			return prior;
 		}
 		const saved = await this.documents.readDocumentVersion(input.documentId);
-		if (!saved.exists) throw new Error('Cannot propose edits to a document without saved content');
-		if (input.expectedRevision !== undefined && input.expectedRevision !== saved.revision) throw new Error('Stale document revision; refresh before proposing changes');
+		if (!saved.exists)
+			throw new Error('Cannot propose edits to a document without saved content');
+		if (input.expectedRevision !== undefined && input.expectedRevision !== saved.revision)
+			throw new Error('Stale document revision; refresh before proposing changes');
 		const before = saved.text;
 		const sorted = [...input.edits].sort((a, b) => a.start - b.start);
 		let previous: ProposedEditInput | undefined;
@@ -309,7 +326,10 @@ export class ReviewService {
 			const selectedIds = options.editIds ? new Set(options.editIds) : undefined;
 			if (
 				prior.proposalId !== proposalId ||
-				(options.editIds && (options.editIds.length !== prior.editIds.length || selectedIds!.size !== options.editIds.length || options.editIds.some((editId) => !priorIds.has(editId))))
+				(options.editIds &&
+					(options.editIds.length !== prior.editIds.length ||
+						selectedIds!.size !== options.editIds.length ||
+						options.editIds.some((editId) => !priorIds.has(editId))))
 			)
 				throw new Error('Operation ID was already used for a different application');
 			if (prior.state === 'committed') return prior;
@@ -403,10 +423,7 @@ export class ReviewService {
 	): Promise<MutationRecord> {
 		identity(operationId, 'operation ID');
 		await this.recover();
-		const application = this.store.get<ReviewApplication>(
-			APPLICATIONS,
-			operationId
-		);
+		const application = this.store.get<ReviewApplication>(APPLICATIONS, operationId);
 		const mutation = this.documents.getMutationCoordinator().get(operationId);
 		if (
 			!application ||
@@ -504,7 +521,11 @@ export class ReviewService {
 			throw new Error('A batch requires 1 to 100 distinct proposal IDs');
 		const id = identity(options.operationId ?? randomUUID(), 'batch ID');
 		const prior = this.store.get<ReviewBatch>(BATCHES, id);
-		if (prior && (prior.proposalIds.length !== proposalIds.length || prior.proposalIds.some((proposalId, index) => proposalId !== proposalIds[index])))
+		if (
+			prior &&
+			(prior.proposalIds.length !== proposalIds.length ||
+				prior.proposalIds.some((proposalId, index) => proposalId !== proposalIds[index]))
+		)
 			throw new Error('Batch ID was already used for a different selection');
 		const batch: ReviewBatch = prior ?? { id, proposalIds, completed: [], state: 'applying' };
 		if (batch.state === 'completed') return batch;

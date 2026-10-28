@@ -280,7 +280,10 @@ describe('durable editorial workflows', () => {
 	});
 
 	it('keeps a newer cancellation when an older resume is waiting for source validation', async () => {
-		const started = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		const started = await service.start({
+			kind: 'review-chapter',
+			documentIds: [doc.documentId],
+		});
 		service.cancel(started.id);
 		await service.wait(started.id);
 		const legacy = service.get(started.id);
@@ -288,10 +291,18 @@ describe('durable editorial workflows', () => {
 		store.put(`editorial-workflows:${source.projectId}`, started.id, legacy);
 		let entered!: () => void;
 		let release!: () => void;
-		const checking = new Promise<void>((notify) => { entered = notify; });
-		const blocked = new Promise<void>((notify) => { release = notify; });
+		const checking = new Promise<void>((notify) => {
+			entered = notify;
+		});
+		const blocked = new Promise<void>((notify) => {
+			release = notify;
+		});
 		const read = source.read;
-		source.read = async (id) => { entered(); await blocked; return read(id); };
+		source.read = async (id) => {
+			entered();
+			await blocked;
+			return read(id);
+		};
 		const resuming = service.resume(started.id);
 		await checking;
 		service.cancel(started.id);
@@ -303,13 +314,22 @@ describe('durable editorial workflows', () => {
 	});
 
 	it('rejects pending starts and resumes after the service and store have closed', async () => {
-		const cancelled = await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
+		const cancelled = await service.start({
+			kind: 'review-chapter',
+			documentIds: [doc.documentId],
+		});
 		service.cancel(cancelled.id);
 		await service.wait(cancelled.id);
 		let releaseStart!: (documents: SourceDocument[]) => void;
 		let releaseResume!: (document: SourceDocument) => void;
-		source.list = () => new Promise<SourceDocument[]>((notify) => { releaseStart = notify; });
-		source.read = () => new Promise<SourceDocument>((notify) => { releaseResume = notify; });
+		source.list = () =>
+			new Promise<SourceDocument[]>((notify) => {
+				releaseStart = notify;
+			});
+		source.read = () =>
+			new Promise<SourceDocument>((notify) => {
+				releaseResume = notify;
+			});
 		const starting = service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
 		const resuming = service.resume(cancelled.id);
 		await service.close();
@@ -322,14 +342,21 @@ describe('durable editorial workflows', () => {
 				expect(starting).rejects.toThrow('Workflow service is closed'),
 				expect(resuming).rejects.toThrow('Workflow service is closed'),
 			]);
-		} finally { openServices(); }
-		expect(service.list().map((workflow) => ({ id: workflow.id, state: workflow.state }))).toEqual([{ id: cancelled.id, state: 'cancelled' }]);
+		} finally {
+			openServices();
+		}
+		expect(
+			service.list().map((workflow) => ({ id: workflow.id, state: workflow.state }))
+		).toEqual([{ id: cancelled.id, state: 'cancelled' }]);
 	});
 
 	it('returns an identical request committed by another connection before creation without replaying its work', async () => {
 		let audits = 0;
 		const audit = dependencies.auditContinuity;
-		dependencies.auditContinuity = async (input) => { audits++; return audit(input); };
+		dependencies.auditContinuity = async (input) => {
+			audits++;
+			return audit(input);
+		};
 		const request = { kind: 'audit-continuity' as const, idempotencyKey: 'concurrent-start' };
 		const original = await service.start(request);
 		const completed = await service.wait(original.id);
@@ -337,10 +364,12 @@ describe('durable editorial workflows', () => {
 		store.delete(namespace, original.id);
 		const other = new PersistentStore(join(dir, 'editorial.sqlite'));
 		const transaction = store.transaction.bind(store);
-		const commit = jest.spyOn(store, 'transaction').mockImplementation(<T>(operation: () => T): T => {
-			other.put(namespace, original.id, completed);
-			return transaction(operation);
-		});
+		const commit = jest
+			.spyOn(store, 'transaction')
+			.mockImplementation(<T>(operation: () => T): T => {
+				other.put(namespace, original.id, completed);
+				return transaction(operation);
+			});
 		try {
 			const repeated = await service.start(request);
 			expect(repeated.id).toBe(completed.id);

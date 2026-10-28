@@ -8,7 +8,11 @@ import {
 	ContinuityService,
 	extractContinuityCandidates,
 } from '../../../../src/services/editorial/continuity-service.js';
-import { passageState, sourcePassage, verifyPassage } from '../../../../src/services/editorial/provenance.js';
+import {
+	passageState,
+	sourcePassage,
+	verifyPassage,
+} from '../../../../src/services/editorial/provenance.js';
 import type { ManuscriptSource, SourceDocument } from '../../../../src/services/editorial/types.js';
 
 class FixtureSource implements ManuscriptSource {
@@ -88,7 +92,9 @@ it('verifies Unicode source offsets, line locations and exact quotation/revision
 	expect(() => sourcePassage(document, 0, 1)).toThrow(/Unicode/);
 	expect(passageState({ ...document, projectId: 'other-project' }, passage)).toBe('stale');
 	expect(passageState({ ...document, documentId: 'other-document' }, passage)).toBe('stale');
-	expect(passageState(document, { ...passage, start: 1, end: 2, quote: document.text.slice(1, 2) })).toBe('stale');
+	expect(
+		passageState(document, { ...passage, start: 1, end: 2, quote: document.text.slice(1, 2) })
+	).toBe('stale');
 	for (const length of [9999, 10000, 10001]) {
 		const long = source.set('long', 'a'.repeat(length));
 		if (length <= 10000) expect(sourcePassage(long, 0, length).quote).toHaveLength(length);
@@ -182,7 +188,9 @@ it('persists idempotent curated corrections without silently overwriting competi
 		corrected.id
 	);
 	for (const patch of [{ value: 'blue' }, { confidence: 'inferred' as const }]) {
-		await expect(bible.correct(scope, original.id, patch)).rejects.toThrow(/already been corrected/);
+		await expect(bible.correct(scope, original.id, patch)).rejects.toThrow(
+			/already been corrected/
+		);
 	}
 	bible = new SeriesBible(source, store('facts'));
 	expect((await bible.listFacts(scope)).map((fact) => fact.id)).toEqual([corrected.id]);
@@ -218,12 +226,18 @@ it('uses binder order, quotes and revision-bound persistent decisions for inferr
 	expect(replacement.id).not.toBe(finding.id);
 	source.set(second.documentId, 'Mara has blue eyes.', 1);
 	const checked = await service.recheck(replacement.id);
-	expect(checked[0]).toMatchObject({ status: 'resolved', resolution: 'no-longer-detected', stale: true });
+	expect(checked[0]).toMatchObject({
+		status: 'resolved',
+		resolution: 'no-longer-detected',
+		stale: true,
+	});
 	expect(service.list()).toEqual([]);
 	source.set(second.documentId, 'Mara has brown eyes.', 1);
 	expect((await service.analyze()).issues[0].id).toBe(replacement.id);
 	expect(service.list()[0].status).toBe('open');
-	expect(service.list({ includeResolved: true }).find((issue) => issue.id === finding.id)?.status).toBe('dismissed');
+	expect(
+		service.list({ includeResolved: true }).find((issue) => issue.id === finding.id)?.status
+	).toBe('dismissed');
 });
 
 it('only labels opposing confirmed immutable facts as confirmed canon conflicts', async () => {
@@ -318,15 +332,30 @@ it('rechecks historical foreign evidence after correction and safely marks depar
 	const docB = b.set('b', 'Mara has green eyes.');
 	const shared = store('shared-history');
 	const database = store('project-history');
-	const resolver = async (id: string) => id === b.projectId ? b : a;
+	const resolver = async (id: string) => (id === b.projectId ? b : a);
 	const bibleA = new SeriesBible(a, database, shared, resolver);
 	const bibleB = new SeriesBible(b, store('foreign-history'), shared, resolver);
 	const series = bibleA.createSeries('History');
 	bibleB.joinSeries(series.id);
 	const scope: StoryScope = { kind: 'series', id: series.id };
-	const fact = { scope, kind: 'character' as const, subject: 'Mara', predicate: 'eye-color', confidence: 'confirmed' as const, storyTime: 'present' };
-	await bibleA.curate({ ...fact, value: 'blue', sources: [sourcePassage(docA, 0, docA.text.length)] });
-	const foreign = await bibleB.curate({ ...fact, value: 'green', sources: [sourcePassage(docB, 0, docB.text.length)] });
+	const fact = {
+		scope,
+		kind: 'character' as const,
+		subject: 'Mara',
+		predicate: 'eye-color',
+		confidence: 'confirmed' as const,
+		storyTime: 'present',
+	};
+	await bibleA.curate({
+		...fact,
+		value: 'blue',
+		sources: [sourcePassage(docA, 0, docA.text.length)],
+	});
+	const foreign = await bibleB.curate({
+		...fact,
+		value: 'green',
+		sources: [sourcePassage(docB, 0, docB.text.length)],
+	});
 	const service = new ContinuityService(a, database, bibleA);
 	a.reads = 0;
 	const finding = (await service.analyze({ seriesId: series.id })).issues[0];
