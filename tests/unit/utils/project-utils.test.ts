@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { basename, join } from 'path';
+import { basename, join, sep } from 'path';
 import { tmpdir } from 'os';
 import {
 	ensureProjectDataDirectory,
@@ -25,7 +25,6 @@ function createValidScrivProject(projectPath: string): void {
 describe('Project Utils', () => {
 	let tmpBase: string;
 	let testProjectPath: string;
-	// Runtime state now lives under `.scrivener-mcp`, not `data`.
 	let mcpDir: string;
 
 	beforeEach(() => {
@@ -64,8 +63,8 @@ describe('Project Utils', () => {
 			expect(existsSync(nestedMcpDir)).toBe(true);
 		});
 
-		it('should handle project path with trailing slash', async () => {
-			const projectPathWithSlash = testProjectPath + '/';
+		it.each([...new Set(['/', sep])])('should handle project path with trailing separator %s', async (separator) => {
+			const projectPathWithSlash = testProjectPath + separator;
 
 			await ensureProjectDataDirectory(projectPathWithSlash);
 
@@ -79,16 +78,16 @@ describe('Project Utils', () => {
 			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
 		});
 
-		it('should handle project path with trailing slash', () => {
-			const projectPathWithSlash = testProjectPath + '/';
+		it.each([...new Set(['/', sep])])('should handle project path with trailing separator %s', (separator) => {
+			const projectPathWithSlash = testProjectPath + separator;
 			const result = getQueueStatePath(projectPathWithSlash);
 			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'queue-state.json'));
 		});
 
 		it('should work with different project paths', () => {
-			const differentProject = '/home/user/novel.scriv';
+			const differentProject = join(tmpBase, 'novel.scriv');
 			const result = getQueueStatePath(differentProject);
-			expect(result).toBe('/home/user/novel.scriv/.scrivener-mcp/queue-state.json');
+			expect(result).toBe(join(differentProject, '.scrivener-mcp', 'queue-state.json'));
 		});
 	});
 
@@ -98,31 +97,30 @@ describe('Project Utils', () => {
 			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
 		});
 
-		it('should handle project path with trailing slash', () => {
-			const projectPathWithSlash = testProjectPath + '/';
+		it.each([...new Set(['/', sep])])('should handle project path with trailing separator %s', (separator) => {
+			const projectPathWithSlash = testProjectPath + separator;
 			const result = getCacheDirectory(projectPathWithSlash);
 			expect(result).toBe(join(testProjectPath, '.scrivener-mcp', 'cache'));
 		});
 
 		it('should work with different project paths', () => {
-			const differentProject = '/home/user/story.scriv';
+			const differentProject = join(tmpBase, 'story.scriv');
 			const result = getCacheDirectory(differentProject);
-			expect(result).toBe('/home/user/story.scriv/.scrivener-mcp/cache');
+			expect(result).toBe(join(differentProject, '.scrivener-mcp', 'cache'));
 		});
 	});
 
 	describe('Path normalization', () => {
-		it('should handle Windows-style paths', () => {
+		it('should append state paths to the supplied Windows-style project root', () => {
 			const windowsPath = 'C:\\Users\\Author\\project.scriv';
 			const result = getQueueStatePath(windowsPath);
-			expect(result).toContain('queue-state.json');
+			expect(result).toBe(join(windowsPath, '.scrivener-mcp', 'queue-state.json'));
 		});
 
 		it('should handle relative paths', () => {
 			const relativePath = './my-project.scriv';
 			const result = getCacheDirectory(relativePath);
-			expect(result).toContain('.scrivener-mcp');
-			expect(result).toContain('cache');
+			expect(result).toBe(join(relativePath, '.scrivener-mcp', 'cache'));
 		});
 	});
 });
