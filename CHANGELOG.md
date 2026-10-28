@@ -24,6 +24,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Require the patched Hono Node adapter
 - Scope HMS passage consumers and drain owned stores
 - Keep minimum Windows CI on its supported native toolchain
 - Remove static credentials and interpolated observer code (#200)
