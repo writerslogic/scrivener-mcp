@@ -6,6 +6,7 @@ import { requireProject } from './types.js';
 
 export const DASHBOARD_URI = 'ui://scrivener/manuscript-dashboard';
 export const APP_MIME_TYPE = 'text/html;profile=mcp-app';
+const MAX_MENTIONS = 100;
 const input = z
 	.object({
 		documentId: z.string().uuid().optional(),
@@ -97,7 +98,45 @@ export const dashboardHandler: ToolDefinition = {
 						},
 						appearances: {
 							type: 'array',
-							items: { type: 'object' },
+							items: {
+								type: 'object',
+								properties: {
+									name: {
+										type: 'string',
+										description: 'Character name or alias matched as text.',
+									},
+									mentions: {
+										type: 'array',
+										maxItems: MAX_MENTIONS,
+										description: 'First 100 located name mentions in saved manuscript order.',
+										items: {
+											type: 'object',
+											properties: {
+												start: {
+													type: 'integer',
+													description: 'Inclusive UTF-16 source offset.',
+												},
+												end: {
+													type: 'integer',
+													description: 'Exclusive UTF-16 source offset.',
+												},
+												quote: {
+													type: 'string',
+													description:
+														'Matched name with up to 80 surrounding UTF-16 characters on either side.',
+												},
+											},
+											required: ['start', 'end', 'quote'],
+										},
+									},
+									truncated: {
+										type: 'boolean',
+										description:
+											'True when additional name mentions exist beyond the first 100 returned passages; the returned length is not a complete occurrence count.',
+									},
+								},
+								required: ['name', 'mentions', 'truncated'],
+							},
 							description:
 								'Name and alias text mentions with source offsets; mentions do not establish factual presence.',
 						},
@@ -173,19 +212,22 @@ export const dashboardHandler: ToolDefinition = {
 					`(?<![\\p{L}\\p{N}_])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}_])`,
 					'giu'
 				);
-				const matches = [...document.text.matchAll(pattern)].slice(0, 100);
-				if (matches.length)
-					appearances.push({
-						name,
-						mentions: matches.map((match) => ({
-							start: match.index,
-							end: match.index! + match[0].length,
-							quote: document.text.slice(
-								Math.max(0, match.index! - 80),
-								match.index! + match[0].length + 80
-							),
-						})),
+				const mentions: Array<{ start: number; end: number; quote: string }> = [];
+				let truncated = false;
+				for (const match of document.text.matchAll(pattern)) {
+					if (mentions.length === MAX_MENTIONS) {
+						truncated = true;
+						break;
+					}
+					const start = match.index;
+					const end = start + match[0].length;
+					mentions.push({
+						start,
+						end,
+						quote: document.text.slice(Math.max(0, start - 80), end + 80),
 					});
+				}
+				if (mentions.length) appearances.push({ name, mentions, truncated });
 			}
 			scenes.push({
 				documentId: document.documentId,
