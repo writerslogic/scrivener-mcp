@@ -5,11 +5,13 @@ import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { ProjectLoader } from '../../../src/services/project-loader.js';
 import { DocumentManager } from '../../../src/services/document-manager.js';
+import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 import {
 	createDocument,
 	createDocuments,
 	deleteDocument,
 	moveDocument,
+	type DocumentOperationContext,
 } from '../../../src/utils/document-operations.js';
 import { findBinderItemById } from '../../../src/services/document-manager-helpers.js';
 
@@ -121,12 +123,18 @@ describe('ProjectLoader XML round trips', () => {
 	it('creates nested documents in native folders without changing their existing children', async () => {
 		const structure = await loader.loadProject();
 		manager.setProjectStructure(structure);
-		const context = {
+		const rtf = new RTFHandler();
+		const context: DocumentOperationContext = {
 			projectStructure: structure,
 			projectPath,
-			writeDocument: (id: string, content: string) =>
-				manager.writeDocument(id, content, true),
-			saveProject: () => loader.saveProject(structure),
+			commitCreation: (candidate, documents) =>
+				loader.saveProjectWithDocuments(
+					candidate,
+					documents.map(({ documentId, content }) => ({
+						documentId,
+						raw: rtf.convertToRTF(content),
+					}))
+				),
 		};
 		const folder = await createDocument(
 			{ title: 'Part', parentId: draftId, type: 'Folder' },
@@ -154,45 +162,69 @@ describe('ProjectLoader XML round trips', () => {
 		expect(children[1].Children.BinderItem.Children).toBeUndefined();
 	});
 
-	it('revalidates the parent after writing content instead of attaching to a detached folder', async () => {
-		const structure = await loader.loadProject();
-		const binder = structure.ScrivenerProject!.Binder!;
-		const saves = jest.fn(async () => {});
-		await expect(
-			createDocument(
-				{ title: 'Concurrent scene', parentId: draftId, content: 'Scene content.' },
-				{
-					projectStructure: structure,
-					projectPath,
-					writeDocument: async () => {
-						binder.BinderItem = [];
-					},
-					saveProject: saves,
-				}
-			)
-		).rejects.toThrow('Parent folder not found');
-		expect(saves).not.toHaveBeenCalled();
-		expect(binder.BinderItem).toEqual([]);
-	});
-
-	it('uses the current parent and path when the folder is replaced during a content write', async () => {
-		const structure = await loader.loadProject();
-		const binder = structure.ScrivenerProject!.Binder!;
-		const result = await createDocument(
-			{ title: 'Concurrent scene', parentId: draftId },
-			{
+	it.each(['removed', 'replaced'] as const)(
+		'rejects creation when its parent is %s by an intervening saved binder change',
+		async (change) => {
+			const structure = await loader.loadProject();
+			manager.setProjectStructure(structure);
+			const original = JSON.stringify(structure);
+			const competing = new ProjectLoader(projectPath);
+			const rtf = new RTFHandler();
+			let savedExternal = '';
+			const stagedIds: string[] = [];
+			const context: DocumentOperationContext = {
 				projectStructure: structure,
 				projectPath,
-				writeDocument: async () => {
-					binder.BinderItem = { UUID: draftId, Type: 'DraftFolder', Title: 'Renamed' };
+				commitCreation: async (candidate, documents) => {
+					const external = await competing.loadProject();
+					const binder = external.ScrivenerProject!.Binder!;
+					const items = Array.isArray(binder.BinderItem)
+						? binder.BinderItem
+						: [binder.BinderItem!];
+					binder.BinderItem = change === 'removed'
+						? items.filter((item) => item.UUID !== draftId)
+						: items.map((item) => item.UUID === draftId
+							? { UUID: draftId, Type: 'DraftFolder', Title: 'Renamed', Children: item.Children }
+							: item);
+					await competing.saveProject(external);
+					savedExternal = await fs.readFile(scrivxPath, 'utf8');
+					stagedIds.push(...documents.map((document) => document.documentId));
+					await loader.saveProjectWithDocuments(
+						candidate,
+						documents.map(({ documentId, content }) => ({
+							documentId,
+							raw: rtf.convertToRTF(content),
+						}))
+					);
 				},
-				saveProject: () => loader.saveProject(structure),
+			};
+			try {
+				await expect(
+					createDocument(
+						{ title: 'Concurrent scene', parentId: draftId, content: 'Scene content.' },
+						context
+					)
+				).rejects.toThrow(/stale.*revision/i);
+				expect(savedExternal).not.toBe('');
+				expect(await fs.readFile(scrivxPath, 'utf8')).toBe(savedExternal);
+				expect(savedExternal).not.toContain('Concurrent scene');
+				const saved = await parse(savedExternal);
+				const items = Array.isArray(saved.ScrivenerProject.Binder.BinderItem)
+					? saved.ScrivenerProject.Binder.BinderItem : [saved.ScrivenerProject.Binder.BinderItem];
+				const parent = items.find((item: { $: { UUID: string } }) => item.$.UUID === draftId);
+				if (change === 'removed') expect(parent).toBeUndefined();
+				else expect(parent.Title).toBe('Renamed');
+				expect(JSON.stringify(loader.getProjectStructure())).toBe(original);
+				expect(JSON.stringify(manager.getProjectStructureData())).toBe(original);
+				expect(stagedIds).toHaveLength(1);
+				for (const id of stagedIds)
+					await expect(fs.lstat(path.join(projectPath, 'Files', 'Data', id, 'content.rtf')))
+						.rejects.toMatchObject({ code: 'ENOENT' });
+			} finally {
+				await competing.close();
 			}
-		);
-		expect(result.path).toEqual(['Renamed', 'Concurrent scene']);
-		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
-		expect(saved.ScrivenerProject.Binder.BinderItem.Children.BinderItem.$.UUID).toBe(result.id);
-	});
+		}
+	);
 
 	it('preserves a singleton binder root when adding a top-level document', async () => {
 		const structure = await loader.loadProject();
