@@ -90,11 +90,28 @@ export class ProjectExporter {
 				},
 			};
 		}
+		if (format !== 'markdown' && format !== 'html' && format !== 'json')
+			throw createError(
+				ErrorCode.INVALID_INPUT,
+				undefined,
+				`Unsupported export format: ${format}`
+			);
 		return this.compilationService.exportProject(
-			await this.getProjectStructure(),
+			await this.hydrateTextDocuments(await this.getProjectStructure()),
 			format,
 			options
 		);
+	}
+
+	private async hydrateTextDocuments(documents: ScrivenerDocument[]): Promise<ScrivenerDocument[]> {
+		const hydrated: ScrivenerDocument[] = [];
+		for (const document of documents) {
+			const copy = { ...document };
+			if (document.type === 'Text') copy.content = await this.readDocument(document.id);
+			if (document.children) copy.children = await this.hydrateTextDocuments(document.children);
+			hydrated.push(copy);
+		}
+		return hydrated;
 	}
 
 	async preflight(options: PresetOptions): Promise<{
