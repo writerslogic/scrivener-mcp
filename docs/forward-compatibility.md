@@ -6,14 +6,22 @@ runtime upgrades. New versions are promoted after verification.
 ## Runtime and dependency changes
 
 The package engine requirement, setup runtime floor and CI minimum must agree. After building,
-`node scripts/check-runtime-policy.mjs` checks that agreement, the running stable Node version and
-coverage of Linux, macOS and Windows. Setup rejects malformed, prerelease and inconsistent runtime
+`node scripts/check-runtime-policy.mjs` checks that agreement, the running stable Node version,
+Node-API capability, bootstrap floors and coverage of Linux, macOS and Windows. Setup rejects
+malformed, prerelease and inconsistent runtime
 versions, compares every version component, and prefers a private runtime before the newest
 available stable fallback. A usable running runtime remains preferred.
 
-The supported range is `^22.14.0 || >=23.6.0`. SQLite 13 uses Node-API 10, which excludes Node 22.13
-and Node 23 releases before 23.6. This intentionally raises the previous 22.13 floor; upgrade an
-older installation to a maintained Node 24 patch. The native binding now ships with the package and
+The supported range is **`^22.23.4 || ^24.22.1 || >=26.12.1`**. The pinned CAI native SDK's binary
+installer and JavaScript fetch paths use Node's TLS stack independently of the Rust SDK, so the
+[official patched release floors](https://opensource.contentauthenticity.org/docs/node-landing/)
+apply even though credential operations disable remote fetching. Node 23/25 and lower patches on
+22/24/26 are excluded. Later stable majors are permitted by the range; actual native/platform
+compatibility still needs evidence. Upgrade an older installation to Node 24.22.1 or a newer Node 24
+patch.
+
+SQLite 13 additionally requires Node-API 10. Its earlier ABI-only floor of 22.14.0/23.6.0 is not the
+current security policy. The SQLite native binding ships with the package and
 is verified through an actual in-memory query under the bundled Node, rather than downloaded through
 a private install-script path. Existing SQLite databases retain their schema; checked-in v12
 fixtures verify normal closure, interrupted WAL recovery and Unicode state. See the
@@ -58,6 +66,20 @@ server does not create repeatable jobs. Linux Node 24 CI runs the current-backen
 
 Local-only demo and diagnostic sessions skip automatic Redis discovery and use embedded queues, so
 they do not consume queued work from another installation.
+
+The `credentials` skill exposes `c2pa_capabilities`, `sign_content_credentials` and
+`validate_content_credentials` on demand without an open project. Native signing and validation
+are isolated and offline; their reports distinguish integrity from administrator-configured signer
+trust. Compressed-manifest validation is implemented; generation is not. PDF, MP3, FLAC, DOCX and
+EPUB use embedded mode with the pinned SDK, with their detached sidecars explicitly unsupported.
+Unsigned DEFLATE DOCX/EPUB archives are prepared as separate STORE copies that preserve entry
+payloads and record the original SHA-256 assertion; the original is unchanged and unreadable
+existing credentials fail closed.
+
+The format catalog is a declared envelope, not a passing native matrix. Preserve per-format/mode
+evidence from `scripts/check-c2pa-compatibility.mjs` and rerun it after SDK/native-binary changes.
+These local results do not award C2PA conformance, an assurance level or human-authorship status.
+See [Content Credentials](content-credentials.md) for setup, export integration and trust limits.
 
 ## MCP protocol contract
 

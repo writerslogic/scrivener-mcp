@@ -2,7 +2,7 @@
 	"manifest_version": "0.2",
 	"name": "scrivener-mcp",
 	"version": "0.14.0",
-	"description": "Connect Scrivener 3 projects to AI assistants with 75 progressively loaded tools for durable change review, local passage retrieval, source-backed continuity, a scoped series bible, editorial workflows and validated exports.",
+	"description": "Connect Scrivener 3 projects to AI assistants with 78 progressively loaded tools for durable edit review, local retrieval, continuity, a scoped story bible, editorial workflows, validated exports and local Content Credentials signing/validation.",
 	"author": {
 		"name": "WritersLogic, Inc.",
 		"url": "https://github.com/writerslogic"
