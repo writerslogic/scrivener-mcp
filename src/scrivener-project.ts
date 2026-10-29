@@ -215,7 +215,9 @@ export class ScrivenerProject {
 			() => this.persistProject(),
 			(documentId) => this.markDocumentChanged(documentId),
 			(documentId) => this.getDocumentInfo(documentId),
-			(documentId, title) => this.takeSnapshot(documentId, title)
+			(documentId, title) => this.takeSnapshot(documentId, title),
+			(structure, documents) =>
+				this.projectLoader.saveProjectWithDocuments(structure, documents)
 		);
 
 		this.documentInfo = new ProjectDocumentInfo(

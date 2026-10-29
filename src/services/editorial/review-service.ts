@@ -3,7 +3,7 @@ import { hostname } from 'node:os';
 import type { DocumentManager } from '../document-manager.js';
 import type { ProjectWriter, WriteOptions } from '../project-writer.js';
 import type { WriteFidelityReport } from '../../project-types.js';
-import type { PersistentStore } from './persistent-store.js';
+import type { PersistentStore, StorePageOptions } from './persistent-store.js';
 import { operationOwnerState, type MutationRecord } from './mutation-coordinator.js';
 
 const PROPOSALS = 'review-proposals';
@@ -197,6 +197,10 @@ export class ReviewService {
 
 	listApplications(): ReviewApplication[] {
 		return this.store.list<ReviewApplication>(APPLICATIONS);
+	}
+
+	creationHistory(options: StorePageOptions = {}) {
+		return this.documents.getMutationCoordinator().listCreations(options);
 	}
 
 	listBatches(): ReviewBatch[] {

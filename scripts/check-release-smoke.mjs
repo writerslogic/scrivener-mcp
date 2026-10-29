@@ -303,32 +303,67 @@ async function awaitWorkflow(client, id) {
 
 async function readCompiledResult(client, expectedText) {
 	const compiled = await tool(client, 'compile_documents', {
-		mode: 'standard', format: 'text', documentIds: [SAMPLE_DOCUMENT],
+		mode: 'standard',
+		format: 'text',
+		documentIds: [SAMPLE_DOCUMENT],
 	});
-	verify(typeof compiled.resultId === 'string' && compiled.charCount === expectedText.length && !('text' in compiled), 'Large standard compilation did not return a retrievable result reference');
+	verify(
+		typeof compiled.resultId === 'string' &&
+			compiled.charCount === expectedText.length &&
+			!('text' in compiled),
+		'Large standard compilation did not return a retrievable result reference'
+	);
 	const expectedJSON = JSON.stringify({ compiledText: expectedText });
 	const expectedBytes = Buffer.from(expectedJSON);
 	const limit = expectedBytes.indexOf(Buffer.from('🌙'), 4000) + 1;
-	verify(expectedText.length > 4000 && limit > 4000 && limit <= 65536, 'Unicode compilation fixture did not cross the result threshold');
+	verify(
+		expectedText.length > 4000 && limit > 4000 && limit <= 65536,
+		'Unicode compilation fixture did not cross the result threshold'
+	);
 	const chunks = [];
 	let offset = 0;
 	let finished = false;
 	for (let index = 0; index < 32; index++) {
-		const chunk = await tool(client, 'read_result', { resultId: compiled.resultId, offset, limit });
-		verify(chunk.resultId === compiled.resultId && chunk.offset === offset && chunk.totalBytes === expectedBytes.length && typeof chunk.text === 'string', 'Result retrieval lost its identity, offset or byte length');
+		const chunk = await tool(client, 'read_result', {
+			resultId: compiled.resultId,
+			offset,
+			limit,
+		});
+		verify(
+			chunk.resultId === compiled.resultId &&
+				chunk.offset === offset &&
+				chunk.totalBytes === expectedBytes.length &&
+				typeof chunk.text === 'string',
+			'Result retrieval lost its identity, offset or byte length'
+		);
 		const bytes = Buffer.from(chunk.text);
-		verify(bytes.length > 0 && bytes.length <= limit && bytes.equals(expectedBytes.subarray(offset, offset + bytes.length)), 'Result retrieval split Unicode or changed compiled JSON bytes');
-		if (index === 0) verify(bytes.length < limit, 'Result fixture did not exercise a split UTF-8 boundary');
+		verify(
+			bytes.length > 0 &&
+				bytes.length <= limit &&
+				bytes.equals(expectedBytes.subarray(offset, offset + bytes.length)),
+			'Result retrieval split Unicode or changed compiled JSON bytes'
+		);
+		if (index === 0)
+			verify(bytes.length < limit, 'Result fixture did not exercise a split UTF-8 boundary');
 		chunks.push(chunk.text);
 		offset += bytes.length;
 		if (chunk.nextOffset === null) {
 			finished = true;
 			break;
 		}
-		verify(chunk.nextOffset === offset && Number.isSafeInteger(chunk.nextOffset), 'Result cursor failed to advance by exact UTF-8 bytes');
+		verify(
+			chunk.nextOffset === offset && Number.isSafeInteger(chunk.nextOffset),
+			'Result cursor failed to advance by exact UTF-8 bytes'
+		);
 	}
 	const reconstructed = chunks.join('');
-	verify(finished && offset === expectedBytes.length && reconstructed === expectedJSON && JSON.parse(reconstructed).compiledText === expectedText, 'Bounded result retrieval did not reconstruct the exact compiled manuscript');
+	verify(
+		finished &&
+			offset === expectedBytes.length &&
+			reconstructed === expectedJSON &&
+			JSON.parse(reconstructed).compiledText === expectedText,
+		'Bounded result retrieval did not reconstruct the exact compiled manuscript'
+	);
 }
 
 async function main() {
@@ -701,7 +736,15 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 				);
 				await tool(client, 'open_project', { path: projectPath });
 				const queue = await tool(client, 'get_queue_stats', {});
-				verify(Array.isArray(queue.queues) && queue.connection?.isConnected === true && /^[a-f0-9]{64}$/.test(queue.connection.scopeId ?? '') && queue.connection.legacyQueues === 'excluded' && typeof queue.connection.migrationNotice === 'string' && queue.connection.migrationNotice.length > 0, 'Public queue statistics omitted project ownership or the legacy migration notice');
+				verify(
+					Array.isArray(queue.queues) &&
+						queue.connection?.isConnected === true &&
+						/^[a-f0-9]{64}$/.test(queue.connection.scopeId ?? '') &&
+						queue.connection.legacyQueues === 'excluded' &&
+						typeof queue.connection.migrationNotice === 'string' &&
+						queue.connection.migrationNotice.length > 0,
+					'Public queue statistics omitted project ownership or the legacy migration notice'
+				);
 				queueScopeId = queue.connection.scopeId;
 				const listed = await client.listTools();
 				verify(
@@ -778,30 +821,80 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 			});
 			await check('installed-unicode-result-retrieval-and-finding-pages', async () => {
 				const largeProject = join(root, 'Unicode-compiled.scriv');
-				await cp(join(installed, 'assets', 'sample-project', 'Welcome.scriv'), largeProject, { recursive: true, errorOnExist: true, force: false });
+				await cp(
+					join(installed, 'assets', 'sample-project', 'Welcome.scriv'),
+					largeProject,
+					{ recursive: true, errorOnExist: true, force: false }
+				);
 				const file = join(largeProject, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
-				const buffer = 'A quiet lantern lit the empty harbor while the patient keeper watched the distant shore. '.repeat(3);
+				const buffer =
+					'A quiet lantern lit the empty harbor while the patient keeper watched the distant shore. '.repeat(
+						3
+					);
 				const text = `Mara has blue eyes. Elin has hazel eyes.\n${buffer}\n${Array.from({ length: 96 }, (_, index) => `Passage ${index}: Café 東京 🌙 — a lantern glows beside the “silver harbor”.`).join('\n')}\n${buffer}\nMara has green eyes. Elin has brown eyes.`;
-				const { RTFHandler } = await import(pathToFileURL(join(installed, 'dist/services/parsers/rtf-handler.js')).href);
+				const { RTFHandler } = await import(
+					pathToFileURL(join(installed, 'dist/services/parsers/rtf-handler.js')).href
+				);
 				const rtf = new RTFHandler();
 				await rtf.writeRTF(file, text);
-				verify((await rtf.readRTF(file)).plainText === text, 'Native Unicode fixture did not preserve its intended source text');
-				largeFixture = { projectPath: largeProject, file, text, raw: await readFile(file), revision: await hash(file) };
+				verify(
+					(await rtf.readRTF(file)).plainText === text,
+					'Native Unicode fixture did not preserve its intended source text'
+				);
+				largeFixture = {
+					projectPath: largeProject,
+					file,
+					text,
+					raw: await readFile(file),
+					revision: await hash(file),
+				};
 				await tool(client, 'close_project', {});
 				await tool(client, 'open_project', { path: largeProject });
-				verify((await tool(client, 'get_queue_stats', {})).connection.scopeId !== queueScopeId, 'Copied project reused another manuscript queue scope');
+				verify(
+					(await tool(client, 'get_queue_stats', {})).connection.scopeId !== queueScopeId,
+					'Copied project reused another manuscript queue scope'
+				);
 				await readCompiledResult(client, text);
 				await tool(client, 'check_consistency', { checkTypes: ['characters'] });
-				const firstPage = await tool(client, 'continuity_findings', { action: 'list', limit: 1 });
-				verify(firstPage.findings?.length === 1 && typeof firstPage.nextCursor === 'string', 'Finding list did not return a bounded first page and cursor');
-				const secondPage = await tool(client, 'continuity_findings', { action: 'list', limit: 1, after: firstPage.nextCursor });
-				verify(secondPage.findings?.length === 1 && secondPage.findings[0].id !== firstPage.findings[0].id, 'Finding cursor repeated or omitted the next source-backed item');
+				const firstPage = await tool(client, 'continuity_findings', {
+					action: 'list',
+					limit: 1,
+				});
+				verify(
+					firstPage.findings?.length === 1 && typeof firstPage.nextCursor === 'string',
+					'Finding list did not return a bounded first page and cursor'
+				);
+				const secondPage = await tool(client, 'continuity_findings', {
+					action: 'list',
+					limit: 1,
+					after: firstPage.nextCursor,
+				});
+				verify(
+					secondPage.findings?.length === 1 &&
+						secondPage.findings[0].id !== firstPage.findings[0].id,
+					'Finding cursor repeated or omitted the next source-backed item'
+				);
 				for (const finding of [...firstPage.findings, ...secondPage.findings])
-					verify(finding.evidence.some((source) => source.documentId === SAMPLE_DOCUMENT && source.revision === largeFixture.revision && source.quote === text.slice(source.start, source.end)), 'Paginated finding lost its exact saved source evidence');
-				verify((await readFile(file)).equals(largeFixture.raw), 'Compilation, result retrieval or finding pagination changed native fixture bytes');
+					verify(
+						finding.evidence.some(
+							(source) =>
+								source.documentId === SAMPLE_DOCUMENT &&
+								source.revision === largeFixture.revision &&
+								source.quote === text.slice(source.start, source.end)
+						),
+						'Paginated finding lost its exact saved source evidence'
+					);
+				verify(
+					(await readFile(file)).equals(largeFixture.raw),
+					'Compilation, result retrieval or finding pagination changed native fixture bytes'
+				);
 				await tool(client, 'close_project', {});
 				await tool(client, 'open_project', { path: projectPath });
-				verify((await tool(client, 'get_queue_stats', {})).connection.scopeId === queueScopeId && await hash(originalFile) === originalRevision, 'Returning to the original project changed its queue identity or manuscript');
+				verify(
+					(await tool(client, 'get_queue_stats', {})).connection.scopeId ===
+						queueScopeId && (await hash(originalFile)) === originalRevision,
+					'Returning to the original project changed its queue identity or manuscript'
+				);
 			});
 			await check('installed-facts-continuity-and-series-lifecycle', async () => {
 				const analysis = await tool(client, 'check_consistency', {
@@ -1152,38 +1245,132 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 			});
 			await check('installed-review-and-workflow-summary-pagination', async () => {
 				for (let index = 0; index < 2; index++) {
-					const proposal = (await tool(client, 'review_changes', {
-						action: 'propose', documentId: SAMPLE_DOCUMENT, expectedRevision: originalRevision,
-						title: 'Synthetic pagination fixture', idempotencyKey: `release-pagination-${index}`,
-						edits: [{ start: 0, end: 0, text: `Pagination fixture ${index}. ` }],
-					})).result;
-					const batch = (await tool(client, 'review_changes', {
-						action: 'batch', proposalIds: [proposal.id], operationId: randomUUID(), force: true,
-					})).result;
-					verify(batch.state === 'completed' && batch.completed?.length === 1 && typeof batch.completed[0].operationId === 'string', 'Review pagination fixture did not complete its real batch application');
-					await tool(client, 'review_changes', { action: 'undo', operationId: batch.completed[0].operationId, force: true });
-					verify(await hash(originalFile) === originalRevision, 'Pagination fixture undo did not restore exact native bytes');
+					const proposal = (
+						await tool(client, 'review_changes', {
+							action: 'propose',
+							documentId: SAMPLE_DOCUMENT,
+							expectedRevision: originalRevision,
+							title: 'Synthetic pagination fixture',
+							idempotencyKey: `release-pagination-${index}`,
+							edits: [{ start: 0, end: 0, text: `Pagination fixture ${index}. ` }],
+						})
+					).result;
+					const batch = (
+						await tool(client, 'review_changes', {
+							action: 'batch',
+							proposalIds: [proposal.id],
+							operationId: randomUUID(),
+							force: true,
+						})
+					).result;
+					verify(
+						batch.state === 'completed' &&
+							batch.completed?.length === 1 &&
+							typeof batch.completed[0].operationId === 'string',
+						'Review pagination fixture did not complete its real batch application'
+					);
+					await tool(client, 'review_changes', {
+						action: 'undo',
+						operationId: batch.completed[0].operationId,
+						force: true,
+					});
+					verify(
+						(await hash(originalFile)) === originalRevision,
+						'Pagination fixture undo did not restore exact native bytes'
+					);
 				}
-				const firstPage = (await tool(client, 'review_changes', { action: 'list', limit: 1 })).result;
+				const firstPage = (
+					await tool(client, 'review_changes', { action: 'list', limit: 1 })
+				).result;
 				const collections = ['proposals', 'applications', 'batches'];
 				for (const collection of collections)
-					verify(firstPage[collection]?.length === 1 && typeof firstPage.pagination?.[collection] === 'string', 'Review history did not independently bound all three collections');
-				verify(!('before' in firstPage.proposals[0]) && !('edits' in firstPage.proposals[0]), 'Review list exposed full manuscript proposal bodies');
+					verify(
+						firstPage[collection]?.length === 1 &&
+							typeof firstPage.pagination?.[collection] === 'string',
+						'Review history did not independently bound all three collections'
+					);
+				verify(
+					!('before' in firstPage.proposals[0]) && !('edits' in firstPage.proposals[0]),
+					'Review list exposed full manuscript proposal bodies'
+				);
 				for (const selected of collections) {
-					const next = (await tool(client, 'review_changes', { action: 'list', limit: 1, [`${selected}After`]: firstPage.pagination[selected] })).result;
+					const next = (
+						await tool(client, 'review_changes', {
+							action: 'list',
+							limit: 1,
+							[`${selected}After`]: firstPage.pagination[selected],
+						})
+					).result;
 					for (const collection of collections)
-						verify(next[collection]?.length === 1 && (collection === selected ? next[collection][0].id !== firstPage[collection][0].id : next[collection][0].id === firstPage[collection][0].id && next.pagination[collection] === firstPage.pagination[collection]), 'A review history cursor changed another collection or repeated its own page');
-					verify(!('before' in next.proposals[0]) && !('edits' in next.proposals[0]), 'Subsequent review pages exposed full proposal bodies');
+						verify(
+							next[collection]?.length === 1 &&
+								(collection === selected
+									? next[collection][0].id !== firstPage[collection][0].id
+									: next[collection][0].id === firstPage[collection][0].id &&
+										next.pagination[collection] ===
+											firstPage.pagination[collection]),
+							'A review history cursor changed another collection or repeated its own page'
+						);
+					verify(
+						!('before' in next.proposals[0]) && !('edits' in next.proposals[0]),
+						'Subsequent review pages exposed full proposal bodies'
+					);
 				}
-				const full = (await tool(client, 'review_changes', { action: 'get', proposalId: firstPage.proposals[0].id })).result;
-				verify(full.id === firstPage.proposals[0].id && typeof full.before === 'string' && full.before.length > 0 && Array.isArray(full.edits) && full.edits.length > 0, 'Explicit proposal get did not return its complete saved proposal');
-				const workflows = await tool(client, 'editorial_workflow', { action: 'list', limit: 1 });
-				verify(workflows.workflows?.length === 1 && typeof workflows.nextCursor === 'string' && !('scope' in workflows.workflows[0]) && !('steps' in workflows.workflows[0]), 'Workflow list did not return bounded summaries');
-				const nextWorkflow = await tool(client, 'editorial_workflow', { action: 'list', limit: 1, after: workflows.nextCursor });
-				verify(nextWorkflow.workflows?.length === 1 && nextWorkflow.workflows[0].id !== workflows.workflows[0].id && !('scope' in nextWorkflow.workflows[0]) && !('steps' in nextWorkflow.workflows[0]), 'Workflow summary cursor repeated a page or returned full step payloads');
-				const fullWorkflow = (await tool(client, 'editorial_workflow', { action: 'get', workflowId: workflows.workflows[0].id })).workflows[0];
-				verify(fullWorkflow.id === workflows.workflows[0].id && Array.isArray(fullWorkflow.scope) && fullWorkflow.scope.length > 0 && Array.isArray(fullWorkflow.steps) && fullWorkflow.steps.some((step) => 'result' in step), 'Workflow get lost its complete scope and step results');
-				verify(await hash(originalFile) === originalRevision, 'History summary operations changed the manuscript');
+				const full = (
+					await tool(client, 'review_changes', {
+						action: 'get',
+						proposalId: firstPage.proposals[0].id,
+					})
+				).result;
+				verify(
+					full.id === firstPage.proposals[0].id &&
+						typeof full.before === 'string' &&
+						full.before.length > 0 &&
+						Array.isArray(full.edits) &&
+						full.edits.length > 0,
+					'Explicit proposal get did not return its complete saved proposal'
+				);
+				const workflows = await tool(client, 'editorial_workflow', {
+					action: 'list',
+					limit: 1,
+				});
+				verify(
+					workflows.workflows?.length === 1 &&
+						typeof workflows.nextCursor === 'string' &&
+						!('scope' in workflows.workflows[0]) &&
+						!('steps' in workflows.workflows[0]),
+					'Workflow list did not return bounded summaries'
+				);
+				const nextWorkflow = await tool(client, 'editorial_workflow', {
+					action: 'list',
+					limit: 1,
+					after: workflows.nextCursor,
+				});
+				verify(
+					nextWorkflow.workflows?.length === 1 &&
+						nextWorkflow.workflows[0].id !== workflows.workflows[0].id &&
+						!('scope' in nextWorkflow.workflows[0]) &&
+						!('steps' in nextWorkflow.workflows[0]),
+					'Workflow summary cursor repeated a page or returned full step payloads'
+				);
+				const fullWorkflow = (
+					await tool(client, 'editorial_workflow', {
+						action: 'get',
+						workflowId: workflows.workflows[0].id,
+					})
+				).workflows[0];
+				verify(
+					fullWorkflow.id === workflows.workflows[0].id &&
+						Array.isArray(fullWorkflow.scope) &&
+						fullWorkflow.scope.length > 0 &&
+						Array.isArray(fullWorkflow.steps) &&
+						fullWorkflow.steps.some((step) => 'result' in step),
+					'Workflow get lost its complete scope and step results'
+				);
+				verify(
+					(await hash(originalFile)) === originalRevision,
+					'History summary operations changed the manuscript'
+				);
 			});
 			await tool(client, 'close_project', {});
 		} finally {
@@ -1193,10 +1380,18 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 		try {
 			await check('installed-eager-unicode-result-retrieval', async () => {
 				const listing = await eager.listTools();
-				verify(listing.tools.some((item) => item.name === 'read_result') && listing.tools.some((item) => item.name === 'review_changes'), 'Eager startup omitted the result reader or eagerly registered domain tools');
+				verify(
+					listing.tools.some((item) => item.name === 'read_result') &&
+						listing.tools.some((item) => item.name === 'review_changes'),
+					'Eager startup omitted the result reader or eagerly registered domain tools'
+				);
 				await tool(eager, 'open_project', { path: largeFixture.projectPath });
 				await readCompiledResult(eager, largeFixture.text);
-				verify((await readFile(largeFixture.file)).equals(largeFixture.raw) && await hash(originalFile) === originalRevision, 'Eager result retrieval changed fixture manuscript bytes');
+				verify(
+					(await readFile(largeFixture.file)).equals(largeFixture.raw) &&
+						(await hash(originalFile)) === originalRevision,
+					'Eager result retrieval changed fixture manuscript bytes'
+				);
 				await tool(eager, 'close_project', {});
 			});
 		} finally {

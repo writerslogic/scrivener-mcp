@@ -1,5 +1,6 @@
 import { CompilationService } from '../services/compilation-service.js';
 import type { RTFContent } from '../services/parsers/rtf-handler.js';
+import { getAccurateWordCount } from '../utils/text-metrics.js';
 import { AICompilationService } from '../services/compilation/ai-compiler.js';
 import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
@@ -20,7 +21,7 @@ const logger = getLogger('compilation-handlers');
 
 function formatCompileResult(text: string, sectionCount: number, format: string): HandlerResult {
 	const charCount = text.length;
-	const wordCount = text.split(/\s+/).filter(Boolean).length;
+	const wordCount = getAccurateWordCount(text);
 
 	if (charCount <= 4000) {
 		return {

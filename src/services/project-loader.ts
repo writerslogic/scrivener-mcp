@@ -130,7 +130,9 @@ export class ProjectLoader {
 		documents: readonly CreationDocument[]
 	): Promise<void> {
 		if (this.closePromise) throw new Error('Project loader is closing');
-		return this.trackWrite(this.saveProjectData(structure, validateCreationDocuments(documents)));
+		return this.trackWrite(
+			this.saveProjectData(structure, validateCreationDocuments(documents))
+		);
 	}
 
 	private trackWrite(write: Promise<void>): Promise<void> {

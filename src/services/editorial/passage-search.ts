@@ -255,7 +255,8 @@ function chunkDocument(doc: SourceDocument): IndexedPassage[] {
 		}
 		chunks.push({
 			id: createHash('sha256')
-				.update(`${doc.projectId}:${doc.documentId}:${doc.revision}:${start}:${end}`)
+				.update(JSON.stringify([doc.projectId, doc.documentId, doc.revision, start, end]))
+				.update(quote)
 				.digest('hex'),
 			projectId: doc.projectId,
 			documentId: doc.documentId,

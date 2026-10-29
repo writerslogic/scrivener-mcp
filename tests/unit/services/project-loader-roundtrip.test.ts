@@ -292,17 +292,21 @@ describe('ProjectLoader XML round trips', () => {
 		async (mode) => {
 			const structure = await loader.loadProject();
 			const before = JSON.stringify(structure);
-			const failing = async () => { throw new Error('Simulated persistence failure'); };
-			await expect(createDocument(
-				{ title: 'Uncommitted scene', parentId: draftId },
-				{
-					projectStructure: structure,
-					projectPath,
-					...(mode === 'compound'
-						? { commitCreation: failing }
-						: { saveProject: failing }),
-				}
-			)).rejects.toThrow('Simulated persistence failure');
+			const failing = async () => {
+				throw new Error('Simulated persistence failure');
+			};
+			await expect(
+				createDocument(
+					{ title: 'Uncommitted scene', parentId: draftId },
+					{
+						projectStructure: structure,
+						projectPath,
+						...(mode === 'compound'
+							? { commitCreation: failing }
+							: { saveProject: failing }),
+					}
+				)
+			).rejects.toThrow('Simulated persistence failure');
 			expect(JSON.stringify(structure)).toBe(before);
 			expect(await fs.readFile(scrivxPath, 'utf8')).toBe(source);
 		}
@@ -313,8 +317,12 @@ describe('ProjectLoader XML round trips', () => {
 		const before = JSON.stringify(structure);
 		let release!: () => void;
 		let entered!: () => void;
-		const pending = new Promise<void>((resolve) => { release = resolve; });
-		const started = new Promise<void>((resolve) => { entered = resolve; });
+		const pending = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const started = new Promise<void>((resolve) => {
+			entered = resolve;
+		});
 		const creating = createDocument(
 			{ title: 'Staged scene', content: 'Saved text.', parentId: draftId },
 			{
@@ -331,46 +339,59 @@ describe('ProjectLoader XML round trips', () => {
 			}
 		);
 		await started;
-		try { expect(JSON.stringify(structure)).toBe(before); }
-		finally { release(); }
+		try {
+			expect(JSON.stringify(structure)).toBe(before);
+		} finally {
+			release();
+		}
 		const result = await creating;
-		expect(findBinderItemById(structure.ScrivenerProject!.Binder!, result.id)?.Title)
-			.toBe('Staged scene');
+		expect(findBinderItemById(structure.ScrivenerProject!.Binder!, result.id)?.Title).toBe(
+			'Staged scene'
+		);
 	});
 
-	it.each([0, 1, 2, 99, 100, 101])('bounds creation batches at %i items before persistence', async (count) => {
-		const structure = await loader.loadProject();
-		let commits = 0;
-		const creating = createDocuments(
-			Array.from({ length: count }, (_, index) => ({ title: `Scene ${index}` })),
-			{
-				projectStructure: structure,
-				projectPath,
-				commitCreation: async () => { commits++; },
+	it.each([0, 1, 2, 99, 100, 101])(
+		'bounds creation batches at %i items before persistence',
+		async (count) => {
+			const structure = await loader.loadProject();
+			let commits = 0;
+			const creating = createDocuments(
+				Array.from({ length: count }, (_, index) => ({ title: `Scene ${index}` })),
+				{
+					projectStructure: structure,
+					projectPath,
+					commitCreation: async () => {
+						commits++;
+					},
+				}
+			);
+			if (count < 1 || count > 100) {
+				await expect(creating).rejects.toThrow(/1 and 100/);
+				expect(commits).toBe(0);
+			} else {
+				expect(await creating).toHaveLength(count);
+				expect(commits).toBe(1);
 			}
-		);
-		if (count < 1 || count > 100) {
-			await expect(creating).rejects.toThrow(/1 and 100/);
-			expect(commits).toBe(0);
-		} else {
-			expect(await creating).toHaveLength(count);
-			expect(commits).toBe(1);
 		}
-	});
+	);
 
 	it('rejects unsafe split content callbacks before writing or publishing an item', async () => {
 		const structure = await loader.loadProject();
 		const before = JSON.stringify(structure);
 		const written: string[] = [];
-		await expect(createDocument(
-			{ title: 'Unsafe split', content: 'Text.' },
-			{
-				projectStructure: structure,
-				projectPath,
-				writeDocument: async (id) => { written.push(id); },
-				saveProject: () => loader.saveProject(structure),
-			}
-		)).rejects.toThrow(/atomic commitCreation/);
+		await expect(
+			createDocument(
+				{ title: 'Unsafe split', content: 'Text.' },
+				{
+					projectStructure: structure,
+					projectPath,
+					writeDocument: async (id) => {
+						written.push(id);
+					},
+					saveProject: () => loader.saveProject(structure),
+				}
+			)
+		).rejects.toThrow(/atomic commitCreation/);
 		expect(written).toEqual([]);
 		expect(JSON.stringify(structure)).toBe(before);
 		expect(await fs.readFile(scrivxPath, 'utf8')).toBe(source);

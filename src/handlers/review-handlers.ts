@@ -20,6 +20,7 @@ const input = z
 		proposalsAfter: z.string().min(1).max(160).optional(),
 		applicationsAfter: z.string().min(1).max(160).optional(),
 		batchesAfter: z.string().min(1).max(160).optional(),
+		creationsAfter: z.string().min(1).max(160).optional(),
 		documentId: uuid.optional(),
 		proposalId: uuid.optional(),
 		proposalIds: z.array(uuid).min(1).max(100).optional(),
@@ -103,6 +104,12 @@ export const reviewChangesHandler: ToolDefinition = {
 				maxLength: 160,
 				description: 'Batch cursor from result.pagination.batches.',
 			},
+			creationsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Creation operation cursor from result.pagination.creations.',
+			},
 			documentId: { type: 'string', description: 'Source document UUID for a proposal.' },
 			proposalId: {
 				type: 'string',
@@ -181,7 +188,18 @@ export const reviewChangesHandler: ToolDefinition = {
 		let result: object;
 		switch (request.action) {
 			case 'list':
-				result = review.history(request);
+				{
+					const history = review.history(request);
+					const creations = review.creationHistory({
+						after: request.creationsAfter,
+						limit: request.limit,
+					});
+					result = {
+						...history,
+						creationOperations: creations.items,
+						pagination: { ...history.pagination, creations: creations.nextCursor },
+					};
+				}
 				break;
 			case 'get':
 				result = review.get(required(request.proposalId, 'proposalId'));
@@ -230,7 +248,18 @@ export const reviewChangesHandler: ToolDefinition = {
 				});
 				break;
 			case 'recover':
-				result = { applications: await review.recover() };
+				{
+					const applications = await review.recover();
+					const creations = review.creationHistory({
+						after: request.creationsAfter,
+						limit: request.limit,
+					});
+					result = {
+						applications,
+						creationOperations: creations.items,
+						pagination: { creations: creations.nextCursor },
+					};
+				}
 				break;
 		}
 		return {

@@ -95,13 +95,15 @@ describe('local passage retrieval', () => {
 	});
 
 	it('reindexes changed canonical text even when the raw source revision is unchanged', async () => {
+		reviseDocument(0, 'Alpha amber.');
 		await search.refresh();
 		const revision = documents[0].revision;
-		documents[0] = { ...documents[0], text: 'A singular palimpsest appears here.' };
+		documents[0] = { ...documents[0], text: 'Bravo berry.' };
 		expect((await search.refresh()).changedDocuments).toBe(1);
-		const result = await search.search('palimpsest', { mode: 'keyword' });
+		const result = await search.search('bravo', { mode: 'keyword' });
 		expect(result.results[0]).toMatchObject({ documentId: documents[0].documentId, revision });
-		expect(result.results[0].quote).toContain('palimpsest');
+		expect(result.results[0].quote).toBe('Bravo berry.');
+		expect((await search.search('alpha', { mode: 'keyword' })).results).toHaveLength(0);
 	});
 
 	afterEach(async () => {

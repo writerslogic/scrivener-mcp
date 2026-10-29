@@ -205,9 +205,14 @@ function commitCreations(
 			const plans = documents.map((options) => planCreation(options, binder));
 			const contents = plans
 				.filter((plan) => plan.item.Type === 'Text')
-				.map((plan) => ({ documentId: plan.result.id, content: plan.options.content ?? '' }));
+				.map((plan) => ({
+					documentId: plan.result.id,
+					content: plan.options.content ?? '',
+				}));
 			if (contents.length && context.writeDocument && !context.commitCreation)
-				throw new Error('Document content creation requires an atomic commitCreation callback');
+				throw new Error(
+					'Document content creation requires an atomic commitCreation callback'
+				);
 			const results = plans.map((plan) => applyCreation(plan, stagedContext));
 			if (context.commitCreation) {
 				await context.commitCreation(candidate, contents);

@@ -44,7 +44,9 @@ beforeEach(async () => {
 		() => loader.saveProject(),
 		() => undefined,
 		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
-		async () => { throw new Error('New documents do not require snapshots'); },
+		async () => {
+			throw new Error('New documents do not require snapshots');
+		},
 		(structure, created) => loader.saveProjectWithDocuments(structure, created)
 	);
 });
@@ -56,16 +58,19 @@ afterEach(async () => {
 	await fs.rm(root, { recursive: true, force: true });
 });
 
-test.each(['open', 'unknown'] as const)('creation blocks %s native state before any write', async (state) => {
-	jest.mocked(isProjectOpenInScrivener).mockResolvedValue(state);
-	const original = JSON.stringify(documents.getProjectStructureData());
-	await expect(writer.createDocument('Blocked', 'Private scene.', DRAFT)).rejects.toThrow(
-		state === 'open' ? /open in Scrivener/ : /ambiguous/
-	);
-	expect(JSON.stringify(documents.getProjectStructureData())).toBe(original);
-	expect(await fs.readdir(root)).toEqual([path.basename(file)]);
-	expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
-});
+test.each(['open', 'unknown'] as const)(
+	'creation blocks %s native state before any write',
+	async (state) => {
+		jest.mocked(isProjectOpenInScrivener).mockResolvedValue(state);
+		const original = JSON.stringify(documents.getProjectStructureData());
+		await expect(writer.createDocument('Blocked', 'Private scene.', DRAFT)).rejects.toThrow(
+			state === 'open' ? /open in Scrivener/ : /ambiguous/
+		);
+		expect(JSON.stringify(documents.getProjectStructureData())).toBe(original);
+		expect(await fs.readdir(root)).toEqual([path.basename(file)]);
+		expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
+	}
+);
 
 test('text and folder creation publish native binder items together with exact saved content', async () => {
 	const folder = await writer.createDocument('Part', '', DRAFT, 'Folder');
@@ -76,9 +81,13 @@ test('text and folder creation publish native binder items together with exact s
 	expect(saved).not.toContain('<UUID>');
 	expect(await documents.readDocument(id)).toBe('Tokyo 東京 — a promise.');
 	expect(documents.getProjectStructureData()).toBe(loader.getProjectStructure());
-	expect(findBinderItemById(documents.getProjectStructureData()!.ScrivenerProject!.Binder!, id)?.Title)
-		.toBe('Café 🌙');
-	await expect(fs.lstat(path.join(root, 'Files', 'Data', folder))).rejects.toMatchObject({ code: 'ENOENT' });
+	expect(
+		findBinderItemById(documents.getProjectStructureData()!.ScrivenerProject!.Binder!, id)
+			?.Title
+	).toBe('Café 🌙');
+	await expect(fs.lstat(path.join(root, 'Files', 'Data', folder))).rejects.toMatchObject({
+		code: 'ENOENT',
+	});
 	expect(await loader.isProjectModified()).toBe(false);
 });
 
@@ -86,8 +95,9 @@ test('a stale binder rejects creation without a phantom item or untracked docume
 	const original = JSON.stringify(documents.getProjectStructureData());
 	const external = SOURCE.replace('<Title>Draft</Title>', '<Title>External Draft</Title>');
 	await fs.writeFile(file, external);
-	await expect(writer.createDocument('Rejected', 'Do not orphan this scene.', DRAFT))
-		.rejects.toThrow(/stale.*revision/i);
+	await expect(
+		writer.createDocument('Rejected', 'Do not orphan this scene.', DRAFT)
+	).rejects.toThrow(/stale.*revision/i);
 	expect(await fs.readFile(file, 'utf8')).toBe(external);
 	expect(JSON.stringify(documents.getProjectStructureData())).toBe(original);
 	await expect(fs.lstat(path.join(root, 'Files'))).rejects.toMatchObject({ code: 'ENOENT' });
@@ -100,8 +110,12 @@ test('creation retains its admitted binder revision across a paused backup and i
 	documents.setProjectStructure(structure);
 	let entered!: () => void;
 	let release!: () => void;
-	const started = new Promise<void>((resolve) => { entered = resolve; });
-	const gate = new Promise<void>((resolve) => { release = resolve; });
+	const started = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
 	const backup = loader.createBackup.bind(loader);
 	jest.spyOn(loader, 'createBackup').mockImplementationOnce(async () => {
 		entered();
@@ -109,12 +123,17 @@ test('creation retains its admitted binder revision across a paused backup and i
 		return backup();
 	});
 	const creation = writer.createDocument('Paused creation', 'Do not orphan.', DRAFT);
-	const outcome = creation.then(() => undefined, (error: unknown) => error);
+	const outcome = creation.then(
+		() => undefined,
+		(error: unknown) => error
+	);
 	await started;
 	try {
 		findBinderItemById(structure.ScrivenerProject!.Binder!, DRAFT)!.Title = 'Intervening title';
 		await loader.saveProject(structure);
-	} finally { release(); }
+	} finally {
+		release();
+	}
 	const failure = await outcome;
 	expect(failure).toBeInstanceOf(Error);
 	expect((failure as Error).message).toMatch(/stale.*revision/i);
@@ -126,8 +145,9 @@ test('creation retains its admitted binder revision across a paused backup and i
 
 test('unrepresentable new text fails before the compound operation acquires persistent state', async () => {
 	const original = JSON.stringify(documents.getProjectStructureData());
-	await expect(writer.createDocument('Whitespace', ' leading space', DRAFT))
-		.rejects.toThrow(/round-trip exactly/);
+	await expect(writer.createDocument('Whitespace', ' leading space', DRAFT)).rejects.toThrow(
+		/round-trip exactly/
+	);
 	expect(await fs.readdir(root)).toEqual([path.basename(file)]);
 	expect(JSON.stringify(documents.getProjectStructureData())).toBe(original);
 	expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
@@ -140,13 +160,18 @@ test('compound plans validate identities, payload types and allocation counts be
 		null,
 		[{ documentId: '../escape', raw: 'text' }],
 		[{ documentId: DOCUMENT, raw: 17 }],
-		[{ documentId: id, raw: 'one' }, { documentId: id.toLowerCase(), raw: 'two' }],
+		[
+			{ documentId: id, raw: 'one' },
+			{ documentId: id.toLowerCase(), raw: 'two' },
+		],
 		Array.from({ length: 101 }, () => ({ documentId: DOCUMENT, raw: 'text' })),
 	]) {
-		await expect(coordinator.commitProjectCreation(file, SOURCE, {
-			expectedRevision: documentRevision(SOURCE),
-			documents: plan as unknown as Array<{ documentId: string; raw: string }>,
-		})).rejects.toThrow(/creation|identity/i);
+		await expect(
+			coordinator.commitProjectCreation(file, SOURCE, {
+				expectedRevision: documentRevision(SOURCE),
+				documents: plan as unknown as Array<{ documentId: string; raw: string }>,
+			})
+		).rejects.toThrow(/creation|identity/i);
 	}
 	expect(await fs.readdir(root)).toEqual([path.basename(file)]);
 	expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
@@ -165,17 +190,26 @@ test.each([false, true])(
 					const [id] = await fs.readdir(data);
 					await fs.writeFile(path.join(data, id, 'content.rtf'), externalRaw);
 				}
-				throw Object.assign(new Error('Synthetic binder write failure'), { code: 'ENOSPC' });
+				throw Object.assign(new Error('Synthetic binder write failure'), {
+					code: 'ENOSPC',
+				});
 			}
 			await rename(source, target);
 		});
-		await expect(writer.createDocument('Rejected scene', 'Staged original.', DRAFT))
-			.rejects.toThrow(/binder write failure|No space left/i);
+		await expect(
+			writer.createDocument('Rejected scene', 'Staged original.', DRAFT)
+		).rejects.toThrow(/binder write failure|No space left/i);
 		expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
 		expect(JSON.stringify(documents.getProjectStructureData())).toBe(original);
 		const summary = documents.getMutationCoordinator().listCreations({ limit: 1 }).items[0];
 		expect(summary.creationOutcome).toBe(changed ? 'conflicted' : 'rolled-back');
-		const body = path.join(root, 'Files', 'Data', summary.creationSummary[0].documentId, 'content.rtf');
+		const body = path.join(
+			root,
+			'Files',
+			'Data',
+			summary.creationSummary[0].documentId,
+			'content.rtf'
+		);
 		if (changed) expect(await fs.readFile(body, 'utf8')).toBe(externalRaw);
 		else await expect(fs.lstat(body)).rejects.toMatchObject({ code: 'ENOENT' });
 	}
@@ -184,7 +218,10 @@ test.each([false, true])(
 test('replaying a committed operation returns its receipt without rewriting a later saved edit', async () => {
 	const coordinator = documents.getMutationCoordinator();
 	const raw = new RTFHandler().convertToRTF('Created text.');
-	const after = SOURCE.replace('</Binder>', `<BinderItem UUID="${DOCUMENT}" Type="Text"><Title>Created</Title></BinderItem></Binder>`);
+	const after = SOURCE.replace(
+		'</Binder>',
+		`<BinderItem UUID="${DOCUMENT}" Type="Text"><Title>Created</Title></BinderItem></Binder>`
+	);
 	const options = {
 		operationId: randomUUID(),
 		expectedRevision: documentRevision(SOURCE),
@@ -197,9 +234,12 @@ test('replaying a committed operation returns its receipt without rewriting a la
 	expect(await coordinator.commitProjectCreation(file, after, options)).toEqual(receipt);
 	expect(await fs.readFile(body, 'utf8')).toBe(external);
 	expect(await fs.readFile(file, 'utf8')).toBe(after);
-	await expect(coordinator.commitProjectCreation(file, after, {
-		...options, documents: [{ documentId: DOCUMENT, raw: external }],
-	})).rejects.toThrow(/different content/);
+	await expect(
+		coordinator.commitProjectCreation(file, after, {
+			...options,
+			documents: [{ documentId: DOCUMENT, raw: external }],
+		})
+	).rejects.toThrow(/different content/);
 	expect(coordinator.listCreations().items).toHaveLength(1);
 });
 
@@ -238,7 +278,10 @@ test.each([
 	'restart reconciles binder=%s/body=%s as %s without replacing external bytes',
 	async (binder, body, outcome) => {
 		const raw = new RTFHandler().convertToRTF('Staged scene. Café 🌙');
-		const afterRaw = SOURCE.replace('</Binder>', `<BinderItem UUID="${DOCUMENT}" Type="Text"><Title>New</Title></BinderItem></Binder>`);
+		const afterRaw = SOURCE.replace(
+			'</Binder>',
+			`<BinderItem UUID="${DOCUMENT}" Type="Text"><Title>New</Title></BinderItem></Binder>`
+		);
 		const record: MutationRecord = {
 			id: randomUUID(),
 			documentId: path.basename(file),
@@ -259,15 +302,21 @@ test.each([
 		try {
 			store.put('mutations', record.id, record);
 			store.put('mutation-pending', record.id, { id: record.id });
-		} finally { store.close(); }
+		} finally {
+			store.close();
+		}
 		const bodyPath = path.join(root, 'Files', 'Data', DOCUMENT, 'content.rtf');
 		const externalBody = new RTFHandler().convertToRTF('A saved external edit.');
 		if (body !== 'missing') {
 			await fs.mkdir(path.dirname(bodyPath), { recursive: true });
 			await fs.writeFile(bodyPath, body === 'staged' ? raw : externalBody);
 		}
-		const savedBinder = binder === 'before' ? SOURCE : binder === 'after' ? afterRaw
-			: SOURCE.replace('<Title>Draft</Title>', '<Title>External Draft</Title>');
+		const savedBinder =
+			binder === 'before'
+				? SOURCE
+				: binder === 'after'
+					? afterRaw
+					: SOURCE.replace('<Title>Draft</Title>', '<Title>External Draft</Title>');
 		await fs.writeFile(file, savedBinder);
 		const coordinator = new MutationCoordinator(root);
 		try {
@@ -279,19 +328,26 @@ test.each([
 			expect(await fs.readFile(file, 'utf8')).toBe(savedBinder);
 			if (body === 'missing' || outcome === 'rolled-back')
 				await expect(fs.lstat(bodyPath)).rejects.toMatchObject({ code: 'ENOENT' });
-			else expect(await fs.readFile(bodyPath, 'utf8')).toBe(body === 'staged' ? raw : externalBody);
+			else
+				expect(await fs.readFile(bodyPath, 'utf8')).toBe(
+					body === 'staged' ? raw : externalBody
+				);
 			const page = coordinator.listCreations({ limit: 1 });
 			expect(page.items).toHaveLength(1);
 			expect(page.items[0]).toMatchObject({ id: record.id, creationOutcome: outcome });
 			expect(page.items[0]).not.toHaveProperty('beforeRaw');
 			expect(page.items[0]).not.toHaveProperty('creationDocuments');
 			if (outcome !== 'published')
-				await expect(coordinator.commitProjectCreation(file, afterRaw, {
-					expectedRevision: record.beforeRevision,
-					documents: record.creationDocuments!,
-					operationId: record.id,
-				})).rejects.toThrow(/conflict|rolled.back/i);
+				await expect(
+					coordinator.commitProjectCreation(file, afterRaw, {
+						expectedRevision: record.beforeRevision,
+						documents: record.creationDocuments!,
+						operationId: record.id,
+					})
+				).rejects.toThrow(/conflict|rolled.back/i);
 			expect(await fs.readFile(file, 'utf8')).toBe(savedBinder);
-		} finally { await coordinator.close(); }
+		} finally {
+			await coordinator.close();
+		}
 	}
 );
