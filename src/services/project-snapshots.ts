@@ -11,6 +11,7 @@ import { getAccurateWordCount } from '../utils/text-metrics.js';
 import { diffParagraphs, diffWordCounts } from '../utils/text-diff.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import type { DocumentSnapshots, SnapshotContent, SnapshotComparison } from '../project-types.js';
+import { MutationCoordinator } from './editorial/mutation-coordinator.js';
 
 /** Snapshot listing, reading, creation and comparison for a project. */
 export class ProjectSnapshots {
@@ -83,7 +84,17 @@ export class ProjectSnapshots {
 			);
 		}
 
-		const { plainText } = await new RTFHandler().readRTF(found.rtfPath);
+		const reader = new MutationCoordinator(this.projectPath);
+		let raw: string;
+		try {
+			const saved = await reader.readProjectArtifact(found.rtfPath);
+			if (!saved.exists)
+				throw createError(ErrorCode.NOT_FOUND, {}, 'Snapshot was removed before it could be read');
+			raw = saved.raw;
+		} finally {
+			await reader.close();
+		}
+		const { plainText } = await new RTFHandler().parseRTF(raw);
 		const text = plainText ?? '';
 		return {
 			documentId,

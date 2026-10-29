@@ -3,19 +3,61 @@
  * under `Snapshots/<DOC-UUID>.snapshots/`, each containing an `index.xml`
  * (per-snapshot `<Title>`/`<Date>` metadata) and one RTF file per snapshot whose
  * name encodes the snapshot timestamp (`YYYY-MM-DD-HH-MM-SS-ZZZZ.rtf`). Scrivener
- * publishes no schema for these files, so every accessor is defensive: missing
- * directories, absent/renamed elements, and index/RTF count mismatches all
- * degrade to a best-effort result rather than throwing. Read-only.
+ * publishes no schema for these files. Missing snapshots are ordinary absence;
+ * unsafe paths and I/O failures are reported explicitly.
  */
 
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { isValidUUID, createError, ErrorCode } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
 import { safeWriteFile } from '../utils/common.js';
+import type { MutationCoordinator } from './editorial/mutation-coordinator.js';
 
 const logger = getLogger('snapshots');
+const MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024;
+const MAX_DIRECTORY_ENTRIES = 10000;
+
+async function withSnapshotReader<T>(
+	projectPath: string,
+	operation: (reader: MutationCoordinator) => Promise<T>
+): Promise<T> {
+	const { MutationCoordinator } = await import('./editorial/mutation-coordinator.js');
+	const reader = new MutationCoordinator(projectPath);
+	try {
+		return await operation(reader);
+	} finally {
+		await reader.close();
+	}
+}
+
+async function snapshotDirectoryNames(reader: MutationCoordinator, dir: string): Promise<string[]> {
+	reader.assertProjectPath(dir);
+	try {
+		const before = await fs.lstat(dir, { bigint: true });
+		if (!before.isDirectory() || before.isSymbolicLink())
+			throw new Error('Snapshot container must be a regular directory without symlinks');
+		const names: string[] = [];
+		const directory = await fs.opendir(dir);
+		for await (const entry of directory) {
+			if (names.length >= MAX_DIRECTORY_ENTRIES)
+				throw new Error('Snapshot directory exceeds 10000 entries');
+			names.push(entry.name);
+		}
+		reader.assertProjectPath(dir);
+		const after = await fs.lstat(dir, { bigint: true });
+		if (
+			!after.isDirectory() || after.isSymbolicLink() ||
+			before.dev !== after.dev || before.ino !== after.ino || before.mtimeNs !== after.mtimeNs
+		)
+			throw new Error('Snapshot directory changed while listing; retry');
+		return names;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+		throw error;
+	}
+}
 
 /** One snapshot of a single document. */
 export interface SnapshotEntry {
@@ -42,7 +84,7 @@ const PARSE_OPTS = { explicitArray: false, mergeAttrs: true } as const;
 /** Directory holding one document's snapshots, or undefined for an invalid id. */
 function snapshotDir(projectPath: string, documentId: string): string | undefined {
 	if (!isValidUUID(documentId)) return undefined;
-	return path.join(projectPath, 'Snapshots', `${documentId}.snapshots`);
+	return path.resolve(projectPath, 'Snapshots', `${documentId}.snapshots`);
 }
 
 /** Coerce xml2js's single-or-array-or-missing shape into a plain array. */
@@ -72,7 +114,7 @@ export async function parseSnapshotIndex(
 		parsed = await parseStringPromise(xml, PARSE_OPTS);
 	} catch (error) {
 		logger.warn('snapshot index.xml unparseable; ignoring', {
-			error: error instanceof Error ? error.message : String(error),
+			errorType: error instanceof Error ? error.name : 'UnknownError',
 		});
 		return [];
 	}
@@ -88,17 +130,39 @@ export async function parseSnapshotIndex(
 }
 
 /** List the RTF snapshot files in a directory, sorted chronologically by name. */
-async function listSnapshotRtfStems(dir: string): Promise<string[]> {
-	let names: string[];
-	try {
-		names = await fs.readdir(dir);
-	} catch {
-		return []; // no snapshots directory for this document
-	}
-	return names
+async function listSnapshotRtfStems(reader: MutationCoordinator, dir: string): Promise<string[]> {
+	const names = await snapshotDirectoryNames(reader, dir);
+	const snapshots = names
 		.filter((n) => n.toLowerCase().endsWith('.rtf'))
-		.map((n) => n.slice(0, -'.rtf'.length))
-		.sort(); // filenames are ISO-ordered, so lexical sort is chronological
+		.sort();
+	const identities = new Set<string>();
+	for (const name of snapshots) {
+		const identity = name.slice(0, -'.rtf'.length);
+		if (identities.has(identity)) throw new Error('Snapshot filenames have duplicate identities');
+		identities.add(identity);
+		const file = path.join(dir, name);
+		reader.assertProjectPath(file);
+		const entry = await fs.lstat(file);
+		if (!entry.isFile() || entry.isSymbolicLink() || entry.size > MAX_SNAPSHOT_BYTES)
+			throw new Error('Snapshot must be a regular file within the 64 MiB limit');
+	}
+	return snapshots.map((name) => name.slice(0, -'.rtf'.length));
+}
+
+async function readDocumentSnapshots(
+	reader: MutationCoordinator,
+	dir: string,
+	documentId: string
+): Promise<SnapshotEntry[]> {
+	const stems = await listSnapshotRtfStems(reader, dir);
+	const saved = await reader.readProjectArtifact(path.join(dir, 'index.xml'));
+	const index = saved.exists ? await parseSnapshotIndex(saved.raw) : [];
+	return stems.map((snapshotId, i) => ({
+		documentId,
+		snapshotId,
+		title: index[i]?.title ?? '',
+		date: index[i]?.date || snapshotId,
+	}));
 }
 
 /**
@@ -113,26 +177,7 @@ export async function listDocumentSnapshots(
 	const dir = snapshotDir(projectPath, documentId);
 	if (!dir) return [];
 
-	const stems = await listSnapshotRtfStems(dir);
-	if (stems.length === 0) return [];
-
-	let index: Array<{ title: string; date: string }> = [];
-	try {
-		const xml = await fs.readFile(path.join(dir, 'index.xml'), 'utf-8');
-		index = await parseSnapshotIndex(xml);
-	} catch {
-		// index.xml missing/unreadable: expose the RTF files with derived dates.
-	}
-
-	return stems.map((snapshotId, i) => {
-		const meta = index[i];
-		return {
-			documentId,
-			snapshotId,
-			title: meta?.title ?? '',
-			date: meta?.date || snapshotId,
-		};
-	});
+	return withSnapshotReader(projectPath, (reader) => readDocumentSnapshots(reader, dir, documentId));
 }
 
 /**
@@ -140,20 +185,17 @@ export async function listDocumentSnapshots(
  * top-level `Snapshots/` directory; returns `[]` when the project has none.
  */
 export async function listAllSnapshots(projectPath: string): Promise<SnapshotEntry[]> {
-	let names: string[];
-	try {
-		names = await fs.readdir(path.join(projectPath, 'Snapshots'));
-	} catch {
-		return [];
-	}
-
-	const results: SnapshotEntry[] = [];
-	for (const name of names) {
-		if (!name.endsWith('.snapshots')) continue;
-		const documentId = name.slice(0, -'.snapshots'.length);
-		results.push(...(await listDocumentSnapshots(projectPath, documentId)));
-	}
-	return results;
+	return withSnapshotReader(projectPath, async (reader) => {
+		const names = await snapshotDirectoryNames(reader, path.resolve(projectPath, 'Snapshots'));
+		const results: SnapshotEntry[] = [];
+		for (const name of names) {
+			if (!name.endsWith('.snapshots')) continue;
+			const documentId = name.slice(0, -'.snapshots'.length);
+			const dir = snapshotDir(projectPath, documentId);
+			if (dir) results.push(...(await readDocumentSnapshots(reader, dir, documentId)));
+		}
+		return results;
+	});
 }
 
 /**
@@ -175,7 +217,16 @@ export async function findSnapshot(
 		(s) => s.snapshotId === snapshotId
 	);
 	if (!entry) return undefined;
-	return { entry, rtfPath: path.join(dir, `${entry.snapshotId}.rtf`) };
+	return withSnapshotReader(projectPath, async (reader) => {
+		const names = await snapshotDirectoryNames(reader, dir);
+		const name = names.find((name) =>
+			name.toLowerCase().endsWith('.rtf') && name.slice(0, -'.rtf'.length) === entry.snapshotId
+		);
+		if (!name) return undefined;
+		const rtfPath = path.join(dir, name);
+		reader.assertProjectPath(rtfPath);
+		return { entry, rtfPath };
+	});
 }
 
 /** Zero-pad a number to two digits. */
@@ -255,7 +306,7 @@ export async function planSnapshot(
 	)
 		throw createError(ErrorCode.INVALID_INPUT, {}, 'Invalid snapshot identity, title, or date');
 	const { stem: baseStem, indexDate } = formatSnapshotStamp(date);
-	const existing = await listSnapshotRtfStems(dir);
+	const existing = await withSnapshotReader(projectPath, (reader) => listSnapshotRtfStems(reader, dir));
 	let stem = baseStem;
 	for (let n = 1; existing.includes(stem); n++) stem = `${baseStem}-${n}`;
 	return { documentId, snapshotId: stem, title: title.trim(), date: indexDate };
@@ -275,72 +326,76 @@ export async function writePlannedSnapshot(
 		typeof entry.date !== 'string' ||
 		entry.date.length > 40 ||
 		typeof content !== 'string' ||
-		Buffer.byteLength(content) > 64 * 1024 * 1024
+		Buffer.byteLength(content) > MAX_SNAPSHOT_BYTES
 	)
 		throw new Error('Invalid planned snapshot');
 	const rtfPath = path.join(dir, `${entry.snapshotId}.rtf`);
 	const indexPath = path.join(dir, 'index.xml');
-	const priorStems = await listSnapshotRtfStems(dir);
-	const otherStems = priorStems.filter((stem) => stem !== entry.snapshotId);
-	const completedStems = [...otherStems, entry.snapshotId].sort();
-	let prior: Array<{ title: string; date: string }> | undefined;
-	try {
-		const xml = await fs.readFile(indexPath, 'utf8');
-		const parsed = (await parseStringPromise(xml, PARSE_OPTS)) as {
-			Snapshots?: { Snapshot?: unknown } | string;
-		};
-		if (parsed.Snapshots === undefined) throw new Error('Invalid snapshot index root');
-		const root = typeof parsed.Snapshots === 'object' ? parsed.Snapshots : undefined;
-		prior = asArray(root?.Snapshot).map((raw) => {
-			const record =
-				raw && typeof raw === 'object' ? (raw as { Title?: unknown; Date?: unknown }) : {};
-			return { title: textOf(record.Title), date: textOf(record.Date) };
-		});
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-	}
-	const metadata = new Map<string, { title: string; date: string }>();
-	if (prior === undefined) {
-		for (const stem of otherStems) {
-			const stamp = stem.match(
-				/^(\d{4}-\d{2}-\d{2})-(\d{2})-(\d{2})-(\d{2})([+-]\d{4})(?:-\d+)?$/
-			);
-			if (!stamp)
-				throw new Error(
-					'An unindexed snapshot has an unsupported timestamp; inspect its metadata before retrying'
-				);
-			metadata.set(stem, {
-				title: '',
-				date: `${stamp[1]} ${stamp[2]}:${stamp[3]}:${stamp[4]} ${stamp[5]}`,
+	return withSnapshotReader(projectPath, async (reader) => {
+		reader.assertProjectPath(indexPath);
+		reader.assertProjectPath(rtfPath);
+		const priorStems = await listSnapshotRtfStems(reader, dir);
+		const otherStems = priorStems.filter((stem) => stem !== entry.snapshotId);
+		const completedStems = [...otherStems, entry.snapshotId].sort();
+		let prior: Array<{ title: string; date: string }> | undefined;
+		const savedIndex = await reader.readProjectArtifact(indexPath);
+		if (savedIndex.exists) {
+			const parsed = (await parseStringPromise(savedIndex.raw, PARSE_OPTS)) as {
+				Snapshots?: { Snapshot?: unknown } | string;
+			};
+			if (parsed.Snapshots === undefined) throw new Error('Invalid snapshot index root');
+			const root = typeof parsed.Snapshots === 'object' ? parsed.Snapshots : undefined;
+			prior = asArray(root?.Snapshot).map((raw) => {
+				const record =
+					raw && typeof raw === 'object' ? (raw as { Title?: unknown; Date?: unknown }) : {};
+				return { title: textOf(record.Title), date: textOf(record.Date) };
 			});
 		}
-	} else if (prior.length === completedStems.length) {
-		for (let index = 0; index < completedStems.length; index++)
-			metadata.set(completedStems[index], prior[index]);
-		const planned = metadata.get(entry.snapshotId);
-		if (planned?.title !== entry.title || planned.date !== entry.date)
-			throw new Error('Planned snapshot ID conflicts with existing snapshot metadata');
-	} else if (prior.length === otherStems.length) {
-		for (let index = 0; index < otherStems.length; index++)
-			metadata.set(otherStems[index], prior[index]);
-	} else
-		throw new Error(
-			'Snapshot index and saved files do not agree; inspect the existing snapshots before retrying'
-		);
-	metadata.set(entry.snapshotId, { title: entry.title, date: entry.date });
-	await fs.mkdir(dir, { recursive: true });
-	try {
-		const existing = await fs.readFile(rtfPath, 'utf8');
-		if (existing !== content)
-			throw new Error('Planned snapshot ID already contains different saved content');
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-		await safeWriteFile(rtfPath, content);
-	}
-	const ordered = [...metadata.entries()]
-		.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-		.map(([, value]) => value);
-	await safeWriteFile(indexPath, buildSnapshotIndex(ordered));
+		const metadata = new Map<string, { title: string; date: string }>();
+		if (prior === undefined) {
+			for (const stem of otherStems) {
+				const stamp = stem.match(
+					/^(\d{4}-\d{2}-\d{2})-(\d{2})-(\d{2})-(\d{2})([+-]\d{4})(?:-\d+)?$/
+				);
+				if (!stamp)
+					throw new Error(
+						'An unindexed snapshot has an unsupported timestamp; inspect its metadata before retrying'
+					);
+				metadata.set(stem, {
+					title: '',
+					date: `${stamp[1]} ${stamp[2]}:${stamp[3]}:${stamp[4]} ${stamp[5]}`,
+				});
+			}
+		} else if (prior.length === completedStems.length) {
+			for (let index = 0; index < completedStems.length; index++)
+				metadata.set(completedStems[index], prior[index]);
+			const planned = metadata.get(entry.snapshotId);
+			if (planned?.title !== entry.title || planned.date !== entry.date)
+				throw new Error('Planned snapshot ID conflicts with existing snapshot metadata');
+		} else if (prior.length === otherStems.length) {
+			for (let index = 0; index < otherStems.length; index++)
+				metadata.set(otherStems[index], prior[index]);
+		} else
+			throw new Error(
+				'Snapshot index and saved files do not agree; inspect the existing snapshots before retrying'
+			);
+		metadata.set(entry.snapshotId, { title: entry.title, date: entry.date });
+		reader.assertProjectPath(dir);
+		await fs.mkdir(dir, { recursive: true });
+		const existing = await reader.readProjectArtifact(rtfPath);
+		if (existing.exists) {
+			if (existing.raw !== content)
+				throw new Error('Planned snapshot ID already contains different saved content');
+		} else {
+			reader.assertProjectPath(rtfPath);
+			await safeWriteFile(rtfPath, content);
+		}
+		const ordered = [...metadata.entries()]
+			.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+			.map(([, value]) => value);
+		reader.assertProjectPath(indexPath);
+		await safeWriteFile(indexPath, buildSnapshotIndex(ordered));
+	});
 }
 
 export async function createSnapshot(
