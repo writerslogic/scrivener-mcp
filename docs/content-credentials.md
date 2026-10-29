@@ -30,42 +30,42 @@ For a manuscript, first open the project and resolve export preflight findings. 
 step requires an open project; the credential steps do not. For example, after the chosen
 format/mode has passed the native compatibility gate on the target platform:
 
-1. Export a beta-reader DOCX with `export_manuscript`:
+1. Export a PDF with `export_project`:
 
    ```json
    {
-     "action": "export",
-     "preset": "beta-reader",
-     "outputPath": "/absolute/path/beta.docx"
+     "format": "pdf",
+     "outputPath": "/absolute/path/manuscript.pdf"
    }
    ```
 
-   An alternative file-producing call is `export_project` with
-   `{"format":"pdf","outputPath":"/absolute/path/manuscript.pdf"}`. Its Markdown, HTML and
-   JSON modes return inline content; signing requires an actual saved file.
+   `export_manuscript` also produces preset DOCX/EPUB files, for example
+   `{"action":"export","preset":"beta-reader","outputPath":"/absolute/path/beta.docx"}`.
+   Credential support for their ZIP containers remains subject to the limitations below.
+   `export_project` Markdown, HTML and JSON modes return inline content; signing requires a saved file.
 
-2. Create a detached credential with `sign_content_credentials`:
+2. Create a new embedded PDF with `sign_content_credentials`:
 
    ```json
    {
-     "assetPath": "/absolute/path/beta.docx",
-     "outputPath": "/absolute/path/beta.docx.c2pa",
-     "mode": "sidecar",
-     "title": "Manuscript beta draft"
+     "assetPath": "/absolute/path/manuscript.pdf",
+     "outputPath": "/absolute/path/manuscript-signed.pdf",
+     "mode": "embedded",
+     "title": "Manuscript review draft"
    }
    ```
 
-3. Check that asset/manifest pair with `validate_content_credentials`:
+3. Check that signed file with `validate_content_credentials`:
 
    ```json
    {
-     "assetPath": "/absolute/path/beta.docx",
-     "manifestPath": "/absolute/path/beta.docx.c2pa"
+     "assetPath": "/absolute/path/manuscript-signed.pdf"
    }
    ```
 
-For an evidence-backed embedded format, select `embedded`, choose a fresh output path with the
-matching asset extension, then validate that signed output without `manifestPath`.
+For an evidence-backed detached format, select `sidecar`, choose a new `.c2pa` output, then
+validate the original asset with that sidecar supplied as `manifestPath`. Detached MP3, FLAC and
+PDF currently have known failures and must not be substituted into that workflow.
 `sourceRevision` is the SHA-256 of the input to each operation: detached signing/validation use
 the original asset, while embedded validation reads the newly signed file.
 
@@ -106,7 +106,8 @@ binaries; that is separate from offline credential operations.
 Always read `integrity`, `trust`, `trustPolicy` and `validationCodes` alongside `state`. A
 self-signed development certificate is not publicly trusted. Signing does not automatically
 assert a human author, add WritersProof attestations or classify optional AI-assisted work as
-human-created.
+human-created. Official trust-list refresh procedures and formal security review remain preparation
+work before program claims; local test-root validation does not establish either process.
 
 ## Coverage and evidence
 
@@ -115,6 +116,22 @@ tests**. Embedded and detached coverage are separate. Experimental entries, unte
 unsupported embedded modes must not become intake claims. Aliases/extensions are not additional
 independently tested formats. A generic whole-file detached hash binds bytes; it does not validate
 the internal structure of DOCX, EPUB, a 3D model or another file format.
+
+The current partial native run covers **32 fixtures: 27 passing and five with known mode
+failures**. This is not a passing final matrix. Detached MP3, FLAC and PDF report rewritten-hash
+mismatches; embedded PDF has verified `trust: trusted` evidence. Prefer the embedded MP3/FLAC paths
+only where their per-format evidence passes. Stock SDK handling of deflated DOCX/EPUB ZIP files is
+currently unsupported.
+
+DOCX/EPUB preparation is being implemented and is not yet an intake claim. The planned path copies
+an unsigned ZIP to a new STORE archive while preserving entries and asserting the original source
+hash. The original never changes. Existing credentials that cannot be read must fail closed rather
+than be stripped or silently regenerated. Require a passing end-to-end matrix before claiming this
+prepared-output path or replacing the original ZIP's validation result with it.
+
+Compressed-manifest **validation has passed** a real PNG `c2cm`/`brob` fixture with trusted
+validation and unchanged source bytes. Capabilities now report `generation: false` and
+`validation: true`; compressed-manifest generation is not implemented.
 
 Use `c2pa_capabilities` for the running installation and
 [`scripts/check-c2pa-compatibility.mjs`](../scripts/check-c2pa-compatibility.mjs) for actual native
@@ -143,46 +160,47 @@ native-operation timeout**, and **two concurrent operations**. Busy operations a
 later explicit retry. Native parsing/signing runs in isolated child processes; failures do not
 authorize overwriting an existing output.
 
-## Intake preparation: 30 items
+## Intake preparation: the 30 questions
 
-This is a preparation worksheet, not a submitted application or a grant of status. Reconcile it
-with the program's current intake form. Request **both Generator Product and Validator Product**
+The rows follow the supplied questionnaire order. This is preparation, not a submitted application
+or a grant of status. Reconcile final answers with the current program form and passing evidence.
+Request **both Generator Product and Validator Product**
 roles for the implemented functions; the program handles a separate legal agreement process for
 each requested role. See the
 [C2PA Conformance Program](https://github.com/c2pa-org/conformance-public/blob/main/docs/v0.2/C2PA%20Conformance%20Program.md).
 
-| # | Intake topic | Requested target or intended answer | Evidence or granted status |
+| # | Intake question | Requested target or intended answer | Evidence, limitations or granted status |
 | --- | --- | --- | --- |
-| 1 | Legal entity | WritersLogic, Inc. | Applicant identity confirmed; not program approval. |
-| 2 | Country | US | Confirmed legal country. |
-| 3 | Product/common name | `scrivener-mcp` | Confirmed product CN; certificate issuance remains separate. |
-| 4 | Organizational unit | Leave blank. | No OU supplied; do not invent one. |
-| 5 | Applicant contacts and signatory | Supply authorized legal/business and technical/security contacts. | Contact details and signing authority still require applicant confirmation. |
-| 6 | Product version | 0.14.0 for the new feature submission target. | Local and unreleased; npm remains 0.12.0 at preparation time. |
-| 7 | Product scope | Public local MCP server and its setup tooling. | Private Draftbridge and WritersProof are separate products, not inherited evaluation evidence. |
-| 8 | Generator role | Request Generator Product. | Local claim/signature generation implemented; no role approval granted. |
-| 9 | Validator role | Request Validator Product as well. | Local reading/validation implemented; no role approval granted. |
-| 10 | Product category | Creative application for human-controlled manuscript editing; AI features are optional. | Confirm the program's interpretation before selecting a non-generative category. |
-| 11 | Implementation class | Edge Class: asset, claim and signature processing on the local endpoint. | Describes this implementation; formal classification has not been reviewed. |
-| 12 | Assurance target | Request evaluation for AL1. | Target only; no assurance level awarded. |
-| 13 | Conformance status | Seek assessment after evidence is complete. | `not-assessed`; `maxAssuranceLevel: null`; not listed as conforming. |
-| 14 | Attestation methods | None implemented. | Empty methods list; no borrowed WritersProof/App Attest claims. |
-| 15 | Application/legal status | Prepare the Generator and Validator role processes. | No application or legal agreement submitted/executed for this work. |
-| 16 | Certificates, CA and TSA | Use administrator-provisioned signing credentials; no CA/TSA provider role requested. | No production certificate purchased or enrollment/TSA service implemented. |
-| 17 | Image formats | Select only evidenced MIME types and modes. | Catalog entries alone are insufficient; fill from native JSON results. |
-| 18 | Video formats | Select only evidenced containers and modes. | Do not extend ordinary-file results to fragmented media; untested/experimental entries excluded. |
-| 19 | Audio formats | Select only evidenced MIME types and modes. | A catalog label or extension alias is not a native compatibility result. |
-| 20 | Manuscript/document formats | Select only evidenced PDF/DOCX/EPUB/RTF or other document operations. | Distinguish embedded processing from a detached whole-file binding; no blanket document-format claim. |
-| 21 | Text and structured data | Select only evidenced types/modes. | Experimental embedded-text support is excluded until demonstrated with the pinned binary. |
-| 22 | Fonts, models and archives | Select only evidenced detached/embedded operations. | Generic byte binding does not validate format internals or establish native embedded support. |
-| 23 | Embedded generation/validation | Request coverage for each passing asset format. | Record both operation results; no inherited approval from using an SDK. |
-| 24 | Detached generation/validation | Request coverage for passing asset plus `.c2pa` pairs. | Preserve and validate the original asset together with its sidecar; report mode explicitly. |
-| 25 | Compressed manifests | Claim only demonstrated generation/validation capabilities. | Current capability flags are false for both; no compressed-manifest intake claim. |
-| 26 | Signing-key protection | Encrypted PKCS#8, administrator-only configuration and isolated local signing. | Software-key design implemented; hardware-backed key storage/attestation is not claimed. |
-| 27 | Signer trust | Local, administrator-configured PEM trust roots. | Offline policy result; no public trust-list admission or fresh revocation guarantee. |
-| 28 | Network behavior | Offline credential operations. | No OCSP, remote-manifest or TSA requests; SDK installation is a separate download step. |
-| 29 | Runtime and operational scope | Patched stable Node range above; N-API 10+, bounded assets/reports, two operations. | Platform and native-module coverage must be backed by each target's actual report. |
-| 30 | Submission evidence and claims | Attach passing native matrix, security architecture and accurate claim descriptions. | Matrix/review still pending; no automatic author, human-origin or official conformance assertion. |
+| 1 | Compressed manifests | Validation: supported by the demonstrated fixture. Generation: not implemented. | Real `c2cm`/`brob` PNG validation passed with trusted status and unchanged source; no generation claim. |
+| 2 | Product type | Request both Generator Product and Validator Product. | Functions are implemented locally; neither role has been approved. Each role has its own agreement process. |
+| 3 | Web address | Public repository: https://github.com/writerslogic/scrivener-mcp. | Confirm the preferred submission URL before filing. |
+| 4 | Implementation class | Edge Class. | Assets, claims and signatures are processed on the local endpoint; no formal classification granted. |
+| 5 | Category | Creative application for human-controlled manuscript editing; AI features optional. | Ask the program to confirm any non-generative classification. |
+| 6 | Common name (CN) | `scrivener-mcp` | Confirmed product identity; certificate issuance is separate. |
+| 7 | Organization (O) | WritersLogic, Inc. | Confirmed legal organization. |
+| 8 | Country (C) | US | Confirmed legal country. |
+| 9 | Organizational unit (OU) | Leave blank. | No OU supplied. |
+| 10 | Minimum software version | 0.14.0, intended first feature version. | Full feature version is local prerelease work, not assessed or published; npm remains 0.12.0. Node runtime floors are documented separately above. |
+| 11 | Max Assurance Level | Target AL1 evaluation. | No AL awarded: current `maxAssuranceLevel` is null and conformance is `not-assessed`. |
+| 12 | Attestation methods | None implemented. | Empty methods list; no borrowed WritersProof/App Attest evidence. |
+| 13 | Generate images | Request only the evidenced image-generation subset. | Final Yes/No selection must follow passing generation results; catalog membership alone is insufficient. |
+| 14 | Image generation MIME types | Populate a separate generation list from the final native matrix. | Record each MIME and embedded/detached mode; exclude experimental, untested or failing entries. |
+| 15 | Video generation MIME types | Populate from passing ordinary-file generation results. | Do not infer live, fragmented or per-segment support from a completed-file container test. |
+| 16 | Audio generation MIME types | Select passing MIME/mode pairs; prefer embedded MP3/FLAC where evidenced. | Detached `audio/mpeg` MP3 and `audio/flac` currently have rewritten-hash mismatches; do not claim those modes. |
+| 17 | Document generation MIME types | Embedded `application/pdf` has trusted evidence; other selections await the final matrix. | Detached PDF currently fails. DOCX/EPUB STORE preparation is in progress, not yet a claim; stock deflated ZIP handling is unsupported. |
+| 18 | Text generation MIME types | Select only independently evidenced text MIME/mode pairs. | Generic detached byte binding is distinct from text-format parsing; experimental embedded-text entries are not claimed. |
+| 19 | Generate OTF fonts | Decide from OTF generation evidence and declare its mode. | No unqualified Yes from a font catalog entry or generic byte binding. |
+| 20 | ML-model generation types | Select only model types with passing generation evidence. | A whole-file hash does not validate model internals, training provenance or native embedded support. |
+| 21 | Validate images | Populate an image-validation list from passing validation/tamper results. | Keep this list separate from image generation; compressed PNG validation evidence is recorded above. |
+| 22 | Validate videos | Select only evidenced completed-file video validation modes. | Live streams, fragmented media and segment information are separate questions below. |
+| 23 | Validate audio | Select only passing audio validation modes. | Preserve the MP3/FLAC detached failure exclusions; generation success alone is not validation evidence. |
+| 24 | Validate documents | Embedded PDF has trusted evidence; other MIME/mode selections require final results. | Detached PDF fails currently. Do not report validation of an unreadable original DOCX/EPUB as success for a prepared copy. |
+| 25 | Validate text | Populate only from passing text validation and altered-asset checks. | Distinguish detached whole-file binding from internal text-format validation. |
+| 26 | Validate fonts | Select only evidenced font MIME/mode pairs. | No blanket font validation or format-internals claim. |
+| 27 | Validate ML models | Select only evidenced model MIME/mode pairs. | Hash binding is not model-structure validation or a claim about model training. |
+| 28 | Live streams | Not implemented/exposed by these tools. | No live-stream generation or validation claim. |
+| 29 | fMP4 per segment / verifiable segment information | Not implemented/exposed by these tools. | Ordinary MP4 file results do not establish per-segment generation, validation or verifiable-segment-information support. |
+| 30 | CMAF per segment / verifiable segment information | Not implemented/exposed by these tools. | No CMAF segment-generation, validation or verifiable-segment-information claim. |
 
 The [program overview](https://c2pa.org/conformance/),
 [Generator Product Security Requirements](https://github.com/c2pa-org/conformance-public/blob/main/docs/v0.2/C2PA%20Generator%20Product%20Security%20Requirements.md)
