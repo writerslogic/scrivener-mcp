@@ -509,3 +509,48 @@ Validation uses Node 24.22.2 and local/free resources. The 19 focused handler re
 TypeScript checks passed against the published 0.2.0 binaries; final gate results are retained in
 `logs/analysis-libraries-0.2.0-20261029/`. This dependency update does not resolve the separate
 correctness and safety findings identified by the quality audit.
+
+## Audit remediation, 2026-10-29
+
+Baseline: main `6fc0f9e`, including verified Bluepencil/Narrative Lens 0.2.0 and HMS 0.6.4.
+The user authorized implementation of the audit's highest-value improvements and continued
+main integration. Work proceeds in temporary isolated worker checkouts; the final state retains
+only canonical main. Production fixes, verification and intentional limits are recorded here.
+
+| Finding | Acceptance | Owner / status |
+| --- | --- | --- |
+| C1 RTF integrity | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions | Integrated; styled/Unicode/binary boundary regressions pass |
+| C2 Snapshot containment | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely | Integrated; styled/Unicode/binary boundary regressions pass |
+| C3 Binder admission/CAS | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict | Guard/CAS integrated and focused checks pass; compound creation in progress |
+| C4 Queue isolation | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass |
+| C5 Text exports | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit | Export fix passes; standard compilation hydration and read-error handling under validation |
+| C6 Analysis cache | Context/position identity preserves warm/fresh equivalence, with bounded caching | Integrated; equal-length/shared-prefix/position regressions pass |
+| C7 Equivalent interfaces | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts | Integrated; canonical queued evidence/stale rejection and UTF-8 result paging pass; installed smoke pending |
+| C8 Publication recovery | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts | Same-journal publication integrated; focused validation running |
+| C9 Retrieval fusion | Zero semantic evidence cannot outrank a genuine literal hit before truncation | Integrated; real fallback zero/opposite/positive relevance regressions pass |
+| C10 Resource behavior | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness | SQL-projected cursor pages, 101-match cap and linear source-acquisition fixtures pass; browser/installed checks pending |
+| C11 API contracts | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results | Direct schemas and real source MCP protocol pass; honest generation tests pass |
+| C12 Release verification | Patched runtime, exact source/version/gate identity and pinned verified publisher | 35 preflight regressions, actionlint, real publisher checksum/signature pass; fresh MCPB pending |
+
+Shared contracts: one `MutationCoordinator` journal and guarded saved reader; one existing
+`PersistentStore` and validated `identity/project` UUID for source and queues; existing source
+provenance and facts model; review/application services remain the manuscript mutation boundary.
+Root owns shared types/schemas/migrations, registrations, dependencies, CI, integration and all
+validation. Workers edit only assigned modules/tests and do not install, format or run checks.
+No locks or SQLite transactions span awaits/I/O; retries must identify prior work.
+
+Validation starts with combined focused regressions for each integration batch, followed by the
+complete release gate and installed-package/MCP interactions. Only local/free resources are used;
+provider calls, publication/deployment, real client settings and manuscripts are excluded.
+Performance and broader semantic quality stay ungraded until representative evidence exists.
+Formal conformance, native GUI/hardware certification and a new MCP major remain separate
+investigations rather than inferred successes from source changes.
+
+Integration evidence is retained in `logs/audit-remediation-20261029/`. The controlled 3/8-scene
+fixtures measure source text acquisitions, not end-to-end latency or native RSS. Raw files are
+still read/hashed to detect external changes; the bounded cache avoids repeated parsing only.
+History list contracts intentionally return bounded summaries and stable-ID cursors; full proposal
+or workflow content remains available through explicit `get`. `get_queue_stats` is now public so
+scope and excluded legacy work are inspectable. Standard compilation performs no provider calls.
+A source-entry protocol regression also exposed and fixed a type-only database barrel export that
+prevented the documented `tsx` development entry point from starting.

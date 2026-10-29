@@ -31,19 +31,11 @@ export class ProjectContent {
 	): Promise<string | object> {
 		const documents = [];
 		for (const id of documentIds) {
-			try {
-				const content = await this.documentManager.readDocumentFormatted(id);
-				const doc = await this.getDocumentInfo(id);
-				documents.push({
-					id,
-					content,
-					title: doc.document?.title || 'Untitled',
-				});
-			} catch (error) {
-				logger.warn(`Failed to read document ${id}:`, {
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
+			const content = await this.documentManager.readDocumentFormatted(id);
+			const doc = await this.getDocumentInfo(id);
+			if (!doc.document || doc.document.type !== 'Text')
+				throw new Error('Compilation requires active text documents');
+			documents.push({ id, content, title: doc.document.title || 'Untitled' });
 		}
 
 		return await this.compilationService.compileDocuments(documents, {
@@ -93,13 +85,7 @@ export class ProjectContent {
 
 				let content = '';
 				if (isText) {
-					try {
-						content = await this.readDocument(node.id);
-					} catch (error) {
-						logger.warn(`Structured compile: failed to read ${node.id}`, {
-							error: error instanceof Error ? error.message : String(error),
-						});
-					}
+					content = await this.readDocument(node.id);
 				}
 				entries.push({
 					title: node.title,

@@ -129,14 +129,23 @@ export class ProjectExporter {
 
 	async exportWorkflowPreset(input: WorkflowExportRequest): Promise<Record<string, unknown>> {
 		if (!this.mutationCoordinator || !this.projectPath || !this.readRaw)
-			throw new Error('Durable workflow exports require a project mutation coordinator and raw source reader');
+			throw new Error(
+				'Durable workflow exports require a project mutation coordinator and raw source reader'
+			);
 		if (this.mutationCoordinator.projectPath !== path.resolve(this.projectPath))
 			throw new Error('Workflow export coordinator belongs to another project');
-		if (!input || typeof input.workflowId !== 'string' ||
+		if (
+			!input ||
+			typeof input.workflowId !== 'string' ||
 			!/^[A-Za-z0-9_-]{1,128}$/.test(input.workflowId) ||
-			typeof input.outputPath !== 'string' || input.outputPath.length > 4096 ||
-			input.outputPath.includes('\0') || !path.isAbsolute(input.outputPath))
-			throw new Error('Workflow export requires bounded workflow identity and absolute destination');
+			typeof input.outputPath !== 'string' ||
+			input.outputPath.length > 4096 ||
+			input.outputPath.includes('\0') ||
+			!path.isAbsolute(input.outputPath)
+		)
+			throw new Error(
+				'Workflow export requires bounded workflow identity and absolute destination'
+			);
 		const options: PresetOptions = {
 			preset: 'beta-reader',
 			documentIds: input.documentIds,
@@ -144,48 +153,82 @@ export class ProjectExporter {
 		};
 		validatePresetOptions(options);
 		options.documentIds = options.documentIds?.slice();
-		if (!options.documentIds?.length || !Array.isArray(input.expectedRevisions) ||
-			input.expectedRevisions.length !== options.documentIds.length)
-			throw new Error('Workflow export requires exactly one expected revision for every scoped document');
+		if (
+			!options.documentIds?.length ||
+			!Array.isArray(input.expectedRevisions) ||
+			input.expectedRevisions.length !== options.documentIds.length
+		)
+			throw new Error(
+				'Workflow export requires exactly one expected revision for every scoped document'
+			);
 		const expected = new Map<string, string>();
 		const scoped = new Set(options.documentIds);
 		for (const source of input.expectedRevisions) {
-			if (!source || !scoped.has(source.documentId) || expected.has(source.documentId) ||
-				typeof source.revision !== 'string' || !/^[a-f0-9]{64}$/.test(source.revision))
-				throw new Error('Workflow source revisions must be unique scoped UUID and SHA-256 pairs');
+			if (
+				!source ||
+				!scoped.has(source.documentId) ||
+				expected.has(source.documentId) ||
+				typeof source.revision !== 'string' ||
+				!/^[a-f0-9]{64}$/.test(source.revision)
+			)
+				throw new Error(
+					'Workflow source revisions must be unique scoped UUID and SHA-256 pairs'
+				);
 			expected.set(source.documentId, source.revision);
 		}
-		const sourceRevisions = [...expected].sort(([left], [right]) => left.localeCompare(right))
+		const sourceRevisions = [...expected]
+			.sort(([left], [right]) => left.localeCompare(right))
 			.map(([documentId, revision]) => ({ documentId, revision }));
-		const requestHash = documentRevision(JSON.stringify({
-			version: 1, workflowId: input.workflowId, documentIds: options.documentIds,
-			expectedRevisions: sourceRevisions, outputPath: path.resolve(input.outputPath),
-			preset: options.preset, allowWarnings: options.allowWarnings === true,
-		}));
-		return this.mutationCoordinator.publishExport({
-			operationId: `export-${requestHash}`, requestHash, outputPath: input.outputPath,
-		}, async () => {
-			const { sections, findings } = await this.prepare(options, expected);
-			if (findings.some((finding) => finding.severity === 'error') ||
-				(findings.length && !options.allowWarnings))
-				throw new Error('Beta-reader export preflight requires attention; review findings and acknowledge supported warnings with allowWarnings');
-			const meta = await this.getProjectMetadata();
-			const format = EXPORT_PRESETS[options.preset].format;
-			const buffer = await exportBinary(format, sections, {
-				title: meta.title || 'Untitled', author: meta.author, preset: options.preset,
-			});
-			const validation = await validateExport(buffer, format);
-			return {
-				buffer,
-				result: {
-					format, preset: options.preset, findings,
-					metadata: { exportDate: new Date().toISOString(),
-						documentCount: sections.filter((section) => !section.isFolder).length,
-						validation, sourceRevisions,
+		const requestHash = documentRevision(
+			JSON.stringify({
+				version: 1,
+				workflowId: input.workflowId,
+				documentIds: options.documentIds,
+				expectedRevisions: sourceRevisions,
+				outputPath: path.resolve(input.outputPath),
+				preset: options.preset,
+				allowWarnings: options.allowWarnings === true,
+			})
+		);
+		return this.mutationCoordinator.publishExport(
+			{
+				operationId: `export-${requestHash}`,
+				requestHash,
+				outputPath: input.outputPath,
+			},
+			async () => {
+				const { sections, findings } = await this.prepare(options, expected);
+				if (
+					findings.some((finding) => finding.severity === 'error') ||
+					(findings.length && !options.allowWarnings)
+				)
+					throw new Error(
+						`Beta-reader export preflight: ${findings.map((finding) => finding.message).join(' ')} Review these findings before resuming with allowExportWarnings: true.`
+					);
+				const meta = await this.getProjectMetadata();
+				const format = EXPORT_PRESETS[options.preset].format;
+				const buffer = await exportBinary(format, sections, {
+					title: meta.title || 'Untitled',
+					author: meta.author,
+					preset: options.preset,
+				});
+				const validation = await validateExport(buffer, format);
+				return {
+					buffer,
+					result: {
+						format,
+						preset: options.preset,
+						findings,
+						metadata: {
+							exportDate: new Date().toISOString(),
+							documentCount: sections.filter((section) => !section.isFolder).length,
+							validation,
+							sourceRevisions,
+						},
 					},
-				},
-			};
-		});
+				};
+			}
+		);
 	}
 
 	async preflight(options: PresetOptions): Promise<{
@@ -266,7 +309,8 @@ export class ProjectExporter {
 			for (const section of sections) {
 				if (!section.id || section.isFolder) continue;
 				const raw = captured.get(section.id);
-				if (raw === undefined) throw new Error('Export preflight lost its captured raw source');
+				if (raw === undefined)
+					throw new Error('Export preflight lost its captured raw source');
 				if (/\\(?:pict|object)\b/.test(raw))
 					findings.push({
 						code: 'embedded-media',
@@ -340,10 +384,14 @@ export class ProjectExporter {
 			const raw = isText && this.readRaw ? await this.readRaw(doc.id) : undefined;
 			if (isText && expectedRevisions) {
 				if (raw === undefined || documentRevision(raw) !== expectedRevisions.get(doc.id))
-					throw new Error('Workflow export source revision changed; review the saved manuscript before starting a new workflow');
+					throw new Error(
+						'Workflow export source revision changed; review the saved manuscript before starting a new workflow'
+					);
 				capturedBytes += Buffer.byteLength(raw);
 				if (capturedBytes > 64 * 1024 * 1024)
-					throw new Error('Workflow source snapshot exceeds its 64 MiB raw-content limit');
+					throw new Error(
+						'Workflow source snapshot exceeds its 64 MiB raw-content limit'
+					);
 			}
 			if (raw !== undefined) captured?.set(doc.id, raw);
 			const formatted =

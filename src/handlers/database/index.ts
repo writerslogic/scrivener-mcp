@@ -1,8 +1,8 @@
 export {
-	DatabaseConfig,
+	type DatabaseConfig,
 	DEFAULT_DATABASE_CONFIG,
 	generateDatabasePaths,
-	ProjectDatabasePaths,
+	type ProjectDatabasePaths,
 } from './config.js';
 export { DatabaseService } from './database-service.js';
 export { Neo4jManager } from './neo4j-manager.js';

@@ -131,14 +131,14 @@ You should see the startup tools, including: `open_project`, `get_structure`, `r
 
 ## Semantic search returns no results
 
-- Documents must be opened/read at least once to be indexed in the vector store
-- The JavaScript fallback engine builds its index in memory per session -- it starts empty
-- Try opening the project and reading a few documents before searching
-- Full-text search (`search`) works immediately without indexing; semantic search (`semantic_search`) requires the HMS index and a configured chat provider
+- `search_passages` and `semantic_search` automatically refresh the saved compilable manuscript index; no provider key or prior document reads are needed.
+- The local semantic encoder covers 30 English story concepts. Unsupported concepts, names and specialist vocabulary need keyword or hybrid search.
+- `search` covers the active binder, including research and compile-excluded text; passage search covers the manuscript. Check the intended scope before comparing results.
+- Inspect the returned method, limitations and source revisions. The fallback and native indexes are local; returned passages still follow the AI client's privacy policy.
 
 ## AI-powered features don't work
 
-Provider-backed features (deep analysis, content enhancement, critique, generation, and the current `semantic_search` pipeline) require an Anthropic (Claude), OpenAI, or OpenRouter API key—or, for supported tools, an MCP client that can provide sampling. Claude is preferred for chat and generation when several keys are set (`AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` overrides). HMS indexing and similarity scoring are local and do not use an external embedding API, but `semantic_search` still calls the configured chat provider for query interpretation and result explanations. The server checks multiple locations automatically for each provider:
+Provider-backed features (deep analysis, content enhancement, critique and generation) require an Anthropic (Claude), OpenAI, or OpenRouter API key—or, for supported tools, an MCP client that can provide sampling. Claude is preferred for chat and generation when several keys are set (`AI_PROVIDER=openai` or `AI_PROVIDER=openrouter` overrides). Passage indexing and semantic search are fully local; provider-assisted interpretation or explanations are optional. Generation without an available provider or sampling client returns an actionable error, never placeholder prose. The server checks multiple locations automatically for each provider:
 
 1. `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` environment variables
 2. `~/.env` file

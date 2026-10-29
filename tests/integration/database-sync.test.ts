@@ -206,8 +206,12 @@ describe('database synchronization with real SQLite', () => {
 			},
 		};
 		queue = new JobQueueService(root);
+		await queue.initialize({ sqliteOnly: true, redisUrl: 'redis://127.0.0.1:1' });
+		const initializedDatabase = (
+			queue as unknown as { databaseService: { close(): Promise<void> } }
+		).databaseService;
+		await initializedDatabase.close();
 		Object.assign(queue, {
-			isInitialized: true,
 			databaseService: {
 				syncDocumentData: sync.syncDocumentData.bind(sync),
 				beginTransaction: transactions.begin.bind(transactions),

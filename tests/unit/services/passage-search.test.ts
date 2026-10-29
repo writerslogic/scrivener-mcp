@@ -94,6 +94,16 @@ describe('local passage retrieval', () => {
 		}
 	});
 
+	it('reindexes changed canonical text even when the raw source revision is unchanged', async () => {
+		await search.refresh();
+		const revision = documents[0].revision;
+		documents[0] = { ...documents[0], text: 'A singular palimpsest appears here.' };
+		expect((await search.refresh()).changedDocuments).toBe(1);
+		const result = await search.search('palimpsest', { mode: 'keyword' });
+		expect(result.results[0]).toMatchObject({ documentId: documents[0].documentId, revision });
+		expect(result.results[0].quote).toContain('palimpsest');
+	});
+
 	afterEach(async () => {
 		jest.restoreAllMocks();
 		try {

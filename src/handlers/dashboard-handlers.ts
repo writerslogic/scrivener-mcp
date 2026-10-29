@@ -9,6 +9,9 @@ export const APP_MIME_TYPE = 'text/html;profile=mcp-app';
 const MAX_MENTIONS = 100;
 const input = z
 	.object({
+		proposalsAfter: z.string().min(1).max(160).optional(),
+		applicationsAfter: z.string().min(1).max(160).optional(),
+		findingsAfter: z.string().min(1).max(160).optional(),
 		documentId: z.string().uuid().optional(),
 		offset: z.number().int().min(0).default(0),
 		limit: z.number().int().min(1).max(200).default(50),
@@ -40,6 +43,24 @@ export const dashboardHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			proposalsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Next proposal history cursor.',
+			},
+			applicationsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Next application history cursor.',
+			},
+			findingsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Next continuity findings cursor.',
+			},
 			documentId: {
 				type: 'string',
 				description: 'Optional scene UUID whose saved source context to reveal.',
@@ -108,7 +129,8 @@ export const dashboardHandler: ToolDefinition = {
 									mentions: {
 										type: 'array',
 										maxItems: MAX_MENTIONS,
-										description: 'First 100 located name mentions in saved manuscript order.',
+										description:
+											'First 100 located name mentions in saved manuscript order.',
 										items: {
 											type: 'object',
 											properties: {
@@ -164,6 +186,15 @@ export const dashboardHandler: ToolDefinition = {
 				type: ['object', 'null'],
 				description:
 					'Selected saved scene, up to 20000 UTF-16 characters, with exact document identity and revision; null until selected.',
+			},
+			historyPagination: {
+				type: 'object',
+				description: 'Independent bounded history cursors; null means complete.',
+				properties: {
+					proposals: { type: ['string', 'null'] },
+					applications: { type: ['string', 'null'] },
+					findings: { type: ['string', 'null'] },
+				},
 			},
 			pagination: {
 				type: 'object',
@@ -261,17 +292,26 @@ export const dashboardHandler: ToolDefinition = {
 				metadata: info.document.customMetadata ?? {},
 			};
 		}
+		const history = review.history({
+			limit: 20,
+			proposalsAfter: request.proposalsAfter,
+			applicationsAfter: request.applicationsAfter,
+		});
+		const findingPage = continuity.listPage({ limit: 20, after: request.findingsAfter });
 		const result = {
 			projectTitle: projectMetadata.title || project.title,
 			projectId: source.projectId,
 			uiSupported: context.uiSupported === true,
 			binder,
 			scenes,
-			findings: continuity.list(),
-			proposals: review
-				.list()
-				.map(({ before, ...proposal }) => ({ ...proposal, beforeLength: before.length })),
-			applications: review.listApplications(),
+			findings: findingPage.items,
+			proposals: history.proposals,
+			applications: history.applications,
+			historyPagination: {
+				proposals: history.pagination.proposals,
+				applications: history.pagination.applications,
+				findings: findingPage.nextCursor,
+			},
 			context: selected
 				? {
 						...selected,

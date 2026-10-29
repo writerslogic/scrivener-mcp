@@ -99,7 +99,6 @@ const HIDDEN_TOOLS = new Set<string>([
 	'hhm_dream',
 	'store_chapter_order',
 	'sync_to_neo4j',
-	'get_queue_stats',
 ]);
 
 function visibleTools(skill: Skill): ToolDefinition[] {

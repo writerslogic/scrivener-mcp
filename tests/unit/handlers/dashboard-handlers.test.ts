@@ -42,8 +42,14 @@ async function appearances(text: string, names: string[]): Promise<Dashboard> {
 	const services = {
 		source: { projectId: PROJECT, list: async () => [document] },
 		bible: { listFacts: async () => facts },
-		continuity: { list: () => [] },
-		review: { list: () => [], listApplications: () => [] },
+		continuity: { listPage: () => ({ items: [], nextCursor: null }) },
+		review: {
+			history: () => ({
+				proposals: [],
+				applications: [],
+				pagination: { proposals: null, applications: null },
+			}),
+		},
 	} as unknown as EditorialServices;
 	const context = {
 		project: {
@@ -72,7 +78,10 @@ test.each([0, 99, 100, 101, 10000])(
 		const fragment = `${prefix}${name} 😃\n`;
 		const text = fragment.repeat(count);
 		let scans = 0;
-		jest.spyOn(RegExp.prototype, 'exec').mockImplementation(function (this: RegExp, value: string) {
+		jest.spyOn(RegExp.prototype, 'exec').mockImplementation(function (
+			this: RegExp,
+			value: string
+		) {
 			if (
 				value === text &&
 				this.flags === 'giu' &&

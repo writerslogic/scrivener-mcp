@@ -103,3 +103,48 @@ it('fails initialization on an incompatible state table and releases the failed 
 		reopened.close();
 	}
 });
+
+it('pages durable state with bounded SQL projections and stable cursors under insertions and deletions', () => {
+	let store = new PersistentStore(file);
+	try {
+		for (const id of ['01', '02', '03'])
+			store.put('history', id, {
+				id,
+				title: id,
+				before: 'private manuscript'.repeat(1000),
+				edits: [{ text: 'replacement' }],
+			});
+		store.put('unrelated', '04', { id: '04' });
+		const page = store.page<{ id: string; title: string }>('history', { limit: 2 }, [
+			'id',
+			'title',
+		]);
+		expect(page).toEqual({
+			items: [
+				{ id: '01', title: '01' },
+				{ id: '02', title: '02' },
+			],
+			nextCursor: '02',
+		});
+		store.delete('history', '01');
+		store.put('history', '00', { id: '00', title: 'earlier' });
+		store.close();
+		store = new PersistentStore(file);
+		expect(
+			store.page('history', { after: page.nextCursor!, limit: 2 }, ['id', 'title'])
+		).toEqual({ items: [{ id: '03', title: '03' }], nextCursor: null });
+		expect(store.page('history', { after: "x' OR 1=1 --" })).toEqual({
+			items: [],
+			nextCursor: null,
+		});
+		for (const limit of [0, 101, 1.5])
+			expect(() => store.page('history', { limit })).toThrow(/limit/);
+		for (const limit of [1, 99, 100])
+			expect(store.page('history', { limit }).items.length).toBeLessThanOrEqual(limit);
+		expect(() => store.page('history', {}, ['id); DROP TABLE editorial_state;--'])).toThrow(
+			/projection/
+		);
+	} finally {
+		store.close();
+	}
+});

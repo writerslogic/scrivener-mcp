@@ -144,6 +144,57 @@ export class ReviewService {
 		return this.store.list<ChangeProposal>(PROPOSALS);
 	}
 
+	history(
+		options: {
+			limit?: number;
+			proposalsAfter?: string;
+			applicationsAfter?: string;
+			batchesAfter?: string;
+		} = {}
+	): {
+		proposals: Array<Omit<ChangeProposal, 'before' | 'edits'>>;
+		applications: ReviewApplication[];
+		batches: ReviewBatch[];
+		pagination: {
+			proposals: string | null;
+			applications: string | null;
+			batches: string | null;
+		};
+	} {
+		const proposals = this.store.page<Omit<ChangeProposal, 'before' | 'edits'>>(
+			PROPOSALS,
+			{ limit: options.limit, after: options.proposalsAfter },
+			[
+				'id',
+				'documentId',
+				'title',
+				'sourceRevision',
+				'currentRevision',
+				'sequence',
+				'createdAt',
+				'applyingOperation',
+			]
+		);
+		const applications = this.store.page<ReviewApplication>(APPLICATIONS, {
+			limit: options.limit,
+			after: options.applicationsAfter,
+		});
+		const batches = this.store.page<ReviewBatch>(BATCHES, {
+			limit: options.limit,
+			after: options.batchesAfter,
+		});
+		return {
+			proposals: proposals.items,
+			applications: applications.items,
+			batches: batches.items,
+			pagination: {
+				proposals: proposals.nextCursor,
+				applications: applications.nextCursor,
+				batches: batches.nextCursor,
+			},
+		};
+	}
+
 	listApplications(): ReviewApplication[] {
 		return this.store.list<ReviewApplication>(APPLICATIONS);
 	}
@@ -284,6 +335,7 @@ export class ReviewService {
 			after,
 			proposal.currentRevision
 		);
+		this.assertPreimage(proposal, prepared.beforeText);
 		return {
 			proposalId,
 			documentId: proposal.documentId,
@@ -346,6 +398,7 @@ export class ReviewService {
 			),
 			proposal.currentRevision
 		);
+		this.assertPreimage(proposal, prepared.beforeText);
 		if (prepared.fidelity.atRisk.length && options.allowFormattingLoss !== true)
 			throw new Error(
 				`Preview discloses formatting loss; pass allowFormattingLoss: true to acknowledge: ${prepared.fidelity.atRisk.join(', ')}`
@@ -394,6 +447,13 @@ export class ReviewService {
 		} finally {
 			running.delete(token);
 		}
+	}
+
+	private assertPreimage(proposal: ChangeProposal, before: string): void {
+		if (before !== compose(proposal))
+			throw new Error(
+				'Proposal text is stale or uses an incompatible text interpretation; create a new proposal from the saved document'
+			);
 	}
 
 	private finalize(application: ReviewApplication, mutation: MutationRecord): ReviewApplication {

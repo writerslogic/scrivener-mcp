@@ -486,6 +486,18 @@ export const continuityFindingsHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			after: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Cursor from nextCursor in a previous list result.',
+			},
+			limit: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 100,
+				description: 'List page size, default20; results use stable ID order.',
+			},
 			action: {
 				type: 'string',
 				enum: ['list', 'confirm', 'dismiss', 'resolve', 'recheck'],
@@ -507,6 +519,10 @@ export const continuityFindingsHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			nextCursor: {
+				type: ['string', 'null'],
+				description: 'Next finding cursor, or null after the final list page.',
+			},
 			findings: {
 				type: 'array',
 				description: 'Findings in binder order with evidence and review state.',
@@ -521,9 +537,12 @@ export const continuityFindingsHandler: ToolDefinition = {
 		if (action === 'list') {
 			if (args.includeResolved !== undefined && typeof args.includeResolved !== 'boolean')
 				throw new Error('includeResolved must be a boolean');
-			return result({
-				findings: continuity.list({ includeResolved: args.includeResolved === true }),
+			const page = continuity.listPage({
+				includeResolved: args.includeResolved === true,
+				after: args.after as string | undefined,
+				limit: args.limit as number | undefined,
 			});
+			return result({ findings: page.items, nextCursor: page.nextCursor });
 		}
 		if (action === 'recheck')
 			return result({

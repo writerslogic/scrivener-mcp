@@ -141,6 +141,29 @@ it('binds source revisions to exact raw RTF and refreshes text without stale con
 	expect(list[0].revision).toBe(changed.revision);
 });
 
+it('reuses parsing only after checking fresh raw content and returns fresh binder metadata', async () => {
+	let raw = new RTFHandler().convertToRTF('An unchanged scene.');
+	const documents = [document(FIRST, 'Original title')];
+	const parse = jest.spyOn(RTFHandler.prototype, 'parseRTF');
+	try {
+		const source = new ProjectSource(
+			root,
+			openStore(join(root, 'cache.sqlite')),
+			async () => documents,
+			async () => raw
+		);
+		expect((await source.read(FIRST)).text).toBe('An unchanged scene.');
+		documents[0] = { ...documents[0], title: 'Revised title' };
+		expect((await source.read(FIRST)).title).toBe('Revised title');
+		expect(parse).toHaveBeenCalledTimes(1);
+		raw = new RTFHandler().convertToRTF('A changed scene.');
+		expect((await source.read(FIRST)).text).toBe('A changed scene.');
+		expect(parse).toHaveBeenCalledTimes(2);
+	} finally {
+		parse.mockRestore();
+	}
+});
+
 it('keeps research and excluded draft text out of manuscript analysis while allowing explicit active-project provenance reads', async () => {
 	const chapter = document('10000000-0000-4000-8000-000000000010', 'Chapter One', {
 		type: 'Folder',

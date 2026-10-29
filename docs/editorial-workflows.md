@@ -37,12 +37,23 @@ review_changes({ action: 'reject', proposalId: '<proposal UUID>', editIds: ['<ed
 review_changes({ action: 'undo', operationId: '<application UUID>' });
 ```
 
-Use `batch` with `proposalIds` for multiple applications, `list` to inspect durable review state,
+Use `batch` with `proposalIds` for multiple applications, `list` to page through durable review summaries,
 and `recover` to inspect/recover interrupted applications. Retain operation identifiers when
 retrying. Batch progress is recoverable; it is not one atomic filesystem transaction. Changed saved
 revisions stop stale applications and undo instead of overwriting newer work. `force` only overrides
 native-app detection; it does not override revisions or another server's mutation reservation.
-Ambiguous native detection requires an explicit decision.
+Ambiguous native detection requires an explicit decision. Proposals whose saved preimage no longer
+matches the current text interpretation are rejected even if the raw revision is unchanged; recreate
+them from refreshed context after a parser upgrade.
+
+History pages default to 20 items and accept `limit` from 1–100. `review_changes` returns independent
+`pagination.proposals`, `.applications` and `.batches` cursors; pass them as `proposalsAfter`,
+`applicationsAfter` and `batchesAfter`. List summaries omit manuscript text and edits; use
+`review_changes({action: 'get', proposalId: '<UUID>'})` for one full proposal. Workflow lists omit
+scope/step payloads; use `get` for those. `editorial_workflow` and `continuity_findings` accept `after`
+and return `nextCursor`. A null cursor ends that collection. Pages use stable ID order, rather than
+claiming chronological ordering; newly inserted lower IDs appear after restarting pagination.
+The dashboard pages histories separately from scenes and loads proposal details on demand.
 
 ## Find passages locally
 
@@ -60,7 +71,8 @@ concepts. Each response discloses its method and limitations.
 Results contain exact quotations, surrounding context, document identity, binder path, line, UTF-16
 offsets and the saved RTF revision. Changed documents update incrementally. Optional provider-backed
 interpretation or prose explanations are separate capabilities; they are unnecessary for this local
-search. Manuscript passages returned to an AI client are subject to that client's privacy and
+search. `search` uses literal matching across the full active binder, including research and excluded
+drafts; `search_passages` and `semantic_search` use the compilable manuscript. Manuscript passages returned to an AI client are subject to that client's privacy and
 billing policies.
 
 ## Audit continuity with evidence
@@ -80,6 +92,11 @@ Findings quote their supporting passages and retain document identities, source 
 order and review state. Local automatic extraction covers explicit eye color, hair color and
 birth-year statements; other comparisons use curated facts. Narrative candidates remain inferred.
 Keyword counts, absent character mentions and mixed time words do not establish contradictions.
+`check_plot_consistency` uses this same service for synchronous and background requests. Supply
+saved document IDs; optional supplied text must match the saved manuscript. Queued checks bind to
+source revisions and fail if those revisions change before execution. Their results retain the same
+quoted evidence and uncertainty as synchronous analysis.
+
 Binder order is not assumed to be story chronology. Explicit story-time metadata, flashbacks and
 intentional variations affect comparisons; read the report's coverage statement.
 
@@ -138,3 +155,27 @@ and does not undo completed proposals or exports. Restart/resume retains complet
 stable operation identifiers for retried proposals/exports, and rejects changed source revisions. An
 active or ambiguous owner blocks another instance from resuming the same workflow. Inspect failed
 steps before resuming; do not blindly create a replacement run with a new request key.
+
+
+## Retrieve large results and inspect queues
+
+Large `compile_documents` responses include `resultId`. Call
+`read_result({resultId: '<id>', offset: 0, limit: 16384})`, concatenate the returned `text`, and
+continue with `nextOffset` until it is null. Offsets count UTF-8 bytes; follow returned offsets to
+avoid splitting characters. The reconstructed value is JSON containing `compiledText`. No local
+filesystem tool is required. Results are private to the server instance, expire after one hour or a
+restart, and may be evicted when its 256-result/64 MiB spool budget is reached. Chunk limits are
+4–65,536 bytes. A missing result requires repeating the original read operation.
+
+`get_queue_stats` reports backend and scope. Redis/KeyDB queues and embedded history use the
+canonical project path and durable project UUID; overlapping document IDs in unrelated projects do
+not share jobs. Copied projects at different paths are isolated. Status/cancel requests reject
+foreign job IDs, and processors reject legacy or foreign envelopes before analysis/database work.
+Embedded jobs run immediately; nonzero priorities or delays require Redis/KeyDB and are rejected
+rather than silently ignored.
+
+Older unscoped queue keys and embedded records are retained but excluded from processing, status
+and cancellation. Do not relabel them automatically: ownership cannot be inferred safely. Inspect
+and retain the previous installation's records, verify the owning project, and deliberately
+resubmit unfinished work under that project. Moving a project changes its queue scope too; old
+history remains in its original scope. No automatic cross-project or move migration is performed.

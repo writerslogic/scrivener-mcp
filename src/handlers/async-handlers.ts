@@ -1,3 +1,9 @@
+import type {
+	ContinuityService,
+	ContinuityOptions,
+	ContinuityReport,
+} from '../services/editorial/continuity-service.js';
+import type { ManuscriptSource } from '../services/editorial/types.js';
 import type { Job } from 'bullmq';
 import { createHmac, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -94,6 +100,8 @@ export async function initializeAsyncServices(
 		databasePath?: string;
 		neo4jUri?: string;
 		projectPath?: string;
+		sqliteOnly?: boolean;
+		continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
 	} = {}
 ): Promise<void> {
 	return transition(async () => {
@@ -102,6 +110,7 @@ export async function initializeAsyncServices(
 			.update(
 				JSON.stringify({
 					projectPath,
+					sqliteOnly: options.sqliteOnly,
 					redisUrl: options.redisUrl || getEnv('REDIS_URL'),
 					databasePath: options.databasePath,
 					openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
@@ -121,6 +130,8 @@ export async function initializeAsyncServices(
 				await retry(
 					() =>
 						candidate.initialize({
+							sqliteOnly: options.sqliteOnly,
+							continuity: options.continuity,
 							redisUrl: options.redisUrl || getEnv('REDIS_URL'),
 							openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
 							databasePath: options.databasePath,
@@ -359,44 +370,63 @@ export async function analyzeWritingStyle(params: {
 	});
 }
 
-export async function checkPlotConsistency(params: {
-	documents: ScrivenerDocument[];
-	async?: boolean;
-}): Promise<{
-	jobId?: string;
-	issues?: Array<{
-		issue: string;
-		severity: 'low' | 'medium' | 'high';
-		locations: string[];
-		suggestion: string;
-	}>;
-	message?: string;
-}> {
-	return withAsyncServices(async (jobQueueService, aiWritingService) => {
-		validateInput(params, { documents: { required: true } });
-
-		// If async is requested and job queue is available
-		if (params.async && jobQueueService) {
-			const jobId = await jobQueueService.addJob(
-				JobType.CHECK_CONSISTENCY,
-				{ documents: params.documents },
-				{ priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 3 }
-			);
-
+export async function checkPlotConsistency(
+	params: {
+		documents: Array<{ id: string; content?: string }>;
+		async?: boolean;
+	},
+	editorial: { source: ManuscriptSource; continuity: ContinuityService }
+): Promise<ContinuityReport | { jobId: string; message: string }> {
+	if (
+		!Array.isArray(params.documents) ||
+		!params.documents.length ||
+		params.documents.length > 5000 ||
+		params.documents.some(
+			(doc) =>
+				!doc ||
+				typeof doc.id !== 'string' ||
+				!doc.id ||
+				doc.id.length > 128 ||
+				(doc.content !== undefined && typeof doc.content !== 'string')
+		)
+	)
+		throw new Error('Choose 1–5000 saved manuscript documents');
+	const selected = new Set(params.documents.map((doc) => doc.id));
+	if (selected.size !== params.documents.length)
+		throw new Error('Duplicate continuity document identities');
+	const documents = (await editorial.source.list()).filter((doc) => selected.has(doc.documentId));
+	if (documents.length !== selected.size)
+		throw new Error('Continuity scope contains a document outside the selected manuscript');
+	const supplied = new Map(params.documents.map((doc) => [doc.id, doc.content]));
+	if (
+		documents.some(
+			(doc) =>
+				supplied.get(doc.documentId) !== undefined &&
+				supplied.get(doc.documentId) !== doc.text
+		)
+	)
+		throw new Error(
+			'Supplied continuity text differs from the saved manuscript; refresh before analysis'
+		);
+	const expectedRevisions = documents.map((doc) => ({
+		documentId: doc.documentId,
+		revision: doc.revision,
+	}));
+	if (params.async)
+		return withAsyncServices(async (queue) => {
+			if (!queue) throw new Error('Job queue service is unavailable');
+			const jobId = await queue.addJob(JobType.CHECK_CONSISTENCY, {
+				projectId: editorial.source.projectId,
+				documents: documents.map((doc) => ({ id: doc.documentId, revision: doc.revision })),
+			});
 			return {
 				jobId,
-				message: 'Consistency check queued',
+				message: 'Evidence-backed continuity analysis queued for these saved revisions',
 			};
-		}
-
-		// Otherwise, process synchronously
-		if (!aiWritingService) {
-			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
-		}
-
-		const issues = await aiWritingService.checkPlotConsistency(params.documents);
-
-		return { issues };
+		});
+	return editorial.continuity.analyze({
+		documentIds: documents.map((doc) => doc.documentId),
+		expectedRevisions,
 	});
 }
 
@@ -482,6 +512,7 @@ function normalizeQueueStats(rawStats: Record<string, unknown>): {
 }
 
 export async function getQueueStats(params: { jobType?: JobType }): Promise<{
+	connection: ReturnType<JobQueueService['getConnectionInfo']>;
 	queues: Array<{
 		type: JobType;
 		stats: {
@@ -523,7 +554,7 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 			}
 		}
 
-		return { queues };
+		return { queues, connection: jobQueueService.getConnectionInfo() };
 	});
 }
 

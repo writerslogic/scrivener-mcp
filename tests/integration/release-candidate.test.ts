@@ -14,7 +14,8 @@ let sha: string;
 const originals = new Map<string, string>();
 const gitEnvironment = {
 	...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
-	GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: devNull,
+	GIT_CONFIG_NOSYSTEM: '1',
+	GIT_CONFIG_GLOBAL: devNull,
 };
 
 function fixtureGit(args: string[]) {
@@ -23,8 +24,8 @@ function fixtureGit(args: string[]) {
 
 const runner = `
 import { pathToFileURL } from 'node:url';
-const module = await import(pathToFileURL(process.argv[1]).href);
-const input = JSON.parse(process.argv[2]);
+const module = await import(pathToFileURL(process.argv[2]).href);
+const input = JSON.parse(process.argv[3]);
 const commitSha = input.commitSha ?? input.sha;
 const repository = { id: 1049995250, full_name: 'writerslogic/scrivener-mcp' };
 const good = { id: 20, run_number: 4, run_attempt: 1, workflow_id: 186405613, path: '.github/workflows/ci.yml', name: 'CI', event: 'push', head_branch: 'main', head_sha: commitSha, repository, head_repository: repository, status: 'completed', conclusion: 'success' };
@@ -71,10 +72,28 @@ try {
 `;
 
 async function run(input: Record<string, unknown> = {}) {
-	const result = await execute(process.execPath, ['--input-type=module', '-e', runner, script, JSON.stringify({ root, tag, sha, ...input })], {
-		timeout: 15000, maxBuffer: 65536, env: gitEnvironment,
-	});
-	return JSON.parse(result.stdout) as { ok: boolean; error?: string; requests: number; result?: Record<string, unknown> };
+	const result = await execute(
+		process.execPath,
+		[
+			'--input-type=module',
+			'-e',
+			runner,
+			'release-fixture',
+			script,
+			JSON.stringify({ root, tag, sha, ...input }),
+		],
+		{
+			timeout: 15000,
+			maxBuffer: 65536,
+			env: gitEnvironment,
+		}
+	);
+	return JSON.parse(result.stdout) as {
+		ok: boolean;
+		error?: string;
+		requests: number;
+		result?: Record<string, unknown>;
+	};
 }
 
 beforeAll(async () => {
@@ -82,9 +101,28 @@ beforeAll(async () => {
 	await mkdir(join(root, 'src'));
 	await Promise.all([
 		writeFile(join(root, 'src/server.ts'), 'export const releaseFixture = true;\n'),
-		writeFile(join(root, 'package.json'), JSON.stringify({ name: 'scrivener-mcp', version: '1.2.3', mcpName: 'io.github.writerslogic/scrivener-mcp' })),
-		writeFile(join(root, 'manifest.json'), JSON.stringify({ name: 'scrivener-mcp', version: '1.2.3' })),
-		writeFile(join(root, 'server.json'), JSON.stringify({ name: 'io.github.writerslogic/scrivener-mcp', description: 'Preserved source metadata', repository: { url: 'https://github.com/writerslogic/scrivener-mcp' }, version: '1.2.2', packages: [{ registryType: 'npm', identifier: 'scrivener-mcp', version: '1.2.2' }] })),
+		writeFile(
+			join(root, 'package.json'),
+			JSON.stringify({
+				name: 'scrivener-mcp',
+				version: '1.2.3',
+				mcpName: 'io.github.writerslogic/scrivener-mcp',
+			})
+		),
+		writeFile(
+			join(root, 'manifest.json'),
+			JSON.stringify({ name: 'scrivener-mcp', version: '1.2.3' })
+		),
+		writeFile(
+			join(root, 'server.json'),
+			JSON.stringify({
+				name: 'io.github.writerslogic/scrivener-mcp',
+				description: 'Preserved source metadata',
+				repository: { url: 'https://github.com/writerslogic/scrivener-mcp' },
+				version: '1.2.2',
+				packages: [{ registryType: 'npm', identifier: 'scrivener-mcp', version: '1.2.2' }],
+			})
+		),
 	]);
 	for (const name of ['package.json', 'manifest.json', 'server.json', 'src/server.ts'])
 		originals.set(name, await readFile(join(root, name), 'utf8'));
@@ -92,7 +130,21 @@ beforeAll(async () => {
 	await mkdir(hooks);
 	await fixtureGit(['-c', `init.templateDir=${hooks}`, 'init', '--initial-branch=main', root]);
 	await fixtureGit(['-C', root, 'add', '.']);
-	await fixtureGit(['-C', root, '-c', 'user.name=Release Fixture', '-c', 'user.email=release@example.invalid', '-c', 'commit.gpgsign=false', '-c', `core.hooksPath=${hooks}`, 'commit', '-m', 'Original synthetic release fixture']);
+	await fixtureGit([
+		'-C',
+		root,
+		'-c',
+		'user.name=Release Fixture',
+		'-c',
+		'user.email=release@example.invalid',
+		'-c',
+		'commit.gpgsign=false',
+		'-c',
+		`core.hooksPath=${hooks}`,
+		'commit',
+		'-m',
+		'Original synthetic release fixture',
+	]);
 	sha = (await fixtureGit(['-C', root, 'rev-parse', 'HEAD'])).stdout.trim();
 	await fixtureGit(['-C', root, '-c', 'tag.gpgsign=false', 'tag', tag]);
 	await fixtureGit(['-C', root, 'update-ref', 'refs/remotes/origin/main', sha]);
@@ -108,13 +160,31 @@ afterAll(async () => {
 
 it('requires exact local source, protected official ancestry and successful exact-attempt CI evidence', async () => {
 	const checked = await run();
-	expect(checked).toMatchObject({ ok: true, result: { version: '1.2.3', sha, workflowId: 186405613, runId: 20, runAttempt: 1 } });
+	expect(checked).toMatchObject({
+		ok: true,
+		result: { version: '1.2.3', sha, workflowId: 186405613, runId: 20, runAttempt: 1 },
+	});
 });
 
 it.each([
-	'unprotected', 'not-main', 'remote-tag', 'foreign-workflow', 'lookalike-path',
-	'foreign-repository', 'pr-only', 'wrong-sha', 'newer-pending', 'changed-attempt',
-	'newer-failed', 'missing-run', 'foreign-job-run', 'lookalike-job', 'pending-job', 'skipped-job', 'failed-job', 'api-denied',
+	'unprotected',
+	'not-main',
+	'remote-tag',
+	'foreign-workflow',
+	'lookalike-path',
+	'foreign-repository',
+	'pr-only',
+	'wrong-sha',
+	'newer-pending',
+	'changed-attempt',
+	'newer-failed',
+	'missing-run',
+	'foreign-job-run',
+	'lookalike-job',
+	'pending-job',
+	'skipped-job',
+	'failed-job',
+	'api-denied',
 ])('fails closed for %s evidence without exposing response bodies or tokens', async (change) => {
 	const checked = await run({ change });
 	expect(checked.ok).toBe(false);
@@ -123,25 +193,57 @@ it.each([
 });
 
 it('resolves an official annotated tag to the checked commit', async () => {
-	await fixtureGit(['-C', root, '-c', 'user.name=Release Fixture', '-c', 'user.email=release@example.invalid', '-c', 'tag.gpgsign=false', '-c', `core.hooksPath=${join(root, 'empty-hooks')}`, 'tag', '--force', '--annotate', '-m', 'Original fixture annotation', tag, sha]);
+	await fixtureGit([
+		'-C',
+		root,
+		'-c',
+		'user.name=Release Fixture',
+		'-c',
+		'user.email=release@example.invalid',
+		'-c',
+		'tag.gpgsign=false',
+		'-c',
+		`core.hooksPath=${join(root, 'empty-hooks')}`,
+		'tag',
+		'--force',
+		'--annotate',
+		'-m',
+		'Original fixture annotation',
+		tag,
+		sha,
+	]);
 	try {
-		const object = (await fixtureGit(['-C', root, 'rev-parse', `refs/tags/${tag}`])).stdout.trim();
-		expect(await run({ change: 'annotated-tag', sha: object, commitSha: sha })).toMatchObject({ ok: true, result: { sha } });
+		const object = (
+			await fixtureGit(['-C', root, 'rev-parse', `refs/tags/${tag}`])
+		).stdout.trim();
+		expect(await run({ change: 'annotated-tag', sha: object, commitSha: sha })).toMatchObject({
+			ok: true,
+			result: { sha },
+		});
 	} finally {
 		await fixtureGit(['-C', root, 'update-ref', `refs/tags/${tag}`, sha]);
 	}
 });
 
-it.each([1048575, 1048576, 1048577])('bounds GitHub response allocation at %i bytes', async (responseBytes) => {
-	const checked = await run({ responseBytes });
-	expect(checked.ok).toBe(responseBytes <= 1048576);
-	if (!checked.ok) expect(checked.error).toMatch(/exceeds 1 MiB/);
-});
+it.each([1048575, 1048576, 1048577])(
+	'bounds GitHub response allocation at %i bytes',
+	async (responseBytes) => {
+		const checked = await run({ responseBytes });
+		expect(checked.ok).toBe(responseBytes <= 1048576);
+		if (!checked.ok) expect(checked.error).toMatch(/exceeds 1 MiB/);
+	}
+);
 
 it('rejects local manifest or source changes before requesting remote evidence', async () => {
-	await writeFile(join(root, 'manifest.json'), JSON.stringify({ name: 'scrivener-mcp', version: '1.2.4' }));
+	await writeFile(
+		join(root, 'manifest.json'),
+		JSON.stringify({ name: 'scrivener-mcp', version: '1.2.4' })
+	);
 	expect(await run()).toMatchObject({ ok: false, requests: 0 });
-	await writeFile(join(root, 'manifest.json'), JSON.stringify({ name: 'scrivener-mcp', version: '1.2.3' }));
+	await writeFile(
+		join(root, 'manifest.json'),
+		JSON.stringify({ name: 'scrivener-mcp', version: '1.2.3' })
+	);
 	await writeFile(join(root, 'src/server.ts'), 'export const releaseFixture = false;\n');
 	expect(await run()).toMatchObject({ ok: false, requests: 0 });
 });
@@ -160,22 +262,32 @@ it('rejects untracked release inputs and registry changes beyond version stampin
 	expect(await run()).toMatchObject({ ok: false, requests: 0 });
 });
 
-it.each(['v01.2.3', 'v1.2.3-beta', 'v9007199254740992.2.3'])('rejects invalid release tag %s before remote requests', async (invalid) => {
-	expect(await run({ tag: invalid })).toMatchObject({ ok: false, requests: 0 });
-});
+it.each(['v01.2.3', 'v1.2.3-beta', 'v9007199254740992.2.3'])(
+	'rejects invalid release tag %s before remote requests',
+	async (invalid) => {
+		expect(await run({ tag: invalid })).toMatchObject({ ok: false, requests: 0 });
+	}
+);
 
 async function bundle(change?: 'version' | 'checksum' | 'extra', metadataBytes?: number) {
 	const directory = await mkdtemp(join(root, 'artifacts-'));
 	const zip = new JSZip();
 	const manifest = { name: 'scrivener-mcp', version: '1.2.3', padding: '' };
-	if (metadataBytes) manifest.padding = 'x'.repeat(metadataBytes - Buffer.byteLength(JSON.stringify(manifest)));
+	if (metadataBytes)
+		manifest.padding = 'x'.repeat(metadataBytes - Buffer.byteLength(JSON.stringify(manifest)));
 	zip.file('manifest.json', JSON.stringify(manifest));
-	zip.file('server/package.json', JSON.stringify({ name: 'scrivener-mcp', version: change === 'version' ? '1.2.2' : '1.2.3' }));
+	zip.file(
+		'server/package.json',
+		JSON.stringify({ name: 'scrivener-mcp', version: change === 'version' ? '1.2.2' : '1.2.3' })
+	);
 	const bytes = await zip.generateAsync({ type: 'nodebuffer' });
 	const name = 'scrivener-mcp-1.2.3-macos-arm64.mcpb';
 	await writeFile(join(directory, name), bytes);
 	const digest = createHash('sha256').update(bytes).digest('hex');
-	await writeFile(join(directory, `${name}.sha256`), `${change === 'checksum' ? '0'.repeat(64) : digest}  /previous/runner/dist-mcpb/${name}\n`);
+	await writeFile(
+		join(directory, `${name}.sha256`),
+		`${change === 'checksum' ? '0'.repeat(64) : digest}  /previous/runner/dist-mcpb/${name}\n`
+	);
 	if (change === 'extra') await writeFile(join(directory, 'unexpected.mcpb'), bytes);
 	return directory;
 }
@@ -183,19 +295,36 @@ async function bundle(change?: 'version' | 'checksum' | 'extra', metadataBytes?:
 it('verifies real archive bytes and internal package versions before atomically stamping registry metadata', async () => {
 	const directory = await bundle();
 	expect(await run({ mode: 'artifacts', directory, stamp: false })).toMatchObject({ ok: false });
-	expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({ ok: true, result: { registryVersion: '1.2.3' } });
+	expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({
+		ok: true,
+		result: { registryVersion: '1.2.3' },
+	});
 	const registry = JSON.parse(await readFile(join(root, 'server.json'), 'utf8'));
-	expect(registry).toMatchObject({ version: '1.2.3', description: 'Preserved source metadata', packages: [{ version: '1.2.3' }] });
+	expect(registry).toMatchObject({
+		version: '1.2.3',
+		description: 'Preserved source metadata',
+		packages: [{ version: '1.2.3' }],
+	});
 	expect(await run()).toMatchObject({ ok: true });
 });
 
-it.each(['version', 'checksum', 'extra'] as const)('rejects %s artifact corruption without stamping registry metadata', async (change) => {
-	const directory = await bundle(change);
-	expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({ ok: false });
-	expect(JSON.parse(await readFile(join(root, 'server.json'), 'utf8')).version).toBe('1.2.2');
-});
+it.each(['version', 'checksum', 'extra'] as const)(
+	'rejects %s artifact corruption without stamping registry metadata',
+	async (change) => {
+		const directory = await bundle(change);
+		expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({
+			ok: false,
+		});
+		expect(JSON.parse(await readFile(join(root, 'server.json'), 'utf8')).version).toBe('1.2.2');
+	}
+);
 
-it.each([65535, 65536, 65537])('bounds inflated MCPB metadata at %i bytes', async (metadataBytes) => {
-	const directory = await bundle(undefined, metadataBytes);
-	expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({ ok: metadataBytes <= 65536 });
-});
+it.each([65535, 65536, 65537])(
+	'bounds inflated MCPB metadata at %i bytes',
+	async (metadataBytes) => {
+		const directory = await bundle(undefined, metadataBytes);
+		expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({
+			ok: metadataBytes <= 65536,
+		});
+	}
+);

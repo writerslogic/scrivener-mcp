@@ -94,8 +94,12 @@ managing file locks, and saving.
 
 Literal, case-sensitive, and regular-expression searches read the current document text and use
 `CompilationService.searchInDocuments`, honoring metadata and Trash options. The binder lookup index
-does not contain complete document text and is not used to filter these searches. The default
-`search` tool uses the editorial passage search service for hybrid lexical and semantic retrieval.
+does not contain complete document text and is not used to filter these searches. All `search`
+content modes use the same active-binder scope, including research and compile-excluded drafts.
+`search_passages` and `semantic_search` use the editorial passage service for local hybrid or
+bounded concept retrieval within the compilable manuscript. Source parsing caches are bounded and
+keyed by freshly read raw-content hashes, preserving detection of saved external changes even when
+file size and timestamps are unchanged.
 
 ### Document Cache (`src/core/cache.ts`)
 

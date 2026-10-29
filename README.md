@@ -268,7 +268,7 @@ startup, document and search tools once a project is open, the rest on demand. S
 
 | Tool               | What it does                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------- |
-| `search`           | Local hybrid passage search; `field: "title"` for titles, `scope: "trash"` for trash          |
+| `search`           | Literal full-text search across the active binder; `field: "title"` for titles, `scope: "trash"` for trash          |
 | `semantic_search`  | Local concept-vector passage retrieval, with scores, context and source revisions; no API key |
 | `search_passages`  | Local keyword, bounded English concept, or hybrid retrieval with exact quoted evidence        |
 | `find_mentions`    | Locate every occurrence of a specific name or term, with context                              |
@@ -320,6 +320,7 @@ startup, document and search tools once a project is open, the rest on demand. S
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `compile_documents`            | Combine documents; `mode: "structured"` compiles the Draft folder with the binder hierarchy as headings and honors "Include in Compile" (no AI), `mode: "intelligent"` for AI-optimized output |
 | `export_project`               | Write the manuscript to disk -- Markdown, HTML, JSON inline, or DOCX, EPUB, PDF as a file                                                                                                      |
+| `read_result`                  | Retrieve large compiled/analysis results in bounded UTF-8 chunks without filesystem tools |
 | `export_manuscript`            | Preflight and export submission DOCX, beta-reader DOCX and validated EPUB presets                                                                                                              |
 | `get_statistics`               | Project-level word/document/character counts                                                                                                                                                   |
 | `generate_marketing_materials` | Draft synopsis, query letter, pitch, and related materials                                                                                                                                     |

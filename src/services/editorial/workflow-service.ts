@@ -3,7 +3,7 @@ import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { analyzeWorkflowDocument } from '../../handlers/async-handlers.js';
 import type { SourceDocument, ManuscriptSource } from './types.js';
-import type { PersistentStore } from './persistent-store.js';
+import type { PersistentStore, StorePageOptions, StorePage } from './persistent-store.js';
 import type { PassageSearch } from './passage-search.js';
 
 export type WorkflowKind = 'review-chapter' | 'audit-continuity' | 'beta-reader-draft';
@@ -63,6 +63,7 @@ export interface WorkflowDependencies {
 	exportBeta: (input: {
 		workflowId: string;
 		documentIds: string[];
+		expectedRevisions: Array<{ documentId: string; revision: string }>;
 		outputPath: string;
 		allowWarnings?: boolean;
 	}) => Promise<unknown>;
@@ -265,6 +266,25 @@ export class WorkflowService {
 			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 	}
 
+	listPage(
+		options: StorePageOptions = {}
+	): StorePage<Omit<EditorialWorkflow, 'scope' | 'steps'>> {
+		const page = this.store.page<EditorialWorkflow>(this.namespace, options, [
+			'id',
+			'projectId',
+			'kind',
+			'state',
+			'createdAt',
+			'updatedAt',
+			'progress',
+			'usage',
+			'cost',
+			'error',
+			'owner',
+		]);
+		return { ...page, items: page.items.map((workflow) => this.inspect(workflow)) };
+	}
+
 	cancel(id: string): EditorialWorkflow {
 		return this.store.transaction(() => {
 			const workflow = this.get(id);
@@ -299,7 +319,7 @@ export class WorkflowService {
 			throw new Error(
 				'Workflow owner is still running or cannot be identified safely; wait for it to finish before resuming'
 			);
-		await this.validateScope(workflow);
+		if (!this.onlyExportRemains(workflow)) await this.validateScope(workflow);
 		if (this.closed) throw new Error('Workflow service is closed');
 		const ready = this.store.transaction(() => {
 			const current = this.get(id);
@@ -342,16 +362,28 @@ export class WorkflowService {
 	}
 
 	private async validateScope(workflow: EditorialWorkflow): Promise<Map<string, SourceDocument>> {
+		const saved = new Map(
+			(await this.source.list()).map((document) => [document.documentId, document])
+		);
 		const documents = new Map<string, SourceDocument>();
 		for (const expected of workflow.scope) {
-			const current = await this.source.read(expected.documentId);
-			if (current.projectId !== workflow.projectId || current.revision !== expected.revision)
+			const current = saved.get(expected.documentId);
+			if (
+				!current ||
+				current.projectId !== workflow.projectId ||
+				current.revision !== expected.revision
+			)
 				throw new Error(
 					`Saved source changed for document ${expected.documentId}; start a new workflow to review the new revision`
 				);
 			documents.set(current.documentId, current);
 		}
 		return documents;
+	}
+
+	private onlyExportRemains(workflow: EditorialWorkflow): boolean {
+		const pending = workflow.steps.filter((step) => step.state !== 'completed');
+		return pending.length === 1 && pending[0].kind === 'export';
 	}
 
 	private update(
@@ -387,7 +419,23 @@ export class WorkflowService {
 				if (this.closed || current.state === 'cancelled') break;
 				const step = current.steps[index];
 				if (step.state === 'completed') continue;
-				const docs = await this.validateScope(current);
+				const docs = step.documentId
+					? new Map([[step.documentId, await this.source.read(step.documentId)]])
+					: step.kind === 'export'
+						? new Map<string, SourceDocument>()
+						: await this.validateScope(current);
+				if (step.documentId) {
+					const document = docs.get(step.documentId)!;
+					if (
+						document.projectId !== current.projectId ||
+						document.revision !==
+							current.scope.find((item) => item.documentId === step.documentId)
+								?.revision
+					)
+						throw new Error(
+							'Saved source changed before workflow step; start a new workflow'
+						);
+				}
 				if (this.closed) break;
 				const claimed = this.update(id, (workflow) => {
 					if (workflow.state !== 'cancelled') workflow.steps[index].state = 'running';
@@ -443,6 +491,10 @@ export class WorkflowService {
 							workflowId: id,
 							allowWarnings: current.allowExportWarnings,
 							documentIds: current.scope.map((doc) => doc.documentId),
+							expectedRevisions: current.scope.map(({ documentId, revision }) => ({
+								documentId,
+								revision,
+							})),
 							outputPath: join(
 								this.source.projectPath,
 								'.scrivener-mcp',
@@ -465,6 +517,14 @@ export class WorkflowService {
 				});
 				await new Promise<void>((resolve) => setImmediate(resolve));
 			}
+			const completed = this.get(id);
+			if (
+				completed.state !== 'cancelled' &&
+				!this.closed &&
+				completed.steps.every((step) => step.state === 'completed') &&
+				completed.kind !== 'beta-reader-draft'
+			)
+				await this.validateScope(completed);
 			this.update(id, (workflow) => {
 				if (workflow.state !== 'cancelled')
 					workflow.state = workflow.steps.every((step) => step.state === 'completed')

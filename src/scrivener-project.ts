@@ -168,7 +168,8 @@ export class ScrivenerProject {
 			(documentId) => this.readDocument(documentId),
 			this.projectPath,
 			(documentId) => this.documentManager.readDocumentRaw(documentId),
-			() => this.getCompileMetadata()
+			() => this.getCompileMetadata(),
+			this.documentManager.getMutationCoordinator()
 		);
 
 		this.metadataEditor = new ProjectMetadataEditor(
@@ -253,6 +254,7 @@ export class ScrivenerProject {
 		// Initialize async services (job queue, AI services)
 		await initializeAsyncServices({
 			projectPath: this.projectPath,
+			continuity: (options) => this.getEditorialServices().continuity.analyze(options),
 			databasePath: path.join(this.projectPath, 'scrivener.db'),
 			openaiApiKey: process.env.OPENAI_API_KEY,
 		});
@@ -407,15 +409,7 @@ export class ScrivenerProject {
 			const workflows = new WorkflowService(source, store, search, {
 				propose: (input) => review.propose(input),
 				auditContinuity: (input) => continuity.analyze(input),
-				exportBeta: async ({ documentIds, outputPath, allowWarnings }) => {
-					const options = { preset: 'beta-reader' as const, documentIds, allowWarnings };
-					const preflight = await this.exporter.preflight(options);
-					if (!preflight.ready)
-						throw new Error(
-							`Beta-reader export preflight: ${preflight.findings.map((finding) => finding.message).join(' ')} Review these findings before resuming with allowExportWarnings: true.`
-						);
-					return this.exporter.exportPreset(options, outputPath);
-				},
+				exportBeta: (input) => this.exporter.exportWorkflowPreset(input),
 			});
 			this.editorial = {
 				source,
@@ -840,8 +834,9 @@ export class ScrivenerProject {
 	// Cleanup
 	async close(): Promise<void> {
 		logger.info('Closing Scrivener project');
+		await this.editorial?.workflows.close();
+		await shutdownAsyncServices();
 		if (this.editorial) {
-			await this.editorial.workflows.close();
 			await this.editorial.search.close();
 			this.editorial.seriesStore.close();
 			this.editorial.store.close();
@@ -859,9 +854,6 @@ export class ScrivenerProject {
 			this.contextSync.close();
 		}
 		this.contentAnalyzer.dispose();
-
-		// Shutdown async services (job queue, AI services)
-		await shutdownAsyncServices();
 
 		const resources = await Promise.allSettled([
 			this.databaseService.close(),

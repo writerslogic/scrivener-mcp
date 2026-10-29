@@ -18,6 +18,8 @@ export class ProjectSource implements ManuscriptSource {
 	readonly projectId: string;
 	readonly projectPath: string;
 	private readonly rtf = new RTFHandler();
+	private readonly textCache = new Map<string, { revision: string; text: string }>();
+	private cachedCharacters = 0;
 
 	constructor(
 		projectPath: string,
@@ -88,13 +90,37 @@ export class ProjectSource implements ManuscriptSource {
 		const raw = await this.readRaw(document.id);
 		if (Buffer.byteLength(raw) > 10 * 1024 * 1024)
 			throw new Error('Document exceeds the analysis size limit');
+		const revision = savedRevision(raw);
+		const cached = this.textCache.get(document.id);
+		let text: string;
+		if (cached?.revision === revision) {
+			text = cached.text;
+			this.textCache.delete(document.id);
+			this.textCache.set(document.id, cached);
+		} else {
+			text = raw ? (await this.rtf.parseRTF(raw)).plainText : '';
+			if (cached) {
+				this.cachedCharacters -= cached.text.length;
+				this.textCache.delete(document.id);
+			}
+			this.textCache.set(document.id, { revision, text });
+			this.cachedCharacters += text.length;
+			while (
+				this.cachedCharacters > 16 * 1024 * 1024 ||
+				this.textCache.size > MAX_SOURCE_DOCUMENTS
+			) {
+				const oldest = this.textCache.keys().next().value!;
+				this.cachedCharacters -= this.textCache.get(oldest)!.text.length;
+				this.textCache.delete(oldest);
+			}
+		}
 		return {
 			projectId: this.projectId,
 			documentId: document.id,
 			title: document.title,
 			path: document.path,
-			revision: savedRevision(raw),
-			text: raw ? (await this.rtf.parseRTF(raw)).plainText : '',
+			revision,
+			text,
 			order,
 			metadata: {
 				...document.metadata,

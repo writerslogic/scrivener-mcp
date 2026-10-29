@@ -48,7 +48,7 @@ function context(): HandlerContext {
 		manuscriptAccesses.push(key);
 		throw new Error('Generation must not access or modify the manuscript');
 	};
-	const project = new Proxy({} as ScrivenerProject, {
+	const project = new Proxy<ScrivenerProject>({} as ScrivenerProject, {
 		get: deny,
 		set: deny,
 		deleteProperty: deny,
@@ -137,7 +137,9 @@ test('provider failures return errors without echoing credentials, source prompt
 	const result = await generate();
 	expect(result.isError).toBe(true);
 	expect(text(result)).toMatch(/generation failed.*provider.*quota.*connection/i);
-	expect(text(result)).not.toMatch(/Bearer|fixture-private|fixture-openai|placeholder|wordCount|900/);
+	expect(text(result)).not.toMatch(
+		/Bearer|fixture-private|fixture-openai|placeholder|wordCount|900/
+	);
 	expect(text(result)).not.toContain(prompt);
 	expect(requests).toHaveLength(1);
 });
@@ -184,6 +186,9 @@ test('client-side sampling can generate prose without configuring provider keys'
 	} as unknown as Server);
 	const result = await generate();
 	expect(result.isError).not.toBe(true);
-	expect(JSON.parse(text(result))).toMatchObject({ content: 'A sampled sentence.', wordCount: 3 });
+	expect(JSON.parse(text(result))).toMatchObject({
+		content: 'A sampled sentence.',
+		wordCount: 3,
+	});
 	expect(requests).toEqual([]);
 });

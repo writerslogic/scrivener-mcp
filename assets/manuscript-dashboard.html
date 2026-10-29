@@ -416,11 +416,13 @@
 					if (node && node.isConnected) node.disabled = false;
 				}
 			}
+			const historyCursors = {};
 			async function refresh(documentId) {
 				status('Reading saved manuscript…');
 				const result = await call('manuscript_dashboard', {
 					offset,
 					limit: 50,
+					...historyCursors,
 					...(documentId ? { documentId } : {}),
 				});
 				render(result);
@@ -491,12 +493,14 @@
 					const names = element('td');
 					for (const appearance of scene.appearances || [])
 						names.append(
-							button(`${appearance.name} (${appearance.mentions.length})`, () =>
-								reveal(scene.documentId, {
-									...scene,
-									...appearance.mentions[0],
-									quote: appearance.mentions[0].quote,
-								})
+							button(
+								`${appearance.name} (${appearance.mentions.length}${appearance.truncated ? '+' : ''})`,
+								() =>
+									reveal(scene.documentId, {
+										...scene,
+										...appearance.mentions[0],
+										quote: appearance.mentions[0].quote,
+									})
 							)
 						);
 					row.append(names);
@@ -512,6 +516,28 @@
 				}
 				renderFindings(data.findings || []);
 				renderReviews(data.proposals || [], data.applications || []);
+				for (const [kind, target] of [
+					['proposals', 'reviews'],
+					['applications', 'reviews'],
+					['findings', 'findings'],
+				]) {
+					const next = data.historyPagination?.[kind];
+					if (next)
+						document.getElementById(target).append(
+							button(`More ${kind}`, async () => {
+								historyCursors[`${kind}After`] = next;
+								await refresh();
+							})
+						);
+				}
+				if (Object.keys(historyCursors).length)
+					document.getElementById('reviews').append(
+						button('First history page', async () => {
+							for (const key of Object.keys(historyCursors))
+								delete historyCursors[key];
+							await refresh();
+						})
+					);
 			}
 			function renderFindings(findings) {
 				const root = document.getElementById('findings');
@@ -583,140 +609,154 @@
 						)
 					);
 				}
-				for (const proposal of proposals) {
-					const card = element('details');
+				for (const proposal of proposals) root.append(reviewCard(proposal));
+			}
+			function reviewCard(proposal) {
+				const card = element('details');
+				card.append(
+					element('summary', proposal.title || `Changes for ${proposal.documentId}`)
+				);
+				if (!Array.isArray(proposal.edits)) {
 					card.append(
-						element('summary', proposal.title || `Changes for ${proposal.documentId}`)
-					);
-					const group = element('fieldset');
-					group.append(element('legend', 'Select edits'));
-					for (const edit of proposal.edits || []) {
-						const label = element('label'),
-							check = element('input');
-						check.type = 'checkbox';
-						check.value = edit.id;
-						check.checked = edit.state === 'pending' || edit.status === 'pending';
-						check.disabled =
-							!!(edit.state && edit.state !== 'pending') ||
-							!!(edit.status && edit.status !== 'pending');
-						label.append(
-							check,
-							document.createTextNode(
-								`${edit.state || edit.status || 'pending'} · ${edit.start}–${edit.end}: ${edit.text || '(delete)'}`
-							)
-						);
-						group.append(label);
-					}
-					card.append(group);
-					const selected = () =>
-						[...group.querySelectorAll('input:checked:not(:disabled)')].map(
-							(node) => node.value
-						);
-					const preview = element('div');
-					let lastPreview = null;
-					const warning = element('p');
-					warning.setAttribute('role', 'status');
-					const acknowledge = element('label'),
-						ack = element('input');
-					ack.type = 'checkbox';
-					acknowledge.append(
-						ack,
-						document.createTextNode(
-							'I accept the formatting loss disclosed in this preview.'
-						)
-					);
-					acknowledge.hidden = true;
-					const controls = element('div');
-					controls.className = 'controls';
-					const apply = button('Apply selected', async () => {
-						if (
-							!lastPreview ||
-							JSON.stringify(lastPreview.selection) !== JSON.stringify(selected())
-						)
-							throw new Error('Preview the current selection first.');
-						if (!acknowledge.hidden && !ack.checked)
-							throw new Error(
-								'Acknowledge the disclosed formatting loss before applying.'
-							);
-						const response = await call('review_changes', {
-							action: 'apply',
-							proposalId: proposal.id,
-							editIds: selected(),
-							allowFormattingLoss: ack.checked,
-						});
-						const result = response.result;
-						await refresh();
-						status('Selected changes applied.');
-						const operationId = result.id;
-						if (operationId) {
-							const undo = button('Undo this application', async () => {
-								await call('review_changes', { action: 'undo', operationId });
-								await refresh();
-								status('Application undone.');
-							});
-							document.getElementById('reviews').prepend(undo);
-						}
-					});
-					apply.dataset.primary = 'true';
-					apply.disabled = true;
-					group.addEventListener('change', () => {
-						lastPreview = null;
-						apply.disabled = true;
-						ack.checked = false;
-					});
-					controls.append(
-						button('Preview selected', async () => {
-							const selection = selected();
-							if (!selection.length)
-								throw new Error('Select at least one pending edit.');
+						button('Load changes', async () => {
 							const response = await call('review_changes', {
-								action: 'preview',
+								action: 'get',
 								proposalId: proposal.id,
-								editIds: selection,
 							});
-							const result = response.result;
-							lastPreview = { selection };
-							const pair = element('div');
-							pair.className = 'pair';
-							for (const [heading, text] of [
-								['Before', result.before ?? result.beforeText],
-								['After', result.after ?? result.afterText],
-							]) {
-								const side = element('div');
-								side.append(
-									element('h3', heading),
-									element(
-										'pre',
-										typeof text === 'string' ? text : JSON.stringify(text)
-									)
-								);
-								pair.append(side);
-							}
-							preview.replaceChildren(pair);
-							const risks = result.fidelity?.atRisk || result.atRisk || [];
-							warning.textContent = risks.length
-								? `Formatting risks: ${risks.join('; ')}`
-								: 'Formatting-preserving preview. No known loss in the selected change.';
-							acknowledge.hidden = risks.length === 0;
-							ack.checked = false;
-							apply.disabled = false;
-							status('Preview ready. Manuscript unchanged.');
-						}),
-						apply,
-						button('Reject selected', async () => {
-							if (!selected().length)
-								throw new Error('Select at least one pending edit.');
-							await call('review_changes', {
-								action: 'reject',
-								proposalId: proposal.id,
-								editIds: selected(),
-							});
-							await refresh();
+							const replacement = reviewCard(response.result);
+							replacement.open = true;
+							card.replaceWith(replacement);
 						})
 					);
-					card.append(controls, warning, acknowledge, preview);
-					root.append(card);
+					return card;
 				}
+				const group = element('fieldset');
+				group.append(element('legend', 'Select edits'));
+				for (const edit of proposal.edits || []) {
+					const label = element('label'),
+						check = element('input');
+					check.type = 'checkbox';
+					check.value = edit.id;
+					check.checked = edit.state === 'pending' || edit.status === 'pending';
+					check.disabled =
+						!!(edit.state && edit.state !== 'pending') ||
+						!!(edit.status && edit.status !== 'pending');
+					label.append(
+						check,
+						document.createTextNode(
+							`${edit.state || edit.status || 'pending'} · ${edit.start}–${edit.end}: ${edit.text || '(delete)'}`
+						)
+					);
+					group.append(label);
+				}
+				card.append(group);
+				const selected = () =>
+					[...group.querySelectorAll('input:checked:not(:disabled)')].map(
+						(node) => node.value
+					);
+				const preview = element('div');
+				let lastPreview = null;
+				const warning = element('p');
+				warning.setAttribute('role', 'status');
+				const acknowledge = element('label'),
+					ack = element('input');
+				ack.type = 'checkbox';
+				acknowledge.append(
+					ack,
+					document.createTextNode(
+						'I accept the formatting loss disclosed in this preview.'
+					)
+				);
+				acknowledge.hidden = true;
+				const controls = element('div');
+				controls.className = 'controls';
+				const apply = button('Apply selected', async () => {
+					if (
+						!lastPreview ||
+						JSON.stringify(lastPreview.selection) !== JSON.stringify(selected())
+					)
+						throw new Error('Preview the current selection first.');
+					if (!acknowledge.hidden && !ack.checked)
+						throw new Error(
+							'Acknowledge the disclosed formatting loss before applying.'
+						);
+					const response = await call('review_changes', {
+						action: 'apply',
+						proposalId: proposal.id,
+						editIds: selected(),
+						allowFormattingLoss: ack.checked,
+					});
+					const result = response.result;
+					await refresh();
+					status('Selected changes applied.');
+					const operationId = result.id;
+					if (operationId) {
+						const undo = button('Undo this application', async () => {
+							await call('review_changes', { action: 'undo', operationId });
+							await refresh();
+							status('Application undone.');
+						});
+						document.getElementById('reviews').prepend(undo);
+					}
+				});
+				apply.dataset.primary = 'true';
+				apply.disabled = true;
+				group.addEventListener('change', () => {
+					lastPreview = null;
+					apply.disabled = true;
+					ack.checked = false;
+				});
+				controls.append(
+					button('Preview selected', async () => {
+						const selection = selected();
+						if (!selection.length) throw new Error('Select at least one pending edit.');
+						const response = await call('review_changes', {
+							action: 'preview',
+							proposalId: proposal.id,
+							editIds: selection,
+						});
+						const result = response.result;
+						lastPreview = { selection };
+						const pair = element('div');
+						pair.className = 'pair';
+						for (const [heading, text] of [
+							['Before', result.before ?? result.beforeText],
+							['After', result.after ?? result.afterText],
+						]) {
+							const side = element('div');
+							side.append(
+								element('h3', heading),
+								element(
+									'pre',
+									typeof text === 'string' ? text : JSON.stringify(text)
+								)
+							);
+							pair.append(side);
+						}
+						preview.replaceChildren(pair);
+						const risks = result.fidelity?.atRisk || result.atRisk || [];
+						warning.textContent = risks.length
+							? `Formatting risks: ${risks.join('; ')}`
+							: 'Formatting-preserving preview. No known loss in the selected change.';
+						acknowledge.hidden = risks.length === 0;
+						ack.checked = false;
+						apply.disabled = false;
+						status('Preview ready. Manuscript unchanged.');
+					}),
+					apply,
+					button('Reject selected', async () => {
+						if (!selected().length)
+							throw new Error('Select at least one pending edit.');
+						await call('review_changes', {
+							action: 'reject',
+							proposalId: proposal.id,
+							editIds: selected(),
+						});
+						await refresh();
+					})
+				);
+				card.append(controls, warning, acknowledge, preview);
+				return card;
 			}
 			function hostContext(context) {
 				if (context?.theme === 'light' || context?.theme === 'dark')

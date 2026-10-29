@@ -121,8 +121,11 @@ interface ExportPublicationRecord {
 }
 
 function isExportPublication(value: unknown): value is ExportPublicationRecord {
-	return !!value && typeof value === 'object' &&
-		(value as { targetKind?: unknown }).targetKind === 'export';
+	return (
+		!!value &&
+		typeof value === 'object' &&
+		(value as { targetKind?: unknown }).targetKind === 'export'
+	);
 }
 
 export class MutationCoordinator {
@@ -288,10 +291,13 @@ export class MutationCoordinator {
 		}
 	}
 
-	private async readSaved(target: string): Promise<{ raw: string; exists: boolean; revision: string }> {
+	private async readSaved(
+		target: string
+	): Promise<{ raw: string; exists: boolean; revision: string }> {
 		const saved = await this.readSavedBytes(target);
 		const raw = saved.bytes.toString('utf8');
-		if (!Buffer.from(raw).equals(saved.bytes)) throw new Error('Saved content is not valid UTF-8');
+		if (!Buffer.from(raw).equals(saved.bytes))
+			throw new Error('Saved content is not valid UTF-8');
 		return { raw, exists: saved.exists, revision: saved.revision };
 	}
 
@@ -485,51 +491,81 @@ export class MutationCoordinator {
 	}
 
 	private exportPath(filePath: string): string {
-		if (typeof filePath !== 'string' || filePath.includes('\0') || filePath.length > 4096 ||
-			!path.isAbsolute(filePath)) throw new Error('Export publication requires an absolute path');
+		if (
+			typeof filePath !== 'string' ||
+			filePath.includes('\0') ||
+			filePath.length > 4096 ||
+			!path.isAbsolute(filePath)
+		)
+			throw new Error('Export publication requires an absolute path');
 		const target = path.resolve(filePath);
-		const relative = path.relative(path.join(this.projectPath, '.scrivener-mcp', 'exports'), target);
-		if (path.dirname(relative) !== '.' ||
-			! /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}\.(docx|epub|pdf)$/i.test(relative) ||
-			/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(relative))
-			throw new Error('Workflow exports require a safe filename directly inside .scrivener-mcp/exports');
+		const relative = path.relative(
+			path.join(this.projectPath, '.scrivener-mcp', 'exports'),
+			target
+		);
+		if (
+			path.dirname(relative) !== '.' ||
+			!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}\.(docx|epub|pdf)$/i.test(relative) ||
+			/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(relative)
+		)
+			throw new Error(
+				'Workflow exports require a safe filename directly inside .scrivener-mcp/exports'
+			);
 		return target;
 	}
 
 	private exportPublication(value: unknown): ExportPublicationRecord {
 		if (!isExportPublication(value)) throw new Error('Malformed export publication journal');
 		const record = value;
-		if (typeof record.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(record.id) ||
-			typeof record.requestHash !== 'string' || !/^[a-f0-9]{64}$/.test(record.requestHash) ||
+		if (
+			typeof record.id !== 'string' ||
+			!/^[A-Za-z0-9_-]{1,128}$/.test(record.id) ||
+			typeof record.requestHash !== 'string' ||
+			!/^[a-f0-9]{64}$/.test(record.requestHash) ||
 			typeof record.projectFile !== 'string' ||
 			record.projectFile.length > 4096 ||
 			!record.projectFile.startsWith('.scrivener-mcp/exports/') ||
 			/[\\/]/.test(record.projectFile.slice('.scrivener-mcp/exports/'.length)) ||
 			!['prepared', 'committed', 'conflicted'].includes(record.state) ||
-			typeof record.createdAt !== 'string' || record.createdAt.length > 64 ||
-			!Number.isFinite(Date.parse(record.createdAt)))
+			typeof record.createdAt !== 'string' ||
+			record.createdAt.length > 64 ||
+			!Number.isFinite(Date.parse(record.createdAt))
+		)
 			throw new Error('Malformed export publication journal');
 		this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/')));
 		if (record.state === 'committed' && !record.artifact)
 			throw new Error('Committed export publication has no prepared artifact');
 		if (record.artifact) {
 			const artifact = record.artifact;
-			if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1 || artifact.bytes > MAX_EXPORT_BYTES ||
-				typeof artifact.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(artifact.sha256) ||
-				typeof artifact.base64 !== 'string' || artifact.base64.length > Math.ceil(MAX_EXPORT_BYTES / 3) * 4 ||
-				!artifact.result || typeof artifact.result !== 'object' || Array.isArray(artifact.result) ||
-				Buffer.byteLength(JSON.stringify(artifact.result)) > MAX_EXPORT_RESULT_BYTES)
+			if (
+				!Number.isSafeInteger(artifact.bytes) ||
+				artifact.bytes < 1 ||
+				artifact.bytes > MAX_EXPORT_BYTES ||
+				typeof artifact.sha256 !== 'string' ||
+				!/^[a-f0-9]{64}$/.test(artifact.sha256) ||
+				typeof artifact.base64 !== 'string' ||
+				artifact.base64.length > Math.ceil(MAX_EXPORT_BYTES / 3) * 4 ||
+				!artifact.result ||
+				typeof artifact.result !== 'object' ||
+				Array.isArray(artifact.result) ||
+				Buffer.byteLength(JSON.stringify(artifact.result)) > MAX_EXPORT_RESULT_BYTES
+			)
 				throw new Error('Malformed prepared export artifact');
 			const bytes = Buffer.from(artifact.base64, 'base64');
-			if (bytes.length !== artifact.bytes || bytes.toString('base64') !== artifact.base64 ||
-				documentRevision(bytes) !== artifact.sha256)
+			if (
+				bytes.length !== artifact.bytes ||
+				bytes.toString('base64') !== artifact.base64 ||
+				documentRevision(bytes) !== artifact.sha256
+			)
 				throw new Error('Prepared export artifact failed its integrity check');
 		}
 		return record;
 	}
 
 	private async readExport(record: ExportPublicationRecord) {
-		const target = this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/')));
+		const target = this.exportPath(
+			path.join(this.projectPath, ...record.projectFile.split('/'))
+		);
 		this.assertProjectPath(target);
 		const saved = await this.readSavedBytes(target, MAX_EXPORT_BYTES);
 		this.assertProjectPath(target);
@@ -550,8 +586,11 @@ export class MutationCoordinator {
 		}
 		const current = await this.readExport(record);
 		if (!current.exists) return;
-		if (record.artifact && current.revision === record.artifact.sha256 &&
-			current.bytes.length === record.artifact.bytes) {
+		if (
+			record.artifact &&
+			current.revision === record.artifact.sha256 &&
+			current.bytes.length === record.artifact.bytes
+		) {
 			record.state = 'committed';
 			record.completedAt = new Date().toISOString();
 		} else record.state = 'conflicted';
@@ -570,9 +609,13 @@ export class MutationCoordinator {
 		prepare: () => Promise<{ buffer: Buffer; result: Record<string, unknown> }>
 	): Promise<Record<string, unknown>> {
 		request = { ...request };
-		if (!request || typeof request.operationId !== 'string' ||
+		if (
+			!request ||
+			typeof request.operationId !== 'string' ||
 			!/^[A-Za-z0-9_-]{1,128}$/.test(request.operationId) ||
-			typeof request.requestHash !== 'string' || !/^[a-f0-9]{64}$/.test(request.requestHash))
+			typeof request.requestHash !== 'string' ||
+			!/^[a-f0-9]{64}$/.test(request.requestHash)
+		)
 			throw new Error('Export publication requires bounded operation and request identities');
 		const target = this.exportPath(request.outputPath);
 		this.assertProjectPath(target);
@@ -580,24 +623,38 @@ export class MutationCoordinator {
 		const store = this.state();
 		const token = randomUUID();
 		const record = store.transaction(() => {
-			if (this.claim()) throw new Error('Another manuscript operation acquired the project; retry');
+			if (this.claim())
+				throw new Error('Another manuscript operation acquired the project; retry');
 			const previous = store.get<unknown>(JOURNAL, request.operationId);
 			const prior = previous === undefined ? undefined : this.exportPublication(previous);
 			const projectFile = `.scrivener-mcp/exports/${path.basename(target)}`;
-			if (prior && (prior.id !== request.operationId || prior.requestHash !== request.requestHash ||
-				prior.projectFile !== projectFile))
+			if (
+				prior &&
+				(prior.id !== request.operationId ||
+					prior.requestHash !== request.requestHash ||
+					prior.projectFile !== projectFile)
+			)
 				throw new Error('Export operation ID was already used for a different request');
 			if (prior?.state === 'conflicted')
-				throw new Error('Export publication conflicts with an existing or changed artifact; start a new workflow');
+				throw new Error(
+					'Export publication conflicts with an existing or changed artifact; start a new workflow'
+				);
 			if (prior?.state === 'committed') return prior;
 			const next: ExportPublicationRecord = prior ?? {
-				id: request.operationId, targetKind: 'export', requestHash: request.requestHash,
-				projectFile, state: 'prepared', createdAt: new Date().toISOString(),
+				id: request.operationId,
+				targetKind: 'export',
+				requestHash: request.requestHash,
+				projectFile,
+				state: 'prepared',
+				createdAt: new Date().toISOString(),
 			};
 			store.put(JOURNAL, next.id, next);
 			store.put(PENDING, next.id, { id: next.id });
 			store.put<MutationClaim>(CLAIMS, 'project', {
-				operationId: next.id, ownerPid: process.pid, host: hostname(), token,
+				operationId: next.id,
+				ownerPid: process.pid,
+				host: hostname(),
+				token,
 			});
 			return next;
 		});
@@ -611,19 +668,30 @@ export class MutationCoordinator {
 					throw new Error('Export destination already exists; it was not overwritten');
 				}
 				const prepared = await prepare();
-				if (!Buffer.isBuffer(prepared.buffer) || prepared.buffer.length < 1 ||
-					prepared.buffer.length > MAX_EXPORT_BYTES)
+				if (
+					!Buffer.isBuffer(prepared.buffer) ||
+					prepared.buffer.length < 1 ||
+					prepared.buffer.length > MAX_EXPORT_BYTES
+				)
 					throw new Error('Workflow export artifact must contain 1 through 32 MiB');
 				const json = JSON.stringify(prepared.result);
-				if (!prepared.result || typeof prepared.result !== 'object' || Array.isArray(prepared.result) ||
-					!json || Buffer.byteLength(json) > MAX_EXPORT_RESULT_BYTES)
+				if (
+					!prepared.result ||
+					typeof prepared.result !== 'object' ||
+					Array.isArray(prepared.result) ||
+					!json ||
+					Buffer.byteLength(json) > MAX_EXPORT_RESULT_BYTES
+				)
 					throw new Error('Workflow export result exceeds its 8 MiB metadata limit');
 				record.artifact = {
-					bytes: prepared.buffer.length, sha256: documentRevision(prepared.buffer),
-					base64: prepared.buffer.toString('base64'), result: JSON.parse(json) as Record<string, unknown>,
+					bytes: prepared.buffer.length,
+					sha256: documentRevision(prepared.buffer),
+					base64: prepared.buffer.toString('base64'),
+					result: JSON.parse(json) as Record<string, unknown>,
 				};
 				store.transaction(() => {
-					if (this.claim()?.token !== token) throw new Error('Export publication ownership changed');
+					if (this.claim()?.token !== token)
+						throw new Error('Export publication ownership changed');
 					store.put(JOURNAL, record.id, record);
 				});
 			}
@@ -634,12 +702,14 @@ export class MutationCoordinator {
 			return await this.exportResult(record);
 		} catch (error) {
 			const persisted = store.get<ExportPublicationRecord>(JOURNAL, record.id);
-			if (persisted?.state === 'prepared' && !persisted.artifact) store.transaction(() => {
-				if (this.claim()?.token !== token) throw new Error('Export publication ownership changed during abort');
-				store.delete(JOURNAL, record.id);
-				store.delete(PENDING, record.id);
-				store.delete(CLAIMS, 'project');
-			});
+			if (persisted?.state === 'prepared' && !persisted.artifact)
+				store.transaction(() => {
+					if (this.claim()?.token !== token)
+						throw new Error('Export publication ownership changed during abort');
+					store.delete(JOURNAL, record.id);
+					store.delete(PENDING, record.id);
+					store.delete(CLAIMS, 'project');
+				});
 			throw error;
 		} finally {
 			try {
@@ -647,7 +717,9 @@ export class MutationCoordinator {
 					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
 						store.delete(CLAIMS, 'project');
 				});
-			} finally { activeClaims.delete(token); }
+			} finally {
+				activeClaims.delete(token);
+			}
 		}
 	}
 
@@ -655,22 +727,34 @@ export class MutationCoordinator {
 		if (!record.artifact) throw new Error('Export publication has no prepared artifact');
 		const current = await this.readExport(record);
 		if (current.exists) {
-			if (current.revision === record.artifact.sha256 && current.bytes.length === record.artifact.bytes) return;
+			if (
+				current.revision === record.artifact.sha256 &&
+				current.bytes.length === record.artifact.bytes
+			)
+				return;
 			record.state = 'conflicted';
 			this.checkpointExport(record);
 			throw new Error('Export destination changed; it was not overwritten');
 		}
-		const target = this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/')));
-		try { await this.publishNewFile(target, Buffer.from(record.artifact.base64, 'base64')); }
-		catch (error) {
+		const target = this.exportPath(
+			path.join(this.projectPath, ...record.projectFile.split('/'))
+		);
+		try {
+			await this.publishNewFile(target, Buffer.from(record.artifact.base64, 'base64'));
+		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
 		}
 		const published = await this.readExport(record);
-		if (!published.exists || published.revision !== record.artifact.sha256 ||
-			published.bytes.length !== record.artifact.bytes) {
+		if (
+			!published.exists ||
+			published.revision !== record.artifact.sha256 ||
+			published.bytes.length !== record.artifact.bytes
+		) {
 			record.state = 'conflicted';
 			this.checkpointExport(record);
-			throw new Error('Published export conflicts with the prepared artifact; it was not overwritten');
+			throw new Error(
+				'Published export conflicts with the prepared artifact; it was not overwritten'
+			);
 		}
 	}
 
@@ -688,24 +772,39 @@ export class MutationCoordinator {
 			try {
 				await handle.writeFile(bytes);
 				await handle.sync();
-			} finally { await handle.close(); }
+			} finally {
+				await handle.close();
+			}
 			this.assertProjectPath(target);
 			await fs.link(temporary, target);
-		} finally { await fs.rm(staging, { recursive: true, force: true }); }
+		} finally {
+			await fs.rm(staging, { recursive: true, force: true });
+		}
 	}
 
 	private async exportResult(record: ExportPublicationRecord): Promise<Record<string, unknown>> {
-		if (!record.artifact || record.state !== 'committed') throw new Error('Export receipt is incomplete');
+		if (!record.artifact || record.state !== 'committed')
+			throw new Error('Export receipt is incomplete');
 		const current = await this.readExport(record);
-		if (!current.exists || current.revision !== record.artifact.sha256 ||
-			current.bytes.length !== record.artifact.bytes)
+		if (
+			!current.exists ||
+			current.revision !== record.artifact.sha256 ||
+			current.bytes.length !== record.artifact.bytes
+		)
 			throw new Error('Published export changed or disappeared; start a new workflow');
-		const result = JSON.parse(JSON.stringify(record.artifact.result)) as Record<string, unknown>;
+		const result = JSON.parse(JSON.stringify(record.artifact.result)) as Record<
+			string,
+			unknown
+		>;
 		return {
 			...result,
 			path: this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/'))),
 			bytes: record.artifact.bytes,
-			receipt: { operationId: record.id, requestHash: record.requestHash, sha256: record.artifact.sha256 },
+			receipt: {
+				operationId: record.id,
+				requestHash: record.requestHash,
+				sha256: record.artifact.sha256,
+			},
 		};
 	}
 

@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { redactDiagnostics } from '../dist/utils/redaction.js';
+import { verifyProjectQueueIsolation } from './check-project-queue-isolation.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(new URL('../package.json', import.meta.url));
@@ -82,9 +83,9 @@ async function verify() {
 		() => fail(new Error('Redis backend verification exceeded its 60-second limit')),
 		60_000
 	);
-	const checked = async (operation, label) => {
+	const checked = async (operation, label, milliseconds = 10_000) => {
 		try {
-			return await deadline(Promise.race([operation, failure]), label);
+			return await deadline(Promise.race([operation, failure]), label, milliseconds);
 		} catch (error) {
 			throw new Error(
 				`${label}: ${error instanceof Error ? error.message : 'operation failed'}`,
@@ -503,6 +504,12 @@ async function verify() {
 			[5, 1, 0, 0, 0]
 		);
 		checks.push('current-queue-state-counts');
+		const isolation = await checked(
+			verifyProjectQueueIsolation({ redisUrl: url, rootDirectory: fixture }),
+			'Production project queue isolation',
+			45_000
+		);
+		checks.push(...isolation.checks);
 		if (args.length) checks.push('bullmq5-to-bullmq6-transfer');
 		if (asyncError) throw asyncError;
 	} catch (error) {

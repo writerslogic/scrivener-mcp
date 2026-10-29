@@ -5,6 +5,10 @@ import type { EditorialWorkflow, WorkflowKind } from '../services/editorial/work
 const workflowOutputSchema: ToolSchema = {
 	type: 'object',
 	properties: {
+		nextCursor: {
+			type: ['string', 'null'],
+			description: 'Next workflow list cursor, or null after the final summary page.',
+		},
 		workflows: {
 			type: 'array',
 			description:
@@ -187,8 +191,6 @@ const workflowOutputSchema: ToolSchema = {
 					'progress',
 					'createdAt',
 					'updatedAt',
-					'scope',
-					'steps',
 					'usage',
 					'cost',
 				],
@@ -213,6 +215,19 @@ export const workflowHandlers: ToolDefinition[] = [
 		inputSchema: {
 			type: 'object',
 			properties: {
+				after: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 160,
+					description: 'Cursor returned by a previous workflow list page.',
+				},
+				limit: {
+					type: 'integer',
+					minimum: 1,
+					maximum: 100,
+					description:
+						'Workflow summary page size, default20; use get for full scope and results.',
+				},
 				action: {
 					type: 'string',
 					enum: ['start', 'get', 'list', 'cancel', 'resume'],
@@ -275,8 +290,17 @@ export const workflowHandlers: ToolDefinition[] = [
 					'Export warning acknowledgment is valid only when starting or resuming a beta-reader workflow'
 				);
 			let values: EditorialWorkflow[];
-			if (action === 'list') values = workflows.list();
-			else if (action === 'get') values = [workflows.get(getStringArg(args, 'workflowId'))];
+			if (action === 'list') {
+				const page = workflows.listPage({
+					after: args.after as string | undefined,
+					limit: args.limit as number | undefined,
+				});
+				const result = { workflows: page.items, nextCursor: page.nextCursor };
+				return {
+					content: [{ type: 'text', text: JSON.stringify(result) }],
+					structuredContent: result,
+				};
+			} else if (action === 'get') values = [workflows.get(getStringArg(args, 'workflowId'))];
 			else if (action === 'cancel')
 				values = [workflows.cancel(getStringArg(args, 'workflowId'))];
 			else if (action === 'resume')

@@ -190,6 +190,43 @@ describe('durable editorial workflows', () => {
 		expect(done.cost.estimated).toBe(0);
 	});
 
+	it.each([3, 8])(
+		'acquires source text linearly for a %i-scene review and detects late changes',
+		async (count) => {
+			const documents = Array.from({ length: count }, (_, index) => ({
+				...doc,
+				documentId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+				order: index,
+			}));
+			let acquisitions = 0;
+			source.list = async () => {
+				acquisitions += documents.length;
+				return documents;
+			};
+			source.read = async (id) => {
+				acquisitions++;
+				return documents.find((item) => item.documentId === id)!;
+			};
+			const started = await service.start({
+				kind: 'review-chapter',
+				documentIds: documents.map((item) => item.documentId),
+			});
+			expect((await service.wait(started.id)).state).toBe('completed');
+			expect(acquisitions).toBeLessThanOrEqual(count * 7);
+			expect(analyses).toBe(count);
+			dependencies.analyzeDocument = async () => {
+				documents[0] = { ...documents[0], revision: 'externally-changed' };
+				return { actual: true };
+			};
+			const changed = await service.start({
+				kind: 'review-chapter',
+				documentIds: documents.map((item) => item.documentId),
+			});
+			expect((await service.wait(changed.id)).state).toBe('failed');
+			expect(service.get(changed.id).error).toMatch(/source changed/);
+		}
+	);
+
 	it('resumes a preflight-blocked beta draft after durable acknowledgment without replaying analyses or completed exports', async () => {
 		const exportBeta = dependencies.exportBeta;
 		dependencies.exportBeta = async (input) => {
@@ -300,11 +337,11 @@ describe('durable editorial workflows', () => {
 		const blocked = new Promise<void>((notify) => {
 			release = notify;
 		});
-		const read = source.read;
-		source.read = async (id) => {
+		const list = source.list;
+		source.list = async () => {
 			entered();
 			await blocked;
-			return read(id);
+			return list();
 		};
 		const resuming = service.resume(started.id);
 		await checking;
@@ -324,14 +361,12 @@ describe('durable editorial workflows', () => {
 		service.cancel(cancelled.id);
 		await service.wait(cancelled.id);
 		let releaseStart!: (documents: SourceDocument[]) => void;
-		let releaseResume!: (document: SourceDocument) => void;
+		let releaseResume!: (documents: SourceDocument[]) => void;
+		let acquisitions = 0;
 		source.list = () =>
 			new Promise<SourceDocument[]>((notify) => {
-				releaseStart = notify;
-			});
-		source.read = () =>
-			new Promise<SourceDocument>((notify) => {
-				releaseResume = notify;
+				if (acquisitions++ === 0) releaseStart = notify;
+				else releaseResume = notify;
 			});
 		const starting = service.start({ kind: 'review-chapter', documentIds: [doc.documentId] });
 		const resuming = service.resume(cancelled.id);
@@ -339,7 +374,7 @@ describe('durable editorial workflows', () => {
 		await search.close();
 		store.close();
 		releaseStart([doc]);
-		releaseResume(doc);
+		releaseResume([doc]);
 		try {
 			await Promise.all([
 				expect(starting).rejects.toThrow('Workflow service is closed'),

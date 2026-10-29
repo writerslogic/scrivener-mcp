@@ -12,7 +12,9 @@ import { ErrorCode, ToolListChangedNotificationSchema } from '@modelcontextproto
 
 test('real stdio dispatch distinguishes protocol errors and discloses tools after failed and memory-only activation', async () => {
 	const sourceRoot = resolve(__dirname, '../../..');
-	const loader = pathToFileURL(createRequire(join(sourceRoot, 'package.json')).resolve('tsx')).href;
+	const loader = pathToFileURL(
+		createRequire(join(sourceRoot, 'package.json')).resolve('tsx')
+	).href;
 	const root = await mkdtemp(join(tmpdir(), 'scrivener-tool-contract-'));
 	const project = join(root, 'Welcome.scriv');
 	const transport = new StdioClientTransport({
@@ -40,8 +42,14 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 			LOG_LEVEL: 'ERROR',
 		},
 	});
-	transport.stderr?.on('data', () => undefined);
-	const client = new Client({ name: 'tool-contract-regression', version: '1' }, { capabilities: {} });
+	let stderr = '';
+	transport.stderr?.on('data', (chunk) => {
+		stderr = (stderr + String(chunk)).slice(-8192);
+	});
+	const client = new Client(
+		{ name: 'tool-contract-regression', version: '1' },
+		{ capabilities: {} }
+	);
 	let notifications = 0;
 	client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
 		notifications++;
@@ -86,6 +94,8 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		).toMatchObject({ properties: { limit: { type: 'integer', minimum: 1, maximum: 50 } } });
 		expect(notifications).toBe(4);
 		expect((await call('close_project')).isError).not.toBe(true);
+	} catch (error) {
+		throw new Error(`Protocol child failed: ${stderr || 'no stderr'}`, { cause: error });
 	} finally {
 		try {
 			await client.close();

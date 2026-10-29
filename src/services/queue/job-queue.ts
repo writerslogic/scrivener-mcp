@@ -1,3 +1,4 @@
+import type { ContinuityOptions, ContinuityReport } from '../editorial/continuity-service.js';
 /**
  * Optimized BullMQ job queue with automatic KeyDB/Redis detection
  */
@@ -74,8 +75,9 @@ export interface BuildVectorStoreJob {
 }
 
 export interface CheckConsistencyJob {
-	documents: Array<{ id: string; content: string }>;
-	checkTypes?: string[];
+	projectId: string;
+	documents: Array<{ id: string; revision: string }>;
+	checkTypes?: ContinuityOptions['checkTypes'];
 }
 
 export interface SyncDatabaseJob {
@@ -117,6 +119,7 @@ export class JobQueueService {
 	private embeddedStore?: PersistentStore;
 	private scope?: QueueScope;
 	private readonly unboundIdentity = randomUUID();
+	private continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
 	private readonly embeddedRuns = new Map<string, Promise<void>>();
 	private logger: ReturnType<typeof getLogger>;
 
@@ -139,6 +142,7 @@ export class JobQueueService {
 		options: {
 			redisUrl?: string;
 			sqliteOnly?: boolean;
+			continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
 			openaiApiKey?: string;
 			databasePath?: string;
 			neo4jUri?: string;
@@ -151,6 +155,7 @@ export class JobQueueService {
 			throw new Error('sqliteOnly must be a boolean');
 
 		try {
+			this.continuity = options.continuity;
 			if (this.projectPath) {
 				this.projectPath = await realpath(this.projectPath);
 				this.embeddedStore = new PersistentStore(
@@ -549,224 +554,34 @@ export class JobQueueService {
 		}
 	}
 
-	private async processCheckConsistency(
-		data: CheckConsistencyJob
-	): Promise<Record<string, unknown>> {
-		// Perform comprehensive consistency checks
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-		const checkTypes = data.checkTypes || ['characters', 'timeline', 'locations', 'plot'];
-
-		try {
-			// Character consistency checks
-			if (checkTypes.includes('characters')) {
-				const characterIssues = this.checkCharacterConsistency(data.documents);
-				issues.push(...characterIssues);
-			}
-
-			// Timeline consistency checks
-			if (checkTypes.includes('timeline')) {
-				const timelineIssues = this.checkTimelineConsistency(data.documents);
-				issues.push(...timelineIssues);
-			}
-
-			// Location consistency checks
-			if (checkTypes.includes('locations')) {
-				const locationIssues = await this.checkLocationConsistency(data.documents);
-				issues.push(...locationIssues);
-			}
-
-			// Plot consistency checks
-			if (checkTypes.includes('plot')) {
-				const plotIssues = await this.checkPlotConsistency(data.documents);
-				issues.push(...plotIssues);
-			}
-
-			// Sort issues by severity
-			issues.sort((a, b) => {
-				const severityOrder = { high: 0, medium: 1, low: 2 };
-				return (
-					(severityOrder[a.severity as keyof typeof severityOrder] || 2) -
-					(severityOrder[b.severity as keyof typeof severityOrder] || 2)
-				);
-			});
-
-			return {
-				documents: data.documents.length,
-				issues,
-				totalIssues: issues.length,
-				byType: checkTypes.reduce(
-					(acc, type) => {
-						acc[type] = issues.filter((i) => i.type === type).length;
-						return acc;
-					},
-					{} as Record<string, number>
-				),
-				checkedAt: new Date().toISOString(),
-			};
-		} catch (error) {
-			this.logger.error('Consistency check failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
-			return { documents: data.documents.length, issues: [], error: 'Check failed' };
-		}
-	}
-
-	private checkCharacterConsistency(documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-		const characterMentions = new Map<string, number[]>();
-
-		// Track character mentions across documents
-		documents.forEach((doc, index) => {
-			// Simple character detection - look for capitalized names
-			const names = doc.content.match(/\b[A-Z][a-z]+\b/g) || [];
-			names.forEach((name) => {
-				if (!characterMentions.has(name)) {
-					characterMentions.set(name, []);
-				}
-				characterMentions.get(name)?.push(index);
-			});
+	private async processCheckConsistency(data: CheckConsistencyJob): Promise<ContinuityReport> {
+		if (!this.continuity || data.projectId !== this.requireScope().projectId)
+			throw new Error(
+				'Continuity analysis requires the selected project and its canonical evidence service'
+			);
+		if (
+			!Array.isArray(data.documents) ||
+			!data.documents.length ||
+			data.documents.length > 5000 ||
+			data.documents.some(
+				(doc) =>
+					!doc ||
+					typeof doc.id !== 'string' ||
+					typeof doc.revision !== 'string' ||
+					!/^[a-f0-9]{64}$/.test(doc.revision)
+			)
+		)
+			throw new Error(
+				'Continuity jobs require 1–5000 saved document identities and revisions'
+			);
+		return this.continuity({
+			documentIds: data.documents.map((doc) => doc.id),
+			expectedRevisions: data.documents.map((doc) => ({
+				documentId: doc.id,
+				revision: doc.revision,
+			})),
+			checkTypes: data.checkTypes,
 		});
-
-		// Check for disappearing characters
-		characterMentions.forEach((mentions, character) => {
-			if (mentions.length > 2) {
-				const gaps: Array<{ start: number; end: number; gap: number }> = [];
-				for (let i = 1; i < mentions.length; i++) {
-					const gap = mentions[i] - mentions[i - 1];
-					if (gap > 3) {
-						gaps.push({ start: mentions[i - 1], end: mentions[i], gap });
-					}
-				}
-				if (gaps.length > 0) {
-					issues.push({
-						type: 'characters',
-						severity: gaps.some((g) => g.gap > 5) ? 'high' : 'medium',
-						description: `Character "${character}" has unexplained absences`,
-						details: gaps,
-					});
-				}
-			}
-		});
-
-		return issues;
-	}
-
-	private checkTimelineConsistency(documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-		const timeMarkers: Array<{ docIndex: number; marker: string }> = [];
-
-		documents.forEach((doc, index) => {
-			// Look for time indicators
-			const timePatterns = [
-				/\b(\d{1,2})\s*(hours?|days?|weeks?|months?|years?)\s*(ago|later|before|after)\b/gi,
-				/\b(morning|afternoon|evening|night|dawn|dusk|midnight|noon)\b/gi,
-				/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi,
-			];
-
-			timePatterns.forEach((pattern) => {
-				const matches = doc.content.match(pattern) || [];
-				matches.forEach((match) => {
-					timeMarkers.push({ docIndex: index, marker: match });
-				});
-			});
-		});
-
-		// Check for conflicting time references
-		if (timeMarkers.length > 10) {
-			issues.push({
-				type: 'timeline',
-				severity: 'low',
-				description: 'Multiple time references detected - verify chronological consistency',
-				details: { markerCount: timeMarkers.length },
-			});
-		}
-
-		return issues;
-	}
-
-	private async checkLocationConsistency(_documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-
-		try {
-			// Use AI to detect spatial and location inconsistencies
-			if (this.aiWritingService) {
-				const response = await this.aiWritingService.generateWithContext(
-					`Analyze these manuscript excerpts for location and spatial inconsistencies.
-					Look for characters being in two places at once, distances changing, or layout contradictions.`
-				);
-
-				if (
-					response.toLowerCase().includes('inconsistency') ||
-					response.toLowerCase().includes('contradiction')
-				) {
-					issues.push({
-						type: 'locations',
-						severity: 'medium',
-						description: 'Potential spatial or location inconsistency detected',
-						details: response,
-					});
-				}
-			}
-		} catch (error) {
-			this.logger.warn('AI location check failed, falling back to pattern matching', {
-				error,
-			});
-		}
-
-		return issues;
-	}
-
-	private async checkPlotConsistency(documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-
-		try {
-			if (this.aiWritingService) {
-				const response = await this.aiWritingService.checkPlotConsistency(
-					documents.map((d) => ({
-						...d,
-						title: `Document ${d.id}`,
-						type: 'Text' as const,
-						path: '',
-					}))
-				);
-
-				return response.map((issue) => ({
-					type: 'plot',
-					severity: issue.severity,
-					description: issue.issue,
-					details: { suggestion: issue.suggestion, locations: issue.locations },
-				}));
-			}
-		} catch (error) {
-			this.logger.warn('AI plot check failed', { error });
-		}
-
-		return issues;
 	}
 
 	private async processSyncDatabase(data: SyncDatabaseJob): Promise<Record<string, unknown>> {
@@ -1163,6 +978,7 @@ export class JobQueueService {
 		this.connection = undefined;
 		this.memoryRedis = undefined;
 		this.scope = undefined;
+		this.continuity = undefined;
 
 		this.isInitialized = false;
 		const failures = results.flatMap((result) =>

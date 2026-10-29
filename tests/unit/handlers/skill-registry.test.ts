@@ -35,9 +35,11 @@ test('progressive activation changes the catalog once and keeps hidden tools una
 	);
 	expect(toolNames()).not.toContain('analyze_document');
 	const before = getToolCatalogRevision();
-	await expect(executeRegisteredHandler('analyze_document', {}, context())).rejects.toMatchObject({
-		code: 'INVALID_ARGUMENT',
-	});
+	await expect(executeRegisteredHandler('analyze_document', {}, context())).rejects.toMatchObject(
+		{
+			code: 'INVALID_ARGUMENT',
+		}
+	);
 	expect(toolNames()).toContain('analyze_document');
 	expect(getToolCatalogRevision()).toBe(before + 1);
 	expect(activateSkillForTool('analyze_document')).toBe(false);
@@ -89,19 +91,27 @@ test('fallback discovery includes complete callable schemas on activation and re
 		required: ['query'],
 		properties: {
 			limit: { type: 'integer', minimum: 1, maximum: 50 },
-			documentIds: { type: 'array', maxItems: 10000, items: { type: 'string', maxLength: 128 } },
+			documentIds: {
+				type: 'array',
+				maxItems: 10000,
+				items: { type: 'string', maxLength: 128 },
+			},
 		},
 	});
 	const text = first.content[0].text!;
 	expect(JSON.parse(text.slice(text.indexOf('\n') + 1))).toEqual(tools);
-	expect((await executeRegisteredHandler('use_skill', { name: 'unknown' }, context())).isError).toBe(
-		true
-	);
+	expect(
+		(await executeRegisteredHandler('use_skill', { name: 'unknown' }, context())).isError
+	).toBe(true);
 	const textOnly = await executeRegisteredHandler('use_skill', { name: 'project' }, context());
-	const apps = await executeRegisteredHandler('use_skill', { name: 'project' }, {
-		...context(),
-		uiSupported: true,
-	});
+	const apps = await executeRegisteredHandler(
+		'use_skill',
+		{ name: 'project' },
+		{
+			...context(),
+			uiSupported: true,
+		}
+	);
 	const dashboard = (result: typeof apps) =>
 		(result.structuredContent?.tools as ReturnType<typeof getRegisteredTools>).find(
 			(tool) => tool.name === 'manuscript_dashboard'
@@ -155,9 +165,11 @@ test.each([
 	{ action: 'propose', edits: [{ start: 0, end: 2 }] },
 	{ action: 'propose', edits: [{ start: 0, end: 2, text: 17 }] },
 ])('enforces published nested edit types and operation enum: %j', async (args) => {
-	await expect(executeRegisteredHandler('review_changes', args, context())).rejects.toMatchObject({
-		code: 'INVALID_ARGUMENT',
-	});
+	await expect(executeRegisteredHandler('review_changes', args, context())).rejects.toMatchObject(
+		{
+			code: 'INVALID_ARGUMENT',
+		}
+	);
 });
 
 test.each([
@@ -174,7 +186,8 @@ test.each([
 	['contextChars', 2000, true],
 	['contextChars', 2001, false],
 ] as const)('enforces %s boundary %i without coercion', (field, value, valid) => {
-	const validate = () => validateRegisteredArgs('search_passages', { query: 'loyalty', [field]: value });
+	const validate = () =>
+		validateRegisteredArgs('search_passages', { query: 'loyalty', [field]: value });
 	if (valid) expect(validate).not.toThrow();
 	else expect(validate).toThrow(HandlerError);
 });
@@ -190,7 +203,9 @@ test('enforces array item constraints, closed schemas, and declared string bound
 		{ query: 'loyalty', documentIds: Array.from({ length: 10001 }, () => DOCUMENT) },
 	])
 		expect(() => validateRegisteredArgs('search_passages', args)).toThrow(HandlerError);
-	expect(() => validateRegisteredArgs('c2pa_capabilities', { extra: true })).toThrow(HandlerError);
+	expect(() => validateRegisteredArgs('c2pa_capabilities', { extra: true })).toThrow(
+		HandlerError
+	);
 	for (const query of ['x', 'x'.repeat(2047), 'x'.repeat(2048)])
 		expect(() => validateRegisteredArgs('search_passages', { query })).not.toThrow();
 	for (const count of [9999, 10000])
