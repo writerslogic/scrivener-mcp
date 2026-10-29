@@ -19,6 +19,23 @@ export interface CredentialFormat {
 
 export type CredentialMode = 'embedded' | 'sidecar';
 
+export interface CredentialCapabilities {
+	available: boolean;
+	sdkVersion: string | null;
+	unavailableReason?: string;
+	formats: readonly CredentialFormat[];
+	modes: readonly CredentialMode[];
+	compressedManifests: { generation: boolean; validation: boolean };
+	signerConfigured: boolean;
+	conformance: {
+		status: 'not-assessed';
+		maxAssuranceLevel: null;
+		implementationClass: 'edge';
+		attestationMethods: readonly string[];
+	};
+	limits: { assetBytes: number; manifestBytes: number; timeoutMs: number };
+}
+
 export interface CredentialValidation {
 	state: 'valid' | 'invalid' | 'unsigned' | 'untrusted';
 	integrity: 'valid' | 'invalid' | 'not-evaluated';
@@ -35,7 +52,9 @@ export interface CredentialSignerConfiguration {
 	password: string;
 }
 
-export interface CredentialWorkerRequest {
+export type CredentialWorkerRequest = { operation: 'probe' } | CredentialAssetWorkerRequest;
+
+export interface CredentialAssetWorkerRequest {
 	operation: 'sign' | 'validate';
 	assetPath: string;
 	mimeType: string;
@@ -48,8 +67,10 @@ export interface CredentialWorkerRequest {
 }
 
 export type CredentialWorkerResponse =
+	| { ok: true; operation: 'probe'; sdkVersion: string }
 	| {
 			ok: true;
+			operation: 'sign' | 'validate';
 			sdkVersion: string;
 			validation: CredentialValidation;
 			manifestBytes?: number;

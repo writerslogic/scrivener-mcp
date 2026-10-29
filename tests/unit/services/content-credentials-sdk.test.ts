@@ -13,7 +13,7 @@ import {
 const report = (validationState: string = 'Valid') => ({
 	active_manifest: 'urn:fixture:manifest', manifests: { 'urn:fixture:manifest': { title: 'Fixture' } },
 	validation_state: validationState,
-	validation_results: { activeManifest: { success: [{ code: 'claimSignature.validated' }], informational: [], failure: [] as Array<{ code: string }> } },
+	validation_results: { activeManifest: { success: [{ code: 'claimSignature.validated' }, { code: 'assertion.dataHash.match' }], informational: [], failure: [] as Array<{ code: string }> } },
 });
 
 it('keeps unsigned, invalid, untrusted and explicitly trusted validation states distinct', () => {
@@ -23,7 +23,7 @@ it('keeps unsigned, invalid, untrusted and explicitly trusted validation states 
 	expect(normalizeCredentialValidation(report('Trusted'), true)).toMatchObject({ state: 'valid', integrity: 'valid', trust: 'trusted', trustPolicy: 'configured-roots' });
 	const invalid = report('Invalid');
 	invalid.validation_results.activeManifest.failure.push({ code: 'assertion.dataHash.mismatch' });
-	expect(normalizeCredentialValidation(invalid, true)).toMatchObject({ state: 'invalid', integrity: 'invalid', trust: 'not-evaluated', validationCodes: ['assertion.dataHash.mismatch', 'claimSignature.validated'], report: invalid });
+	expect(normalizeCredentialValidation(invalid, true)).toMatchObject({ state: 'invalid', integrity: 'invalid', trust: 'not-evaluated', validationCodes: ['assertion.dataHash.match', 'assertion.dataHash.mismatch', 'claimSignature.validated'], report: invalid });
 });
 
 it('does not treat trust failures or assertion text as evidence of trusted integrity', () => {
@@ -31,13 +31,24 @@ it('does not treat trust failures or assertion text as evidence of trusted integ
 	untrusted.validation_results.activeManifest.failure.push({ code: 'signingCredential.untrusted' });
 	expect(normalizeCredentialValidation(untrusted, true)).toMatchObject({ state: 'untrusted', integrity: 'valid', trust: 'untrusted' });
 	const spoofed = { ...report(), manifests: { 'urn:fixture:manifest': { assertions: [{ data: { code: 'signingCredential.trusted', validation_state: 'Trusted' } }] } } };
-	expect(normalizeCredentialValidation(spoofed, true)).toMatchObject({ state: 'untrusted', validationCodes: ['claimSignature.validated'] });
+	expect(normalizeCredentialValidation(spoofed, true)).toMatchObject({ state: 'untrusted', validationCodes: ['assertion.dataHash.match', 'claimSignature.validated'] });
 	const contradictory = report('Trusted');
 	contradictory.validation_results.activeManifest.failure.push({ code: 'claimSignature.mismatch' });
 	expect(normalizeCredentialValidation(contradictory, true)).toMatchObject({ state: 'invalid', integrity: 'invalid' });
 	expect(normalizeCredentialValidation({ ...report('Trusted'), active_manifest: 'constructor' }, true)).toMatchObject({ state: 'invalid', integrity: 'not-evaluated' });
 	const { validation_state: _state, ...missingState } = report();
 	expect(normalizeCredentialValidation(missingState, true)).toMatchObject({ state: 'invalid', integrity: 'not-evaluated' });
+});
+
+it('requires current asset-binding and signature evidence even when the native state says Trusted', () => {
+	for (const code of ['claimSignature.validated', 'assertion.dataHash.match']) {
+		const value = report('Trusted');
+		value.validation_results.activeManifest.success = [{ code }];
+		Object.assign(value.validation_results, { ingredientDeltas: [{ validationDeltas: { success: [{ code: 'claimSignature.validated' }, { code: 'assertion.dataHash.match' }] } }] });
+		expect(normalizeCredentialValidation(value, true)).toMatchObject({ state: 'invalid', integrity: 'not-evaluated', trust: 'not-evaluated' });
+	}
+	const contradiction = { ...report('Trusted'), validation_status: [{ code: 'assertion.dataHash.mismatch' }] };
+	expect(normalizeCredentialValidation(contradiction, true)).toMatchObject({ state: 'invalid', integrity: 'invalid' });
 });
 
 it.each([1023, 1024])('bounds normalized validation code collections at %i', (count) => {

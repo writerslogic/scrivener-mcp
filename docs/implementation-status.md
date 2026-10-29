@@ -432,7 +432,7 @@ is authorized by that request. Existing authorization for reviewed PR integratio
 | Honest verification | Separate asset/signature integrity from certificate trust; unsigned and untrusted assets never become trusted successes. No claim of granted C2PA conformance or human authorship. |
 | Safe signing | Sign existing assets to a separate immutable output; encrypted administrator-configured private keys, no keys in MCP arguments or logs, no source manuscript modifications. |
 | Native isolation | Parse/sign in short-lived child processes with bounded files, messages and timeouts; disable automatic asset-derived network fetching and collect actual SDK results. |
-| Real entry points | Progressive MCP capability, sign and validation tools share the same domain service; connect manuscript export through that service. |
+| Real entry points | Progressive MCP capability, sign and validation tools share the same domain service; test existing manuscript exports followed by credential signing through actual MCP calls. |
 | Release verification | Actual SDK round trips, altered assets, bad credentials, path/size boundaries, package startup/native loading and cross-platform CI, plus the existing complete final gate. |
 | Intake evidence | Document all 30 intake answers from tested capabilities; product identity/legal country and OU require confirmed applicant information. |
 
@@ -442,3 +442,10 @@ Workers receive disjoint ownership of the native SDK worker, format fixtures/cat
 compatibility. Workers write code/tests but run no installs, builds, formatting or validation. All
 development uses local/free resources, synthetic fixtures and isolated configuration. SDK 0.9.11
 loaded on macOS arm64 under Node 24.22.1; its installation audit reported zero vulnerabilities.
+
+Applicant country is confirmed `US`; no organizational unit was supplied, so OU remains blank.
+The manager inspected and integrated runtime commit `cfc5e9e` and fixture-generator commit
+`f25ab01`. Node TLS security floors are 22.23.4, 24.22.1 and 26.12.1, verified against primary SDK
+documentation; Node 22.23.4 is available from nodejs.org. The new feature version is 0.14.0 locally;
+no npm publication or C2PA approval is implied. Dependency installation added the official SDK's
+transitive packages without changing existing locked dependency versions.

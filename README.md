@@ -395,7 +395,7 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 
 ## Requirements
 
-- **Node.js 22.14+ on the 22 release line, or 23.6+** (Node 24 recommended)
+- **Patched Node.js 22.23.4+, 24.22.1+, or 26.12.1+ on those release lines** (Node 24 recommended)
 - **Scrivener 3** project files (.scriv)
 - macOS, Windows, or Linux
 - Optional: Anthropic, OpenAI, or OpenRouter API key for provider-backed AI features

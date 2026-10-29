@@ -1,6 +1,7 @@
 import {
 	constants as cryptoConstants,
 	createPrivateKey,
+	createHash,
 	sign as cryptoSign,
 	X509Certificate,
 	type KeyObject,
@@ -9,6 +10,7 @@ import { constants as fsConstants } from 'node:fs';
 import { lstat, open, type FileHandle } from 'node:fs/promises';
 import { basename, isAbsolute, resolve } from 'node:path';
 import type { SigningAlg } from '@contentauth/c2pa-node';
+import { prepareUnsignedCredentialArchive } from './archive-preparation.js';
 import type {
 	CredentialAssetWorkerRequest,
 	CredentialSignerConfiguration,
@@ -22,6 +24,7 @@ const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_CONFIGURATION_BYTES = 128 * 1024;
 const MAX_CODES = 1024;
 const TRUST_FAILURES = new Set(['signingCredential.untrusted', 'timeStamp.untrusted']);
+const ASSET_BINDINGS = new Set(['assertion.dataHash.match', 'assertion.bmffHash.match', 'assertion.boxesHash.match', 'assertion.collectionHash.match']);
 type SDK = typeof import('@contentauth/c2pa-node');
 
 class WorkerError extends Error {
@@ -94,7 +97,7 @@ async function readBounded(path: string, maximum: number): Promise<Buffer> {
 		return data.subarray(0, length);
 	} catch (error) {
 		if (error instanceof WorkerError) throw error;
-		fail('INPUT_UNAVAILABLE', 'Credential input could not be opened safely.');
+		return fail('INPUT_UNAVAILABLE', 'Credential input could not be opened safely.');
 	} finally { await handle?.close(); }
 }
 
@@ -195,7 +198,8 @@ export function normalizeCredentialValidation(report: unknown, configuredRoots: 
 	boundedReport(report);
 	const codes = new Set<string>();
 	const failures = new Set<string>();
-	const statuses = (items: unknown, failure = false): void => {
+	const currentSuccesses = new Set<string>();
+	const statuses = (items: unknown, failure = false, currentSuccess = false): void => {
 		if (items === undefined || items === null) return;
 		if (!Array.isArray(items)) fail('REPORT_INVALID', 'Native validation statuses are malformed.');
 		for (const item of items) {
@@ -204,18 +208,19 @@ export function normalizeCredentialValidation(report: unknown, configuredRoots: 
 			if (!/^[a-z][a-z0-9_.-]{0,127}$/iu.test(code)) fail('REPORT_INVALID', 'A native validation code exceeds its supported bounds.');
 			codes.add(code);
 			if (failure || item.success === false) failures.add(code);
+			else if (currentSuccess) currentSuccesses.add(code);
 			if (codes.size > MAX_CODES) fail('REPORT_LIMIT', 'The native SDK returned too many validation codes.');
 		}
 	};
-	const groups = (value: unknown): void => {
+	const groups = (value: unknown, current = false): void => {
 		if (value === undefined || value === null) return;
 		if (!record(value)) fail('REPORT_INVALID', 'Native validation groups are malformed.');
-		statuses(value.success); statuses(value.informational); statuses(value.failure, true);
+		statuses(value.success, false, current); statuses(value.informational); statuses(value.failure, true);
 	};
-	statuses(report.validation_status);
+	statuses(report.validation_status, true);
 	if (report.validation_results !== undefined && report.validation_results !== null) {
 		if (!record(report.validation_results)) fail('REPORT_INVALID', 'Native validation results are malformed.');
-		groups(report.validation_results.activeManifest);
+		groups(report.validation_results.activeManifest, true);
 		const deltas = report.validation_results.ingredientDeltas;
 		if (deltas !== undefined && deltas !== null) {
 			if (!Array.isArray(deltas)) fail('REPORT_INVALID', 'Native ingredient validation results are malformed.');
@@ -226,11 +231,13 @@ export function normalizeCredentialValidation(report: unknown, configuredRoots: 
 	const validActive = typeof active === 'string' && active.length > 0 && active.length <= 4096 && record(report.manifests) && Object.prototype.hasOwnProperty.call(report.manifests, active) && record(report.manifests[active]);
 	const state = report.validation_state;
 	const evaluated = state === 'Invalid' || state === 'Valid' || state === 'Trusted';
-	const invalid = !validActive || !evaluated || state === 'Invalid' || [...failures].some((code) => !TRUST_FAILURES.has(code));
+	const bound = currentSuccesses.has('claimSignature.validated') && [...ASSET_BINDINGS].some((code) => currentSuccesses.has(code));
+	const integrityFailure = [...failures].some((code) => !TRUST_FAILURES.has(code));
+	const invalid = !validActive || !evaluated || !bound || state === 'Invalid' || integrityFailure;
 	const trusted = !invalid && configuredRoots && state === 'Trusted' && ![...failures].some((code) => TRUST_FAILURES.has(code));
 	return {
 		state: invalid ? 'invalid' : trusted ? 'valid' : 'untrusted',
-		integrity: invalid ? (evaluated && validActive ? 'invalid' : 'not-evaluated') : 'valid',
+		integrity: invalid ? (evaluated && validActive && (bound || integrityFailure) ? 'invalid' : 'not-evaluated') : 'valid',
 		trust: trusted ? 'trusted' : invalid ? 'not-evaluated' : 'untrusted',
 		trustPolicy: policy,
 		...(validActive ? { activeManifest: active } : {}),
@@ -250,6 +257,9 @@ async function loadSdk(): Promise<{ sdk: SDK; version: string }> {
 function nativeFailure(error: unknown, stage: 'read' | 'sign'): never {
 	if (error instanceof WorkerError) throw error;
 	const name = error instanceof Error ? error.name.slice(0, 512) : '';
+	const message = error instanceof Error ? error.message.slice(0, 1024) : '';
+	if (/compression method not supported: 8(?:\D|$)/u.test(message))
+		fail('ZIP_COMPRESSION_UNSUPPORTED', 'The native SDK cannot read DEFLATE ZIP entries; unsigned archives can be prepared for embedded signing, while existing credentials require a supported reader.');
 	if (/^C2pa\((?:UnsupportedType|UnsupportedFormat)(?:[(), ]|$)/u.test(name)) fail('FORMAT_UNSUPPORTED', 'The native SDK does not support this asset format or operation.');
 	if (/^(?:RemoteManifestFetch\(|C2pa\(RemoteManifest)/u.test(name)) fail('REMOTE_FETCH_DISABLED', 'Remote credential retrieval is disabled; supply a local manifest.');
 	fail(stage === 'read' ? 'VALIDATION_FAILED' : 'SIGNING_FAILED', stage === 'read' ? 'The native SDK could not validate this asset or manifest.' : 'The native SDK could not sign this asset with the configured credentials.');
@@ -283,21 +293,37 @@ async function executeAsset(request: CredentialAssetWorkerRequest, sdk: SDK, ver
 		anchors = bytes.toString('ascii');
 	}
 	const context = new sdk.Context(credentialContextSettings(anchors));
-	const asset = await readBounded(request.assetPath, MAX_ASSET_BYTES);
+	let asset = await readBounded(request.assetPath, MAX_ASSET_BYTES);
 	if (request.operation === 'validate') {
 		const manifest = request.manifestPath ? await readBounded(request.manifestPath, MAX_MANIFEST_BYTES) : undefined;
 		return { ok: true, operation: 'validate', sdkVersion: version, validation: await validateAsset(sdk, asset, request.mimeType, context, !!anchors, manifest), assetBytes: asset.length, ...(manifest ? { manifestBytes: manifest.length } : {}) };
 	}
 	let existing: CredentialValidation | undefined;
+	let repackedSource: string | undefined;
 	try { existing = await validateAsset(sdk, asset, request.mimeType, context, !!anchors); }
 	catch (error) {
-		if (request.mode !== 'sidecar' || !(error instanceof WorkerError) || error.code !== 'FORMAT_UNSUPPORTED') throw error;
+		if (request.mode === 'embedded' && error instanceof WorkerError && error.code === 'ZIP_COMPRESSION_UNSUPPORTED') {
+			repackedSource = createHash('sha256').update(asset).digest('hex');
+			try { asset = await prepareUnsignedCredentialArchive(asset, MAX_ASSET_BYTES); }
+			catch { fail('ARCHIVE_PREPARATION_FAILED', 'The unsigned archive could not be prepared safely; existing credentials and unsafe or oversized entries are rejected.'); }
+			existing = await validateAsset(sdk, asset, request.mimeType, context, !!anchors);
+			if (existing.state !== 'unsigned') fail('SOURCE_CREDENTIALS_UNVERIFIABLE', 'Archive preparation requires an unsigned source; existing credentials must remain verifiable.');
+		} else if (request.mode !== 'sidecar' || !(error instanceof WorkerError) || error.code !== 'FORMAT_UNSUPPORTED') throw error;
 	}
 	if (existing?.state === 'invalid') fail('SOURCE_CREDENTIALS_INVALID', 'Existing credentials are invalid; attaching another credential would obscure the failure.');
+	if (request.mode === 'embedded' && existing?.state === 'unsigned' && !repackedSource && ['application/epub+zip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(request.mimeType)) {
+		repackedSource = createHash('sha256').update(asset).digest('hex');
+		try { asset = await prepareUnsignedCredentialArchive(asset, MAX_ASSET_BYTES); }
+		catch { fail('ARCHIVE_PREPARATION_FAILED', 'The unsigned archive could not be prepared safely; existing credentials and unsafe or oversized entries are rejected.'); }
+	}
 	try {
 		const builder = await sdk.Builder.withJsonAsync({ title: request.title || 'Credential attached to existing asset', format: request.mimeType, claim_generator_info: [{ name: 'scrivener-mcp' }] }, context);
 		builder.setIntent('edit');
 		builder.setNoEmbed(request.mode === 'sidecar');
+		if (repackedSource) {
+			builder.addAssertion('com.writerslogic.input', { sha256: repackedSource, preparation: 'zip-store', preserves: 'archive entry contents', sourceCredentials: 'absent' });
+			builder.addAction(JSON.stringify({ action: 'c2pa.repackaged' }));
+		}
 		const signer = await signerFor(sdk, request.signer!);
 		const output: { buffer: Buffer | null } = { buffer: null };
 		const manifest = await builder.signAsync(signer, { buffer: asset, mimeType: request.mimeType }, output);
@@ -345,7 +371,7 @@ if (['sdk-worker.js', 'sdk-worker.ts'].includes(basename(process.argv[1] ?? ''))
 			try {
 				process.send(response, (error) => {
 					if (error) process.exit(1);
-					if (process.connected) process.disconnect();
+					if (process.connected) process.disconnect?.();
 					// The published signer retains a referenced Neon channel and exposes no disposal API.
 					process.exit(0);
 				});

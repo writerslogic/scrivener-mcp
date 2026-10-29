@@ -1,7 +1,7 @@
 {
 	"manifest_version": "0.2",
 	"name": "scrivener-mcp",
-	"version": "0.13.0",
+	"version": "0.14.0",
 	"description": "Connect Scrivener 3 projects to AI assistants with 75 progressively loaded tools for durable change review, local passage retrieval, source-backed continuity, a scoped series bible, editorial workflows and validated exports.",
 	"author": {
 		"name": "WritersLogic, Inc.",

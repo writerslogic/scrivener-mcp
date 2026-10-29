@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { createHash, createPrivateKey, randomBytes } from 'node:crypto';
-import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { createHash, KeyObject, randomBytes, webcrypto } from 'node:crypto';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,15 +12,11 @@ import { deflateSync } from 'node:zlib';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const execute = promisify(execFile);
 
-async function command(program, args, env = process.env, input) {
+async function command(program, args) {
 	try {
-		const pending = execute(program, args, { env, timeout: 30_000, maxBuffer: 256 * 1024, windowsHide: true });
-		let inputFailed = false;
-		pending.child.stdin.on('error', () => { inputFailed = true; });
-		pending.child.stdin.end(input);
-		const result = await pending;
-		if (inputFailed) throw new Error('Fixture command input failed');
-		return result;
+		const pending = execute(program, args, { timeout: 30_000, maxBuffer: 256 * 1024, windowsHide: true });
+		pending.child.stdin.end();
+		return await pending;
 	} catch (error) {
 		throw new Error(error.code === 'ENOENT' ? `${program} is required on PATH` : `${program} failed to generate a synthetic fixture`);
 	}
@@ -30,36 +26,31 @@ export async function createC2paTestSigner(directory) {
 	await mkdir(directory, { recursive: true, mode: 0o700 });
 	assert.deepEqual(await readdir(directory), [], 'Test signer directory must be empty');
 	const password = randomBytes(32).toString('base64url');
-	const env = { ...process.env, C2PA_FIXTURE_PASSPHRASE: password };
-	const rootKey = join(directory, 'test-root-key.encrypted.pem');
 	const privateKeyPath = join(directory, 'test-leaf-key.encrypted.pem');
 	const trustAnchorsPath = join(directory, 'test-root.pem');
-	const leaf = join(directory, 'test-leaf.pem');
 	const certificatePath = join(directory, 'test-chain.pem');
-	const rootConfig = join(directory, 'root.cnf');
-	const leafConfig = join(directory, 'leaf.cnf');
-	await writeFile(rootConfig, `[req]\nprompt=no\ndistinguished_name=dn\nx509_extensions=ca\n[dn]\nCN=Scrivener MCP TEST ROOT - NOT PUBLICLY TRUSTED\n[ca]\nbasicConstraints=critical,CA:true,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n`, { flag: 'wx', mode: 0o600 });
-	await writeFile(leafConfig, `basicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=emailProtection\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n`, { flag: 'wx', mode: 0o600 });
-	for (const key of [rootKey, privateKeyPath]) {
-		await command('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-aes-256-cbc', '-pass', 'env:C2PA_FIXTURE_PASSPHRASE', '-out', key], env);
-		await chmod(key, 0o600);
-		const info = await stat(key);
-		assert.ok(info.size > 0 && info.size <= 16 * 1024, 'Encrypted test key exceeds its size limit');
-		if (!/^-----BEGIN ENCRYPTED PRIVATE KEY-----\r?\n/.test(await readFile(key, 'utf8')))
-			throw new Error('OpenSSL must write an encrypted PKCS8 test key');
-	}
-	// OpenSSL 3.6 can prompt despite passin; transient DER avoids its encrypted-PEM UI loader.
-	const certificateCommand = async (args, keyPath) => {
-		const key = createPrivateKey({ key: await readFile(keyPath), passphrase: password });
-		const der = key.export({ format: 'der', type: 'pkcs8' });
-		try { await command('openssl', args, env, der); }
-		finally { der.fill(0); }
-	};
-	await certificateCommand(['req', '-batch', '-new', '-x509', '-key', '-', '-keyform', 'DER', '-config', rootConfig, '-set_serial', '1', '-days', '2', '-sha256', '-out', trustAnchorsPath], rootKey);
-	const request = join(directory, 'test-leaf.csr');
-	await certificateCommand(['req', '-batch', '-new', '-key', '-', '-keyform', 'DER', '-subj', '/CN=Scrivener MCP Synthetic Fixture Signer - TEST ONLY', '-sha256', '-out', request], privateKeyPath);
-	await certificateCommand(['x509', '-req', '-in', request, '-CA', trustAnchorsPath, '-CAkey', '-', '-CAkeyform', 'DER', '-set_serial', '2', '-days', '1', '-sha256', '-extfile', leafConfig, '-out', leaf], rootKey);
-	await writeFile(certificatePath, Buffer.concat([await readFile(leaf), await readFile(trustAnchorsPath)]), { flag: 'wx', mode: 0o600 });
+	await import('reflect-metadata');
+	const x509 = await import('@peculiar/x509');
+	const algorithm = { name: 'ECDSA', namedCurve: 'P-256', hash: 'SHA-256' };
+	const rootKeys = await webcrypto.subtle.generateKey(algorithm, false, ['sign', 'verify']);
+	const leafKeys = await webcrypto.subtle.generateKey(algorithm, true, ['sign', 'verify']);
+	const now = Date.now();
+	const rootName = 'CN=Scrivener MCP TEST ROOT - NOT PUBLICLY TRUSTED';
+	const root = await x509.X509CertificateGenerator.createSelfSigned({
+		name: rootName, keys: rootKeys, signingAlgorithm: algorithm,
+		notBefore: new Date(now - 60000), notAfter: new Date(now + 2 * 86400000),
+		extensions: [new x509.BasicConstraintsExtension(true, 0, true), new x509.KeyUsagesExtension(x509.KeyUsageFlags.keyCertSign | x509.KeyUsageFlags.cRLSign, true), await x509.SubjectKeyIdentifierExtension.create(rootKeys.publicKey, false, webcrypto)],
+	}, webcrypto);
+	const leaf = await x509.X509CertificateGenerator.create({
+		issuer: rootName, subject: 'CN=Scrivener MCP Synthetic Fixture Signer - TEST ONLY',
+		publicKey: leafKeys.publicKey, signingKey: rootKeys.privateKey, signingAlgorithm: algorithm,
+		notBefore: new Date(now - 60000), notAfter: new Date(now + 86400000),
+		extensions: [new x509.BasicConstraintsExtension(false, undefined, true), new x509.KeyUsagesExtension(x509.KeyUsageFlags.digitalSignature, true), new x509.ExtendedKeyUsageExtension([x509.ExtendedKeyUsage.emailProtection]), await x509.SubjectKeyIdentifierExtension.create(leafKeys.publicKey, false, webcrypto), await x509.AuthorityKeyIdentifierExtension.create(rootKeys.publicKey, false, webcrypto)],
+	}, webcrypto);
+	const encrypted = KeyObject.from(leafKeys.privateKey).export({ type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase: password });
+	await writeFile(privateKeyPath, encrypted, { flag: 'wx', mode: 0o600 });
+	await writeFile(trustAnchorsPath, root.toString('pem'), { flag: 'wx', mode: 0o600 });
+	await writeFile(certificatePath, `${leaf.toString('pem')}\n${root.toString('pem')}\n`, { flag: 'wx', mode: 0o600 });
 	return { certificatePath, privateKeyPath, password, trustAnchorsPath };
 }
 
