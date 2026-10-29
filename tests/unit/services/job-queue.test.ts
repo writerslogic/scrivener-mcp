@@ -30,6 +30,7 @@ jest.mock('../../../src/services/queue/memory-redis.js', () => ({
 // Mock services
 jest.mock('../../../src/analysis/base-analyzer.js', () => ({
 	ContentAnalyzer: jest.fn(() => ({
+		dispose: jest.fn(),
 		analyzeContent: jest.fn(() =>
 			Promise.resolve({
 				documentId: 'test-doc',

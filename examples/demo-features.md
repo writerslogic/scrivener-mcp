@@ -2,6 +2,8 @@
 
 This guide demonstrates the AI-powered writing features in Scrivener MCP.
 
+![Scrivener MCP capability map: manuscript management, search, project memory, AI writing, craft analysis, continuity, relationships, goals, automation, reviewed edits, and publishing.](../assets/infographics/capability-map.png)
+
 ## Prerequisites
 
 1. Install Scrivener MCP:

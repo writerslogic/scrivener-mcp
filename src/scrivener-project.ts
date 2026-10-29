@@ -188,8 +188,7 @@ export class ScrivenerProject {
 			(documentId) => this.readDocument(documentId),
 			(includeTrash) => this.getAllDocuments(includeTrash),
 			(documentId) => this.getDocumentInfo(documentId),
-			() => this.getCompileMetadata(),
-			() => this.indexInitialized
+			() => this.getCompileMetadata()
 		);
 
 		this.contextBridge = new ProjectContextBridge(
@@ -837,6 +836,7 @@ export class ScrivenerProject {
 		if (this.contextSync) {
 			this.contextSync.close();
 		}
+		this.contentAnalyzer.dispose();
 
 		// Shutdown async services (job queue, AI services)
 		await shutdownAsyncServices();

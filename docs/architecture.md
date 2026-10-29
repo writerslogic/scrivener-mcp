@@ -1,8 +1,10 @@
 # Architecture
 
+For a user-facing feature overview, see the [capability map](../assets/infographics/capability-map.png).
+
 ## Overview
 
-Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 67 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
+Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3 project files directly (XML binder structure + RTF document files) and exposes 75 tools over the Model Context Protocol via skill-based registration (progressive disclosure by default; eager registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
 
 ```
 Claude Desktop / Claude Code
@@ -73,6 +75,33 @@ Core class that manages an open Scrivener project. Handles:
 
 Handles file-level operations: finding the `.scrivx` file within a `.scriv` package, parsing XML, managing file locks, and saving.
 
+### Content Search (`src/services/project-content.ts`)
+
+Literal, case-sensitive, and regular-expression searches read the current document
+text and use `CompilationService.searchInDocuments`, honoring metadata and Trash
+options. The binder lookup index does not contain complete document text and is
+not used to filter these searches. The default `search` tool uses the editorial
+passage search service for hybrid lexical and semantic retrieval.
+
+### Document Cache (`src/core/cache.ts`)
+
+The shared LRU cache uses Map insertion order to track recency without a second
+access-order collection. Reads promote entries; membership checks do not. Replacing
+an entry releases its previous byte and entry capacity before enforcing limits.
+
+### Document Writes (`src/services/document-writer.ts`)
+
+Buffered writes retain mutation IDs, undo links, snapshot titles, and revision
+expectations. Concurrent flushes share a drain. Document shutdown rejects new
+writes and waits for admitted buffered, immediate, and raw writes before closing
+the mutation journal; failed buffered writes remain available for a close retry.
+The coordinator also drains admitted snapshots, binder commits, and recovery
+before releasing its journal. The project loader waits for admitted saves and
+restores, including their backup preparation, before releasing its coordinator.
+A newer buffered write may follow the writer's own successful edit when its
+revision was inferred; explicit revision expectations still reject stale content.
+Failed commits remain queued with the same mutation ID for retry.
+
 ### RTF Handler
 
 Parses Scrivener's RTF format to extract plain text and formatting. Handles Scrivener-specific extensions (annotations, comments) and Unicode.
@@ -81,9 +110,23 @@ Parses Scrivener's RTF format to extract plain text and formatting. Handles Scri
 
 Persistent key-value storage for project memory (character profiles, plot threads, style guide, writing stats). Stored as JSON in `.ai-memory/` within the project.
 
+Only a missing memory file initializes empty state. Unreadable or invalid existing
+files fail loading without replacing the current memory or overwriting the file.
+Saves are serialized, and each primary file and daily backup use the same
+serialized snapshot. The embedded Redis-compatible store follows the same load
+and save rules, preserves sorted-set scores across restarts, and keeps a failed
+final save retryable with its background persistence timers restored.
+
 ### Content Analyzer (`src/analysis/`)
 
 Writing quality analysis: readability scores (Flesch-Kincaid), sentence variety, vocabulary complexity, pacing, emotional arc, quality indicators (cliches, filter words).
+
+Each analyzer owns its predictive caches. Cache timers start on first use, and
+prefetching starts only when a loader exists. Projects, queues, and async service
+generations dispose their analyzers during shutdown; pending analyses may finish
+without retaining new cached results or pooled resources afterward. Replacements
+count only their size delta. Loader results beyond capacity are returned to callers
+without caching.
 
 ### Content Enhancer (`src/services/enhancements/`)
 
@@ -99,6 +142,12 @@ TypeScript wrapper around the optional `holographic-memory` Rust binary. A built
 
 The wrapper adds metadata tracking, result mapping, typed interfaces, and triplet storage for entity relationships. When the native binary is not installed, a JS fallback engine using TF-IDF random-projection vectors provides the same API surface.
 
+The fallback stores text by memory ID and defers vector construction until
+retrieval. After an insertion or replacement, the next query, analogy, or concept
+synthesis rebuilds corpus-wide IDF weights and every stored vector together.
+This keeps query and document vectors consistent while avoiding a corpus scan
+for every item in a batch. See the [contributor benchmark](../CONTRIBUTING.md).
+
 ### Relationship Engine (`src/services/relationship-engine.ts`)
 
 Dual-write relationship storage that writes to HMS (always) and Neo4j (when connected). HMS handles fast lookups via triplet queries. Neo4j adds advanced graph operations (PageRank, community detection, shortest path) when available. Relationships persist in the local triplet store and can be synced to Neo4j on demand.
@@ -106,6 +155,33 @@ Dual-write relationship storage that writes to HMS (always) and Neo4j (when conn
 ### Database Service (`src/handlers/database/`)
 
 SQLite for structured data (writing sessions, content analysis history, entity relationships). Optional Neo4j for graph queries (character relationships, story structure, theme progression).
+
+Document synchronization finishes optional graph I/O before an atomic SQLite
+upsert, keeping local transactions out of remote waits. Queue synchronization
+commits each document independently and reports individual failures, so a failed
+document cannot roll back a sibling already counted as successful. Document and
+character upserts update existing rows by ID, preserving creation dates, compile
+flags, character arcs, appearances, and dependent records. These stores do not
+provide a distributed atomic commit; retries can repair a graph write followed
+by a local failure.
+
+SQLite initialization, backup, and shutdown run in invocation order. Backups
+return a promise that resolves after copying finishes; shutdown waits for admitted
+copies. Failed initialization releases its connection, and failure to close an
+optional cache does not prevent closing SQLite. Callback transactions must be
+synchronous and abort by throwing. Busy retries release their transaction before
+backoff and cannot join an unrelated active transaction or reopened connection.
+
+`DatabaseService` applies the same lifecycle ordering across SQLite and optional
+Neo4j resources, including backups. Shutdown awaits every owner even when another
+fails, resets readiness, and retains failed owners for cleanup retries. Reopening
+recreates its derived services against the new connections; migration failures
+release partially initialized storage before an initialization retry.
+
+The legacy transaction-ticket API shares one physical transaction across nested
+tickets. Commits follow reverse begin order; child commits remain subordinate to
+the root, and rolling back an active ticket aborts the entire group. Finished or
+closed-connection tickets cannot commit or roll back later work.
 
 ### Cross-Reference Engine (`src/services/document-references.ts`)
 

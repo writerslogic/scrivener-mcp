@@ -18,7 +18,7 @@ participating, you are expected to uphold it.
 
 ### Development Setup
 
-Requires **Node.js 18+**.
+Requires **Node.js 22.13.0+**, matching `package.json`.
 
 ```sh
 git clone https://github.com/writerslogic/scrivener-mcp
@@ -42,6 +42,17 @@ npm test
    ```
 
 4. Add a regression test for every fix or new behavior where feasible.
+
+For changes to fallback semantic indexing, run the deterministic benchmark:
+
+```sh
+node --import tsx scripts/benchmark-hms-fallback.ts 1000 3
+```
+
+It reports batch ingestion, first query (including deferred vector construction),
+and warm query times for 1,000 documents at 512 dimensions over three repetitions.
+Compare batch plus first-query time on the same runtime and hardware; batch time
+alone excludes deferred work.
 
 ### Code Style
 

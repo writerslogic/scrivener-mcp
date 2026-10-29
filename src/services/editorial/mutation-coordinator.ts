@@ -100,6 +100,8 @@ export class MutationCoordinator {
 	private store?: PersistentStore;
 	private indexInitialized = false;
 	private ownsStore: boolean;
+	private readonly activeMutations = new Set<Promise<unknown>>();
+	private closePromise?: Promise<void>;
 	readonly projectPath: string;
 
 	constructor(projectPath: string, store?: PersistentStore) {
@@ -340,7 +342,17 @@ export class MutationCoordinator {
 		return record;
 	}
 
-	async recover(): Promise<MutationRecord[]> {
+	recover(): Promise<MutationRecord[]> {
+		return this.trackMutation(this.recoverPending());
+	}
+
+	private trackMutation<T>(mutation: Promise<T>): Promise<T> {
+		const tracked = mutation.finally(() => this.activeMutations.delete(tracked));
+		this.activeMutations.add(tracked);
+		return tracked;
+	}
+
+	private async recoverPending(): Promise<MutationRecord[]> {
 		const store = this.state();
 		const recovered: MutationRecord[] = [];
 		const visited = new Set<string>();
@@ -459,7 +471,15 @@ export class MutationCoordinator {
 		await writePlannedSnapshot(this.projectPath, record.snapshot, record.beforeRaw);
 	}
 
-	async snapshot(documentId: string, title: string, date: Date): Promise<SnapshotEntry> {
+	snapshot(documentId: string, title: string, date: Date): Promise<SnapshotEntry> {
+		return this.trackMutation(this.createSnapshot(documentId, title, date));
+	}
+
+	private async createSnapshot(
+		documentId: string,
+		title: string,
+		date: Date
+	): Promise<SnapshotEntry> {
 		if (
 			typeof title !== 'string' ||
 			title.length > 512 ||
@@ -511,7 +531,16 @@ export class MutationCoordinator {
 		);
 	}
 
-	private async commitTarget(
+	private commitTarget(
+		targetInfo: MutationTarget,
+		afterRaw: string,
+		options: CommitOptions,
+		snapshotDate = new Date()
+	): Promise<MutationRecord> {
+		return this.trackMutation(this.commitToTarget(targetInfo, afterRaw, options, snapshotDate));
+	}
+
+	private async commitToTarget(
 		targetInfo: MutationTarget,
 		afterRaw: string,
 		options: CommitOptions,
@@ -655,7 +684,38 @@ export class MutationCoordinator {
 		await safeWriteFile(checksumPath, `${lines.join('\n')}\n`);
 	}
 
-	close(): void {
+	close(): Promise<void> {
+		if (this.closePromise) return this.closePromise;
+		if (!this.activeMutations.size) {
+			this.closeStore();
+			return Promise.resolve();
+		}
+		this.closePromise = this.drainAndClose();
+		return this.closePromise;
+	}
+
+	private async drainAndClose(): Promise<void> {
+		const errors = new Set<unknown>();
+		try {
+			while (this.activeMutations.size) {
+				for (const result of await Promise.allSettled(this.activeMutations)) {
+					if (result.status === 'rejected') errors.add(result.reason);
+				}
+			}
+			try {
+				this.closeStore();
+			} catch (error) {
+				errors.add(error);
+			}
+			if (errors.size === 1) throw errors.values().next().value;
+			if (errors.size > 1)
+				throw new AggregateError(errors, 'Manuscript mutations failed during shutdown');
+		} finally {
+			this.closePromise = undefined;
+		}
+	}
+
+	private closeStore(): void {
 		if (this.store && this.ownsStore) this.store.close();
 		this.store = undefined;
 		this.indexInitialized = false;

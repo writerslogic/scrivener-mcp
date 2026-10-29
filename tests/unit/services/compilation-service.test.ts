@@ -187,7 +187,9 @@ describe('CompilationService', () => {
 
 				expect(result.match(/\\par\\bigskip/g)).toHaveLength(1);
 				expect(result.indexOf('\\par\\bigskip')).toBeGreaterThan(result.indexOf('alpha'));
-				expect(result.indexOf('\\par\\bigskip')).toBeLessThan(result.indexOf('\\section{B}'));
+				expect(result.indexOf('\\par\\bigskip')).toBeLessThan(
+					result.indexOf('\\section{B}')
+				);
 			});
 
 			it('emits no separator for a single document', async () => {
@@ -297,6 +299,29 @@ describe('CompilationService', () => {
 	});
 
 	describe('searchInDocuments', () => {
+		it('returns no results for an empty query', () => {
+			expect(
+				compilationService.searchInDocuments(
+					[{ id: 'doc', title: 'Doc', content: 'text' }],
+					''
+				)
+			).toEqual([]);
+		});
+
+		it('uses each regex occurrence to locate its context', () => {
+			const first = `first ${'a'.repeat(60)} needle ${'b'.repeat(60)}`;
+			const second = `second ${'c'.repeat(60)} needle ${'d'.repeat(60)}`;
+			const results = compilationService.searchInDocuments(
+				[{ id: 'doc', title: 'Doc', content: `${first}\n${second}` }],
+				'needle',
+				{ regex: true }
+			);
+			expect(results[0].matches).toEqual([
+				`${'a'.repeat(49)} needle ${'b'.repeat(49)}`,
+				`${'c'.repeat(49)} needle ${'d'.repeat(49)}`,
+			]);
+		});
+
 		const mockSearchDocs = [
 			{
 				id: 'doc1',
@@ -567,8 +592,20 @@ describe('CompilationService', () => {
 
 	describe('compileStructured with sectionLayouts', () => {
 		const entries = [
-			{ title: 'Chapter One', content: 'First chapter body.', depth: 1, isFolder: false, sectionTypeId: 'chapter-type' },
-			{ title: 'Chapter Two', content: 'Second chapter body.', depth: 1, isFolder: false, sectionTypeId: 'chapter-type' },
+			{
+				title: 'Chapter One',
+				content: 'First chapter body.',
+				depth: 1,
+				isFolder: false,
+				sectionTypeId: 'chapter-type',
+			},
+			{
+				title: 'Chapter Two',
+				content: 'Second chapter body.',
+				depth: 1,
+				isFolder: false,
+				sectionTypeId: 'chapter-type',
+			},
 		];
 
 		it('renders auto-numbered titles and a page break for a recognized CHAPTER-NUMBER layout', () => {

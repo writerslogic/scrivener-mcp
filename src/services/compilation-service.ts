@@ -210,6 +210,8 @@ export class CompilationService {
 		query: string,
 		options: SearchOptions = {}
 	): SearchResult[] {
+		if (!query) return [];
+
 		const {
 			caseSensitive = false,
 			regex = false,
@@ -595,15 +597,10 @@ export class CompilationService {
 			try {
 				const flags = options.caseSensitive ? 'g' : 'gi';
 				const regex = new RegExp(query, flags);
-				const found = content.match(regex);
-				if (found) {
-					// Get context around matches
-					for (const match of found) {
-						const index = content.indexOf(match);
-						const contextStart = Math.max(0, index - 50);
-						const contextEnd = Math.min(content.length, index + match.length + 50);
-						matches.push(content.substring(contextStart, contextEnd));
-					}
+				for (const match of content.matchAll(regex)) {
+					const contextStart = Math.max(0, match.index - 50);
+					const contextEnd = Math.min(content.length, match.index + match[0].length + 50);
+					matches.push(content.substring(contextStart, contextEnd));
 				}
 			} catch (error) {
 				logger.warn('Invalid regex pattern', {

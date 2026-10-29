@@ -19,53 +19,75 @@ const logger = getLogger('sqlite-manager');
 export class SQLiteManager {
 	private db: Database.Database | null = null;
 	private dbPath: string;
-	private transactionDepth: number = 0;
-	private isInTransaction: boolean = false;
-	private isTransactionPending: boolean = false;
-	private pendingOperations: Array<() => void> = [];
+	private transactionDepth = 0;
+	private readonly callbackDepths: number[] = [];
 	private cachedManager: CachedSQLiteManager | null = null;
+	private initialized = false;
+	private lifecycleTail: Promise<void> = Promise.resolve();
 
 	constructor(dbPath: string) {
 		this.dbPath = dbPath;
 	}
 
-	async initialize(): Promise<void> {
-		const initResult = await measureExecution(async () => {
-			// Ensure directory exists
-			const dir = path.dirname(this.dbPath);
-			await ensureDir(dir);
+	initialize(): Promise<void> {
+		return this.transition(() => this.initializeDatabase());
+	}
 
-			// Open database connection with retry for robustness
-			await retry(
-				async () => {
-					this.db = new Database(this.dbPath);
+	private async initializeDatabase(): Promise<void> {
+		if (this.initialized && this.db?.open) return;
+		try {
+			await this.releaseResources();
+			const initResult = await measureExecution(async () => {
+				// Ensure directory exists
+				const dir = path.dirname(this.dbPath);
+				await ensureDir(dir);
 
-					// Verify database is accessible
-					this.db.exec('SELECT 1');
-				},
-				{ maxAttempts: 3 }
-			);
+				// Open database connection with retry for robustness
+				await retry(
+					async () => {
+						this.db = new Database(this.dbPath);
+						try {
+							this.db.exec('SELECT 1');
+						} catch (error) {
+							this.db.close();
+							this.db = null;
+							throw error;
+						}
+					},
+					{ maxAttempts: 3 }
+				);
 
-			// Enable WAL mode and optimizations for better performance
-			this.db!.exec('PRAGMA journal_mode = WAL;');
-			this.db!.exec('PRAGMA synchronous = NORMAL;');
-			this.db!.exec('PRAGMA cache_size = 10000;'); // Increased cache
-			this.db!.exec('PRAGMA temp_store = MEMORY;');
-			this.db!.exec('PRAGMA mmap_size = 268435456;'); // 256MB mmap
-			this.db!.exec('PRAGMA application_id = 0x574C4D43;'); // Schema provider tag
+				// Enable WAL mode and optimizations for better performance
+				this.db!.exec('PRAGMA journal_mode = WAL;');
+				this.db!.exec('PRAGMA synchronous = NORMAL;');
+				this.db!.exec('PRAGMA cache_size = 10000;'); // Increased cache
+				this.db!.exec('PRAGMA temp_store = MEMORY;');
+				this.db!.exec('PRAGMA mmap_size = 268435456;'); // 256MB mmap
+				this.db!.exec('PRAGMA application_id = 0x574C4D43;'); // Schema provider tag
 
-			// Get database size for monitoring
-			const stats = fs.statSync(this.dbPath);
-			logger.info(`Database file size: ${formatBytes(stats.size)}`);
+				// Get database size for monitoring
+				const stats = fs.statSync(this.dbPath);
+				logger.info(`Database file size: ${formatBytes(stats.size)}`);
 
-			await this.createTables();
+				await this.createTables();
 
-			// Initialize cached manager if KeyDB is available
-			this.cachedManager = new CachedSQLiteManager(this);
-			await this.cachedManager.initialize();
-		});
+				// Initialize cached manager if KeyDB is available
+				this.cachedManager = new CachedSQLiteManager(this);
+				await this.cachedManager.initialize();
+			});
 
-		logger.info(`SQLite database initialized in ${formatDuration(initResult.ms)}`);
+			logger.info(`SQLite database initialized in ${formatDuration(initResult.ms)}`);
+			this.initialized = true;
+		} catch (error) {
+			try {
+				await this.releaseResources();
+			} catch (cleanupError) {
+				throw new Error('SQLite initialization and cleanup failed', {
+					cause: [error, cleanupError],
+				});
+			}
+			throw error;
+		}
 	}
 
 	private async createTables(): Promise<void> {
@@ -204,12 +226,17 @@ export class SQLiteManager {
 	}
 
 	getDatabase(): Database.Database {
-		if (!this.db) {
+		if (!this.db?.open) {
 			throw new AppError(
 				'Database not initialized. Call initialize() first.',
 				ErrorCode.DATABASE_ERROR
 			);
 		}
+		if (this.callbackDepths.length && !this.db.inTransaction)
+			throw new AppError(
+				'Transaction callback was already rolled back',
+				ErrorCode.DATABASE_ERROR
+			);
 		return this.db;
 	}
 
@@ -225,107 +252,103 @@ export class SQLiteManager {
 	 * Execute a query
 	 */
 	query(sql: string, params: unknown[] = []): unknown[] {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		return this.db.prepare(sql).all(params);
+		return this.getDatabase().prepare(sql).all(params);
 	}
 
 	/**
 	 * Execute a single row query
 	 */
 	queryOne(sql: string, params: unknown[] = []): unknown {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		return this.db.prepare(sql).get(params);
+		return this.getDatabase().prepare(sql).get(params);
 	}
 
 	/**
 	 * Execute an insert/update/delete statement
 	 */
 	execute(sql: string, params: unknown[] = []): RunResult {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		return this.db.prepare(sql).run(params);
+		return this.getDatabase().prepare(sql).run(params);
 	}
 
 	/**
 	 * Execute multiple statements in a transaction with retry logic
 	 */
 	async transaction<T>(fn: () => T, retries: number = 3): Promise<T> {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-
-		let lastError: Error | null = null;
+		const db = this.getDatabase();
+		if (!Number.isSafeInteger(retries) || retries < 1)
+			throw new AppError('Retries must be a positive safe integer', ErrorCode.INVALID_INPUT);
+		if (
+			['[object AsyncFunction]', '[object AsyncGeneratorFunction]'].includes(
+				Object.prototype.toString.call(fn)
+			)
+		)
+			throw new AppError(
+				'Transaction callbacks must be synchronous',
+				ErrorCode.INVALID_INPUT
+			);
+		const run = db.transaction(() => {
+			const depth = this.transactionDepth;
+			this.transactionDepth++;
+			this.callbackDepths.push(this.transactionDepth);
+			try {
+				const result = fn();
+				if (!db.inTransaction || this.transactionDepth !== depth + 1)
+					throw new AppError(
+						'Transaction callback changed its transaction scope',
+						ErrorCode.DATABASE_ERROR
+					);
+				return result;
+			} finally {
+				this.callbackDepths.pop();
+				this.transactionDepth = depth;
+			}
+		});
 		for (let i = 0; i < retries; i++) {
 			try {
-				this.isInTransaction = true;
-				this.transactionDepth++;
-				const result = this.db.transaction(fn)();
-				this.transactionDepth--;
-				if (this.transactionDepth === 0) {
-					this.isInTransaction = false;
-					this.processPendingOperations();
-				}
-				return result;
+				return run();
 			} catch (error) {
-				lastError = error as Error;
-				this.transactionDepth = Math.max(0, this.transactionDepth - 1);
-				if (this.transactionDepth === 0) {
-					this.isInTransaction = false;
-				}
-				// If it's a busy error, retry
-				if ((error as { code?: string }).code === 'SQLITE_BUSY' && i < retries - 1) {
-					// Wait a bit before retrying
+				if (!db.open || !db.inTransaction) this.transactionDepth = 0;
+				if (
+					(error as { code?: string } | null)?.code === 'SQLITE_BUSY' &&
+					i < retries - 1 &&
+					db.open &&
+					!db.inTransaction
+				) {
 					const delay = Math.min(100 * Math.pow(2, i), 1000);
 					await new Promise((resolve) => setTimeout(resolve, delay));
+					if (this.db !== db || !db.open)
+						throw new AppError(
+							'Database closed during transaction retry',
+							ErrorCode.DATABASE_ERROR
+						);
+					if (db.inTransaction)
+						throw new AppError(
+							'Another transaction started during retry',
+							ErrorCode.DATABASE_ERROR
+						);
 					continue;
 				}
 				throw error;
 			}
 		}
-		throw (
-			lastError || new AppError('Transaction failed after retries', ErrorCode.DATABASE_ERROR)
-		);
-	}
-
-	private processPendingOperations(): void {
-		while (this.pendingOperations.length > 0) {
-			const operation = this.pendingOperations.shift();
-			if (operation) {
-				try {
-					operation();
-				} catch (_error) {
-					// Log but don't throw - these are non-critical operations
-					logger.debug('Non-critical operation failed', { error: _error });
-				}
-			}
-		}
+		throw new AppError('Transaction retry invariant failed', ErrorCode.DATABASE_ERROR);
 	}
 
 	/**
 	 * Begin an explicit transaction
 	 */
 	beginTransaction(): void {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		if (this.isTransactionPending) {
-			throw new AppError('A transaction is already being started', ErrorCode.DATABASE_ERROR);
-		}
-		if (!this.isInTransaction) {
-			this.isTransactionPending = true;
-			try {
-				this.db.prepare('BEGIN TRANSACTION').run();
-				this.isInTransaction = true;
-				this.transactionDepth = 1;
-			} finally {
-				this.isTransactionPending = false;
-			}
+		const db = this.getDatabase();
+		if (this.transactionDepth === 0) {
+			db.prepare('BEGIN TRANSACTION').run();
+			this.transactionDepth = 1;
 		} else {
+			if (!db.inTransaction) {
+				this.transactionDepth = 0;
+				throw new AppError(
+					'Managed transaction is no longer active',
+					ErrorCode.DATABASE_ERROR
+				);
+			}
 			this.transactionDepth++;
 		}
 	}
@@ -334,32 +357,33 @@ export class SQLiteManager {
 	 * Commit the current transaction
 	 */
 	commit(): void {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
+		const db = this.getDatabase();
+		if (this.transactionDepth === 0) return;
+		if (!db.inTransaction) {
+			this.transactionDepth = 0;
+			throw new AppError('Managed transaction is no longer active', ErrorCode.DATABASE_ERROR);
 		}
-		if (this.transactionDepth > 0) {
-			this.transactionDepth--;
-			if (this.transactionDepth === 0 && this.isInTransaction) {
-				this.db.prepare('COMMIT').run();
-				this.isInTransaction = false;
-				this.processPendingOperations();
-			}
-		}
+		if (this.callbackDepths[this.callbackDepths.length - 1] === this.transactionDepth)
+			throw new AppError(
+				'Callback transactions cannot be committed explicitly',
+				ErrorCode.DATABASE_ERROR
+			);
+		if (this.transactionDepth === 1) db.prepare('COMMIT').run();
+		this.transactionDepth--;
 	}
 
 	/**
 	 * Rollback the current transaction
 	 */
 	rollback(): void {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		if (this.isInTransaction) {
-			this.db.prepare('ROLLBACK').run();
-			this.isInTransaction = false;
-			this.transactionDepth = 0;
-			this.pendingOperations = [];
-		}
+		const db = this.getDatabase();
+		if (this.callbackDepths.length)
+			throw new AppError(
+				'Callback transactions must be rolled back by throwing',
+				ErrorCode.DATABASE_ERROR
+			);
+		if (db.inTransaction) db.prepare('ROLLBACK').run();
+		this.transactionDepth = 0;
 	}
 
 	async checkHealth(): Promise<{ healthy: boolean; details: Record<string, unknown> }> {
@@ -381,7 +405,7 @@ export class SQLiteManager {
 					integrity,
 					stats,
 					transactionDepth: this.transactionDepth,
-					isInTransaction: this.isInTransaction,
+					isInTransaction: this.db.inTransaction,
 				},
 			};
 		} catch (error) {
@@ -392,31 +416,52 @@ export class SQLiteManager {
 		}
 	}
 
-	async close(): Promise<void> {
-		if (this.cachedManager) {
-			await this.cachedManager.close();
-			this.cachedManager = null;
-		}
+	close(): Promise<void> {
+		return this.transition(() => this.releaseResources());
+	}
 
-		if (this.db) {
-			this.db.close();
-			this.db = null;
+	private transition(operation: () => Promise<void>): Promise<void> {
+		const pending = this.lifecycleTail.then(operation);
+		this.lifecycleTail = pending.catch(() => undefined);
+		return pending;
+	}
+
+	private async releaseResources(): Promise<void> {
+		this.initialized = false;
+		const failures: unknown[] = [];
+		if (this.cachedManager) {
+			try {
+				await this.cachedManager.close();
+				this.cachedManager = null;
+			} catch (error) {
+				failures.push(error);
+			}
 		}
+		if (this.db) {
+			try {
+				if (this.db.open) this.db.close();
+				this.db = null;
+				this.transactionDepth = 0;
+			} catch (error) {
+				failures.push(error);
+			}
+		}
+		if (failures.length === 1) throw failures[0];
+		if (failures.length > 1)
+			throw new Error('Multiple SQLite resources failed to close', { cause: failures });
 	}
 
 	getDatabaseStats(): { size: number; pageCount: number; pageSize: number } {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
+		const db = this.getDatabase();
 
 		const stats = fs.statSync(this.dbPath);
-		const pragma = this.db.pragma('page_count') as { page_count: number };
-		const pageSize = this.db.pragma('page_size') as { page_size: number };
+		const pageCount = db.pragma('page_count', { simple: true }) as number;
+		const pageSize = db.pragma('page_size', { simple: true }) as number;
 
 		return {
 			size: stats.size,
-			pageCount: pragma.page_count,
-			pageSize: pageSize.page_size,
+			pageCount,
+			pageSize,
 		};
 	}
 
@@ -424,19 +469,18 @@ export class SQLiteManager {
 	 * Vacuum the database to reclaim space
 	 */
 	vacuum(): void {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		this.db.exec('VACUUM;');
+		this.getDatabase().exec('VACUUM;');
 	}
 
 	/**
-	 * Backup database to a file
+	 * Resolve after the backup is complete; queued shutdown waits for this copy
 	 */
-	backup(backupPath: string): void {
-		if (!this.db) {
-			throw new AppError('Database not initialized', ErrorCode.DATABASE_ERROR);
-		}
-		this.db.backup(backupPath);
+	backup(backupPath: string): Promise<void> {
+		this.getDatabase();
+		return this.transition(() =>
+			this.getDatabase()
+				.backup(backupPath)
+				.then(() => undefined)
+		);
 	}
 }

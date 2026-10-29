@@ -47,6 +47,8 @@ and any MCP-compatible client. Scrivener 3 on macOS, Windows, and Linux. Listed 
 [official MCP Registry](https://registry.modelcontextprotocol.io) as
 `io.github.writerslogic/scrivener-mcp`.
 
+![Scrivener MCP capability map: project and document management, local search, persistent memory and story bibles, AI writing, craft analysis, continuity, relationships, goals, dashboards, automation, reviewed edits, and publishing.](assets/infographics/capability-map.png)
+
 ## Install
 
 ### Mac app: Draftbridge for Scrivener, $4.99

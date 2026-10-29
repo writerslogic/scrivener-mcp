@@ -2,6 +2,8 @@
 
 This guide covers the AI-powered features that help you analyze, improve, and manage your writing. These features work best when you've set up project memory (character profiles, style guide) as described in [Getting Started](./getting-started.md).
 
+See the [capability map](../assets/infographics/capability-map.png) for the complete feature set.
+
 ## Reading Large Documents
 
 The `read_document` tool supports `offset` and `limit` parameters for word-based sliding window reads. This is useful for large chapters that exceed your AI client's context window, or when you only need a specific section.

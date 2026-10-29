@@ -83,6 +83,15 @@ describe('runtime selection', () => {
 		{ major: 22, version: 'v22.13.0', expected: true },
 		{ major: 22, version: 'v22.13.1', expected: true },
 		{ major: 23, version: 'v23.0.0', expected: true },
+		{ major: 26, version: 'v26.12.1', expected: true },
+		{ major: 24, version: 'v22.12.0', expected: false },
+		{ major: 22, version: 'v24.0.0', expected: false },
+		{ major: 26, version: 'v26.0.0-nightly.20261028', expected: false },
+		{ major: 26, version: 'v26.0.0+unverified', expected: false },
+		{ major: 26, version: '26.invalid', expected: false },
+		{ major: 26, version: 'v26.0.0junk', expected: false },
+		{ major: 26, version: 'v026.0.0', expected: false },
+		{ major: 26, version: `v26.${'9'.repeat(64)}.0`, expected: false },
 	])(
 		'enforces the runtime floor for major $major at $version',
 		({ major, version, expected }) => {
@@ -92,6 +101,15 @@ describe('runtime selection', () => {
 
 	it('skips candidates without npx and returns null when nothing is usable', () => {
 		expect(chooseRuntime([rt(22, null)], rt(22, null))).toBeNull();
+	});
+
+	it('prefers a private runtime, otherwise selects the newest stable version numerically', () => {
+		const privateRuntime = { ...rt(22, '/private/npx'), source: 'private' };
+		const newest = { ...rt(26, '/new/npx'), version: 'v26.10.0' };
+		const older = { ...rt(26, '/old/npx'), version: 'v26.9.9' };
+		const nightly = { ...rt(27, '/nightly/npx'), version: 'v27.0.0-nightly.1' };
+		expect(chooseRuntime([older, nightly, privateRuntime, newest], null)).toBe(privateRuntime);
+		expect(chooseRuntime([older, nightly, newest], null)).toBe(newest);
 	});
 });
 

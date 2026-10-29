@@ -4,7 +4,9 @@ import {
 	initializeAsyncServices,
 	shutdownAsyncServices,
 	queueDocumentAnalysis,
+	analyzeWorkflowDocument,
 } from '../../../src/handlers/async-handlers.js';
+import { ContentAnalyzer } from '../../../src/analysis/base-analyzer.js';
 
 jest.mock('../../../src/services/queue/job-queue.js', () => {
 	const instances: Array<{ closed: boolean; inFlight: number }> = [];
@@ -89,6 +91,28 @@ describe('async service resource lifecycle', () => {
 		releases.push(release);
 		return { entered, release };
 	}
+
+	it('releases the local analyzer when services are replaced or shut down', async () => {
+		const disposed = jest.spyOn(ContentAnalyzer.prototype, 'dispose');
+		const localRequest = {
+			...request,
+			content: 'The cat sat on the mat. The dog ran fast. We all had a lot of fun today.',
+		};
+		try {
+			await analyzeWorkflowDocument(localRequest);
+			expect(disposed).not.toHaveBeenCalled();
+			await initializeAsyncServices({
+				projectPath: join(tmpdir(), 'scrivener-local-lifecycle'),
+			});
+			expect(disposed).toHaveBeenCalledTimes(1);
+			await shutdownAsyncServices();
+			await analyzeWorkflowDocument(localRequest);
+			await shutdownAsyncServices();
+			expect(disposed).toHaveBeenCalledTimes(2);
+		} finally {
+			disposed.mockRestore();
+		}
+	});
 
 	it('coalesces equivalent concurrent initializations into one usable service generation', async () => {
 		const projectPath = join(tmpdir(), 'scrivener-lifecycle-same');

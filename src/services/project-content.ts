@@ -1,9 +1,9 @@
 import { getLogger } from '../core/logger.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
+import { createError, ErrorCode } from '../core/errors.js';
 import { findDraftFolder, findSubtree } from '../utils/binder-tree.js';
 import type { CompilationService } from './compilation-service.js';
 import { type StructuredEntry } from './compilation-service.js';
-import { documentIndexer, type SearchResult } from './document-indexer.js';
 import type { DocumentManager } from './document-manager.js';
 import type { CompileMetadata } from './compile-settings.js';
 import type { ScrivenerDocument } from '../types/index.js';
@@ -20,12 +20,8 @@ export class ProjectContent {
 		private readonly getAllDocuments: (includeTrash?: boolean) => Promise<ScrivenerDocument[]>,
 		private readonly getDocumentInfo: ScrivenerProject['getDocumentInfo'],
 		private readonly getCompileMetadata: () => Promise<CompileMetadata>,
-		private readonly isIndexInitialized: () => boolean
+		_isIndexInitialized?: () => boolean
 	) {}
-
-	private get indexInitialized(): boolean {
-		return this.isIndexInitialized();
-	}
 
 	// Compilation operations
 	async compileDocuments(
@@ -179,35 +175,19 @@ export class ProjectContent {
 			includeTrash?: boolean;
 		}
 	): Promise<Array<{ documentId: string; title: string; matches: string[] }>> {
-		// Use the document indexer for efficient search if available
-		if (this.indexInitialized && !options?.searchMetadata) {
-			const results = await documentIndexer.searchContent(query, {
-				caseSensitive: options?.caseSensitive,
-				regex: options?.regex,
-				limit: 100,
-			});
-
-			// Update index for accessed documents
-			for (const result of results.slice(0, 10)) {
-				try {
-					const content = await this.readDocument(result.documentId);
-					await documentIndexer.updateDocumentInIndex(result.documentId, content);
-				} catch (err) {
-					logger.debug('Skipped document index update', {
-						id: result.documentId,
-						error: err,
-					});
-				}
+		if (!query) return [];
+		if (options?.regex) {
+			try {
+				new RegExp(query);
+			} catch (error) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					error,
+					`Invalid search pattern: ${(error as Error).message}`
+				);
 			}
-
-			return results.map((r: SearchResult) => ({
-				documentId: r.documentId,
-				title: r.title,
-				matches: r.matches,
-			}));
 		}
 
-		// Fallback to full scan for metadata search or if index not available
 		const documents = await this.getAllDocuments(options?.includeTrash);
 		const docsWithContent = [];
 
@@ -228,11 +208,6 @@ export class ProjectContent {
 						content,
 						metadata,
 					});
-
-					// Update index while we have the content
-					if (this.indexInitialized) {
-						await documentIndexer.updateDocumentInIndex(doc.id, content);
-					}
 				} catch (err) {
 					logger.debug('Skipped document during content scan', {
 						id: doc.id,

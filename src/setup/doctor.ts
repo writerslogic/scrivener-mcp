@@ -1,5 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
+import {
+	StdioClientTransport,
+	getDefaultEnvironment,
+} from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { ServerEntry } from './runtime.js';
 import { redactDiagnostics } from './redaction.js';
 
@@ -23,11 +26,16 @@ class DiagnosticTransport extends StdioClientTransport {
 	private closing?: Promise<void>;
 	private exited = false;
 	private resolveExit!: () => void;
-	private readonly exit = new Promise<void>((resolve) => { this.resolveExit = resolve; });
-	override onclose = (): void => { this.exited = true; this.resolveExit(); };
+	private readonly exit = new Promise<void>((resolve) => {
+		this.resolveExit = resolve;
+	});
+	override onclose = (): void => {
+		this.exited = true;
+		this.resolveExit();
+	};
 
 	override close(): Promise<void> {
-		return this.closing ??= this.closeAndWait();
+		return (this.closing ??= this.closeAndWait());
 	}
 
 	private async closeAndWait(): Promise<void> {
@@ -38,7 +46,15 @@ class DiagnosticTransport extends StdioClientTransport {
 		try {
 			await Promise.race([
 				this.exit,
-				new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Diagnostic server did not exit after transport shutdown')), 1000); }),
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(
+						() =>
+							reject(
+								new Error('Diagnostic server did not exit after transport shutdown')
+							),
+						1000
+					);
+				}),
 			]);
 		} finally {
 			clearTimeout(timer);
@@ -47,7 +63,11 @@ class DiagnosticTransport extends StdioClientTransport {
 }
 
 /** The deadline covers negotiation and listing; SDK child shutdown has a bounded cleanup grace. */
-export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?: AbortSignal): Promise<HandshakeResult> {
+export async function handshake(
+	entry: ServerEntry,
+	timeoutMs = 60_000,
+	signal?: AbortSignal
+): Promise<HandshakeResult> {
 	const started = performance.now();
 	const controller = new AbortController();
 	let transport: DiagnosticTransport | undefined;
@@ -61,19 +81,34 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 	let ok = false;
 	let server: { name: string; version: string } | undefined;
 	let toolCount = 0;
-	const secrets = Object.entries(entry.env ?? {}).filter(([key, value]) => /api.?key|token|password|secret|authorization/i.test(key) && typeof value === 'string' && value.length > 0).map(([, value]) => value).sort((a, b) => b.length - a.length);
+	const secrets = Object.entries(entry.env ?? {})
+		.filter(
+			([key, value]) =>
+				/api.?key|token|password|secret|authorization/i.test(key) &&
+				typeof value === 'string' &&
+				value.length > 0
+		)
+		.map(([, value]) => value)
+		.sort((a, b) => b.length - a.length);
 	const redact = (value: string): string => {
 		let result = value;
 		for (const secret of secrets) result = result.split(secret).join('[redacted]');
 		return String(redactDiagnostics(result));
 	};
-	const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error ?? 'Diagnostic failed');
+	const errorText = (error: unknown): string =>
+		error instanceof Error ? error.message : String(error ?? 'Diagnostic failed');
 	const collectStderr = (chunk: Buffer): void => {
 		stderrTruncated ||= stderr.length + chunk.length > MAX_STDERR_BYTES;
-		stderr = chunk.length >= MAX_STDERR_BYTES ? Buffer.from(chunk.subarray(-MAX_STDERR_BYTES)) : Buffer.concat([stderr, chunk]).subarray(-MAX_STDERR_BYTES);
+		stderr =
+			chunk.length >= MAX_STDERR_BYTES
+				? Buffer.from(chunk.subarray(-MAX_STDERR_BYTES))
+				: Buffer.concat([stderr, chunk]).subarray(-MAX_STDERR_BYTES);
 	};
 	try {
-		if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS) throw new Error(`Diagnostic timeout must be an integer between 1 and ${MAX_TIMEOUT_MS} ms`);
+		if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS)
+			throw new Error(
+				`Diagnostic timeout must be an integer between 1 and ${MAX_TIMEOUT_MS} ms`
+			);
 		if (signal?.aborted) throw new Error('Diagnostic cancelled');
 		transport = new DiagnosticTransport({
 			command: entry.command,
@@ -95,12 +130,18 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 		const diagnosticClient = client;
 		const diagnosticTransport = transport;
 		const deadline = started + timeoutMs;
-		const timeoutError = (): Error => new Error(`Diagnostic exceeded its total ${timeoutMs} ms deadline`);
+		const timeoutError = (): Error =>
+			new Error(`Diagnostic exceeded its total ${timeoutMs} ms deadline`);
 		const options = () => {
 			if (controller.signal.aborted) throw controller.signal.reason;
 			const remaining = Math.ceil(deadline - performance.now());
 			if (remaining <= 0) throw timeoutError();
-			return { signal: controller.signal, timeout: remaining, maxTotalTimeout: remaining, resetTimeoutOnProgress: false };
+			return {
+				signal: controller.signal,
+				timeout: remaining,
+				maxTotalTimeout: remaining,
+				resetTimeoutOnProgress: false,
+			};
 		};
 		const stopped = new Promise<never>((_, reject) => {
 			const stop = (error: Error): void => {
@@ -112,7 +153,10 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 			const cancelled = (): void => stop(new Error('Diagnostic cancelled'));
 			signal?.addEventListener('abort', cancelled, { once: true });
 			removeAbort = (): void => signal?.removeEventListener('abort', cancelled);
-			timer = setTimeout(() => stop(timeoutError()), Math.max(1, deadline - performance.now()));
+			timer = setTimeout(
+				() => stop(timeoutError()),
+				Math.max(1, deadline - performance.now())
+			);
 		});
 		const run = async (): Promise<void> => {
 			stage = 'initialize';
@@ -123,11 +167,16 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 			const names = new Set<string>();
 			let cursor: string | undefined;
 			for (let page = 0; page < MAX_PAGES; page++) {
-				const listing = await diagnosticClient.listTools(cursor === undefined ? {} : { cursor }, options());
+				const listing = await diagnosticClient.listTools(
+					cursor === undefined ? {} : { cursor },
+					options()
+				);
 				for (const tool of listing.tools) {
-					if (names.has(tool.name)) throw new Error('Server repeated a tool name while listing tools');
+					if (names.has(tool.name))
+						throw new Error('Server repeated a tool name while listing tools');
 					names.add(tool.name);
-					if (names.size > MAX_TOOLS) throw new Error('Server tool listing exceeded the diagnostic tool limit');
+					if (names.size > MAX_TOOLS)
+						throw new Error('Server tool listing exceeded the diagnostic tool limit');
 				}
 				if (listing.nextCursor === undefined) {
 					if (!names.size) throw new Error('Server returned an empty tool listing');
@@ -135,7 +184,8 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 					return;
 				}
 				cursor = listing.nextCursor;
-				if (!cursor.length || cursor.length > MAX_CURSOR_LENGTH || cursors.has(cursor)) throw new Error('Server returned an invalid or repeated tools/list cursor');
+				if (!cursor.length || cursor.length > MAX_CURSOR_LENGTH || cursors.has(cursor))
+					throw new Error('Server returned an invalid or repeated tools/list cursor');
 				cursors.add(cursor);
 			}
 			throw new Error('Server tool listing exceeded the diagnostic page limit');
@@ -152,7 +202,9 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 			await client?.close();
 			await transport?.close();
 		} catch (error) {
-			failure = new Error(`${failure === undefined ? '' : `${errorText(failure)}; `}shutdown: ${errorText(error)}`);
+			failure = new Error(
+				`${failure === undefined ? '' : `${errorText(failure)}; `}shutdown: ${errorText(error)}`
+			);
 			ok = false;
 		}
 		transport?.stderr?.removeListener('data', collectStderr);
@@ -160,17 +212,32 @@ export async function handshake(entry: ServerEntry, timeoutMs = 60_000, signal?:
 	if (signal?.aborted) {
 		ok = false;
 		const previous = failure === undefined ? '' : errorText(failure);
-		failure = new Error(previous.includes('Diagnostic cancelled') ? previous : `Diagnostic cancelled${previous ? `; ${previous}` : ''}`);
+		failure = new Error(
+			previous.includes('Diagnostic cancelled')
+				? previous
+				: `Diagnostic cancelled${previous ? `; ${previous}` : ''}`
+		);
 	}
 	const result: HandshakeResult = { ok, ms: Math.max(0, Math.ceil(performance.now() - started)) };
-	if (server) { result.serverName = redact(server.name); result.serverVersion = redact(server.version); }
+	if (server) {
+		result.serverName = redact(server.name);
+		result.serverVersion = redact(server.version);
+	}
 	if (ok) result.toolCount = toolCount;
 	else {
 		const retained = stderr.toString('utf8');
 		const firstBreak = retained.indexOf('\n');
-		const completeLines = stderrTruncated ? (firstBreak < 0 ? '[Diagnostic stderr exceeded its retained tail limit]' : retained.slice(firstBreak + 1)) : retained;
+		const completeLines = stderrTruncated
+			? firstBreak < 0
+				? '[Diagnostic stderr exceeded its retained tail limit]'
+				: retained.slice(firstBreak + 1)
+			: retained;
 		const tail = redact(completeLines).trim().slice(-1024);
-		result.error = `${stage}: ${redact(errorText(failure)).slice(0, 2048)}${tail ? `\n${tail}` : ''}`.slice(0, 4096);
+		result.error =
+			`${stage}: ${redact(errorText(failure)).slice(0, 2048)}${tail ? `\n${tail}` : ''}`.slice(
+				0,
+				4096
+			);
 	}
 	return result;
 }

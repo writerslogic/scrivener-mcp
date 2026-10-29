@@ -1,9 +1,6 @@
-import { getLogger } from '../../core/logger.js';
 import { AppError, ErrorCode } from '../../utils/common.js';
 import { generateScrivenerUUID } from '../../utils/scrivener-utils.js';
 import type { SQLiteManager } from './sqlite-manager.js';
-
-const logger = getLogger('database');
 
 type OperationStatus = 'pending' | 'prepared' | 'committed' | 'rolled_back';
 
@@ -21,9 +18,13 @@ export interface TransactionLog {
 
 const LOG_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-/** Two-phase-commit bookkeeping around the SQLite transaction. */
+/** Nested tickets share one SQLite transaction and commit in reverse begin order. */
 export class TransactionCoordinator {
 	private readonly log: Map<string, TransactionLog> = new Map();
+	private readonly active: string[] = [];
+	private readonly members = new Set<string>();
+	private owner?: SQLiteManager | null;
+	private connection?: ReturnType<SQLiteManager['getDatabase']>;
 
 	constructor(private readonly getSqlite: () => SQLiteManager | null) {}
 
@@ -32,7 +33,23 @@ export class TransactionCoordinator {
 	}
 
 	async begin(): Promise<string> {
+		const sqlite = this.getSqlite();
+		if (this.active.length) {
+			this.assertConnection();
+			if (sqlite !== this.owner)
+				throw new AppError(
+					'Transaction database changed while a transaction is active',
+					ErrorCode.DATABASE_ERROR
+				);
+		}
+		const connection = sqlite?.getDatabase();
+		sqlite?.beginTransaction();
 		const transactionId = generateScrivenerUUID();
+		if (!this.active.length) {
+			this.cleanup();
+			this.owner = sqlite;
+			this.connection = connection;
+		}
 
 		this.log.set(transactionId, {
 			id: transactionId,
@@ -41,7 +58,8 @@ export class TransactionCoordinator {
 			status: 'in_progress',
 		});
 
-		this.getSqlite()?.beginTransaction();
+		this.active.push(transactionId);
+		this.members.add(transactionId);
 
 		return transactionId;
 	}
@@ -51,6 +69,10 @@ export class TransactionCoordinator {
 		if (!txn) {
 			throw new AppError('Transaction not found', ErrorCode.DATABASE_ERROR);
 		}
+		if (txn.status === 'committed') return true;
+		if (txn.status === 'rolled_back')
+			throw new AppError('Transaction was rolled back', ErrorCode.DATABASE_ERROR);
+		this.assertConnection();
 
 		try {
 			txn.operations.forEach((op) => {
@@ -62,7 +84,6 @@ export class TransactionCoordinator {
 			txn.status = 'prepared';
 			return true;
 		} catch (_error) {
-			logger.error('Transaction preparation failed', { transactionId, error: _error });
 			await this.rollback(transactionId);
 			return false;
 		}
@@ -70,38 +91,86 @@ export class TransactionCoordinator {
 
 	async commit(transactionId: string): Promise<void> {
 		const txn = this.log.get(transactionId);
+		if (txn?.status === 'committed') return;
 		if (!txn || txn.status !== 'prepared') {
 			throw new AppError('Transaction not prepared', ErrorCode.DATABASE_ERROR);
 		}
+		this.assertConnection();
+		if (this.active[this.active.length - 1] !== transactionId)
+			throw new AppError(
+				'Nested transactions must commit in reverse begin order',
+				ErrorCode.DATABASE_ERROR
+			);
 
 		try {
-			this.getSqlite()?.commit();
+			this.owner?.commit();
 
 			txn.status = 'committed';
 			txn.operations.forEach((op) => (op.status = 'committed'));
 
-			this.cleanup();
+			this.active.pop();
+			if (!this.active.length) this.finishGroup();
 		} catch (error) {
-			await this.rollback(transactionId);
+			try {
+				await this.rollback(transactionId);
+			} catch (rollbackError) {
+				throw new Error('Transaction commit and rollback failed', {
+					cause: [error, rollbackError],
+				});
+			}
 			throw error;
 		}
 	}
 
 	async rollback(transactionId: string): Promise<void> {
 		const txn = this.log.get(transactionId);
-		if (!txn) return;
+		if (!txn || txn.status === 'rolled_back') return;
+		if (txn.status === 'committed')
+			throw new AppError(
+				'Committed transaction cannot be rolled back',
+				ErrorCode.DATABASE_ERROR
+			);
+		if (!this.members.has(transactionId))
+			throw new AppError('Transaction is no longer active', ErrorCode.DATABASE_ERROR);
+		if (this.connection?.open) this.owner?.rollback();
+		this.markRolledBack();
+		this.finishGroup();
+	}
 
-		this.getSqlite()?.rollback();
+	private assertConnection(): void {
+		if (this.connection && (!this.connection.open || !this.connection.inTransaction)) {
+			const closed = !this.connection.open;
+			this.markRolledBack();
+			this.finishGroup();
+			throw new AppError(
+				closed
+					? 'Transaction database closed before completion'
+					: 'Transaction is no longer active',
+				ErrorCode.DATABASE_ERROR
+			);
+		}
+	}
 
-		txn.status = 'rolled_back';
-		txn.operations.forEach((op) => (op.status = 'rolled_back'));
+	private markRolledBack(): void {
+		for (const id of this.members) {
+			const txn = this.log.get(id)!;
+			txn.status = 'rolled_back';
+			txn.operations.forEach((op) => (op.status = 'rolled_back'));
+		}
+	}
+
+	private finishGroup(): void {
+		this.active.length = 0;
+		this.members.clear();
+		this.owner = undefined;
+		this.connection = undefined;
+		this.cleanup();
 	}
 
 	/** Drop finished transactions older than the retention window. */
 	private cleanup(): void {
 		const now = Date.now();
 
-		const toDelete: string[] = [];
 		this.log.forEach((entry, id) => {
 			const age = now - entry.timestamp.getTime();
 			if (
@@ -109,10 +178,8 @@ export class TransactionCoordinator {
 				entry.status !== 'in_progress' &&
 				entry.status !== 'prepared'
 			) {
-				toDelete.push(id);
+				this.log.delete(id);
 			}
 		});
-
-		toDelete.forEach((id) => this.log.delete(id));
 	}
 }

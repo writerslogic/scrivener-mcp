@@ -4,9 +4,10 @@ import { getLogger } from './core/logger.js';
 import { generateScrivenerUUID } from './utils/scrivener-utils.js';
 import type { DatabaseService } from './handlers/database/database-service.js';
 import {
+	AppError,
+	ErrorCode,
 	buildPath,
 	ensureDir,
-	pathExists,
 	safeParse,
 	safeReadFile,
 	safeStringify,
@@ -153,10 +154,10 @@ export class MemoryManager {
 		await ensureDir(this.memoryPath);
 
 		// Load existing memory or create new from file as fallback
-		const memoryFile = buildPath(this.memoryPath, 'project-memory.json');
-		if (await pathExists(memoryFile)) {
+		try {
 			await this.loadMemory();
-		} else {
+		} catch (error) {
+			if (!(error instanceof AppError) || error.code !== ErrorCode.NOT_FOUND) throw error;
 			await this.saveMemory();
 		}
 
@@ -173,7 +174,59 @@ export class MemoryManager {
 		try {
 			const memoryFile = buildPath(this.memoryPath, 'project-memory.json');
 			const data = await safeReadFile(memoryFile);
-			const loaded = safeParse(data, {}) as Partial<ProjectMemory> & Record<string, unknown>;
+			const parsed = safeParse<unknown>(data, undefined);
+			if (
+				!parsed ||
+				typeof parsed !== 'object' ||
+				Array.isArray(parsed) ||
+				parsed instanceof Map ||
+				parsed instanceof Set
+			) {
+				throw new Error('Invalid project memory file');
+			}
+			const loaded = parsed as Partial<ProjectMemory>;
+			for (const field of ['version', 'lastUpdated'] as const) {
+				if (loaded[field] !== undefined && typeof loaded[field] !== 'string') {
+					throw new Error(`Invalid project memory field: ${field}`);
+				}
+			}
+			for (const field of ['characters', 'worldBuilding', 'plotThreads'] as const) {
+				if (loaded[field] !== undefined && !Array.isArray(loaded[field])) {
+					throw new Error(`Invalid project memory field: ${field}`);
+				}
+			}
+			for (const field of ['styleGuide', 'writingStats', 'customContext'] as const) {
+				const value = loaded[field];
+				if (
+					value !== undefined &&
+					(!value ||
+						typeof value !== 'object' ||
+						Array.isArray(value) ||
+						value instanceof Map ||
+						value instanceof Set)
+				) {
+					throw new Error(`Invalid project memory field: ${field}`);
+				}
+			}
+			const contexts: unknown = loaded.documentContexts;
+			if (contexts !== undefined && !Array.isArray(contexts) && !(contexts instanceof Map)) {
+				throw new Error('Invalid project memory field: documentContexts');
+			}
+			const contextEntries = contexts instanceof Map ? Array.from(contexts) : contexts;
+			if (
+				Array.isArray(contextEntries) &&
+				contextEntries.some(
+					(entry) =>
+						!Array.isArray(entry) ||
+						entry.length !== 2 ||
+						typeof entry[0] !== 'string' ||
+						!entry[1] ||
+						typeof entry[1] !== 'object' ||
+						Array.isArray(entry[1])
+				)
+			) {
+				throw new Error('Invalid project memory field: documentContexts');
+			}
 
 			// Initialize with proper ProjectMemory structure
 			const memory: ProjectMemory = {
@@ -205,14 +258,16 @@ export class MemoryManager {
 			};
 
 			// Convert documentContexts back to Map
-			if (loaded.documentContexts && Array.isArray(loaded.documentContexts)) {
-				memory.documentContexts = new Map(loaded.documentContexts);
+			if (Array.isArray(contextEntries)) {
+				memory.documentContexts = new Map(contextEntries);
 			}
 
 			this.memory = memory;
 		} catch (error) {
-			logger.error('Failed to load memory', { error });
-			this.memory = this.createEmptyMemory();
+			if (!(error instanceof AppError) || error.code !== ErrorCode.NOT_FOUND) {
+				logger.error('Failed to load memory', { error });
+			}
+			throw error;
 		}
 	}
 
@@ -237,18 +292,20 @@ export class MemoryManager {
 				documentContexts: Array.from(this.memory.documentContexts.entries()),
 				lastUpdated: new Date().toISOString(),
 			};
+			const serialized = safeStringify(toSave);
+			if (!serialized) throw new Error('Project memory could not be serialized');
 
-			await safeWriteFile(memoryFile, safeStringify(toSave));
+			await safeWriteFile(memoryFile, serialized);
 
 			// Also save a backup
 			try {
 				const backupFile = buildPath(
 					this.memoryPath,
-					`backup-${new Date().toISOString().split('T')[0]}.json`
+					`backup-${toSave.lastUpdated.split('T')[0]}.json`
 				);
 				// Ensure directory still exists before writing backup
 				await ensureDir(this.memoryPath);
-				await safeWriteFile(backupFile, safeStringify(toSave));
+				await safeWriteFile(backupFile, serialized);
 			} catch (backupError) {
 				logger.warn('Failed to save backup file', { error: backupError });
 				// Don't throw - backup failure shouldn't break the main save

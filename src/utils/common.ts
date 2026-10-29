@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { isNativeError } from 'node:util/types';
 
 /** Error codes for standardized error handling */
 export enum ErrorCode {
@@ -105,7 +106,7 @@ export function createError(code: ErrorCode, details?: unknown, message?: string
 export function handleError(error: unknown, context?: string): AppError {
 	if (error instanceof AppError) return error;
 
-	if (error instanceof Error) {
+	if (error instanceof Error || isNativeError(error)) {
 		const { code, message, stack } = error as NodeJS.ErrnoException;
 		switch (code) {
 			case 'ENOENT':

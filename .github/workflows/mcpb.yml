@@ -9,6 +9,7 @@ on:
       - 'scripts/build-mcpb.sh'
       - 'scripts/stage-bundle.sh'
       - 'assets/draftbridge/icon.png'
+      - 'assets/infographics/capability-map.png'
       - 'package-lock.json'
       - 'src/index.ts'
   workflow_dispatch:

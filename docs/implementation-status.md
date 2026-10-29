@@ -192,3 +192,24 @@ native Scrivener GUI certification.
 security and code-quality evidence. Main integration requires all six supported OS/runtime jobs,
 replacing retired Node 20 context names while retaining strict updates, deletion/force-push
 protection and no bypass actors. No release tag, package publication or deployment is authorized.
+
+## Forward compatibility and Draftbridge quality
+
+The follow-up requests application longevity and confirms the desktop product is Draftbridge for
+Scrivener. Public integration uses `quality/future-proofing-20261028` from `a998746`; private desktop
+integration is isolated at `/Volumes/A/draftbridge-quality` from `d79932d`. Existing deleted files in
+`apps/mac` are unrelated and preserved. Private source stays in the private repository.
+
+| Concern | Contract / acceptance | Ownership / state |
+| --- | --- | --- |
+| Protocol diagnostics | Use the installed SDK client for negotiation and schema validation; failed/empty/malformed listings never succeed; pagination, timeout, output bounds and redaction are tested | Diagnostics worker; pending |
+| Runtime drift | Package engine requirement is authoritative; stable versions are compared fully; malformed/prerelease/mismatched versions fail; newer runtimes get scheduled compatibility coverage | Manager; pending |
+| Desktop helper lifecycle | Bounded concurrent stdout/stderr consumption, validated exit/report agreement, cancellation, timeout with kill escalation and cleanup; no real client changes in tests | Manager; pending |
+| Desktop evidence / updates | Schema compatibility and unknown states fail honestly; diagnostics redact local/credential information; release candidates and destinations are validated | Private evidence worker; pending |
+| Desktop interactions | Serialize mutations, reject stale refreshes, preserve errors and verification status; visible progress/cancellation and accessible controls | Private UI worker; pending |
+| Integration | Actual public CLI report decoded by the private app; Swift/core/license tests, app builds, rendered light/dark screens and complete public release gate | Manager; pending |
+
+The manager owns public dependencies, CI and runtime policy plus the private process foundation.
+Private report/error types and their tests are explicitly delegated to the evidence worker; private
+interaction state is delegated to the UI worker. Workers use disjoint worktrees, do not validate or
+install dependencies, and request shared changes. Changes remain local during implementation.

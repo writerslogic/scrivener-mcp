@@ -287,6 +287,9 @@ async function shutdown(): Promise<void> {
 			await shutdownAsyncServices();
 		},
 		async () => {
+			context?.contentAnalyzer.dispose();
+		},
+		async () => {
 			if (hhmInitialized) {
 				const { getHHMSystem } = await import('./handlers/memory-handlers.js');
 				await getHHMSystem().destroy();
@@ -305,6 +308,7 @@ async function shutdown(): Promise<void> {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+process.stdin.once('end', shutdown);
 
 // Error handling
 process.on('uncaughtException', (error) => {

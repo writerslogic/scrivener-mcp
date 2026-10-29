@@ -4,22 +4,31 @@
 #   $BUILD/bundle/server             the built server with production dependencies
 # and proves the staged server starts under that Node.
 #
-# Environment: NODE_LINE (default v22), BUILD (default build).
+# Environment: NODE_LINE (default v24), BUILD (default build).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 BUILD="${BUILD:-$ROOT/build}"
-NODE_LINE="${NODE_LINE:-v22}"
-BUNDLE="$BUILD/bundle"
-WORK="$BUILD/stage"
+NODE_LINE="${NODE_LINE:-v24}"
 
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
 [ "$(uname -s)-$(uname -m)" = "Darwin-arm64" ] || die "Build on an Apple silicon Mac."
+[[ "$NODE_LINE" =~ ^v[1-9][0-9]*$ ]] || die "NODE_LINE must be a stable major line such as v24."
 
 mkdir -p "${BUILD:?}/cache"
+BUILD="$(cd "$BUILD" && pwd)"
+BUNDLE="$BUILD/bundle"
+WORK="$BUILD/stage"
+DOWNLOAD=""
+SMOKE_HOME=""
+cleanup() {
+	[ -z "$DOWNLOAD" ] || rm -f "$DOWNLOAD"
+	[ -z "$SMOKE_HOME" ] || rm -rf "$SMOKE_HOME"
+}
+trap cleanup EXIT
 rm -rf "${BUILD:?}/bundle" "${BUILD:?}/stage"
 mkdir -p "$BUNDLE/runtime/bin" "$WORK"
 
@@ -28,12 +37,24 @@ say "Building the TypeScript server"
 
 say "Fetching Node.js $NODE_LINE (checksum verified)"
 BASE="https://nodejs.org/dist/latest-${NODE_LINE}.x"
-curl -fsSL --proto '=https' --tlsv1.2 "$BASE/SHASUMS256.txt" -o "$BUILD/cache/SHASUMS256.txt"
+curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --proto '=https' --proto-redir '=https' --tlsv1.2 "$BASE/SHASUMS256.txt" -o "$BUILD/cache/SHASUMS256.txt"
 LINE="$(grep "  node-v[0-9.]*-darwin-arm64\.tar\.gz\$" "$BUILD/cache/SHASUMS256.txt")"
 EXPECTED="${LINE%% *}"
 FILE="${LINE##* }"
+[[ "$EXPECTED" =~ ^[a-f0-9]{64}$ && "$FILE" =~ ^node-v[0-9]+\.[0-9]+\.[0-9]+-darwin-arm64\.tar\.gz$ ]] || die "Unexpected Node.js checksum manifest."
+NODE_VERSION="${FILE#node-}"
+NODE_VERSION="${NODE_VERSION%-darwin-arm64.tar.gz}"
+if [ -f "$BUILD/cache/$FILE" ]; then
+	ACTUAL="$(shasum -a 256 "$BUILD/cache/$FILE" | cut -d ' ' -f 1)"
+	[ "$ACTUAL" = "$EXPECTED" ] || rm -f "$BUILD/cache/$FILE"
+fi
 if [ ! -f "$BUILD/cache/$FILE" ]; then
-	curl -fsSL --proto '=https' --tlsv1.2 "$BASE/$FILE" -o "$BUILD/cache/$FILE"
+	DOWNLOAD="$(mktemp "$BUILD/cache/.node-download.XXXXXX")"
+	curl -fsSL --connect-timeout 15 --max-time 180 --retry 2 --proto '=https' --proto-redir '=https' --tlsv1.2 "https://nodejs.org/dist/$NODE_VERSION/$FILE" -o "$DOWNLOAD"
+	ACTUAL="$(shasum -a 256 "$DOWNLOAD" | cut -d ' ' -f 1)"
+	[ "$ACTUAL" = "$EXPECTED" ] || die "Checksum mismatch for $FILE"
+	mv "$DOWNLOAD" "$BUILD/cache/$FILE"
+	DOWNLOAD=""
 fi
 ACTUAL="$(shasum -a 256 "$BUILD/cache/$FILE" | cut -d ' ' -f 1)"
 [ "$ACTUAL" = "$EXPECTED" ] || die "Checksum mismatch for $FILE"
@@ -44,15 +65,18 @@ FULL_NODE="$WORK/node-full/bin/node"
 say "Staging the server with production dependencies"
 SERVER="$WORK/server"
 mkdir -p "$SERVER"
-cp -R "$ROOT/dist" "$SERVER/dist"
-cp "$ROOT/package.json" "$ROOT/package-lock.json" "$ROOT/LICENSE" "$SERVER/"
+(cd "$ROOT" && npm pack --ignore-scripts --json --pack-destination "$WORK" > "$WORK/package-pack.json")
+ARCHIVE="$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))[0].filename)' "$WORK/package-pack.json")"
+[[ "$ARCHIVE" =~ ^scrivener-mcp-[0-9A-Za-z.+-]+\.tgz$ ]] || die "Unexpected server package filename."
+tar -xzf "$WORK/$ARCHIVE" -C "$SERVER" --strip-components 1
+cp "$ROOT/package-lock.json" "$SERVER/package-lock.json"
 (cd "$SERVER" && PATH="$WORK/node-full/bin:$PATH" npm ci --omit=dev --ignore-scripts --os=darwin --cpu=arm64 --no-audit --no-fund >/dev/null)
 
 say "Installing the SQLite binary that matches the bundled Node"
 (cd "$SERVER/node_modules/better-sqlite3" && "$FULL_NODE" ../prebuild-install/bin.js --runtime node --target "$("$FULL_NODE" -p process.versions.node)" >/dev/null)
 
 say "Pruning files the server never loads"
-find "${SERVER:?}/node_modules" \( -name '*.map' -o -name '*.md' -o -name '*.markdown' \) -type f -delete
+find "${SERVER:?}/node_modules" -type f \( -name '*.map' -o \( \( -name '*.md' -o -name '*.markdown' \) ! -iname 'license*' ! -iname 'licence*' ! -iname 'copying*' ! -iname 'notice*' \) \) -delete
 rm -rf "${SERVER:?}/node_modules/narrative-lens/artifacts" "${SERVER:?}/node_modules/narrative-lens/npm"
 find "${SERVER:?}/node_modules" -name '*.node' \( -path '*linux*' -o -path '*win32*' -o -path '*darwin-x64*' \) -type f -delete
 
@@ -62,7 +86,13 @@ cp "$ROOT/LICENSE" "$BUNDLE/LICENSE"
 
 say "Smoke test: the staged server must start under the bundled Node"
 SMOKE_HOME="$(mktemp -d)"
-# The helper exits 1 when a client is not configured, which is expected in an empty home.
-(HOME="$SMOKE_HOME" "$BUNDLE/runtime/bin/node" "$BUNDLE/server/dist/cli/setup.js" --json --check \
-	--node "$BUNDLE/runtime/bin/node" --script "$BUNDLE/server/dist/index.js" --client claude-code || true) \
-	| node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.startup||!j.startup.ok){console.error("Smoke test failed:",JSON.stringify(j.startup||j));process.exit(1)}console.log("server started, "+j.startup.toolCount+" tools")})'
+if (cd "$SMOKE_HOME" && HOME="$SMOKE_HOME" SCRIVENER_DATA_DIR="$SMOKE_HOME/state" \
+	SCRIVENER_DISABLE_KEY_DISCOVERY=1 SCRIVENER_LOCAL_ONLY=true \
+	"$BUNDLE/runtime/bin/node" "$BUNDLE/server/dist/cli/setup.js" --json --check \
+	--node "$BUNDLE/runtime/bin/node" --script "$BUNDLE/server/dist/index.js" --client claude-code > "$WORK/startup-report.json"); then
+	SMOKE_STATUS=0
+else
+	SMOKE_STATUS=$?
+fi
+[ "$SMOKE_STATUS" -le 1 ] || die "Bundled setup helper exited with status $SMOKE_STATUS."
+node -e 'const j=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(j.schemaVersion!==1||j.mode!=="check"||j.startup?.ok!==true||!Number.isSafeInteger(j.startup.toolCount)||j.startup.toolCount<1)process.exit(1);console.log("server started, "+j.startup.toolCount+" tools")' "$WORK/startup-report.json"

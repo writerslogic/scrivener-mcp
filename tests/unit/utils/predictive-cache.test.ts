@@ -1,14 +1,3 @@
-/**
- * Characterization tests for PredictiveCache. These lock the observable behavior
- * of the public surface (get / set / delete / clear / getStats and unbounded
- * retention) BEFORE its internal LockFreeHashMap/LockFreeQueue are swapped for a
- * plain Map/array, so the swap can be proven behavior-preserving.
- *
- * Fake timers are installed before construction so the cache's background
- * setInterval loops never schedule real handles (they would otherwise keep the
- * event loop alive and hang an isolated run).
- */
-
 import { PredictiveCache } from '../../../src/utils/predictive-cache.js';
 
 describe('PredictiveCache behavior', () => {
@@ -69,7 +58,7 @@ describe('PredictiveCache behavior', () => {
 
 	it('retains every distinct key without eviction under the size ceiling', async () => {
 		const cache = new PredictiveCache<number>();
-		const N = 700; // crosses the 512 initial capacity to exercise growth/rehash
+		const N = 700;
 		for (let i = 0; i < N; i++) {
 			await cache.set(`key-${i}`, i);
 		}
@@ -87,5 +76,70 @@ describe('PredictiveCache behavior', () => {
 		// second get is a hit, loader not called again
 		expect(await cache.get('x')).toBe('loaded:x');
 		expect(loader).toHaveBeenCalledTimes(1);
+	});
+
+	it('accounts for replacement size without evicting other entries that still fit', async () => {
+		const cache = new PredictiveCache<string>(10);
+		await cache.set('replace', 'aaaa');
+		await cache.set('keep', 'b');
+		await cache.set('replace', 'ccc');
+		expect(cache.getStats()).toMatchObject({ size: 8, entryCount: 2 });
+		await cache.set('replace', 'dddd');
+		expect(cache.getStats()).toMatchObject({ size: 10, entryCount: 2 });
+		expect(await cache.get('keep')).toBe('b');
+		expect(await cache.get('replace')).toBe('dddd');
+		cache.delete('replace');
+		expect(cache.getStats()).toMatchObject({ size: 2, entryCount: 1 });
+		cache.delete('keep');
+		expect(cache.getStats()).toMatchObject({ size: 0, entryCount: 0 });
+	});
+
+	it('evicts other entries when a growing replacement needs space', async () => {
+		const cache = new PredictiveCache<string>(12);
+		await cache.set('replace', 'aa');
+		await cache.set('evict', 'bbbb');
+		await cache.set('replace', 'ccc');
+		expect(cache.getStats()).toMatchObject({ size: 6, entryCount: 1 });
+		expect(await cache.get('replace')).toBe('ccc');
+		expect(await cache.get('evict')).toBeUndefined();
+	});
+
+	it('enforces capacity across writes started without awaiting their completion', async () => {
+		const cache = new PredictiveCache<string>(10);
+		await Promise.all([cache.set('first', 'aaaa'), cache.set('second', 'bbbb')]);
+		expect(cache.getStats()).toMatchObject({ size: 8, entryCount: 1 });
+		expect(await cache.get('first')).toBeUndefined();
+		expect(await cache.get('second')).toBe('bbbb');
+	});
+
+	it.each([7, 8, 9])('respects the eight-byte value boundary with capacity %i', async (limit) => {
+		const cache = new PredictiveCache<number>(limit);
+		await cache.set('number', 42);
+		expect(cache.getStats()).toMatchObject({
+			size: limit >= 8 ? 8 : 0,
+			entryCount: limit >= 8 ? 1 : 0,
+		});
+		expect(await cache.get('number')).toBe(limit >= 8 ? 42 : undefined);
+	});
+
+	it('drops an oversized replacement without evicting unrelated values or serving stale content', async () => {
+		const cache = new PredictiveCache<string>(10);
+		await cache.set('replace', 'aaaa');
+		await cache.set('keep', 'b');
+		await cache.set('replace', 'oversized');
+		expect(await cache.get('replace')).toBeUndefined();
+		expect(await cache.get('keep')).toBe('b');
+		expect(cache.getStats()).toMatchObject({ size: 2, entryCount: 1 });
+	});
+
+	it('returns oversized loaded values without caching them or evicting useful entries', async () => {
+		const loader = jest.fn(async () => 'oversized');
+		const cache = new PredictiveCache<string>(8, loader);
+		await cache.set('keep', 'a');
+		expect(await cache.get('large')).toBe('oversized');
+		expect(await cache.get('large')).toBe('oversized');
+		expect(loader).toHaveBeenCalledTimes(2);
+		expect(await cache.get('keep')).toBe('a');
+		expect(cache.getStats()).toMatchObject({ size: 2, entryCount: 1 });
 	});
 });

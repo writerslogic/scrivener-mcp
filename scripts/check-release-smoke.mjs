@@ -415,12 +415,12 @@ async function main() {
 		const originalFile = join(projectPath, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
 		const originalRaw = await readFile(originalFile, 'utf8');
 		const originalRevision = await hash(originalFile);
-		const openSession = async (apps) => {
+		const openSession = async (apps, args = [entry], sessionEnvironment = env) => {
 			const transport = new StdioClientTransport({
 				command: process.execPath,
-				args: [entry],
+				args,
 				cwd: root,
-				env,
+				env: sessionEnvironment,
 				stderr: 'pipe',
 			});
 			const stderr = boundedCapture();
@@ -447,6 +447,22 @@ async function main() {
 			}
 			return client;
 		};
+		await check('installed-server-graceful-stdio-close', async () => {
+			const marker = join(root, 'unexpected-sigterm');
+			const observer = join(root, 'observe-termination.mjs');
+			await writeFile(
+				observer,
+				`import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => writeFileSync(${JSON.stringify(marker)}, 'SIGTERM'));`,
+				{ mode: 0o600 }
+			);
+			const session = await openSession(false, ['--import', observer, entry]);
+			try {
+				verify((await session.listTools()).tools.length > 0, 'EOF fixture server listed no tools');
+			} finally {
+				await session.close();
+			}
+			verify(!(await exists(marker)), 'Installed server required SIGTERM after stdin closed');
+		});
 		const client = await openSession(false);
 		let seriesId;
 		let workflowId;

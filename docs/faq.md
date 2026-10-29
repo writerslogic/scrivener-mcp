@@ -4,6 +4,11 @@
 
 A Mac app that connects an AI app, such as Claude Desktop, BoltAI, or Raycast, to your Scrivener projects in one click, so it can read and work with them. It runs on your Mac. Your manuscript is not uploaded anywhere by Draftbridge.
 
+## What can I do with Scrivener MCP?
+
+The [capability map](../assets/infographics/capability-map.png) covers manuscript management, search,
+AI writing, analysis, story memory, relationships, editorial workflows and publishing.
+
 ## Is it free?
 
 The app is a small one-time purchase. The server it uses, the command-line setup tool, and the Claude Desktop extension are open source and free, and they do the same job with more manual steps. See [Install on a Mac](./install-mac.md). Looking around the app, testing the connection, and disconnecting are always free. If a license is ever refunded or lapses, the apps you already connected keep working.
@@ -35,6 +40,14 @@ Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, and Raycast. Ch
 ## The AI app does not show any Scrivener tools
 
 Quit the app completely (Cmd+Q) and reopen it. If it still does not appear, open Draftbridge and press **Test connection**, then see [Troubleshooting](./troubleshooting.md).
+
+## Project memory cannot be loaded
+
+Existing memory files that are unreadable or invalid are left unchanged. Check
+file permissions first. If `.ai-memory/project-memory.json` is damaged, stop the
+server, preserve a copy of that file, and restore a known-good
+`.ai-memory/backup-YYYY-MM-DD.json` as `project-memory.json` before restarting.
+These files are inside the Scrivener project package.
 
 ## How do I remove it?
 

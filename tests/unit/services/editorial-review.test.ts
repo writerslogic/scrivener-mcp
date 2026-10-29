@@ -584,7 +584,22 @@ posixReadTest(
 	async () => {
 		await fs.unlink(file());
 		await promisify(execFile)('mkfifo', [file()], { timeout: 5000 });
-		const script = `const { MutationCoordinator } = await import(process.env.SAVED_READ_MODULE); const coordinator = new MutationCoordinator(process.env.SAVED_READ_PROJECT); let result; try { await coordinator.readRaw(process.env.SAVED_READ_DOCUMENT); result = { unexpectedSuccess: true }; } catch (error) { result = { error: error.message }; } finally { coordinator.close(); } process.send(result, () => process.exit(0));`;
+		const script = `
+const { MutationCoordinator } = await import(process.env.SAVED_READ_MODULE);
+const coordinator = new MutationCoordinator(process.env.SAVED_READ_PROJECT);
+process.once('message', async () => {
+    let result;
+    try {
+        await coordinator.readRaw(process.env.SAVED_READ_DOCUMENT);
+        result = { unexpectedSuccess: true };
+    } catch (error) {
+        result = { error: error.message };
+    } finally {
+        coordinator.close();
+    }
+    process.send(result, () => process.exit(0));
+});
+process.send({ ready: true });`;
 		const child = spawn(
 			process.execPath,
 			['--import', 'tsx', '--input-type=module', '-e', script],
@@ -609,12 +624,25 @@ posixReadTest(
 		);
 		try {
 			const result = await new Promise<unknown>((resolve, reject) => {
-				const timer = setTimeout(
-					() => reject(new Error('Saved-file read blocked on a FIFO')),
-					8000
+				let timer = setTimeout(
+					() => reject(new Error('Saved-file reader did not become ready')),
+					15000
 				);
-				child.once('message', (message) => {
+				child.on('message', (message) => {
 					clearTimeout(timer);
+					if (
+						message &&
+						typeof message === 'object' &&
+						'ready' in message &&
+						message.ready === true
+					) {
+						timer = setTimeout(
+							() => reject(new Error('Saved-file read blocked on a FIFO')),
+							5000
+						);
+						child.send('read');
+						return;
+					}
 					resolve(message);
 				});
 				child.once('error', (error) => {

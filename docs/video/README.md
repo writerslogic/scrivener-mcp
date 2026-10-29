@@ -8,6 +8,11 @@ Three short tutorials for writers who are new to AI tools. Each script lists the
 | [2. Your first conversation with your manuscript](./02-first-conversation.md) | 3:30 | Show real writing help: orientation, feedback, safe revision |
 | [3. Keeping your manuscript safe](./03-staying-safe.md) | 2:00 | Remove the fear of the AI damaging the book |
 
+## Feature overview graphic
+
+Use the [capability map](../../assets/infographics/capability-map.png) for feature overviews and links
+in video descriptions. Reuse this asset to keep feature names and visual style consistent.
+
 ## Recording setup
 
 - **Screen:** 1920 by 1080, a clean macOS desktop, light mode. Hide the Dock and notifications. Turn on Do Not Disturb.

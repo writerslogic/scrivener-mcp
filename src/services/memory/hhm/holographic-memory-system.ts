@@ -181,7 +181,7 @@ function fnv1a(str: string): number {
  * Random-projection TF-IDF with cosine similarity.
  */
 class JSVectorEngine {
-	private entries: VectorEntry[] = [];
+	private entries = new Map<string, VectorEntry>();
 	private idf: Map<string, number> = new Map();
 	private idfStale = true;
 	private dimensions: number;
@@ -200,9 +200,9 @@ class JSVectorEngine {
 
 	private rebuildIDF(): void {
 		if (!this.idfStale) return;
-		const docCount = this.entries.length || 1;
+		const docCount = this.entries.size || 1;
 		const termDocs = new Map<string, number>();
-		for (const entry of this.entries) {
+		for (const entry of this.entries.values()) {
 			const seen = new Set(this.tokenize(entry.text));
 			for (const term of seen) {
 				termDocs.set(term, (termDocs.get(term) || 0) + 1);
@@ -212,18 +212,21 @@ class JSVectorEngine {
 		for (const [term, count] of termDocs) {
 			this.idf.set(term, Math.log((docCount + 1) / (count + 1)) + 1);
 		}
+		for (const entry of this.entries.values()) {
+			entry.vector = this.textToVector(entry.text);
+		}
 		this.idfStale = false;
 	}
 
 	private textToVector(text: string): Float64Array {
 		const tokens = this.tokenize(text);
 		const tf = new Map<string, number>();
+		let maxTf = 1;
 		for (const token of tokens) {
-			tf.set(token, (tf.get(token) || 0) + 1);
+			const count = (tf.get(token) || 0) + 1;
+			tf.set(token, count);
+			maxTf = Math.max(maxTf, count);
 		}
-
-		// Log-normalized TF
-		const maxTf = Math.max(...tf.values(), 1);
 
 		const vec = new Float64Array(this.dimensions);
 		for (const [term, count] of tf) {
@@ -254,18 +257,16 @@ class JSVectorEngine {
 	}
 
 	async memorizeText(id: string, text: string): Promise<void> {
-		this.entries = this.entries.filter((e) => e.id !== id);
+		this.entries.delete(id);
+		this.entries.set(id, { id, text, vector: new Float64Array(0) });
 		this.idfStale = true;
-		this.rebuildIDF();
-		const vector = this.textToVector(text);
-		this.entries.push({ id, vector, text });
 	}
 
 	async query(text: string, k: number): Promise<Array<{ id: string; similarity: number }>> {
-		if (this.entries.length === 0) return [];
+		if (this.entries.size === 0) return [];
 		this.rebuildIDF();
 		const queryVec = this.textToVector(text);
-		const scored = this.entries.map((e) => ({
+		const scored = Array.from(this.entries.values(), (e) => ({
 			id: e.id,
 			similarity: this.cosine(queryVec, e.vector),
 		}));
@@ -290,7 +291,7 @@ class JSVectorEngine {
 		norm = Math.sqrt(norm);
 		if (norm > 0) for (let i = 0; i < vd.length; i++) vd[i] /= norm;
 
-		const scored = this.entries.map((e) => ({
+		const scored = Array.from(this.entries.values(), (e) => ({
 			id: e.id,
 			similarity: this.cosine(vd, e.vector),
 		}));
@@ -306,17 +307,19 @@ class JSVectorEngine {
 			memberIds: string[];
 		}>
 	> {
-		if (this.entries.length < 3) return [];
+		if (this.entries.size < 3) return [];
+		this.rebuildIDF();
+		const entries = [...this.entries.values()];
 
 		// K-means++ initialization: spread centroids for better clusters
-		const k = Math.min(5, Math.ceil(this.entries.length / 3));
-		const centroidIndices: number[] = [Math.floor(Math.random() * this.entries.length)];
+		const k = Math.min(5, Math.ceil(entries.length / 3));
+		const centroidIndices: number[] = [Math.floor(Math.random() * entries.length)];
 
 		while (centroidIndices.length < k) {
-			const distances = this.entries.map((e) => {
+			const distances = entries.map((e) => {
 				let minDist = Infinity;
 				for (const ci of centroidIndices) {
-					const sim = this.cosine(e.vector, this.entries[ci].vector);
+					const sim = this.cosine(e.vector, entries[ci].vector);
 					const dist = 1 - sim;
 					if (dist < minDist) minDist = dist;
 				}
@@ -336,11 +339,11 @@ class JSVectorEngine {
 		const clusters: string[][] = centroidIndices.map(() => []);
 
 		// Assign each entry to nearest centroid
-		for (const entry of this.entries) {
+		for (const entry of entries) {
 			let bestIdx = 0;
 			let bestSim = -1;
 			for (let i = 0; i < centroidIndices.length; i++) {
-				const sim = this.cosine(entry.vector, this.entries[centroidIndices[i]].vector);
+				const sim = this.cosine(entry.vector, entries[centroidIndices[i]].vector);
 				if (sim > bestSim) {
 					bestSim = sim;
 					bestIdx = i;
@@ -357,8 +360,8 @@ class JSVectorEngine {
 				let pairs = 0;
 				for (let i = 0; i < Math.min(members.length, 10); i++) {
 					for (let j = i + 1; j < Math.min(members.length, 10); j++) {
-						const ei = this.entries.find((e) => e.id === members[i]);
-						const ej = this.entries.find((e) => e.id === members[j]);
+						const ei = this.entries.get(members[i]);
+						const ej = this.entries.get(members[j]);
 						if (ei && ej) {
 							coherence += this.cosine(ei.vector, ej.vector);
 							pairs++;
@@ -377,7 +380,7 @@ class JSVectorEngine {
 	}
 
 	clear(): void {
-		this.entries = [];
+		this.entries.clear();
 		this.idf.clear();
 		this.idfStale = true;
 	}

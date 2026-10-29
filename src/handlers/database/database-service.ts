@@ -74,6 +74,7 @@ export class DatabaseService {
 	private paths: ProjectDatabasePaths;
 	private transactions = new TransactionCoordinator(() => this.sqliteManager);
 	private initialized: boolean = false;
+	private lifecycleTail: Promise<void> = Promise.resolve();
 	private graphAnalytics: GraphAnalytics | null = null;
 	private migrationManager: MigrationManager | null = null;
 	private searchService: SearchService | null = null;
@@ -101,16 +102,30 @@ export class DatabaseService {
 		this.sync = new DatabaseSync(
 			() => this.sqliteManager,
 			() => this.neo4jManager,
-			() => this.relationshipEngine,
-			this.transactions
+			() => this.relationshipEngine
 		);
 	}
 
-	async initialize(): Promise<void> {
-		if (this.initialized) {
-			return;
-		}
+	initialize(): Promise<void> {
+		return this.transition(async () => {
+			if (this.initialized) return;
+			try {
+				await this.closeResources();
+				await this.initializeResources();
+			} catch (error) {
+				try {
+					await this.closeResources();
+				} catch (cleanupError) {
+					throw new Error('Database initialization and cleanup failed', {
+						cause: [error, cleanupError],
+					});
+				}
+				throw error;
+			}
+		});
+	}
 
+	private async initializeResources(): Promise<void> {
 		// Ensure database directory exists
 		await ensureDir(this.paths.databaseDir);
 
@@ -275,35 +290,35 @@ export class DatabaseService {
 	}
 
 	/**
-	 * Begin a two-phase commit transaction
+	 * Begin a nested SQLite transaction ticket
 	 */
 	async beginTransaction(): Promise<string> {
 		return this.transactions.begin();
 	}
 
 	/**
-	 * Prepare phase of two-phase commit
+	 * Prepare a tracked transaction ticket
 	 */
 	async prepareTransaction(transactionId: string): Promise<boolean> {
 		return this.transactions.prepare(transactionId);
 	}
 
 	/**
-	 * Commit phase of two-phase commit
+	 * Commit a transaction ticket in reverse begin order
 	 */
 	async commitTransaction(transactionId: string): Promise<void> {
 		return this.transactions.commit(transactionId);
 	}
 
 	/**
-	 * Rollback a transaction
+	 * Roll back the active transaction group
 	 */
 	async rollbackTransaction(transactionId: string): Promise<void> {
 		return this.transactions.rollback(transactionId);
 	}
 
 	/**
-	 * Sync document data with two-phase commit
+	 * Sync a document without holding SQLite locks across graph I/O
 	 */
 	async syncDocumentData(documentData: {
 		id: string;
@@ -412,22 +427,51 @@ export class DatabaseService {
 		};
 	}
 
-	async close(): Promise<void> {
-		if (this.sqliteManager) {
-			this.sqliteManager.close();
-			this.sqliteManager = null;
-		}
+	close(): Promise<void> {
+		return this.transition(() => this.closeResources());
+	}
 
-		if (this.neo4jManager) {
-			await this.neo4jManager.close();
+	private transition(operation: () => Promise<void>): Promise<void> {
+		const pending = this.lifecycleTail.then(operation);
+		this.lifecycleTail = pending.catch(() => undefined);
+		return pending;
+	}
+
+	private async closeResources(): Promise<void> {
+		this.initialized = false;
+		const sqlite = this.sqliteManager;
+		const neo4j = this.neo4jManager;
+		const results = await Promise.allSettled([
+			Promise.resolve().then(() => sqlite?.close()),
+			Promise.resolve().then(() => neo4j?.close()),
+		]);
+		if (results[0].status === 'fulfilled' && this.sqliteManager === sqlite)
+			this.sqliteManager = null;
+		if (results[1].status === 'fulfilled' && this.neo4jManager === neo4j)
 			this.neo4jManager = null;
-		}
+		this.migrationManager = null;
+		this.searchService = null;
+		this.graphAnalytics = null;
+		this.writingAnalytics = null;
+		this.storyIntelligence = null;
+		const failures = results.filter(
+			(result): result is PromiseRejectedResult => result.status === 'rejected'
+		);
+		if (failures.length === 1) throw failures[0].reason;
+		if (failures.length > 1)
+			throw new Error('Multiple database resources failed to close', {
+				cause: failures.map((result) => result.reason),
+			});
 	}
 
 	/**
-	 * Backup databases
+	 * Back up databases and wait for the SQLite copy to finish
 	 */
-	async backup(backupDir: string): Promise<void> {
+	backup(backupDir: string): Promise<void> {
+		return this.transition(() => this.backupDatabases(backupDir));
+	}
+
+	private async backupDatabases(backupDir: string): Promise<void> {
 		await ensureDir(backupDir);
 
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -435,7 +479,7 @@ export class DatabaseService {
 		// Backup SQLite
 		if (this.sqliteManager) {
 			const sqliteBackupPath = buildPath(backupDir, `scrivener-${timestamp}.db`);
-			this.sqliteManager.backup(sqliteBackupPath);
+			await this.sqliteManager.backup(sqliteBackupPath);
 		}
 
 		// Backup Neo4j config

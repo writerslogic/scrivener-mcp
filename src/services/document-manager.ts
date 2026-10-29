@@ -36,6 +36,8 @@ export class DocumentManager {
 	private operationQueue: Map<string, Promise<unknown>>;
 	private readonly batchSize = 10;
 	private flushInterval: NodeJS.Timeout;
+	private closing = false;
+	private closePromise?: Promise<void>;
 
 	constructor(projectPath: string) {
 		this.projectPath = projectPath;
@@ -214,7 +216,12 @@ export class DocumentManager {
 	}
 
 	getMutationCoordinator(): MutationCoordinator {
+		this.assertOpen();
 		return this.writer.coordinator;
+	}
+
+	private assertOpen(): void {
+		if (this.closing) throw new Error('Document manager is closing');
 	}
 
 	async readDocumentRevision(documentId: string): Promise<string> {
@@ -256,6 +263,7 @@ export class DocumentManager {
 		parentId?: string,
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
+		this.assertOpen();
 		return this.binder.createDocument(title, content, parentId, type);
 	}
 
@@ -263,6 +271,7 @@ export class DocumentManager {
 	 * Delete a document (move to trash)
 	 */
 	async deleteDocument(documentId: string): Promise<void> {
+		this.assertOpen();
 		return this.binder.deleteDocument(documentId);
 	}
 
@@ -270,6 +279,7 @@ export class DocumentManager {
 	 * Rename a document
 	 */
 	async renameDocument(documentId: string, newTitle: string): Promise<void> {
+		this.assertOpen();
 		return this.binder.renameDocument(documentId, newTitle);
 	}
 
@@ -277,6 +287,7 @@ export class DocumentManager {
 	 * Move a document to a different parent
 	 */
 	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
+		this.assertOpen();
 		return this.binder.moveDocument(documentId, newParentId);
 	}
 
@@ -284,6 +295,7 @@ export class DocumentManager {
 	 * Recover a document from trash
 	 */
 	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
+		this.assertOpen();
 		return this.binder.recoverFromTrash(documentId, targetParentId);
 	}
 
@@ -397,16 +409,19 @@ export class DocumentManager {
 	 * Clean up resources
 	 */
 	async close(): Promise<void> {
-		if (this.flushInterval) {
-			clearInterval(this.flushInterval);
-		}
-
-		// Ensure any pending writes are saved
-		await this.flushPendingWrites();
-
-		this.documentCache.clear();
-		this.cachedRevisions.clear();
-		this.observedRevisions.clear();
-		this.writer.close();
+		this.closing = true;
+		clearInterval(this.flushInterval);
+		this.closePromise ??= this.writer
+			.close()
+			.then(() => {
+				this.documentCache.clear();
+				this.cachedRevisions.clear();
+				this.observedRevisions.clear();
+			})
+			.catch((error) => {
+				this.closePromise = undefined;
+				throw error;
+			});
+		return this.closePromise;
 	}
 }
