@@ -50,8 +50,8 @@
       "compressedManifest": {
         "status": "validated",
         "manifests": 1,
-        "bytes": 1698,
-        "sha256": "e0337bbd2f30da88cab46f122ca9fd7b7fcf6efd89655b1e39ca91934550b972",
+        "bytes": 1700,
+        "sha256": "6ca7af135e6d2723ce4059f7790ad6b79116d4ee0367e15c6026fdc0fc41a4a7",
         "state": "valid",
         "integrity": "valid",
         "trust": "trusted",

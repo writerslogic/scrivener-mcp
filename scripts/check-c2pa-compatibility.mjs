@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { copyFile, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { brotliCompressSync, brotliDecompressSync, constants as zlibConstants } from 'node:zlib';
 import JSZip from 'jszip';
 import { parseStringPromise } from 'xml2js';
+import { readStableCredentialFile } from '../dist/services/content-credentials/local-files.js';
 import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -175,8 +176,11 @@ try {
 		LOG_LEVEL: 'ERROR',
 	});
 	const indexFile = join(fixtureRoot, 'index.json');
-	assert.ok((await lstat(indexFile)).size <= 256 * 1024, 'Fixture index exceeds its limit');
-	const indexBytes = await readFile(indexFile);
+	const { bytes: indexBytes } = await readStableCredentialFile(
+		indexFile,
+		256 * 1024,
+		'Fixture index'
+	);
 	evidence.fixtureIndexSha256 = hash(indexBytes);
 	const index = JSON.parse(indexBytes.toString('utf8'));
 	assert.equal(index.schemaVersion, 1);
@@ -198,14 +202,10 @@ try {
 		);
 		assert.match(fixture.sha256, /^[a-f0-9]{64}$/);
 		const original = join(fixtureRoot, fixture.file);
-		const info = await lstat(original);
-		assert.ok(info.isFile() && !info.isSymbolicLink() && info.size === fixture.bytes);
-		assert.equal(
-			hash(await readFile(original)),
-			fixture.sha256,
-			'Fixture checksum differs from its index'
-		);
-		await copyFile(original, join(workspace, fixture.file));
+		const { bytes } = await readStableCredentialFile(original, 1024 * 1024, 'Fixture');
+		assert.equal(bytes.length, fixture.bytes);
+		assert.equal(hash(bytes), fixture.sha256, 'Fixture checksum differs from its index');
+		await writeFile(join(workspace, fixture.file), bytes, { flag: 'wx', mode: 0o600 });
 	}
 	phase = 'native-service-loading';
 	const { getCredentialCapabilities, signCredentialAsset, validateCredentialAsset } =

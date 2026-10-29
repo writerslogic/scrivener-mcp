@@ -22,7 +22,7 @@ digest and format/mode results. Current local evidence is recorded in
 [the ledger](implementation-status.md).
 
 The 0.14.0 candidate passed the complete local gate on macOS arm64 / Node 24.22.1: 48 native C2PA
-fixtures, 1,135 tests and 17 fresh-package/MCP checks. The staged Mac bundle separately passed its
+fixtures, 1,138 tests and 17 fresh-package/MCP checks. The staged Mac bundle separately passed its
 15 applicable installed-package checks under Node 24.22.2, including the actual arm64 C2PA binary.
 [The retained native snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) is local evidence;
 Windows/Linux results are supplied by the matching CI jobs, not inferred from the Mac result.

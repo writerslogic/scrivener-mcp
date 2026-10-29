@@ -1,23 +1,16 @@
 import { fork } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { constants, type BigIntStats } from 'node:fs';
-import {
-	chmod,
-	link,
-	lstat,
-	mkdir,
-	mkdtemp,
-	open,
-	realpath,
-	rm,
-	writeFile,
-} from 'node:fs/promises';
+import { chmod, link, mkdir, mkdtemp, open, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { CREDENTIAL_FORMATS, resolveCredentialFormat } from './formats.js';
 import { CREDENTIAL_LIMITS } from './limits.js';
+import {
+	readStableCredentialFile as readStableFile,
+	assertCredentialFileUnchanged as assertUnchanged,
+} from './local-files.js';
 import { credentialWorkerPath } from './worker-path.cjs';
 import type {
 	CredentialCapabilities,
@@ -31,7 +24,6 @@ import type {
 } from './types.js';
 
 export { CREDENTIAL_LIMITS } from './limits.js';
-const READ_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
 const MAX_WORKERS = 2;
 let activeWorkers = 0;
 let activeOperations = 0;
@@ -103,89 +95,6 @@ function errorCode(error: unknown): string | undefined {
 	return error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
 		? error.code
 		: undefined;
-}
-
-function fileIdentity(stat: BigIntStats): string {
-	return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
-}
-
-async function assertUnchanged(filePath: string, identity: string): Promise<void> {
-	const current = await lstat(filePath, { bigint: true });
-	if (!current.isFile() || current.isSymbolicLink() || fileIdentity(current) !== identity)
-		throw createError(
-			ErrorCode.INVALID_STATE,
-			undefined,
-			'Source changed while credentials were processed; retry with the saved asset'
-		);
-}
-
-async function readStableFile(
-	filePath: string,
-	limit: number,
-	label: string
-): Promise<{ bytes: Buffer; identity: string }> {
-	const entry = await lstat(filePath, { bigint: true });
-	if (!entry.isFile() || entry.isSymbolicLink())
-		throw createError(
-			ErrorCode.INVALID_FORMAT,
-			undefined,
-			`${label} must be a regular file without a symbolic link`
-		);
-	const handle = await open(filePath, READ_FLAGS);
-	try {
-		const before = await handle.stat({ bigint: true });
-		if (
-			!before.isFile() ||
-			(process.platform !== 'win32' && before.dev !== entry.dev) ||
-			before.ino !== entry.ino ||
-			before.size > BigInt(limit)
-		)
-			throw createError(
-				ErrorCode.DOCUMENT_TOO_LARGE,
-				undefined,
-				`${label} exceeds its supported size or changed while opening`
-			);
-		if (process.platform === 'win32') {
-			const verification = await open(filePath, READ_FLAGS);
-			try {
-				if (
-					fileIdentity(await verification.stat({ bigint: true })) !== fileIdentity(before)
-				)
-					throw createError(
-						ErrorCode.INVALID_STATE,
-						undefined,
-						`${label} changed while opening`
-					);
-			} finally {
-				await verification.close();
-			}
-		}
-		const buffer = Buffer.alloc(Number(before.size) + 1);
-		let count = 0;
-		while (count < buffer.length) {
-			const { bytesRead } = await handle.read(buffer, count, buffer.length - count, count);
-			if (!bytesRead) break;
-			count += bytesRead;
-		}
-		const [after, current] = await Promise.all([
-			handle.stat({ bigint: true }),
-			lstat(filePath, { bigint: true }),
-		]);
-		if (
-			count !== Number(before.size) ||
-			fileIdentity(after) !== fileIdentity(before) ||
-			current.isSymbolicLink() ||
-			fileIdentity(current) !== fileIdentity(entry)
-		)
-			throw createError(
-				ErrorCode.INVALID_STATE,
-				undefined,
-				`${label} changed while reading; retry with the saved asset`
-			);
-		return { bytes: buffer.subarray(0, count), identity: fileIdentity(current) };
-	} finally {
-		await handle.close();
-	}
 }
 
 function adminSigner(): CredentialSignerConfiguration | undefined {

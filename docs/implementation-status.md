@@ -420,10 +420,10 @@ Primary contracts:
 
 ## C2PA format support
 
-Integration branch: feat/c2pa-format-support-20261028, based on main 485b1a2. Feature version 0.14.0
-is not npm-published. The original public checkout's 70 pending paths and private Mac checkout's 35
-pending deletions are preserved. No application, legal agreement, production certificate purchase or
-deployment has been performed.
+Integration [PR #207](https://github.com/writerslogic/scrivener-mcp/pull/207), based on main
+485b1a2. Feature version 0.14.0 is not npm-published. The original public checkout's 70 pending
+paths and private Mac checkout's 35 pending deletions are preserved. No application, legal
+agreement, production certificate purchase or deployment has been performed.
 
 | Acceptance            | Implementation and evidence                                                                                                                                                                                                                                                  |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -437,8 +437,8 @@ deployment has been performed.
 | Intake and identity   | All 30 questions have evidence-based answers in [Content Credentials](content-credentials.md); CN scrivener-mcp, O WritersLogic, Inc., C US, OU blank. Production identity/trust issuance and program assessment remain external prerequisites.                              |
 
 The complete local gate passed: formatting, lint, types, build, runtime policy, 78-tool registry, 32
-output-conformance paths, native/fallback HMS compatibility, C2PA compatibility, 95 Jest suites
-(1,135 passed; nine existing live-provider skips), zero-vulnerability npm audit, 17 installed
+output-conformance paths, native/fallback HMS compatibility, C2PA compatibility, 96 Jest suites
+(1,138 passed; nine existing live-provider skips), zero-vulnerability npm audit, 17 installed
 package/MCP checks, and EPUBCheck 5.4.0 on unsigned/signed Unicode-notes and empty ebooks.
 [Native evidence snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) records SDK/runtime/platform,
 fixture-index digest, trust policy, exact per-MIME modes, source preservation and negative checks.
@@ -450,7 +450,14 @@ skill/handler lists, so all 78 tools and the three new output schemas are includ
 
 Manager-owned shared contracts, dependencies, CI and integration are complete. Isolated workers
 contributed the native worker, format fixtures, filesystem/archive regressions and documentation;
-all contributions were inspected and integrated before dependent checks. Logs are retained under
-logs/c2pa in the integration checkout. Future-proofing bf53f0b is already in public main. After
-protected integration, preserve bundle/log artifacts and remove owned temporary worktrees while
-retaining all unrelated edits and checkouts.
+all contributions were inspected and integrated before dependent checks. Local validation logs are
+retained under logs/c2pa-0.14.0-20261028 in the canonical checkout after worktree cleanup.
+Future-proofing bf53f0b is already in public main. After protected integration, preserve bundle/log
+artifacts and remove owned temporary worktrees while retaining all unrelated edits and checkouts.
+
+Credential reads use one descriptor-first helper across the parent, native worker and fixture
+tooling. Both Windows descriptors are acquired before pathname checks, existing files remain
+read-only, and temporary creation modes are explicitly private. Growth/replacement tests and bounded
+FIFO probes exercise the installed reader. The native gate hashes and stages the same verified
+fixture buffer. CI checks the latest selected release instead of an obsolete cached runner runtime;
+exact minimum-version coverage remains unchanged.

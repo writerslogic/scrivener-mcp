@@ -6,10 +6,11 @@ import {
 	X509Certificate,
 	type KeyObject,
 } from 'node:crypto';
-import { constants as fsConstants } from 'node:fs';
-import { lstat, open, type FileHandle } from 'node:fs/promises';
+import { open, type FileHandle } from 'node:fs/promises';
 import { basename, isAbsolute, resolve } from 'node:path';
 import type * as C2paSdk from '@contentauth/c2pa-node';
+import { readStableCredentialFile } from './local-files.js';
+import { ErrorCode } from '../../core/errors.js';
 import { prepareUnsignedCredentialArchive } from './archive-preparation.js';
 import { credentialProductVersion, credentialSdkVersion } from './worker-path.cjs';
 import { CREDENTIAL_LIMITS, MAX_CONFIGURATION_BYTES, MAX_VALIDATION_CODES } from './limits.js';
@@ -148,43 +149,23 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 }
 
 async function readBounded(path: string, maximum: number): Promise<Buffer> {
-	const noFollow =
-		process.platform === 'win32' ? 0 : fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK;
-	let handle: FileHandle | undefined;
 	try {
-		handle = await open(path, fsConstants.O_RDONLY | noFollow);
-		const before = await handle.stat({ bigint: true });
-		if (!before.isFile() || before.size < 1n || before.size > BigInt(maximum))
-			fail(
-				'INPUT_LIMIT',
-				'Credential input must be a nonempty regular file within the supported size limit.'
-			);
-		const pathInfo = await lstat(path, { bigint: true });
-		if (pathInfo.isSymbolicLink() || !pathInfo.isFile() || pathInfo.ino !== before.ino)
-			fail('INPUT_UNSAFE', 'Credential input path changed or is not a regular file.');
-		const data = Buffer.alloc(Number(before.size) + 1);
-		let length = 0;
-		while (length < data.length) {
-			const read = await handle.read(data, length, data.length - length, length);
-			if (!read.bytesRead) break;
-			length += read.bytesRead;
-		}
-		const after = await handle.stat({ bigint: true });
-		if (
-			length !== Number(before.size) ||
-			before.size !== after.size ||
-			before.mtimeNs !== after.mtimeNs ||
-			before.ctimeNs !== after.ctimeNs
-		) {
-			data.fill(0);
-			fail('INPUT_CHANGED', 'Credential input changed while it was being read.');
-		}
-		return data.subarray(0, length);
+		const { bytes } = await readStableCredentialFile(path, maximum, 'Credential input');
+		if (!bytes.length) fail('INPUT_LIMIT', 'Credential input must not be empty.');
+		return bytes;
 	} catch (error) {
 		if (error instanceof WorkerError) throw error;
+		const code = (error as NodeJS.ErrnoException)?.code;
+		if (code === ErrorCode.DOCUMENT_TOO_LARGE)
+			fail('INPUT_LIMIT', 'Credential input exceeds its supported size limit.');
+		if (code === ErrorCode.INVALID_STATE)
+			fail('INPUT_CHANGED', 'Credential input changed while reading.');
+		if (code === ErrorCode.INVALID_FORMAT)
+			fail(
+				'INPUT_UNSAFE',
+				'Credential input must be a regular file without a symbolic link.'
+			);
 		return fail('INPUT_UNAVAILABLE', 'Credential input could not be opened safely.');
-	} finally {
-		await handle?.close();
 	}
 }
 

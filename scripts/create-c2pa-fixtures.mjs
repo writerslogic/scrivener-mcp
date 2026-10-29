@@ -2,13 +2,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, KeyObject, randomBytes, webcrypto } from 'node:crypto';
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { deflateSync } from 'node:zlib';
 import JSZip from 'jszip';
+import { readStableCredentialFile } from '../dist/services/content-credentials/local-files.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const execute = promisify(execFile);
@@ -551,12 +552,9 @@ export async function createC2paFixtures(outputDirectory) {
 	const fixtures = [];
 	const unavailable = [];
 	const generatedBytes = async (file) => {
-		const info = await stat(file);
-		assert.ok(
-			info.isFile() && info.size > 0 && info.size <= 1024 * 1024,
-			'Generated fixture exceeds one MiB'
-		);
-		return readFile(file);
+		const { bytes } = await readStableCredentialFile(file, 1024 * 1024, 'Generated fixture');
+		assert.ok(bytes.length > 0, 'Generated fixture must not be empty');
+		return bytes;
 	};
 	const save = async (
 		file,
@@ -883,8 +881,19 @@ export async function createC2paFixtures(outputDirectory) {
 			);
 		}
 		await mkdir(outputDirectory, { recursive: true });
-		for (const fixture of fixtures)
-			await copyFile(join(stage, fixture.file), join(outputDirectory, fixture.file));
+		for (const fixture of fixtures) {
+			const { bytes } = await readStableCredentialFile(
+				join(stage, fixture.file),
+				1024 * 1024,
+				'Generated fixture'
+			);
+			assert.equal(
+				createHash('sha256').update(bytes).digest('hex'),
+				fixture.sha256,
+				'Generated fixture changed before publication'
+			);
+			await writeFile(join(outputDirectory, fixture.file), bytes);
+		}
 		const index = {
 			schemaVersion: 1,
 			license: 'CC0-1.0',

@@ -450,6 +450,30 @@ async function main() {
 					/regular file/i.test(JSON.parse(result.stdout).error ?? ''),
 					'Installed reader did not reject a FIFO as a non-regular file'
 				);
+				const credentialResult = await promisify(execFile)(
+					process.execPath,
+					[
+						'--input-type=module',
+						'-e',
+						'const [module, assetPath] = process.argv.slice(1); const {validateCredentialAsset} = await import(module); let result; try { await validateCredentialAsset({assetPath, mimeType:"application/octet-stream"}); result = {unexpectedSuccess:true}; } catch(error) { result = {error:error.message}; } process.stdout.write(JSON.stringify(result), () => process.exit(0));',
+						pathToFileURL(
+							join(installed, 'dist/services/content-credentials/service.js')
+						).href,
+						document,
+					],
+					{
+						cwd: root,
+						env,
+						encoding: 'utf8',
+						timeout: 8000,
+						killSignal: 'SIGKILL',
+						maxBuffer: 4096,
+					}
+				);
+				verify(
+					/regular file/i.test(JSON.parse(credentialResult.stdout).error ?? ''),
+					'Installed credential reader did not reject a FIFO without blocking'
+				);
 			});
 		}
 		const requireInstalled = createRequire(join(installed, 'package.json'));
