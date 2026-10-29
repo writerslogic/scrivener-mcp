@@ -417,3 +417,28 @@ Primary contracts:
 [0.6.4 release](https://github.com/writerslogic/holographic-memory/releases/tag/v0.6.4),
 [Node declarations](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/index.d.ts) and
 [native store ownership](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/src/core/store_lock.rs).
+
+## C2PA format support
+
+The manager integrates in `/Volumes/A/scrivener-mcp-c2pa` on
+`feat/c2pa-format-support-20261028`, starting from main `485b1a2`. Original dirty public and private
+checkouts remain untouched. The user requested broad real format support before answering the C2PA
+intake questionnaire; no application, legal agreement, production certificate purchase or publication
+is authorized by that request. Existing authorization for reviewed PR integration remains in force.
+
+| Acceptance | Implementation contract |
+| --- | --- |
+| Broad asset coverage | One pinned official Node SDK; distinguish embedded and detached `.c2pa` credentials per MIME type, with real fixture evidence and explicit unsupported/experimental entries. |
+| Honest verification | Separate asset/signature integrity from certificate trust; unsigned and untrusted assets never become trusted successes. No claim of granted C2PA conformance or human authorship. |
+| Safe signing | Sign existing assets to a separate immutable output; encrypted administrator-configured private keys, no keys in MCP arguments or logs, no source manuscript modifications. |
+| Native isolation | Parse/sign in short-lived child processes with bounded files, messages and timeouts; disable automatic asset-derived network fetching and collect actual SDK results. |
+| Real entry points | Progressive MCP capability, sign and validation tools share the same domain service; connect manuscript export through that service. |
+| Release verification | Actual SDK round trips, altered assets, bad credentials, path/size boundaries, package startup/native loading and cross-platform CI, plus the existing complete final gate. |
+| Intake evidence | Document all 30 intake answers from tested capabilities; product identity/legal country and OU require confirmed applicant information. |
+
+Shared contracts live in `src/services/content-credentials/types.ts`. The manager owns domain
+orchestration, shared contracts, tool registration/schemas, dependencies, CI, packaging and integration.
+Workers receive disjoint ownership of the native SDK worker, format fixtures/catalog, and runtime
+compatibility. Workers write code/tests but run no installs, builds, formatting or validation. All
+development uses local/free resources, synthetic fixtures and isolated configuration. SDK 0.9.11
+loaded on macOS arm64 under Node 24.22.1; its installation audit reported zero vulnerabilities.
