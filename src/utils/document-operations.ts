@@ -2,6 +2,7 @@ import { generateScrivenerUUID, getDocumentType } from './scrivener-utils.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger, type LogContext } from '../core/logger.js';
 import { validateInput } from './common.js';
+import { exposeXmlAttributes } from './scrivener-xml.js';
 import type { BinderItem, BinderContainer, ProjectStructure } from '../types/internal.js';
 import {
 	addBinderItem,
@@ -40,6 +41,10 @@ export interface DocumentOperationContext {
 	projectPath: string;
 	writeDocument?: (id: string, content: string) => Promise<void>;
 	saveProject?: () => Promise<void>;
+	commitCreation?: (
+		structure: ProjectStructure,
+		documents: readonly { documentId: string; content: string }[]
+	) => Promise<void>;
 }
 
 /** Runs an operation and persists its binder changes when a save callback is provided. */
@@ -141,12 +146,11 @@ function planCreation(options: DocumentCreationOptions, binder: BinderContainer)
 	};
 }
 
-async function applyCreation(
+function applyCreation(
 	plan: CreationPlan,
 	context: DocumentOperationContext
-): Promise<DocumentCreationResult> {
+): DocumentCreationResult {
 	const { options, item, result } = plan;
-	if (item.Type === 'Text') await context.writeDocument?.(result.id, options.content ?? '');
 	const binder = getBinder(context);
 	let parent: BinderItem | undefined;
 	if (options.parentId) {
@@ -173,27 +177,55 @@ export async function createDocument(
 	options: DocumentCreationOptions,
 	context: DocumentOperationContext
 ): Promise<DocumentCreationResult> {
-	return withDocumentTransaction(
-		() => applyCreation(planCreation(options, getBinder(context)), context),
-		context,
-		'create document'
-	);
+	return (await commitCreations([options], context, 'create document'))[0];
 }
 
 export async function createDocuments(
 	documents: DocumentCreationOptions[],
 	context: DocumentOperationContext
 ): Promise<DocumentCreationResult[]> {
+	return commitCreations(documents, context, 'batch create documents');
+}
+
+function commitCreations(
+	documents: DocumentCreationOptions[],
+	context: DocumentOperationContext,
+	operationName: string
+): Promise<DocumentCreationResult[]> {
 	return withDocumentTransaction(
 		async () => {
-			const binder = getBinder(context);
+			if (!Array.isArray(documents) || documents.length < 1 || documents.length > 100)
+				throw new Error('Create between 1 and 100 documents in one operation');
+			getBinder(context);
+			const live = context.projectStructure as ProjectStructure;
+			const candidate = structuredClone(live);
+			exposeXmlAttributes(candidate);
+			const stagedContext = { ...context, projectStructure: candidate };
+			const binder = getBinder(stagedContext);
 			const plans = documents.map((options) => planCreation(options, binder));
-			const results: DocumentCreationResult[] = [];
-			for (const plan of plans) results.push(await applyCreation(plan, context));
+			const contents = plans
+				.filter((plan) => plan.item.Type === 'Text')
+				.map((plan) => ({ documentId: plan.result.id, content: plan.options.content ?? '' }));
+			if (contents.length && context.writeDocument && !context.commitCreation)
+				throw new Error('Document content creation requires an atomic commitCreation callback');
+			const results = plans.map((plan) => applyCreation(plan, stagedContext));
+			if (context.commitCreation) {
+				await context.commitCreation(candidate, contents);
+				live.ScrivenerProject!.Binder = candidate.ScrivenerProject!.Binder;
+			} else {
+				const originalBinder = live.ScrivenerProject!.Binder;
+				live.ScrivenerProject!.Binder = candidate.ScrivenerProject!.Binder;
+				try {
+					await context.saveProject?.();
+				} catch (error) {
+					live.ScrivenerProject!.Binder = originalBinder;
+					throw error;
+				}
+			}
 			return results;
 		},
-		context,
-		`batch create ${documents.length} documents`
+		{ ...context, saveProject: undefined },
+		operationName
 	);
 }
 

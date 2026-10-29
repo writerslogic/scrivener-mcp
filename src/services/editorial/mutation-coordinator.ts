@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { safeWriteFile } from '../../utils/common.js';
 import { getDocumentPath, isValidScrivenerDocumentId } from '../../utils/scrivener-utils.js';
 import { planSnapshot, writePlannedSnapshot, type SnapshotEntry } from '../snapshots.js';
-import { PersistentStore } from './persistent-store.js';
+import { PersistentStore, type StorePage, type StorePageOptions } from './persistent-store.js';
 
 const MAX_RAW_BYTES = 64 * 1024 * 1024;
 const MAX_EXPORT_BYTES = 32 * 1024 * 1024;
@@ -42,6 +42,45 @@ export interface MutationRecord {
 	createdAt: string;
 	completedAt?: string;
 	undoes?: string;
+	creationDocuments?: CreationDocument[];
+	creationSummary?: Array<{ documentId: string; revision: string }>;
+	creationOutcome?: CreationOutcome;
+}
+
+export interface CreationDocument {
+	documentId: string;
+	raw: string;
+}
+
+export function validateCreationDocuments(value: unknown): CreationDocument[] {
+	if (!Array.isArray(value) || value.length > 100)
+		throw new Error('Compound creation supports at most 100 text documents');
+	const identities = new Set<string>();
+	let bytes = 0;
+	return value.map((entry: unknown) => {
+		const document = entry as Partial<CreationDocument> | null;
+		if (!document || typeof document.documentId !== 'string' ||
+			!isValidScrivenerDocumentId(document.documentId) || typeof document.raw !== 'string')
+			throw new Error('Invalid compound creation document');
+		const identity = document.documentId.toLowerCase();
+		if (identities.has(identity)) throw new Error('Duplicate compound creation document identity');
+		identities.add(identity);
+		bytes += Buffer.byteLength(document.raw);
+		if (bytes > MAX_RAW_BYTES) throw new Error('Compound creation content exceeds 64 MiB');
+		return { documentId: document.documentId, raw: document.raw };
+	});
+}
+
+export type CreationOutcome = 'prepared' | 'published' | 'rolled-back' | 'conflicted';
+
+export interface CreationOperationSummary {
+	id: string;
+	projectFile: string;
+	state: MutationRecord['state'];
+	creationOutcome: CreationOutcome;
+	creationSummary: Array<{ documentId: string; revision: string }>;
+	createdAt: string;
+	completedAt: string | null;
 }
 
 interface MutationTarget {
@@ -121,11 +160,8 @@ interface ExportPublicationRecord {
 }
 
 function isExportPublication(value: unknown): value is ExportPublicationRecord {
-	return (
-		!!value &&
-		typeof value === 'object' &&
-		(value as { targetKind?: unknown }).targetKind === 'export'
-	);
+	return !!value && typeof value === 'object' &&
+		(value as { targetKind?: unknown }).targetKind === 'export';
 }
 
 export class MutationCoordinator {
@@ -291,13 +327,10 @@ export class MutationCoordinator {
 		}
 	}
 
-	private async readSaved(
-		target: string
-	): Promise<{ raw: string; exists: boolean; revision: string }> {
+	private async readSaved(target: string): Promise<{ raw: string; exists: boolean; revision: string }> {
 		const saved = await this.readSavedBytes(target);
 		const raw = saved.bytes.toString('utf8');
-		if (!Buffer.from(raw).equals(saved.bytes))
-			throw new Error('Saved content is not valid UTF-8');
+		if (!Buffer.from(raw).equals(saved.bytes)) throw new Error('Saved content is not valid UTF-8');
 		return { raw, exists: saved.exists, revision: saved.revision };
 	}
 
@@ -372,7 +405,28 @@ export class MutationCoordinator {
 				record.snapshot.snapshotId !== record.snapshotId)
 		)
 			throw new Error('Snapshot plan does not match its mutation journal');
+		if (record.creationDocuments !== undefined) {
+			const documents = validateCreationDocuments(record.creationDocuments);
+			if (
+				record.targetKind !== 'binder' || !record.beforeExists ||
+				!Array.isArray(record.creationSummary) || record.creationSummary.length !== documents.length ||
+				!documents.every((document, index) =>
+					record.creationSummary![index]?.documentId === document.documentId &&
+					record.creationSummary![index]?.revision === documentRevision(document.raw)) ||
+				!(record.state === 'prepared' ? record.creationOutcome === 'prepared' :
+					record.state === 'committed' ? record.creationOutcome === 'published' :
+					record.creationOutcome === 'rolled-back' || record.creationOutcome === 'conflicted')
+			)
+				throw new Error('Malformed compound document creation journal');
+		} else if (record.creationSummary !== undefined || record.creationOutcome !== undefined)
+			throw new Error('Creation metadata is missing its document plan');
 		return record as MutationRecord;
+	}
+
+	listCreations(options: StorePageOptions = {}): StorePage<CreationOperationSummary> {
+		return this.state().page<CreationOperationSummary>(JOURNAL, options, [
+			'id', 'projectFile', 'state', 'creationOutcome', 'creationSummary', 'createdAt', 'completedAt',
+		], { field: 'creationOutcome', values: ['prepared', 'published', 'rolled-back', 'conflicted'] });
 	}
 
 	get(operationId: string): MutationRecord | undefined {
@@ -446,6 +500,11 @@ export class MutationCoordinator {
 				const record = this.get(operationId);
 				if (!record)
 					throw new Error('Mutation journal is missing for an interrupted operation');
+				if (record.state === 'prepared' && record.creationDocuments) {
+					await this.recoverCreation(record);
+					recovered.push(record);
+					continue;
+				}
 				if (record.state === 'prepared') {
 					const current = await this.readSaved(
 						this.targetPath({
@@ -490,82 +549,109 @@ export class MutationCoordinator {
 		}
 	}
 
+	private checkpointCreation(record: MutationRecord): void {
+		const store = this.state();
+		store.transaction(() => {
+			store.put(JOURNAL, record.id, record);
+			if (record.state !== 'prepared') store.delete(PENDING, record.id);
+		});
+	}
+
+	private async recoverCreation(record: MutationRecord, published?: ReadonlySet<string>): Promise<void> {
+		if (!record.creationDocuments || !record.projectFile)
+			throw new Error('Compound creation is missing its durable plan');
+		const binder = await this.readSaved(this.targetPath({
+			documentId: record.documentId, targetKind: 'binder', projectFile: record.projectFile,
+		}));
+		if (binder.exists && binder.revision === record.afterRevision) {
+			let complete = true;
+			for (const document of record.creationDocuments) {
+				const saved = await this.readRaw(document.documentId);
+				if (!saved.exists || saved.revision !== documentRevision(document.raw)) complete = false;
+			}
+			if (complete) {
+				for (const document of record.creationDocuments)
+					await this.syncChecksum(document.documentId, document.raw);
+				record.state = 'committed';
+				record.creationOutcome = 'published';
+			} else {
+				record.state = 'conflicted';
+				record.creationOutcome = 'conflicted';
+			}
+		} else if (binder.exists && binder.revision === record.beforeRevision) {
+			let conflict = false;
+			for (const document of record.creationDocuments) {
+				const target = this.documentPath(document.documentId);
+				const saved = await this.readSaved(target);
+				if (!saved.exists) continue;
+				if (saved.revision !== documentRevision(document.raw) ||
+					(published && !published.has(document.documentId))) {
+					conflict = true;
+					continue;
+				}
+				this.assertProjectPath(target);
+				const current = await this.readSaved(target);
+				if (!current.exists) continue;
+				if (current.revision !== saved.revision) { conflict = true; continue; }
+				await fs.unlink(target);
+				await this.syncDirectory(path.dirname(target));
+			}
+			record.state = 'conflicted';
+			record.creationOutcome = conflict ? 'conflicted' : 'rolled-back';
+		} else {
+			record.state = 'conflicted';
+			record.creationOutcome = 'conflicted';
+		}
+		record.completedAt = new Date().toISOString();
+		this.checkpointCreation(record);
+	}
+
 	private exportPath(filePath: string): string {
-		if (
-			typeof filePath !== 'string' ||
-			filePath.includes('\0') ||
-			filePath.length > 4096 ||
-			!path.isAbsolute(filePath)
-		)
-			throw new Error('Export publication requires an absolute path');
+		if (typeof filePath !== 'string' || filePath.includes('\0') || filePath.length > 4096 ||
+			!path.isAbsolute(filePath)) throw new Error('Export publication requires an absolute path');
 		const target = path.resolve(filePath);
-		const relative = path.relative(
-			path.join(this.projectPath, '.scrivener-mcp', 'exports'),
-			target
-		);
-		if (
-			path.dirname(relative) !== '.' ||
-			!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}\.(docx|epub|pdf)$/i.test(relative) ||
-			/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(relative)
-		)
-			throw new Error(
-				'Workflow exports require a safe filename directly inside .scrivener-mcp/exports'
-			);
+		const relative = path.relative(path.join(this.projectPath, '.scrivener-mcp', 'exports'), target);
+		if (path.dirname(relative) !== '.' ||
+			! /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}\.(docx|epub|pdf)$/i.test(relative) ||
+			/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(relative))
+			throw new Error('Workflow exports require a safe filename directly inside .scrivener-mcp/exports');
 		return target;
 	}
 
 	private exportPublication(value: unknown): ExportPublicationRecord {
 		if (!isExportPublication(value)) throw new Error('Malformed export publication journal');
 		const record = value;
-		if (
-			typeof record.id !== 'string' ||
-			!/^[A-Za-z0-9_-]{1,128}$/.test(record.id) ||
-			typeof record.requestHash !== 'string' ||
-			!/^[a-f0-9]{64}$/.test(record.requestHash) ||
+		if (typeof record.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(record.id) ||
+			typeof record.requestHash !== 'string' || !/^[a-f0-9]{64}$/.test(record.requestHash) ||
 			typeof record.projectFile !== 'string' ||
 			record.projectFile.length > 4096 ||
 			!record.projectFile.startsWith('.scrivener-mcp/exports/') ||
 			/[\\/]/.test(record.projectFile.slice('.scrivener-mcp/exports/'.length)) ||
 			!['prepared', 'committed', 'conflicted'].includes(record.state) ||
-			typeof record.createdAt !== 'string' ||
-			record.createdAt.length > 64 ||
-			!Number.isFinite(Date.parse(record.createdAt))
-		)
+			typeof record.createdAt !== 'string' || record.createdAt.length > 64 ||
+			!Number.isFinite(Date.parse(record.createdAt)))
 			throw new Error('Malformed export publication journal');
 		this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/')));
 		if (record.state === 'committed' && !record.artifact)
 			throw new Error('Committed export publication has no prepared artifact');
 		if (record.artifact) {
 			const artifact = record.artifact;
-			if (
-				!Number.isSafeInteger(artifact.bytes) ||
-				artifact.bytes < 1 ||
-				artifact.bytes > MAX_EXPORT_BYTES ||
-				typeof artifact.sha256 !== 'string' ||
-				!/^[a-f0-9]{64}$/.test(artifact.sha256) ||
-				typeof artifact.base64 !== 'string' ||
-				artifact.base64.length > Math.ceil(MAX_EXPORT_BYTES / 3) * 4 ||
-				!artifact.result ||
-				typeof artifact.result !== 'object' ||
-				Array.isArray(artifact.result) ||
-				Buffer.byteLength(JSON.stringify(artifact.result)) > MAX_EXPORT_RESULT_BYTES
-			)
+			if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1 || artifact.bytes > MAX_EXPORT_BYTES ||
+				typeof artifact.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(artifact.sha256) ||
+				typeof artifact.base64 !== 'string' || artifact.base64.length > Math.ceil(MAX_EXPORT_BYTES / 3) * 4 ||
+				!artifact.result || typeof artifact.result !== 'object' || Array.isArray(artifact.result) ||
+				Buffer.byteLength(JSON.stringify(artifact.result)) > MAX_EXPORT_RESULT_BYTES)
 				throw new Error('Malformed prepared export artifact');
 			const bytes = Buffer.from(artifact.base64, 'base64');
-			if (
-				bytes.length !== artifact.bytes ||
-				bytes.toString('base64') !== artifact.base64 ||
-				documentRevision(bytes) !== artifact.sha256
-			)
+			if (bytes.length !== artifact.bytes || bytes.toString('base64') !== artifact.base64 ||
+				documentRevision(bytes) !== artifact.sha256)
 				throw new Error('Prepared export artifact failed its integrity check');
 		}
 		return record;
 	}
 
 	private async readExport(record: ExportPublicationRecord) {
-		const target = this.exportPath(
-			path.join(this.projectPath, ...record.projectFile.split('/'))
-		);
+		const target = this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/')));
 		this.assertProjectPath(target);
 		const saved = await this.readSavedBytes(target, MAX_EXPORT_BYTES);
 		this.assertProjectPath(target);
@@ -586,11 +672,8 @@ export class MutationCoordinator {
 		}
 		const current = await this.readExport(record);
 		if (!current.exists) return;
-		if (
-			record.artifact &&
-			current.revision === record.artifact.sha256 &&
-			current.bytes.length === record.artifact.bytes
-		) {
+		if (record.artifact && current.revision === record.artifact.sha256 &&
+			current.bytes.length === record.artifact.bytes) {
 			record.state = 'committed';
 			record.completedAt = new Date().toISOString();
 		} else record.state = 'conflicted';
@@ -609,13 +692,9 @@ export class MutationCoordinator {
 		prepare: () => Promise<{ buffer: Buffer; result: Record<string, unknown> }>
 	): Promise<Record<string, unknown>> {
 		request = { ...request };
-		if (
-			!request ||
-			typeof request.operationId !== 'string' ||
+		if (!request || typeof request.operationId !== 'string' ||
 			!/^[A-Za-z0-9_-]{1,128}$/.test(request.operationId) ||
-			typeof request.requestHash !== 'string' ||
-			!/^[a-f0-9]{64}$/.test(request.requestHash)
-		)
+			typeof request.requestHash !== 'string' || !/^[a-f0-9]{64}$/.test(request.requestHash))
 			throw new Error('Export publication requires bounded operation and request identities');
 		const target = this.exportPath(request.outputPath);
 		this.assertProjectPath(target);
@@ -623,38 +702,24 @@ export class MutationCoordinator {
 		const store = this.state();
 		const token = randomUUID();
 		const record = store.transaction(() => {
-			if (this.claim())
-				throw new Error('Another manuscript operation acquired the project; retry');
+			if (this.claim()) throw new Error('Another manuscript operation acquired the project; retry');
 			const previous = store.get<unknown>(JOURNAL, request.operationId);
 			const prior = previous === undefined ? undefined : this.exportPublication(previous);
 			const projectFile = `.scrivener-mcp/exports/${path.basename(target)}`;
-			if (
-				prior &&
-				(prior.id !== request.operationId ||
-					prior.requestHash !== request.requestHash ||
-					prior.projectFile !== projectFile)
-			)
+			if (prior && (prior.id !== request.operationId || prior.requestHash !== request.requestHash ||
+				prior.projectFile !== projectFile))
 				throw new Error('Export operation ID was already used for a different request');
 			if (prior?.state === 'conflicted')
-				throw new Error(
-					'Export publication conflicts with an existing or changed artifact; start a new workflow'
-				);
+				throw new Error('Export publication conflicts with an existing or changed artifact; start a new workflow');
 			if (prior?.state === 'committed') return prior;
 			const next: ExportPublicationRecord = prior ?? {
-				id: request.operationId,
-				targetKind: 'export',
-				requestHash: request.requestHash,
-				projectFile,
-				state: 'prepared',
-				createdAt: new Date().toISOString(),
+				id: request.operationId, targetKind: 'export', requestHash: request.requestHash,
+				projectFile, state: 'prepared', createdAt: new Date().toISOString(),
 			};
 			store.put(JOURNAL, next.id, next);
 			store.put(PENDING, next.id, { id: next.id });
 			store.put<MutationClaim>(CLAIMS, 'project', {
-				operationId: next.id,
-				ownerPid: process.pid,
-				host: hostname(),
-				token,
+				operationId: next.id, ownerPid: process.pid, host: hostname(), token,
 			});
 			return next;
 		});
@@ -668,30 +733,19 @@ export class MutationCoordinator {
 					throw new Error('Export destination already exists; it was not overwritten');
 				}
 				const prepared = await prepare();
-				if (
-					!Buffer.isBuffer(prepared.buffer) ||
-					prepared.buffer.length < 1 ||
-					prepared.buffer.length > MAX_EXPORT_BYTES
-				)
+				if (!Buffer.isBuffer(prepared.buffer) || prepared.buffer.length < 1 ||
+					prepared.buffer.length > MAX_EXPORT_BYTES)
 					throw new Error('Workflow export artifact must contain 1 through 32 MiB');
 				const json = JSON.stringify(prepared.result);
-				if (
-					!prepared.result ||
-					typeof prepared.result !== 'object' ||
-					Array.isArray(prepared.result) ||
-					!json ||
-					Buffer.byteLength(json) > MAX_EXPORT_RESULT_BYTES
-				)
+				if (!prepared.result || typeof prepared.result !== 'object' || Array.isArray(prepared.result) ||
+					!json || Buffer.byteLength(json) > MAX_EXPORT_RESULT_BYTES)
 					throw new Error('Workflow export result exceeds its 8 MiB metadata limit');
 				record.artifact = {
-					bytes: prepared.buffer.length,
-					sha256: documentRevision(prepared.buffer),
-					base64: prepared.buffer.toString('base64'),
-					result: JSON.parse(json) as Record<string, unknown>,
+					bytes: prepared.buffer.length, sha256: documentRevision(prepared.buffer),
+					base64: prepared.buffer.toString('base64'), result: JSON.parse(json) as Record<string, unknown>,
 				};
 				store.transaction(() => {
-					if (this.claim()?.token !== token)
-						throw new Error('Export publication ownership changed');
+					if (this.claim()?.token !== token) throw new Error('Export publication ownership changed');
 					store.put(JOURNAL, record.id, record);
 				});
 			}
@@ -702,14 +756,12 @@ export class MutationCoordinator {
 			return await this.exportResult(record);
 		} catch (error) {
 			const persisted = store.get<ExportPublicationRecord>(JOURNAL, record.id);
-			if (persisted?.state === 'prepared' && !persisted.artifact)
-				store.transaction(() => {
-					if (this.claim()?.token !== token)
-						throw new Error('Export publication ownership changed during abort');
-					store.delete(JOURNAL, record.id);
-					store.delete(PENDING, record.id);
-					store.delete(CLAIMS, 'project');
-				});
+			if (persisted?.state === 'prepared' && !persisted.artifact) store.transaction(() => {
+				if (this.claim()?.token !== token) throw new Error('Export publication ownership changed during abort');
+				store.delete(JOURNAL, record.id);
+				store.delete(PENDING, record.id);
+				store.delete(CLAIMS, 'project');
+			});
 			throw error;
 		} finally {
 			try {
@@ -717,9 +769,7 @@ export class MutationCoordinator {
 					if (store.get<MutationClaim>(CLAIMS, 'project')?.token === token)
 						store.delete(CLAIMS, 'project');
 				});
-			} finally {
-				activeClaims.delete(token);
-			}
+			} finally { activeClaims.delete(token); }
 		}
 	}
 
@@ -727,34 +777,22 @@ export class MutationCoordinator {
 		if (!record.artifact) throw new Error('Export publication has no prepared artifact');
 		const current = await this.readExport(record);
 		if (current.exists) {
-			if (
-				current.revision === record.artifact.sha256 &&
-				current.bytes.length === record.artifact.bytes
-			)
-				return;
+			if (current.revision === record.artifact.sha256 && current.bytes.length === record.artifact.bytes) return;
 			record.state = 'conflicted';
 			this.checkpointExport(record);
 			throw new Error('Export destination changed; it was not overwritten');
 		}
-		const target = this.exportPath(
-			path.join(this.projectPath, ...record.projectFile.split('/'))
-		);
-		try {
-			await this.publishNewFile(target, Buffer.from(record.artifact.base64, 'base64'));
-		} catch (error) {
+		const target = this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/')));
+		try { await this.publishNewFile(target, Buffer.from(record.artifact.base64, 'base64')); }
+		catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
 		}
 		const published = await this.readExport(record);
-		if (
-			!published.exists ||
-			published.revision !== record.artifact.sha256 ||
-			published.bytes.length !== record.artifact.bytes
-		) {
+		if (!published.exists || published.revision !== record.artifact.sha256 ||
+			published.bytes.length !== record.artifact.bytes) {
 			record.state = 'conflicted';
 			this.checkpointExport(record);
-			throw new Error(
-				'Published export conflicts with the prepared artifact; it was not overwritten'
-			);
+			throw new Error('Published export conflicts with the prepared artifact; it was not overwritten');
 		}
 	}
 
@@ -772,39 +810,37 @@ export class MutationCoordinator {
 			try {
 				await handle.writeFile(bytes);
 				await handle.sync();
-			} finally {
-				await handle.close();
-			}
+			} finally { await handle.close(); }
 			this.assertProjectPath(target);
 			await fs.link(temporary, target);
-		} finally {
-			await fs.rm(staging, { recursive: true, force: true });
+			await this.syncDirectory(parent);
+		} finally { await fs.rm(staging, { recursive: true, force: true }); }
+	}
+
+	private async syncDirectory(directory: string): Promise<void> {
+		try {
+			const handle = await fs.open(directory, SAVED_READ_FLAGS);
+			try { await handle.sync(); }
+			finally { await handle.close(); }
+		} catch (error) {
+			// Windows and some network filesystems do not support directory fsync.
+			if (!['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EPERM', 'EISDIR', 'EBADF']
+				.includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
 		}
 	}
 
 	private async exportResult(record: ExportPublicationRecord): Promise<Record<string, unknown>> {
-		if (!record.artifact || record.state !== 'committed')
-			throw new Error('Export receipt is incomplete');
+		if (!record.artifact || record.state !== 'committed') throw new Error('Export receipt is incomplete');
 		const current = await this.readExport(record);
-		if (
-			!current.exists ||
-			current.revision !== record.artifact.sha256 ||
-			current.bytes.length !== record.artifact.bytes
-		)
+		if (!current.exists || current.revision !== record.artifact.sha256 ||
+			current.bytes.length !== record.artifact.bytes)
 			throw new Error('Published export changed or disappeared; start a new workflow');
-		const result = JSON.parse(JSON.stringify(record.artifact.result)) as Record<
-			string,
-			unknown
-		>;
+		const result = JSON.parse(JSON.stringify(record.artifact.result)) as Record<string, unknown>;
 		return {
 			...result,
 			path: this.exportPath(path.join(this.projectPath, ...record.projectFile.split('/'))),
 			bytes: record.artifact.bytes,
-			receipt: {
-				operationId: record.id,
-				requestHash: record.requestHash,
-				sha256: record.artifact.sha256,
-			},
+			receipt: { operationId: record.id, requestHash: record.requestHash, sha256: record.artifact.sha256 },
 		};
 	}
 
@@ -881,38 +917,49 @@ export class MutationCoordinator {
 		afterRaw: string,
 		options: CommitOptions & { expectedRevision: string }
 	): Promise<MutationRecord> {
+		return this.commitTarget(this.binderTarget(filePath, options?.expectedRevision), afterRaw, options);
+	}
+
+	async commitProjectCreation(
+		filePath: string,
+		afterRaw: string,
+		options: CommitOptions & { expectedRevision: string; documents: readonly CreationDocument[] }
+	): Promise<MutationRecord> {
+		const target = this.binderTarget(filePath, options?.expectedRevision);
+		const documents = validateCreationDocuments(options?.documents);
+		return this.commitTarget(target, afterRaw, options, new Date(), documents);
+	}
+
+	private binderTarget(filePath: string, expectedRevision: unknown): MutationTarget {
 		if (
-			!options ||
-			typeof options.expectedRevision !== 'string' ||
-			!/^[a-f0-9]{64}$/.test(options.expectedRevision)
+			typeof expectedRevision !== 'string' ||
+			!/^[a-f0-9]{64}$/.test(expectedRevision)
 		)
 			throw new Error('A valid expected binder revision is required');
 		const target = this.projectFilePath(filePath);
-		return this.commitTarget(
-			{
-				documentId: path.basename(target),
-				targetKind: 'binder',
-				projectFile: path.basename(target),
-			},
-			afterRaw,
-			options
-		);
+		return {
+			documentId: path.basename(target),
+			targetKind: 'binder',
+			projectFile: path.basename(target),
+		};
 	}
 
 	private commitTarget(
 		targetInfo: MutationTarget,
 		afterRaw: string,
 		options: CommitOptions,
-		snapshotDate = new Date()
+		snapshotDate = new Date(),
+		creationDocuments?: CreationDocument[]
 	): Promise<MutationRecord> {
-		return this.trackMutation(this.commitToTarget(targetInfo, afterRaw, options, snapshotDate));
+		return this.trackMutation(this.commitToTarget(targetInfo, afterRaw, options, snapshotDate, creationDocuments));
 	}
 
 	private async commitToTarget(
 		targetInfo: MutationTarget,
 		afterRaw: string,
 		options: CommitOptions,
-		snapshotDate = new Date()
+		snapshotDate = new Date(),
+		creationDocuments?: CreationDocument[]
 	): Promise<MutationRecord> {
 		const documentId = targetInfo.documentId;
 		if (typeof afterRaw !== 'string' || Buffer.byteLength(afterRaw) > MAX_RAW_BYTES)
@@ -931,6 +978,19 @@ export class MutationCoordinator {
 		await this.recover();
 		const before = await this.readSaved(target);
 		const afterRevision = documentRevision(afterRaw);
+		const creationSummary = creationDocuments?.map((document) => ({
+			documentId: document.documentId, revision: documentRevision(document.raw),
+		}));
+		if (creationDocuments && !this.get(id)) {
+			if (!before.exists) throw new Error('Load an existing binder before creating documents');
+			if (before.revision !== options.expectedRevision)
+				throw new Error('Stale document revision; refresh and review the saved changes');
+			this.assertProjectPath(path.join(this.projectPath, 'Files', 'Data', 'docs.checksum'));
+			for (const document of creationDocuments) {
+				if ((await this.readRaw(document.documentId)).exists)
+					throw new Error('A new document destination already exists; it was not overwritten');
+			}
+		}
 		const token = randomUUID();
 		let record: MutationRecord;
 		const alreadyCommitted = store.transaction(() => {
@@ -943,6 +1003,7 @@ export class MutationCoordinator {
 					(prior.targetKind ?? 'document') !== targetInfo.targetKind ||
 					prior.projectFile !== targetInfo.projectFile ||
 					prior.afterRevision !== afterRevision ||
+					JSON.stringify(prior.creationSummary) !== JSON.stringify(creationSummary) ||
 					(options.expectedRevision !== undefined &&
 						prior.beforeRevision !== options.expectedRevision)
 				)
@@ -967,6 +1028,7 @@ export class MutationCoordinator {
 				state: 'prepared',
 				createdAt: new Date().toISOString(),
 				undoes: options.undoes,
+				...(creationDocuments ? { creationDocuments, creationSummary, creationOutcome: 'prepared' as const } : {}),
 				snapshotRequest:
 					targetInfo.targetKind !== 'binder' && before.exists
 						? {
@@ -988,6 +1050,7 @@ export class MutationCoordinator {
 		});
 		if (alreadyCommitted) return alreadyCommitted;
 		record = this.get(id)!;
+		const published = new Set<string>();
 		try {
 			let current = await this.readSaved(target);
 			if (
@@ -996,6 +1059,20 @@ export class MutationCoordinator {
 			)
 				throw new Error('Saved manuscript changed while preparing the mutation');
 			await this.ensureSnapshot(record);
+			if (record.creationDocuments) {
+				for (const document of record.creationDocuments) {
+					const location = this.documentPath(document.documentId);
+					if ((await this.readSaved(location)).exists)
+						throw new Error('A new document destination changed; it was not overwritten');
+					await this.publishNewFile(location, Buffer.from(document.raw, 'utf8'));
+					published.add(document.documentId);
+				}
+				for (const document of record.creationDocuments) {
+					const saved = await this.readRaw(document.documentId);
+					if (!saved.exists || saved.revision !== documentRevision(document.raw))
+						throw new Error('New document content changed before binder publication');
+				}
+			}
 			current = await this.readSaved(target);
 			if (
 				current.revision !== record.beforeRevision ||
@@ -1005,6 +1082,11 @@ export class MutationCoordinator {
 			this.assertProjectPath(target);
 			if (targetInfo.targetKind !== 'snapshot') await safeWriteFile(target, afterRaw);
 			if (targetInfo.targetKind === 'document') await this.syncChecksum(documentId, afterRaw);
+			if (record.creationDocuments) {
+				for (const document of record.creationDocuments)
+					await this.syncChecksum(document.documentId, document.raw);
+				record.creationOutcome = 'published';
+			}
 			record.state = 'committed';
 			record.completedAt = new Date().toISOString();
 			store.transaction(() => {
@@ -1012,6 +1094,15 @@ export class MutationCoordinator {
 				store.delete(PENDING, id);
 			});
 			return record;
+		} catch (error) {
+			if (record.creationDocuments) {
+				try { await this.recoverCreation(record, published); }
+				catch (recoveryError) {
+					throw new AggregateError([error, recoveryError], `Creation ${id} requires recovery inspection`);
+				}
+				if (record.state === 'committed') return record;
+			}
+			throw error;
 		} finally {
 			try {
 				store.transaction(() => {

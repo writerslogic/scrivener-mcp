@@ -12,7 +12,11 @@ import type { ProjectStructure, BinderItem } from '../types/internal.js';
 import { ensureDir, safeParse, safeStringify, safeWriteFile, buildPath } from '../utils/common.js';
 import { findScrivxPath, getDefaultScrivxPath } from '../utils/scrivener-utils.js';
 import { exposeXmlAttributes, encodeNewBinderAttributes } from '../utils/scrivener-xml.js';
-import { MutationCoordinator } from './editorial/mutation-coordinator.js';
+import {
+	MutationCoordinator,
+	validateCreationDocuments,
+	type CreationDocument,
+} from './editorial/mutation-coordinator.js';
 
 const logger = getLogger('project-loader');
 
@@ -121,13 +125,24 @@ export class ProjectLoader {
 		return this.trackWrite(this.saveProjectData(structure));
 	}
 
+	async saveProjectWithDocuments(
+		structure: ProjectStructure,
+		documents: readonly CreationDocument[]
+	): Promise<void> {
+		if (this.closePromise) throw new Error('Project loader is closing');
+		return this.trackWrite(this.saveProjectData(structure, validateCreationDocuments(documents)));
+	}
+
 	private trackWrite(write: Promise<void>): Promise<void> {
 		const tracked = write.finally(() => this.activeWrites.delete(tracked));
 		this.activeWrites.add(tracked);
 		return tracked;
 	}
 
-	private async saveProjectData(structure?: ProjectStructure): Promise<void> {
+	private async saveProjectData(
+		structure?: ProjectStructure,
+		documents?: readonly CreationDocument[]
+	): Promise<void> {
 		const projectToSave = structure || this.projectStructure;
 		const expectedRevision = this.loadedRevision;
 
@@ -141,6 +156,7 @@ export class ProjectLoader {
 				'Load the project before saving so its saved revision can be checked'
 			);
 		const cleanStructure = this.cleanForSaving(projectToSave);
+		const creationDocuments = documents;
 		logger.info(`Saving project to ${this.scrivxPath}`);
 
 		// Create backup if enabled
@@ -162,9 +178,14 @@ export class ProjectLoader {
 					`Refusing to write malformed project XML to ${this.scrivxPath}`
 				);
 			}
-			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, xml, {
-				expectedRevision,
-			});
+			const mutation = creationDocuments
+				? await this.coordinator.commitProjectCreation(this.scrivxPath, xml, {
+						expectedRevision,
+						documents: creationDocuments,
+					})
+				: await this.coordinator.commitProjectFile(this.scrivxPath, xml, {
+						expectedRevision,
+					});
 			this.loadedRevision = mutation.afterRevision;
 			this.projectStructure = projectToSave;
 			this.lastLoadTime = Date.now();
