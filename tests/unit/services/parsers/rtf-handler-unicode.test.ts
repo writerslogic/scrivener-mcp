@@ -70,6 +70,11 @@ describe('RTFHandler Unicode (\\uc) handling', () => {
 describe('RTF text control and Unicode scope round trips', () => {
 	const handler = new RTFHandler();
 
+	it('keeps the default Unicode fallback outside the first nested override', async () => {
+		const raw = `{\\rtf1\\ansi${FONT}\\f0 before {\\uc0 alpha \\u945 } caf\\u233? after}`;
+		expect((await handler.parseRTF(raw)).plainText).toBe('before alpha α café after');
+	});
+
 	it('restores outer Unicode fallback width after a nested local override', async () => {
 		const raw = `{\\rtf1\\ansi\\uc1${FONT}\\f0 before {\\uc0 alpha \\u945 } caf\\u233? after}`;
 		expect((await handler.parseRTF(raw)).plainText).toBe('before alpha α café after');

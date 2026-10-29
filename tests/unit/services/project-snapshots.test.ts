@@ -6,6 +6,11 @@ import { promisify } from 'node:util';
 import { ProjectSnapshots } from '../../../src/services/project-snapshots.js';
 import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 
+jest.mock('node:fs/promises', () => {
+	const actual = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+	return { ...actual, __esModule: true, default: actual };
+});
+
 const DOCUMENT = '11111111-1111-4111-8111-111111111111';
 const SNAPSHOT = '2026-10-29-12-00-00+0000';
 const LIMIT = 64 * 1024 * 1024;

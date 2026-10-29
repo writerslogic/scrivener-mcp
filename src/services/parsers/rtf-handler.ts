@@ -246,16 +246,11 @@ export class RTFHandler {
 		// Extract metadata
 		result.metadata = this.extractMetadata(rtfString);
 
-		// Capture the document's \uc fallback count from the header before it is
-		// stripped (Scrivener uses \uc0), then parse the body with it.
-		const ucMatch = rtfString.match(/\\uc(\d+)/);
-		const documentUc = ucMatch ? Math.max(0, parseInt(ucMatch[1], 10)) : 1;
-
 		// Remove header sections
 		const content = this.stripRTFHeaders(rtfString);
 
 		// Parse formatting and content
-		const segments = this.parseRTFSegments(content, documentUc);
+		const segments = this.parseRTFSegments(content);
 
 		// Build plain text and formatted text
 		const plainTextParts: string[] = [];
