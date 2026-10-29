@@ -33,6 +33,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Consolidate descriptor-safe credential reads and refresh CI runtimes
 - Preserve byte-exact C2PA fixtures across checkouts
 - Harden credential publication and verify format coverage
 - Feed transient DER to fixture certificate requests
