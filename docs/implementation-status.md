@@ -486,3 +486,8 @@ The dependency audit reports zero vulnerabilities. Fresh package installation an
 CLI/MCP/App/restart checks, the dashboard browser exercise and all three EPUBCheck cases pass.
 The user explicitly included the separate private Draftbridge repository in consolidation; its
 source, original deletion patch and build artifacts remain private and independent of this history.
+
+The real Redis 8.10.2/BullMQ 6.5.1/ioredis 6.0.0 lifecycle gate passes all nine checks. An initial
+Redis startup timed out during host filesystem stalls; a clean retry passed without changing its
+60-second deadline. Changelog rendering deduplicates identical commit messages within release
+groups so preserving already-integrated branch history does not repeat release notes.
