@@ -27,18 +27,25 @@ test.each([
 	expect(isStructurallyValidRtf(raw)).toBe(false);
 });
 
-test.each([-1, 0, 1])('counts binary bytes independently of brace and escape syntax at length plus %i', (delta) => {
-	const payload = '{}\\\0';
-	const raw = `{\\rtf1{\\pict\\bin${Buffer.byteLength(payload) + delta} ${payload}}Text}`;
-	expect(isStructurallyValidRtf(raw)).toBe(delta === 0);
-});
+test.each([-1, 0, 1])(
+	'counts binary bytes independently of brace and escape syntax at length plus %i',
+	(delta) => {
+		const payload = '{}\\\0';
+		const raw = `{\\rtf1{\\pict\\bin${Buffer.byteLength(payload) + delta} ${payload}}Text}`;
+		expect(isStructurallyValidRtf(raw)).toBe(delta === 0);
+	}
+);
 
-test.each([1, 2, 3])('respects UTF-8 source byte boundaries for a binary length of %i', (length) => {
-	const raw = `{\\rtf1{\\pict\\bin${length} é}Text}`;
-	expect(isStructurallyValidRtf(raw)).toBe(length === 2);
-});
+test.each([1, 2, 3])(
+	'respects UTF-8 source byte boundaries for a binary length of %i',
+	(length) => {
+		const raw = `{\\rtf1{\\pict\\bin${length} é}Text}`;
+		expect(isStructurallyValidRtf(raw)).toBe(length === 2);
+	}
+);
 
 test('reads a valid minimal RTF document without discarding its body as a header', async () => {
-	expect((await new RTFHandler().parseRTF(String.raw`{\rtf1\ansi Entire body}`)).plainText)
-		.toBe('Entire body');
+	expect((await new RTFHandler().parseRTF(String.raw`{\rtf1\ansi Entire body}`)).plainText).toBe(
+		'Entire body'
+	);
 });

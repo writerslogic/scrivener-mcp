@@ -42,9 +42,16 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 	);
 	const root = await mkdtemp(join(rootDirectory, 'project-queue-isolation-'));
 	const variables = new Set([
-		...Object.keys(process.env).filter((name) => /(?:API_KEY|TOKEN|SECRET|PASSWORD|^NEO4J_)/i.test(name)),
-		'SCRIVENER_LOCAL_ONLY', 'SCRIVENER_DISABLE_KEY_DISCOVERY', 'SCRIVENER_HMS_ENGINE',
-		'KEYDB_URL', 'REDIS_URL', 'NEO4J_AUTO_INSTALL', 'NEO4J_INTERACTIVE',
+		...Object.keys(process.env).filter((name) =>
+			/(?:API_KEY|TOKEN|SECRET|PASSWORD|^NEO4J_)/i.test(name)
+		),
+		'SCRIVENER_LOCAL_ONLY',
+		'SCRIVENER_DISABLE_KEY_DISCOVERY',
+		'SCRIVENER_HMS_ENGINE',
+		'KEYDB_URL',
+		'REDIS_URL',
+		'NEO4J_AUTO_INSTALL',
+		'NEO4J_INTERACTIVE',
 	]);
 	const previous = new Map([...variables].map((name) => [name, process.env[name]]));
 	const services = new Set();
@@ -56,12 +63,23 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 	try {
 		for (const name of variables) delete process.env[name];
 		Object.assign(process.env, {
-			SCRIVENER_LOCAL_ONLY: 'true', SCRIVENER_DISABLE_KEY_DISCOVERY: '1',
-			SCRIVENER_HMS_ENGINE: 'fallback', NEO4J_AUTO_INSTALL: 'false', NEO4J_INTERACTIVE: 'false',
-			KEYDB_URL: redisUrl, REDIS_URL: redisUrl,
+			SCRIVENER_LOCAL_ONLY: 'true',
+			SCRIVENER_DISABLE_KEY_DISCOVERY: '1',
+			SCRIVENER_HMS_ENGINE: 'fallback',
+			NEO4J_AUTO_INSTALL: 'false',
+			NEO4J_INTERACTIVE: 'false',
+			KEYDB_URL: redisUrl,
+			REDIS_URL: redisUrl,
 		});
-		const [{ JobQueueService, JobType }, { PersistentStore }, { getOrCreateProjectIdentity },
-			{ createQueueScope, scopedJobId }, { SQLiteManager }, { createBullMQConnection }, { Queue }] = await Promise.all([
+		const [
+			{ JobQueueService, JobType },
+			{ PersistentStore },
+			{ getOrCreateProjectIdentity },
+			{ createQueueScope, scopedJobId },
+			{ SQLiteManager },
+			{ createBullMQConnection },
+			{ Queue },
+		] = await Promise.all([
 			import('../dist/services/queue/job-queue.js'),
 			import('../dist/services/editorial/persistent-store.js'),
 			import('../dist/services/editorial/project-identity.js'),
@@ -88,11 +106,17 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 				stores.delete(store);
 			}
 		}
-		const scopes = await Promise.all(paths.map(async (path) => createQueueScope(identity, await realpath(path))));
+		const scopes = await Promise.all(
+			paths.map(async (path) => createQueueScope(identity, await realpath(path)))
+		);
 		const open = async (path) => {
 			const service = new JobQueueService(path);
 			services.add(service);
-			await within(service.initialize({ redisUrl, sqliteOnly: true }), 'Production project queue startup', 20_000);
+			await within(
+				service.initialize({ redisUrl, sqliteOnly: true }),
+				'Production project queue startup',
+				20_000
+			);
 			assert.equal(service.getConnectionInfo().type, 'redis');
 			return service;
 		};
@@ -102,7 +126,11 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 		assert.equal(first.getConnectionInfo().scopeId, scopes[0].id);
 		checks.push('copied-identities-have-independent-production-queues');
 		const sharedId = '11111111-1111-4111-8111-111111111111';
-		const data = (title) => ({ documents: [{ id: sharedId, content: 'An original synthetic scene.', metadata: { title } }] });
+		const data = (title) => ({
+			documents: [
+				{ id: sharedId, content: 'An original synthetic scene.', metadata: { title } },
+			],
+		});
 		const ids = await Promise.all([
 			first.addJob(JobType.SYNC_DATABASE, data('First project')),
 			second.addJob(JobType.SYNC_DATABASE, data('Second project')),
@@ -120,17 +148,22 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 			await within(sqlite.initialize(), 'Fixture database observation');
 			databases.push(sqlite);
 		}
-		const title = (index) => databases[index].query('SELECT title FROM documents WHERE id = ?', [sharedId]);
+		const title = (index) =>
+			databases[index].query('SELECT title FROM documents WHERE id = ?', [sharedId]);
 		assert.deepEqual(title(0), [{ title: 'First project' }]);
 		assert.deepEqual(title(1), [{ title: 'Second project' }]);
 		checks.push('overlapping-document-identities-persist-only-in-own-sqlite');
-		const delayed = await first.addJob(JobType.SYNC_DATABASE, data('Cancelled fixture'), { delay: 60_000 });
+		const delayed = await first.addJob(JobType.SYNC_DATABASE, data('Cancelled fixture'), {
+			delay: 60_000,
+		});
 		await assert.rejects(second.cancelJob(JobType.SYNC_DATABASE, delayed), /selected project/);
 		assert.ok(await first.getJobStatus(JobType.SYNC_DATABASE, delayed));
 		await first.cancelJob(JobType.SYNC_DATABASE, delayed);
 		assert.equal(await first.getJobStatus(JobType.SYNC_DATABASE, delayed), null);
 		checks.push('foreign-status-and-cancellation-cannot-access-own-jobs');
-		const reopenId = await first.addJob(JobType.SYNC_DATABASE, data('After reopen'), { delay: 60_000 });
+		const reopenId = await first.addJob(JobType.SYNC_DATABASE, data('After reopen'), {
+			delay: 60_000,
+		});
 		await within(first.shutdown(), 'First project retirement');
 		services.delete(first);
 		first = await open(paths[0]);
@@ -149,11 +182,26 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 		for (const foreign of [false, true]) {
 			const id = scopedJobId(scopes[0]);
 			const payload = data('Foreign payload must not persist');
-			const envelope = foreign ? { version: 1, projectId: identity, scopeId: scopes[1].id, jobType: JobType.SYNC_DATABASE, payload } : payload;
-			const injected = await scoped.add(JobType.SYNC_DATABASE, envelope, { jobId: id, attempts: 3 });
-			await within((async () => {
-				while (await injected.getState() !== 'failed') await new Promise((resolve) => setTimeout(resolve, 20));
-			})(), 'Invalid envelope rejection');
+			const envelope = foreign
+				? {
+						version: 1,
+						projectId: identity,
+						scopeId: scopes[1].id,
+						jobType: JobType.SYNC_DATABASE,
+						payload,
+					}
+				: payload;
+			const injected = await scoped.add(JobType.SYNC_DATABASE, envelope, {
+				jobId: id,
+				attempts: 3,
+			});
+			await within(
+				(async () => {
+					while ((await injected.getState()) !== 'failed')
+						await new Promise((resolve) => setTimeout(resolve, 20));
+				})(),
+				'Invalid envelope rejection'
+			);
 			const rejected = await scoped.getJob(id);
 			assert.ok(rejected);
 			assert.match(rejected.failedReason, /ownership/);
@@ -164,7 +212,9 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 		checks.push('foreign-and-legacy-envelopes-fail-before-project-writes');
 		const legacy = new Queue(JobType.SYNC_DATABASE, { connection });
 		queues.add(legacy);
-		const old = await legacy.add(JobType.SYNC_DATABASE, data('Legacy must remain untouched'), { jobId: `legacy-fixture-${randomUUID()}` });
+		const old = await legacy.add(JobType.SYNC_DATABASE, data('Legacy must remain untouched'), {
+			jobId: `legacy-fixture-${randomUUID()}`,
+		});
 		const witness = await first.addJob(JobType.SYNC_DATABASE, data('After reopen'));
 		await settledJob(first, JobType.SYNC_DATABASE, witness);
 		assert.equal(await old.getState(), 'waiting');
@@ -175,24 +225,43 @@ export async function verifyProjectQueueIsolation({ redisUrl, rootDirectory }) {
 		failure = error;
 	} finally {
 		const results = await Promise.allSettled([
-			...[...services].map((service) => within(service.shutdown(), 'Scoped service shutdown', 5000)),
+			...[...services].map((service) =>
+				within(service.shutdown(), 'Scoped service shutdown', 5000)
+			),
 			...[...queues].map((queue) => within(queue.close(), 'Fixture producer shutdown', 5000)),
 		]);
-		const cleanup = results.flatMap((result) => result.status === 'rejected' ? [result.reason] : []);
+		const cleanup = results.flatMap((result) =>
+			result.status === 'rejected' ? [result.reason] : []
+		);
 		for (const store of stores) {
-			try { await store.close(); } catch (error) { cleanup.push(error); }
+			try {
+				await store.close();
+			} catch (error) {
+				cleanup.push(error);
+			}
 		}
 		if (connection) {
-			try { await within(connection.quit(), 'Fixture connection shutdown', 3000); }
-			catch (error) { cleanup.push(error); connection.disconnect(); }
+			try {
+				await within(connection.quit(), 'Fixture connection shutdown', 3000);
+			} catch (error) {
+				cleanup.push(error);
+				connection.disconnect();
+			}
 		}
-		try { await rm(root, { recursive: true, force: true }); }
-		catch (error) { cleanup.push(error); }
+		try {
+			await rm(root, { recursive: true, force: true });
+		} catch (error) {
+			cleanup.push(error);
+		}
 		for (const [name, value] of previous) {
 			if (value === undefined) delete process.env[name];
 			else process.env[name] = value;
 		}
-		if (cleanup.length) failure = new AggregateError(failure ? [failure, ...cleanup] : cleanup, 'Project queue isolation cleanup failed');
+		if (cleanup.length)
+			failure = new AggregateError(
+				failure ? [failure, ...cleanup] : cleanup,
+				'Project queue isolation cleanup failed'
+			);
 	}
 	if (failure) throw failure;
 	return { checks };

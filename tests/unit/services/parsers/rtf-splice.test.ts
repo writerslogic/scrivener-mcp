@@ -109,7 +109,12 @@ describe('structural edit boundaries', () => {
 	it.each([
 		['A {\\b bold} C}', 'bold', 'strong', '{\\b {\\uc0 strong}}'],
 		['A {\\b outer {\\i inner} end} Z}', 'inner', 'brighter', '{\\i {\\uc0 brighter}}'],
-		['A {\\b outer {\\i inner} end} Z}', 'outer', 'changed', '{\\b {\\uc0 changed} {\\i inner}'],
+		[
+			'A {\\b outer {\\i inner} end} Z}',
+			'outer',
+			'changed',
+			'{\\b {\\uc0 changed} {\\i inner}',
+		],
 	])('preserves the enclosing style when changing %s', async (body, before, after, retained) => {
 		const raw = header + body;
 		const text = await canonical(raw);
@@ -126,11 +131,14 @@ describe('structural edit boundaries', () => {
 		['A {\\b bold} {\\i italic remains} Z}', 'bold italic', 'combined'],
 		['A \\b bold\\b0 ordinary Z}', 'bold ordinary', 'combined'],
 		['A {\\b outer {\\i inner} end} Z}', 'inner end', 'combined'],
-	])('falls back when changing %s would cross a style or group boundary', async (body, before, after) => {
-		const raw = header + body;
-		const text = await canonical(raw);
-		expect(spliceRtfText(raw, text, text.replace(before, after))).toBeNull();
-	});
+	])(
+		'falls back when changing %s would cross a style or group boundary',
+		async (body, before, after) => {
+			const raw = header + body;
+			const text = await canonical(raw);
+			expect(spliceRtfText(raw, text, text.replace(before, after))).toBeNull();
+		}
+	);
 
 	it('retains Unicode escapes and opaque groups containing escaped braces and binary bytes', async () => {
 		const opaque = String.raw`{\*\Scrv_meta escaped \} brace {nested}}`;

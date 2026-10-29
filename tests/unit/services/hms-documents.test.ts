@@ -162,23 +162,26 @@ it.each(['blend', 'rrf'] as const)(
 	}
 );
 
-it.each([-1, 0, 1])('keeps positive semantic thresholds inclusive at boundary %d', async (delta) => {
-	const engine = memory();
-	await engine.memorizeDocuments([
-		{ id: 'strong', text: 'A remembered voice.', embeddings: [[1, 0]] },
-		{ id: 'boundary', text: 'An abandoned cottage.', embeddings: [[3, 4]] },
-		{ id: 'orthogonal', text: 'Across the river.', embeddings: [[0, 1]] },
-	]);
-	const results = await engine.searchDocuments('mourning', {
-		embedding: [1, 0],
-		lexicalWeight: 0,
-		semanticWeight: 1,
-		minSemanticScore: 0.6 + delta * Number.EPSILON,
-	});
-	expect(results.map((hit) => hit.documentId)).toEqual(
-		delta <= 0 ? ['strong', 'boundary'] : ['strong']
-	);
-});
+it.each([-1, 0, 1])(
+	'keeps positive semantic thresholds inclusive at boundary %d',
+	async (delta) => {
+		const engine = memory();
+		await engine.memorizeDocuments([
+			{ id: 'strong', text: 'A remembered voice.', embeddings: [[1, 0]] },
+			{ id: 'boundary', text: 'An abandoned cottage.', embeddings: [[3, 4]] },
+			{ id: 'orthogonal', text: 'Across the river.', embeddings: [[0, 1]] },
+		]);
+		const results = await engine.searchDocuments('mourning', {
+			embedding: [1, 0],
+			lexicalWeight: 0,
+			semanticWeight: 1,
+			minSemanticScore: 0.6 + delta * Number.EPSILON,
+		});
+		expect(results.map((hit) => hit.documentId)).toEqual(
+			delta <= 0 ? ['strong', 'boundary'] : ['strong']
+		);
+	}
+);
 
 it('rejects invalid batches atomically and leaves the previous indexed revision intact', async () => {
 	const engine = memory();

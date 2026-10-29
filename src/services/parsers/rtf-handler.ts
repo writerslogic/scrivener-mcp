@@ -412,11 +412,11 @@ export class RTFHandler {
 							value: this.SPECIAL_CHARS.get(`\\${wordName}`)!,
 						});
 						i += controlMatch[0].length;
-						} else if (wordName === 'bin') {
-							const binary = readRtfControl(content, i);
-							if (!binary) throw new Error('Invalid RTF binary data');
-							i = binary.end;
-						} else if (wordName === 'uc') {
+					} else if (wordName === 'bin') {
+						const binary = readRtfControl(content, i);
+						if (!binary) throw new Error('Invalid RTF binary data');
+						i = binary.end;
+					} else if (wordName === 'uc') {
 						const n = parseInt(wordParam, 10);
 						uc = Number.isNaN(n) ? 1 : Math.max(0, n);
 						i += controlMatch[0].length;

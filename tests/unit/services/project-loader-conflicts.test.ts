@@ -167,9 +167,7 @@ test.each(['save', 'mutate'] as const)(
 			expect(result).toBeUndefined();
 		}
 		const saved = await fs.readFile(file, 'utf8');
-		expect(saved).toContain(
-			intervening === 'save' ? 'Intervening title' : 'Admitted title'
-		);
+		expect(saved).toContain(intervening === 'save' ? 'Intervening title' : 'Admitted title');
 		expect(saved).not.toContain('Unadmitted title');
 		expect(await instance.isProjectModified()).toBe(false);
 		await instance.reloadProject();

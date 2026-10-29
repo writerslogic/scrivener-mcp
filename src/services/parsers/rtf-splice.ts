@@ -155,7 +155,8 @@ export function describeReplacedConstructs(replacedRaw: string): string[] {
 	if (/\\pict\b|\\shppict\b|\\NeXTGraphic\b/.test(replacedRaw)) risks.push('inline image');
 	if (/\\field\b/.test(replacedRaw)) risks.push('linked field');
 	if (/\\bin-?\d+\b/i.test(replacedRaw)) risks.push('embedded binary data');
-	if (/\{\\\*|\\Scrv_/.test(replacedRaw)) risks.push('opaque RTF metadata within the edited text');
+	if (/\{\\\*|\\Scrv_/.test(replacedRaw))
+		risks.push('opaque RTF metadata within the edited text');
 	// Inline formatting toggles inside the replaced text can't survive a text edit.
 	if (/\\(?:b|i|ul|strike|cf|cs|s|highlight)(?:-?\d+)?(?=[^a-z]|$)/i.test(replacedRaw)) {
 		risks.push('inline styling within the edited text');
@@ -194,9 +195,12 @@ function safeReplacementSpan(raw: string, start: number, end: number): boolean {
 		else if (raw[offset] === '\\') {
 			const control = readRtfControl(raw, offset);
 			if (
-				!control || control.end > end ||
-				control.word !== undefined && control.word !== 'u' &&
-				!RTF_TEXT_CONTROLS.has(`\\${control.word}`) && control.word !== 'sect'
+				!control ||
+				control.end > end ||
+				(control.word !== undefined &&
+					control.word !== 'u' &&
+					!RTF_TEXT_CONTROLS.has(`\\${control.word}`) &&
+					control.word !== 'sect')
 			)
 				return false;
 			offset = control.end;
@@ -329,7 +333,10 @@ export function spliceRtfText(
 			const start = rawStartOf(prevOldChar);
 			const end = blockOldChar > prevOldChar ? scan.ends[lead + blockOldChar - 1] : start;
 			if (!safeReplacementSpan(originalRaw, start, end)) return null;
-			out.push(originalRaw.slice(rawCursor, start), wrap(newText.slice(prevNewChar, blockNewChar)));
+			out.push(
+				originalRaw.slice(rawCursor, start),
+				wrap(newText.slice(prevNewChar, blockNewChar))
+			);
 			replaced.push(originalRaw.slice(start, end));
 			rawCursor = end;
 		}

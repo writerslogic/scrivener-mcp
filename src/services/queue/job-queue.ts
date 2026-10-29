@@ -162,7 +162,9 @@ export class JobQueueService {
 				);
 			} else this.scope = createQueueScope(this.unboundIdentity);
 			// Step 1: Detect and establish connection
-			const connectionInfo = await detectConnection(options.redisUrl !== undefined ? [options.redisUrl] : undefined);
+			const connectionInfo = await detectConnection(
+				options.redisUrl !== undefined ? [options.redisUrl] : undefined
+			);
 
 			if (connectionInfo.isAvailable && connectionInfo.url) {
 				// Use KeyDB or Redis
@@ -175,7 +177,9 @@ export class JobQueueService {
 				// Fallback to embedded MemoryRedis
 				this.logger.info('No KeyDB/Redis found, using embedded queue');
 
-				const persistPath = this.projectPath ? getQueueStatePath(this.projectPath) : undefined;
+				const persistPath = this.projectPath
+					? getQueueStatePath(this.projectPath)
+					: undefined;
 
 				// Create directory if needed
 				if (persistPath) {
@@ -203,8 +207,13 @@ export class JobQueueService {
 			if (this.projectPath) {
 				this.databaseService = options.sqliteOnly
 					? new DatabaseService(this.projectPath, {
-						neo4j: { enabled: false, uri: 'bolt://127.0.0.1:1', user: '', password: '' },
-					})
+							neo4j: {
+								enabled: false,
+								uri: 'bolt://127.0.0.1:1',
+								user: '',
+								password: '',
+							},
+						})
 					: new DatabaseService(this.projectPath);
 				await this.databaseService.initialize();
 				this.logger.info('Database service initialized');
@@ -820,10 +829,16 @@ export class JobQueueService {
 		if (!this.isInitialized)
 			throw createError(ErrorCode.INVALID_STATE, null, 'Job queue is not initialized');
 		if (!Object.values(JobType).includes(jobType))
-			throw createError(ErrorCode.NOT_FOUND, undefined, `Queue for job type ${jobType} not found`);
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				`Queue for job type ${jobType} not found`
+			);
 		if (
 			options?.priority !== undefined &&
-			(!Number.isInteger(options.priority) || options.priority < 0 || options.priority > 2097151)
+			(!Number.isInteger(options.priority) ||
+				options.priority < 0 ||
+				options.priority > 2097151)
 		)
 			throw new Error('Queue priority must be an integer from 0 through 2097151');
 		if (
@@ -836,7 +851,9 @@ export class JobQueueService {
 		const jobId = scopedJobId(scope);
 		if (this.connectionType === 'embedded') {
 			if (options?.priority || options?.delay)
-				throw new Error('Embedded jobs run immediately; nonzero priority or delay requires Redis or KeyDB');
+				throw new Error(
+					'Embedded jobs run immediately; nonzero priority or delay requires Redis or KeyDB'
+				);
 			return this.addEmbeddedJob(jobType, envelope, jobId);
 		}
 
@@ -859,7 +876,11 @@ export class JobQueueService {
 	 * Run a job inline, without BullMQ, when no Redis/KeyDB connection is available.
 	 * Returns immediately; the result lands in `embeddedJobs` once the job settles.
 	 */
-	private async addEmbeddedJob(jobType: JobType, data: ScopedJob, jobId: string): Promise<string> {
+	private async addEmbeddedJob(
+		jobType: JobType,
+		data: ScopedJob,
+		jobId: string
+	): Promise<string> {
 		this.storeEmbeddedJob(jobId, {
 			jobType,
 			state: 'active',
@@ -974,7 +995,11 @@ export class JobQueueService {
 	 */
 	async cancelJob(jobType: JobType, jobId: string): Promise<void> {
 		if (!this.scope || !ownsJobId(this.scope, jobId))
-			throw createError(ErrorCode.NOT_FOUND, undefined, 'Job was not found in the selected project queue');
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				'Job was not found in the selected project queue'
+			);
 		if (this.connectionType === 'embedded') {
 			const status = this.readEmbeddedJob(jobId);
 			if (!status || status.jobType !== jobType) {
@@ -1060,7 +1085,8 @@ export class JobQueueService {
 	}
 
 	private requireScope(): QueueScope {
-		if (!this.scope) throw createError(ErrorCode.INVALID_STATE, null, 'Queue project scope is unavailable');
+		if (!this.scope)
+			throw createError(ErrorCode.INVALID_STATE, null, 'Queue project scope is unavailable');
 		return this.scope;
 	}
 

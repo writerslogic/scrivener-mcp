@@ -89,7 +89,11 @@ export class ProjectSnapshots {
 		try {
 			const saved = await reader.readProjectArtifact(found.rtfPath);
 			if (!saved.exists)
-				throw createError(ErrorCode.NOT_FOUND, {}, 'Snapshot was removed before it could be read');
+				throw createError(
+					ErrorCode.NOT_FOUND,
+					{},
+					'Snapshot was removed before it could be read'
+				);
 			raw = saved.raw;
 		} finally {
 			await reader.close();

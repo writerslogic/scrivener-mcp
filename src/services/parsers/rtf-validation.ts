@@ -8,9 +8,7 @@ export function readRtfControl(raw: string, start: number): RtfControl | undefin
 	if (raw[start] !== '\\' || start + 1 >= raw.length) return undefined;
 	let end = start + 1;
 	if (raw[end] === "'") {
-		return /^[\da-f]{2}$/i.test(raw.slice(end + 1, end + 3))
-			? { end: end + 3 }
-			: undefined;
+		return /^[\da-f]{2}$/i.test(raw.slice(end + 1, end + 3)) ? { end: end + 3 } : undefined;
 	}
 	if (!/[a-z]/i.test(raw[end])) {
 		const code = raw.charCodeAt(end);

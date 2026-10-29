@@ -48,8 +48,11 @@ async function snapshotDirectoryNames(reader: MutationCoordinator, dir: string):
 		reader.assertProjectPath(dir);
 		const after = await fs.lstat(dir, { bigint: true });
 		if (
-			!after.isDirectory() || after.isSymbolicLink() ||
-			before.dev !== after.dev || before.ino !== after.ino || before.mtimeNs !== after.mtimeNs
+			!after.isDirectory() ||
+			after.isSymbolicLink() ||
+			before.dev !== after.dev ||
+			before.ino !== after.ino ||
+			before.mtimeNs !== after.mtimeNs
 		)
 			throw new Error('Snapshot directory changed while listing; retry');
 		return names;
@@ -132,13 +135,12 @@ export async function parseSnapshotIndex(
 /** List the RTF snapshot files in a directory, sorted chronologically by name. */
 async function listSnapshotRtfStems(reader: MutationCoordinator, dir: string): Promise<string[]> {
 	const names = await snapshotDirectoryNames(reader, dir);
-	const snapshots = names
-		.filter((n) => n.toLowerCase().endsWith('.rtf'))
-		.sort();
+	const snapshots = names.filter((n) => n.toLowerCase().endsWith('.rtf')).sort();
 	const identities = new Set<string>();
 	for (const name of snapshots) {
 		const identity = name.slice(0, -'.rtf'.length);
-		if (identities.has(identity)) throw new Error('Snapshot filenames have duplicate identities');
+		if (identities.has(identity))
+			throw new Error('Snapshot filenames have duplicate identities');
 		identities.add(identity);
 		const file = path.join(dir, name);
 		reader.assertProjectPath(file);
@@ -177,7 +179,9 @@ export async function listDocumentSnapshots(
 	const dir = snapshotDir(projectPath, documentId);
 	if (!dir) return [];
 
-	return withSnapshotReader(projectPath, (reader) => readDocumentSnapshots(reader, dir, documentId));
+	return withSnapshotReader(projectPath, (reader) =>
+		readDocumentSnapshots(reader, dir, documentId)
+	);
 }
 
 /**
@@ -219,8 +223,10 @@ export async function findSnapshot(
 	if (!entry) return undefined;
 	return withSnapshotReader(projectPath, async (reader) => {
 		const names = await snapshotDirectoryNames(reader, dir);
-		const name = names.find((name) =>
-			name.toLowerCase().endsWith('.rtf') && name.slice(0, -'.rtf'.length) === entry.snapshotId
+		const name = names.find(
+			(name) =>
+				name.toLowerCase().endsWith('.rtf') &&
+				name.slice(0, -'.rtf'.length) === entry.snapshotId
 		);
 		if (!name) return undefined;
 		const rtfPath = path.join(dir, name);
@@ -306,7 +312,9 @@ export async function planSnapshot(
 	)
 		throw createError(ErrorCode.INVALID_INPUT, {}, 'Invalid snapshot identity, title, or date');
 	const { stem: baseStem, indexDate } = formatSnapshotStamp(date);
-	const existing = await withSnapshotReader(projectPath, (reader) => listSnapshotRtfStems(reader, dir));
+	const existing = await withSnapshotReader(projectPath, (reader) =>
+		listSnapshotRtfStems(reader, dir)
+	);
 	let stem = baseStem;
 	for (let n = 1; existing.includes(stem); n++) stem = `${baseStem}-${n}`;
 	return { documentId, snapshotId: stem, title: title.trim(), date: indexDate };
@@ -347,7 +355,9 @@ export async function writePlannedSnapshot(
 			const root = typeof parsed.Snapshots === 'object' ? parsed.Snapshots : undefined;
 			prior = asArray(root?.Snapshot).map((raw) => {
 				const record =
-					raw && typeof raw === 'object' ? (raw as { Title?: unknown; Date?: unknown }) : {};
+					raw && typeof raw === 'object'
+						? (raw as { Title?: unknown; Date?: unknown })
+						: {};
 				return { title: textOf(record.Title), date: textOf(record.Date) };
 			});
 		}

@@ -166,7 +166,9 @@ test.each(['markdown', 'html', 'json'] as const)(
 		if (format === 'json') {
 			const exported = flatten(JSON.parse(result.content) as ScrivenerDocument[]);
 			expect(exported.find((document) => document.id === EMPTY)?.content).toBe('');
-			expect(exported.find((document) => document.id === SECOND)?.includeInCompile).toBe(false);
+			expect(exported.find((document) => document.id === SECOND)?.includeInCompile).toBe(
+				false
+			);
 		} else if (format === 'html') {
 			expect(result.content).not.toContain('<script>');
 			for (const text of ['title()', 'metadata()', 'prose()'])
@@ -178,7 +180,9 @@ test.each(['markdown', 'html', 'json'] as const)(
 );
 
 test('unsupported formats fail before reading project structure or saved text', async () => {
-	await expect(exporter.exportProject('unsupported')).rejects.toThrow(/unsupported export format/i);
+	await expect(exporter.exportProject('unsupported')).rejects.toThrow(
+		/unsupported export format/i
+	);
 	expect(structureReads).toBe(0);
 	expect(reads).toEqual([]);
 });

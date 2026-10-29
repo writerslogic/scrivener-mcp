@@ -264,7 +264,9 @@ describe('JobQueueService v2', () => {
 		});
 
 		it('should get job status', async () => {
-			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, { documentId: 'test' });
+			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'test',
+			});
 			const mockJob = {
 				...storedJobs.get(id),
 				progress: 50,
@@ -283,7 +285,9 @@ describe('JobQueueService v2', () => {
 		});
 
 		it('should cancel job', async () => {
-			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, { documentId: 'test' });
+			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'test',
+			});
 			const mockJob = {
 				...storedJobs.get(id),
 				remove: jest.fn(() => Promise.resolve()),
@@ -335,22 +339,41 @@ describe('JobQueueService v2', () => {
 				const job = storedJobs.get(id);
 				if (kind === 'legacy') job.data = job.data.payload;
 				else {
-					const field = { scope: 'scopeId', project: 'projectId', version: 'version', type: 'jobType' }[kind]!;
+					const field = {
+						scope: 'scopeId',
+						project: 'projectId',
+						version: 'version',
+						type: 'jobType',
+					}[kind]!;
 					job.data[field] = kind === 'version' ? 2 : 'foreign';
 				}
-				const processor = jest.mocked(workerConstructor).mock.calls.find(([type]) => type === JobType.ANALYZE_DOCUMENT)![1];
-				if (typeof processor !== 'function') throw new Error('Missing production processor');
+				const processor = jest
+					.mocked(workerConstructor)
+					.mock.calls.find(([type]) => type === JobType.ANALYZE_DOCUMENT)![1];
+				if (typeof processor !== 'function')
+					throw new Error('Missing production processor');
 				await expect(processor(job, 'fixture-token')).rejects.toThrow(/ownership/);
-				await expect(jobQueueService.getJobStatus(JobType.ANALYZE_DOCUMENT, id)).rejects.toThrow(/ownership/);
-				await expect(jobQueueService.cancelJob(JobType.ANALYZE_DOCUMENT, id)).rejects.toThrow(/ownership/);
+				await expect(
+					jobQueueService.getJobStatus(JobType.ANALYZE_DOCUMENT, id)
+				).rejects.toThrow(/ownership/);
+				await expect(
+					jobQueueService.cancelJob(JobType.ANALYZE_DOCUMENT, id)
+				).rejects.toThrow(/ownership/);
 			}
 		);
 
-		it.each([2097150, 2097151, 2097152])('enforces the BullMQ priority boundary at %i', async (priority) => {
-			const request = jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, { documentId: 'bounded' }, { priority });
-			if (priority > 2097151) await expect(request).rejects.toThrow(/priority/);
-			else expect(await request).toMatch(/^[a-f0-9]{64}-/);
-		});
+		it.each([2097150, 2097151, 2097152])(
+			'enforces the BullMQ priority boundary at %i',
+			async (priority) => {
+				const request = jobQueueService.addJob(
+					JobType.ANALYZE_DOCUMENT,
+					{ documentId: 'bounded' },
+					{ priority }
+				);
+				if (priority > 2097151) await expect(request).rejects.toThrow(/priority/);
+				else expect(await request).toMatch(/^[a-f0-9]{64}-/);
+			}
+		);
 	});
 
 	describe('concurrency settings', () => {

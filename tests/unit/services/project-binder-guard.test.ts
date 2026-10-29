@@ -50,7 +50,8 @@ const mutations: Array<{
 	},
 	{
 		name: 'batch metadata',
-		run: (p, o) => p.batchUpdateSynopsisAndNotes([{ documentId: DOCUMENT, synopsis: 'New' }], o),
+		run: (p, o) =>
+			p.batchUpdateSynopsisAndNotes([{ documentId: DOCUMENT, synopsis: 'New' }], o),
 	},
 	{ name: 'save', run: (p, o) => p.saveProject(o) },
 ];
@@ -128,34 +129,37 @@ test.each([
 	{ state: 'closed' as const, force: false },
 	{ state: 'open' as const, force: true },
 	{ state: 'unknown' as const, force: true },
-])('binder mutations persist for native state $state with force=$force', async ({ state, force }) => {
-	jest.mocked(isProjectOpenInScrivener).mockResolvedValue(state);
-	const options = { force };
-	const folder = await project.createDocument('New part', '', DRAFT, 'Folder', options);
-	const document = await project.createDocument(
-		'New scene',
-		'Saved scene.',
-		folder,
-		'Text',
-		options
-	);
-	await project.renameDocument(document, 'Renamed scene', options);
-	await project.moveDocument(document, TARGET, undefined, options);
-	await project.updateDocumentMetadata(document, { synopsis: 'Scene synopsis.' }, options);
-	await project.updateSynopsisAndNotes(document, undefined, 'Scene notes.', options);
-	await project.batchUpdateSynopsisAndNotes(
-		[{ documentId: document, synopsis: 'Final synopsis.' }],
-		options
-	);
-	await project.deleteDocument(document, options);
-	await project.recoverFromTrash(document, TARGET, options);
-	await project.saveProject(options);
-	expect(await fs.readFile(file, 'utf8')).toContain('Renamed scene');
-	expect(
-		await fs.readFile(path.join(root, 'Files', 'Data', document, 'synopsis.txt'), 'utf8')
-	).toBe('Final synopsis.');
-	expect(await project.readDocument(document)).toBe('Saved scene.');
-});
+])(
+	'binder mutations persist for native state $state with force=$force',
+	async ({ state, force }) => {
+		jest.mocked(isProjectOpenInScrivener).mockResolvedValue(state);
+		const options = { force };
+		const folder = await project.createDocument('New part', '', DRAFT, 'Folder', options);
+		const document = await project.createDocument(
+			'New scene',
+			'Saved scene.',
+			folder,
+			'Text',
+			options
+		);
+		await project.renameDocument(document, 'Renamed scene', options);
+		await project.moveDocument(document, TARGET, undefined, options);
+		await project.updateDocumentMetadata(document, { synopsis: 'Scene synopsis.' }, options);
+		await project.updateSynopsisAndNotes(document, undefined, 'Scene notes.', options);
+		await project.batchUpdateSynopsisAndNotes(
+			[{ documentId: document, synopsis: 'Final synopsis.' }],
+			options
+		);
+		await project.deleteDocument(document, options);
+		await project.recoverFromTrash(document, TARGET, options);
+		await project.saveProject(options);
+		expect(await fs.readFile(file, 'utf8')).toContain('Renamed scene');
+		expect(
+			await fs.readFile(path.join(root, 'Files', 'Data', document, 'synopsis.txt'), 'utf8')
+		).toBe('Final synopsis.');
+		expect(await project.readDocument(document)).toBe('Saved scene.');
+	}
+);
 
 test.each([
 	{ state: 'open' as const, synopsis: undefined },

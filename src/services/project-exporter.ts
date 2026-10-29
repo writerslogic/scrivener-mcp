@@ -103,12 +103,15 @@ export class ProjectExporter {
 		);
 	}
 
-	private async hydrateTextDocuments(documents: ScrivenerDocument[]): Promise<ScrivenerDocument[]> {
+	private async hydrateTextDocuments(
+		documents: ScrivenerDocument[]
+	): Promise<ScrivenerDocument[]> {
 		const hydrated: ScrivenerDocument[] = [];
 		for (const document of documents) {
 			const copy = { ...document };
 			if (document.type === 'Text') copy.content = await this.readDocument(document.id);
-			if (document.children) copy.children = await this.hydrateTextDocuments(document.children);
+			if (document.children)
+				copy.children = await this.hydrateTextDocuments(document.children);
 			hydrated.push(copy);
 		}
 		return hydrated;

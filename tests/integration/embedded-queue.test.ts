@@ -27,7 +27,11 @@ describe('embedded queue integration', () => {
 	});
 
 	it('runs real local analysis and retains results through a queue restart without replay', async () => {
-			expect(queue.getConnectionInfo()).toMatchObject({ type: 'embedded', isConnected: true, legacyQueues: 'excluded' });
+		expect(queue.getConnectionInfo()).toMatchObject({
+			type: 'embedded',
+			isConnected: true,
+			legacyQueues: 'excluded',
+		});
 		const id = await queue.addJob(JobType.ANALYZE_DOCUMENT, {
 			documentId: '00000000-0000-4000-8000-000000000001',
 			content: 'Mira waited by the gate. The wind carried a distant bell across the harbor.',
@@ -67,10 +71,18 @@ describe('embedded queue integration', () => {
 	it('rejects unsupported scheduling before admitting a job and accepts ordinary local execution', async () => {
 		const data = { documentId: 'local', content: 'A quiet scene.' };
 		for (const options of [{ priority: 1 }, { delay: 1 }])
-			await expect(queue.addJob(JobType.ANALYZE_DOCUMENT, data, options)).rejects.toThrow(/requires Redis/);
-		expect(await queue.getQueueStats(JobType.ANALYZE_DOCUMENT)).toMatchObject({ active: 0, completed: 0, failed: 0 });
+			await expect(queue.addJob(JobType.ANALYZE_DOCUMENT, data, options)).rejects.toThrow(
+				/requires Redis/
+			);
+		expect(await queue.getQueueStats(JobType.ANALYZE_DOCUMENT)).toMatchObject({
+			active: 0,
+			completed: 0,
+			failed: 0,
+		});
 		const id = await queue.addJob(JobType.ANALYZE_DOCUMENT, data, { priority: 0, delay: 0 });
-		expect(await queue.waitForJob(JobType.ANALYZE_DOCUMENT, id)).toMatchObject({ state: 'completed' });
+		expect(await queue.waitForJob(JobType.ANALYZE_DOCUMENT, id)).toMatchObject({
+			state: 'completed',
+		});
 	});
 
 	it('separates copied project identities and rejects foreign status and cancellation', async () => {
@@ -88,10 +100,17 @@ describe('embedded queue integration', () => {
 		try {
 			await other.initialize({ sqliteOnly: true });
 			expect(other.getConnectionInfo().scopeId).not.toBe(queue.getConnectionInfo().scopeId);
-			const id = await queue.addJob(JobType.ANALYZE_DOCUMENT, { documentId: 'shared', content: 'An original scene.' });
+			const id = await queue.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'shared',
+				content: 'An original scene.',
+			});
 			expect(await other.getJobStatus(JobType.ANALYZE_DOCUMENT, id)).toBeNull();
-			await expect(other.cancelJob(JobType.ANALYZE_DOCUMENT, id)).rejects.toThrow(/selected project/);
-			expect(await queue.waitForJob(JobType.ANALYZE_DOCUMENT, id)).toMatchObject({ state: 'completed' });
+			await expect(other.cancelJob(JobType.ANALYZE_DOCUMENT, id)).rejects.toThrow(
+				/selected project/
+			);
+			expect(await queue.waitForJob(JobType.ANALYZE_DOCUMENT, id)).toMatchObject({
+				state: 'completed',
+			});
 		} finally {
 			await other.shutdown();
 		}
