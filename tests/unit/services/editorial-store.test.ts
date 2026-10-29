@@ -1,7 +1,9 @@
 import Database from 'better-sqlite3';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, symlink, writeFile, readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 
 let root: string;
@@ -15,6 +17,41 @@ beforeEach(async () => {
 afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
+
+it('rejects directory state targets before opening SQLite', async () => {
+	await mkdir(file);
+	expect(() => new PersistentStore(file)).toThrow(/regular file/);
+});
+
+(process.platform === 'win32' ? it.skip : it)(
+	'rejects symlink and FIFO state files without modifying their targets or blocking',
+	async () => {
+		const target = join(root, 'external');
+		await writeFile(target, 'must remain unchanged');
+		await symlink(target, file);
+		expect(() => new PersistentStore(file)).toThrow(/symlink/);
+		expect(await readFile(target, 'utf8')).toBe('must remain unchanged');
+		await rm(file);
+		execFileSync('mkfifo', [file]);
+		const loader = createRequire(resolve('package.json')).resolve('tsx');
+		const check =
+			"const {pathToFileURL}=await import('node:url'); const {PersistentStore}=await import(pathToFileURL(process.argv[1]).href); try { new PersistentStore(process.argv[2]); process.exitCode=1; } catch(error) { process.stdout.write(error.message); }";
+		const result = execFileSync(
+			process.execPath,
+			[
+				'--import',
+				loader,
+				'--input-type=module',
+				'-e',
+				check,
+				resolve('src/services/editorial/persistent-store.ts'),
+				file,
+			],
+			{ timeout: 5000, maxBuffer: 4096, encoding: 'utf8' }
+		);
+		expect(result).toMatch(/regular file/);
+	}
+);
 
 it('migrates the empty schema, rolls back interrupted transitions and preserves committed state across restart', () => {
 	const store = new PersistentStore(file);

@@ -37,23 +37,25 @@ review_changes({ action: 'reject', proposalId: '<proposal UUID>', editIds: ['<ed
 review_changes({ action: 'undo', operationId: '<application UUID>' });
 ```
 
-Use `batch` with `proposalIds` for multiple applications, `list` to page through durable review summaries,
-and `recover` to inspect/recover interrupted applications. Retain operation identifiers when
-retrying. Batch progress is recoverable; it is not one atomic filesystem transaction. Changed saved
-revisions stop stale applications and undo instead of overwriting newer work. `force` only overrides
-native-app detection; it does not override revisions or another server's mutation reservation.
-Ambiguous native detection requires an explicit decision. Proposals whose saved preimage no longer
-matches the current text interpretation are rejected even if the raw revision is unchanged; recreate
-them from refreshed context after a parser upgrade.
+Use `batch` with `proposalIds` for multiple applications, `list` to page through durable review
+summaries, and `recover` to inspect/recover interrupted applications. Retain operation identifiers
+when retrying. Batch progress is recoverable; it is not one atomic filesystem transaction. Changed
+saved revisions stop stale applications and undo instead of overwriting newer work. `force` only
+overrides native-app detection; it does not override revisions or another server's mutation
+reservation. Ambiguous native detection requires an explicit decision. Proposals whose saved
+preimage no longer matches the current text interpretation are rejected even if the raw revision is
+unchanged; recreate them from refreshed context after a parser upgrade.
 
-History pages default to 20 items and accept `limit` from 1–100. `review_changes` returns independent
-`pagination.proposals`, `.applications` and `.batches` cursors; pass them as `proposalsAfter`,
-`applicationsAfter` and `batchesAfter`. List summaries omit manuscript text and edits; use
+History pages default to 20 items and accept `limit` from 1–100. `review_changes` returns
+independent `pagination.proposals`, `.applications` and `.batches` cursors; pass them as
+`proposalsAfter`, `applicationsAfter` and `batchesAfter`. Creation history uses
+`pagination.creations` and `creationsAfter`. List summaries omit manuscript text and edits; use
 `review_changes({action: 'get', proposalId: '<UUID>'})` for one full proposal. Workflow lists omit
-scope/step payloads; use `get` for those. `editorial_workflow` and `continuity_findings` accept `after`
-and return `nextCursor`. A null cursor ends that collection. Pages use stable ID order, rather than
-claiming chronological ordering; newly inserted lower IDs appear after restarting pagination.
-The dashboard pages histories separately from scenes and loads proposal details on demand.
+scope/step payloads; use `get` for those. `editorial_workflow` and `continuity_findings` accept
+`after` and return `nextCursor`. A null cursor ends that collection. Pages use stable ID order,
+rather than claiming chronological ordering; newly inserted lower IDs appear after restarting
+pagination. The dashboard pages histories separately from scenes and loads proposal details on
+demand.
 
 ## Find passages locally
 
@@ -71,9 +73,9 @@ concepts. Each response discloses its method and limitations.
 Results contain exact quotations, surrounding context, document identity, binder path, line, UTF-16
 offsets and the saved RTF revision. Changed documents update incrementally. Optional provider-backed
 interpretation or prose explanations are separate capabilities; they are unnecessary for this local
-search. `search` uses literal matching across the full active binder, including research and excluded
-drafts; `search_passages` and `semantic_search` use the compilable manuscript. Manuscript passages returned to an AI client are subject to that client's privacy and
-billing policies.
+search. `search` uses literal matching across the full active binder, including research and
+excluded drafts; `search_passages` and `semantic_search` use the compilable manuscript. Manuscript
+passages returned to an AI client are subject to that client's privacy and billing policies.
 
 ## Audit continuity with evidence
 
@@ -156,7 +158,6 @@ stable operation identifiers for retried proposals/exports, and rejects changed 
 active or ambiguous owner blocks another instance from resuming the same workflow. Inspect failed
 steps before resuming; do not blindly create a replacement run with a new request key.
 
-
 ## Retrieve large results and inspect queues
 
 Large `compile_documents` responses include `resultId`. Call
@@ -174,8 +175,35 @@ foreign job IDs, and processors reject legacy or foreign envelopes before analys
 Embedded jobs run immediately; nonzero priorities or delays require Redis/KeyDB and are rejected
 rather than silently ignored.
 
-Older unscoped queue keys and embedded records are retained but excluded from processing, status
-and cancellation. Do not relabel them automatically: ownership cannot be inferred safely. Inspect
-and retain the previous installation's records, verify the owning project, and deliberately
-resubmit unfinished work under that project. Moving a project changes its queue scope too; old
-history remains in its original scope. No automatic cross-project or move migration is performed.
+Older unscoped queue keys and embedded records are retained but excluded from processing, status and
+cancellation. Do not relabel them automatically: ownership cannot be inferred safely. Inspect and
+retain the previous installation's records, verify the owning project, and deliberately resubmit
+unfinished work under that project. Moving a project changes its queue scope too; old history
+remains in its original scope. No automatic cross-project or move migration is performed.
+
+## Recover creation and beta-export operations
+
+Creating a document stages its binder entry and content under one mutation operation; the binder is
+published after all new bodies are present. Native-app admission and saved-binder revision checks
+still apply. A stale binder or failed write leaves no optimistic live binder item. Recovery rolls
+back unchanged staged bodies when the old binder is still saved, finalizes a complete saved
+creation, or marks changed/ambiguous files conflicted for inspection. It never guesses that a
+changed document should be overwritten. `review_changes` list/recover includes sanitized
+`creationOperations` with outcome and created IDs/revisions. Internal utility integrations that
+persist new text must provide `commitCreation`; the old split write/save callback is rejected.
+
+Beta-reader workflows publish prepared bytes through that same mutation journal. Receipts bind
+scoped raw revisions, request identity, path and artifact digest. Resuming after publication reuses
+the verified artifact before regenerating, even when the workflow checkpoint was interrupted. A
+changed or preexisting output is preserved and requires a new destination/workflow after review. A
+recovered artifact remains evidence of its original source snapshot even if those sources have
+subsequently changed; fresh exports still require the expected revisions. Durable workflow exports
+use safe filenames directly under `.scrivener-mcp/exports`, with limits of 32 MiB artifact, 8 MiB
+result metadata and 64 MiB captured raw sources. The journal retains recovery payloads; this is not
+a claim of bounded lifetime project storage or filesystem-wide atomicity.
+
+Standard compilation reads saved formatted bodies without invoking a provider; unreadable sources
+fail the operation rather than producing an incomplete successful manuscript. Structured mode
+selects a manuscript/folder scope; explicit document IDs use standard or intelligent mode. Inline
+Markdown/HTML/JSON project exports contain full active-binder text, including research and
+compile-excluded drafts. Binary/preset exports use their documented manuscript selection instead.

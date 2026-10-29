@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { mkdirSync, chmodSync } from 'node:fs';
+import { mkdirSync, chmodSync, lstatSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 export interface StorePageOptions {
@@ -10,6 +10,10 @@ export interface StorePageOptions {
 export interface StorePage<T> {
 	items: T[];
 	nextCursor: string | null;
+}
+
+function validField(value: unknown): value is string {
+	return typeof value === 'string' && /^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(value);
 }
 
 export class PersistentStore {
@@ -23,6 +27,13 @@ export class PersistentStore {
 
 	constructor(filePath: string) {
 		const file = resolve(filePath);
+		try {
+			const entry = lstatSync(file);
+			if (!entry.isFile() || entry.isSymbolicLink())
+				throw new Error('Editorial state must use a regular file without symlinks');
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+		}
 		mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
 		this.db = new Database(file);
 		try {
@@ -95,8 +106,6 @@ export class PersistentStore {
 					options.after.length > 160))
 		)
 			throw new Error('History pages require a 1–100 item limit and a valid cursor');
-		const validField = (field: string) =>
-			typeof field === 'string' && /^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(field);
 		if (
 			fields &&
 			(!fields.length || fields.length > 32 || fields.some((field) => !validField(field)))
@@ -135,6 +144,38 @@ export class PersistentStore {
 		if (json === undefined || Buffer.byteLength(json) > 64 * 1024 * 1024)
 			throw new Error('Editorial state exceeds the storage limit');
 		this.statements.put.run(namespace, id, json);
+	}
+
+	countBy(
+		namespace: string,
+		field: string,
+		filter: { field: string; value: string }
+	): Record<string, number> {
+		if (
+			![field, filter.field].every(validField) ||
+			typeof filter.value !== 'string' ||
+			filter.value.length > 256
+		)
+			throw new Error('Invalid state count fields');
+		const rows = this.db
+			.prepare(
+				'SELECT json_extract(value, ?) AS bucket, COUNT(*) AS count FROM editorial_state WHERE namespace = ? AND json_extract(value, ?) = ? GROUP BY bucket'
+			)
+			.all(`$.${field}`, namespace, `$.${filter.field}`, filter.value) as Array<{
+			bucket: unknown;
+			count: number;
+		}>;
+		const counts: Record<string, number> = Object.create(null);
+		for (const row of rows) {
+			if (
+				typeof row.bucket !== 'string' ||
+				row.bucket.length > 128 ||
+				!Number.isSafeInteger(row.count)
+			)
+				throw new Error('Malformed state count result');
+			counts[row.bucket] = row.count;
+		}
+		return counts;
 	}
 
 	delete(namespace: string, id: string): void {

@@ -285,6 +285,34 @@ async function snapshotCount(projectPath, documentId) {
 	return (await readdir(folder)).filter((name) => name.endsWith('.rtf')).length;
 }
 
+async function verifyCreatedDocument(client, fixture) {
+	const selected = await tool(client, 'manuscript_dashboard', {
+		documentId: fixture.created.id,
+		limit: 1,
+	});
+	verify(
+		selected.context?.text === fixture.created.text,
+		'Created document is not readable through saved manuscript context'
+	);
+	const history = (await tool(client, 'review_changes', { action: 'list', limit: 100 })).result;
+	const operation = history.creationOperations.find((item) =>
+		item.creationSummary.some((document) => document.documentId === fixture.created.id)
+	);
+	verify(
+		operation?.state === 'committed' &&
+			operation.creationOutcome === 'published' &&
+			!('creationDocuments' in operation) &&
+			!('beforeRaw' in operation) &&
+			!('afterRaw' in operation),
+		'Creation history omitted its durable sanitized receipt'
+	);
+	verify(
+		(await readFile(fixture.file)).equals(fixture.raw),
+		'Document creation changed an existing manuscript body'
+	);
+	return operation.id;
+}
+
 async function awaitWorkflow(client, id) {
 	const deadline = Date.now() + 60000;
 	while (Date.now() < deadline) {
@@ -1394,6 +1422,22 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 				);
 				await tool(eager, 'close_project', {});
 			});
+			await check('installed-compound-document-creation', async () => {
+				await tool(eager, 'open_project', { path: largeFixture.projectPath });
+				const text = 'Created scene: Café — 東京 🌙.';
+				const created = await tool(eager, 'create_document', {
+					title: 'Synthetic atomic creation',
+					content: text,
+					force: true,
+				});
+				verify(
+					typeof created.documentId === 'string',
+					'Document creation returned no stable identity'
+				);
+				largeFixture.created = { id: created.documentId, text };
+				largeFixture.created.operationId = await verifyCreatedDocument(eager, largeFixture);
+				await tool(eager, 'close_project', {});
+			});
 		} finally {
 			await eager.close();
 		}
@@ -1568,6 +1612,15 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 				verify(
 					(await readFile(originalFile, 'utf8')) === originalRaw,
 					'Read-only analyses or workflows changed manuscript bytes'
+				);
+				await tool(app, 'close_project', {});
+			});
+			await check('installed-compound-creation-after-restart', async () => {
+				await tool(app, 'open_project', { path: largeFixture.projectPath });
+				verify(
+					(await verifyCreatedDocument(app, largeFixture)) ===
+						largeFixture.created.operationId,
+					'Creation receipt changed after a server restart'
 				);
 				await tool(app, 'close_project', {});
 			});

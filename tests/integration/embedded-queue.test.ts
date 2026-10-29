@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, readdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { JobQueueService, JobType } from '../../src/services/queue/job-queue.js';
@@ -27,6 +27,7 @@ describe('embedded queue integration', () => {
 	});
 
 	it('runs real local analysis and retains results through a queue restart without replay', async () => {
+		expect(await readdir(join(directory, '.scrivener-mcp'))).not.toContain('queue-state.json');
 		expect(queue.getConnectionInfo()).toMatchObject({
 			type: 'embedded',
 			isConnected: true,
@@ -50,6 +51,27 @@ describe('embedded queue integration', () => {
 		expect(await queue.getJobStatus(JobType.CHECK_CONSISTENCY, id)).toBeNull();
 	});
 
+	it('rejects a redirected project state directory before creating external state', async () => {
+		const redirected = join(directory, 'Linked.scriv');
+		const outside = join(directory, 'external-state');
+		await mkdir(redirected);
+		await mkdir(outside);
+		await symlink(
+			outside,
+			join(redirected, '.scrivener-mcp'),
+			process.platform === 'win32' ? 'junction' : 'dir'
+		);
+		const unsafe = new JobQueueService(redirected);
+		try {
+			await expect(unsafe.initialize({ sqliteOnly: true })).rejects.toMatchObject({
+				details: { message: expect.stringMatching(/symlink|outside/i) },
+			});
+			expect(await readdir(outside)).toEqual([]);
+		} finally {
+			await unsafe.shutdown();
+		}
+	});
+
 	it('keeps cancellation terminal and reports failed jobs as failures', async () => {
 		const cancelledId = await queue.addJob(JobType.ANALYZE_DOCUMENT, {
 			documentId: 'cancelled',
@@ -65,6 +87,16 @@ describe('embedded queue integration', () => {
 		});
 		expect(await queue.waitForJob(JobType.EXPORT_PROJECT, failedId)).toMatchObject({
 			state: 'failed',
+		});
+		expect(await queue.getQueueStats(JobType.ANALYZE_DOCUMENT)).toMatchObject({
+			active: 0,
+			cancelled: 1,
+			failed: 0,
+		});
+		expect(await queue.getQueueStats(JobType.EXPORT_PROJECT)).toMatchObject({
+			active: 0,
+			cancelled: 0,
+			failed: 1,
 		});
 	});
 

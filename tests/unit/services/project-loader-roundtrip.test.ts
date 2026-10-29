@@ -181,11 +181,19 @@ describe('ProjectLoader XML round trips', () => {
 					const items = Array.isArray(binder.BinderItem)
 						? binder.BinderItem
 						: [binder.BinderItem!];
-					binder.BinderItem = change === 'removed'
-						? items.filter((item) => item.UUID !== draftId)
-						: items.map((item) => item.UUID === draftId
-							? { UUID: draftId, Type: 'DraftFolder', Title: 'Renamed', Children: item.Children }
-							: item);
+					binder.BinderItem =
+						change === 'removed'
+							? items.filter((item) => item.UUID !== draftId)
+							: items.map((item) =>
+									item.UUID === draftId
+										? {
+												UUID: draftId,
+												Type: 'DraftFolder',
+												Title: 'Renamed',
+												Children: item.Children,
+											}
+										: item
+								);
 					await competing.saveProject(external);
 					savedExternal = await fs.readFile(scrivxPath, 'utf8');
 					stagedIds.push(...documents.map((document) => document.documentId));
@@ -210,16 +218,20 @@ describe('ProjectLoader XML round trips', () => {
 				expect(savedExternal).not.toContain('Concurrent scene');
 				const saved = await parse(savedExternal);
 				const items = Array.isArray(saved.ScrivenerProject.Binder.BinderItem)
-					? saved.ScrivenerProject.Binder.BinderItem : [saved.ScrivenerProject.Binder.BinderItem];
-				const parent = items.find((item: { $: { UUID: string } }) => item.$.UUID === draftId);
+					? saved.ScrivenerProject.Binder.BinderItem
+					: [saved.ScrivenerProject.Binder.BinderItem];
+				const parent = items.find(
+					(item: { $: { UUID: string } }) => item.$.UUID === draftId
+				);
 				if (change === 'removed') expect(parent).toBeUndefined();
 				else expect(parent.Title).toBe('Renamed');
 				expect(JSON.stringify(loader.getProjectStructure())).toBe(original);
 				expect(JSON.stringify(manager.getProjectStructureData())).toBe(original);
 				expect(stagedIds).toHaveLength(1);
 				for (const id of stagedIds)
-					await expect(fs.lstat(path.join(projectPath, 'Files', 'Data', id, 'content.rtf')))
-						.rejects.toMatchObject({ code: 'ENOENT' });
+					await expect(
+						fs.lstat(path.join(projectPath, 'Files', 'Data', id, 'content.rtf'))
+					).rejects.toMatchObject({ code: 'ENOENT' });
 			} finally {
 				await competing.close();
 			}

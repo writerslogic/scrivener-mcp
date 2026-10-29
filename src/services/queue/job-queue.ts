@@ -13,14 +13,13 @@ import { hostname } from 'node:os';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
-import { getQueueStatePath } from '../../utils/project-utils.js';
 import { DatabaseService } from '../../handlers/database/database-service.js';
 import { getEnvConfig } from '../../utils/env-config.js';
 import { getDocumentPath } from '../../utils/scrivener-utils.js';
 import { AIClient } from '../ai/ai-client.js';
 import { AIWritingService } from '../ai/ai-writing-service.js';
 import { createBullMQConnection, detectConnection } from './keydb-detector.js';
-import { MemoryRedis } from './memory-redis.js';
+import { MutationCoordinator } from '../editorial/mutation-coordinator.js';
 import { PersistentStore } from '../editorial/persistent-store.js';
 import { getOrCreateProjectIdentity } from '../editorial/project-identity.js';
 import {
@@ -113,8 +112,7 @@ export class JobQueueService {
 	private queues: Map<JobType, Queue> = new Map();
 	private workers: Map<JobType, Worker> = new Map();
 	private events: Map<JobType, QueueEvents> = new Map();
-	private connection: Redis | MemoryRedis | undefined = undefined;
-	private memoryRedis: MemoryRedis | undefined = undefined;
+	private connection: Redis | undefined = undefined;
 	private embeddedJobs: Map<string, EmbeddedJobStatus> = new Map();
 	private embeddedStore?: PersistentStore;
 	private scope?: QueueScope;
@@ -158,9 +156,9 @@ export class JobQueueService {
 			this.continuity = options.continuity;
 			if (this.projectPath) {
 				this.projectPath = await realpath(this.projectPath);
-				this.embeddedStore = new PersistentStore(
-					path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
-				);
+				const statePath = path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite');
+				new MutationCoordinator(this.projectPath).assertProjectPath(statePath);
+				this.embeddedStore = new PersistentStore(statePath);
 				this.scope = createQueueScope(
 					getOrCreateProjectIdentity(this.embeddedStore),
 					this.projectPath
@@ -179,21 +177,7 @@ export class JobQueueService {
 					version: connectionInfo.version,
 				});
 			} else {
-				// Fallback to embedded MemoryRedis
 				this.logger.info('No KeyDB/Redis found, using embedded queue');
-
-				const persistPath = this.projectPath
-					? getQueueStatePath(this.projectPath)
-					: undefined;
-
-				// Create directory if needed
-				if (persistPath) {
-					const fs = await import('fs/promises');
-					await fs.mkdir(path.dirname(persistPath), { recursive: true });
-					this.memoryRedis = new MemoryRedis({ persistPath });
-					await this.memoryRedis.connect();
-					this.connection = this.memoryRedis;
-				}
 				this.connectionType = 'embedded';
 			}
 
@@ -227,11 +211,6 @@ export class JobQueueService {
 			this.contentAnalyzer = new ContentAnalyzer();
 
 			// Step 3: Create queues and workers for each job type.
-			// MemoryRedis is not a real ioredis client (no duplicate(), no Lua script
-			// support), so handing it to BullMQ as `connection` makes BullMQ treat it as
-			// connection *options* instead and open a real socket to the default
-			// 127.0.0.1:6379 -- which then fails forever since nothing listens there.
-			// The embedded fallback runs jobs inline instead of through BullMQ.
 			if (this.connectionType !== 'embedded') {
 				for (const jobType of Object.values(JobType)) {
 					this.createQueue(jobType);
@@ -866,9 +845,30 @@ export class JobQueueService {
 			let completed = 0;
 			let failed = 0;
 			let cancelled = 0;
-			const jobs = this.embeddedStore?.list<EmbeddedJobStatus>(this.embeddedNamespace()) ?? [
-				...this.embeddedJobs.values(),
-			];
+			if (this.embeddedStore) {
+				const counts = this.embeddedStore.countBy(this.embeddedNamespace(), 'state', {
+					field: 'jobType',
+					value: jobType,
+				});
+				if (
+					Object.keys(counts).some(
+						(state) =>
+							!['active', 'completed', 'failed', 'cancelled', 'interrupted'].includes(
+								state
+							)
+					)
+				)
+					throw new Error('Malformed embedded queue state');
+				return {
+					waiting: 0,
+					active: counts.active ?? 0,
+					completed: counts.completed ?? 0,
+					failed: (counts.failed ?? 0) + (counts.interrupted ?? 0),
+					cancelled: counts.cancelled ?? 0,
+					delayed: 0,
+				};
+			}
+			const jobs = this.embeddedJobs.values();
 			for (const job of jobs) {
 				if (job.jobType !== jobType) continue;
 				if (job.state === 'active') active++;
@@ -955,11 +955,7 @@ export class JobQueueService {
 
 		// Close connection
 		if (this.connection) {
-			if (this.connectionType === 'embedded' && this.memoryRedis) {
-				await this.memoryRedis.disconnect();
-			} else if (this.connection.quit) {
-				await this.connection.quit();
-			}
+			await this.connection.quit();
 		}
 
 		// Clear maps
@@ -976,7 +972,6 @@ export class JobQueueService {
 		if (results[1].status === 'fulfilled') this.aiWritingService = null;
 		this.contentAnalyzer = null;
 		this.connection = undefined;
-		this.memoryRedis = undefined;
 		this.scope = undefined;
 		this.continuity = undefined;
 

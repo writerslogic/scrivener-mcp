@@ -31,16 +31,6 @@ jest.mock('../../../src/services/queue/keydb-detector.js', () => ({
 	createBullMQConnection: jest.fn(),
 }));
 
-// Mock MemoryRedis
-jest.mock('../../../src/services/queue/memory-redis.js', () => ({
-	MemoryRedis: jest.fn().mockImplementation(() => ({
-		connect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-		disconnect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-		on: jest.fn(),
-		once: jest.fn(),
-	})),
-}));
-
 // Mock services
 jest.mock('../../../src/analysis/base-analyzer.js', () => ({
 	ContentAnalyzer: jest.fn(() => ({
