@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 import {
+	CURRENT_MIN_NODE_VERSION,
 	MIN_NODE_MAJOR,
 	MIN_NODE_API_VERSION,
 	MIN_NODE_VERSION,
+	NEXT_MIN_NODE_VERSION,
 	SUPPORTED_NODE_RANGE,
 	isSupportedRuntime,
 } from '../dist/setup/runtime.js';
@@ -20,10 +22,14 @@ if (
 const bootstrap = await readFile(new URL('./bootstrap-mac.sh', import.meta.url), 'utf8');
 const bootstrapMinimum = /^MIN_VERSION='([^']+)'$/m.exec(bootstrap)?.[1];
 const bootstrapNextMinimum = /^NEXT_MIN_VERSION='([^']+)'$/m.exec(bootstrap)?.[1];
+const bootstrapCurrentMinimum = /^CURRENT_MIN_VERSION='([^']+)'$/m.exec(bootstrap)?.[1];
 const bootstrapNapi = /^MIN_NAPI=(\d+)$/m.exec(bootstrap)?.[1];
 if (
 	bootstrapMinimum !== MIN_NODE_VERSION ||
-	`^${bootstrapMinimum} || >=${bootstrapNextMinimum}` !== SUPPORTED_NODE_RANGE ||
+	bootstrapNextMinimum !== NEXT_MIN_NODE_VERSION ||
+	bootstrapCurrentMinimum !== CURRENT_MIN_NODE_VERSION ||
+	`^${bootstrapMinimum} || ^${bootstrapNextMinimum} || >=${bootstrapCurrentMinimum}` !==
+		SUPPORTED_NODE_RANGE ||
 	bootstrapNapi !== String(MIN_NODE_API_VERSION)
 )
 	throw new Error('Bootstrap and setup runtime requirements disagree');

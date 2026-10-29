@@ -34,11 +34,23 @@ function bootstrap(
 posix('standalone bootstrap runtime selection', () => {
 	it.each([
 		{ version: '22.13.999', napi: '10', accepted: false },
-		{ version: '22.14.0', napi: '10', accepted: true },
+		{ version: '22.14.0', napi: '10', accepted: false },
+		{ version: '22.23.3', napi: '10', accepted: false },
+		{ version: '22.23.4', napi: '10', accepted: true },
+		{ version: '22.23.5', napi: '10', accepted: true },
 		{ version: '23.5.99', napi: '10', accepted: false },
-		{ version: '23.6.0', napi: '10', accepted: true },
-		{ version: '24.0.0-rc.1', napi: '10', accepted: false },
-		{ version: '24.0.0', napi: '9', accepted: false },
+		{ version: '23.6.0', napi: '10', accepted: false },
+		{ version: '23.99.99', napi: '10', accepted: false },
+		{ version: '24.22.0', napi: '10', accepted: false },
+		{ version: '24.22.1', napi: '10', accepted: true },
+		{ version: '24.22.2', napi: '10', accepted: true },
+		{ version: '25.99.99', napi: '10', accepted: false },
+		{ version: '26.12.0', napi: '10', accepted: false },
+		{ version: '26.12.1', napi: '10', accepted: true },
+		{ version: '26.12.2', napi: '10', accepted: true },
+		{ version: '27.0.0', napi: '10', accepted: true },
+		{ version: '26.12.1-rc.1', napi: '10', accepted: false },
+		{ version: '24.22.1', napi: '9', accepted: false },
 		{ version: '9007199254740992.0.0', napi: '10', accepted: false },
 	])('checks stable Node $version and N-API $napi before invoking setup', async (fixture) => {
 		const directory = await mkdtemp(join(tmpdir(), 'scrivener-bootstrap-'));
