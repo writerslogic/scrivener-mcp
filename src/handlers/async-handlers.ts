@@ -121,6 +121,7 @@ export async function initializeAsyncServices(
 				await retry(
 					() =>
 						candidate.initialize({
+							redisUrl: options.redisUrl || getEnv('REDIS_URL'),
 							openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
 							databasePath: options.databasePath,
 							neo4jUri: options.neo4jUri || getEnv('NEO4J_URI'),
@@ -252,7 +253,7 @@ export async function buildVectorStore(params: {
 			const jobId = await jobQueueService.addJob(
 				JobType.BUILD_VECTOR_STORE,
 				{ documents: params.documents },
-				{ priority: 1 } // High priority
+				{ priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 1 }
 			);
 
 			return {
@@ -320,7 +321,7 @@ export async function generateSuggestions(params: {
 					documentId: params.documentId,
 					prompt: params.prompt,
 				},
-				{ priority: 2 }
+				{ priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 2 }
 			);
 
 			return {
@@ -379,7 +380,7 @@ export async function checkPlotConsistency(params: {
 			const jobId = await jobQueueService.addJob(
 				JobType.CHECK_CONSISTENCY,
 				{ documents: params.documents },
-				{ priority: 3 }
+				{ priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 3 }
 			);
 
 			return {
