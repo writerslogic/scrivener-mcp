@@ -352,7 +352,6 @@ export interface ClassificationResult {
 }
 
 export class MLWordClassifierPro {
-	private contextCache = new Map<string, ClassificationResult>();
 	private sentimentAnalyzer = nlpAnalyzer;
 
 	// Advanced optimization features
@@ -419,17 +418,6 @@ export class MLWordClassifierPro {
 		const startTime = performance.now();
 
 		try {
-			// Fast path: check cache first
-			const contextHash = generateHash(context.substring(0, 1000));
-			const cached = this.getCachedClassification(word, contextHash);
-			if (cached) {
-				this.trackClassificationPerformance(
-					'classification-cache-hit',
-					performance.now() - startTime
-				);
-				return cached;
-			}
-
 			validateInput(
 				{ word, context, position },
 				{
@@ -439,13 +427,16 @@ export class MLWordClassifierPro {
 				}
 			);
 
-			// Check cache first using hash for better cache key
-			const cacheKey = generateHash(`${word}:${position}:${context.length}`);
-			if (this.contextCache.has(cacheKey)) {
-				return this.contextCache.get(cacheKey)!;
-			}
-
 			const truncatedContext = truncate(context, 2000); // Limit for performance
+			const contextHash = generateHash(JSON.stringify([position, truncatedContext]));
+			const cached = this.getCachedClassification(word, contextHash);
+			if (cached) {
+				this.trackClassificationPerformance(
+					'classification-cache-hit',
+					performance.now() - startTime
+				);
+				return cached;
+			}
 			const textMetrics = getTextMetrics(truncatedContext);
 
 			logger.debug('Classifying word', {
@@ -458,8 +449,6 @@ export class MLWordClassifierPro {
 			const features = this.extractAdvancedFeatures(word, truncatedContext, position);
 			const result = this.performProfessionalClassification(features);
 
-			// Cache the result in both caches
-			this.contextCache.set(cacheKey, result);
 			this.setCachedClassification(word, contextHash, result);
 
 			// Track performance
@@ -484,7 +473,7 @@ export class MLWordClassifierPro {
 
 	private extractAdvancedFeatures(word: string, context: string, position: number): WordFeatures {
 		// Check feature cache first
-		const cacheKey = `${word}_${position}_${generateHash(context.slice(0, 100))}`;
+		const cacheKey = generateHash(JSON.stringify([word, position, context]));
 		const cachedFeatures = this.featureCache.get(cacheKey);
 		if (cachedFeatures) {
 			return cachedFeatures;
@@ -913,7 +902,8 @@ export class MLWordClassifierPro {
 	}
 
 	clearCache(): void {
-		this.contextCache.clear();
+		this.classificationCache.clear();
+		this.featureCache.clear();
 	}
 
 	/**

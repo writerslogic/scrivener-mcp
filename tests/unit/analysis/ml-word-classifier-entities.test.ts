@@ -9,6 +9,35 @@ import { MLWordClassifierPro } from '../../../src/analysis/ml-word-classifier-pr
 describe('MLWordClassifierPro', () => {
 	const classifier = new MLWordClassifierPro();
 
+	it('keeps equal-length contexts and repeated word positions equivalent to fresh analysis', () => {
+		const instance = new MLWordClassifierPro();
+		const first = 'we think outside box';
+		const second = 'we think outside hut';
+		expect(instance.classify('outside', first, 9).isCliche).toBe(true);
+		expect(instance.classify('outside', second, 9)).toEqual(
+			new MLWordClassifierPro().classify('outside', second, 9)
+		);
+		expect(instance.classify('outside', second, 9).isCliche).toBe(false);
+		const repeated = `${first} and ${second}`;
+		for (const position of [9, repeated.lastIndexOf('outside')]) {
+			expect(instance.classify('outside', repeated, position)).toEqual(
+				new MLWordClassifierPro().classify('outside', repeated, position)
+			);
+		}
+	});
+
+	it('includes the complete analyzed context beyond old cache prefixes', () => {
+		const prefix = 'Quiet footsteps crossed the empty room. '.repeat(29);
+		const first = `${prefix}we think outside box`;
+		const second = `${prefix}we think outside hut`;
+		const position = first.indexOf('outside');
+		const instance = new MLWordClassifierPro();
+		instance.classify('outside', first, position);
+		expect(instance.classify('outside', second, position)).toEqual(
+			new MLWordClassifierPro().classify('outside', second, position)
+		);
+	});
+
 	it('detects an intensifier as a filler word (classifier is functional)', () => {
 		expect(classifier.classify('very', 'It was very cold outside today.', 2).isFilterWord).toBe(
 			true
