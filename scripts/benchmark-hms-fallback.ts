@@ -31,7 +31,7 @@ const timings: Array<{ batchMs: number; firstQueryMs: number; warmQueryMs: numbe
 try {
 	process.chdir(isolated);
 	for (let repetition = 0; repetition < repetitions; repetition++) {
-		const hms = new HolographicMemorySystem({ dimensions: 512 });
+		const hms = new HolographicMemorySystem({ dimensions: 512, engine: 'fallback' });
 		try {
 			assert.equal(hms.getStats().engine, 'JS Fallback');
 			const started = performance.now();

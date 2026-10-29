@@ -82,9 +82,11 @@ export class SQLiteManager {
 			try {
 				await this.releaseResources();
 			} catch (cleanupError) {
-				throw new Error('SQLite initialization and cleanup failed', {
-					cause: [error, cleanupError],
-				});
+				throw new AggregateError(
+					[error, cleanupError],
+					'SQLite initialization and cleanup failed',
+					{ cause: cleanupError }
+				);
 			}
 			throw error;
 		}

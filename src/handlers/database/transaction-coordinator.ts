@@ -83,7 +83,7 @@ export class TransactionCoordinator {
 
 			txn.status = 'prepared';
 			return true;
-		} catch (_error) {
+		} catch {
 			await this.rollback(transactionId);
 			return false;
 		}
@@ -114,9 +114,11 @@ export class TransactionCoordinator {
 			try {
 				await this.rollback(transactionId);
 			} catch (rollbackError) {
-				throw new Error('Transaction commit and rollback failed', {
-					cause: [error, rollbackError],
-				});
+				throw new AggregateError(
+					[error, rollbackError],
+					'Transaction commit and rollback failed',
+					{ cause: rollbackError }
+				);
 			}
 			throw error;
 		}

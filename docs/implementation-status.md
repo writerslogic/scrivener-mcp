@@ -461,3 +461,28 @@ read-only, and temporary creation modes are explicitly private. Growth/replaceme
 FIFO probes exercise the installed reader. The native gate hashes and stages the same verified
 fixture buffer. CI checks the latest selected release instead of an obsolete cached runner runtime;
 exact minimum-version coverage remains unchanged.
+
+## Repository consolidation
+
+The requested final state is one Scrivener MCP checkout on main, synchronized with origin/main, with
+no other local branches, linked worktrees or stashes. The original 70 pending paths were captured in
+c48c43d and merged with the current C2PA/HMS/security baseline. Pending database, saved-write,
+memory-persistence, cache and lifecycle improvements were genuinely absent upstream; 137 focused
+regressions pass after integration. Current security floors and asynchronous HMS cleanup remain
+intact.
+
+All 35 original branch heads are reachable from the integration history. Patch-equivalent heads and
+twelve semantically superseded commits were audited before retaining their history without
+reintroducing obsolete implementations. A verified Git bundle, original binary patch and untracked
+file archive are retained under logs/repository-consolidation-20261028. Full release verification,
+protected remote integration and final worktree removal follow before the cleanup is complete.
+
+The consolidated candidate passes formatting, lint without warnings, TypeScript, build, runtime
+policy, the 78-tool registry and output contracts, HMS compatibility and native C2PA compatibility.
+All 102 suites pass: 1,301 tests passed and nine explicitly opted-in live-provider tests were
+skipped. An initial run incorrectly forced local-only mode onto mocked provider-selection tests;
+the corrected run removes that override and all real provider credentials, with live tests disabled.
+The dependency audit reports zero vulnerabilities. Fresh package installation and 17 actual
+CLI/MCP/App/restart checks, the dashboard browser exercise and all three EPUBCheck cases pass.
+The user explicitly included the separate private Draftbridge repository in consolidation; its
+source, original deletion patch and build artifacts remain private and independent of this history.

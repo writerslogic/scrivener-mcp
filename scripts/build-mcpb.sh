@@ -11,11 +11,11 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BUILD="$ROOT/build"
-OUT="$ROOT/dist-mcpb"
+BUILD="${BUILD:-$ROOT/build}"
+OUT="${MCPB_OUT:-$ROOT/dist-mcpb}"
 SRC="$BUILD/mcpb-src"
 MCPB_CLI_VERSION="${MCPB_CLI_VERSION:-2.1.2}"
-VERSION="$(node -p "require('$ROOT/package.json').version")"
+VERSION="$(node -p 'require(process.argv[1]).version' "$ROOT/package.json")"
 ARCHIVE="$OUT/scrivener-mcp-$VERSION-macos-arm64.mcpb"
 
 say() { printf '\n==> %s\n' "$*"; }

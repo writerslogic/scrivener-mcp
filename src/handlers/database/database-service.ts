@@ -116,9 +116,11 @@ export class DatabaseService {
 				try {
 					await this.closeResources();
 				} catch (cleanupError) {
-					throw new Error('Database initialization and cleanup failed', {
-						cause: [error, cleanupError],
-					});
+					throw new AggregateError(
+						[error, cleanupError],
+						'Database initialization and cleanup failed',
+						{ cause: cleanupError }
+					);
 				}
 				throw error;
 			}
