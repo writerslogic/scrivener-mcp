@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import type { ScrivenerDocument } from '../../types/index.js';
 import type { PersistentStore } from './persistent-store.js';
 import type { ManuscriptSource, SourceDocument } from './types.js';
 import { RTFHandler } from '../parsers/rtf-handler.js';
 import { createError, ErrorCode } from '../../core/errors.js';
+import { getOrCreateProjectIdentity } from './project-identity.js';
 
 export const MAX_SOURCE_DOCUMENTS = 10000;
 export const MAX_SOURCE_CHARACTERS = 64 * 1024 * 1024;
@@ -26,13 +27,7 @@ export class ProjectSource implements ManuscriptSource {
 		private readonly allDocuments?: () => Promise<ScrivenerDocument[]>
 	) {
 		this.projectPath = realpathSync(projectPath);
-		this.projectId = store.transaction(() => {
-			const existing = store.get<string>('identity', 'project');
-			if (existing) return existing;
-			const identity = randomUUID();
-			store.put('identity', 'project', identity);
-			return identity;
-		});
+		this.projectId = getOrCreateProjectIdentity(store);
 	}
 
 	async list(): Promise<SourceDocument[]> {

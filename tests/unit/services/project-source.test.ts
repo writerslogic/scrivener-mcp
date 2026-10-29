@@ -77,6 +77,24 @@ it('retains a stable canonical project identity across independently opened data
 	expect(restarted.projectId).toMatch(/^[0-9a-f-]{36}$/i);
 });
 
+it.each(['', null, 7, {}, 'not-a-uuid'])(
+	'rejects malformed persisted identity without replacing its history: %j',
+	(value) => {
+		const store = openStore(join(root, '.scrivener-mcp', 'editorial.sqlite'));
+		store.put('identity', 'project', value);
+		expect(
+			() =>
+				new ProjectSource(
+					root,
+					store,
+					async () => [],
+					async () => ''
+				)
+		).toThrow('identity is invalid');
+		expect(store.get('identity', 'project')).toEqual(value);
+	}
+);
+
 it('binds source revisions to exact raw RTF and refreshes text without stale content caching', async () => {
 	const parser = new RTFHandler();
 	const originals = new Map([
