@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createPrivateKey, randomBytes } from 'node:crypto';
 import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -12,9 +12,15 @@ import { deflateSync } from 'node:zlib';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const execute = promisify(execFile);
 
-async function command(program, args, env = process.env) {
+async function command(program, args, env = process.env, input) {
 	try {
-		return await execute(program, args, { env, timeout: 30_000, maxBuffer: 256 * 1024, windowsHide: true });
+		const pending = execute(program, args, { env, timeout: 30_000, maxBuffer: 256 * 1024, windowsHide: true });
+		let inputFailed = false;
+		pending.child.stdin.on('error', () => { inputFailed = true; });
+		pending.child.stdin.end(input);
+		const result = await pending;
+		if (inputFailed) throw new Error('Fixture command input failed');
+		return result;
 	} catch (error) {
 		throw new Error(error.code === 'ENOENT' ? `${program} is required on PATH` : `${program} failed to generate a synthetic fixture`);
 	}
@@ -38,10 +44,17 @@ export async function createC2paTestSigner(directory) {
 		await command('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-aes-256-cbc', '-pass', 'env:C2PA_FIXTURE_PASSPHRASE', '-out', key], env);
 		await chmod(key, 0o600);
 	}
-	await command('openssl', ['req', '-batch', '-new', '-x509', '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-key', rootKey, '-config', rootConfig, '-set_serial', '1', '-days', '2', '-sha256', '-out', trustAnchorsPath], env);
+	// OpenSSL 3.6 can prompt despite passin; transient DER avoids its encrypted-PEM UI loader.
+	const certificateCommand = async (args, keyPath) => {
+		const key = createPrivateKey({ key: await readFile(keyPath), passphrase: password });
+		const der = key.export({ format: 'der', type: 'pkcs8' });
+		try { await command('openssl', args, env, der); }
+		finally { der.fill(0); }
+	};
+	await certificateCommand(['req', '-batch', '-new', '-x509', '-key', '-', '-keyform', 'DER', '-config', rootConfig, '-set_serial', '1', '-days', '2', '-sha256', '-out', trustAnchorsPath], rootKey);
 	const request = join(directory, 'test-leaf.csr');
-	await command('openssl', ['req', '-batch', '-new', '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-key', privateKeyPath, '-subj', '/CN=Scrivener MCP Synthetic Fixture Signer - TEST ONLY', '-sha256', '-out', request], env);
-	await command('openssl', ['x509', '-req', '-in', request, '-CA', trustAnchorsPath, '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-CAkey', rootKey, '-set_serial', '2', '-days', '1', '-sha256', '-extfile', leafConfig, '-out', leaf], env);
+	await certificateCommand(['req', '-batch', '-new', '-key', '-', '-keyform', 'DER', '-subj', '/CN=Scrivener MCP Synthetic Fixture Signer - TEST ONLY', '-sha256', '-out', request], privateKeyPath);
+	await certificateCommand(['x509', '-req', '-in', request, '-CA', trustAnchorsPath, '-CAkey', '-', '-CAkeyform', 'DER', '-set_serial', '2', '-days', '1', '-sha256', '-extfile', leafConfig, '-out', leaf], rootKey);
 	await writeFile(certificatePath, Buffer.concat([await readFile(leaf), await readFile(trustAnchorsPath)]), { flag: 'wx', mode: 0o600 });
 	return { certificatePath, privateKeyPath, password, trustAnchorsPath };
 }
