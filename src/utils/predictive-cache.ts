@@ -63,6 +63,9 @@ export class PredictiveCache<T> {
 	private cacheHits = 0;
 	private prefetchHits = 0;
 	private model: PredictionModel;
+	private readonly backgroundTimers: ReturnType<typeof setInterval>[] = [];
+	private started = false;
+	private disposed = false;
 
 	// Feature extractors for ML model
 	private readonly featureExtractors = {
@@ -87,17 +90,6 @@ export class PredictiveCache<T> {
 	) {
 		this.maxCacheSize = maxCacheSize;
 		this.model = this.initializeModel();
-
-		// Start background processes
-		this.startPrefetchingLoop();
-		this.startModelUpdateLoop();
-		this.startCacheMaintenanceLoop();
-
-		logger.info('Predictive cache initialized', {
-			maxSize: this.formatBytes(maxCacheSize),
-			prefetchThreshold: this.prefetchThreshold,
-			modelFeatures: Object.keys(this.featureExtractors).length,
-		});
 	}
 
 	async get(
@@ -105,6 +97,8 @@ export class PredictiveCache<T> {
 		context: string[] = [],
 		userSession = 'default'
 	): Promise<T | undefined> {
+		if (this.disposed) return undefined;
+		this.startBackgroundProcesses();
 		const startTime = performance.now();
 		this.totalAccesses++;
 
@@ -146,7 +140,9 @@ export class PredictiveCache<T> {
 		if (this.dataLoader) {
 			try {
 				const value = await this.dataLoader(key);
+				if (this.disposed) return value;
 				await this.set(key, value, context, userSession);
+				if (this.disposed) return value;
 
 				// Record access pattern for learning
 				this.recordAccessPattern({
@@ -182,10 +178,16 @@ export class PredictiveCache<T> {
 		context: string[] = [],
 		userSession = 'default'
 	): Promise<void> {
+		if (this.disposed) return;
 		const size = this.estimateSize(value);
+		if (size > this.maxCacheSize) {
+			this.delete(key);
+			return;
+		}
+		this.startBackgroundProcesses();
 
-		// Ensure we have space
-		await this.ensureSpace(size);
+		const sizeDelta = size - (this.cache.get(key)?.size ?? 0);
+		this.ensureSpace(sizeDelta, key);
 
 		const entry: CacheEntry<T> = {
 			value,
@@ -199,7 +201,7 @@ export class PredictiveCache<T> {
 		};
 
 		this.cache.set(key, entry);
-		this.currentCacheSize += size;
+		this.currentCacheSize += sizeDelta;
 
 		logger.debug('Cached item', {
 			key: this.truncateKey(key),
@@ -223,9 +225,20 @@ export class PredictiveCache<T> {
 	}
 
 	clear(): void {
-		this.cache = new Map<string, CacheEntry<T>>();
+		this.cache.clear();
 		this.currentCacheSize = 0;
 		logger.info('Cache cleared');
+	}
+
+	dispose(): void {
+		if (this.disposed) return;
+		this.disposed = true;
+		for (const timer of this.backgroundTimers) clearInterval(timer);
+		this.backgroundTimers.length = 0;
+		this.cache.clear();
+		this.currentCacheSize = 0;
+		this.accessHistory.length = 0;
+		this.prefetchQueue.length = 0;
 	}
 
 	getStats(): {
@@ -282,6 +295,18 @@ export class PredictiveCache<T> {
 	}
 
 	// Private methods
+
+	private startBackgroundProcesses(): void {
+		if (this.started) return;
+		this.started = true;
+		if (this.dataLoader) this.backgroundTimers.push(this.startPrefetchingLoop());
+		this.backgroundTimers.push(this.startModelUpdateLoop(), this.startCacheMaintenanceLoop());
+		logger.info('Predictive cache initialized', {
+			maxSize: this.formatBytes(this.maxCacheSize),
+			prefetchThreshold: this.prefetchThreshold,
+			modelFeatures: Object.keys(this.featureExtractors).length,
+		});
+	}
 
 	private initializeModel(): PredictionModel {
 		return {
@@ -478,15 +503,13 @@ export class PredictiveCache<T> {
 		}
 	}
 
-	private async ensureSpace(requiredSize: number): Promise<void> {
+	private ensureSpace(requiredSize: number, replacedKey: string): void {
 		while (this.currentCacheSize + requiredSize > this.maxCacheSize) {
 			// Find least valuable item to evict
 			let leastValuable: { key: string; score: number } | null = null;
 
-			const cacheKeys = [...this.cache.keys()];
-			for (const key of cacheKeys) {
-				const entry = this.cache.get(key);
-				if (!entry) continue;
+			for (const [key, entry] of this.cache) {
+				if (key === replacedKey) continue;
 
 				// Calculate eviction score (lower is worse)
 				const timeSinceAccess = Date.now() - entry.lastAccess;
@@ -514,19 +537,22 @@ export class PredictiveCache<T> {
 		}
 	}
 
-	private startPrefetchingLoop(): void {
+	private startPrefetchingLoop(): ReturnType<typeof setInterval> {
 		const prefetchInterval = 5000; // 5 seconds
 
-		setInterval(async () => {
-			if (!this.dataLoader) return;
+		return setInterval(async () => {
+			if (this.disposed || !this.dataLoader) return;
 
 			const candidates = this.getPrefetchRecommendations(3);
 
 			for (const candidate of candidates) {
+				if (this.disposed) return;
 				if (this.currentCacheSize + candidate.estimatedSize < this.maxCacheSize * 0.8) {
 					try {
 						const value = await this.dataLoader(candidate.key);
+						if (this.disposed) return;
 						await this.set(candidate.key, value, [candidate.key]);
+						if (this.disposed) return;
 						logger.debug('Prefetched data', {
 							key: this.truncateKey(candidate.key),
 							confidence: candidate.confidence.toFixed(3),
@@ -543,20 +569,20 @@ export class PredictiveCache<T> {
 		}, prefetchInterval).unref();
 	}
 
-	private startModelUpdateLoop(): void {
+	private startModelUpdateLoop(): ReturnType<typeof setInterval> {
 		const updateInterval = 60000; // 1 minute
 
-		setInterval(async () => {
+		return setInterval(async () => {
 			if (this.totalAccesses % this.modelUpdateInterval === 0) {
 				await this.updateModel();
 			}
 		}, updateInterval).unref();
 	}
 
-	private startCacheMaintenanceLoop(): void {
+	private startCacheMaintenanceLoop(): ReturnType<typeof setInterval> {
 		const maintenanceInterval = 300000; // 5 minutes
 
-		setInterval(() => {
+		return setInterval(() => {
 			// Clean up expired entries
 			const now = Date.now();
 			const maxAge = 24 * 60 * 60 * 1000; // 24 hours

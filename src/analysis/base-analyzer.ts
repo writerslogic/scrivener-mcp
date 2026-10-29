@@ -84,6 +84,7 @@ export class ContentAnalyzer {
 		PredictiveCacheFactory.createMetadataCache<WritingMetrics>();
 	private readonly predictiveStyleCache =
 		PredictiveCacheFactory.createMetadataCache<StyleAnalysis>();
+	private disposed = false;
 	private isProcessingQueue = false;
 	private readonly maxCacheSize = 1000;
 	private readonly maxPoolSize = 50;
@@ -122,6 +123,16 @@ export class ContentAnalyzer {
 		this.suggestionGenerator = new SuggestionGenerator();
 	}
 
+	dispose(): void {
+		if (this.disposed) return;
+		this.disposed = true;
+		this.predictiveAnalysisCache.dispose();
+		this.predictiveMetricsCache.dispose();
+		this.predictiveStyleCache.dispose();
+		this.memoizedCalculations.clear();
+		this.resourcePool.clear();
+	}
+
 	private async memoizeAsync<T>(key: string, calculator: () => Promise<T>): Promise<T> {
 		const cached = this.memoizedCalculations.get(key);
 		if (cached !== undefined) {
@@ -136,11 +147,12 @@ export class ContentAnalyzer {
 		}
 
 		const result = await calculator();
-		this.memoizedCalculations.set(key, result);
+		if (!this.disposed) this.memoizedCalculations.set(key, result);
 		return result;
 	}
 
 	private getResourceFromPool<T>(type: string, creator: () => T): T {
+		if (this.disposed) return creator();
 		const existing = this.resourcePool.get(type);
 		const pool = existing || [];
 
@@ -156,6 +168,7 @@ export class ContentAnalyzer {
 	}
 
 	private returnResourceToPool<T>(type: string, resource: T): void {
+		if (this.disposed) return;
 		const existing = this.resourcePool.get(type);
 		const pool = existing || [];
 

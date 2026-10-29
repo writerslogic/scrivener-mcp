@@ -356,6 +356,6 @@ export async function createSnapshot(
 		logger.info('Created snapshot', { documentId, snapshotId: entry.snapshotId });
 		return entry;
 	} finally {
-		coordinator.close();
+		await coordinator.close();
 	}
 }

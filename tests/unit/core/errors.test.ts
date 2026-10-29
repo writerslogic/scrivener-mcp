@@ -10,6 +10,11 @@ import {
 	withErrorHandling,
 	withRetry,
 } from '../../../src/core/errors.js';
+import { runInNewContext } from 'node:vm';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { safeReadFile } from '../../../src/utils/common.js';
 
 describe('Error Handling', () => {
 	describe('ApplicationError', () => {
@@ -59,6 +64,41 @@ describe('Error Handling', () => {
 	});
 
 	describe('wrapError', () => {
+		it('retains support for custom error constructors that inherit from Error', () => {
+			const error = Object.assign(Object.create(Error.prototype), {
+				message: 'Custom storage error',
+				code: 'EACCES',
+			});
+			expect(wrapError(error)).toMatchObject({
+				code: ErrorCode.PERMISSION_DENIED,
+				statusCode: 403,
+			});
+		});
+
+		it.each([
+			['ENOENT', ErrorCode.NOT_FOUND, 404],
+			['EACCES', ErrorCode.PERMISSION_DENIED, 403],
+			['EPERM', ErrorCode.PERMISSION_DENIED, 403],
+			['EEXIST', ErrorCode.IO_ERROR, 409],
+		])('classifies a native %s error from another realm', (code, expectedCode, statusCode) => {
+			const error: unknown = runInNewContext(
+				'Object.assign(new Error("Storage failure"), { code })',
+				{ code }
+			);
+			expect(error).not.toBeInstanceOf(Error);
+			expect(wrapError(error, 'storage')).toMatchObject({
+				code: expectedCode,
+				statusCode,
+				details: { originalError: 'Storage failure' },
+			});
+		});
+
+		it('recognizes an actual missing file without treating it as an unexpected error', async () => {
+			await expect(
+				safeReadFile(join(tmpdir(), `missing-scrivener-${randomUUID()}`))
+			).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
+		});
+
 		it('should return ApplicationError unchanged', () => {
 			const appError = createError(ErrorCode.DATABASE_ERROR);
 			const wrapped = wrapError(appError);

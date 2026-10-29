@@ -2,9 +2,12 @@
 
 This guide demonstrates the AI-powered writing features in Scrivener MCP.
 
+![Scrivener MCP capability map: manuscript management, search, project memory, AI writing, craft analysis, continuity, relationships, goals, automation, reviewed edits, and publishing.](../assets/infographics/capability-map.png)
+
 ## Prerequisites
 
 1. Install Scrivener MCP:
+
 ```bash
 npm install -g scrivener-mcp
 ```
@@ -18,14 +21,17 @@ npm install -g scrivener-mcp
 ### 1. Open Your Project
 
 Ask Claude:
+
 > "Open my Scrivener project at /path/to/MyNovel.scriv"
 
 ### 2. Analyze Your Writing
 
 Get deep analysis of a chapter:
+
 > "Analyze chapter 1 for writing quality"
 
 Claude will provide:
+
 - Readability scores (Flesch-Kincaid, etc.)
 - Sentence variety analysis
 - Pacing assessment
@@ -36,45 +42,59 @@ Claude will provide:
 ### 3. Set Up Project Memory
 
 Create character profiles:
-> "Save a character profile for my protagonist Sarah: intelligent detective, observant and methodical, struggles with trust issues, her arc involves learning to rely on others"
+
+> "Save a character profile for my protagonist Sarah: intelligent detective, observant and
+> methodical, struggles with trust issues, her arc involves learning to rely on others"
 
 Track plot threads:
-> "Create a plot thread for 'Murder Mystery' that spans chapters 1-5, currently in development phase"
+
+> "Create a plot thread for 'Murder Mystery' that spans chapters 1-5, currently in development
+> phase"
 
 Define your style:
+
 > "Set my style guide: noir tone, first-person POV, past tense, hardboiled voice"
 
 ### 4. Enhance Your Content
 
 Eliminate weak words:
+
 > "Remove filter words from chapter 2"
 
 Strengthen prose:
+
 > "Strengthen the verbs in the opening scene"
 
 Improve variety:
+
 > "Vary the sentence structure in the dialogue scene"
 
 Add immersion:
+
 > "Add sensory details to the crime scene description"
 
 Show don't tell:
+
 > "Convert telling to showing in the character introduction"
 
 ### 5. Get Comprehensive Critiques
 
 Focus on specific areas:
+
 > "Critique chapter 3 focusing on pacing and dialogue"
 
 Get overall feedback:
+
 > "Give me a full critique of the climax scene"
 
 ### 6. Track Your Progress
 
 View statistics:
+
 > "Show my writing statistics"
 
 Export everything:
+
 > "Export my complete project memory"
 
 ## Advanced Features
@@ -82,24 +102,29 @@ Export everything:
 ### Batch Processing
 
 Analyze multiple documents:
+
 > "Analyze all chapters in Part 1 and identify consistency issues"
 
 ### Style Matching
 
 Maintain consistency:
+
 > "Enhance chapter 5 to match the style of chapter 1"
 
 ### Content Goals
 
 Meet word counts:
+
 > "Expand this scene to 2000 words while maintaining pacing"
 
 Or trim excess:
+
 > "Condense this chapter by 30% without losing key plot points"
 
 ### Memory Persistence
 
-All character profiles, plot threads, style guides, and analysis results are automatically saved in your Scrivener project. They persist between sessions and travel with your project file.
+All character profiles, plot threads, style guides, and analysis results are automatically saved in
+your Scrivener project. They persist between sessions and travel with your project file.
 
 ## Tips
 
@@ -128,6 +153,7 @@ All character profiles, plot threads, style guides, and analysis results are aut
 ## Troubleshooting
 
 If features aren't working:
+
 1. Ensure you have v0.3.0+ installed: `npm list -g scrivener-mcp`
 2. Check that a project is open: "What project is currently open?"
 3. Memory is stored in `.ai-memory` within your .scriv folder
@@ -141,4 +167,5 @@ If features aren't working:
 - Use analysis to identify your writing patterns
 - Apply targeted improvements based on suggestions
 
-The AI features learn from your project context, so the more you use them, the better they become at understanding your unique style and story!
+The AI features learn from your project context, so the more you use them, the better they become at
+understanding your unique style and story!

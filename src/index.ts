@@ -287,6 +287,9 @@ async function shutdown(): Promise<void> {
 			await shutdownAsyncServices();
 		},
 		async () => {
+			context?.contentAnalyzer.dispose();
+		},
+		async () => {
 			if (hhmInitialized) {
 				const { getHHMSystem } = await import('./handlers/memory-handlers.js');
 				await getHHMSystem().destroy();

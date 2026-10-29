@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { getLogger } from '../../core/logger.js';
-import { readJSON, writeJSON } from '../../utils/common.js';
+import { AppError, ErrorCode, readJSON, writeJSON } from '../../utils/common.js';
 
 const logger = getLogger('memory-redis');
 
@@ -23,6 +23,11 @@ interface StoredList {
 interface StoredHash {
 	_type: 'hash';
 	data: Record<string, unknown>;
+}
+
+interface StoredZSet {
+	_type: 'zset';
+	entries: [string, number][];
 }
 
 interface ZSetData {
@@ -46,7 +51,18 @@ type StoredValue =
 	| StoredSet
 	| StoredList
 	| StoredHash
+	| StoredZSet
 	| LegacySet;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return (
+		!!value &&
+		typeof value === 'object' &&
+		!Array.isArray(value) &&
+		!(value instanceof Map) &&
+		!(value instanceof Set)
+	);
+}
 
 /**
  * Simple in-memory Redis-like store with persistence
@@ -59,7 +75,8 @@ export class MemoryRedis extends EventEmitter {
 	private persistInterval: NodeJS.Timeout | null = null;
 	private cleanupInterval: NodeJS.Timeout | null = null;
 	private connected = false;
-	private persistPromise: Promise<void> | null = null;
+	private persistTail: Promise<void> = Promise.resolve();
+	private lifecycleTail: Promise<void> = Promise.resolve();
 	private isCleaningExpiry = false;
 
 	constructor(options: { persistPath?: string } = {}) {
@@ -67,60 +84,55 @@ export class MemoryRedis extends EventEmitter {
 		this.persistPath = options.persistPath || './data/memory-redis.json';
 	}
 
-	async connect(): Promise<void> {
+	connect(): Promise<void> {
+		return this.runLifecycle(() => this.connectStore());
+	}
+
+	private runLifecycle(operation: () => Promise<void>): Promise<void> {
+		const pending = this.lifecycleTail.then(operation);
+		this.lifecycleTail = pending.catch(() => undefined);
+		return pending;
+	}
+
+	private async connectStore(): Promise<void> {
 		if (this.connected) return;
 
 		// Load persisted data
 		if (this.persistPath) {
-			const parsed = (await readJSON(this.persistPath, { data: [], expiry: [] })) as {
-				data: [string, unknown][];
-				expiry: [string, number][];
-			};
-
-			// Restore data with proper types
-			this.data = new Map();
-			for (const [key, value] of parsed.data) {
-				if (value && typeof value === 'object') {
-					const typedValue = value as Record<string, unknown>;
-					if ('_type' in typedValue) {
-						const type = typedValue._type;
-						if (
-							type === 'set' &&
-							'items' in typedValue &&
-							Array.isArray(typedValue.items)
-						) {
-							this.data.set(key, new Set(typedValue.items));
-						} else if (
-							type === 'list' &&
-							'items' in typedValue &&
-							Array.isArray(typedValue.items)
-						) {
-							this.data.set(key, typedValue.items);
-						} else if (
-							type === 'hash' &&
-							'data' in typedValue &&
-							typeof typedValue.data === 'object'
-						) {
-							this.data.set(key, typedValue.data as Record<string, unknown>);
-						} else {
-							this.data.set(key, value as StoredValue);
-						}
-					} else if (
-						'_isSet' in typedValue &&
-						'items' in typedValue &&
-						Array.isArray(typedValue.items)
-					) {
-						// Legacy format compatibility
-						this.data.set(key, new Set(typedValue.items));
-					} else {
-						this.data.set(key, value as StoredValue);
-					}
-				} else {
-					this.data.set(key, value as StoredValue);
-				}
+			let parsed: unknown;
+			try {
+				parsed = await readJSON(this.persistPath);
+			} catch (error) {
+				if (!(error instanceof AppError) || error.code !== ErrorCode.NOT_FOUND) throw error;
+				parsed = { data: [], expiry: [] };
+			}
+			if (!isRecord(parsed) || !Array.isArray(parsed.data) || !Array.isArray(parsed.expiry)) {
+				throw new Error('Invalid persisted Memory Redis data');
 			}
 
-			this.expiry = new Map(parsed.expiry);
+			const restoredData = new Map<string, StoredValue>();
+			for (const entry of parsed.data) {
+				if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string') {
+					throw new Error('Invalid persisted Memory Redis entry');
+				}
+				restoredData.set(entry[0], this.restoreValue(entry[1]));
+			}
+
+			const restoredExpiry = new Map<string, number>();
+			for (const entry of parsed.expiry) {
+				if (
+					!Array.isArray(entry) ||
+					entry.length !== 2 ||
+					typeof entry[0] !== 'string' ||
+					typeof entry[1] !== 'number' ||
+					!Number.isFinite(entry[1])
+				) {
+					throw new Error('Invalid persisted Memory Redis expiry');
+				}
+				restoredExpiry.set(entry[0], entry[1]);
+			}
+			this.data = restoredData;
+			this.expiry = restoredExpiry;
 			if (this.data.size > 0) {
 				logger.info('Loaded persisted data', { entries: this.data.size });
 			} else {
@@ -128,20 +140,69 @@ export class MemoryRedis extends EventEmitter {
 			}
 		}
 
-		// Start persistence timer and cleanup timer
-		if (this.persistPath) {
-			this.persistInterval = setInterval(() => this.persist(), 60000); // Every minute
-		}
-
-		// Start cleanup timer for expired keys
-		this.cleanupInterval = setInterval(() => this.cleanupExpired(), 30000); // Every 30 seconds
+		this.startTimers();
 
 		this.connected = true;
 		this.emit('connect');
 		logger.info('Memory Redis connected');
 	}
 
-	async disconnect(): Promise<void> {
+	private startTimers(): void {
+		if (this.persistPath && !this.persistInterval) {
+			this.persistInterval = setInterval(() => {
+				this.persist().catch((error) => logger.error('Failed to persist data', { error }));
+			}, 60000);
+		}
+		if (!this.cleanupInterval) {
+			this.cleanupInterval = setInterval(() => this.cleanupExpired(), 30000);
+		}
+	}
+
+	private restoreValue(value: unknown): StoredValue {
+		if (isRecord(value)) {
+			switch (value._type) {
+				case 'set':
+				case 'list':
+					if (!Array.isArray(value.items)) {
+						throw new Error('Invalid persisted Memory Redis collection');
+					}
+					return value._type === 'set' ? new Set(value.items) : value.items;
+				case 'hash':
+					if (!isRecord(value.data)) {
+						throw new Error('Invalid persisted Memory Redis hash');
+					}
+					return value.data;
+				case 'zset': {
+					if (
+						!Array.isArray(value.entries) ||
+						value.entries.some(
+							(entry) =>
+								!Array.isArray(entry) ||
+								entry.length !== 2 ||
+								typeof entry[0] !== 'string' ||
+								typeof entry[1] !== 'number' ||
+								!Number.isFinite(entry[1])
+						)
+					) {
+						throw new Error('Invalid persisted Memory Redis sorted set');
+					}
+					const scores = new Map<string, number>(value.entries);
+					return {
+						_scores: scores,
+						_members: new Map(Array.from(scores, ([member, score]) => [score, member])),
+					};
+				}
+			}
+			if ('_isSet' in value && Array.isArray(value.items)) return new Set(value.items);
+		}
+		return value as StoredValue;
+	}
+
+	disconnect(): Promise<void> {
+		return this.runLifecycle(() => this.disconnectStore());
+	}
+
+	private async disconnectStore(): Promise<void> {
 		if (!this.connected) return;
 
 		// Stop timers first
@@ -155,13 +216,12 @@ export class MemoryRedis extends EventEmitter {
 			this.cleanupInterval = null;
 		}
 
-		// Wait for any ongoing persist operation and do final persist
-		if (this.persistPromise) {
-			await this.persistPromise;
+		try {
+			await this.persist();
+		} catch (error) {
+			this.startTimers();
+			throw error;
 		}
-
-		// Set shutting down flag AFTER final persist
-		await this.persist();
 
 		this.connected = false;
 		this.emit('close');
@@ -570,52 +630,41 @@ export class MemoryRedis extends EventEmitter {
 		}
 	}
 
-	private async persist(): Promise<void> {
-		if (!this.persistPath) return;
-
-		// Chain persist calls to prevent out-of-order writes
-		if (this.persistPromise) {
-			await this.persistPromise;
-		}
-
-		this.persistPromise = this._doPersist();
-		try {
-			await this.persistPromise;
-		} finally {
-			this.persistPromise = null;
-		}
+	private persist(): Promise<void> {
+		if (!this.persistPath) return Promise.resolve();
+		const pending = this.persistTail.then(() => this._doPersist());
+		this.persistTail = pending.catch(() => undefined);
+		return pending;
 	}
 
 	private async _doPersist(): Promise<void> {
-		try {
-			// Create snapshot of current data to avoid race conditions
-			const dataSnapshot = new Map(this.data);
-			const expirySnapshot = new Map(this.expiry);
-
-			// Convert data to serializable format
-			const serializableData: Array<[string, unknown]> = [];
-			for (const [key, value] of dataSnapshot.entries()) {
-				if (value instanceof Set) {
-					serializableData.push([key, { _type: 'set', items: Array.from(value) }]);
-				} else if (Array.isArray(value)) {
-					serializableData.push([key, { _type: 'list', items: value }]);
-				} else if (value && typeof value === 'object' && !(value instanceof Map)) {
-					serializableData.push([key, { _type: 'hash', data: value }]);
-				} else {
-					serializableData.push([key, value]);
-				}
+		const dataSnapshot = new Map(this.data);
+		const expirySnapshot = new Map(this.expiry);
+		const serializableData: Array<[string, unknown]> = [];
+		for (const [key, value] of dataSnapshot.entries()) {
+			if (value instanceof Set) {
+				serializableData.push([key, { _type: 'set', items: Array.from(value) }]);
+			} else if (Array.isArray(value)) {
+				serializableData.push([key, { _type: 'list', items: value }]);
+			} else if (isRecord(value) && value._scores instanceof Map) {
+				serializableData.push([
+					key,
+					{ _type: 'zset', entries: Array.from(value._scores.entries()) },
+				]);
+			} else if (value && typeof value === 'object' && !(value instanceof Map)) {
+				serializableData.push([key, { _type: 'hash', data: value }]);
+			} else {
+				serializableData.push([key, value]);
 			}
-
-			const data = {
-				data: serializableData,
-				expiry: Array.from(expirySnapshot.entries()),
-			};
-
-			await writeJSON(this.persistPath!, data);
-			logger.debug('Persisted data', { entries: dataSnapshot.size });
-		} catch (error) {
-			logger.error('Failed to persist data', { error });
 		}
+
+		const data = {
+			data: serializableData,
+			expiry: Array.from(expirySnapshot.entries()),
+		};
+
+		await writeJSON(this.persistPath!, data);
+		logger.debug('Persisted data', { entries: dataSnapshot.size });
 	}
 
 	// BullMQ specific compatibility

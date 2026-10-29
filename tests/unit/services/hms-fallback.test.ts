@@ -11,7 +11,7 @@ describe('HMS fallback corpus vectors', () => {
 	];
 
 	function createEngine(): HolographicMemorySystem {
-		const engine = new HolographicMemorySystem({ dimensions: 512 });
+		const engine = new HolographicMemorySystem({ dimensions: 512, engine: 'fallback' });
 		expect(engine.getStats().engine).toBe('JS Fallback');
 		engines.push(engine);
 		return engine;

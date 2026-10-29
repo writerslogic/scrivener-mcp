@@ -742,43 +742,24 @@ export class JobQueueService {
 		const errors: Array<{ documentId: string; error: string }> = [];
 
 		try {
-			// Begin a transaction for atomic sync
-			const transactionId = await this.databaseService.beginTransaction();
-
-			try {
-				// Sync each document
-				for (const doc of data.documents) {
-					try {
-						await this.databaseService.syncDocumentData({
-							id: doc.id,
-							title: (doc.metadata?.title as string) || `Document ${doc.id}`,
-							type: (doc.metadata?.type as string) || 'Text',
-							path: getDocumentPath(projectPath, doc.id),
-							wordCount: doc.content.split(/\s+/).length,
-							synopsis: doc.metadata?.synopsis as string,
-							notes: doc.metadata?.notes as string,
-						});
-						syncedCount++;
-					} catch (error) {
-						errors.push({
-							documentId: doc.id,
-							error: error instanceof Error ? error.message : String(error),
-						});
-					}
+			for (const doc of data.documents) {
+				try {
+					await this.databaseService.syncDocumentData({
+						id: doc.id,
+						title: (doc.metadata?.title as string) || `Document ${doc.id}`,
+						type: (doc.metadata?.type as string) || 'Text',
+						path: getDocumentPath(projectPath, doc.id),
+						wordCount: doc.content.split(/\s+/).length,
+						synopsis: doc.metadata?.synopsis as string,
+						notes: doc.metadata?.notes as string,
+					});
+					syncedCount++;
+				} catch (error) {
+					errors.push({
+						documentId: doc.id,
+						error: error instanceof Error ? error.message : String(error),
+					});
 				}
-
-				// Prepare and commit the transaction if successful
-				if (syncedCount > 0) {
-					await this.databaseService.prepareTransaction(transactionId);
-					await this.databaseService.commitTransaction(transactionId);
-				} else {
-					// Rollback if nothing was synced
-					await this.databaseService.rollbackTransaction(transactionId);
-				}
-			} catch (error) {
-				// Rollback on any error
-				await this.databaseService.rollbackTransaction(transactionId);
-				throw error;
 			}
 
 			this.logger.info('Database sync completed', {
@@ -1081,6 +1062,7 @@ export class JobQueueService {
 		this.workers.clear();
 		this.events.clear();
 		this.embeddedJobs.clear();
+		this.contentAnalyzer?.dispose();
 		const results = await Promise.allSettled([
 			this.databaseService?.close(),
 			this.aiWritingService?.clearMemory(),

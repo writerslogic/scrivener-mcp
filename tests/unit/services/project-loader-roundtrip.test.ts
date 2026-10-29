@@ -5,7 +5,13 @@ import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { ProjectLoader } from '../../../src/services/project-loader.js';
 import { DocumentManager } from '../../../src/services/document-manager.js';
-import { createDocument } from '../../../src/utils/document-operations.js';
+import {
+	createDocument,
+	createDocuments,
+	deleteDocument,
+	moveDocument,
+} from '../../../src/utils/document-operations.js';
+import { findBinderItemById } from '../../../src/services/document-manager-helpers.js';
 
 const draftId = '11111111-1111-4111-8111-111111111111';
 const textId = '22222222-2222-4222-8222-222222222222';
@@ -44,7 +50,7 @@ describe('ProjectLoader XML round trips', () => {
 
 	afterEach(async () => {
 		await manager.close();
-		loader.close();
+		await loader.close();
 		// Only remove the directory allocated by this test.
 		expect(path.dirname(tempRoot)).toBe(path.resolve(os.tmpdir()));
 		expect(path.basename(tempRoot)).toMatch(/^scrivener-roundtrip-/);
@@ -110,5 +116,269 @@ describe('ProjectLoader XML round trips', () => {
 		expect(saved.ScrivenerProject.Vendor).toEqual(
 			(await parse(source)).ScrivenerProject.Vendor
 		);
+	});
+
+	it('creates nested documents in native folders without changing their existing children', async () => {
+		const structure = await loader.loadProject();
+		manager.setProjectStructure(structure);
+		const context = {
+			projectStructure: structure,
+			projectPath,
+			writeDocument: (id: string, content: string) =>
+				manager.writeDocument(id, content, true),
+			saveProject: () => loader.saveProject(structure),
+		};
+		const folder = await createDocument(
+			{ title: 'Part', parentId: draftId, type: 'Folder' },
+			context
+		);
+		const document = await createDocument(
+			{ title: 'Scene', parentId: folder.id, content: 'New scene content.' },
+			context
+		);
+		const sibling = await createDocument({ title: 'Sibling', parentId: draftId }, context);
+
+		expect(document.path).toEqual(['원고', 'Part', 'Scene']);
+		expect(await manager.readDocument(document.id)).toBe('New scene content.');
+		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		const children = saved.ScrivenerProject.Binder.BinderItem[0].Children.BinderItem;
+		expect(children.map((item: { $: { UUID: string } }) => item.$.UUID)).toEqual([
+			textId,
+			folder.id,
+			sibling.id,
+		]);
+		expect(children[0]).toEqual(
+			(await parse(source)).ScrivenerProject.Binder.BinderItem[0].Children.BinderItem
+		);
+		expect(children[1].Children.BinderItem.$.UUID).toBe(document.id);
+		expect(children[1].Children.BinderItem.Children).toBeUndefined();
+	});
+
+	it('revalidates the parent after writing content instead of attaching to a detached folder', async () => {
+		const structure = await loader.loadProject();
+		const binder = structure.ScrivenerProject!.Binder!;
+		const saves = jest.fn(async () => {});
+		await expect(
+			createDocument(
+				{ title: 'Concurrent scene', parentId: draftId, content: 'Scene content.' },
+				{
+					projectStructure: structure,
+					projectPath,
+					writeDocument: async () => {
+						binder.BinderItem = [];
+					},
+					saveProject: saves,
+				}
+			)
+		).rejects.toThrow('Parent folder not found');
+		expect(saves).not.toHaveBeenCalled();
+		expect(binder.BinderItem).toEqual([]);
+	});
+
+	it('uses the current parent and path when the folder is replaced during a content write', async () => {
+		const structure = await loader.loadProject();
+		const binder = structure.ScrivenerProject!.Binder!;
+		const result = await createDocument(
+			{ title: 'Concurrent scene', parentId: draftId },
+			{
+				projectStructure: structure,
+				projectPath,
+				writeDocument: async () => {
+					binder.BinderItem = { UUID: draftId, Type: 'DraftFolder', Title: 'Renamed' };
+				},
+				saveProject: () => loader.saveProject(structure),
+			}
+		);
+		expect(result.path).toEqual(['Renamed', 'Concurrent scene']);
+		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		expect(saved.ScrivenerProject.Binder.BinderItem.Children.BinderItem.$.UUID).toBe(result.id);
+	});
+
+	it('preserves a singleton binder root when adding a top-level document', async () => {
+		const structure = await loader.loadProject();
+		const binder = structure.ScrivenerProject!.Binder!;
+		binder.BinderItem = Array.isArray(binder.BinderItem)
+			? binder.BinderItem[0]
+			: binder.BinderItem;
+		const result = await createDocument(
+			{ title: 'New root' },
+			{
+				projectStructure: structure,
+				projectPath,
+				saveProject: () => loader.saveProject(structure),
+			}
+		);
+		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		expect(
+			saved.ScrivenerProject.Binder.BinderItem.map(
+				(item: { $: { UUID: string } }) => item.$.UUID
+			)
+		).toEqual([draftId, result.id]);
+	});
+
+	it('validates every creation destination before writing document files or saving', async () => {
+		const structure = await loader.loadProject();
+		const before = JSON.stringify(structure);
+		const writes: string[] = [];
+		let saves = 0;
+		const context = {
+			projectStructure: structure,
+			projectPath,
+			writeDocument: async (id: string) => {
+				writes.push(id);
+			},
+			saveProject: async () => {
+				saves++;
+			},
+		};
+		await expect(
+			createDocument({ title: 'Missing', parentId: 'missing' }, context)
+		).rejects.toThrow();
+		await expect(
+			createDocument({ title: 'Leaf', parentId: textId }, context)
+		).rejects.toThrow();
+		await expect(
+			createDocuments(
+				[
+					{ title: 'Valid first', parentId: draftId },
+					{ title: 'Invalid second', parentId: textId },
+				],
+				context
+			)
+		).rejects.toThrow();
+		await expect(createDocument({ title: 'x'.repeat(256) }, context)).rejects.toThrow();
+		expect(writes).toEqual([]);
+		expect(saves).toBe(0);
+		expect(JSON.stringify(structure)).toBe(before);
+		expect(await fs.readFile(scrivxPath, 'utf8')).toBe(source);
+	});
+
+	it.each([254, 255])('accepts a document title with %i characters', async (length) => {
+		const structure = await loader.loadProject();
+		const title = 'x'.repeat(length);
+		const result = await createDocument(
+			{ title },
+			{ projectStructure: structure, projectPath }
+		);
+		expect(findBinderItemById(structure.ScrivenerProject!.Binder!, result.id)?.Title).toBe(
+			title
+		);
+	});
+
+	it('enforces the document content limit before writing', async () => {
+		const structure = await loader.loadProject();
+		const writtenLengths: number[] = [];
+		const context = {
+			projectStructure: structure,
+			projectPath,
+			writeDocument: async (_id: string, content: string) => {
+				writtenLengths.push(content.length);
+			},
+		};
+		for (const length of [9_999_999, 10_000_000]) {
+			await createDocument({ title: 'Scene', content: 'x'.repeat(length) }, context);
+		}
+		await expect(
+			createDocument({ title: 'Too long', content: 'x'.repeat(10_000_001) }, context)
+		).rejects.toThrow();
+		expect(writtenLengths).toEqual([9_999_999, 10_000_000]);
+	});
+
+	it('creates a batch with the native binder shape and saves it once', async () => {
+		const structure = await loader.loadProject();
+		let saves = 0;
+		const results = await createDocuments(
+			[
+				{ title: 'First', parentId: draftId },
+				{ title: 'Second', parentId: draftId, metadata: { status: 'Draft' } },
+			],
+			{
+				projectStructure: structure,
+				projectPath,
+				saveProject: async () => {
+					saves++;
+					await loader.saveProject(structure);
+				},
+			}
+		);
+		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		const children = saved.ScrivenerProject.Binder.BinderItem[0].Children.BinderItem;
+		expect(children.map((item: { $: { UUID: string } }) => item.$.UUID)).toEqual([
+			textId,
+			...results.map((result) => result.id),
+		]);
+		expect(children[2].MetaData.StatusID).toBe('Draft');
+		expect(saves).toBe(1);
+	});
+
+	it('keeps default batch placement when its first item creates a folder', async () => {
+		const structure = await loader.loadProject();
+		structure.ScrivenerProject!.Binder = {};
+		const results = await createDocuments(
+			[{ title: 'Part', type: 'Folder' }, { title: 'Scene' }],
+			{
+				projectStructure: structure,
+				projectPath,
+				saveProject: () => loader.saveProject(structure),
+			}
+		);
+		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		expect(saved.ScrivenerProject.Binder.BinderItem.$.UUID).toBe(results[0].id);
+		expect(saved.ScrivenerProject.Binder.BinderItem.Children.BinderItem.$.UUID).toBe(
+			results[1].id
+		);
+		expect(results[1].path).toEqual(['Part', 'Scene']);
+	});
+
+	it('moves native children and rejects cycles without detaching a folder', async () => {
+		const structure = await loader.loadProject();
+		const context = {
+			projectStructure: structure,
+			projectPath,
+			saveProject: () => loader.saveProject(structure),
+		};
+		const folder = await createDocument(
+			{ title: 'Part', type: 'Folder', parentId: draftId },
+			context
+		);
+		await moveDocument(textId, folder.id, context);
+		const saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		const part = saved.ScrivenerProject.Binder.BinderItem[0].Children.BinderItem;
+		expect(part.$.UUID).toBe(folder.id);
+		expect(part.Children.BinderItem.$.UUID).toBe(textId);
+		const before = JSON.stringify(structure);
+		await expect(moveDocument(draftId, folder.id, context)).rejects.toThrow('descendant');
+		await expect(moveDocument(folder.id, folder.id, context)).rejects.toThrow('itself');
+		expect(JSON.stringify(structure)).toBe(before);
+	});
+
+	it('uses the native trash folder and performs one save per deletion', async () => {
+		const structure = await loader.loadProject();
+		const binder = structure.ScrivenerProject!.Binder!;
+		const trashId = '44444444-4444-4444-8444-444444444444';
+		(binder.BinderItem as Array<unknown>).push({
+			UUID: trashId,
+			Type: 'TrashFolder',
+			Title: '휴지통',
+		});
+		let saves = 0;
+		const context = {
+			projectStructure: structure,
+			projectPath,
+			saveProject: async () => {
+				saves++;
+				await loader.saveProject(structure);
+			},
+		};
+		await deleteDocument(textId, context);
+		let saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		expect(saved.ScrivenerProject.Binder.BinderItem).toHaveLength(3);
+		expect(saved.ScrivenerProject.Binder.BinderItem[2].Children.BinderItem.$.UUID).toBe(textId);
+		expect(saves).toBe(1);
+		await deleteDocument(textId, context, false);
+		expect(findBinderItemById(binder, textId)).toBeUndefined();
+		expect(saves).toBe(2);
+		saved = await parse(await fs.readFile(scrivxPath, 'utf8'));
+		expect(saved.ScrivenerProject.Binder.BinderItem).toHaveLength(3);
 	});
 });

@@ -3,6 +3,8 @@
 This guide walks you through installing scrivener-mcp, connecting it to Claude, and working with
 your first Scrivener project.
 
+![Scrivener MCP capability map: manage manuscripts, search passages, retain project memory, generate and analyze prose, check continuity, explore relationships, track goals, automate workflows, review edits, and publish drafts.](../assets/infographics/capability-map.png)
+
 ## Prerequisites
 
 - **Stable Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`** -- check with `node -v`; 24.22.1 or newer

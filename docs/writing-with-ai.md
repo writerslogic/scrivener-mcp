@@ -1,16 +1,24 @@
 # Writing with AI
 
-This guide covers the AI-powered features that help you analyze, improve, and manage your writing. These features work best when you've set up project memory (character profiles, style guide) as described in [Getting Started](./getting-started.md).
+This guide covers the AI-powered features that help you analyze, improve, and manage your writing.
+These features work best when you've set up project memory (character profiles, style guide) as
+described in [Getting Started](./getting-started.md).
+
+See the [capability map](../assets/infographics/capability-map.png) for the complete feature set.
 
 ## Reading Large Documents
 
-The `read_document` tool supports `offset` and `limit` parameters for word-based sliding window reads. This is useful for large chapters that exceed your AI client's context window, or when you only need a specific section.
+The `read_document` tool supports `offset` and `limit` parameters for word-based sliding window
+reads. This is useful for large chapters that exceed your AI client's context window, or when you
+only need a specific section.
 
 > "Read the first 500 words of Chapter 12"
 
 > "Read words 500-1000 of that chapter"
 
-The response includes a marker like `[words 0-500/3200]` so you always know where you are in the document. To read an entire large chapter in pieces, start with an offset of 0 and a limit, then increase the offset to continue from where you left off.
+The response includes a marker like `[words 0-500/3200]` so you always know where you are in the
+document. To read an entire large chapter in pieces, start with an offset of 0 and a limit, then
+increase the offset to continue from where you left off.
 
 ## Analyzing Your Writing
 
@@ -20,9 +28,12 @@ The server offers three levels of analysis, each progressively deeper.
 
 > "Analyze chapter 3"
 
-Gives you a snapshot: readability score, word count, sentence count, average sentence length, and a handful of quick observations about style.
+Gives you a snapshot: readability score, word count, sentence count, average sentence length, and a
+handful of quick observations about style.
 
-> **Note:** `analyze_document` returns a compact summary -- readability score, pacing assessment, and the top 3 issues -- rather than a full JSON blob. This was changed to reduce token overhead. If you need the complete set of metrics, use `analyze_document` instead.
+> **Note:** `analyze_document` returns a compact summary -- readability score, pacing assessment,
+> and the top 3 issues -- rather than a full JSON blob. This was changed to reduce token overhead.
+> If you need the complete set of metrics, use `analyze_document` instead.
 
 ### Deep Analysis
 
@@ -31,9 +42,12 @@ Gives you a snapshot: readability score, word count, sentence count, average sen
 Goes further with:
 
 - **Readability metrics** -- Flesch-Kincaid grade level, Flesch Reading Ease, Gunning Fog index
-- **Style analysis** -- sentence length variety, vocabulary complexity, adverb density, passive voice percentage
-- **Quality indicators** -- cliche count, filter words ("just", "very", "really"), repetitive word patterns
-- **Pacing assessment** -- detects fast-paced action sequences vs. slow reflective passages based on sentence length, dialogue ratio, and paragraph density
+- **Style analysis** -- sentence length variety, vocabulary complexity, adverb density, passive
+  voice percentage
+- **Quality indicators** -- cliche count, filter words ("just", "very", "really"), repetitive word
+  patterns
+- **Pacing assessment** -- detects fast-paced action sequences vs. slow reflective passages based on
+  sentence length, dialogue ratio, and paragraph density
 - **Emotional arc** -- tracks tension and emotional intensity through the passage
 - **Structure** -- scene breaks, chapter hooks, transition quality
 
@@ -58,48 +72,53 @@ You can combine multiple focus areas in one request.
 
 A useful pattern: analyze a chapter before and after revision to see what improved.
 
-> "Analyze chapter 5 and remember the scores."
-> [make revisions]
-> "Analyze chapter 5 again. How do the scores compare to before?"
+> "Analyze chapter 5 and remember the scores." [make revisions] "Analyze chapter 5 again. How do the
+> scores compare to before?"
 
 Claude will call the analysis tool again and compare the metrics for you.
 
 ## Enhancing Your Prose
 
-The enhancement system applies targeted transformations to your text. Each type addresses a specific writing weakness.
+The enhancement system applies targeted transformations to your text. Each type addresses a specific
+writing weakness.
 
 ### Sentence-Level Improvements
 
-**Eliminate filter words** -- Removes qualifiers that weaken prose: "just", "really", "very", "quite", "somewhat", "actually", "basically", "practically".
+**Eliminate filter words** -- Removes qualifiers that weaken prose: "just", "really", "very",
+"quite", "somewhat", "actually", "basically", "practically".
 
 > "Remove filter words from the interrogation scene"
 
-Before: "She was really just quite angry about what had actually happened."
-After: "She was angry about what had happened."
+Before: "She was really just quite angry about what had actually happened." After: "She was angry
+about what had happened."
 
 **Strengthen verbs** -- Replaces weak or generic verbs with specific, vivid ones.
 
 > "Strengthen the verbs in paragraphs 2 through 5"
 
-Before: "He went across the room and got the letter."
-After: "He strode across the room and snatched the letter."
+Before: "He went across the room and got the letter." After: "He strode across the room and snatched
+the letter."
 
 **Show don't tell** -- Converts emotional telling into sensory showing.
 
 > "Convert the character introduction to showing instead of telling"
 
-Before: "Sarah was nervous about the interview."
-After: "Sarah's fingers twisted the strap of her bag. She checked her reflection in the elevator doors, smoothed a wrinkle that wasn't there, and checked again."
+Before: "Sarah was nervous about the interview." After: "Sarah's fingers twisted the strap of her
+bag. She checked her reflection in the elevator doors, smoothed a wrinkle that wasn't there, and
+checked again."
 
 ### Paragraph-Level Improvements
 
-**Vary sentence structure** -- Breaks up monotonous sentence patterns by mixing lengths, starting words, and structures.
+**Vary sentence structure** -- Breaks up monotonous sentence patterns by mixing lengths, starting
+words, and structures.
 
 > "Vary the sentence structure in the opening page"
 
-This is particularly useful after writing a first draft quickly, where many sentences tend to follow the same subject-verb-object pattern.
+This is particularly useful after writing a first draft quickly, where many sentences tend to follow
+the same subject-verb-object pattern.
 
-**Improve flow** -- Smooths transitions between sentences and paragraphs. Adds connective tissue without changing meaning.
+**Improve flow** -- Smooths transitions between sentences and paragraphs. Adds connective tissue
+without changing meaning.
 
 > "Improve the flow between the flashback and the present-day scene"
 
@@ -115,14 +134,17 @@ Works best on setting descriptions and action sequences where the reader needs t
 
 > "Enhance the descriptions in the storm scene"
 
-**Strengthen dialogue** -- Makes conversation feel more natural, gives characters distinct voices, cuts unnecessary dialogue tags.
+**Strengthen dialogue** -- Makes conversation feel more natural, gives characters distinct voices,
+cuts unnecessary dialogue tags.
 
 > "Strengthen the dialogue in the argument between Marcus and Elena"
 
-**Fix pacing** -- Adjusts the tempo of a scene. Can speed up slow passages (shorter sentences, more action, less internal monologue) or slow down rushed ones (more beats, sensory grounding, emotional processing).
+**Fix pacing** -- Adjusts the tempo of a scene. Can speed up slow passages (shorter sentences, more
+action, less internal monologue) or slow down rushed ones (more beats, sensory grounding, emotional
+processing).
 
-> "The climax feels rushed -- slow down the pacing"
-> "The dinner party scene drags -- tighten the pacing"
+> "The climax feels rushed -- slow down the pacing" "The dinner party scene drags -- tighten the
+> pacing"
 
 ### Length Adjustments
 
@@ -140,29 +162,40 @@ Works best on setting descriptions and action sequences where the reader needs t
 
 ### Getting the Best Results
 
-**Set your style guide first.** Enhancements match your defined voice when a style guide exists. Without one, they default to general literary fiction conventions.
+**Set your style guide first.** Enhancements match your defined voice when a style guide exists.
+Without one, they default to general literary fiction conventions.
 
-> "Set the style guide: hardboiled noir, first-person, present tense, short declarative sentences, minimal adjectives"
+> "Set the style guide: hardboiled noir, first-person, present tense, short declarative sentences,
+> minimal adjectives"
 
-**Apply incrementally.** Don't run five enhancements at once. Apply one, read the result, then decide what's next. Sometimes one enhancement is enough.
+**Apply incrementally.** Don't run five enhancements at once. Apply one, read the result, then
+decide what's next. Sometimes one enhancement is enough.
 
-**Combine with analysis.** Run `analyze_document` before and after to see measurable improvement. If filter word count drops from 47 to 3, you know it worked.
+**Combine with analysis.** Run `analyze_document` before and after to see measurable improvement. If
+filter word count drops from 47 to 3, you know it worked.
 
-**Use condense after expand.** Content that gets expanded to meet a word count often benefits from a condensing pass to tighten the added material.
+**Use condense after expand.** Content that gets expanded to meet a word count often benefits from a
+condensing pass to tighten the added material.
 
 ## Project Memory in Depth
 
-Memory is your AI writing assistant's long-term context. It persists across conversations and travels with your Scrivener project.
+Memory is your AI writing assistant's long-term context. It persists across conversations and
+travels with your Scrivener project.
 
 ### Character Profiles
 
 > "Save a character profile for Detective Sarah Chen"
 
-Tell Claude everything relevant: role, physical description, personality traits, background, relationships, character arc, speech patterns, quirks.
+Tell Claude everything relevant: role, physical description, personality traits, background,
+relationships, character arc, speech patterns, quirks.
 
-> "Sarah Chen: protagonist, LAPD homicide detective, 38, second-generation Chinese-American. Methodical and observant but struggles to trust her new partner after her previous partner's betrayal. Arc: learns to rely on others without losing her independence. Speech: clipped, precise, avoids small talk. Quirk: always carries a specific pen her father gave her."
+> "Sarah Chen: protagonist, LAPD homicide detective, 38, second-generation Chinese-American.
+> Methodical and observant but struggles to trust her new partner after her previous partner's
+> betrayal. Arc: learns to rely on others without losing her independence. Speech: clipped, precise,
+> avoids small talk. Quirk: always carries a specific pen her father gave her."
 
 The more detail you provide, the better Claude can:
+
 - Check character consistency across chapters
 - Flag out-of-character dialogue
 - Suggest character-appropriate reactions in new scenes
@@ -170,7 +203,8 @@ The more detail you provide, the better Claude can:
 
 You can update profiles as characters develop:
 
-> "Update Sarah's profile: as of chapter 8, she's started confiding in her partner about personal matters"
+> "Update Sarah's profile: as of chapter 8, she's started confiding in her partner about personal
+> matters"
 
 ### Plot Threads
 
@@ -178,9 +212,12 @@ You can update profiles as characters develop:
 
 Track storylines with descriptions, chapter ranges, and status:
 
-> "Plot thread: 'The Missing Witness' -- key witness Maria Vasquez disappears after chapter 3. Investigation runs chapters 4-8. She's found in chapter 9 but refuses to testify. Resolution in chapter 12 when she changes her mind. Status: first draft complete."
+> "Plot thread: 'The Missing Witness' -- key witness Maria Vasquez disappears after chapter 3.
+> Investigation runs chapters 4-8. She's found in chapter 9 but refuses to testify. Resolution in
+> chapter 12 when she changes her mind. Status: first draft complete."
 
 Useful for:
+
 - Keeping track of multiple subplots
 - Checking that all threads get resolved
 - Planning revision passes focused on specific storylines
@@ -189,23 +226,29 @@ Useful for:
 
 The style guide shapes how all AI features behave.
 
-> "Style guide: literary thriller, third-person close POV (rotating between Sarah and the antagonist), past tense, atmospheric prose, longer sentences for tension-building, short punchy sentences for action. Avoid: adverbs, exclamation marks, the word 'suddenly'."
+> "Style guide: literary thriller, third-person close POV (rotating between Sarah and the
+> antagonist), past tense, atmospheric prose, longer sentences for tension-building, short punchy
+> sentences for action. Avoid: adverbs, exclamation marks, the word 'suddenly'."
 
-Once set, the enhancement tools respect your preferences. The analysis tools flag violations. The critique tools evaluate against your stated style rather than generic rules.
+Once set, the enhancement tools respect your preferences. The analysis tools flag violations. The
+critique tools evaluate against your stated style rather than generic rules.
 
 ### Custom Context
 
 Store any project-specific information that doesn't fit the other categories:
 
-> "Save custom context: the story is set in 2019 Los Angeles. The LAPD precinct is fictional -- 'Pacific Division West'. The McGuffin is a USB drive containing surveillance footage."
+> "Save custom context: the story is set in 2019 Los Angeles. The LAPD precinct is fictional --
+> 'Pacific Division West'. The McGuffin is a USB drive containing surveillance footage."
 
-Claude can reference this to catch anachronisms, maintain setting consistency, and avoid contradictions.
+Claude can reference this to catch anachronisms, maintain setting consistency, and avoid
+contradictions.
 
 ### Writing Statistics
 
 Track your productivity:
 
-> "Record a writing session: 1,500 words in 60 minutes, worked on chapters 7 and 8. Notes: breakthrough on the subplot resolution."
+> "Record a writing session: 1,500 words in 60 minutes, worked on chapters 7 and 8. Notes:
+> breakthrough on the subplot resolution."
 
 > "Show my writing statistics for the last two weeks"
 
@@ -213,24 +256,31 @@ The server stores sessions in SQLite and can report trends, averages, and streak
 
 ## Semantic Search
 
-When the Holographic Memory System index is populated, documents are stored in a high-dimensional vector space that enables meaning-based retrieval. Indexing and similarity scoring are local; the current `semantic_search` tool also uses the configured chat provider for query interpretation and result explanations.
+When the Holographic Memory System index is populated, documents are stored in a high-dimensional
+vector space that enables meaning-based retrieval. Indexing and similarity scoring are local; the
+current `semantic_search` tool also uses the configured chat provider for query interpretation and
+result explanations.
 
 ### Finding Related Content
 
 > "Find passages about loss and grief"
 
-Unlike keyword search, semantic search finds documents that express a concept even when they don't use those specific words. A passage about a character staring at an empty chair could match "loss and grief" even though neither word appears.
+Unlike keyword search, semantic search finds documents that express a concept even when they don't
+use those specific words. A passage about a character staring at an empty chair could match "loss
+and grief" even though neither word appears.
 
 > "Find scenes similar in mood to the funeral chapter"
 
-You can search by referencing existing content, and the system finds passages with similar emotional or thematic signatures.
+You can search by referencing existing content, and the system finds passages with similar emotional
+or thematic signatures.
 
 ## Workflow Recipes
 
 ### Full Revision Pass
 
 1. **Set up memory** -- character profiles, style guide, plot threads
-2. **Analyze each chapter** -- note recurring issues (e.g., high filter word count, low sentence variety)
+2. **Analyze each chapter** -- note recurring issues (e.g., high filter word count, low sentence
+   variety)
 3. **Apply targeted enhancements** -- address the most common issues first
 4. **Critique revised chapters** -- get feedback on the improvements
 5. **Compare metrics** -- verify that scores improved
@@ -241,9 +291,9 @@ You can search by referencing existing content, and the system finds passages wi
 1. **Save profiles** for every named character
 2. **Search for each character** across the manuscript
 3. **Read their scenes chronologically** and check for:
-   - Trait consistency (does the shy character suddenly become bold without justification?)
-   - Arc progression (does the change happen gradually?)
-   - Voice distinction (does each character sound different in dialogue?)
+    - Trait consistency (does the shy character suddenly become bold without justification?)
+    - Arc progression (does the change happen gradually?)
+    - Voice distinction (does each character sound different in dialogue?)
 4. **Critique** chapters with character focus
 
 ### Pre-Submission Polish
@@ -275,4 +325,5 @@ You can search by referencing existing content, and the system finds passages wi
 
 ## License
 
-Scrivener MCP is licensed under AGPL-3.0 for personal and open-source use. Commercial license available for proprietary integration. See [COMMERCIAL_LICENSE.md](../COMMERCIAL_LICENSE.md).
+Scrivener MCP is licensed under AGPL-3.0 for personal and open-source use. Commercial license
+available for proprietary integration. See [COMMERCIAL_LICENSE.md](../COMMERCIAL_LICENSE.md).

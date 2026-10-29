@@ -112,9 +112,69 @@ describe('LRUCache', () => {
 
 			expect(cache.get('key2')).toBeUndefined();
 		});
+
+		it('does not promote an entry when checking membership', () => {
+			cache.set('key1', 'value1');
+			cache.set('key2', 'value2');
+			cache.set('key3', 'value3');
+			expect(cache.has('key1')).toBe(true);
+			cache.set('key4', 'value4');
+			expect(cache.has('key1')).toBe(false);
+		});
 	});
 
 	describe('size limits', () => {
+		it.each(['key1', 'key2', 'key3'])(
+			'replaces %s at capacity without evicting another entry',
+			(key) => {
+				const onEvict = jest.fn();
+				const limitedCache = new LRUCache<string>({ maxEntries: 3, onEvict });
+				for (const id of ['key1', 'key2', 'key3']) limitedCache.set(id, 'old');
+				limitedCache.set(key, 'new');
+				expect(limitedCache.getSize()).toBe(3);
+				expect(limitedCache.getMemoryUsage()).toBe(18);
+				for (const id of ['key1', 'key2', 'key3']) {
+					expect(limitedCache.get(id)).toBe(id === key ? 'new' : 'old');
+				}
+				expect(onEvict.mock.calls).toEqual([[key, 'old']]);
+			}
+		);
+
+		it('accounts for the replaced value before enforcing the byte limit', () => {
+			const sizeCache = new LRUCache<string>({ maxSize: 20 });
+			sizeCache.set('oldest', '12345');
+			sizeCache.set('newest', '12345');
+			sizeCache.set('newest', '12');
+			expect(sizeCache.get('oldest')).toBe('12345');
+			expect(sizeCache.get('newest')).toBe('12');
+			expect(sizeCache.getMemoryUsage()).toBe(14);
+		});
+
+		it('makes a replacement most recent before the next eviction', () => {
+			cache.set('key1', 'old');
+			cache.set('key2', 'value2');
+			cache.set('key3', 'value3');
+			cache.set('key1', 'new');
+			cache.set('key4', 'value4');
+			expect(cache.has('key1')).toBe(true);
+			expect(cache.has('key2')).toBe(false);
+		});
+
+		it.each([19, 20, 21])('enforces a %i-byte limit at the boundary', (maxSize) => {
+			const sizeCache = new LRUCache<string>({ maxSize });
+			sizeCache.set('value', '1234567890');
+			expect(sizeCache.has('value')).toBe(maxSize >= 20);
+			expect(sizeCache.getMemoryUsage()).toBe(maxSize >= 20 ? 20 : 0);
+		});
+
+		it('retains the existing entry when its replacement is too large', () => {
+			const sizeCache = new LRUCache<string>({ maxSize: 20 });
+			sizeCache.set('value', 'old');
+			sizeCache.set('value', 'x'.repeat(11));
+			expect(sizeCache.get('value')).toBe('old');
+			expect(sizeCache.getMemoryUsage()).toBe(6);
+		});
+
 		it('should respect max entries', () => {
 			const limitedCache = new LRUCache({ maxEntries: 2 });
 
@@ -163,6 +223,21 @@ describe('LRUCache', () => {
 	});
 
 	describe('eviction callback', () => {
+		it('allows eviction callbacks to inspect entries during clear', () => {
+			const inspected: string[] = [];
+			const onEvict = jest.fn((key: string) => {
+				expect(onEvict.mock.calls.length).toBeLessThanOrEqual(2);
+				inspected.push(evictCache.get(key)!);
+			});
+			const evictCache = new LRUCache<string>({ onEvict });
+			evictCache.set('key1', 'value1');
+			evictCache.set('key2', 'value2');
+			evictCache.clear();
+			expect(inspected).toEqual(['value1', 'value2']);
+			expect(evictCache.getSize()).toBe(0);
+			expect(evictCache.getMemoryUsage()).toBe(0);
+		});
+
 		it('should call onEvict when item is evicted', () => {
 			const onEvict = jest.fn();
 			const evictCache = new LRUCache({

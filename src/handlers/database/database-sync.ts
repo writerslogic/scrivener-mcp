@@ -1,17 +1,18 @@
-import { AppError, ErrorCode, safeStringify } from '../../utils/common.js';
+import { safeStringify } from '../../utils/common.js';
+import { escapeIdentifier } from '../../utils/database.js';
 import { SQLQueryBuilder } from './query-builder.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 import type { Neo4jManager } from './neo4j-manager.js';
 import type { RelationshipEngine } from '../../services/relationship-engine.js';
 import type { TransactionCoordinator } from './transaction-coordinator.js';
 
-/** Two-phase document sync, character sync and relationship writes across the stores. */
+/** Document sync, character sync and relationship writes across the stores. */
 export class DatabaseSync {
 	constructor(
 		private readonly getSqlite: () => SQLiteManager | null,
 		private readonly getNeo4j: () => Neo4jManager | null,
 		private readonly getRelationshipEngine: () => RelationshipEngine | null,
-		private readonly transactions: TransactionCoordinator
+		_transactions?: TransactionCoordinator
 	) {}
 
 	private get sqliteManager(): SQLiteManager | null {
@@ -26,25 +27,23 @@ export class DatabaseSync {
 		return this.getRelationshipEngine();
 	}
 
-	private beginTransaction(): Promise<string> {
-		return this.transactions.begin();
+	private upsert(
+		sqlite: SQLiteManager | null,
+		table: 'documents' | 'characters',
+		data: { id: string } & Record<string, unknown>
+	): void {
+		if (!sqlite) return;
+		const { sql, params } = SQLQueryBuilder.insert(table, data);
+		const updates = Object.keys(data)
+			.filter((column) => column !== 'id')
+			.map((column) => `${escapeIdentifier(column)} = excluded.${escapeIdentifier(column)}`);
+		sqlite
+			.getDatabase()
+			.prepare(`${sql} ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}`)
+			.run(params);
 	}
 
-	private prepareTransaction(transactionId: string): Promise<boolean> {
-		return this.transactions.prepare(transactionId);
-	}
-
-	private commitTransaction(transactionId: string): Promise<void> {
-		return this.transactions.commit(transactionId);
-	}
-
-	private rollbackTransaction(transactionId: string): Promise<void> {
-		return this.transactions.rollback(transactionId);
-	}
-
-	/**
-	 * Sync document data with two-phase commit
-	 */
+	/** Synchronize the optional graph before the atomic local upsert. */
 	async syncDocumentData(documentData: {
 		id: string;
 		title: string;
@@ -55,65 +54,20 @@ export class DatabaseSync {
 		wordCount?: number;
 		characterCount?: number;
 	}): Promise<void> {
-		const transactionId = await this.beginTransaction();
-		const txn = this.transactions.get(transactionId)!;
-
-		try {
-			// Phase 1: Prepare SQLite operation
-			if (this.sqliteManager) {
-				const sqliteOp: (typeof txn.operations)[0] = {
-					type: 'sqlite',
-					operation: 'upsert_document',
-					data: documentData,
-					status: 'pending',
-				};
-				txn.operations.push(sqliteOp);
-
-				const { sql, params } = SQLQueryBuilder.insert('documents', {
-					id: documentData.id,
-					title: documentData.title,
-					type: documentData.type,
-					path: documentData.path,
-					synopsis: documentData.synopsis || null,
-					notes: documentData.notes || null,
-					word_count: documentData.wordCount || 0,
-					character_count: documentData.characterCount || 0,
-					modified_at: new Date().toISOString(),
-				});
-
-				const stmt = this.sqliteManager
-					.getDatabase()
-					.prepare(sql.replace('INSERT', 'INSERT OR REPLACE'));
-				stmt.run(params);
-
-				sqliteOp.status = 'prepared';
-			}
-
-			// Phase 1: Prepare Neo4j operation
-			if (this.neo4jManager && this.neo4jManager.isAvailable()) {
-				const neo4jOp: (typeof txn.operations)[0] = {
-					type: 'neo4j',
-					operation: 'upsert_document',
-					data: documentData,
-					status: 'pending',
-				};
-				txn.operations.push(neo4jOp);
-
-				await this.neo4jManager.upsertDocument(documentData);
-				neo4jOp.status = 'prepared';
-			}
-
-			// Phase 2: Prepare and commit
-			const prepared = await this.prepareTransaction(transactionId);
-			if (prepared) {
-				await this.commitTransaction(transactionId);
-			} else {
-				throw new AppError('Failed to prepare transaction', ErrorCode.DATABASE_ERROR);
-			}
-		} catch (error) {
-			await this.rollbackTransaction(transactionId);
-			throw error;
-		}
+		const sqlite = this.sqliteManager;
+		const neo4j = this.neo4jManager;
+		if (neo4j?.isAvailable()) await neo4j.upsertDocument(documentData);
+		this.upsert(sqlite, 'documents', {
+			id: documentData.id,
+			title: documentData.title,
+			type: documentData.type,
+			path: documentData.path,
+			synopsis: documentData.synopsis || null,
+			notes: documentData.notes || null,
+			word_count: documentData.wordCount || 0,
+			character_count: documentData.characterCount || 0,
+			modified_at: new Date().toISOString(),
+		});
 	}
 
 	/**
@@ -128,8 +82,9 @@ export class DatabaseSync {
 		notes?: string;
 	}): Promise<void> {
 		// Update SQLite
-		if (this.sqliteManager) {
-			const { sql, params } = SQLQueryBuilder.insert('characters', {
+		const sqlite = this.sqliteManager;
+		if (sqlite) {
+			this.upsert(sqlite, 'characters', {
 				id: characterData.id,
 				name: characterData.name,
 				role: characterData.role || null,
@@ -138,11 +93,6 @@ export class DatabaseSync {
 				notes: characterData.notes || null,
 				modified_at: new Date().toISOString(),
 			});
-
-			const stmt = this.sqliteManager
-				.getDatabase()
-				.prepare(sql.replace('INSERT', 'INSERT OR REPLACE'));
-			stmt.run(params);
 		}
 
 		// Update Neo4j if available

@@ -36,9 +36,58 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-	for (const instance of loaders) instance.close();
+	for (const instance of loaders) await instance.close();
+	jest.restoreAllMocks();
 	await fs.rm(root, { recursive: true, force: true });
 });
+
+test.each(['save', 'restore'] as const)(
+	'loader shutdown drains an admitted %s paused before its binder commit',
+	async (operation) => {
+		const instance = new ProjectLoader(root, { autoBackup: true });
+		loaders.push(instance);
+		const structure = await instance.loadProject();
+		const backup = await instance.createBackup();
+		firstItem(structure).Title = 'Admitted title';
+		if (operation === 'restore') await instance.saveProject();
+		let entered!: () => void;
+		let release!: () => void;
+		const started = new Promise<void>((resolve) => {
+			entered = resolve;
+		});
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const createBackup = instance.createBackup.bind(instance);
+		jest.spyOn(instance, 'createBackup').mockImplementationOnce(async () => {
+			entered();
+			await gate;
+			return createBackup();
+		});
+		const writing =
+			operation === 'save' ? instance.saveProject() : instance.restoreFromBackup(backup);
+		await started;
+		let closed = false;
+		const closing = instance.close().then(() => {
+			closed = true;
+		});
+		const joined = instance.close();
+		try {
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			expect(closed).toBe(false);
+			await expect(instance.saveProject()).rejects.toThrow('closing');
+			await expect(instance.restoreFromBackup(backup)).rejects.toThrow('closing');
+		} finally {
+			release();
+			await Promise.all([writing, closing, joined]);
+		}
+		expect(await fs.readFile(file, 'utf8')).toContain(
+			operation === 'save' ? 'Admitted title' : 'Original'
+		);
+		await instance.reloadProject();
+		await instance.saveProject();
+	}
+);
 
 test('same-size saved changes are detected by hash even when the external editor preserves mtime', async () => {
 	const instance = loader();

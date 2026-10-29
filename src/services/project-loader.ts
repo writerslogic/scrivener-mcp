@@ -31,6 +31,8 @@ export class ProjectLoader {
 	private options: ProjectLoaderOptions;
 	private loadedRevision?: string;
 	private readonly coordinator: MutationCoordinator;
+	private readonly activeWrites = new Set<Promise<void>>();
+	private closePromise?: Promise<void>;
 
 	constructor(projectPath: string, options: ProjectLoaderOptions = {}) {
 		// Validate input at system boundary before any filesystem operations
@@ -115,6 +117,17 @@ export class ProjectLoader {
 	}
 
 	async saveProject(structure?: ProjectStructure): Promise<void> {
+		if (this.closePromise) throw new Error('Project loader is closing');
+		return this.trackWrite(this.saveProjectData(structure));
+	}
+
+	private trackWrite(write: Promise<void>): Promise<void> {
+		const tracked = write.finally(() => this.activeWrites.delete(tracked));
+		this.activeWrites.add(tracked);
+		return tracked;
+	}
+
+	private async saveProjectData(structure?: ProjectStructure): Promise<void> {
 		const projectToSave = structure || this.projectStructure;
 
 		if (!projectToSave) {
@@ -189,8 +202,33 @@ export class ProjectLoader {
 		return !saved.exists || saved.revision !== this.loadedRevision;
 	}
 
-	close(): void {
-		this.coordinator.close();
+	close(): Promise<void> {
+		if (!this.closePromise) {
+			const closing = this.activeWrites.size
+				? this.drainAndClose()
+				: this.coordinator.close();
+			this.closePromise = closing.finally(() => {
+				this.closePromise = undefined;
+			});
+		}
+		return this.closePromise;
+	}
+
+	private async drainAndClose(): Promise<void> {
+		const results = await Promise.allSettled(this.activeWrites);
+		const errors = new Set(
+			results
+				.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+				.map((result) => result.reason)
+		);
+		try {
+			await this.coordinator.close();
+		} catch (error) {
+			errors.add(error);
+		}
+		if (errors.size === 1) throw errors.values().next().value;
+		if (errors.size > 1)
+			throw new AggregateError(errors, 'Project writes failed during shutdown');
 	}
 
 	getProjectStructure(): ProjectStructure | undefined {
@@ -229,6 +267,11 @@ export class ProjectLoader {
 	}
 
 	async restoreFromBackup(backupPath: string): Promise<void> {
+		if (this.closePromise) throw new Error('Project loader is closing');
+		return this.trackWrite(this.restoreProject(backupPath));
+	}
+
+	private async restoreProject(backupPath: string): Promise<void> {
 		try {
 			const resolved = path.resolve(backupPath);
 			if (

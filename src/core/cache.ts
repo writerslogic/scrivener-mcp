@@ -10,7 +10,6 @@ import type { CacheOptions } from '../types/index.js';
 
 export class LRUCache<T = unknown> {
 	private cache = new Map<string, CacheEntry<T>>();
-	private accessOrder: string[] = [];
 	private currentSize = 0;
 	private logger = getLogger('cache');
 
@@ -45,8 +44,8 @@ export class LRUCache<T = unknown> {
 			return undefined;
 		}
 
-		// Update access order (LRU)
-		this.updateAccessOrder(key);
+		this.cache.delete(key);
+		this.cache.set(key, entry);
 
 		return entry.data;
 	}
@@ -59,18 +58,14 @@ export class LRUCache<T = unknown> {
 			return; // Don't cache items that are too large
 		}
 
-		// Evict items if necessary
+		this.delete(key);
+
 		while (
 			(this.cache.size >= this.maxEntries || this.currentSize + size > this.maxSize) &&
-			this.accessOrder.length > 0
+			this.cache.size > 0
 		) {
-			const lru = this.accessOrder[0];
+			const lru = this.cache.keys().next().value!;
 			this.delete(lru);
-		}
-
-		// Remove existing entry if present
-		if (this.cache.has(key)) {
-			this.delete(key);
 		}
 
 		// Add new entry
@@ -82,7 +77,6 @@ export class LRUCache<T = unknown> {
 		};
 
 		this.cache.set(key, entry);
-		this.accessOrder.push(key);
 		this.currentSize += size;
 	}
 
@@ -104,7 +98,6 @@ export class LRUCache<T = unknown> {
 		if (!entry) return false;
 
 		this.cache.delete(key);
-		this.accessOrder = this.accessOrder.filter((k) => k !== key);
 		this.currentSize -= entry.size || 0;
 
 		if (this.onEvict) {
@@ -116,13 +109,12 @@ export class LRUCache<T = unknown> {
 
 	clear(): void {
 		if (this.onEvict) {
-			for (const [key, entry] of this.cache.entries()) {
+			for (const [key, entry] of Array.from(this.cache)) {
 				this.onEvict(key, entry.data);
 			}
 		}
 
 		this.cache.clear();
-		this.accessOrder = [];
 		this.currentSize = 0;
 	}
 
@@ -147,11 +139,6 @@ export class LRUCache<T = unknown> {
 
 	getMemoryUsage(): number {
 		return this.currentSize;
-	}
-
-	private updateAccessOrder(key: string): void {
-		this.accessOrder = this.accessOrder.filter((k) => k !== key);
-		this.accessOrder.push(key);
 	}
 
 	/**

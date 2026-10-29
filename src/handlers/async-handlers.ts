@@ -53,6 +53,8 @@ async function withAsyncServices<T>(
 
 async function closeCurrentServices(): Promise<void> {
 	if (activeOperations) await new Promise<void>((notify) => drainCallbacks.push(notify));
+	localAnalyzer?.dispose();
+	localAnalyzer = undefined;
 	const queue = jobQueueService;
 	const writing = aiWritingService;
 	jobQueueService = null;
@@ -530,7 +532,6 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 export async function shutdownAsyncServices(): Promise<void> {
 	return transition(async () => {
 		await closeCurrentServices();
-		localAnalyzer = undefined;
 		logger.info('Async services shutdown complete');
 	});
 }
