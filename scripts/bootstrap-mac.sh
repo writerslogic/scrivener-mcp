@@ -1,7 +1,7 @@
 #!/bin/sh
 # Scrivener MCP bootstrap for macOS and Linux.
 #
-# Finds a stable Node.js (^22.14.0 || >=23.6.0, N-API 10+, with npx), then runs scrivener-setup.
+# Finds a patched stable Node.js with N-API 10+ and npx, then runs scrivener-setup.
 # If Node is missing it installs the official build into ~/.scrivener-mcp/node. That needs no
 # administrator password and touches nothing else on the system.
 #
@@ -13,8 +13,9 @@
 
 set -eu
 
-MIN_VERSION='22.14.0'
-NEXT_MIN_VERSION='23.6.0'
+MIN_VERSION='22.23.4'
+NEXT_MIN_VERSION='24.22.1'
+CURRENT_MIN_VERSION='26.12.1'
 MIN_NAPI=10
 NODE_LINE="v24"
 PRIVATE_DIR="$HOME/.scrivener-mcp/node"
@@ -41,15 +42,18 @@ node_ok() {
 		const version = parse(process.versions.node);
 		const minimum = parse(process.argv[1]);
 		const nextMinimum = parse(process.argv[2]);
+		const currentMinimum = parse(process.argv[3]);
 		const napiText = process.versions.napi;
 		const napi = Number(napiText);
-		const minimumNapi = Number(process.argv[3]);
-		const supported = version && minimum && nextMinimum &&
-			((version[0] === minimum[0] && atLeast(version, minimum)) || atLeast(version, nextMinimum));
+		const minimumNapi = Number(process.argv[4]);
+		const supported = version && minimum && nextMinimum && currentMinimum &&
+			((version[0] === minimum[0] && atLeast(version, minimum)) ||
+			(version[0] === nextMinimum[0] && atLeast(version, nextMinimum)) ||
+			atLeast(version, currentMinimum));
 		const supportedNapi = typeof napiText === "string" && /^(0|[1-9]\d*)$/.test(napiText) &&
 			Number.isSafeInteger(napi) && Number.isSafeInteger(minimumNapi) && napi >= minimumNapi;
 		process.exit(supported && supportedNapi ? 0 : 1);
-	' "$MIN_VERSION" "$NEXT_MIN_VERSION" "$MIN_NAPI" >/dev/null 2>&1 || return 1
+	' "$MIN_VERSION" "$NEXT_MIN_VERSION" "$CURRENT_MIN_VERSION" "$MIN_NAPI" >/dev/null 2>&1 || return 1
 	[ -x "$(dirname "$1")/npx" ] || return 1
 	return 0
 }
@@ -88,7 +92,7 @@ install_private_node() {
 		*) die "Unsupported processor: $arch" ;;
 	esac
 
-	say "Stable Node.js (^$MIN_VERSION || >=$NEXT_MIN_VERSION), with N-API $MIN_NAPI and npx, was not found."
+	say "Patched stable Node.js (^$MIN_VERSION || ^$NEXT_MIN_VERSION || >=$CURRENT_MIN_VERSION), with N-API $MIN_NAPI and npx, was not found."
 	say "This will download the official Node.js ${NODE_LINE} build from nodejs.org into:"
 	say "  $PRIVATE_DIR"
 	say "It needs no administrator password and changes nothing else."
@@ -134,7 +138,7 @@ NODE_BIN=$(find_node || true)
 if [ -z "$NODE_BIN" ]; then
 	install_private_node
 	NODE_BIN="$PRIVATE_DIR/bin/node"
-	node_ok "$NODE_BIN" || die "The installed Node.js must satisfy ^$MIN_VERSION || >=$NEXT_MIN_VERSION with N-API $MIN_NAPI and npx."
+	node_ok "$NODE_BIN" || die "The installed Node.js must satisfy ^$MIN_VERSION || ^$NEXT_MIN_VERSION || >=$CURRENT_MIN_VERSION with N-API $MIN_NAPI and npx."
 fi
 
 BIN_DIR=$(dirname "$NODE_BIN")

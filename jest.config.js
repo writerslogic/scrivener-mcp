@@ -7,7 +7,7 @@ export default {
 	maxWorkers: Math.min(4, Math.max(1, availableParallelism() - 1)),
 	extensionsToTreatAsEsm: ['.ts'],
 	moduleNameMapper: {
-		'^(.*/native-loader)\\.cjs$': '$1.cts',
+		'^(.*/(?:native-loader|worker-path))\\.cjs$': '$1.cts',
 		'^(\\.{1,2}/.*)\\.js$': '$1',
 	},
 	transform: {

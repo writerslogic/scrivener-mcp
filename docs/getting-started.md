@@ -5,10 +5,14 @@ your first Scrivener project.
 
 ## Prerequisites
 
-- **Node.js 22.14+ on the 22 release line, or 23.6+** -- check with `node -v`; Node 24 is
-  recommended
+- **Stable Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`** -- check with `node -v`; 24.22.1 or newer
+  on Node 24 is recommended
 - **Scrivener 3** -- your project must be a Scrivener 3 `.scriv` package
 - **An MCP client** -- Claude Desktop, Claude Code, or any MCP-compatible client
+
+The pinned CAI native SDK requires these patched releases for its Node TLS paths, in addition to
+SQLite 13's Node-API 10 requirement. Node 23/25 and older patches on 22/24/26 are rejected. See the
+[runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
 
 ## Installation
 
@@ -63,7 +67,7 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list 15 startup tools: the 13 tools in the `project` skill plus two meta-tools
+Claude should list 16 startup tools: the 14 tools in the `project` skill plus two meta-tools
 (`list_skills`, `use_skill`). If you don't see the startup tools, check the troubleshooting section
 below.
 
@@ -76,17 +80,38 @@ so a valid call never dead-ends:
 1. **At startup:** the `project` skill (`open_project`, `get_structure`, `refresh_project`,
    `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`,
    `get_compile_settings`, `get_manuscript_briefing`, `list_snapshots`, `read_snapshot`,
-   `compare_snapshot`, `create_snapshot`) plus `list_skills` and `use_skill`.
+   `compare_snapshot`, `create_snapshot`, `manuscript_dashboard`) plus `list_skills` and
+   `use_skill`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read,
-   write, create, delete, move, local passage search, review and dashboard tools.
-3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load
-   additional skill groups. Available on-demand skills:
+   write, create, delete, move, local passage search and review tools.
+3. **On demand:** say "activate analysis tools" or Claude calls `use_skill` with
+   `{"name":"analysis"}` to load additional skill groups. Available on-demand skills:
     - **analysis** -- writing quality, pacing, style, critique, character consistency
     - **compilation** -- compile manuscripts, export, statistics
+    - **credentials** -- inspect local C2PA capabilities, sign assets, validate Content Credentials
     - **memory** -- persistent project facts and local HMS-backed memory
     - **advanced** -- fractal memory, async job queue, batch operations
 
 You can see all available skills and which are active by asking Claude to call `list_skills`.
+
+### Content Credentials for exports
+
+Activate `credentials` with `use_skill` and `{"name":"credentials"}`, then call `c2pa_capabilities`
+with `{}`. The group exposes `c2pa_capabilities`, `sign_content_credentials` and
+`validate_content_credentials` without opening a project.
+
+To credential a manuscript, open the project, export a PDF with `export_project` or use an
+`export_manuscript` preset, then sign the saved file to an explicit new output path. Validate the
+signed output for embedded mode, or validate the original asset with `manifestPath` for a supported
+detached sidecar. PDF, MP3, FLAC, DOCX and EPUB use embedded mode with the pinned SDK; their
+sidecars are unsupported. DOCX/EPUB preparation preserves ZIP entry payloads in a separate STORE
+copy and records the original SHA-256; it does not change the source export.
+
+Signing requires administrator-provided certificates and an encrypted private key; never pass a key
+or password in tool arguments. Raw reports are omitted unless `includeReport` is true. Validation
+separates integrity from trust and makes no human-authorship or formal-conformance claim. See
+[Content Credentials](content-credentials.md) for the exact workflow, environment variables,
+compressed-manifest coverage and per-format evidence.
 
 ## Opening Your First Project
 

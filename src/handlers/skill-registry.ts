@@ -26,6 +26,7 @@ import { exportManuscriptHandler } from './export-preset-handlers.js';
 import { storyHandlers, continuityHandlers } from './story-handlers.js';
 import { localSearchHandlers } from './local-search-handlers.js';
 import { workflowHandlers } from './workflow-handlers.js';
+import { contentCredentialsHandlers } from './content-credentials-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
 
@@ -68,6 +69,12 @@ const skills: Skill[] = [
 		name: 'compilation',
 		description: 'Compile manuscripts, export, statistics',
 		tools: [...compilationHandlers, exportManuscriptHandler],
+	},
+	{
+		name: 'credentials',
+		description:
+			'Inspect format coverage, sign local assets and validate C2PA Content Credentials',
+		tools: contentCredentialsHandlers,
 	},
 	{
 		name: 'memory',

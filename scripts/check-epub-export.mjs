@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import JSZip from 'jszip';
 import { toEpub } from '../dist/services/export/manuscript-exporters.js';
 import { validateExport } from '../dist/services/export/export-presets.js';
+import { signCredentialAsset } from '../dist/services/content-credentials/service.js';
+import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
 const execute = promisify(execFile);
 const root = resolve('logs/implementation/epub-validation');
 await mkdir(root, { recursive: true });
@@ -61,18 +64,7 @@ const sections = [
 		notes: ['Note: Original sample note.'],
 	},
 ];
-for (const [name, selected] of [
-	['unicode-notes', sections],
-	['empty', []],
-]) {
-	const buffer = await toEpub(selected, {
-		title: `Original CC0 ${name} fixture`,
-		author: 'Scrivener MCP contributors',
-		preset: 'ebook',
-	});
-	await validateExport(buffer, 'epub');
-	const file = join(root, `${name}.epub`);
-	await writeFile(file, buffer);
+async function check(name, file) {
 	try {
 		const { stdout, stderr } = await execute('java', ['-jar', resolve(jar), file], {
 			timeout: 60000,
@@ -91,4 +83,52 @@ for (const [name, selected] of [
 			{ cause: error }
 		);
 	}
+}
+
+const workspace = await mkdtemp(join(tmpdir(), 'scrivener-epub-credentials-'));
+const variables = [
+	'SCRIVENER_C2PA_CERT_PATH',
+	'SCRIVENER_C2PA_KEY_PATH',
+	'SCRIVENER_C2PA_KEY_PASSWORD',
+	'SCRIVENER_C2PA_TRUST_ANCHORS_PATH',
+];
+const previous = new Map(variables.map((name) => [name, process.env[name]]));
+try {
+	const signer = await createC2paTestSigner(join(workspace, 'signer'));
+	Object.assign(process.env, {
+		SCRIVENER_C2PA_CERT_PATH: signer.certificatePath,
+		SCRIVENER_C2PA_KEY_PATH: signer.privateKeyPath,
+		SCRIVENER_C2PA_KEY_PASSWORD: signer.password,
+		SCRIVENER_C2PA_TRUST_ANCHORS_PATH: signer.trustAnchorsPath,
+	});
+	for (const [name, selected] of [
+		['unicode-notes', sections],
+		['empty', []],
+	]) {
+		const buffer = await toEpub(selected, {
+			title: `Original CC0 ${name} fixture`,
+			author: 'Scrivener MCP contributors',
+			preset: 'ebook',
+		});
+		await validateExport(buffer, 'epub');
+		const file = join(root, `${name}.epub`);
+		await writeFile(file, buffer);
+		await check(name, file);
+		const signed = join(workspace, `${name}-signed.epub`);
+		const result = await signCredentialAsset({
+			assetPath: file,
+			outputPath: signed,
+			mode: 'embedded',
+		});
+		assert.equal(result.validation.integrity, 'valid');
+		assert.equal(result.validation.trust, 'trusted');
+		await check(`${name}-signed`, signed);
+		await copyFile(signed, join(root, `${name}-signed.epub`));
+	}
+} finally {
+	for (const [name, value] of previous) {
+		if (value === undefined) delete process.env[name];
+		else process.env[name] = value;
+	}
+	await rm(workspace, { recursive: true, force: true });
 }

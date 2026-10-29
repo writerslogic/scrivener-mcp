@@ -417,3 +417,47 @@ Primary contracts:
 [0.6.4 release](https://github.com/writerslogic/holographic-memory/releases/tag/v0.6.4),
 [Node declarations](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/index.d.ts) and
 [native store ownership](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/src/core/store_lock.rs).
+
+## C2PA format support
+
+Integration [PR #207](https://github.com/writerslogic/scrivener-mcp/pull/207), based on main
+485b1a2. Feature version 0.14.0 is not npm-published. The original public checkout's 70 pending
+paths and private Mac checkout's 35 pending deletions are preserved. No application, legal
+agreement, production certificate purchase or deployment has been performed.
+
+| Acceptance            | Implementation and evidence                                                                                                                                                                                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared operations     | Three progressively loaded credentials tools use one domain service and one pinned official SDK 0.9.11 worker; no manuscript edits or parallel exporter.                                                                                                                     |
+| Real format coverage  | 86 declared MIME types; 48 synthetic CC0 MIME fixtures pass actual native roundtrips: 25 embedded and 37 detached paths. Untested profiles remain outside intake claims.                                                                                                     |
+| Archive integrity     | DOCX/XLSX/PPTX/EPUB/ODT/ODS/ODP/ODG prepare unsigned input as bounded STORE copies, preserve document parts and record source SHA-256/repackaging. Unsafe paths, duplicates, inconsistent directories, corrupt CRCs and allocation/entry limits fail closed.                 |
+| Honest validation     | Current signature and asset-binding successes are required; configured-root trust is separate. Compressed c2cm/brob validation passes; compressed generation, streaming and attestation are absent. Conformance is not assessed; AL1 is a target, not an awarded level.      |
+| Safe publication      | Stable descriptor reads, saved-source revision rechecks, private staging, encrypted administrator keys, isolated timed native children and exclusive publication. Concurrent output attempts produce one valid artifact and one conflict; wrong passwords produce no output. |
+| Actual interfaces     | Installed MCP export/sign/validate succeeds for DOCX/EPUB/PDF, preserves history, rejects overwrite and verifies again after a real server restart. UI/editorial services retain their existing contracts.                                                                   |
+| Runtime and packaging | Node floors 22.23.4 /24.22.1 /26.12.1 include official SDK TLS fixes plus SQLite API10. The bundle explicitly installs the platform SDK binary before pruning and probes its real installed native entry point.                                                              |
+| Intake and identity   | All 30 questions have evidence-based answers in [Content Credentials](content-credentials.md); CN scrivener-mcp, O WritersLogic, Inc., C US, OU blank. Production identity/trust issuance and program assessment remain external prerequisites.                              |
+
+The complete local gate passed: formatting, lint, types, build, runtime policy, 78-tool registry, 32
+output-conformance paths, native/fallback HMS compatibility, C2PA compatibility, 96 Jest suites
+(1,138 passed; nine existing live-provider skips), zero-vulnerability npm audit, 17 installed
+package/MCP checks, and EPUBCheck 5.4.0 on unsigned/signed Unicode-notes and empty ebooks.
+[Native evidence snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) records SDK/runtime/platform,
+fixture-index digest, trust policy, exact per-MIME modes, source preservation and negative checks.
+The Mac bundle separately passes 15 installed-package/MCP checks under Node 24.22.2 after explicit
+arm64 SDK installation and pruning. CI retains the corresponding report in every compatibility job;
+protected integration requires the complete eight-job matrix. Validation uses local/free resources
+only. Both tool audits now enumerate the canonical eager registry instead of maintaining separate
+skill/handler lists, so all 78 tools and the three new output schemas are included.
+
+Manager-owned shared contracts, dependencies, CI and integration are complete. Isolated workers
+contributed the native worker, format fixtures, filesystem/archive regressions and documentation;
+all contributions were inspected and integrated before dependent checks. Local validation logs are
+retained under logs/c2pa-0.14.0-20261028 in the canonical checkout after worktree cleanup.
+Future-proofing bf53f0b is already in public main. After protected integration, preserve bundle/log
+artifacts and remove owned temporary worktrees while retaining all unrelated edits and checkouts.
+
+Credential reads use one descriptor-first helper across the parent, native worker and fixture
+tooling. Both Windows descriptors are acquired before pathname checks, existing files remain
+read-only, and temporary creation modes are explicitly private. Growth/replacement tests and bounded
+FIFO probes exercise the installed reader. The native gate hashes and stages the same verified
+fixture buffer. CI checks the latest selected release instead of an obsolete cached runner runtime;
+exact minimum-version coverage remains unchanged.

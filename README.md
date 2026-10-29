@@ -10,8 +10,9 @@ search, and character/plot tracking.
 
 Start with the [safe first session](docs/getting-started.md#first-successful-editorial-session),
 then use [editorial review and workflows](docs/editorial-workflows.md),
-[export presets](docs/export-presets.md), or the [Windows guide](docs/install-windows.md).
-[Compatibility evidence](docs/SCRIVENER_COMPATIBILITY.md) records actual coverage and limits.
+[export presets](docs/export-presets.md), [Content Credentials](docs/content-credentials.md), or the
+[Windows guide](docs/install-windows.md). [Compatibility evidence](docs/SCRIVENER_COMPATIBILITY.md)
+records actual coverage and limits.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/writerslogic/scrivener-mcp/ci.yml?branch=main&label=CI)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml)
@@ -171,12 +172,12 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 
 ## What You Can Do
 
-> Open a project first. The server has no link to the Scrivener app itself and can't see what's open
-> there — say _"Open my Scrivener project at `~/Documents/My Novel.scriv`"_, or _"Discover my
-> Scrivener projects"_ if you don't know the path. On macOS, _"Use the project I have open in
-> Scrivener"_ works too (the first time, macOS will ask permission to control Scrivener). Do this
-> once per conversation. If the project is also open and unsaved in Scrivener itself, save or close
-> it there first, or the two can write over each other.
+> For manuscript operations, open a project first. The server has no link to the Scrivener app
+> itself and can't see what's open there. Say _"Open my Scrivener project at
+> `~/Documents/My Novel.scriv`"_, or _"Discover my Scrivener projects"_ if you don't know the path.
+> On macOS, _"Use the project I have open in Scrivener"_ works too (the first time, macOS will ask
+> permission to control Scrivener). Do this once per conversation. If the project is also open and
+> unsaved in Scrivener itself, save or close it there first, or the two can write over each other.
 
 **Manage your manuscript.** Read chapters, create scenes, reorganize the binder, update synopses —
 all through conversation. _"Create a new scene called 'The Reveal' after Chapter 5, and move the old
@@ -208,9 +209,17 @@ deeper graph analysis if you have it.
 **Compile and export.** Assemble chapters into one manuscript with your own formatting and structure
 preserved. Export inline as Markdown, HTML, or JSON, or write a DOCX, EPUB, or PDF to disk.
 
+**Sign and validate exports.** Activate `credentials` with `use_skill({"name":"credentials"})`, then
+call `c2pa_capabilities` to inspect the installed SDK. Export a PDF with `export_project`, sign it
+to a new embedded output with `sign_content_credentials`, and check that output with
+`validate_content_credentials`. Credential operations run locally without an open project and use
+administrator-configured signing material. They do not establish human authorship or formal C2PA
+conformance. See [Content Credentials](docs/content-credentials.md) for setup, mode coverage and
+limits.
+
 ## All Tools
 
-75 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
+78 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
 startup, document and search tools once a project is open, the rest on demand. Set
 `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
@@ -316,6 +325,23 @@ startup, document and search tools once a project is open, the rest on demand. S
 </details>
 
 <details>
+<summary><strong>Content Credentials</strong> -- local asset signing and validation</summary>
+
+Activate the `credentials` skill on demand; these tools do not require an open project.
+
+| Tool                           | What it does                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `c2pa_capabilities`            | Inspect actual SDK availability, declared format/mode coverage, limits and unassessed conformance status                     |
+| `sign_content_credentials`     | Sign a local asset to a distinct new embedded or supported `.c2pa` sidecar output using administrator-configured credentials |
+| `validate_content_credentials` | Validate a local asset and optional sidecar; report integrity separately from signer trust, with raw reports opt-in          |
+
+Format declarations are not proof of native compatibility. Use the
+[Content Credentials guide](docs/content-credentials.md) and per-format native evidence before
+making coverage claims.
+
+</details>
+
+<details>
 <summary><strong>Memory</strong> -- persistent project knowledge</summary>
 
 | Tool            | What it does                                                                             |
@@ -366,10 +392,10 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 <details>
 <summary><strong>Discovery</strong> -- explore capabilities</summary>
 
-| Tool          | What it does                                              |
-| ------------- | --------------------------------------------------------- |
-| `list_skills` | List the available tool groups and their tools            |
-| `use_skill`   | Activate a tool group (most are pre-activated by default) |
+| Tool          | What it does                                   |
+| ------------- | ---------------------------------------------- |
+| `list_skills` | List the available tool groups and their tools |
+| `use_skill`   | Activate another tool group on demand          |
 
 </details>
 
@@ -387,6 +413,8 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
 - **[Scrivener Compatibility](./docs/SCRIVENER_COMPATIBILITY.md)** -- Supported Scrivener versions,
   platforms, and format coverage
+- **[Content Credentials](./docs/content-credentials.md)** -- Local C2PA signing and validation,
+  administrator setup, tested modes and conformance limits
 - **[Scrivener File Format](./docs/scrivener-format.md)** -- The reverse-engineered `.scriv` format,
   what we read vs. infer, and safe-modification guidance
 - **[Fuzzing](./docs/fuzzing.md)** -- Jazzer.js target and OSS-Fuzz integration details
@@ -395,12 +423,16 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 
 ## Requirements
 
-- **Node.js 22.14+ on the 22 release line, or 23.6+** (Node 24 recommended)
+- **Stable Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`** (24.22.1 or newer on Node 24 recommended)
 - **Scrivener 3** project files (.scriv)
 - macOS, Windows, or Linux
 - Optional: Anthropic, OpenAI, or OpenRouter API key for provider-backed AI features
 - Optional: Neo4j for persistence and advanced graph queries; core relationship tools work without
   it
+
+The patched floors protect Node TLS paths used by the pinned CAI native SDK; SQLite 13 also requires
+Node-API 10. Node 23 and 25 are excluded. See the
+[runtime compatibility policy](docs/forward-compatibility.md#runtime-and-dependency-changes).
 
 ## Development
 
@@ -430,7 +462,7 @@ necessarily impossible through the connected AI client.
 
 | Feature                        |                          **scrivener-mcp**                          | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp)  | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
 | ------------------------------ | :-----------------------------------------------------------------: | :-----------------------------------------------: | :-------------------------------------------------------------------: | :-------------------------------------------------------------------: | :--------------------------------------------------------: | :-------------------------------------------------------: |
-| Public MCP tools               |                                 75                                  |                        30                         |                                  22                                   |                                  38                                   |                             18                             |                            10                             |
+| Public MCP tools               |                                 78                                  |                        30                         |                                  22                                   |                                  38                                   |                             18                             |                            10                             |
 | Manuscript access              |                             read/write                              |                    read/write                     |                              read/write                               |                read-only; writes sidecar data/metadata                | read-only by default; opt-in content/notes/synopsis writes |                         read-only                         |
 | RTF handling                   |          formatted reads; fidelity-preserving span writes           |           reads/writes document content           |                     reads/writes document content                     |              converts RTF to text; manuscript read-only               |    RTF-to-text reads; snapshot-protected content writes    |              converts RTF to text; read-only              |
 | Built-in writing analysis      |          readability, pacing, style, emotion, AI critique           |           readability, style, sentiment           |                         continuity comparison                         |                agent-driven five-point review workflow                |                 no dedicated analysis tool                 |                no dedicated analysis tool                 |
