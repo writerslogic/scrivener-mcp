@@ -6,41 +6,58 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
-- Integrate isolated C2PA asset signing and validation
-- Catalog credential formats and verify native fixture roundtrips
+- Synchronize local passages through HMS document retrieval
+- Add scoped story bible and evidence-based continuity review
+- Add durable manuscript review and coordinated revisions
+- Establish editorial service contracts and acceptance ledger
+- Add local passage retrieval and durable editorial workflows
 - Expose local Content Credentials tools
 - Isolate native Content Credentials signing and validation
+- Catalog credential formats and verify native fixture roundtrips
+- Integrate isolated C2PA asset signing and validation
 - Integrate HMS 0.6.4 document retrieval and lifecycle
-- Synchronize local passages through HMS document retrieval
 - Complete editorial integration and release verification
 - Integrate editorial tools dashboard presets and first session
-- Add durable manuscript review and coordinated revisions
-- Add local passage retrieval and durable editorial workflows
-- Add scoped story bible and evidence-based continuity review
-- Establish editorial service contracts and acceptance ledger
 
 ### Changed
 - Streamline editorial persistence and recovery
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
-- Align installation requirements and historical runtime evidence
-- Introduce Content Credentials and patched runtime support
+- Point Draftbridge buyers to live checkout
 - Align C2PA intake answers with the questionnaire
 - Describe Content Credentials workflow and intake targets
+- Align installation requirements and historical runtime evidence
+- Introduce Content Credentials and patched runtime support
 - Update the security changelog (#205)
 - Record verified cross-platform release compatibility
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Finalize consolidated reliability and packaging checks
+- Bound provider requests and integrate current AI SDKs
+- Validate stable Node and N-API in standalone bootstrap
+- Enforce the Node range required by SQLite 13
+- Verify N-API bundles and SQLite upgrade recovery
+- Scope HMS passage consumers and drain owned stores
+- Negotiate setup diagnostics with the MCP SDK
+- Restore database installer coverage and correct Neo4j resource handling
+- Bind saved revisions and recover native snapshot operations
+- Retire project memory before closing shared resources
+- Resume beta drafts after explicit export warning acknowledgment
+- Coordinate async service lifetimes and cover portable project layouts
+- Remove static credentials and interpolated observer code
+- Cover native runtime launch paths on Windows
+- Compare Windows saved-file descriptor identities
+- Validate saved reads through guarded descriptors
+- Require patched Node releases for C2PA
+- Feed transient DER to fixture certificate requests
+- Configure noninteractive encrypted fixture certificate requests
+- Reuse scoped provenance and preserve historical continuity checks
 - Consolidate descriptor-safe credential reads and refresh CI runtimes
 - Preserve byte-exact C2PA fixtures across checkouts
 - Harden credential publication and verify format coverage
-- Feed transient DER to fixture certificate requests
-- Configure noninteractive encrypted fixture certificate requests
-- Require patched Node releases for C2PA
 - Require the patched Hono Node adapter
-- Scope HMS passage consumers and drain owned stores
 - Keep minimum Windows CI on its supported native toolchain
 - Remove static credentials and interpolated observer code (#200)
 - Integrate verified SDK and native runtime upgrades
@@ -48,20 +65,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Use file URLs for cross-platform startup probes
 - Align packaged safety guidance and record verification
 - Harden runtime checks and native bundle contracts
-- Negotiate setup diagnostics with the MCP SDK
+- Preserve pending reliability and maintenance improvements
 - Report redacted causes in release conformance checks
-- Compare Windows saved-file descriptor identities
 - Harden saved reads and Windows release verification
-- Validate saved reads through guarded descriptors
-- Cover native runtime launch paths on Windows
 - Preserve cross-platform source and fixture line endings
 - Integrate editorial cleanup and current compatibility evidence
-- Reuse scoped provenance and preserve historical continuity checks
-- Retire project memory before closing shared resources
-- Resume beta drafts after explicit export warning acknowledgment
-- Bind saved revisions and recover native snapshot operations
-- Coordinate async service lifetimes and cover portable project layouts
-- Restore database installer coverage and correct Neo4j resource handling
 - Group CodeQL action updates
 
 ### Performance
@@ -269,7 +277,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Eliminate all TypeScript 'unexpected any' warnings across codebase
 - Resolve CI test failures and TypeScript errors
 - Resolve all CI pipeline errors
-- Resolve CI pipeline failures and improve build stability
 - Resolve CI pipeline failures and improve build stability
 - Resolve all critical ESLint errors and ensure clean TypeScript compilation
 - Achieve zero lint errors with proper test organization
