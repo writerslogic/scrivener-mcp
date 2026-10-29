@@ -387,6 +387,7 @@ export class FallbackDocumentIndex {
 			.filter(
 				(hit) =>
 					hit.semanticScore !== undefined &&
+					hit.semanticScore > 0 &&
 					hit.semanticScore >= (options.minSemanticScore ?? 0)
 			)
 			.sort((a, b) => b.semanticScore! - a.semanticScore!)
