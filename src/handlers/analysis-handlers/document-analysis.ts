@@ -4,6 +4,7 @@ import type { EnhancementType } from '../../services/enhancements/content-enhanc
 import { AIContentEnhancer } from '../../services/enhancements/ai-content-enhancer.js';
 import { AIClient } from '../../services/ai/ai-client.js';
 import { validateInput } from '../../utils/common.js';
+import { getAccurateWordCount } from '../../utils/text-metrics.js';
 import { compact, formatError } from '../../core/response-formatter.js';
 import type { HandlerResult, ToolDefinition } from '../types.js';
 import {
@@ -307,9 +308,9 @@ export const generateContentHandler: ToolDefinition = {
 		'Generate new prose from a natural-language prompt and return the generated text, optionally ' +
 		'steered by project context (a document, characters, or a target style) and a desired length. ' +
 		'This creates fresh text and does not modify any document. Use enhance_content to improve ' +
-		'existing text instead, or analyze_document to critique it. Calls an external AI model and ' +
-		'requires an AI provider key (ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY); ' +
-		'without one a placeholder is returned.',
+		'existing text instead, or analyze_document to critique it. Uses a configured AI provider ' +
+		'or client-side MCP sampling when available. Unavailable or failed generation returns ' +
+		'an error; local-only privacy settings remain enforced.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -351,41 +352,25 @@ export const generateContentHandler: ToolDefinition = {
 		validateInput(args, promptSchema);
 
 		try {
-			// Extract prompt first
 			const prompt = getStringArg(args, 'prompt');
 
 			const ai = new AIClient();
 
 			if (!ai.isAvailable) {
-				// Return enhanced placeholder when no AI provider is configured.
-				const length = getOptionalNumberArg(args, 'length') || 500;
-				const context = getOptionalObjectArg(args, 'context');
-				const generated = {
-					content: `AI-Generated Content for: "${prompt}"\n\nThis is placeholder content. To enable actual AI content generation, set ANTHROPIC_API_KEY (preferred), OPENAI_API_KEY, or OPENROUTER_API_KEY in the environment.\n\nThe generated content would be tailored to your specifications:\n- Length: ${length} words\n- Context: ${context ? JSON.stringify(context, null, 2) : 'None provided'}`,
-					wordCount: Math.max(50, Math.floor(length * 0.3)),
-					type: 'creative',
-					suggestions: [
-						'Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY to enable AI content generation',
-						'Consider expanding on character motivations',
-						'Add more sensory details to enhance immersion',
-					],
-					alternativeVersions: [
-						'Try a different narrative perspective',
-						"Explore the scene from another character's viewpoint",
-					],
-				};
-
 				return {
+					isError: true,
 					content: [
 						{
 							type: 'text',
-							text: compact(generated),
+							text:
+								process.env.SCRIVENER_LOCAL_ONLY === 'true'
+									? 'Content generation is disabled in local-only mode. Local analysis and review remain available. To enable generation, explicitly change your privacy and provider settings.'
+									: 'Content generation is unavailable. Configure ANTHROPIC_API_KEY, OPENAI_API_KEY or OPENROUTER_API_KEY in the server environment, or connect an MCP client with sampling enabled. No prose was generated.',
 						},
 					],
 				};
 			}
 
-			// Extract context information
 			const length = getOptionalNumberArg(args, 'length') || 500;
 			const contextData = (getOptionalObjectArg(args, 'context') || {}) as {
 				style?: string;
@@ -401,7 +386,6 @@ export const generateContentHandler: ToolDefinition = {
 					}`
 				: '';
 
-			// Generate content using the direct-SDK AIClient (Claude default).
 			const directive = await getPersonalization(context).buildDirective();
 			const directiveSuffix = directive ? `\n\n${directive}` : '';
 			const system =
@@ -412,9 +396,19 @@ export const generateContentHandler: ToolDefinition = {
 				temperature: 0.8,
 				maxTokens: Math.min(4096, Math.max(256, Math.round(length * 2))),
 			});
+			if (!content.trim())
+				return {
+					isError: true,
+					content: [
+						{
+							type: 'text',
+							text: 'The selected AI provider or MCP client returned no prose. Check its model settings and the generation request before trying again. No manuscript changes were made.',
+						},
+					],
+				};
 			const generated = {
 				content,
-				wordCount: content.split(/\s+/).filter(Boolean).length,
+				wordCount: getAccurateWordCount(content),
 				type: 'creative',
 				suggestions: [],
 				alternativeVersions: [],
@@ -429,24 +423,12 @@ export const generateContentHandler: ToolDefinition = {
 				],
 			};
 		} catch {
-			// Fallback to placeholder if AI generation fails
-			const generated = {
-				content: `Generated content based on prompt: "${args.prompt}"\n\nNote: AI content generation encountered an error. This is placeholder content. Please check your OpenAI API configuration.`,
-				wordCount: args.length || 500,
-				type: 'creative',
-				suggestions: [
-					'Check OpenAI API key configuration',
-					'Verify network connectivity',
-					'Consider expanding on character motivations',
-				],
-				alternativeVersions: [],
-			};
-
 			return {
+				isError: true,
 				content: [
 					{
 						type: 'text',
-						text: compact(generated),
+						text: 'Content generation failed. Check the selected provider or MCP client, model access, account quota and connection. No prose was returned and no manuscript changes were made.',
 					},
 				],
 			};
