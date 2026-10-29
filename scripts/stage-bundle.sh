@@ -72,6 +72,9 @@ tar -xzf "$WORK/$ARCHIVE" -C "$SERVER" --strip-components 1
 cp "$ROOT/package-lock.json" "$SERVER/package-lock.json"
 (cd "$SERVER" && PATH="$WORK/node-full/bin:$PATH" npm ci --omit=dev --ignore-scripts --os=darwin --cpu=arm64 --no-audit --no-fund >/dev/null)
 
+say "Installing the C2PA binary for the bundle's platform"
+(cd "$SERVER/node_modules/@contentauth/c2pa-node" && "$FULL_NODE" scripts/postinstall.cjs)
+
 say "Verifying the shipped SQLite binary with the bundled Node"
 (cd "$SERVER" && "$FULL_NODE" -e '
 const Database = require("better-sqlite3");

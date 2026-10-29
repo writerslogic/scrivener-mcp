@@ -11,8 +11,8 @@ search, and character/plot tracking.
 Start with the [safe first session](docs/getting-started.md#first-successful-editorial-session),
 then use [editorial review and workflows](docs/editorial-workflows.md),
 [export presets](docs/export-presets.md), [Content Credentials](docs/content-credentials.md), or the
-[Windows guide](docs/install-windows.md).
-[Compatibility evidence](docs/SCRIVENER_COMPATIBILITY.md) records actual coverage and limits.
+[Windows guide](docs/install-windows.md). [Compatibility evidence](docs/SCRIVENER_COMPATIBILITY.md)
+records actual coverage and limits.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/writerslogic/scrivener-mcp/ci.yml?branch=main&label=CI)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/writerslogic/scrivener-mcp/actions/workflows/codeql.yml)
@@ -172,13 +172,12 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 
 ## What You Can Do
 
-> For manuscript operations, open a project first. The server has no link to the Scrivener app itself
-> and can't see what's open there. Say _"Open my Scrivener project at
+> For manuscript operations, open a project first. The server has no link to the Scrivener app
+> itself and can't see what's open there. Say _"Open my Scrivener project at
 > `~/Documents/My Novel.scriv`"_, or _"Discover my Scrivener projects"_ if you don't know the path.
-> On macOS, _"Use the project I have open in
-> Scrivener"_ works too (the first time, macOS will ask permission to control Scrivener). Do this
-> once per conversation. If the project is also open and unsaved in Scrivener itself, save or close
-> it there first, or the two can write over each other.
+> On macOS, _"Use the project I have open in Scrivener"_ works too (the first time, macOS will ask
+> permission to control Scrivener). Do this once per conversation. If the project is also open and
+> unsaved in Scrivener itself, save or close it there first, or the two can write over each other.
 
 **Manage your manuscript.** Read chapters, create scenes, reorganize the binder, update synopses —
 all through conversation. _"Create a new scene called 'The Reveal' after Chapter 5, and move the old
@@ -210,12 +209,13 @@ deeper graph analysis if you have it.
 **Compile and export.** Assemble chapters into one manuscript with your own formatting and structure
 preserved. Export inline as Markdown, HTML, or JSON, or write a DOCX, EPUB, or PDF to disk.
 
-**Sign and validate exports.** Activate `credentials` with `use_skill({"name":"credentials"})`,
-then call `c2pa_capabilities` to inspect the installed SDK. Export a PDF with `export_project`, sign
-it to a new embedded output with `sign_content_credentials`, and check that output with
+**Sign and validate exports.** Activate `credentials` with `use_skill({"name":"credentials"})`, then
+call `c2pa_capabilities` to inspect the installed SDK. Export a PDF with `export_project`, sign it
+to a new embedded output with `sign_content_credentials`, and check that output with
 `validate_content_credentials`. Credential operations run locally without an open project and use
 administrator-configured signing material. They do not establish human authorship or formal C2PA
-conformance. See [Content Credentials](docs/content-credentials.md) for setup, mode coverage and limits.
+conformance. See [Content Credentials](docs/content-credentials.md) for setup, mode coverage and
+limits.
 
 ## All Tools
 
@@ -329,11 +329,11 @@ startup, document and search tools once a project is open, the rest on demand. S
 
 Activate the `credentials` skill on demand; these tools do not require an open project.
 
-| Tool | What it does |
-| --- | --- |
-| `c2pa_capabilities` | Inspect actual SDK availability, declared format/mode coverage, limits and unassessed conformance status |
-| `sign_content_credentials` | Sign a local asset to a distinct new embedded or supported `.c2pa` sidecar output using administrator-configured credentials |
-| `validate_content_credentials` | Validate a local asset and optional sidecar; report integrity separately from signer trust, with raw reports opt-in |
+| Tool                           | What it does                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `c2pa_capabilities`            | Inspect actual SDK availability, declared format/mode coverage, limits and unassessed conformance status                     |
+| `sign_content_credentials`     | Sign a local asset to a distinct new embedded or supported `.c2pa` sidecar output using administrator-configured credentials |
+| `validate_content_credentials` | Validate a local asset and optional sidecar; report integrity separately from signer trust, with raw reports opt-in          |
 
 Format declarations are not proof of native compatibility. Use the
 [Content Credentials guide](docs/content-credentials.md) and per-format native evidence before
@@ -392,10 +392,10 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 <details>
 <summary><strong>Discovery</strong> -- explore capabilities</summary>
 
-| Tool          | What it does                                              |
-| ------------- | --------------------------------------------------------- |
-| `list_skills` | List the available tool groups and their tools            |
-| `use_skill`   | Activate another tool group on demand                    |
+| Tool          | What it does                                   |
+| ------------- | ---------------------------------------------- |
+| `list_skills` | List the available tool groups and their tools |
+| `use_skill`   | Activate another tool group on demand          |
 
 </details>
 

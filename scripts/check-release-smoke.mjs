@@ -18,6 +18,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
 
 const APP_URI = 'ui://scrivener/manuscript-dashboard';
 const APP_MIME = 'text/html;profile=mcp-app';
@@ -452,6 +453,22 @@ async function main() {
 			});
 		}
 		const requireInstalled = createRequire(join(installed, 'package.json'));
+		await check('installed-native-c2pa-sdk', async () => {
+			const result = await promisify(execFile)(
+				process.execPath,
+				[
+					'--input-type=module',
+					'-e',
+					'const {pathToFileURL} = await import("node:url"); const {getCredentialCapabilities} = await import(pathToFileURL(process.argv[1]).href); const result = await getCredentialCapabilities(); if (!result.available || !result.sdkVersion) process.exitCode = 1;',
+					join(installed, 'dist/services/content-credentials/service.js'),
+				],
+				{ cwd: root, env, timeout: 40000, maxBuffer: 128 * 1024 }
+			);
+			verify(
+				result.stdout.length === 0,
+				'Installed C2PA probe wrote unexpected protocol output'
+			);
+		});
 		const { Client, StdioClientTransport, firstSession } = await check(
 			'installed-package-modules',
 			async () => {
@@ -534,6 +551,14 @@ async function main() {
 		const originalFile = join(projectPath, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
 		const originalRaw = await readFile(originalFile, 'utf8');
 		const originalRevision = await hash(originalFile);
+		const credentialSigner = await createC2paTestSigner(join(root, 'credential-signer'));
+		const credentialEnvironment = {
+			...env,
+			SCRIVENER_C2PA_CERT_PATH: credentialSigner.certificatePath,
+			SCRIVENER_C2PA_KEY_PATH: credentialSigner.privateKeyPath,
+			SCRIVENER_C2PA_KEY_PASSWORD: credentialSigner.password,
+			SCRIVENER_C2PA_TRUST_ANCHORS_PATH: credentialSigner.trustAnchorsPath,
+		};
 		const openSession = async (apps, args = [entry], sessionEnvironment = env) => {
 			const transport = new StdioClientTransport({
 				command: process.execPath,
@@ -1021,6 +1046,108 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 			await tool(client, 'close_project', {});
 		} finally {
 			await client.close();
+		}
+		const credentialArtifacts = [];
+		const credentials = await openSession(false, [entry], credentialEnvironment);
+		try {
+			await check('installed-export-credential-sign-and-validate', async () => {
+				await tool(credentials, 'use_skill', { name: 'credentials' });
+				const capability = await tool(credentials, 'c2pa_capabilities', {});
+				verify(
+					capability.available &&
+						capability.signerConfigured &&
+						capability.conformance.status === 'not-assessed',
+					'MCP credential capabilities do not reflect the installed SDK and configured signer'
+				);
+				await tool(credentials, 'open_project', { path: projectPath });
+				const pdfPath = join(root, 'credential-export.pdf');
+				const pdf = await tool(credentials, 'export_project', {
+					format: 'pdf',
+					outputPath: pdfPath,
+				});
+				verify(
+					pdf.path === pdfPath && pdf.bytes > 0,
+					'Existing PDF exporter returned no artifact'
+				);
+				await tool(credentials, 'close_project', {});
+				for (const file of [
+					'submission-manuscript.docx',
+					'ebook.epub',
+					'credential-export.pdf',
+				]) {
+					const assetPath = join(root, file);
+					const revision = await hash(assetPath);
+					const outputPath = join(root, `credential-${file}`);
+					const signed = await tool(credentials, 'sign_content_credentials', {
+						assetPath,
+						outputPath,
+						mode: 'embedded',
+					});
+					verify(
+						signed.outputPath === outputPath &&
+							signed.sourceRevision === revision &&
+							signed.validation.integrity === 'valid' &&
+							signed.validation.trust === 'trusted' &&
+							!('report' in signed.validation),
+						'MCP signing did not verify its actual output or omitted-report contract'
+					);
+					verify(
+						(await hash(assetPath)) === revision,
+						'Credential signing changed the exported source'
+					);
+					const validation = await tool(credentials, 'validate_content_credentials', {
+						assetPath: outputPath,
+					});
+					verify(
+						validation.state === 'valid' &&
+							validation.trust === 'trusted' &&
+							validation.sourceRevision === (await hash(outputPath)),
+						'MCP validation did not authenticate the produced artifact'
+					);
+					const duplicate = await credentials.callTool({
+						name: 'sign_content_credentials',
+						arguments: { assetPath, outputPath, mode: 'embedded' },
+					});
+					verify(
+						duplicate.isError === true &&
+							(await hash(outputPath)) === validation.sourceRevision,
+						'Signing overwrote an existing output'
+					);
+					credentialArtifacts.push({
+						assetPath: outputPath,
+						revision: validation.sourceRevision,
+					});
+				}
+				const first = credentialArtifacts[0];
+				await tool(credentials, 'sign_content_credentials', {
+					assetPath: first.assetPath,
+					outputPath: join(root, 'credential-history.docx'),
+					mode: 'embedded',
+				});
+			});
+		} finally {
+			await credentials.close();
+		}
+		const credentialRestart = await openSession(false, [entry], credentialEnvironment);
+		try {
+			await check('installed-credential-validation-after-restart', async () => {
+				await tool(credentialRestart, 'use_skill', { name: 'credentials' });
+				for (const artifact of credentialArtifacts) {
+					const validation = await tool(
+						credentialRestart,
+						'validate_content_credentials',
+						{ assetPath: artifact.assetPath }
+					);
+					verify(
+						validation.state === 'valid' &&
+							validation.trust === 'trusted' &&
+							validation.sourceRevision === artifact.revision,
+						'Credential validation changed after an actual MCP restart'
+					);
+				}
+			});
+		} finally {
+			await credentialRestart.close();
 		}
 		const app = await openSession(true);
 		try {

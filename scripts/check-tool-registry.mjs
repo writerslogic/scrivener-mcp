@@ -11,11 +11,7 @@
  *
  * Exits 0 when the surface is clean, 1 (with a report) when it is not.
  */
-import {
-	initializeSkillRegistry,
-	activateSkills,
-	getRegisteredTools,
-} from '../dist/handlers/skill-registry.js';
+import { initializeSkillRegistry, getRegisteredTools } from '../dist/handlers/skill-registry.js';
 
 const HINT_KEYS = ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'];
 const HIDDEN = [
@@ -28,17 +24,8 @@ const HIDDEN = [
 	'get_queue_stats',
 ];
 
+process.env.SCRIVENER_MCP_EAGER_TOOLS = '1';
 initializeSkillRegistry();
-activateSkills(
-	'project',
-	'documents',
-	'search',
-	'analysis',
-	'compilation',
-	'memory',
-	'relationships',
-	'advanced'
-);
 
 const tools = getRegisteredTools();
 const names = tools.map((t) => t.name);

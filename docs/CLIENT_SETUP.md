@@ -3,10 +3,11 @@
 Copy-paste configuration for connecting scrivener-mcp to common MCP clients. All clients use
 **stdio** transport — you only need a `command` and `args`.
 
-Use stable Node.js satisfying `^22.23.4 || ^24.22.1 || >=26.12.1` and Node-API 10 or newer.
-Node 24.22.1 or a newer Node 24 patch is recommended. These patched TLS floors come from the pinned
-CAI native SDK, in addition to SQLite 13's Node-API requirement; Node 23/25 and older patches on
-22/24/26 are excluded. See the [runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
+Use stable Node.js satisfying `^22.23.4 || ^24.22.1 || >=26.12.1` and Node-API 10 or newer. Node
+24.22.1 or a newer Node 24 patch is recommended. These patched TLS floors come from the pinned CAI
+native SDK, in addition to SQLite 13's Node-API requirement; Node 23/25 and older patches on
+22/24/26 are excluded. See the
+[runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
 
 ## Quick setup (recommended)
 

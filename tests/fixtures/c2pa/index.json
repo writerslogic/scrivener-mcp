@@ -67,6 +67,34 @@
       "source": "Node builtins; original synthetic CC0 content"
     },
     {
+      "file": "story.csv",
+      "mimeType": "text/csv",
+      "bytes": 67,
+      "sha256": "ff04776a7857ea6aed768f18dca877ff8a7b886293be01781279cda0e3f8fe0a",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.tsv",
+      "mimeType": "text/tab-separated-values",
+      "bytes": 64,
+      "sha256": "cf5a93f113bc6652a73643ccb58f49efbafa7da84557002dce36a7d682f817a2",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.xml",
+      "mimeType": "application/xml",
+      "bytes": 145,
+      "sha256": "774561af9ca8c16a44300e737be9914283308f6d484f658af4cbff55334533ec",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.xhtml",
+      "mimeType": "application/xhtml+xml",
+      "bytes": 235,
+      "sha256": "9360d9c5a795f3671ec374548b5e83e12956476835b1bb464d74b093e5c2fd7a",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
       "file": "triangle.obj",
       "mimeType": "model/obj",
       "bytes": 56,
@@ -102,6 +130,55 @@
       "source": "Node builtins; original synthetic CC0 content"
     },
     {
+      "file": "story.odt",
+      "mimeType": "application/vnd.oasis.opendocument.text",
+      "bytes": 1576,
+      "sha256": "f76491ae28676d8eeed33f86edb62990bccdebd337d4ed9723ad58a239db13e1",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.ods",
+      "mimeType": "application/vnd.oasis.opendocument.spreadsheet",
+      "bytes": 1655,
+      "sha256": "10f715895e06b112cff9bdcbebafbacb85bda6dcc0076565978b3225f3d2712b",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.odp",
+      "mimeType": "application/vnd.oasis.opendocument.presentation",
+      "bytes": 1680,
+      "sha256": "34d1ca2d542aa5d281d03866aa6f70809ce76464acdede1a6b0e640aa13d5780",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.odg",
+      "mimeType": "application/vnd.oasis.opendocument.graphics",
+      "bytes": 1669,
+      "sha256": "547df2d7b51cd88a4db089993086caa3c93d0b116689803d74a3843b6307370e",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.xlsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 1515,
+      "sha256": "5d9358cac54281de7b975256ffe27e9c0cd5881bc2f200cc124c0d83679b7276",
+      "source": "Existing JSZip; original synthetic CC0 SpreadsheetML package"
+    },
+    {
+      "file": "story.pptx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "bytes": 4655,
+      "sha256": "581720f7b4436db7782c0a5100e5acaeed9eab4ff6f9878ac8c7c8a5c8fc1e06",
+      "source": "Existing JSZip; original synthetic CC0 PresentationML package"
+    },
+    {
+      "file": "story.ppsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+      "bytes": 4655,
+      "sha256": "4a0ebbc0cda495d7d293f9d61f71a1457e25fdf3b6a35d12fa8daba4b2242ab2",
+      "source": "Existing JSZip; original synthetic CC0 PresentationML package"
+    },
+    {
       "file": "image.jpg",
       "mimeType": "image/jpeg",
       "bytes": 278,
@@ -123,11 +200,25 @@
       "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
     },
     {
+      "file": "image.webp",
+      "mimeType": "image/webp",
+      "bytes": 98,
+      "sha256": "6a579dfcc23f91561f3d1f71cbc6529b538ca07b6bb6999d92f64c8255b5167f",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
       "file": "image.bmp",
       "mimeType": "image/bmp",
       "bytes": 1078,
       "sha256": "e43f30fb5f13bf6062e787d576f711512706c89943d7642eac84703324f2f3f6",
       "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "image.avif",
+      "mimeType": "image/avif",
+      "bytes": 491,
+      "sha256": "24a07df5a23b6945b51a119b75a9ca3387d5863e9f046eae9666993582e50e6f",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
     },
     {
       "file": "clip.mp4",
@@ -154,14 +245,14 @@
       "file": "clip.webm",
       "mimeType": "video/webm",
       "bytes": 546,
-      "sha256": "61b10d72650aefe06521283b8f67551a6b4f3896f39f1609535c9fedc38ca8b1",
+      "sha256": "6dc1b7ac50a947f5c08bbbba963672ef7f6d06f929fbf2f3f6dbe3a2bb35d966",
       "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
     },
     {
       "file": "clip.mkv",
       "mimeType": "video/x-matroska",
       "bytes": 724,
-      "sha256": "1146519a6ae4b93f66667ade345ea6f8559601ec6e2e0e06135668fcd38c5ee6",
+      "sha256": "6fa1c0ea87ec895f743d8b1a584a363831582e6386c1c8cd0f12ef767d8aec76",
       "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
     },
     {
@@ -196,7 +287,7 @@
       "file": "sound.opus",
       "mimeType": "audio/ogg",
       "bytes": 1277,
-      "sha256": "32c97249be88ed2ca532106411a8535ea52c3c9783ef0624bf7d8cf258a06198",
+      "sha256": "038dd04a5aa43a1c004a1ea125d32926517dc2632fdec6188c2927ac8c4e9fb7",
       "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
     },
     {
@@ -207,47 +298,58 @@
       "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
     },
     {
+      "file": "image.heic",
+      "mimeType": "image/heic",
+      "bytes": 821,
+      "sha256": "d2b82e43956e6fbb8d31f20900a20335342d2dc037f5009fe15c64e107ec50b6",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "image.heif",
+      "mimeType": "image/heif",
+      "bytes": 821,
+      "sha256": "d2b82e43956e6fbb8d31f20900a20335342d2dc037f5009fe15c64e107ec50b6",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "image.ico",
+      "mimeType": "image/vnd.microsoft.icon",
+      "bytes": 1150,
+      "sha256": "f4e41d0830ff2345fa26670ea9756d5b6190a328fcbc654e46c541f161f67e58",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
       "file": "story.docx",
       "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "bytes": 11743,
-      "sha256": "a36f5c050c2d576049c627602de7afc7db31f55473116b15b27ac6799f642c4a",
+      "sha256": "37fbe3b16d82aa2769f1403240ed90d1a07bc3cd4cdfb4f7b4517f4b65532be5",
       "source": "Existing public manuscript exporter; original synthetic CC0 text"
     },
     {
       "file": "story.epub",
       "mimeType": "application/epub+zip",
-      "bytes": 3294,
-      "sha256": "f623a71f3095bdee9ff1c9aef7c7524764026ff476cce4d5fb2215cdc8f4afe0",
+      "bytes": 3293,
+      "sha256": "2c17b9f43df6783fe3b1fa522268fd59c4b1002587fe171db38c6c64c54b0bbe",
       "source": "Existing public manuscript exporter; original synthetic CC0 text"
     },
     {
       "file": "story.pdf",
       "mimeType": "application/pdf",
       "bytes": 1100,
-      "sha256": "f59d463bd9bc726780dcaf284f6f26ee58648117541ae37b68d385dc6a86f417",
+      "sha256": "79c6e01673a03c37d72192e90653ec37f67f704df53fd36ed999617f2e405f16",
       "source": "Existing public manuscript exporter; original synthetic CC0 text"
     }
   ],
   "unavailable": [
     {
-      "file": "image.webp",
-      "mimeType": "image/webp",
-      "reason": "Installed ffmpeg could not encode this optional fixture"
-    },
-    {
-      "file": "image.avif",
-      "mimeType": "image/avif",
-      "reason": "Installed ffmpeg could not encode this optional fixture"
-    },
-    {
       "file": "image.jxl",
       "mimeType": "image/jxl",
-      "reason": "Installed ffmpeg could not encode this optional fixture"
+      "reason": "Local FFmpeg could not produce JPEG XL; no substitute asset was created"
     },
     {
       "file": "sound.ogg",
       "mimeType": "audio/ogg",
-      "reason": "Installed ffmpeg could not encode this optional fixture"
+      "reason": "Local encoders could not produce this optional fixture"
     }
   ]
 }

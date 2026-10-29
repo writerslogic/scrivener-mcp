@@ -16,11 +16,7 @@ const localPath = z
 		message: 'Use an absolute local file path without NUL characters.',
 	});
 const mimePattern = /^[\w!#$%&'*+.^`|~-]+\/[\w!#$%&'*+.^`|~-]+$/;
-const mimeType = z
-	.string()
-	.min(3)
-	.max(255)
-	.regex(mimePattern);
+const mimeType = z.string().min(3).max(255).regex(mimePattern);
 const reportInput = z.boolean().default(false);
 const capabilitiesInput = z.object({}).strict();
 const signInput = z
@@ -68,7 +64,8 @@ const validationProperties: ToolSchema['properties'] = {
 	state: {
 		type: 'string',
 		enum: ['valid', 'invalid', 'unsigned', 'untrusted'],
-		description: 'Normalized credential result; signature integrity and signer trust are separate.',
+		description:
+			'Normalized credential result; signature integrity and signer trust are separate.',
 	},
 	integrity: {
 		type: 'string',
@@ -155,7 +152,16 @@ const capabilitiesOutput: ToolSchema = {
 					},
 					category: {
 						type: 'string',
-						enum: ['image', 'video', 'audio', 'document', 'text', 'font', 'model', 'other'],
+						enum: [
+							'image',
+							'video',
+							'audio',
+							'document',
+							'text',
+							'font',
+							'model',
+							'other',
+						],
 						description: 'Media family containing this format.',
 					},
 					embedded: {
@@ -168,6 +174,12 @@ const capabilitiesOutput: ToolSchema = {
 						description: 'Whether a detached manifest is supported for this format.',
 					},
 					notes: { type: 'string', description: 'Coverage limitations for this format.' },
+					preparation: {
+						type: 'string',
+						enum: ['zip-store'],
+						description:
+							'Unsigned archives are repackaged to STORE without changing entry payloads; the original source remains unchanged.',
+					},
 				},
 				required: ['mimeType', 'extensions', 'category', 'embedded', 'sidecar'],
 			},
@@ -185,15 +197,22 @@ const capabilitiesOutput: ToolSchema = {
 			type: 'object',
 			additionalProperties: false,
 			properties: {
-				generation: { type: 'boolean', description: 'Compressed manifest generation support.' },
-				validation: { type: 'boolean', description: 'Compressed manifest validation support.' },
+				generation: {
+					type: 'boolean',
+					description: 'Compressed manifest generation support.',
+				},
+				validation: {
+					type: 'boolean',
+					description: 'Compressed manifest validation support.',
+				},
 			},
 			required: ['generation', 'validation'],
 			description: 'Explicit SDK support for generating and reading compressed manifests.',
 		},
 		signerConfigured: {
 			type: 'boolean',
-			description: 'Whether administrator signing configuration is present; never reveals it.',
+			description:
+				'Whether administrator signing configuration is present; never reveals it.',
 		},
 		conformance: {
 			type: 'object',
@@ -217,7 +236,8 @@ const capabilitiesOutput: ToolSchema = {
 					type: 'array',
 					maxItems: 0,
 					items: { type: 'string', description: 'An assessed attestation method.' },
-					description: 'Empty: no assessed attestation methods or human-authorship claims.',
+					description:
+						'Empty: no assessed attestation methods or human-authorship claims.',
 				},
 			},
 			required: ['status', 'maxAssuranceLevel', 'implementationClass', 'attestationMethods'],
@@ -227,7 +247,11 @@ const capabilitiesOutput: ToolSchema = {
 			type: 'object',
 			additionalProperties: false,
 			properties: {
-				assetBytes: { type: 'integer', minimum: 1, description: 'Maximum source asset bytes.' },
+				assetBytes: {
+					type: 'integer',
+					minimum: 1,
+					description: 'Maximum source asset bytes.',
+				},
 				manifestBytes: {
 					type: 'integer',
 					minimum: 1,
@@ -311,9 +335,14 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 					type: 'string',
 					enum: ['embedded', 'sidecar'],
 					default: 'embedded',
-					description: 'Embed credentials in a new asset or create a detached sidecar manifest.',
+					description:
+						'Embed credentials in a new asset or create a detached sidecar manifest.',
 				},
-				title: { type: 'string', maxLength: 500, description: 'Optional signed asset title.' },
+				title: {
+					type: 'string',
+					maxLength: 500,
+					description: 'Optional signed asset title.',
+				},
 				includeReport: reportProperty,
 			},
 			required: ['assetPath', 'outputPath'],
@@ -329,7 +358,11 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 					enum: ['embedded', 'sidecar'],
 					description: 'Storage mode actually produced by the signing operation.',
 				},
-				bytes: { type: 'integer', minimum: 0, description: 'Number of output bytes written.' },
+				bytes: {
+					type: 'integer',
+					minimum: 0,
+					description: 'Number of output bytes written.',
+				},
 				validation: validationSchema,
 			},
 			required: [
@@ -389,7 +422,13 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 			type: 'object',
 			additionalProperties: false,
 			properties: { ...revisionProperties, ...validationProperties },
-			required: ['assetPath', 'mimeType', 'sourceRevision', 'sdkVersion', ...validationRequired],
+			required: [
+				'assetPath',
+				'mimeType',
+				'sourceRevision',
+				'sdkVersion',
+				...validationRequired,
+			],
 		},
 		handler: async (args) => {
 			const { includeReport, ...request } = validateInput.parse(args);

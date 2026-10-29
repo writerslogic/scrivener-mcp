@@ -3,11 +3,9 @@
  * DECLARES a substantive outputSchema; this proves the tool actually RETURNS a
  * structuredContent that VALIDATES against that schema when invoked for real.
  *
- * It opens a throwaway copy of tests/sample-project.scriv, runs the read-only,
- * non-AI data tools through their real handlers, and validates each
- * structuredContent with ajv. AI-gated tools (need Claude credits) and
- * graph/HMS tools (need the optional native module) are listed as SKIPPED, not
- * silently omitted.
+ * It uses the canonical registry with throwaway project and credential assets,
+ * exercises local-only paths, and validates structuredContent with ajv.
+ * Provider and external graph calls are outside this gate's plan.
  *
  *   npm run build && node scripts/check-output-conformance.mjs
  *
@@ -20,64 +18,33 @@ import Ajv from 'ajv';
 import { redactDiagnostics } from '../dist/setup/redaction.js';
 import { ContentAnalyzer } from '../dist/analysis/base-analyzer.js';
 import { ContentEnhancer } from '../dist/services/enhancements/content-enhancer.js';
-import { projectHandlers } from '../dist/handlers/project-handlers.js';
-import { documentHandlers } from '../dist/handlers/document-handlers.js';
-import { searchHandlers } from '../dist/handlers/search-handlers.js';
-import { goalsHandlers } from '../dist/handlers/goals-handlers.js';
-import { personalizationHandlers } from '../dist/handlers/personalization-handlers.js';
-import { integrityHandlers } from '../dist/handlers/integrity-handlers.js';
-import { analysisHandlers } from '../dist/handlers/analysis-handlers.js';
-import { compilationHandlers } from '../dist/handlers/compilation-handlers.js';
-import { relationshipHandlers } from '../dist/handlers/relationship-handlers.js';
-import { documentGraphHandlers } from '../dist/handlers/document-graph-handlers.js';
-import { dashboardHandler } from '../dist/handlers/dashboard-handlers.js';
-import { reviewChangesHandler } from '../dist/handlers/review-handlers.js';
-import { localSearchHandlers } from '../dist/handlers/local-search-handlers.js';
-import { storyHandlers, continuityHandlers } from '../dist/handlers/story-handlers.js';
-import { workflowHandlers } from '../dist/handlers/workflow-handlers.js';
-import { exportManuscriptHandler } from '../dist/handlers/export-preset-handlers.js';
-import { semanticSearchHandler } from '../dist/handlers/analysis-handlers/advanced.js';
+import {
+	initializeSkillRegistry,
+	getRegisteredTools,
+	executeRegisteredHandler,
+} from '../dist/handlers/skill-registry.js';
+import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
 
 const out = (l) => process.stdout.write(`${l}\n`);
 const ajv = new Ajv({ strict: false, allErrors: true });
 
-const all = [
-	...projectHandlers,
-	...documentHandlers,
-	...searchHandlers,
-	...goalsHandlers,
-	...personalizationHandlers,
-	...integrityHandlers,
-	...analysisHandlers,
-	...compilationHandlers,
-	...relationshipHandlers,
-	...documentGraphHandlers,
-	dashboardHandler,
-	reviewChangesHandler,
-	...localSearchHandlers,
-	...storyHandlers,
-	...continuityHandlers,
-	...workflowHandlers,
-	exportManuscriptHandler,
-	semanticSearchHandler,
-];
-const byName = new Map(all.map((h) => [h.name, h]));
-
-// Read-only, non-AI, non-mutating data tools we can exercise against the fixture.
-// analyze_document is exercised via its no-AI fallback (keys unset below).
-// SKIPPED (documented, not hidden): analyze_writing_style, check_plot_consistency,
-// semantic_search, check_consistency (Claude credits / embeddings);
-// queue_document_analysis, queue_project_analysis, get_job_status (async jobs);
-// create_document, compile_documents, export_project (mutate/write);
-// find_relationships, character_network, discover_connections, recall (graph/HMS
-// native module); list_skills, discover_projects (no project context needed —
-// covered structurally by the registry gate).
-// Project-wide reads run first; create_document runs last because a freshly
-// created doc is only half-persisted mid-session and would otherwise break the
-// word-count reads. find_relationships/character_network/discover_connections and
-// the AI tools are intentionally NOT exercised here (they need a graph/HMS
-// backend or Claude credits absent in this harness) — see the SKIPPED note above.
 const PLAN = [
+	['c2pa_capabilities', {}],
+	[
+		'sign_content_credentials',
+		(context) => ({
+			assetPath: context.credentialAssetPath,
+			outputPath: context.credentialManifestPath,
+			mode: 'sidecar',
+		}),
+	],
+	[
+		'validate_content_credentials',
+		(context) => ({
+			assetPath: context.credentialAssetPath,
+			manifestPath: context.credentialManifestPath,
+		}),
+	],
 	['manuscript_dashboard', {}],
 	['review_changes', { action: 'list' }],
 	['search_passages', { query: 'fear', mode: 'semantic' }],
@@ -146,7 +113,29 @@ async function main() {
 		memoryManager: null,
 		contentAnalyzer: new ContentAnalyzer(),
 		contentEnhancer: new ContentEnhancer(),
+		credentialAssetPath: path.join(tmp, 'credential-source.txt'),
+		credentialManifestPath: path.join(tmp, 'credential-source.c2pa'),
 	};
+	process.env.SCRIVENER_MCP_EAGER_TOOLS = '1';
+	initializeSkillRegistry();
+	const byName = new Map(
+		getRegisteredTools().map((tool) => [
+			tool.name,
+			{
+				...tool,
+				handler: (args, current) => executeRegisteredHandler(tool.name, args, current),
+			},
+		])
+	);
+	const credentialVariables = [
+		'SCRIVENER_C2PA_CERT_PATH',
+		'SCRIVENER_C2PA_KEY_PATH',
+		'SCRIVENER_C2PA_KEY_PASSWORD',
+		'SCRIVENER_C2PA_TRUST_ANCHORS_PATH',
+	];
+	const credentialEnvironment = new Map(
+		credentialVariables.map((name) => [name, process.env[name]])
+	);
 
 	const results = [];
 	let anyDocId = null;
@@ -162,6 +151,14 @@ async function main() {
 			),
 		]);
 	try {
+		const signer = await createC2paTestSigner(path.join(tmp, 'credential-signer'));
+		Object.assign(process.env, {
+			SCRIVENER_C2PA_CERT_PATH: signer.certificatePath,
+			SCRIVENER_C2PA_KEY_PATH: signer.privateKeyPath,
+			SCRIVENER_C2PA_KEY_PASSWORD: signer.password,
+			SCRIVENER_C2PA_TRUST_ANCHORS_PATH: signer.trustAnchorsPath,
+		});
+		fs.writeFileSync(context.credentialAssetPath, 'Original synthetic CC0 credential fixture.');
 		out('opening fixture project...');
 		await withTimeout(byName.get('open_project').handler({ path: projPath }, context), 20000);
 
@@ -193,7 +190,15 @@ async function main() {
 				args = { documentId: anyDocId };
 			}
 			try {
-				const res = await withTimeout(tool.handler(args, context), 8000);
+				const nativeCredential = [
+					'c2pa_capabilities',
+					'sign_content_credentials',
+					'validate_content_credentials',
+				].includes(name);
+				const res = await withTimeout(
+					tool.handler(args, context),
+					nativeCredential ? 35000 : 8000
+				);
 				if (name === 'create_document' && res.structuredContent?.documentId) {
 					anyDocId = res.structuredContent.documentId;
 				}
@@ -218,6 +223,10 @@ async function main() {
 
 		await withTimeout(byName.get('close_project').handler({}, context), 8000).catch(() => {});
 	} finally {
+		for (const [name, value] of credentialEnvironment) {
+			if (value === undefined) delete process.env[name];
+			else process.env[name] = value;
+		}
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
 

@@ -1,11 +1,12 @@
 # Install on Windows
 
 The public server and setup CLI provide all editorial features. Use stable Node.js satisfying
-`^22.23.4 || ^24.22.1 || >=26.12.1`, with Node-API 10 or newer. Node 24.22.1 or a newer Node 24 patch
-is recommended; install the official Windows distribution from
-[nodejs.org](https://nodejs.org/en/download), including npm. The pinned CAI native SDK requires these
-patched TLS floors in addition to SQLite 13's Node-API requirement. Node 23/25 and lower patches on
-22/24/26 are excluded. Scrivener 3 projects use a `.scriv` directory containing a `.scrivx` file.
+`^22.23.4 || ^24.22.1 || >=26.12.1`, with Node-API 10 or newer. Node 24.22.1 or a newer Node 24
+patch is recommended; install the official Windows distribution from
+[nodejs.org](https://nodejs.org/en/download), including npm. The pinned CAI native SDK requires
+these patched TLS floors in addition to SQLite 13's Node-API requirement. Node 23/25 and lower
+patches on 22/24/26 are excluded. Scrivener 3 projects use a `.scriv` directory containing a
+`.scrivx` file.
 
 In PowerShell:
 

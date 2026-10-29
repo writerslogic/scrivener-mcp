@@ -10,26 +10,36 @@ buffers and undocumented native compile-layout rules are outside this interface.
 The current supported stable Node range is `^22.23.4 || ^24.22.1 || >=26.12.1`, with Node-API 10 or
 newer. Node 24.22.1 or a newer Node 24 patch is recommended. The pinned CAI native SDK requires the
 patched TLS floors in addition to SQLite 13's Node-API requirement. Node 23/25 and lower patches on
-22/24/26 are excluded. See the [runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
+22/24/26 are excluded. See the
+[runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
 
 CI is configured for the exact 22.23.4 minimum and Node 24 across all three operating systems, plus
-latest Node 22 and Node 26 on Linux. Configuration is not a passed result: patched-floor and new
-C2PA native checks, including Windows, remain pending until their CI runs complete. Current
-candidate results belong in [the ledger](implementation-status.md).
+latest Node 22 and Node 26 on Linux. The protected release gate requires every job to pass.
+Configuration alone is not evidence: inspect the exact commit in the
+[CI matrix](https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml) and its per-job
+C2PA JSON artifact. Each report records the actual OS, architecture, Node/SDK version, fixture-index
+digest and format/mode results. Current local evidence is recorded in
+[the ledger](implementation-status.md).
+
+The 0.14.0 candidate passed the complete local gate on macOS arm64 / Node 24.22.1: 48 native C2PA
+fixtures, 1,135 tests and 17 fresh-package/MCP checks. The staged Mac bundle separately passed its
+15 applicable installed-package checks under Node 24.22.2, including the actual arm64 C2PA binary.
+[The retained native snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) is local evidence;
+Windows/Linux results are supplied by the matching CI jobs, not inferred from the Mac result.
 
 The Node 22.13 and 26.8.1 observations below are historical. They do not establish current runtime
 support or verify the new CAI native SDK. The Node 22.13 results used SQLite driver 12.
 
 The minimum Windows job remains on `windows-2022`, with Visual Studio 2022; the Node 24 job uses
-`windows-latest`. An earlier Node 22.14 reproduction used npm 10.9.2 and node-gyp 11, which could not
-recognize Visual Studio 2026 on the newer runner. In that reproduction, frozen installs invoked
+`windows-latest`. An earlier Node 22.14 reproduction used npm 10.9.2 and node-gyp 11, which could
+not recognize Visual Studio 2026 on the newer runner. In that reproduction, frozen installs invoked
 node-gyp because the lockfile omitted SQLite's `gypfile: false` setting despite its bundled native
 binary; a fresh registry install with npm 10.9.2 used that binary without rebuilding. These
 historical toolchain versions explain the runner choice; they are not asserted as the versions
 bundled with Node 22.23.4. Record the current minimum's npm/node-gyp versions and Windows results
 from its actual CI run. Both Windows jobs retain every applicable release check.
 
-| Target | Historical verification | Limit |
+| Target                                                 | Historical verification                                                                                                                                                   | Limit                                                                                                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | macOS arm64, Node 26.8.1 / npm 11.19.0                 | Local manager validation, generated Mac/Windows-layout fixtures, installed-package MCP sessions and Chromium Apps interactions                                            | Exact final command results are recorded in [the ledger](implementation-status.md)                                                                   |
 | Windows, Node 22.13.0 and 24                           | Native CI passed the release gate and installed-package MCP sessions; setup uses absolute `node.exe`; synthetic case-varied/renamed projects exercise saved-file behavior | Live Windows Scrivener GUI behavior is unverified; POSIX FIFO/no-follow tests are inapplicable                                                       |
@@ -54,8 +64,8 @@ The earlier expanded eight-job matrix passed on main at `72ade1c` in
 [CI run 40707022045](https://github.com/writerslogic/scrivener-mcp/actions/runs/40707022045).
 `Release verification` now requires every matrix job to succeed before main integration.
 
-Those runs predate the current patched-floor/C2PA candidate. Native Content Credentials coverage
-has a separate per-format, per-mode and per-platform matrix; the format catalog alone is not
+Those runs predate the current patched-floor/C2PA candidate. Native Content Credentials coverage has
+a separate per-format, per-mode and per-platform matrix; the format catalog alone is not
 verification. See [Content Credentials](content-credentials.md) for its pending evidence, offline
 trust limits and export integration. No new Windows C2PA pass is inferred from historical runs.
 

@@ -8,9 +8,9 @@ runtime upgrades. New versions are promoted after verification.
 The package engine requirement, setup runtime floor and CI minimum must agree. After building,
 `node scripts/check-runtime-policy.mjs` checks that agreement, the running stable Node version,
 Node-API capability, bootstrap floors and coverage of Linux, macOS and Windows. Setup rejects
-malformed, prerelease and inconsistent runtime
-versions, compares every version component, and prefers a private runtime before the newest
-available stable fallback. A usable running runtime remains preferred.
+malformed, prerelease and inconsistent runtime versions, compares every version component, and
+prefers a private runtime before the newest available stable fallback. A usable running runtime
+remains preferred.
 
 The supported range is **`^22.23.4 || ^24.22.1 || >=26.12.1`**. The pinned CAI native SDK's binary
 installer and JavaScript fetch paths use Node's TLS stack independently of the Rust SDK, so the
@@ -21,10 +21,10 @@ compatibility still needs evidence. Upgrade an older installation to Node 24.22.
 patch.
 
 SQLite 13 additionally requires Node-API 10. Its earlier ABI-only floor of 22.14.0/23.6.0 is not the
-current security policy. The SQLite native binding ships with the package and
-is verified through an actual in-memory query under the bundled Node, rather than downloaded through
-a private install-script path. Existing SQLite databases retain their schema; checked-in v12
-fixtures verify normal closure, interrupted WAL recovery and Unicode state. See the
+current security policy. The SQLite native binding ships with the package and is verified through an
+actual in-memory query under the bundled Node, rather than downloaded through a private
+install-script path. Existing SQLite databases retain their schema; checked-in v12 fixtures verify
+normal closure, interrupted WAL recovery and Unicode state. See the
 [Node-API version matrix](https://nodejs.org/download/release/v22.23.0/docs/api/n-api.html#node-api-version-matrix)
 and [SQLite driver release](https://github.com/WiseLibs/better-sqlite3/releases/tag/v13.0.0).
 
@@ -68,8 +68,8 @@ Local-only demo and diagnostic sessions skip automatic Redis discovery and use e
 they do not consume queued work from another installation.
 
 The `credentials` skill exposes `c2pa_capabilities`, `sign_content_credentials` and
-`validate_content_credentials` on demand without an open project. Native signing and validation
-are isolated and offline; their reports distinguish integrity from administrator-configured signer
+`validate_content_credentials` on demand without an open project. Native signing and validation are
+isolated and offline; their reports distinguish integrity from administrator-configured signer
 trust. Compressed-manifest validation is implemented; generation is not. PDF, MP3, FLAC, DOCX and
 EPUB use embedded mode with the pinned SDK, with their detached sidecars explicitly unsupported.
 Unsigned DEFLATE DOCX/EPUB archives are prepared as separate STORE copies that preserve entry

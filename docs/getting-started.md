@@ -80,7 +80,8 @@ so a valid call never dead-ends:
 1. **At startup:** the `project` skill (`open_project`, `get_structure`, `refresh_project`,
    `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`,
    `get_compile_settings`, `get_manuscript_briefing`, `list_snapshots`, `read_snapshot`,
-   `compare_snapshot`, `create_snapshot`, `manuscript_dashboard`) plus `list_skills` and `use_skill`.
+   `compare_snapshot`, `create_snapshot`, `manuscript_dashboard`) plus `list_skills` and
+   `use_skill`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read,
    write, create, delete, move, local passage search and review tools.
 3. **On demand:** say "activate analysis tools" or Claude calls `use_skill` with
@@ -95,16 +96,16 @@ You can see all available skills and which are active by asking Claude to call `
 
 ### Content Credentials for exports
 
-Activate `credentials` with `use_skill` and `{"name":"credentials"}`, then call
-`c2pa_capabilities` with `{}`. The group exposes `c2pa_capabilities`, `sign_content_credentials`
-and `validate_content_credentials` without opening a project.
+Activate `credentials` with `use_skill` and `{"name":"credentials"}`, then call `c2pa_capabilities`
+with `{}`. The group exposes `c2pa_capabilities`, `sign_content_credentials` and
+`validate_content_credentials` without opening a project.
 
 To credential a manuscript, open the project, export a PDF with `export_project` or use an
 `export_manuscript` preset, then sign the saved file to an explicit new output path. Validate the
 signed output for embedded mode, or validate the original asset with `manifestPath` for a supported
-detached sidecar. PDF, MP3, FLAC, DOCX and EPUB use embedded mode with the pinned SDK; their sidecars
-are unsupported. DOCX/EPUB preparation preserves ZIP entry payloads in a separate STORE copy and
-records the original SHA-256; it does not change the source export.
+detached sidecar. PDF, MP3, FLAC, DOCX and EPUB use embedded mode with the pinned SDK; their
+sidecars are unsupported. DOCX/EPUB preparation preserves ZIP entry payloads in a separate STORE
+copy and records the original SHA-256; it does not change the source export.
 
 Signing requires administrator-provided certificates and an encrypted private key; never pass a key
 or password in tool arguments. Raw reports are omitted unless `includeReport` is true. Validation

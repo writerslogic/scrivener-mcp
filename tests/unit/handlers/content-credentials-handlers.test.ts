@@ -99,20 +99,23 @@ describe('content credentials tool boundaries', () => {
 		expect(result.content[0].text).toContain('not assessed');
 	});
 
-	it.each([false, true])('returns normalized signing evidence with includeReport=%s', async (includeReport) => {
-		sign.mockResolvedValue(signed);
-		const result = await tool('sign_content_credentials').handler(
-			{ assetPath, outputPath, ...(includeReport ? { includeReport } : {}) },
-			context
-		);
-		const { report: raw, ...summary } = validation;
-		expect(result.structuredContent).toEqual({
-			...signed,
-			validation: includeReport ? { ...summary, report: raw } : summary,
-		});
-		if (!includeReport) expect(JSON.stringify(result)).not.toContain('raw-report-content');
-		expect(result.content[0].text).toContain('trust: untrusted');
-	});
+	it.each([false, true])(
+		'returns normalized signing evidence with includeReport=%s',
+		async (includeReport) => {
+			sign.mockResolvedValue(signed);
+			const result = await tool('sign_content_credentials').handler(
+				{ assetPath, outputPath, ...(includeReport ? { includeReport } : {}) },
+				context
+			);
+			const { report: raw, ...summary } = validation;
+			expect(result.structuredContent).toEqual({
+				...signed,
+				validation: includeReport ? { ...summary, report: raw } : summary,
+			});
+			if (!includeReport) expect(JSON.stringify(result)).not.toContain('raw-report-content');
+			expect(result.content[0].text).toContain('trust: untrusted');
+		}
+	);
 
 	it('preserves detached signing mode and the explicit output destination', async () => {
 		const destination = join(tmpdir(), 'signed.c2pa');
@@ -133,23 +136,29 @@ describe('content credentials tool boundaries', () => {
 		});
 	});
 
-	it.each([false, true])('returns normalized detached validation with includeReport=%s', async (includeReport) => {
-		validate.mockImplementation(async (request) => {
-			if (!request.manifestPath) throw new Error('A detached manifest was required by this fixture.');
-			return validated;
-		});
-		const result = await tool('validate_content_credentials').handler(
-			{
-				assetPath,
-				manifestPath: join(tmpdir(), 'detached.c2pa'),
-				...(includeReport ? { includeReport } : {}),
-			},
-			context
-		);
-		const { report: raw, ...summary } = validated;
-		expect(result.structuredContent).toEqual(includeReport ? { ...summary, report: raw } : summary);
-		if (!includeReport) expect(JSON.stringify(result)).not.toContain('raw-report-content');
-	});
+	it.each([false, true])(
+		'returns normalized detached validation with includeReport=%s',
+		async (includeReport) => {
+			validate.mockImplementation(async (request) => {
+				if (!request.manifestPath)
+					throw new Error('A detached manifest was required by this fixture.');
+				return validated;
+			});
+			const result = await tool('validate_content_credentials').handler(
+				{
+					assetPath,
+					manifestPath: join(tmpdir(), 'detached.c2pa'),
+					...(includeReport ? { includeReport } : {}),
+				},
+				context
+			);
+			const { report: raw, ...summary } = validated;
+			expect(result.structuredContent).toEqual(
+				includeReport ? { ...summary, report: raw } : summary
+			);
+			if (!includeReport) expect(JSON.stringify(result)).not.toContain('raw-report-content');
+		}
+	);
 
 	it.each(['certificatePath', 'privateKeyPath', 'password', 'trustAnchorsPath', 'url'])(
 		'rejects caller-controlled %s without exposing its value',
@@ -180,32 +189,50 @@ describe('content credentials tool boundaries', () => {
 		{ assetPath, outputPath, mode: 'compressed' },
 		{ assetPath, outputPath, mimeType: 'image/jpeg; charset=utf-8' },
 	])('rejects invalid signing paths, controls and ranges: %j', async (args) => {
-		await expect(tool('sign_content_credentials').handler(args, context)).rejects.toBeInstanceOf(ZodError);
+		await expect(
+			tool('sign_content_credentials').handler(args, context)
+		).rejects.toBeInstanceOf(ZodError);
 	});
 
-	it.each([4095, 4096])('accepts a %s-character absolute path at the handler boundary', async (length) => {
-		const root = parse(assetPath).root;
-		const path = root + 'a'.repeat(length - root.length);
-		sign.mockImplementation(async (request) => ({ ...signed, assetPath: request.assetPath }));
-		const result = await tool('sign_content_credentials').handler(
-			{ assetPath: path, outputPath, title: 'x'.repeat(length === 4095 ? 499 : 500) },
-			context
-		);
-		expect(result.structuredContent?.assetPath).toBe(path);
-	});
+	it.each([4095, 4096])(
+		'accepts a %s-character absolute path at the handler boundary',
+		async (length) => {
+			const root = parse(assetPath).root;
+			const path = root + 'a'.repeat(length - root.length);
+			sign.mockImplementation(async (request) => ({
+				...signed,
+				assetPath: request.assetPath,
+			}));
+			const result = await tool('sign_content_credentials').handler(
+				{ assetPath: path, outputPath, title: 'x'.repeat(length === 4095 ? 499 : 500) },
+				context
+			);
+			expect(result.structuredContent?.assetPath).toBe(path);
+		}
+	);
 
 	it('rejects oversized asset/output paths and relative detached manifests', async () => {
 		const oversized = parse(assetPath).root + 'a'.repeat(4097 - parse(assetPath).root.length);
-		for (const args of [{ assetPath: oversized, outputPath }, { assetPath, outputPath: oversized }]) {
-			await expect(tool('sign_content_credentials').handler(args, context)).rejects.toBeInstanceOf(ZodError);
+		for (const args of [
+			{ assetPath: oversized, outputPath },
+			{ assetPath, outputPath: oversized },
+		]) {
+			await expect(
+				tool('sign_content_credentials').handler(args, context)
+			).rejects.toBeInstanceOf(ZodError);
 		}
 		await expect(
-			tool('validate_content_credentials').handler({ assetPath, manifestPath: 'relative.c2pa' }, context)
+			tool('validate_content_credentials').handler(
+				{ assetPath, manifestPath: 'relative.c2pa' },
+				context
+			)
 		).rejects.toBeInstanceOf(ZodError);
 	});
 
 	it('preserves actionable safe administrator configuration errors from the domain', async () => {
-		const error = new Error('Content Credentials signing requires configuration by the server administrator.');
+		const error = new Error(
+			'Content Credentials signing requires configuration by the server administrator.'
+		);
 		sign.mockRejectedValue(error);
 		await expect(
 			tool('sign_content_credentials').handler({ assetPath, outputPath }, context)

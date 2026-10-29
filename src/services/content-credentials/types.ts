@@ -1,12 +1,5 @@
 export type CredentialMediaCategory =
-	| 'image'
-	| 'video'
-	| 'audio'
-	| 'document'
-	| 'text'
-	| 'font'
-	| 'model'
-	| 'other';
+	'image' | 'video' | 'audio' | 'document' | 'text' | 'font' | 'model' | 'other';
 
 export interface CredentialFormat {
 	mimeType: string;
@@ -14,6 +7,7 @@ export interface CredentialFormat {
 	category: CredentialMediaCategory;
 	embedded: 'supported' | 'unsupported' | 'experimental';
 	sidecar: boolean;
+	preparation?: 'zip-store';
 	notes?: string;
 }
 

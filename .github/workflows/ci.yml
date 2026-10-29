@@ -68,7 +68,15 @@ jobs:
         run: node scripts/check-hms-compatibility.mjs
 
       - name: C2PA asset and signature compatibility
-        run: node scripts/check-c2pa-compatibility.mjs
+        run: node scripts/check-c2pa-compatibility.mjs --output logs/c2pa/native-compatibility.json
+
+      - name: Retain native C2PA compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: c2pa-${{ matrix.os }}-${{ matrix.node-version }}
+          path: logs/c2pa/native-compatibility.json
+          if-no-files-found: ignore
 
       - name: Test
         run: npm test -- --testTimeout=30000

@@ -420,32 +420,37 @@ Primary contracts:
 
 ## C2PA format support
 
-The manager integrates in `/Volumes/A/scrivener-mcp-c2pa` on
-`feat/c2pa-format-support-20261028`, starting from main `485b1a2`. Original dirty public and private
-checkouts remain untouched. The user requested broad real format support before answering the C2PA
-intake questionnaire; no application, legal agreement, production certificate purchase or publication
-is authorized by that request. Existing authorization for reviewed PR integration remains in force.
+Integration branch: feat/c2pa-format-support-20261028, based on main 485b1a2. Feature version 0.14.0
+is not npm-published. The original public checkout's 70 pending paths and private Mac checkout's 35
+pending deletions are preserved. No application, legal agreement, production certificate purchase or
+deployment has been performed.
 
-| Acceptance | Implementation contract |
-| --- | --- |
-| Broad asset coverage | One pinned official Node SDK; distinguish embedded and detached `.c2pa` credentials per MIME type, with real fixture evidence and explicit unsupported/experimental entries. |
-| Honest verification | Separate asset/signature integrity from certificate trust; unsigned and untrusted assets never become trusted successes. No claim of granted C2PA conformance or human authorship. |
-| Safe signing | Sign existing assets to a separate immutable output; encrypted administrator-configured private keys, no keys in MCP arguments or logs, no source manuscript modifications. |
-| Native isolation | Parse/sign in short-lived child processes with bounded files, messages and timeouts; disable automatic asset-derived network fetching and collect actual SDK results. |
-| Real entry points | Progressive MCP capability, sign and validation tools share the same domain service; test existing manuscript exports followed by credential signing through actual MCP calls. |
-| Release verification | Actual SDK round trips, altered assets, bad credentials, path/size boundaries, package startup/native loading and cross-platform CI, plus the existing complete final gate. |
-| Intake evidence | Document all 30 intake answers from tested capabilities; product identity/legal country and OU require confirmed applicant information. |
+| Acceptance            | Implementation and evidence                                                                                                                                                                                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared operations     | Three progressively loaded credentials tools use one domain service and one pinned official SDK 0.9.11 worker; no manuscript edits or parallel exporter.                                                                                                                     |
+| Real format coverage  | 86 declared MIME types; 48 synthetic CC0 MIME fixtures pass actual native roundtrips: 25 embedded and 37 detached paths. Untested profiles remain outside intake claims.                                                                                                     |
+| Archive integrity     | DOCX/XLSX/PPTX/EPUB/ODT/ODS/ODP/ODG prepare unsigned input as bounded STORE copies, preserve document parts and record source SHA-256/repackaging. Unsafe paths, duplicates, inconsistent directories, corrupt CRCs and allocation/entry limits fail closed.                 |
+| Honest validation     | Current signature and asset-binding successes are required; configured-root trust is separate. Compressed c2cm/brob validation passes; compressed generation, streaming and attestation are absent. Conformance is not assessed; AL1 is a target, not an awarded level.      |
+| Safe publication      | Stable descriptor reads, saved-source revision rechecks, private staging, encrypted administrator keys, isolated timed native children and exclusive publication. Concurrent output attempts produce one valid artifact and one conflict; wrong passwords produce no output. |
+| Actual interfaces     | Installed MCP export/sign/validate succeeds for DOCX/EPUB/PDF, preserves history, rejects overwrite and verifies again after a real server restart. UI/editorial services retain their existing contracts.                                                                   |
+| Runtime and packaging | Node floors 22.23.4 /24.22.1 /26.12.1 include official SDK TLS fixes plus SQLite API10. The bundle explicitly installs the platform SDK binary before pruning and probes its real installed native entry point.                                                              |
+| Intake and identity   | All 30 questions have evidence-based answers in [Content Credentials](content-credentials.md); CN scrivener-mcp, O WritersLogic, Inc., C US, OU blank. Production identity/trust issuance and program assessment remain external prerequisites.                              |
 
-Shared contracts live in `src/services/content-credentials/types.ts`. The manager owns domain
-orchestration, shared contracts, tool registration/schemas, dependencies, CI, packaging and integration.
-Workers receive disjoint ownership of the native SDK worker, format fixtures/catalog, and runtime
-compatibility. Workers write code/tests but run no installs, builds, formatting or validation. All
-development uses local/free resources, synthetic fixtures and isolated configuration. SDK 0.9.11
-loaded on macOS arm64 under Node 24.22.1; its installation audit reported zero vulnerabilities.
+The complete local gate passed: formatting, lint, types, build, runtime policy, 78-tool registry, 32
+output-conformance paths, native/fallback HMS compatibility, C2PA compatibility, 95 Jest suites
+(1,135 passed; nine existing live-provider skips), zero-vulnerability npm audit, 17 installed
+package/MCP checks, and EPUBCheck 5.4.0 on unsigned/signed Unicode-notes and empty ebooks.
+[Native evidence snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) records SDK/runtime/platform,
+fixture-index digest, trust policy, exact per-MIME modes, source preservation and negative checks.
+The Mac bundle separately passes 15 installed-package/MCP checks under Node 24.22.2 after explicit
+arm64 SDK installation and pruning. CI retains the corresponding report in every compatibility job;
+protected integration requires the complete eight-job matrix. Validation uses local/free resources
+only. Both tool audits now enumerate the canonical eager registry instead of maintaining separate
+skill/handler lists, so all 78 tools and the three new output schemas are included.
 
-Applicant country is confirmed `US`; no organizational unit was supplied, so OU remains blank.
-The manager inspected and integrated runtime commit `cfc5e9e` and fixture-generator commit
-`f25ab01`. Node TLS security floors are 22.23.4, 24.22.1 and 26.12.1, verified against primary SDK
-documentation; Node 22.23.4 is available from nodejs.org. The new feature version is 0.14.0 locally;
-no npm publication or C2PA approval is implied. Dependency installation added the official SDK's
-transitive packages without changing existing locked dependency versions.
+Manager-owned shared contracts, dependencies, CI and integration are complete. Isolated workers
+contributed the native worker, format fixtures, filesystem/archive regressions and documentation;
+all contributions were inspected and integrated before dependent checks. Logs are retained under
+logs/c2pa in the integration checkout. Future-proofing bf53f0b is already in public main. After
+protected integration, preserve bundle/log artifacts and remove owned temporary worktrees while
+retaining all unrelated edits and checkouts.

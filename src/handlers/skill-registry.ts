@@ -72,7 +72,8 @@ const skills: Skill[] = [
 	},
 	{
 		name: 'credentials',
-		description: 'Inspect format coverage, sign local assets and validate C2PA Content Credentials',
+		description:
+			'Inspect format coverage, sign local assets and validate C2PA Content Credentials',
 		tools: contentCredentialsHandlers,
 	},
 	{

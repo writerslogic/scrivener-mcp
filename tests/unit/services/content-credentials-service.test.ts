@@ -4,6 +4,7 @@ import path from 'node:path';
 import { ApplicationError, ErrorCode } from '../../../src/core/errors.js';
 import {
 	CREDENTIAL_LIMITS,
+	getCredentialCapabilities,
 	signCredentialAsset,
 	validateCredentialAsset,
 } from '../../../src/services/content-credentials/service.js';
@@ -68,11 +69,12 @@ test.each(['asset', 'output', 'manifest'] as const)(
 	async (field) => {
 		for (const value of ['', 'relative.png', null, path.join(root, 'private\0source.png')]) {
 			const invalid = value as unknown as string;
-			const operation = field === 'asset'
-				? validateCredentialAsset({ assetPath: invalid, mimeType: 'image/png' })
-				: field === 'manifest'
-					? validateCredentialAsset({ assetPath, manifestPath: invalid })
-					: signCredentialAsset({ assetPath, outputPath: invalid });
+			const operation =
+				field === 'asset'
+					? validateCredentialAsset({ assetPath: invalid, mimeType: 'image/png' })
+					: field === 'manifest'
+						? validateCredentialAsset({ assetPath, manifestPath: invalid })
+						: signCredentialAsset({ assetPath, outputPath: invalid });
 			await rejected(operation, ErrorCode.PATH_INVALID);
 		}
 		expect(await fs.readdir(stages)).toEqual([]);
@@ -81,14 +83,32 @@ test.each(['asset', 'output', 'manifest'] as const)(
 );
 
 test('rejects equivalent source/output paths and incompatible formats without modifying the source', async () => {
-	await rejected(signCredentialAsset({
-		assetPath,
-		outputPath: path.join(root, 'unused', '..', path.basename(assetPath)),
-	}), ErrorCode.INVALID_INPUT);
-	await expect(signCredentialAsset({ assetPath, outputPath: path.join(root, 'output.jpg'), mimeType: 'image/jpeg' }))
-		.rejects.toThrow(/MIME type conflicts with the file extension/);
-	await rejected(signCredentialAsset({ assetPath, outputPath: path.join(root, 'output.jpg') }), ErrorCode.INVALID_FORMAT);
-	await rejected(signCredentialAsset({ assetPath, outputPath: path.join(root, 'output.png'), mode: 'sidecar' }), ErrorCode.INVALID_INPUT);
+	await rejected(
+		signCredentialAsset({
+			assetPath,
+			outputPath: path.join(root, 'unused', '..', path.basename(assetPath)),
+		}),
+		ErrorCode.INVALID_INPUT
+	);
+	await expect(
+		signCredentialAsset({
+			assetPath,
+			outputPath: path.join(root, 'output.jpg'),
+			mimeType: 'image/jpeg',
+		})
+	).rejects.toThrow(/MIME type conflicts with the file extension/);
+	await rejected(
+		signCredentialAsset({ assetPath, outputPath: path.join(root, 'output.jpg') }),
+		ErrorCode.INVALID_FORMAT
+	);
+	await rejected(
+		signCredentialAsset({
+			assetPath,
+			outputPath: path.join(root, 'output.png'),
+			mode: 'sidecar',
+		}),
+		ErrorCode.INVALID_INPUT
+	);
 	expect(await fs.readFile(assetPath)).toEqual(SOURCE);
 	expect((await fs.readdir(root)).sort()).toEqual(['private-source.png', 'private-stages']);
 });
@@ -98,8 +118,13 @@ test('requires complete administrator signing configuration without discovering 
 	await rejected(signCredentialAsset({ assetPath, outputPath }), ErrorCode.CONFIGURATION_ERROR);
 	const password = 'private-test-password-must-not-appear';
 	process.env.SCRIVENER_C2PA_KEY_PASSWORD = password;
-	const error = await rejected(signCredentialAsset({ assetPath, outputPath }), ErrorCode.CONFIGURATION_ERROR);
-	expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain(password);
+	const error = await rejected(
+		signCredentialAsset({ assetPath, outputPath }),
+		ErrorCode.CONFIGURATION_ERROR
+	);
+	expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain(
+		password
+	);
 	expect(await fs.readFile(assetPath)).toEqual(SOURCE);
 	await expect(fs.lstat(outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
 	expect(await fs.readdir(stages)).toEqual([]);
@@ -118,12 +143,18 @@ test('protects Scrivener internals while permitting the dedicated export directo
 		path.join('.scrivener-mcp', 'exports-hidden', 'scene.png'),
 		path.join('.scrivener-mcp', 'exports', '..', 'scene.png'),
 	]) {
-		await rejected(signCredentialAsset({ assetPath, outputPath: path.join(project, relative) }), ErrorCode.PATH_INVALID);
+		await rejected(
+			signCredentialAsset({ assetPath, outputPath: path.join(project, relative) }),
+			ErrorCode.PATH_INVALID
+		);
 	}
-	await rejected(signCredentialAsset({
-		assetPath,
-		outputPath: path.join(project, '.scrivener-mcp', 'exports', 'signed.png'),
-	}), ErrorCode.CONFIGURATION_ERROR);
+	await rejected(
+		signCredentialAsset({
+			assetPath,
+			outputPath: path.join(project, '.scrivener-mcp', 'exports', 'signed.png'),
+		}),
+		ErrorCode.CONFIGURATION_ERROR
+	);
 	expect(await fs.readFile(manuscript)).toEqual(SOURCE);
 	expect(await fs.readdir(stages)).toEqual([]);
 });
@@ -139,9 +170,15 @@ test('rejects symlinked output ancestors that lead into manuscript internals, in
 	await fs.symlink(internal, alias, 'junction');
 	await fs.symlink(exports, allowed, 'junction');
 	for (const suffix of ['signed.png', path.join('missing', 'deeper', 'signed.png')]) {
-		await rejected(signCredentialAsset({ assetPath, outputPath: path.join(alias, suffix) }), ErrorCode.PATH_INVALID);
+		await rejected(
+			signCredentialAsset({ assetPath, outputPath: path.join(alias, suffix) }),
+			ErrorCode.PATH_INVALID
+		);
 	}
-	await rejected(signCredentialAsset({ assetPath, outputPath: path.join(allowed, 'signed.png') }), ErrorCode.CONFIGURATION_ERROR);
+	await rejected(
+		signCredentialAsset({ assetPath, outputPath: path.join(allowed, 'signed.png') }),
+		ErrorCode.CONFIGURATION_ERROR
+	);
 	expect(await fs.readdir(internal)).toEqual([]);
 	expect(await fs.readdir(exports)).toEqual([]);
 	expect(await fs.readdir(stages)).toEqual([]);
@@ -161,7 +198,11 @@ test('rejects empty, nonregular, missing and oversized sources with private stag
 		[oversized, ErrorCode.DOCUMENT_TOO_LARGE],
 	] as const) {
 		const error = await rejected(validateCredentialAsset({ assetPath: file }), code);
-		const returned = JSON.stringify({ message: error.message, code: error.code, details: error.details });
+		const returned = JSON.stringify({
+			message: error.message,
+			code: error.code,
+			details: error.details,
+		});
 		expect(returned).not.toContain(root);
 		expect(returned).not.toContain(SOURCE.toString());
 		expect(await fs.readdir(stages)).toEqual([]);
@@ -170,23 +211,41 @@ test('rejects empty, nonregular, missing and oversized sources with private stag
 });
 
 const fileSymlinkTest = process.platform === 'win32' ? test.skip : test;
-fileSymlinkTest('rejects a symbolic link to a regular source without reading or altering its target', async () => {
-	const alias = path.join(root, 'source-alias.png');
-	await fs.symlink(assetPath, alias, 'file');
-	await rejected(validateCredentialAsset({ assetPath: alias }), ErrorCode.INVALID_FORMAT);
-	expect(await fs.readFile(assetPath)).toEqual(SOURCE);
-	expect((await fs.lstat(alias)).isSymbolicLink()).toBe(true);
-	expect(await fs.readdir(stages)).toEqual([]);
-});
+fileSymlinkTest(
+	'rejects a symbolic link to a regular source without reading or altering its target',
+	async () => {
+		const alias = path.join(root, 'source-alias.png');
+		await fs.symlink(assetPath, alias, 'file');
+		await rejected(validateCredentialAsset({ assetPath: alias }), ErrorCode.INVALID_FORMAT);
+		expect(await fs.readFile(assetPath)).toEqual(SOURCE);
+		expect((await fs.lstat(alias)).isSymbolicLink()).toBe(true);
+		expect(await fs.readdir(stages)).toEqual([]);
+	}
+);
 
 test('removes a copied source when a detached manifest fails filesystem validation and redacts returned errors', async () => {
 	const manifestPath = path.join(root, 'private-manifest.c2pa');
 	await sparseFile(manifestPath, CREDENTIAL_LIMITS.manifestBytes + 1);
-	const error = await rejected(validateCredentialAsset({ assetPath, manifestPath }), ErrorCode.DOCUMENT_TOO_LARGE);
+	const error = await rejected(
+		validateCredentialAsset({ assetPath, manifestPath }),
+		ErrorCode.DOCUMENT_TOO_LARGE
+	);
 	expect(error.message).toMatch(/manifest exceeds/i);
 	expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain(root);
 	expect(JSON.stringify(error)).not.toContain(SOURCE.toString());
 	expect(await fs.readFile(assetPath)).toEqual(SOURCE);
 	expect((await fs.stat(manifestPath)).size).toBe(CREDENTIAL_LIMITS.manifestBytes + 1);
+	expect(await fs.readdir(stages)).toEqual([]);
+});
+
+test('reports capacity separately from SDK availability and releases capacity after failed reads', async () => {
+	const oversized = path.join(root, 'oversized.png');
+	await sparseFile(oversized, CREDENTIAL_LIMITS.assetBytes + 1);
+	const pending = [0, 1].map(() => validateCredentialAsset({ assetPath: oversized }));
+	await rejected(getCredentialCapabilities(), ErrorCode.RESOURCE_EXHAUSTED);
+	await Promise.all(
+		pending.map((operation) => rejected(operation, ErrorCode.DOCUMENT_TOO_LARGE))
+	);
+	await rejected(validateCredentialAsset({ assetPath: oversized }), ErrorCode.DOCUMENT_TOO_LARGE);
 	expect(await fs.readdir(stages)).toEqual([]);
 });
