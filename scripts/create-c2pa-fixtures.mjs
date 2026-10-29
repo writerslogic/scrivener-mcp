@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, createPrivateKey, randomBytes } from 'node:crypto';
-import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -43,6 +43,10 @@ export async function createC2paTestSigner(directory) {
 	for (const key of [rootKey, privateKeyPath]) {
 		await command('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-aes-256-cbc', '-pass', 'env:C2PA_FIXTURE_PASSPHRASE', '-out', key], env);
 		await chmod(key, 0o600);
+		const info = await stat(key);
+		assert.ok(info.size > 0 && info.size <= 16 * 1024, 'Encrypted test key exceeds its size limit');
+		if (!/^-----BEGIN ENCRYPTED PRIVATE KEY-----\r?\n/.test(await readFile(key, 'utf8')))
+			throw new Error('OpenSSL must write an encrypted PKCS8 test key');
 	}
 	// OpenSSL 3.6 can prompt despite passin; transient DER avoids its encrypted-PEM UI loader.
 	const certificateCommand = async (args, keyPath) => {
@@ -109,6 +113,138 @@ function wav() {
 	return result;
 }
 
+function originalFonts() {
+	const tables = new Map();
+	const head = Buffer.alloc(54);
+	head.writeUInt32BE(0x00010000, 0);
+	head.writeUInt32BE(0x00010000, 4);
+	head.writeUInt32BE(0x5f0f3cf5, 12);
+	head.writeUInt16BE(1000, 18);
+	head.writeUInt16BE(8, 46);
+	head.writeInt16BE(2, 48);
+	tables.set('head', head);
+	const hhea = Buffer.alloc(36);
+	hhea.writeUInt32BE(0x00010000, 0);
+	hhea.writeInt16BE(800, 4);
+	hhea.writeInt16BE(-200, 6);
+	hhea.writeUInt16BE(500, 10);
+	hhea.writeInt16BE(500, 14);
+	hhea.writeInt16BE(1, 18);
+	hhea.writeUInt16BE(2, 34);
+	tables.set('hhea', hhea);
+	const maxp = Buffer.alloc(32);
+	maxp.writeUInt32BE(0x00010000, 0);
+	maxp.writeUInt16BE(2, 4);
+	maxp.writeUInt16BE(1, 14);
+	tables.set('maxp', maxp);
+	const hmtx = Buffer.alloc(8);
+	hmtx.writeUInt16BE(500, 0);
+	hmtx.writeUInt16BE(500, 4);
+	tables.set('hmtx', hmtx);
+	const loca = Buffer.alloc(6);
+	loca.writeUInt16BE(6, 2);
+	loca.writeUInt16BE(12, 4);
+	tables.set('loca', loca);
+	tables.set('glyf', Buffer.alloc(24));
+	const cmap = Buffer.alloc(44);
+	cmap.writeUInt16BE(1, 2);
+	cmap.writeUInt16BE(3, 4);
+	cmap.writeUInt16BE(1, 6);
+	cmap.writeUInt32BE(12, 8);
+	cmap.writeUInt16BE(4, 12);
+	cmap.writeUInt16BE(32, 14);
+	cmap.writeUInt16BE(4, 18);
+	cmap.writeUInt16BE(4, 20);
+	cmap.writeUInt16BE(1, 22);
+	cmap.writeUInt16BE(32, 26);
+	cmap.writeUInt16BE(0xffff, 28);
+	cmap.writeUInt16BE(32, 32);
+	cmap.writeUInt16BE(0xffff, 34);
+	cmap.writeInt16BE(-31, 36);
+	cmap.writeUInt16BE(1, 38);
+	tables.set('cmap', cmap);
+	const os2 = Buffer.alloc(78);
+	os2.writeInt16BE(500, 2);
+	os2.writeUInt16BE(400, 4);
+	os2.writeUInt16BE(5, 6);
+	os2.write('CC0 ', 58);
+	os2.writeUInt16BE(0x40, 62);
+	os2.writeUInt16BE(32, 64);
+	os2.writeUInt16BE(32, 66);
+	os2.writeInt16BE(800, 68);
+	os2.writeInt16BE(-200, 70);
+	os2.writeUInt16BE(800, 74);
+	os2.writeUInt16BE(200, 76);
+	tables.set('OS/2', os2);
+	const names = [[1, 'Original CC0 Fixture'], [2, 'Regular'], [4, 'Original CC0 Fixture Regular'], [6, 'CC0Fixture-Regular']];
+	const strings = names.map(([, value]) => Buffer.from(value, 'utf16le').swap16());
+	const name = Buffer.alloc(6 + names.length * 12);
+	name.writeUInt16BE(names.length, 2);
+	name.writeUInt16BE(name.length, 4);
+	let stringOffset = 0;
+	names.forEach(([id], index) => {
+		const offset = 6 + index * 12;
+		[3, 1, 0x0409, id, strings[index].length, stringOffset].forEach((value, field) => name.writeUInt16BE(value, offset + field * 2));
+		stringOffset += strings[index].length;
+	});
+	tables.set('name', Buffer.concat([name, ...strings]));
+	const post = Buffer.alloc(32);
+	post.writeUInt32BE(0x00030000, 0);
+	tables.set('post', post);
+	const checksum = (bytes) => {
+		const padded = Buffer.alloc(Math.ceil(bytes.length / 4) * 4);
+		bytes.copy(padded);
+		let result = 0;
+		for (let index = 0; index < padded.length; index += 4) result = (result + padded.readUInt32BE(index)) >>> 0;
+		return result;
+	};
+	const entries = [...tables].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([tag, bytes]) => ({ tag, bytes, checksum: checksum(bytes) }));
+	const directory = Buffer.alloc(12 + entries.length * 16);
+	directory.writeUInt32BE(0x00010000, 0);
+	directory.writeUInt16BE(entries.length, 4);
+	directory.writeUInt16BE(128, 6);
+	directory.writeUInt16BE(3, 8);
+	directory.writeUInt16BE(entries.length * 16 - 128, 10);
+	let offset = directory.length;
+	const parts = [directory];
+	entries.forEach((entry, index) => {
+		entry.offset = offset;
+		const row = 12 + index * 16;
+		directory.write(entry.tag, row);
+		directory.writeUInt32BE(entry.checksum, row + 4);
+		directory.writeUInt32BE(offset, row + 8);
+		directory.writeUInt32BE(entry.bytes.length, row + 12);
+		const padded = Buffer.alloc(Math.ceil(entry.bytes.length / 4) * 4);
+		entry.bytes.copy(padded);
+		parts.push(padded);
+		offset += padded.length;
+	});
+	const ttf = Buffer.concat(parts);
+	ttf.writeUInt32BE((0xb1b0afba - checksum(ttf)) >>> 0, entries.find((entry) => entry.tag === 'head').offset + 8);
+	const woffHeader = Buffer.alloc(44 + entries.length * 20);
+	woffHeader.write('wOFF', 0);
+	woffHeader.writeUInt32BE(0x00010000, 4);
+	woffHeader.writeUInt16BE(entries.length, 12);
+	woffHeader.writeUInt32BE(ttf.length, 16);
+	woffHeader.writeUInt16BE(1, 20);
+	offset = woffHeader.length;
+	const compressedTables = [];
+	entries.forEach((entry, index) => {
+		const bytes = ttf.subarray(entry.offset, entry.offset + entry.bytes.length);
+		const compressed = deflateSync(bytes);
+		const stored = compressed.length < bytes.length ? compressed : bytes;
+		const row = 44 + index * 20;
+		woffHeader.write(entry.tag, row);
+		[ offset, stored.length, bytes.length, entry.checksum ].forEach((value, field) => woffHeader.writeUInt32BE(value, row + 4 + field * 4));
+		const padded = Buffer.alloc(Math.ceil(stored.length / 4) * 4);
+		stored.copy(padded);
+		compressedTables.push(padded);
+		offset += padded.length;
+	});
+	woffHeader.writeUInt32BE(offset, 8);
+	return { ttf, woff: Buffer.concat([woffHeader, ...compressedTables]) };
+}
+
 function triangle(binary = false) {
 	const geometry = Buffer.alloc(44);
 	[0, 0, 0, 1, 0, 0, 0, 1, 0].forEach((value, index) => geometry.writeFloatLE(value, index * 4));
@@ -151,6 +287,9 @@ export async function createC2paFixtures(outputDirectory) {
 	try {
 		await save('image.png', 'image/png', png());
 		await save('sound.wav', 'audio/wav', wav());
+		const fonts = originalFonts();
+		await save('original.ttf', 'font/ttf', fonts.ttf);
+		await save('original.woff', 'font/woff', fonts.woff);
 		await save('drawing.svg', 'image/svg+xml', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#7155a0"/><circle cx="8" cy="8" r="4" fill="#ffffff"/></svg>'));
 		for (const [file, mime, text] of [
 			['story.txt', 'text/plain', 'Original CC0 fixture: Café — 東京 😀. A lantern shone.\n'],
@@ -178,7 +317,7 @@ export async function createC2paFixtures(outputDirectory) {
 			...[
 				['sound.flac', 'audio/flac', 'flac'], ['sound.mp3', 'audio/mpeg', 'libmp3lame'],
 				['sound.m4a', 'audio/mp4', 'aac'], ['sound.aac', 'audio/aac', 'aac'],
-				['sound.ogg', 'audio/ogg', 'libvorbis'], ['sound.opus', 'audio/opus', 'libopus'],
+				['sound.ogg', 'audio/ogg', 'libvorbis'], ['sound.opus', 'audio/ogg', 'libopus'],
 				['sound.aiff', 'audio/aiff', 'pcm_s16be'],
 			].map(([file, mime, codec]) => [file, mime, ['-i', join(stage, 'sound.wav'), '-c:a', codec]]),
 		];
