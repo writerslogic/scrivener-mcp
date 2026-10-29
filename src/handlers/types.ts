@@ -65,6 +65,7 @@ export interface ToolSchema {
 	type: 'object';
 	properties: Record<string, JSONValue>;
 	required?: string[];
+	additionalProperties?: boolean;
 }
 
 export interface ToolDefinition {

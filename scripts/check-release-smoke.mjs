@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
 import {
 	access,
@@ -17,6 +18,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
 
 const APP_URI = 'ui://scrivener/manuscript-dashboard';
 const APP_MIME = 'text/html;profile=mcp-app';
@@ -44,8 +46,8 @@ function options(argv) {
 	for (let index = 0; index < argv.length; index++) {
 		const flag = argv[index];
 		verify(
-			flag === '--package' || flag === '--npm-cli',
-			'Use --package <absolute.tgz> and optional --npm-cli <npm-cli.js>'
+			['--package', '--installed-server', '--npm-cli'].includes(flag),
+			'Use --package <absolute.tgz> or --installed-server <absolute-directory>, and optional --npm-cli <npm-cli.js>'
 		);
 		verify(
 			typeof argv[index + 1] === 'string' && !argv[index + 1].startsWith('--'),
@@ -57,6 +59,15 @@ function options(argv) {
 		verify(
 			isAbsolute(parsed.package) && parsed.package.endsWith('.tgz'),
 			'--package requires an absolute .tgz file'
+		);
+	verify(
+		!(parsed.package && parsed['installed-server']),
+		'Choose a package or an installed server'
+	);
+	if (parsed['installed-server'])
+		verify(
+			isAbsolute(parsed['installed-server']),
+			'--installed-server requires an absolute directory'
 		);
 	return parsed;
 }
@@ -300,51 +311,200 @@ async function main() {
 		await writeFile(env.NPM_CONFIG_USERCONFIG, '');
 		await writeFile(env.NPM_CONFIG_GLOBALCONFIG, '');
 		const cli = await npmCli(opts['npm-cli']);
-		let tarball = opts.package;
-		if (!tarball) {
-			await check('pack-local-candidate', async () => {
-				await runNpm(
+		let installed = opts['installed-server'];
+		if (!installed) {
+			let tarball = opts.package;
+			if (!tarball) {
+				await check('pack-local-candidate', async () => {
+					await runNpm(
+						cli,
+						[
+							'pack',
+							'--ignore-scripts',
+							'--json',
+							'--pack-destination',
+							join(root, 'package'),
+						],
+						SOURCE_ROOT,
+						env
+					);
+					const archives = (await readdir(join(root, 'package'))).filter((name) =>
+						name.endsWith('.tgz')
+					);
+					verify(
+						archives.length === 1,
+						'npm pack did not create exactly one package archive'
+					);
+					tarball = join(root, 'package', archives[0]);
+				});
+			}
+			verify(
+				(await stat(tarball)).isFile() && (await stat(tarball)).size <= 128 * 1024 * 1024,
+				'Package archive is missing or exceeds 128 MiB'
+			);
+			await writeFile(
+				join(root, 'package.json'),
+				JSON.stringify({ name: 'scrivener-release-smoke', version: '1.0.0', private: true })
+			);
+			await check('install-local-package', () =>
+				runNpm(
 					cli,
-					[
-						'pack',
-						'--ignore-scripts',
-						'--json',
-						'--pack-destination',
-						join(root, 'package'),
-					],
-					SOURCE_ROOT,
+					['install', tarball, '--omit=dev', '--no-audit', '--no-fund'],
+					root,
 					env
-				);
-				const archives = (await readdir(join(root, 'package'))).filter((name) =>
-					name.endsWith('.tgz')
-				);
-				verify(
-					archives.length === 1,
-					'npm pack did not create exactly one package archive'
-				);
-				tarball = join(root, 'package', archives[0]);
-			});
+				)
+			);
+			installed = join(root, 'node_modules', 'scrivener-mcp');
 		}
 		verify(
-			(await stat(tarball)).isFile() && (await stat(tarball)).size <= 128 * 1024 * 1024,
-			'Package archive is missing or exceeds 128 MiB'
+			JSON.parse(await readFile(join(installed, 'package.json'), 'utf8')).name ===
+				'scrivener-mcp',
+			'Installed server package identity is invalid'
 		);
-		await writeFile(
-			join(root, 'package.json'),
-			JSON.stringify({ name: 'scrivener-release-smoke', version: '1.0.0', private: true })
-		);
-		await check('install-local-package', () =>
-			runNpm(cli, ['install', tarball, '--omit=dev', '--no-audit', '--no-fund'], root, env)
-		);
-		const installed = join(root, 'node_modules', 'scrivener-mcp');
 		await check('installed-consumer-dependency-audit', async () => {
-			await runNpm(cli, ['audit', '--omit=dev'], root, env);
+			await runNpm(
+				cli,
+				['audit', '--omit=dev'],
+				opts['installed-server'] ? installed : root,
+				env
+			);
 		});
 		const entry = join(installed, 'dist', 'index.js');
+		await check('installed-cli-redacted-diagnostics', async () => {
+			for (const mode of ['entry', 'arguments']) {
+				const secret =
+					mode === 'entry' ? 'sk-ant-private-fixture-value' : 'cHJpdmF0ZTpwYXNz';
+				const args =
+					mode === 'entry'
+						? [
+								'--json',
+								'--node',
+								process.execPath,
+								'--script',
+								join(env.HOME, `${secret}.js`),
+							]
+						: ['--client', `Basic ${secret}`];
+				let result;
+				try {
+					await promisify(execFile)(
+						process.execPath,
+						[join(installed, 'dist/cli/setup.js'), ...args],
+						{
+							cwd: root,
+							env,
+							encoding: 'utf8',
+							timeout: 20000,
+							maxBuffer: 128 * 1024,
+						}
+					);
+				} catch (error) {
+					verify(
+						error.code === 2,
+						'CLI diagnostic did not return its expected error status'
+					);
+					result = error;
+				}
+				verify(result, 'CLI accepted an invalid diagnostic request');
+				verify(
+					!(result.stdout + result.stderr).includes(secret),
+					'CLI diagnostic exposed a credential'
+				);
+				if (mode === 'entry') {
+					const report = JSON.parse(result.stdout);
+					verify(
+						report.schemaVersion === 1 && !report.ok && !report.error.includes(root),
+						'CLI diagnostic exposed its private home path or returned an invalid report'
+					);
+				}
+			}
+		});
+		if (process.platform !== 'win32') {
+			await check('installed-saved-reader-nonblocking-fifo', async () => {
+				const project = join(root, 'fifo.scriv');
+				const document = join(project, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
+				await mkdir(dirname(document), { recursive: true, mode: 0o700 });
+				await promisify(execFile)('mkfifo', [document], { cwd: root, env, timeout: 5000 });
+				const script = `const [module, project, document] = process.argv.slice(1); const { MutationCoordinator } = await import(module); const coordinator = new MutationCoordinator(project); let result; try { await coordinator.readRaw(document); result = { unexpectedSuccess: true }; } catch (error) { result = { error: error.message }; } finally { coordinator.close(); } process.stdout.write(JSON.stringify(result), () => process.exit(0));`;
+				const result = await promisify(execFile)(
+					process.execPath,
+					[
+						'--input-type=module',
+						'-e',
+						script,
+						pathToFileURL(
+							join(installed, 'dist/services/editorial/mutation-coordinator.js')
+						).href,
+						project,
+						SAMPLE_DOCUMENT,
+					],
+					{
+						cwd: root,
+						env,
+						encoding: 'utf8',
+						timeout: 8000,
+						killSignal: 'SIGKILL',
+						maxBuffer: 4096,
+					}
+				);
+				verify(
+					/regular file/i.test(JSON.parse(result.stdout).error ?? ''),
+					'Installed reader did not reject a FIFO as a non-regular file'
+				);
+				const credentialResult = await promisify(execFile)(
+					process.execPath,
+					[
+						'--input-type=module',
+						'-e',
+						'const [module, assetPath] = process.argv.slice(1); const {validateCredentialAsset} = await import(module); let result; try { await validateCredentialAsset({assetPath, mimeType:"application/octet-stream"}); result = {unexpectedSuccess:true}; } catch(error) { result = {error:error.message}; } process.stdout.write(JSON.stringify(result), () => process.exit(0));',
+						pathToFileURL(
+							join(installed, 'dist/services/content-credentials/service.js')
+						).href,
+						document,
+					],
+					{
+						cwd: root,
+						env,
+						encoding: 'utf8',
+						timeout: 8000,
+						killSignal: 'SIGKILL',
+						maxBuffer: 4096,
+					}
+				);
+				verify(
+					/regular file/i.test(JSON.parse(credentialResult.stdout).error ?? ''),
+					'Installed credential reader did not reject a FIFO without blocking'
+				);
+			});
+		}
 		const requireInstalled = createRequire(join(installed, 'package.json'));
+		await check('installed-native-c2pa-sdk', async () => {
+			const result = await promisify(execFile)(
+				process.execPath,
+				[
+					'--input-type=module',
+					'-e',
+					'const {pathToFileURL} = await import("node:url"); const {getCredentialCapabilities} = await import(pathToFileURL(process.argv[1]).href); const result = await getCredentialCapabilities(); if (!result.available || !result.sdkVersion) process.exitCode = 1;',
+					join(installed, 'dist/services/content-credentials/service.js'),
+				],
+				{ cwd: root, env, timeout: 40000, maxBuffer: 128 * 1024 }
+			);
+			verify(
+				result.stdout.length === 0,
+				'Installed C2PA probe wrote unexpected protocol output'
+			);
+		});
 		const { Client, StdioClientTransport, firstSession } = await check(
 			'installed-package-modules',
 			async () => {
+				await promisify(execFile)(
+					process.execPath,
+					[
+						'-e',
+						'require(process.argv[1]).loadNativeBinding()',
+						join(installed, 'dist/services/memory/hhm/native-loader.cjs'),
+					],
+					{ cwd: root, env, timeout: 20000, maxBuffer: 128 * 1024 }
+				);
 				const clientModule = await import(
 					pathToFileURL(
 						requireInstalled.resolve('@modelcontextprotocol/sdk/client/index.js')
@@ -415,6 +575,14 @@ async function main() {
 		const originalFile = join(projectPath, 'Files', 'Data', SAMPLE_DOCUMENT, 'content.rtf');
 		const originalRaw = await readFile(originalFile, 'utf8');
 		const originalRevision = await hash(originalFile);
+		const credentialSigner = await createC2paTestSigner(join(root, 'credential-signer'));
+		const credentialEnvironment = {
+			...env,
+			SCRIVENER_C2PA_CERT_PATH: credentialSigner.certificatePath,
+			SCRIVENER_C2PA_KEY_PATH: credentialSigner.privateKeyPath,
+			SCRIVENER_C2PA_KEY_PASSWORD: credentialSigner.password,
+			SCRIVENER_C2PA_TRUST_ANCHORS_PATH: credentialSigner.trustAnchorsPath,
+		};
 		const openSession = async (apps, args = [entry], sessionEnvironment = env) => {
 			const transport = new StdioClientTransport({
 				command: process.execPath,
@@ -449,19 +617,34 @@ async function main() {
 		};
 		await check('installed-server-graceful-stdio-close', async () => {
 			const marker = join(root, 'unexpected-sigterm');
+			const exitStatus = join(root, 'stdio-exit-status');
 			const observer = join(root, 'observe-termination.mjs');
 			await writeFile(
 				observer,
-				`import { writeFileSync } from 'node:fs'; process.on('SIGTERM', () => writeFileSync(${JSON.stringify(marker)}, 'SIGTERM'));`,
+				`import { writeFileSync } from 'node:fs';
+process.on('SIGTERM', () => writeFileSync(new URL('./unexpected-sigterm', import.meta.url), 'SIGTERM'));
+process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import.meta.url), String(code)));
+`,
 				{ mode: 0o600 }
 			);
-			const session = await openSession(false, ['--import', observer, entry]);
+			const session = await openSession(false, [
+				'--import',
+				pathToFileURL(observer).href,
+				entry,
+			]);
 			try {
-				verify((await session.listTools()).tools.length > 0, 'EOF fixture server listed no tools');
+				verify(
+					(await session.listTools()).tools.length > 0,
+					'EOF fixture server listed no tools'
+				);
 			} finally {
 				await session.close();
 			}
 			verify(!(await exists(marker)), 'Installed server required SIGTERM after stdin closed');
+			verify(
+				(await exists(exitStatus)) && (await readFile(exitStatus, 'utf8')) === '0',
+				'Installed server failed to shut down cleanly after stdin closed'
+			);
 		});
 		const client = await openSession(false);
 		let seriesId;
@@ -888,6 +1071,108 @@ async function main() {
 		} finally {
 			await client.close();
 		}
+		const credentialArtifacts = [];
+		const credentials = await openSession(false, [entry], credentialEnvironment);
+		try {
+			await check('installed-export-credential-sign-and-validate', async () => {
+				await tool(credentials, 'use_skill', { name: 'credentials' });
+				const capability = await tool(credentials, 'c2pa_capabilities', {});
+				verify(
+					capability.available &&
+						capability.signerConfigured &&
+						capability.conformance.status === 'not-assessed',
+					'MCP credential capabilities do not reflect the installed SDK and configured signer'
+				);
+				await tool(credentials, 'open_project', { path: projectPath });
+				const pdfPath = join(root, 'credential-export.pdf');
+				const pdf = await tool(credentials, 'export_project', {
+					format: 'pdf',
+					outputPath: pdfPath,
+				});
+				verify(
+					pdf.path === pdfPath && pdf.bytes > 0,
+					'Existing PDF exporter returned no artifact'
+				);
+				await tool(credentials, 'close_project', {});
+				for (const file of [
+					'submission-manuscript.docx',
+					'ebook.epub',
+					'credential-export.pdf',
+				]) {
+					const assetPath = join(root, file);
+					const revision = await hash(assetPath);
+					const outputPath = join(root, `credential-${file}`);
+					const signed = await tool(credentials, 'sign_content_credentials', {
+						assetPath,
+						outputPath,
+						mode: 'embedded',
+					});
+					verify(
+						signed.outputPath === outputPath &&
+							signed.sourceRevision === revision &&
+							signed.validation.integrity === 'valid' &&
+							signed.validation.trust === 'trusted' &&
+							!('report' in signed.validation),
+						'MCP signing did not verify its actual output or omitted-report contract'
+					);
+					verify(
+						(await hash(assetPath)) === revision,
+						'Credential signing changed the exported source'
+					);
+					const validation = await tool(credentials, 'validate_content_credentials', {
+						assetPath: outputPath,
+					});
+					verify(
+						validation.state === 'valid' &&
+							validation.trust === 'trusted' &&
+							validation.sourceRevision === (await hash(outputPath)),
+						'MCP validation did not authenticate the produced artifact'
+					);
+					const duplicate = await credentials.callTool({
+						name: 'sign_content_credentials',
+						arguments: { assetPath, outputPath, mode: 'embedded' },
+					});
+					verify(
+						duplicate.isError === true &&
+							(await hash(outputPath)) === validation.sourceRevision,
+						'Signing overwrote an existing output'
+					);
+					credentialArtifacts.push({
+						assetPath: outputPath,
+						revision: validation.sourceRevision,
+					});
+				}
+				const first = credentialArtifacts[0];
+				await tool(credentials, 'sign_content_credentials', {
+					assetPath: first.assetPath,
+					outputPath: join(root, 'credential-history.docx'),
+					mode: 'embedded',
+				});
+			});
+		} finally {
+			await credentials.close();
+		}
+		const credentialRestart = await openSession(false, [entry], credentialEnvironment);
+		try {
+			await check('installed-credential-validation-after-restart', async () => {
+				await tool(credentialRestart, 'use_skill', { name: 'credentials' });
+				for (const artifact of credentialArtifacts) {
+					const validation = await tool(
+						credentialRestart,
+						'validate_content_credentials',
+						{ assetPath: artifact.assetPath }
+					);
+					verify(
+						validation.state === 'valid' &&
+							validation.trust === 'trusted' &&
+							validation.sourceRevision === artifact.revision,
+						'Credential validation changed after an actual MCP restart'
+					);
+				}
+			});
+		} finally {
+			await credentialRestart.close();
+		}
 		const app = await openSession(true);
 		try {
 			await check('apps-client-resource-negotiation-and-durable-restart', async () => {
@@ -920,6 +1205,22 @@ async function main() {
 					'Dashboard resource did not declare its local-only CSP'
 				);
 				await tool(app, 'open_project', { path: projectPath });
+				const reopenedSearch = await tool(app, 'search_passages', {
+					query: 'fear',
+					mode: 'semantic',
+					limit: 3,
+				});
+				verify(
+					reopenedSearch.index.changedDocuments === 0 &&
+						reopenedSearch.results.some(
+							(item) =>
+								item.documentId === SAMPLE_DOCUMENT &&
+								item.revision === originalRevision &&
+								item.semanticScore > 0 &&
+								item.context.includes(item.quote)
+						),
+					'Installed passage search lost persisted source context or reindexed unchanged sources after restart'
+				);
 				verify(
 					(await tool(app, 'manuscript_dashboard', { documentId: SAMPLE_DOCUMENT }))
 						.uiSupported === true,

@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "license": "CC0-1.0",
+  "generator": "scripts/create-c2pa-fixtures.mjs",
+  "fixtures": [
+    {
+      "file": "image.png",
+      "mimeType": "image/png",
+      "bytes": 549,
+      "sha256": "0629917e667907f914ae241ee56fd21058d2bd6366e58e21d7a0b50f02de9714",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "sound.wav",
+      "mimeType": "audio/wav",
+      "bytes": 1644,
+      "sha256": "d8fbab65683db68e4df8d86cfeeadeb4a6d1416afd690ed39f2d56b4020e9df2",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "original.ttf",
+      "mimeType": "font/ttf",
+      "bytes": 692,
+      "sha256": "3b667f709378a57c1f01627d7cae0b1eea8c5bb6dca5ec0f930e2ec3c0ed424e",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "original.woff",
+      "mimeType": "font/woff",
+      "bytes": 548,
+      "sha256": "23fe5467cd49bc7c0ced5111e995739b567adebaaa0c8c91029b4ea2707b0cca",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "drawing.svg",
+      "mimeType": "image/svg+xml",
+      "bytes": 158,
+      "sha256": "ea96971749261827e87e91e7f500f818bb912b27cf5a4ab39f7cb3c7685ec67f",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.txt",
+      "mimeType": "text/plain",
+      "bytes": 62,
+      "sha256": "96e1595740acf9a0d45ae90e4e9a4dec5f66e0f62549b73af8be64a7badb0f4d",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.md",
+      "mimeType": "text/markdown",
+      "bytes": 39,
+      "sha256": "f5504956e0b8adaf624db3376ff0f573068bd676f8086b9b32af21d7595e83c5",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.html",
+      "mimeType": "text/html",
+      "bytes": 117,
+      "sha256": "5626b715985d31c43e487ad09b24d89776c6ec4af898cb022f79079d7c5474f7",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.json",
+      "mimeType": "application/json",
+      "bytes": 49,
+      "sha256": "c1312cdce515203f234d3f2a9fd868b33677c633470760b8c671f024c26932e1",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.csv",
+      "mimeType": "text/csv",
+      "bytes": 67,
+      "sha256": "ff04776a7857ea6aed768f18dca877ff8a7b886293be01781279cda0e3f8fe0a",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.tsv",
+      "mimeType": "text/tab-separated-values",
+      "bytes": 64,
+      "sha256": "cf5a93f113bc6652a73643ccb58f49efbafa7da84557002dce36a7d682f817a2",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.xml",
+      "mimeType": "application/xml",
+      "bytes": 145,
+      "sha256": "774561af9ca8c16a44300e737be9914283308f6d484f658af4cbff55334533ec",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.xhtml",
+      "mimeType": "application/xhtml+xml",
+      "bytes": 235,
+      "sha256": "9360d9c5a795f3671ec374548b5e83e12956476835b1bb464d74b093e5c2fd7a",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "triangle.obj",
+      "mimeType": "model/obj",
+      "bytes": 56,
+      "sha256": "12e66dad01e5ae69f4b7cfe8b7eb6157e7f3342607679cf381438ea68cfa7041",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "triangle.stl",
+      "mimeType": "model/stl",
+      "bytes": 127,
+      "sha256": "643a43df82d486ed7619a38983d8820766184e0c04691d1540712adab1c636a1",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "triangle.gltf",
+      "mimeType": "model/gltf+json",
+      "bytes": 636,
+      "sha256": "a4b04f9d3329f16d717938673e2e7a45edd67342ddcf1716b97003a04f3085c6",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "triangle.glb",
+      "mimeType": "model/gltf-binary",
+      "bytes": 608,
+      "sha256": "2334910f85687bb3673af6a66573477c656a893717c7b50958c914c7e46a9385",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "opaque.bin",
+      "mimeType": "application/octet-stream",
+      "bytes": 31,
+      "sha256": "41a0a48ce42c1923a9e326219d1d73a07eca61a487768824171cc53c81c9521e",
+      "source": "Node builtins; original synthetic CC0 content"
+    },
+    {
+      "file": "story.odt",
+      "mimeType": "application/vnd.oasis.opendocument.text",
+      "bytes": 1576,
+      "sha256": "f76491ae28676d8eeed33f86edb62990bccdebd337d4ed9723ad58a239db13e1",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.ods",
+      "mimeType": "application/vnd.oasis.opendocument.spreadsheet",
+      "bytes": 1655,
+      "sha256": "10f715895e06b112cff9bdcbebafbacb85bda6dcc0076565978b3225f3d2712b",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.odp",
+      "mimeType": "application/vnd.oasis.opendocument.presentation",
+      "bytes": 1680,
+      "sha256": "34d1ca2d542aa5d281d03866aa6f70809ce76464acdede1a6b0e640aa13d5780",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.odg",
+      "mimeType": "application/vnd.oasis.opendocument.graphics",
+      "bytes": 1669,
+      "sha256": "547df2d7b51cd88a4db089993086caa3c93d0b116689803d74a3843b6307370e",
+      "source": "Existing JSZip; original synthetic CC0 OpenDocument 1.3 package"
+    },
+    {
+      "file": "story.xlsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 1515,
+      "sha256": "5d9358cac54281de7b975256ffe27e9c0cd5881bc2f200cc124c0d83679b7276",
+      "source": "Existing JSZip; original synthetic CC0 SpreadsheetML package"
+    },
+    {
+      "file": "story.pptx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "bytes": 4655,
+      "sha256": "581720f7b4436db7782c0a5100e5acaeed9eab4ff6f9878ac8c7c8a5c8fc1e06",
+      "source": "Existing JSZip; original synthetic CC0 PresentationML package"
+    },
+    {
+      "file": "story.ppsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+      "bytes": 4655,
+      "sha256": "4a0ebbc0cda495d7d293f9d61f71a1457e25fdf3b6a35d12fa8daba4b2242ab2",
+      "source": "Existing JSZip; original synthetic CC0 PresentationML package"
+    },
+    {
+      "file": "image.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 278,
+      "sha256": "17311f35603feb775772364cb45d205455a384f24503dcfb38aa2fd6a2e66e06",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "image.gif",
+      "mimeType": "image/gif",
+      "bytes": 1094,
+      "sha256": "cac97bf712a96c790f75b9dbc370a25bf10a45ac5374532601630457fd85403d",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "image.tiff",
+      "mimeType": "image/tiff",
+      "bytes": 1272,
+      "sha256": "4815189013df3b94611cf40dea5639103c40abc2604c54b90c30bec844e5cd34",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "image.webp",
+      "mimeType": "image/webp",
+      "bytes": 98,
+      "sha256": "6a579dfcc23f91561f3d1f71cbc6529b538ca07b6bb6999d92f64c8255b5167f",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "image.bmp",
+      "mimeType": "image/bmp",
+      "bytes": 1078,
+      "sha256": "e43f30fb5f13bf6062e787d576f711512706c89943d7642eac84703324f2f3f6",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "image.avif",
+      "mimeType": "image/avif",
+      "bytes": 491,
+      "sha256": "24a07df5a23b6945b51a119b75a9ca3387d5863e9f046eae9666993582e50e6f",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "clip.mp4",
+      "mimeType": "video/mp4",
+      "bytes": 896,
+      "sha256": "a5d0ee108fb597f9c27959e57766bb5b56fe2744b05d50e6198d427ba654b61b",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "clip.mov",
+      "mimeType": "video/quicktime",
+      "bytes": 847,
+      "sha256": "e2ad60e4f9f3593bab028a3c75dc5c0d4ca124071db121ba5904cb6e435fd269",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "clip.avi",
+      "mimeType": "video/x-msvideo",
+      "bytes": 5852,
+      "sha256": "f9f8f697539866997810ec7b532766fbf9d92f5b51fb6a2b5ec0424815159e9d",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "clip.webm",
+      "mimeType": "video/webm",
+      "bytes": 546,
+      "sha256": "6dc1b7ac50a947f5c08bbbba963672ef7f6d06f929fbf2f3f6dbe3a2bb35d966",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "clip.mkv",
+      "mimeType": "video/x-matroska",
+      "bytes": 724,
+      "sha256": "6fa1c0ea87ec895f743d8b1a584a363831582e6386c1c8cd0f12ef767d8aec76",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "sound.flac",
+      "mimeType": "audio/flac",
+      "bytes": 8603,
+      "sha256": "8385f6d2749f12c51af57616b3e054deb8001c1aff51b1e6e8945c8807ec5505",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "sound.mp3",
+      "mimeType": "audio/mpeg",
+      "bytes": 549,
+      "sha256": "4df8e98224bf509648630b61c86203d23cc0c90cfbfbd0dd6fa2a03d4f79ccf5",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "sound.m4a",
+      "mimeType": "audio/mp4",
+      "bytes": 1739,
+      "sha256": "292afbd40e99bd61aef813ddc2c4f15b8c652787d4b4ee588285101422ec574f",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "sound.aac",
+      "mimeType": "audio/aac",
+      "bytes": 938,
+      "sha256": "b48318a6d346d6d0e9cff27c27787d6dc2a302d752836e257b1d8d3ac7584000",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "sound.opus",
+      "mimeType": "audio/ogg",
+      "bytes": 1277,
+      "sha256": "038dd04a5aa43a1c004a1ea125d32926517dc2632fdec6188c2927ac8c4e9fb7",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "sound.aiff",
+      "mimeType": "audio/aiff",
+      "bytes": 1654,
+      "sha256": "705e7a99ac97daf3d06b7db16905b44948a50aa5d62e81095ba0a94a26c0d611",
+      "source": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+    },
+    {
+      "file": "image.heic",
+      "mimeType": "image/heic",
+      "bytes": 821,
+      "sha256": "d2b82e43956e6fbb8d31f20900a20335342d2dc037f5009fe15c64e107ec50b6",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "image.heif",
+      "mimeType": "image/heif",
+      "bytes": 821,
+      "sha256": "d2b82e43956e6fbb8d31f20900a20335342d2dc037f5009fe15c64e107ec50b6",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "image.ico",
+      "mimeType": "image/vnd.microsoft.icon",
+      "bytes": 1150,
+      "sha256": "f4e41d0830ff2345fa26670ea9756d5b6190a328fcbc654e46c541f161f67e58",
+      "source": "Version: ImageMagick 7.1.2-26 Q16-HDRI aarch64 702175ac4:20260621 https://imagemagick.org"
+    },
+    {
+      "file": "story.docx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes": 11743,
+      "sha256": "37fbe3b16d82aa2769f1403240ed90d1a07bc3cd4cdfb4f7b4517f4b65532be5",
+      "source": "Existing public manuscript exporter; original synthetic CC0 text"
+    },
+    {
+      "file": "story.epub",
+      "mimeType": "application/epub+zip",
+      "bytes": 3293,
+      "sha256": "2c17b9f43df6783fe3b1fa522268fd59c4b1002587fe171db38c6c64c54b0bbe",
+      "source": "Existing public manuscript exporter; original synthetic CC0 text"
+    },
+    {
+      "file": "story.pdf",
+      "mimeType": "application/pdf",
+      "bytes": 1100,
+      "sha256": "79c6e01673a03c37d72192e90653ec37f67f704df53fd36ed999617f2e405f16",
+      "source": "Existing public manuscript exporter; original synthetic CC0 text"
+    }
+  ],
+  "unavailable": [
+    {
+      "file": "image.jxl",
+      "mimeType": "image/jxl",
+      "reason": "Local FFmpeg could not produce JPEG XL; no substitute asset was created"
+    },
+    {
+      "file": "sound.ogg",
+      "mimeType": "audio/ogg",
+      "reason": "Local encoders could not produce this optional fixture"
+    }
+  ]
+}

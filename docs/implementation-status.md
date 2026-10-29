@@ -196,20 +196,268 @@ protection and no bypass actors. No release tag, package publication or deployme
 ## Forward compatibility and Draftbridge quality
 
 The follow-up requests application longevity and confirms the desktop product is Draftbridge for
-Scrivener. Public integration uses `quality/future-proofing-20261028` from `a998746`; private desktop
-integration is isolated at `/Volumes/A/draftbridge-quality` from `d79932d`. Existing deleted files in
-`apps/mac` are unrelated and preserved. Private source stays in the private repository.
+Scrivener. Public integration uses `quality/future-integration-20261028` in
+`/Volumes/A/scrivener-mcp-future` from `a998746`; private desktop integration is isolated at
+`/Volumes/A/draftbridge-quality` from `d79932d`. Existing deleted files in `apps/mac` are unrelated
+and preserved. Private source stays in the private repository.
 
-| Concern | Contract / acceptance | Ownership / state |
-| --- | --- | --- |
-| Protocol diagnostics | Use the installed SDK client for negotiation and schema validation; failed/empty/malformed listings never succeed; pagination, timeout, output bounds and redaction are tested | Diagnostics worker; pending |
-| Runtime drift | Package engine requirement is authoritative; stable versions are compared fully; malformed/prerelease/mismatched versions fail; newer runtimes get scheduled compatibility coverage | Manager; pending |
-| Desktop helper lifecycle | Bounded concurrent stdout/stderr consumption, validated exit/report agreement, cancellation, timeout with kill escalation and cleanup; no real client changes in tests | Manager; pending |
-| Desktop evidence / updates | Schema compatibility and unknown states fail honestly; diagnostics redact local/credential information; release candidates and destinations are validated | Private evidence worker; pending |
-| Desktop interactions | Serialize mutations, reject stale refreshes, preserve errors and verification status; visible progress/cancellation and accessible controls | Private UI worker; pending |
-| Integration | Actual public CLI report decoded by the private app; Swift/core/license tests, app builds, rendered light/dark screens and complete public release gate | Manager; pending |
+| Concern                    | Contract / acceptance                                                                                                                                                           | Ownership / state                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Protocol diagnostics       | Use the installed SDK client for negotiation and schema validation; failed/empty/malformed listings never succeed; pagination, timeout, output bounds and redaction are tested  | Diagnostics worker; integrated      |
+| Runtime drift              | Package, setup and CI floors must agree; stable versions are compared fully; malformed/prerelease/mismatched versions fail; newer runtimes get scheduled compatibility coverage | Manager; verified locally           |
+| Desktop helper lifecycle   | Bounded concurrent stdout/stderr consumption, validated exit/report agreement, cancellation, timeout with kill escalation and cleanup; no real client changes in tests          | Manager; verified locally           |
+| Desktop evidence / updates | Schema compatibility and unknown states fail honestly; diagnostics redact local/credential information; release candidates and destinations are validated                       | Private evidence worker; integrated |
+| Desktop interactions       | Serialize mutations, reject stale refreshes, preserve errors and verification status; visible progress/cancellation and accessible controls                                     | Private UI worker; integrated       |
+| Integration                | Actual public CLI report decoded by the private app; Swift/core/license tests, app builds, rendered light/dark screens and complete public release gate                         | Manager; verified locally           |
 
 The manager owns public dependencies, CI and runtime policy plus the private process foundation.
 Private report/error types and their tests are explicitly delegated to the evidence worker; private
 interaction state is delegated to the UI worker. Workers use disjoint worktrees, do not validate or
 install dependencies, and request shared changes. Changes remain local during implementation.
+
+Validation uses the isolated checkouts above; concurrent unrelated changes in the original public
+checkout and deleted private files remain untouched. No dependency manifests or lockfiles changed.
+
+The complete local public gate passed in `logs/implementation/future-final/`: formatting, lint,
+types, build, runtime policy, registry (75 tools), output conformance (29 paths), HMS compatibility
+(seven cases), Jest (82 suites, 920 passed, nine optional-provider skips), audit (zero
+vulnerabilities) and fourteen installed-package checks. A separate serial open-handle run found no
+retained handles. Jest now caps worker concurrency at four. The FIFO regression runs against
+installed compiled code with its original eight-second bound, avoiding source-loader startup
+contention. Setup and logger redaction share one implementation; the previous setup import remains a
+compatible re-export.
+
+The unsigned Apple-silicon Draftbridge DMG built with checksum-verified Node 24.22.1. Its pruned
+production server passed all twelve bundled-package/MCP checks, and `hdiutil verify` accepted the
+image checksum. An intentionally corrupt Node cache entry was replaced by a checksum-valid archive.
+Disposable build sources were removed and the source license configuration stayed unchanged. The
+desktop suite passed 90 tests, including real helper decoding and cancellation of the helper's MCP
+child. Thirty-six light/dark previews were rendered; progress, cancellation, error and bounded
+settings layouts were inspected. Signing, notarization, live VoiceOver and native Scrivener GUI
+interactions have not been performed for this candidate.
+
+The packed MCPB also passed manifest validation and an actual SDK-negotiated startup using its
+extracted command and bundled runtime (16 progressively loaded tools). Its SHA-256 is
+`aa3d386eb60370d5997bfc3e1492a7312b8bc1fedc537a516f2e3cfd2a626846`. The final desktop gate passed
+all 90 tests against the staged production helper, a release build and four license tests.
+
+Integration policy requires `Release verification`, dependent on the complete eight-job matrix;
+promote that stable context after its first green CI run, retaining strict updates and the existing
+deletion/force-push protections. Remote evidence is attached to the integration PR for
+`quality/future-integration-20261028` and its
+[branch checks](https://github.com/writerslogic/scrivener-mcp/actions?query=branch%3Aquality%2Ffuture-integration-20261028).
+No paid provider calls, release publication, signing, notarization or deployment are part of this
+verification. Private CI must remain within the organization's verified free Actions allowance.
+
+The expanded Windows run exposed a raw drive path passed to Node's ESM `--import` option in the
+shutdown smoke fixture. The observer now uses a file URL; the clean-stdin-exit and no-forced-signal
+assertions remain enabled on every platform.
+
+## Verified integration and Redis driver compatibility
+
+Public [PR #190](https://github.com/writerslogic/scrivener-mcp/pull/190) merged to main as
+`72ade1c`; its eight-job matrix passed both before merging and on main in
+[run 40707022045](https://github.com/writerslogic/scrivener-mcp/actions/runs/40707022045). Branch
+protection now requires the stable aggregate `Release verification`, retaining strict updates,
+deletion protection and force-push protection.
+
+Private [Draftbridge PR #4](https://github.com/writerslogic/draftbridge/pull/4) merged as `3ae3025`.
+[Main CI run 40707855355](https://github.com/writerslogic/draftbridge/actions/runs/40707855355)
+passed all 90 Swift tests, the release build and ten license/build-configuration tests. The added
+generator preserves padded rotated public keys, rejects malformed settings without disclosing their
+values, and compiles generated settings through Swift and CryptoKit. Private scanning remains
+unavailable because that GitHub feature is not enabled; no paid scanning feature was enabled.
+
+The post-merge dependency review in
+[PR #191](https://github.com/writerslogic/scrivener-mcp/pull/191) upgrades ioredis to 6. Its
+[migration guide](https://github.com/redis/ioredis/wiki/Upgrading-from-v5-to-v6) changes the default
+wire protocol to RESP3; both production constructors explicitly retain RESP2 for existing proxies
+and ACLs that deny `HELLO`. BullMQ keeps its own declared compatible ioredis version. The portable
+`redis-compatibility.test.ts` regression exercises actual detection and PING through a HELLO-denying
+loopback endpoint, without constructor mocks.
+
+An isolated local Redis 8.10.2 server passed detection, cache set/get/SCAN invalidation, reconnect,
+a real BullMQ job and completion event, and shutdown using root ioredis 6.0.0 with BullMQ 5.81.5. It
+used a disposable Unix socket and loopback proxy, not a developer's Redis data or client
+configuration. Integration validation runs in `/Volumes/A/scrivener-mcp-dependency`; logs remain
+under `/Volumes/A/scrivener-mcp-future/logs/implementation/future-final/dependency-*` and
+`redis-backend-check.log`. The existing dependency security overrides and vendored patch remain
+unchanged.
+
+The early ad hoc verifier's `hello-denied-detection` label overstated its ACL setup: Redis exempts
+`HELLO` from ACL command checks. That run established functional backend behavior; NOPERM handshake
+compatibility was established by the portable loopback fixture. The maintained real-backend verifier
+disables `HELLO` in its private Redis process and explicitly checks the rejection before testing
+connections. It uses a fresh password, bounded Redis request buffers and explicit targets so it does
+not contact an existing Redis instance.
+
+The dependency candidate passed the complete local release gate: formatting, lint, types, build,
+runtime policy, registry (75 tools), output conformance (29 paths), HMS compatibility (seven cases),
+83 Jest suites (921 passed; nine optional-provider skips), zero-vulnerability audit and all fourteen
+installed-package checks. The private app's two real-helper contract tests also passed against this
+updated public checkout. Remote evidence for the final dependency candidate is attached to PR #191.
+
+## Coordinated major dependency integration
+
+After PR #191, Dependabot surfaced eight additional major upgrades. The manager integrates their
+exact PR heads in `quality/dependency-batch-20261028` at
+`/Volumes/A/scrivener-mcp-dependency-batch`, preserving their ancestry while reconciling one
+manifest and lockfile. Original source PR checks are superseded by the combined candidate's full
+compatibility gate, rather than treated as passed.
+
+| PR   | Upgrade         | Required integration                                                                                 |
+| ---- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| #192 | OpenAI 7        | Real SDK wire/embedding/error tests, bounded body consumption and no automatic replay                |
+| #193 | Jest globals 30 | Align the existing Jest 30 runner; retain typed mock and critical suite coverage                     |
+| #194 | Chalk 6         | Preserve supported ESM/color callers and actual CLI startup                                          |
+| #195 | Domhandler 6    | Verify Cheerio DOM type compatibility and actual offline HTML extraction                             |
+| #196 | Anthropic 1     | Omit removed temperature, verify new auth/version headers and existing fallback behavior             |
+| #197 | SQLite 13       | Node-API 10 range, shipped-binding proof and real v12 database/WAL upgrade fixtures                  |
+| #198 | BullMQ 6        | Keep protocol-2 adapter, select the valid typed Worker overload and verify real queue-state transfer |
+| #199 | Node 26 types   | Preserve actual minimum-runtime checks; declarations do not establish runtime availability           |
+
+The canonical runtime range becomes `^22.14.0 || >=23.6.0`, excluding unsupported early Node 23. The
+exact 22.14 minimum replaces 22.13 across all three OS jobs; Node 24, latest 22 and Node 26 coverage
+remain. SQLite's schema and mutation/recovery contracts stay unchanged. Three reused workers own
+disjoint runtime, native-fixture and AI-client paths; the manager owns dependencies, CI, schemas,
+registration, integration and all validation.
+
+SDK requests use per-request abort deadlines and disable SDK replay, while the existing explicit
+account/service fallback remains. No live-provider opt-in, paid API call, release or deployment is
+authorized for these checks. Native v12 fixtures contain original synthetic state, with provenance
+and CC0 dedication; source fixtures are never opened for writing by tests.
+
+The assembled local candidate passed formatting, lint, types, build, runtime policy, registry (75
+tools), output conformance (29 paths), HMS compatibility (seven cases), the full 87-suite Jest run
+(979 passed; nine explicitly gated live-provider skips), zero-vulnerability audit and all fourteen
+installed-package/MCP checks. `batch-*` logs are retained in
+`/Volumes/A/scrivener-mcp-future/logs/implementation/future-final/`.
+
+Actual locked upgrades are Anthropic 1.3.0, OpenAI 7.45.1, SQLite driver 13.0.3, BullMQ 6.5.1,
+Jest/globals 30.5.2, Chalk 6.0.1, Domhandler 6.0.1 and Node types 26.6.5. The core MCP SDK stays at
+1.32.2. Empty Cheerio/ioredis type stubs were removed after verifying that the runtime packages own
+their declarations. Lockfile package entries fell from 1,094 to 740; security overrides and the
+vendored patch are unchanged.
+
+Both current/current and BullMQ 5.81.5-to-6.5.1 real Redis checks passed, including persisted
+completed/failed/queued/delayed/retry jobs, progress and completion events, active-job removal
+rejection, scoped cache invalidation, reconnect and checked resource cleanup. The verifier is wired
+into Linux Node 24 CI. Explicit candidate lists are validated and bounded; local-only demo and
+diagnostic sessions now bypass automatic Redis discovery, preventing them from consuming another
+installation's jobs. Redis logs identify endpoints without echoing URL credentials or fragments. The
+inspected Apple-silicon SQLite prebuild targets macOS 11; this does not certify live macOS 14 or
+Scrivener GUI behavior.
+
+Concurrent security PR #200 was preserved through an ordinary main merge, and changelog PR #201's
+head is retained as a merge parent. Its three redaction regressions and all fourteen
+installed-package checks passed after integration. Public code-scanning, dependency and
+secret-scanning alerts and Code Quality findings were empty at the October 28 review.
+
+The first combined CI candidate passed seven matrix jobs, CodeQL, Code Quality, dependency review
+and MCPB validation. Its minimum Windows job exposed npm 10's frozen-lock native rebuild against an
+unsupported Visual Studio 2026 toolchain. Minimal frozen installs reproduced the automatic rebuild
+with npm 10 and 11; a fresh registry install with npm 10 used the shipped binary without rebuilding.
+The minimum Windows job now uses Visual Studio 2022 on `windows-2022`; the Node 24 job retains
+`windows-latest`. All eight cases and the strict aggregate remain required. Final candidate results
+are attached to PR #202; the failed original run is not counted as passing evidence.
+
+## Holographic Memory 0.6.4 integration
+
+The manager works in `/Volumes/A/scrivener-mcp-hms064` on `quality/hms-064-20261028`, preserving the
+original dirty checkouts. The published 0.6.4 npm package and release sources establish the
+integration contract; no model downloads or paid providers are part of development verification.
+
+| Acceptance                  | Implementation and verification target                                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installed native library    | Declare 0.6.4, use its published types, resolve from the installed server, and verify native and forced fallback from unrelated working directories.                               |
+| Effective passage retrieval | Use native document BM25 and supplied story-concept embeddings, stable project/source revisions and scoped queries; preserve exact UTF-16 source context.                          |
+| Incremental durable index   | Replace/delete changed passages, recover an interrupted synchronization from the existing SQLite store, and reuse a versioned project cache without rebuilding unchanged passages. |
+| Honest lifecycle            | Share compatible native owners safely, flush on release, and retain a weak idle reference for reopen; native 0.6.4 has no deterministic close API.                                 |
+| Consumers                   | Preserve vector-store metadata and scoped text after restart, use native batches and close owned consumers; keep analogy/triplet compatibility.                                    |
+| Release gate                | Focused provenance/relevance/restart/input cases, native/fallback compatibility, all existing release checks, installed-package MCP interactions and dependency audit.             |
+
+The manager owns dependencies, types, native loading/ownership, fallback and compatibility gates.
+One worker owns only `passage-search.ts` and its regression file; another owns the vector-store
+adapter and its direct consumers/tests. Their common wrapper contract is `memorizeDocuments`,
+`searchDocuments`, `deleteDocument`, published document result fields, an explicit embedding-space
+identity, and a forced-fallback configuration. SQLite remains authoritative; native indexes are
+derived, and source versions are checked by Scrivener services rather than treated as native CAS.
+
+The manager inspected and integrated consumer commit `c466a27` and passage commit `b44ffe1`. Native
+package loading was verified from `/`; Transformers was absent and the published binary did not
+export the feature-gated `LocalEmbedder`. Eight fallback and nine native compatibility cases passed,
+followed by a fresh-process native reopen retaining text, relationships and scoped document
+metadata. Fourteen isolated installed-package/MCP checks passed with the actual native dependency.
+
+Focused integration passed 41 tests, with 30 workflow/queue regressions passing after fixing a
+cross-realm filesystem-absence check and updating the queue's lifecycle fixture. Pure semantic
+scores retain absolute concept cosine so existing thresholds remain meaningful; native fusion owns
+hybrid ranking. Cache schema 2 intentionally replaces temporary per-revision indexes with a durable
+derived index. Closed wrappers reject operations, and callers await consumer cleanup. Complete final
+gate results and remote CI evidence will be attached to this section's integration PR.
+
+The complete local gate passed: formatting, lint, types, build, runtime policy, 75-tool registry, 29
+output-conformance paths, eight fallback/nine native cases plus native process restart, 90 Jest
+suites (1,013 passed; nine explicitly gated live-provider skips), and a zero-vulnerability audit. A
+frozen install succeeded with real-client configuration disabled. The installed package also
+exercises retrieval after a real MCP server restart, checking unchanged source revisions and exact
+manuscript context. Logs are retained in `logs/hms-064/` in the integration checkout.
+
+Integration PR [#203](https://github.com/writerslogic/scrivener-mcp/pull/203) carries the remote
+compatibility evidence. Its installed-package module check explicitly loads the production native
+binding, so packaging and post-pruning bundle checks cannot silently pass using the fallback.
+
+The post-merge scan surfaced SDK transitive dependency advisory
+[GHSA-rmxm-3fg6-px4f](https://github.com/honojs/node-server/security/advisories/GHSA-rmxm-3fg6-px4f).
+The security follow-up sets the `@hono/node-server` override floor to 2.1.3 and resolves 2.1.5 in
+the lockfile, preserving the existing YAML and deepmerge fixes. npm audit reports no vulnerabilities
+with the patched tree; the same full compatibility, package and protocol gates apply.
+
+Primary contracts:
+[0.6.4 release](https://github.com/writerslogic/holographic-memory/releases/tag/v0.6.4),
+[Node declarations](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/index.d.ts) and
+[native store ownership](https://github.com/writerslogic/holographic-memory/blob/v0.6.4/src/core/store_lock.rs).
+
+## C2PA format support
+
+Integration [PR #207](https://github.com/writerslogic/scrivener-mcp/pull/207), based on main
+485b1a2. Feature version 0.14.0 is not npm-published. The original public checkout's 70 pending
+paths and private Mac checkout's 35 pending deletions are preserved. No application, legal
+agreement, production certificate purchase or deployment has been performed.
+
+| Acceptance            | Implementation and evidence                                                                                                                                                                                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared operations     | Three progressively loaded credentials tools use one domain service and one pinned official SDK 0.9.11 worker; no manuscript edits or parallel exporter.                                                                                                                     |
+| Real format coverage  | 86 declared MIME types; 48 synthetic CC0 MIME fixtures pass actual native roundtrips: 25 embedded and 37 detached paths. Untested profiles remain outside intake claims.                                                                                                     |
+| Archive integrity     | DOCX/XLSX/PPTX/EPUB/ODT/ODS/ODP/ODG prepare unsigned input as bounded STORE copies, preserve document parts and record source SHA-256/repackaging. Unsafe paths, duplicates, inconsistent directories, corrupt CRCs and allocation/entry limits fail closed.                 |
+| Honest validation     | Current signature and asset-binding successes are required; configured-root trust is separate. Compressed c2cm/brob validation passes; compressed generation, streaming and attestation are absent. Conformance is not assessed; AL1 is a target, not an awarded level.      |
+| Safe publication      | Stable descriptor reads, saved-source revision rechecks, private staging, encrypted administrator keys, isolated timed native children and exclusive publication. Concurrent output attempts produce one valid artifact and one conflict; wrong passwords produce no output. |
+| Actual interfaces     | Installed MCP export/sign/validate succeeds for DOCX/EPUB/PDF, preserves history, rejects overwrite and verifies again after a real server restart. UI/editorial services retain their existing contracts.                                                                   |
+| Runtime and packaging | Node floors 22.23.4 /24.22.1 /26.12.1 include official SDK TLS fixes plus SQLite API10. The bundle explicitly installs the platform SDK binary before pruning and probes its real installed native entry point.                                                              |
+| Intake and identity   | All 30 questions have evidence-based answers in [Content Credentials](content-credentials.md); CN scrivener-mcp, O WritersLogic, Inc., C US, OU blank. Production identity/trust issuance and program assessment remain external prerequisites.                              |
+
+The complete local gate passed: formatting, lint, types, build, runtime policy, 78-tool registry, 32
+output-conformance paths, native/fallback HMS compatibility, C2PA compatibility, 96 Jest suites
+(1,138 passed; nine existing live-provider skips), zero-vulnerability npm audit, 17 installed
+package/MCP checks, and EPUBCheck 5.4.0 on unsigned/signed Unicode-notes and empty ebooks.
+[Native evidence snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) records SDK/runtime/platform,
+fixture-index digest, trust policy, exact per-MIME modes, source preservation and negative checks.
+The Mac bundle separately passes 15 installed-package/MCP checks under Node 24.22.2 after explicit
+arm64 SDK installation and pruning. CI retains the corresponding report in every compatibility job;
+protected integration requires the complete eight-job matrix. Validation uses local/free resources
+only. Both tool audits now enumerate the canonical eager registry instead of maintaining separate
+skill/handler lists, so all 78 tools and the three new output schemas are included.
+
+Manager-owned shared contracts, dependencies, CI and integration are complete. Isolated workers
+contributed the native worker, format fixtures, filesystem/archive regressions and documentation;
+all contributions were inspected and integrated before dependent checks. Local validation logs are
+retained under logs/c2pa-0.14.0-20261028 in the canonical checkout after worktree cleanup.
+Future-proofing bf53f0b is already in public main. After protected integration, preserve bundle/log
+artifacts and remove owned temporary worktrees while retaining all unrelated edits and checkouts.
+
+Credential reads use one descriptor-first helper across the parent, native worker and fixture
+tooling. Both Windows descriptors are acquired before pathname checks, existing files remain
+read-only, and temporary creation modes are explicitly private. Growth/replacement tests and bounded
+FIFO probes exercise the installed reader. The native gate hashes and stages the same verified
+fixture buffer. CI checks the latest selected release instead of an obsolete cached runner runtime;
+exact minimum-version coverage remains unchanged.

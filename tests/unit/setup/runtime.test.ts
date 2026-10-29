@@ -3,6 +3,9 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join } from 'node:path';
 import {
+	CURRENT_MIN_NODE_VERSION,
+	MIN_NODE_VERSION,
+	NEXT_MIN_NODE_VERSION,
 	chooseRuntime,
 	serverEntry,
 	stablePath,
@@ -10,10 +13,16 @@ import {
 	type NodeRuntime,
 } from '../../../src/setup/runtime.js';
 
+const fixtureVersions: Partial<Record<number, string>> = {
+	22: MIN_NODE_VERSION,
+	24: NEXT_MIN_NODE_VERSION,
+	26: CURRENT_MIN_NODE_VERSION,
+};
+
 const rt = (major: number, npx: string | null, node = '/n/bin/node'): NodeRuntime => ({
 	node,
 	npx,
-	version: major === 22 ? 'v22.13.0' : `v${major}.0.0`,
+	version: `v${fixtureVersions[major] ?? `${major}.0.0`}`,
 	major,
 	source: 'test',
 });
@@ -80,17 +89,35 @@ describe('runtime selection', () => {
 	it.each([
 		{ major: 21, version: 'v21.99.99', expected: false },
 		{ major: 22, version: 'v22.12.99', expected: false },
-		{ major: 22, version: 'v22.13.0', expected: true },
-		{ major: 22, version: 'v22.13.1', expected: true },
-		{ major: 23, version: 'v23.0.0', expected: true },
+		{ major: 22, version: 'v22.13.0', expected: false },
+		{ major: 22, version: 'v22.13.999', expected: false },
+		{ major: 22, version: 'v22.14.0', expected: false },
+		{ major: 22, version: 'v22.14.1', expected: false },
+		{ major: 22, version: 'v22.23.3', expected: false },
+		{ major: 22, version: 'v22.23.4', expected: true },
+		{ major: 22, version: 'v22.23.5', expected: true },
+		{ major: 23, version: 'v23.0.0', expected: false },
+		{ major: 23, version: 'v23.5.99', expected: false },
+		{ major: 23, version: 'v23.6.0', expected: false },
+		{ major: 23, version: 'v23.6.1', expected: false },
+		{ major: 23, version: 'v23.99.99', expected: false },
+		{ major: 24, version: 'v24.0.0', expected: false },
+		{ major: 24, version: 'v24.22.0', expected: false },
+		{ major: 24, version: 'v24.22.1', expected: true },
+		{ major: 24, version: 'v24.22.2', expected: true },
+		{ major: 25, version: 'v25.99.99', expected: false },
+		{ major: 26, version: 'v26.12.0', expected: false },
 		{ major: 26, version: 'v26.12.1', expected: true },
-		{ major: 24, version: 'v22.12.0', expected: false },
-		{ major: 22, version: 'v24.0.0', expected: false },
-		{ major: 26, version: 'v26.0.0-nightly.20261028', expected: false },
-		{ major: 26, version: 'v26.0.0+unverified', expected: false },
+		{ major: 26, version: 'v26.12.2', expected: true },
+		{ major: 27, version: 'v27.0.0', expected: true },
+		{ major: 24, version: 'v22.23.4', expected: false },
+		{ major: 22, version: 'v24.22.1', expected: false },
+		{ major: 26, version: 'v26.12.1-nightly.20261028', expected: false },
+		{ major: 26, version: 'v26.12.1+unverified', expected: false },
 		{ major: 26, version: '26.invalid', expected: false },
-		{ major: 26, version: 'v26.0.0junk', expected: false },
-		{ major: 26, version: 'v026.0.0', expected: false },
+		{ major: 26, version: 'v26.12.1junk', expected: false },
+		{ major: 26, version: 'v026.12.1', expected: false },
+		{ major: 26, version: 'v26.9007199254740992.0', expected: false },
 		{ major: 26, version: `v26.${'9'.repeat(64)}.0`, expected: false },
 	])(
 		'enforces the runtime floor for major $major at $version',
@@ -103,10 +130,18 @@ describe('runtime selection', () => {
 		expect(chooseRuntime([rt(22, null)], rt(22, null))).toBeNull();
 	});
 
+	it('skips incompatible private and current runtimes before applying selection preferences', () => {
+		const obsolete = { ...rt(22, '/private/npx'), version: 'v22.23.3', source: 'private' };
+		const current = { ...rt(25, '/current/npx'), version: 'v25.99.99' };
+		const supported = rt(24, '/supported/npx');
+		expect(chooseRuntime([obsolete, current, supported], current)).toBe(supported);
+		expect(chooseRuntime([obsolete, current], current)).toBeNull();
+	});
+
 	it('prefers a private runtime, otherwise selects the newest stable version numerically', () => {
 		const privateRuntime = { ...rt(22, '/private/npx'), source: 'private' };
-		const newest = { ...rt(26, '/new/npx'), version: 'v26.10.0' };
-		const older = { ...rt(26, '/old/npx'), version: 'v26.9.9' };
+		const newest = { ...rt(26, '/new/npx'), version: 'v26.14.0' };
+		const older = { ...rt(26, '/old/npx'), version: 'v26.13.9' };
 		const nightly = { ...rt(27, '/nightly/npx'), version: 'v27.0.0-nightly.1' };
 		expect(chooseRuntime([older, nightly, privateRuntime, newest], null)).toBe(privateRuntime);
 		expect(chooseRuntime([older, nightly, newest], null)).toBe(newest);

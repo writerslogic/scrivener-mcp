@@ -8,9 +8,10 @@
  * (invalid key, exhausted credit, quota, outage), chat() automatically retries
  * on the next configured provider, ending with the MCP client's own model via
  * sampling/createMessage when the client supports it -- which also makes chat
- * work with no API key at all. Embeddings use OpenAI or OpenRouter's proxy of
- * the OpenAI embeddings API (Anthropic has none), so semantic features require
- * one of those two keys regardless of the chat provider.
+ * work with no API key at all. Provider embeddings use OpenAI or OpenRouter's
+ * proxy of the OpenAI embeddings API (Anthropic has none). Local retrieval
+ * does not require provider credentials. SDK requests are never automatically
+ * replayed; fallback follows only explicit provider-unavailable responses.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -32,7 +33,7 @@ export interface ChatOptions {
 	system?: string;
 	/** Maximum tokens to generate. Default 1024. */
 	maxTokens?: number;
-	/** Sampling temperature. Default 0.7. */
+	/** OpenAI, OpenRouter and MCP sampling temperature. Default 0.7; Claude uses its API default. */
 	temperature?: number;
 	/** Override the configured chat model for this call. */
 	model?: string;
@@ -46,6 +47,8 @@ export interface AIClientOptions {
 	provider?: AIProvider;
 	/** Override the default chat model. */
 	model?: string;
+	/** Timeout per provider request, including response bodies: 1 through 120000 ms. Default 60000. */
+	timeoutMs?: number;
 }
 
 type KeyProvider = Exclude<AIProvider, 'sampling'>;
@@ -58,6 +61,8 @@ const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 const DEFAULT_OPENROUTER_MODEL = 'anthropic/claude-sonnet-4.6';
 const DEFAULT_EMBED_MODEL = 'text-embedding-3-small';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_TIMEOUT_MS = 60_000;
+const MAX_TIMEOUT_MS = 120_000;
 
 /**
  * True when an error signals the provider account or service is unusable
@@ -78,10 +83,18 @@ export class AIClient {
 	private readonly anthropic?: Anthropic;
 	private readonly openai?: OpenAI;
 	private readonly openrouter?: OpenAI;
+	private readonly timeoutMs: number;
 	readonly provider: AIProvider | null;
 	readonly chatModel: string;
 
 	constructor(options: AIClientOptions = {}) {
+		const timeoutMs = options.timeoutMs === undefined ? DEFAULT_TIMEOUT_MS : options.timeoutMs;
+		if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS) {
+			throw new RangeError(
+				`AI timeoutMs must be an integer from 1 through ${MAX_TIMEOUT_MS}`
+			);
+		}
+		this.timeoutMs = timeoutMs;
 		if (process.env.SCRIVENER_LOCAL_ONLY === 'true') {
 			this.provider = null;
 			this.chatModel = '';
@@ -113,14 +126,20 @@ export class AIClient {
 		// Build a client for every configured provider (constructors do no I/O)
 		// so chat() can fall back when the primary fails at the account level.
 		if (keys.anthropic) {
-			this.anthropic = new Anthropic({ apiKey: keys.anthropic });
+			this.anthropic = new Anthropic({
+				apiKey: keys.anthropic,
+				timeout: timeoutMs,
+				maxRetries: 0,
+			});
 		}
 		if (keys.openai) {
-			this.openai = new OpenAI({ apiKey: keys.openai });
+			this.openai = new OpenAI({ apiKey: keys.openai, timeout: timeoutMs, maxRetries: 0 });
 		}
 		if (keys.openrouter) {
 			this.openrouter = new OpenAI({
 				apiKey: keys.openrouter,
+				timeout: timeoutMs,
+				maxRetries: 0,
 				baseURL: OPENROUTER_BASE_URL,
 				defaultHeaders: {
 					'HTTP-Referer': 'https://github.com/writerslogic/scrivener-mcp',
@@ -214,13 +233,15 @@ export class AIClient {
 		}
 
 		if (provider === 'anthropic' && this.anthropic) {
-			const response = await this.anthropic.messages.create({
-				model,
-				max_tokens: maxTokens,
-				temperature,
-				...(options.system ? { system: options.system } : {}),
-				messages: [{ role: 'user', content: prompt }],
-			});
+			const response = await this.anthropic.messages.create(
+				{
+					model,
+					max_tokens: maxTokens,
+					...(options.system ? { system: options.system } : {}),
+					messages: [{ role: 'user', content: prompt }],
+				},
+				{ signal: AbortSignal.timeout(this.timeoutMs) }
+			);
 			return response.content
 				.filter((block): block is Anthropic.TextBlock => block.type === 'text')
 				.map((block) => block.text)
@@ -233,12 +254,15 @@ export class AIClient {
 			const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 			if (options.system) messages.push({ role: 'system', content: options.system });
 			messages.push({ role: 'user', content: prompt });
-			const response = await compatClient.chat.completions.create({
-				model,
-				max_tokens: maxTokens,
-				temperature,
-				messages,
-			});
+			const response = await compatClient.chat.completions.create(
+				{
+					model,
+					max_tokens: maxTokens,
+					temperature,
+					messages,
+				},
+				{ signal: AbortSignal.timeout(this.timeoutMs) }
+			);
 			return response.choices[0]?.message?.content ?? '';
 		}
 
@@ -313,7 +337,12 @@ export class AIClient {
 			// OpenRouter namespaces model ids by vendor.
 			const model =
 				client === this.openrouter && !base.includes('/') ? `openai/${base}` : base;
-			return client.embeddings.create({ model, input: texts });
+			return client.embeddings.create(
+				{ model, input: texts },
+				{
+					signal: AbortSignal.timeout(this.timeoutMs),
+				}
+			);
 		};
 
 		try {

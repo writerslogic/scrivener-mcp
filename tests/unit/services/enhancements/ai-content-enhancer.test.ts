@@ -1,8 +1,9 @@
 /**
  * AIContentEnhancer tests. Result-shape and no-key behavior are deterministic;
- * a key-gated live test exercises a real Claude enhancement round-trip.
+ * an explicitly opted-in live test exercises a real Claude enhancement round-trip.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import { AIContentEnhancer } from '../../../../src/services/enhancements/ai-content-enhancer.js';
 import { AIClient } from '../../../../src/services/ai/ai-client.js';
 import type { EnhancementType } from '../../../../src/services/enhancements/content-enhancer.js';
@@ -17,7 +18,6 @@ describe('AIContentEnhancer', () => {
 		).rejects.toThrow(/No AI provider configured/);
 	});
 
-	const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 	liveAnthropic('live Claude enhancement', () => {
 		it('returns a conforming, non-empty enhancement of the passage', async () => {
 			const enhancer = new AIContentEnhancer();

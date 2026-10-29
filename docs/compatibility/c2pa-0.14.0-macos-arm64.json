@@ -1,0 +1,2353 @@
+{
+  "schemaVersion": 1,
+  "productVersion": "0.14.0",
+  "ok": true,
+  "sdkVersion": "0.9.11",
+  "node": "v24.22.1",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "fixtureIndexSha256": "9d1436b05006832349bbe0199d929c2cd8e691d70f350deef8d4e3caa7a7bfe4",
+  "trustRoot": "Ephemeral synthetic test CA; not publicly trusted",
+  "checks": [
+    "actual-installed-native-sdk",
+    "unsigned-is-not-valid-or-trusted",
+    "ephemeral-encrypted-test-signers",
+    "no-root-untrusted",
+    "unrelated-root-untrusted",
+    "configured-test-root-trusted",
+    "concurrent-output-publish-never-overwrites",
+    "wrong-password-rejected-without-output",
+    "standard-c2cm-brob-validation-probed",
+    "detached-roundtrips-preserve-original-assets",
+    "supported-embedded-roundtrips",
+    "tampered-assets-rejected",
+    "unsupported-and-experimental-formats-explicit",
+    "disposable-workspace-cleanup"
+  ],
+  "formats": [
+    {
+      "file": "image.png",
+      "mimeType": "image/png",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "compressedManifest": {
+        "status": "validated",
+        "manifests": 1,
+        "bytes": 1700,
+        "sha256": "6ca7af135e6d2723ce4059f7790ad6b79116d4ee0367e15c6026fdc0fc41a4a7",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedEmbedded": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "sound.wav",
+      "mimeType": "audio/wav",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "original.ttf",
+      "mimeType": "font/ttf",
+      "ok": true,
+      "category": "font",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "original.woff",
+      "mimeType": "font/woff",
+      "ok": true,
+      "category": "font",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "drawing.svg",
+      "mimeType": "image/svg+xml",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "story.txt",
+      "mimeType": "text/plain",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "experimental",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "experimental-not-enabled"
+      }
+    },
+    {
+      "file": "story.md",
+      "mimeType": "text/markdown",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "experimental",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "experimental-not-enabled"
+      }
+    },
+    {
+      "file": "story.html",
+      "mimeType": "text/html",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "experimental",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "experimental-not-enabled"
+      }
+    },
+    {
+      "file": "story.json",
+      "mimeType": "application/json",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "story.csv",
+      "mimeType": "text/csv",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "story.tsv",
+      "mimeType": "text/tab-separated-values",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "story.xml",
+      "mimeType": "application/xml",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "story.xhtml",
+      "mimeType": "application/xhtml+xml",
+      "ok": true,
+      "category": "text",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "triangle.obj",
+      "mimeType": "model/obj",
+      "ok": true,
+      "category": "model",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "triangle.stl",
+      "mimeType": "model/stl",
+      "ok": true,
+      "category": "model",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "triangle.gltf",
+      "mimeType": "model/gltf+json",
+      "ok": true,
+      "category": "model",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "triangle.glb",
+      "mimeType": "model/gltf-binary",
+      "ok": true,
+      "category": "model",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "opaque.bin",
+      "mimeType": "application/octet-stream",
+      "ok": true,
+      "category": "other",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "story.odt",
+      "mimeType": "application/vnd.oasis.opendocument.text",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 4
+    },
+    {
+      "file": "story.ods",
+      "mimeType": "application/vnd.oasis.opendocument.spreadsheet",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 4
+    },
+    {
+      "file": "story.odp",
+      "mimeType": "application/vnd.oasis.opendocument.presentation",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 4
+    },
+    {
+      "file": "story.odg",
+      "mimeType": "application/vnd.oasis.opendocument.graphics",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 4
+    },
+    {
+      "file": "story.xlsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 4
+    },
+    {
+      "file": "story.pptx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 12
+    },
+    {
+      "file": "story.ppsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "image.jpg",
+      "mimeType": "image/jpeg",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "image.gif",
+      "mimeType": "image/gif",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "image.tiff",
+      "mimeType": "image/tiff",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.additionalExclusionsPresent",
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "image.webp",
+      "mimeType": "image/webp",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "image.bmp",
+      "mimeType": "image/bmp",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "image.avif",
+      "mimeType": "image/avif",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "clip.mp4",
+      "mimeType": "video/mp4",
+      "ok": true,
+      "category": "video",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "clip.mov",
+      "mimeType": "video/quicktime",
+      "ok": true,
+      "category": "video",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "clip.avi",
+      "mimeType": "video/x-msvideo",
+      "ok": true,
+      "category": "video",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "clip.webm",
+      "mimeType": "video/webm",
+      "ok": true,
+      "category": "video",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "clip.mkv",
+      "mimeType": "video/x-matroska",
+      "ok": true,
+      "category": "video",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "sound.flac",
+      "mimeType": "audio/flac",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "sound.mp3",
+      "mimeType": "audio/mpeg",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "sound.m4a",
+      "mimeType": "audio/mp4",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "sound.aac",
+      "mimeType": "audio/aac",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "sound.opus",
+      "mimeType": "audio/ogg",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "sound.aiff",
+      "mimeType": "audio/aiff",
+      "ok": true,
+      "category": "audio",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "image.heic",
+      "mimeType": "image/heic",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "image.heif",
+      "mimeType": "image/heif",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.bmffHash.additionalExclusionsPresent",
+          "assertion.bmffHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      }
+    },
+    {
+      "file": "image.ico",
+      "mimeType": "image/vnd.microsoft.icon",
+      "ok": true,
+      "category": "image",
+      "embeddedDeclared": "unsupported",
+      "sidecar": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "tamperedAsset": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "embedded": {
+        "status": "unsupported"
+      }
+    },
+    {
+      "file": "story.docx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 20,
+      "tamperedEmbeddedArchive": {
+        "status": "rejected",
+        "state": "invalid",
+        "integrity": "invalid",
+        "trust": "not-evaluated",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.mismatch",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "exportProperties": [
+        "ZIP CRC",
+        "OOXML content types",
+        "document XML",
+        "styles XML"
+      ]
+    },
+    {
+      "file": "story.epub",
+      "mimeType": "application/epub+zip",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.collectionHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "preservedArchiveParts": 7,
+      "exportProperties": [
+        "ZIP CRC",
+        "first stored mimetype",
+        "container XML",
+        "package metadata",
+        "manifest resources",
+        "spine references",
+        "XHTML syntax"
+      ]
+    },
+    {
+      "file": "story.pdf",
+      "mimeType": "application/pdf",
+      "ok": true,
+      "category": "document",
+      "embeddedDeclared": "supported",
+      "sidecar": {
+        "status": "unsupported"
+      },
+      "embedded": {
+        "status": "roundtrip",
+        "state": "valid",
+        "integrity": "valid",
+        "trust": "trusted",
+        "trustPolicy": "configured-roots",
+        "validationCodes": [
+          "assertion.dataHash.match",
+          "assertion.hashedURI.match",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "ingredient.unknownProvenance",
+          "signingCredential.ocsp.skipped",
+          "signingCredential.trusted"
+        ]
+      },
+      "exportProperties": [
+        "PDF signature"
+      ]
+    }
+  ],
+  "failures": [],
+  "compressedValidationDeclared": true,
+  "notExercised": [
+    {
+      "mimeType": "image/jxl",
+      "embedded": "supported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "image/x-adobe-dng",
+      "embedded": "supported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "image/vnd.adobe.photoshop",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "image/x-canon-cr2",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "image/x-nikon-nef",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "video/3gpp",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "video/3gpp2",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "video/mpeg",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "video/x-ms-asf",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "video/x-ms-wmv",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "audio/opus",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "audio/basic",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/vnd.ms-word.document.macroenabled.12",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/vnd.ms-excel.sheet.macroenabled.12",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/msword",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/vnd.ms-excel",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/vnd.ms-powerpoint",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/rtf",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/postscript",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "text/css",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "text/javascript",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "text/x-python",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/atom+xml",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/rss+xml",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/sql",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/x-tex",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/toml",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/yaml",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/x-ini",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "text/vtt",
+      "embedded": "experimental",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "font/otf",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "font/woff2",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "model/vnd.usdz+zip",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "model/vrml",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "model/x3d+xml",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/zip",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    },
+    {
+      "mimeType": "application/x-c2pa-manifest-store",
+      "embedded": "unsupported",
+      "status": "not-exercised-no-fixture"
+    }
+  ],
+  "unavailableFixtures": [
+    {
+      "file": "image.jxl",
+      "mimeType": "image/jxl",
+      "status": "not-generated"
+    },
+    {
+      "file": "sound.ogg",
+      "mimeType": "audio/ogg",
+      "status": "not-generated"
+    }
+  ]
+}

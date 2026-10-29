@@ -7,9 +7,14 @@ your first Scrivener project.
 
 ## Prerequisites
 
-- **Node.js 22.13 or later** -- check with `node -v`
+- **Stable Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`** -- check with `node -v`; 24.22.1 or newer
+  on Node 24 is recommended
 - **Scrivener 3** -- your project must be a Scrivener 3 `.scriv` package
 - **An MCP client** -- Claude Desktop, Claude Code, or any MCP-compatible client
+
+The pinned CAI native SDK requires these patched releases for its Node TLS paths, in addition to
+SQLite 13's Node-API 10 requirement. Node 23/25 and older patches on 22/24/26 are rejected. See the
+[runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
 
 ## Installation
 
@@ -64,7 +69,7 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list 15 startup tools: the 13 tools in the `project` skill plus two meta-tools
+Claude should list 16 startup tools: the 14 tools in the `project` skill plus two meta-tools
 (`list_skills`, `use_skill`). If you don't see the startup tools, check the troubleshooting section
 below.
 
@@ -77,17 +82,38 @@ so a valid call never dead-ends:
 1. **At startup:** the `project` skill (`open_project`, `get_structure`, `refresh_project`,
    `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`,
    `get_compile_settings`, `get_manuscript_briefing`, `list_snapshots`, `read_snapshot`,
-   `compare_snapshot`, `create_snapshot`) plus `list_skills` and `use_skill`.
+   `compare_snapshot`, `create_snapshot`, `manuscript_dashboard`) plus `list_skills` and
+   `use_skill`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read,
-   write, create, delete, move, local passage search, review and dashboard tools.
-3. **On demand:** say "activate analysis tools" or Claude calls `use_skill("analysis")` to load
-   additional skill groups. Available on-demand skills:
+   write, create, delete, move, local passage search and review tools.
+3. **On demand:** say "activate analysis tools" or Claude calls `use_skill` with
+   `{"name":"analysis"}` to load additional skill groups. Available on-demand skills:
     - **analysis** -- writing quality, pacing, style, critique, character consistency
     - **compilation** -- compile manuscripts, export, statistics
+    - **credentials** -- inspect local C2PA capabilities, sign assets, validate Content Credentials
     - **memory** -- persistent project facts and local HMS-backed memory
     - **advanced** -- fractal memory, async job queue, batch operations
 
 You can see all available skills and which are active by asking Claude to call `list_skills`.
+
+### Content Credentials for exports
+
+Activate `credentials` with `use_skill` and `{"name":"credentials"}`, then call `c2pa_capabilities`
+with `{}`. The group exposes `c2pa_capabilities`, `sign_content_credentials` and
+`validate_content_credentials` without opening a project.
+
+To credential a manuscript, open the project, export a PDF with `export_project` or use an
+`export_manuscript` preset, then sign the saved file to an explicit new output path. Validate the
+signed output for embedded mode, or validate the original asset with `manifestPath` for a supported
+detached sidecar. PDF, MP3, FLAC, DOCX and EPUB use embedded mode with the pinned SDK; their
+sidecars are unsupported. DOCX/EPUB preparation preserves ZIP entry payloads in a separate STORE
+copy and records the original SHA-256; it does not change the source export.
+
+Signing requires administrator-provided certificates and an encrypted private key; never pass a key
+or password in tool arguments. Raw reports are omitted unless `includeReport` is true. Validation
+separates integrity from trust and makes no human-authorship or formal-conformance claim. See
+[Content Credentials](content-credentials.md) for the exact workflow, environment variables,
+compressed-manifest coverage and per-format evidence.
 
 ## Opening Your First Project
 
@@ -181,15 +207,16 @@ You can also set custom metadata fields:
 
 ## Semantic Search
 
-Semantic indexing and similarity scoring do not require a native binary or external embedding API.
-The built-in JavaScript Holographic Memory System (HMS) provides the local fallback. The public
-`semantic_search` tool uses that local index, but its current end-to-end query pipeline also calls
-the configured chat provider for natural-language query interpretation and result explanations.
-Configure Anthropic, OpenAI, or OpenRouter before using that tool.
+Holographic Memory 0.6.4 is installed with the server and selects the published native binary for
+your platform. Passage search combines BM25 with local story-concept vectors and returns exact
+quotations, source locations and saved revisions. `search_passages` and `semantic_search` work
+without an API key; provider-assisted interpretation and explanations are optional.
 
-If the optional `holographic-memory` package is installed, the server transparently upgrades to a
-faster Rust-based engine. You do not need to change any settings or commands; the upgrade is
-automatic. Most users will not need the native engine for a typical novel-length project.
+Conceptual matching covers a bounded English story vocabulary, not a downloaded language model. Use
+keyword mode for unfamiliar names or concepts. No model is downloaded and no external embedding
+service receives manuscript text. A JavaScript BM25/concept-vector fallback remains available when
+the native binding is unavailable or another server owns the native cache. Set
+`SCRIVENER_HMS_ENGINE=fallback` to select it explicitly.
 
 ## Project Memory
 
@@ -327,8 +354,8 @@ The server was attaching data in a way that MCP clients couldn't read. Update to
 **"HMS system not initialized"** The Holographic Memory System has a built-in JavaScript fallback.
 This error usually means no project is open or the memory/index layer has not initialized yet. Open
 a project, then activate the memory skill with `use_skill("memory")` or ask the client to do so. If
-`holographic-memory` is installed, the server uses the faster Rust engine automatically, but the
-native module is not required.
+the native binding is available, the server uses it automatically; the local JavaScript fallback
+does not require a native binary.
 
 **Scrivener shows old content after writing** Scrivener caches document content in memory. Close and
 reopen the project in Scrivener, or switch away from the modified document and back, to see changes

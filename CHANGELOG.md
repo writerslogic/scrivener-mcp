@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Integrate isolated C2PA asset signing and validation
+- Catalog credential formats and verify native fixture roundtrips
+- Expose local Content Credentials tools
+- Isolate native Content Credentials signing and validation
+- Integrate HMS 0.6.4 document retrieval and lifecycle
+- Synchronize local passages through HMS document retrieval
 - Complete editorial integration and release verification
 - Integrate editorial tools dashboard presets and first session
 - Add durable manuscript review and coordinated revisions
@@ -18,10 +24,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Align installation requirements and historical runtime evidence
+- Introduce Content Credentials and patched runtime support
+- Align C2PA intake answers with the questionnaire
+- Describe Content Credentials workflow and intake targets
+- Update the security changelog (#205)
 - Record verified cross-platform release compatibility
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Consolidate descriptor-safe credential reads and refresh CI runtimes
+- Preserve byte-exact C2PA fixtures across checkouts
+- Harden credential publication and verify format coverage
+- Feed transient DER to fixture certificate requests
+- Configure noninteractive encrypted fixture certificate requests
+- Require patched Node releases for C2PA
+- Require the patched Hono Node adapter
+- Scope HMS passage consumers and drain owned stores
+- Keep minimum Windows CI on its supported native toolchain
+- Remove static credentials and interpolated observer code (#200)
+- Integrate verified SDK and native runtime upgrades
+- Preserve Redis proxy compatibility during driver upgrade
+- Use file URLs for cross-platform startup probes
+- Align packaged safety guidance and record verification
+- Harden runtime checks and native bundle contracts
+- Negotiate setup diagnostics with the MCP SDK
 - Report redacted causes in release conformance checks
 - Compare Windows saved-file descriptor identities
 - Harden saved reads and Windows release verification

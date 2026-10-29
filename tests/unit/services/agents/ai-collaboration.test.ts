@@ -1,8 +1,9 @@
 /**
  * AICollaboration tests. Empty-input and no-key behavior are deterministic; a
- * key-gated live test exercises a real multi-perspective Claude critique.
+ * explicitly opted-in live test exercises a real multi-perspective Claude critique.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import { AICollaboration } from '../../../../src/services/agents/ai-collaboration.js';
 import { AIClient } from '../../../../src/services/ai/ai-client.js';
 
@@ -25,7 +26,6 @@ describe('AICollaboration', () => {
 		);
 	});
 
-	const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 	liveAnthropic('live Claude collaboration', () => {
 		it('returns perspectives and a synthesis for a passage', async () => {
 			const collab = new AICollaboration();

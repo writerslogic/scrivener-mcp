@@ -1,7 +1,7 @@
 #!/bin/sh
 # Scrivener MCP bootstrap for macOS and Linux.
 #
-# Makes sure a usable Node.js (version 22.13 or newer, with npx) exists, then runs scrivener-setup.
+# Finds a patched stable Node.js with N-API 10+ and npx, then runs scrivener-setup.
 # If Node is missing it installs the official build into ~/.scrivener-mcp/node. That needs no
 # administrator password and touches nothing else on the system.
 #
@@ -13,7 +13,10 @@
 
 set -eu
 
-MIN_MAJOR=22
+MIN_VERSION='22.23.4'
+NEXT_MIN_VERSION='24.22.1'
+CURRENT_MIN_VERSION='26.12.1'
+MIN_NAPI=10
 NODE_LINE="v24"
 PRIVATE_DIR="$HOME/.scrivener-mcp/node"
 
@@ -21,19 +24,36 @@ say() { printf '%s\n' "$*"; }
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
 node_ok() {
-	# $1 = path to a node binary
 	[ -x "$1" ] || return 1
-	ver=$("$1" -v 2>/dev/null) || return 1
-	major=${ver#v}
-	major=${major%%.*}
-	case "$major" in ''|*[!0-9]*) return 1 ;; esac
-	[ "$major" -ge "$MIN_MAJOR" ] || return 1
-	if [ "$major" -eq 22 ]; then
-		minor=${ver#v22.}
-		minor=${minor%%.*}
-		case "$minor" in ''|*[!0-9]*) return 1 ;; esac
-		[ "$minor" -ge 13 ] || return 1
-	fi
+	"$1" -e '
+		const parse = (value) => {
+			if (typeof value !== "string" || value.length > 64) return null;
+			const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(value);
+			if (!match) return null;
+			const parts = match.slice(1).map(Number);
+			return parts.every(Number.isSafeInteger) ? parts : null;
+		};
+		const atLeast = (version, minimum) => {
+			for (let index = 0; index < version.length; index++) {
+				if (version[index] !== minimum[index]) return version[index] > minimum[index];
+			}
+			return true;
+		};
+		const version = parse(process.versions.node);
+		const minimum = parse(process.argv[1]);
+		const nextMinimum = parse(process.argv[2]);
+		const currentMinimum = parse(process.argv[3]);
+		const napiText = process.versions.napi;
+		const napi = Number(napiText);
+		const minimumNapi = Number(process.argv[4]);
+		const supported = version && minimum && nextMinimum && currentMinimum &&
+			((version[0] === minimum[0] && atLeast(version, minimum)) ||
+			(version[0] === nextMinimum[0] && atLeast(version, nextMinimum)) ||
+			atLeast(version, currentMinimum));
+		const supportedNapi = typeof napiText === "string" && /^(0|[1-9]\d*)$/.test(napiText) &&
+			Number.isSafeInteger(napi) && Number.isSafeInteger(minimumNapi) && napi >= minimumNapi;
+		process.exit(supported && supportedNapi ? 0 : 1);
+	' "$MIN_VERSION" "$NEXT_MIN_VERSION" "$CURRENT_MIN_VERSION" "$MIN_NAPI" >/dev/null 2>&1 || return 1
 	[ -x "$(dirname "$1")/npx" ] || return 1
 	return 0
 }
@@ -72,7 +92,7 @@ install_private_node() {
 		*) die "Unsupported processor: $arch" ;;
 	esac
 
-	say "Node.js $MIN_MAJOR or newer was not found on this Mac."
+	say "Patched stable Node.js (^$MIN_VERSION || ^$NEXT_MIN_VERSION || >=$CURRENT_MIN_VERSION), with N-API $MIN_NAPI and npx, was not found."
 	say "This will download the official Node.js ${NODE_LINE} build from nodejs.org into:"
 	say "  $PRIVATE_DIR"
 	say "It needs no administrator password and changes nothing else."
@@ -118,6 +138,7 @@ NODE_BIN=$(find_node || true)
 if [ -z "$NODE_BIN" ]; then
 	install_private_node
 	NODE_BIN="$PRIVATE_DIR/bin/node"
+	node_ok "$NODE_BIN" || die "The installed Node.js must satisfy ^$MIN_VERSION || ^$NEXT_MIN_VERSION || >=$CURRENT_MIN_VERSION with N-API $MIN_NAPI and npx."
 fi
 
 BIN_DIR=$(dirname "$NODE_BIN")

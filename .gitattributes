@@ -4,3 +4,6 @@
 **/*.scriv/** -text
 *.rtf -text
 *.scrivx -text
+tests/fixtures/c2pa/* -text
+tests/fixtures/c2pa/README.md text eol=lf
+tests/fixtures/c2pa/index.json text eol=lf

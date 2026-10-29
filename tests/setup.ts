@@ -10,6 +10,7 @@ import * as os from 'os';
 // Hermetic tests: never let key auto-discovery pull real keys from the
 // developer's ~/.env or Keychain. Explicit env vars still work (live suites).
 process.env.SCRIVENER_DISABLE_KEY_DISCOVERY = '1';
+process.env.SCRIVENER_HMS_ENGINE = 'fallback';
 
 // Test data directory
 export const TEST_DATA_DIR = path.join(__dirname, 'fixtures');

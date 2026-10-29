@@ -477,7 +477,7 @@ export class JobQueueService {
 		try {
 			// Clear existing vector store if rebuilding
 			if (data.rebuild) {
-				this.aiWritingService.clearMemory();
+				await this.aiWritingService.clearMemory();
 			}
 
 			// Convert documents to the format expected by the AI writing service
@@ -1063,14 +1063,23 @@ export class JobQueueService {
 		this.events.clear();
 		this.embeddedJobs.clear();
 		this.contentAnalyzer?.dispose();
+		const results = await Promise.allSettled([
+			this.databaseService?.close(),
+			this.aiWritingService?.clearMemory(),
+		]);
+		if (results[0].status === 'fulfilled') this.databaseService = null;
+		if (results[1].status === 'fulfilled') this.aiWritingService = null;
 		this.contentAnalyzer = null;
-		await this.databaseService?.close();
-		this.databaseService = null;
-		this.aiWritingService = null;
 		this.connection = undefined;
 		this.memoryRedis = undefined;
 
 		this.isInitialized = false;
+		const failures = results.flatMap((result) =>
+			result.status === 'rejected' ? [result.reason] : []
+		);
+		if (failures.length === 1) throw failures[0];
+		if (failures.length > 1)
+			throw new AggregateError(failures, 'Job queue resources failed to close');
 		this.logger.info('Job queue service shutdown complete');
 	}
 }

@@ -17,7 +17,7 @@ export default tseslint.config(
 	...tseslint.configs.recommended,
 	prettierConfig,
 	{
-		files: ['**/*.ts'],
+		files: ['**/*.{ts,cts}'],
 		plugins: {
 			prettier: prettierPlugin,
 		},

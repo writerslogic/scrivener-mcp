@@ -95,7 +95,7 @@ export const semanticSearchHandler: ToolDefinition = {
 			threshold: {
 				...SHARED_DEFS.threshold,
 				description:
-					'Minimum similarity score (0-1) a result must meet to be returned. Default 0.5; ' +
+					'Minimum similarity score (0-1) a result must meet to be returned. Default 0.3; ' +
 					'raise for stricter matches, lower for broader recall.',
 			},
 		},

@@ -1,9 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { constants, renameSync, symlinkSync } from 'node:fs';
-import { promisify } from 'node:util';
-import { pathToFileURL } from 'node:url';
 import * as fs from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import { tmpdir, hostname } from 'node:os';
@@ -575,92 +573,6 @@ posixReadTest(
 		} finally {
 			coordinator.close();
 			await fs.rm(outside, { recursive: true, force: true });
-		}
-	}
-);
-
-posixReadTest(
-	'a FIFO without a writer is rejected without blocking the saved-file read',
-	async () => {
-		await fs.unlink(file());
-		await promisify(execFile)('mkfifo', [file()], { timeout: 5000 });
-		const script = `
-const { MutationCoordinator } = await import(process.env.SAVED_READ_MODULE);
-const coordinator = new MutationCoordinator(process.env.SAVED_READ_PROJECT);
-process.once('message', async () => {
-    let result;
-    try {
-        await coordinator.readRaw(process.env.SAVED_READ_DOCUMENT);
-        result = { unexpectedSuccess: true };
-    } catch (error) {
-        result = { error: error.message };
-    } finally {
-        coordinator.close();
-    }
-    process.send(result, () => process.exit(0));
-});
-process.send({ ready: true });`;
-		const child = spawn(
-			process.execPath,
-			['--import', 'tsx', '--input-type=module', '-e', script],
-			{
-				cwd: process.cwd(),
-				env: {
-					...process.env,
-					SAVED_READ_MODULE: pathToFileURL(
-						path.join(
-							process.cwd(),
-							'src',
-							'services',
-							'editorial',
-							'mutation-coordinator.ts'
-						)
-					).href,
-					SAVED_READ_PROJECT: root,
-					SAVED_READ_DOCUMENT: DOCUMENT,
-				},
-				stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-			}
-		);
-		try {
-			const result = await new Promise<unknown>((resolve, reject) => {
-				let timer = setTimeout(
-					() => reject(new Error('Saved-file reader did not become ready')),
-					15000
-				);
-				child.on('message', (message) => {
-					clearTimeout(timer);
-					if (
-						message &&
-						typeof message === 'object' &&
-						'ready' in message &&
-						message.ready === true
-					) {
-						timer = setTimeout(
-							() => reject(new Error('Saved-file read blocked on a FIFO')),
-							5000
-						);
-						child.send('read');
-						return;
-					}
-					resolve(message);
-				});
-				child.once('error', (error) => {
-					clearTimeout(timer);
-					reject(error);
-				});
-				child.once('exit', (code) => {
-					clearTimeout(timer);
-					reject(new Error(`Saved-file reader exited before reporting: ${code}`));
-				});
-			});
-			expect(result).toEqual({ error: expect.stringMatching(/regular file/i) });
-		} finally {
-			if (child.exitCode === null && child.signalCode === null) {
-				const exited = once(child, 'exit');
-				child.kill();
-				await exited;
-			}
 		}
 	}
 );

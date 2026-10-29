@@ -1,13 +1,6 @@
 import { HolographicMemorySystem } from '../../../src/services/memory/hhm/holographic-memory-system.js';
 import type { QueryResult } from '../../../src/services/memory/hhm/holographic-memory-system.js';
 
-jest.mock('module', () => ({
-	...jest.requireActual<typeof import('module')>('module'),
-	createRequire: () => () => {
-		throw new Error('Optional native engine is unavailable in fallback regressions');
-	},
-}));
-
 describe('HMS fallback corpus vectors', () => {
 	const engines: HolographicMemorySystem[] = [];
 	const documents = [
@@ -18,7 +11,7 @@ describe('HMS fallback corpus vectors', () => {
 	];
 
 	function createEngine(): HolographicMemorySystem {
-		const engine = new HolographicMemorySystem({ dimensions: 512 });
+		const engine = new HolographicMemorySystem({ dimensions: 512, forceFallback: true });
 		expect(engine.getStats().engine).toBe('JS Fallback');
 		engines.push(engine);
 		return engine;
@@ -100,7 +93,7 @@ describe('HMS fallback corpus vectors', () => {
 		expect(concepts[0].memberCount).toBe(3);
 		expect(concepts[0].thematicDensity).toBeCloseTo(1, 12);
 		await engine.destroy();
-		expect(await engine.queryText('captain harbor lighthouse')).toEqual([]);
+		await expect(engine.queryText('captain harbor lighthouse')).rejects.toThrow('closed');
 		expect(engine.getStats().totalMemories).toBe(0);
 	});
 });

@@ -3,6 +3,12 @@
 Copy-paste configuration for connecting scrivener-mcp to common MCP clients. All clients use
 **stdio** transport — you only need a `command` and `args`.
 
+Use stable Node.js satisfying `^22.23.4 || ^24.22.1 || >=26.12.1` and Node-API 10 or newer. Node
+24.22.1 or a newer Node 24 patch is recommended. These patched TLS floors come from the pinned CAI
+native SDK, in addition to SQLite 13's Node-API requirement; Node 23/25 and older patches on
+22/24/26 are excluded. See the
+[runtime policy](forward-compatibility.md#runtime-and-dependency-changes).
+
 ## Quick setup (recommended)
 
 The setup tool finds your installed AI apps, adds Scrivener MCP to each one, and then starts the
@@ -29,9 +35,10 @@ Useful options: `--client cursor` (one app only), `--remove`, `--links` (one-cli
 
 ### No Node.js installed?
 
-On a Mac without Node.js, run the one-line installer. It uses an existing Node 22.13 or newer if it
-finds one. Otherwise it downloads the official Node.js build into `~/.scrivener-mcp/node`, checks
-its SHA-256, and needs no administrator password:
+On a Mac without a usable Node.js installation, run the one-line installer. It accepts an existing
+stable runtime only if it meets the range and Node-API requirement above and has npx. Otherwise it
+downloads the official Node.js build into `~/.scrivener-mcp/node`, checks its SHA-256, and needs no
+administrator password:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/writerslogic/scrivener-mcp/main/scripts/bootstrap-mac.sh | sh
@@ -83,6 +90,11 @@ For local development from a git checkout, point at the built entry file:
 ```
 
 Run `npm run build` in the repo before using the local path.
+
+Server startup alone does not establish native C2PA coverage. Activate the `credentials` skill and
+call `c2pa_capabilities` to inspect the installed SDK. The new per-format/platform native matrix is
+still pending; [Content Credentials](content-credentials.md) records setup, mode limits and the
+evidence required before claiming support.
 
 ---
 
@@ -141,7 +153,7 @@ exist):
 
 1. **Quit and restart** Claude Desktop (MCP servers load only at startup).
 2. Open a new chat and ask: **"What Scrivener tools do you have?"**
-3. You should see the 13 project tools plus `list_skills` and `use_skill` (15 startup tools total).
+3. You should see the 14 project tools plus `list_skills` and `use_skill` (16 startup tools total).
    These include `open_project`, `get_structure`, `refresh_project`, `close_project`, and
    `discover_projects`.
 
@@ -189,7 +201,7 @@ For user-wide setup, add the same `scrivener` entry under the top-level `mcpServ
 
 1. Start a new Claude Code session in the configured project (config is read at session start).
 2. Run `/mcp` to confirm the server is connected, or ask: **"What Scrivener tools do you have?"**
-3. You should see the 13 project tools plus `list_skills` and `use_skill` (15 startup tools total).
+3. You should see the 14 project tools plus `list_skills` and `use_skill` (16 startup tools total).
    These include `open_project`, `get_structure`, `refresh_project`, `close_project`, and
    `discover_projects`.
 

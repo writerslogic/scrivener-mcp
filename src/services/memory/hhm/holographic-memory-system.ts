@@ -1,10 +1,38 @@
 import { getLogger } from '../../../core/logger.js';
 import type { ScrivenerDocument } from '../../../types/index.js';
 import * as path from 'path';
-import { createRequire } from 'module';
+import { existsSync, mkdirSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { open } from 'fs/promises';
-import type * as NativeModule from 'holographic-memory';
 import type { HolographicMemorySystem as NativeEngine } from 'holographic-memory';
+import { loadNativeBinding } from './native-loader.cjs';
+import {
+	FallbackDocumentIndex,
+	validateHMSDocumentBatch,
+	validateHMSSearch,
+	validateHMSId,
+	validateEmbeddingSpace,
+	cloneHMSMetadata,
+} from './document-index.js';
+import type {
+	HMSDocumentInput,
+	HMSDocumentResult,
+	HMSSearchOptions,
+	HMSEmbeddingSpace,
+} from './document-index.js';
+
+export {
+	cloneHMSMetadata,
+	validateHMSMetadata,
+	validateHMSDocumentBatch,
+} from './document-index.js';
+export type {
+	HMSDocumentInput,
+	HMSDocumentResult,
+	HMSSearchOptions,
+	HMSEmbeddingSpace,
+} from './document-index.js';
 
 const logger = getLogger('holographic-memory-system');
 
@@ -16,6 +44,8 @@ export interface HHMConfig {
 	autoEvolve?: boolean;
 	similarityThreshold?: number;
 	evolution?: Record<string, unknown>;
+	engine?: 'auto' | 'native' | 'fallback';
+	embeddingSpace?: HMSEmbeddingSpace;
 }
 
 export interface MemoryFormationResult {
@@ -386,312 +416,449 @@ class JSVectorEngine {
 	}
 }
 
-// Optional native HMS engine, loaded lazily on first construction. This is done
-// with a synchronous require (not a top-level `await import`) so that importing
-// this module never forces top-level await on consumers — which breaks CJS and
-// ts-jest transpilation of the whole handler graph.
-let NativeHMS: typeof NativeEngine | null = null;
+interface NativeOwner {
+	reference: WeakRef<NativeEngine>;
+	configuration: string;
+	users: number;
+	version: string;
+}
+
+const nativeOwners = new Map<string, NativeOwner>();
+let binding: ReturnType<typeof loadNativeBinding> | undefined;
 let nativeLoadAttempted = false;
-// Native locks last until GC; default consumers share one owner for the process lifetime.
-const defaultNativeStores = new Map<string, { dimensions: number; engine: NativeEngine }>();
-function loadNativeHMS(): void {
-	if (nativeLoadAttempted) return;
-	nativeLoadAttempted = true;
-	try {
-		// Seed createRequire from a filesystem path (not import.meta) so this module
-		// compiles under any TS `module` setting; node_modules resolves from cwd,
-		// which is the project root for the packaged server. Native HMS is optional,
-		// so a resolution miss simply falls back to the JS engine below.
-		const requireFn = createRequire(path.join(process.cwd(), 'package.json'));
-		const native = requireFn('holographic-memory') as typeof NativeModule;
-		if (typeof native?.HolographicMemorySystem === 'function') {
-			NativeHMS = native.HolographicMemorySystem;
-			logger.info('HMS using native Rust engine');
+
+function getNativeBinding(): ReturnType<typeof loadNativeBinding> | undefined {
+	if (!nativeLoadAttempted) {
+		nativeLoadAttempted = true;
+		try {
+			binding = loadNativeBinding();
+		} catch {
+			logger.info('HMS native binding unavailable; using local JavaScript retrieval');
 		}
-	} catch {
-		// Optional native module not installed.
 	}
-	if (!NativeHMS) {
-		logger.info('HMS using JS fallback engine (holographic-memory native not installed)');
-	}
+	return binding;
+}
+
+function defaultStoragePath(): string {
+	if (process.env.SCRIVENER_HMS_STORAGE_DIR) return process.env.SCRIVENER_HMS_STORAGE_DIR;
+	const legacy = path.join(process.cwd(), '.scrivener-hms.db');
+	return existsSync(legacy) ? legacy : path.join(homedir(), '.scrivener-mcp', 'hms-v0.6.4');
+}
+
+function validateText(text: string): void {
+	if (typeof text !== 'string' || Buffer.byteLength(text) > 8 * 1024 * 1024)
+		throw new RangeError('HMS text must contain at most 8 MiB of UTF-8 data');
+}
+
+function validateLimit(k: number): void {
+	if (!Number.isSafeInteger(k) || k < 1 || k > 50000)
+		throw new RangeError('HMS retrieval limit must be an integer from 1 to 50000');
 }
 
 export class HolographicMemorySystem {
-	private dimensions: number;
+	private readonly dimensions: number;
 	private native: NativeEngine | null = null;
-	private jsEngine: JSVectorEngine | null = null;
-	private memoryIndex: Map<string, MemoryIndexEntry> = new Map();
-	private jsTriplets: Map<string, { head: string; relation: string; tail: string }> = new Map();
-	private engineType: 'native' | 'js';
+	private owner?: NativeOwner;
+	private jsEngine?: JSVectorEngine;
+	private readonly documentIndex = new FallbackDocumentIndex();
+	private readonly memoryIndex = new Map<string, MemoryIndexEntry>();
+	private readonly triplets = new Map<string, { head: string; relation: string; tail: string }>();
+	private readonly inFlight = new Set<Promise<unknown>>();
+	private readonly embeddingSpace?: HMSEmbeddingSpace;
+	private closing?: Promise<void>;
+	private released = false;
+	private nativeVersion?: string;
+	private fallbackReason?: string;
 
 	constructor(config: HHMConfig = {}) {
-		this.dimensions = config.dimensions || 10000;
-		const storagePath = config.storagePath || path.join(process.cwd(), '.scrivener-hms.db');
-
-		loadNativeHMS();
-		if (NativeHMS) {
-			const cached = config.storagePath ? undefined : defaultNativeStores.get(storagePath);
-			if (cached && cached.dimensions !== this.dimensions) {
-				throw new Error(
-					`HMS default store is already open with ${cached.dimensions} dimensions`
-				);
-			}
-			this.native = cached?.engine || new NativeHMS(this.dimensions, storagePath);
-			if (!config.storagePath && !cached) {
-				defaultNativeStores.set(storagePath, {
-					dimensions: this.dimensions,
-					engine: this.native,
-				});
-			}
-			this.engineType = 'native';
-		} else {
-			this.jsEngine = new JSVectorEngine(Math.min(this.dimensions, 512));
-			this.engineType = 'js';
+		this.dimensions = config.dimensions ?? 10000;
+		if (
+			!Number.isSafeInteger(this.dimensions) ||
+			this.dimensions < 1 ||
+			this.dimensions > 1000000
+		)
+			throw new RangeError('HMS dimensions must be an integer from 1 to 1000000');
+		if (config.embeddingSpace) {
+			validateEmbeddingSpace(config.embeddingSpace);
+			this.embeddingSpace = { ...config.embeddingSpace };
 		}
-
+		const selection = config.engine ?? process.env.SCRIVENER_HMS_ENGINE ?? 'auto';
+		if (!['auto', 'native', 'fallback'].includes(selection))
+			throw new TypeError('HMS engine must be auto, native or fallback');
+		const loaded = selection === 'fallback' ? undefined : getNativeBinding();
+		if (selection === 'native' && !loaded) throw new Error('HMS native binding is unavailable');
+		if (loaded) {
+			const requestedPath = config.storagePath ?? defaultStoragePath();
+			if (
+				typeof requestedPath !== 'string' ||
+				!requestedPath ||
+				requestedPath.includes('\0') ||
+				Buffer.byteLength(requestedPath) > 4096
+			)
+				throw new TypeError('Invalid HMS storage path');
+			mkdirSync(requestedPath, { recursive: true, mode: 0o700 });
+			const storagePath = realpathSync(requestedPath);
+			const configuration = JSON.stringify([this.dimensions, this.embeddingSpace ?? null]);
+			const cached = nativeOwners.get(storagePath);
+			const cachedEngine = cached?.reference.deref();
+			if (cachedEngine && cached?.configuration !== configuration)
+				throw new Error(
+					'HMS store is already open with incompatible dimensions or embedding space'
+				);
+			try {
+				const engine =
+					cachedEngine ??
+					new loaded.module.HolographicMemorySystem(this.dimensions, storagePath, {
+						embeddingModel: this.embeddingSpace?.model,
+						embeddingRevision: this.embeddingSpace?.revision,
+						embeddingDimensions: this.embeddingSpace?.dimensions,
+					});
+				const owner =
+					cachedEngine && cached
+						? cached
+						: {
+								reference: new WeakRef(engine),
+								configuration,
+								users: 0,
+								version: loaded.version,
+							};
+				owner.users++;
+				this.owner = owner;
+				this.native = engine;
+				this.nativeVersion = owner.version;
+				nativeOwners.set(storagePath, owner);
+				for (const [key, value] of nativeOwners)
+					if (!value.users && !value.reference.deref()) nativeOwners.delete(key);
+			} catch (error) {
+				if (
+					selection !== 'auto' ||
+					typeof error !== 'object' ||
+					error === null ||
+					!('message' in error) ||
+					typeof error.message !== 'string' ||
+					!error.message.includes('is already open by another engine')
+				)
+					throw error;
+				this.fallbackReason = 'Native store is owned by another server instance';
+			}
+		}
+		if (!this.native) {
+			this.jsEngine = new JSVectorEngine(Math.min(this.dimensions, 512));
+			this.fallbackReason ??=
+				selection === 'fallback'
+					? 'Explicit fallback selection'
+					: 'Native binding unavailable';
+		}
 		logger.info('HMS initialized', {
-			engine: this.engineType,
-			dimensions: this.engineType === 'native' ? this.dimensions : 512,
+			engine: this.native ? 'native' : 'fallback',
+			version: this.nativeVersion,
 		});
 	}
 
-	async memorizeText(
-		text: string,
-		id?: string,
-		traceId?: string
-	): Promise<MemoryFormationResult> {
-		const memoryId = id || `text_${Date.now()}`;
-		if (this.native) {
-			await this.native.memorizeText(memoryId, text, traceId);
-		} else {
-			await this.jsEngine!.memorizeText(memoryId, text);
-		}
-		this.memoryIndex.set(memoryId, { modality: 'text', originalData: text });
-		return { id: memoryId, modalities: ['text'] };
+	private operation<T>(work: () => T | Promise<T>): Promise<T> {
+		if (this.closing || this.released)
+			return Promise.reject(new Error('HMS instance is closed'));
+		const pending = Promise.resolve().then(work);
+		this.inFlight.add(pending);
+		void pending.then(
+			() => this.inFlight.delete(pending),
+			() => this.inFlight.delete(pending)
+		);
+		return pending;
 	}
 
-	async memorizeDocument(
+	memorizeDocuments(inputs: readonly HMSDocumentInput[]): Promise<number[]> {
+		return this.operation(async () => {
+			const prepared = validateHMSDocumentBatch(inputs, this.embeddingSpace);
+			return this.native
+				? this.native.memorizeDocuments(prepared)
+				: this.documentIndex.memorize(prepared);
+		});
+	}
+
+	searchDocuments(text: string, options: HMSSearchOptions = {}): Promise<HMSDocumentResult[]> {
+		return this.operation(async () => {
+			const prepared = validateHMSSearch(text, options, this.embeddingSpace);
+			if (prepared.documentIds?.length === 0) return [];
+			if (!this.native) return this.documentIndex.search(text, prepared);
+			const results = await this.native.searchDocuments(text, prepared);
+			return results.map((result) => ({
+				...result,
+				metadata: cloneHMSMetadata(result.metadata ?? {}),
+			}));
+		});
+	}
+
+	deleteDocument(id: string): Promise<boolean> {
+		return this.operation(() => {
+			validateHMSId(id);
+			return this.native ? this.native.deleteDocument(id) : this.documentIndex.delete(id);
+		});
+	}
+
+	flush(): Promise<void> {
+		return this.operation(async () => {
+			await this.native?.flush();
+		});
+	}
+
+	memorizeText(
+		text: string,
+		id: string = randomUUID(),
+		traceId?: string
+	): Promise<MemoryFormationResult> {
+		return this.operation(async () => {
+			validateHMSId(id);
+			validateText(text);
+			if (this.native) await this.native.memorizeText(id, text, traceId);
+			else await this.jsEngine!.memorizeText(id, text);
+			this.memoryIndex.set(id, { modality: 'text', originalData: text });
+			return { id, modalities: ['text'] };
+		});
+	}
+
+	memorizeDocument(
 		document: ScrivenerDocument,
 		traceId?: string
 	): Promise<MemoryFormationResult> {
-		const memoryId = `doc_${document.id}`;
-		const content = document.content || '';
-		if (this.native) {
-			await this.native.memorizeText(memoryId, content, traceId);
-		} else {
-			await this.jsEngine!.memorizeText(memoryId, content);
-		}
-		this.memoryIndex.set(memoryId, { modality: 'document', originalData: document });
-		return { id: memoryId, modalities: ['document'] };
+		return this.operation(async () => {
+			validateHMSId(document.id);
+			const id = `doc_${document.id}`;
+			const content = document.content ?? '';
+			validateText(content);
+			if (this.native) await this.native.memorizeText(id, content, traceId);
+			else await this.jsEngine!.memorizeText(id, content);
+			this.memoryIndex.set(id, { modality: 'document', originalData: document });
+			return { id, modalities: ['document'] };
+		});
 	}
 
-	async memorizeBatch(
-		items: Array<{ id: string; text: string }>,
-		traceId?: string
-	): Promise<void> {
-		if (this.native) {
-			await this.native.memorizeBatch(items, traceId);
-		} else {
+	memorizeBatch(items: Array<{ id: string; text: string }>, traceId?: string): Promise<void> {
+		return this.operation(async () => {
+			if (!Array.isArray(items) || items.length > 4096)
+				throw new RangeError('HMS text batch exceeds 4096 items');
+			let bytes = 0;
 			for (const item of items) {
-				await this.jsEngine!.memorizeText(item.id, item.text);
+				validateHMSId(item.id);
+				validateText(item.text);
+				bytes += Buffer.byteLength(item.text);
+				if (bytes > 8 * 1024 * 1024) throw new RangeError('HMS text batch exceeds 8 MiB');
 			}
-		}
-		for (const item of items) {
-			this.memoryIndex.set(item.id, { modality: 'text', originalData: item.text });
-		}
+			if (this.native) await this.native.memorizeBatch(items, traceId);
+			else for (const item of items) await this.jsEngine!.memorizeText(item.id, item.text);
+			for (const item of items)
+				this.memoryIndex.set(item.id, { modality: 'text', originalData: item.text });
+		});
 	}
 
-	async memorizeTextBuffer(
+	memorizeTextBuffer(
 		id: string,
 		buffer: Buffer,
 		traceId?: string
 	): Promise<MemoryFormationResult> {
-		const text = buffer.toString('utf-8');
-		if (this.native) {
-			await this.native.memorizeTextBuffer(id, buffer, traceId);
-		} else {
-			await this.jsEngine!.memorizeText(id, text);
-		}
-		this.memoryIndex.set(id, { modality: 'text' });
-		return { id, modalities: ['text'] };
+		return this.operation(async () => {
+			validateHMSId(id);
+			if (!Buffer.isBuffer(buffer) || buffer.length > 8 * 1024 * 1024)
+				throw new RangeError('HMS text buffer exceeds 8 MiB');
+			const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+			if (this.native) await this.native.memorizeTextBuffer(id, buffer, traceId);
+			else await this.jsEngine!.memorizeText(id, text);
+			this.memoryIndex.set(id, { modality: 'text', originalData: text });
+			return { id, modalities: ['text'] };
+		});
 	}
 
-	async memorizeFile(id: string, filePath: string): Promise<MemoryFormationResult> {
-		const file = await open(filePath, 'r');
-		let text: string;
-		try {
-			if (!(await file.stat()).isFile()) throw new Error('filePath must name a regular file');
-			const chunks: Buffer[] = [];
-			let length = 0;
-			for await (const chunk of file.createReadStream({ autoClose: false })) {
-				length += chunk.length;
-				if (length > 8 * 1024 * 1024) throw new Error('file exceeds 8 MiB');
-				chunks.push(chunk);
+	memorizeFile(id: string, filePath: string): Promise<MemoryFormationResult> {
+		return this.operation(async () => {
+			validateHMSId(id);
+			const file = await open(filePath, 'r');
+			let text: string;
+			try {
+				if (!(await file.stat()).isFile())
+					throw new Error('filePath must name a regular file');
+				const chunks: Buffer[] = [];
+				let length = 0;
+				for await (const chunk of file.createReadStream({ autoClose: false })) {
+					length += chunk.length;
+					if (length > 8 * 1024 * 1024) throw new RangeError('file exceeds 8 MiB');
+					chunks.push(chunk);
+				}
+				text = new TextDecoder('utf-8', { fatal: true }).decode(
+					Buffer.concat(chunks, length)
+				);
+			} finally {
+				await file.close();
 			}
-			text = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, length));
-		} finally {
-			await file.close();
-		}
-		// Scrivener queries text vectors; native memorizeFile now writes chunked documents.
-		if (this.native) await this.native.memorizeText(id, text);
-		else await this.jsEngine!.memorizeText(id, text);
-		this.memoryIndex.set(id, { modality: 'file', originalData: filePath });
-		return { id, modalities: ['file'] };
+			if (this.native) await this.native.memorizeText(id, text);
+			else await this.jsEngine!.memorizeText(id, text);
+			this.memoryIndex.set(id, { modality: 'file', originalData: text });
+			return { id, modalities: ['file'] };
+		});
 	}
 
 	private mapResults(results: Array<{ id: string; similarity: number }>): QueryResult[] {
-		return results.map((r, index) => {
-			const indexEntry = this.memoryIndex.get(r.id);
+		return results.map((result, index) => {
+			const entry = this.memoryIndex.get(result.id);
 			return {
-				id: r.id,
-				similarity: r.similarity,
-				entry: { id: r.id, metadata: indexEntry },
+				...result,
+				entry: { id: result.id, metadata: entry },
 				rank: index + 1,
-				reconstructed: indexEntry?.originalData,
-				explanation: `Similarity: ${r.similarity.toFixed(3)} | Type: ${indexEntry?.modality || 'unknown'}`,
+				reconstructed: entry?.originalData,
+				explanation: `Similarity: ${result.similarity.toFixed(3)} | Type: ${entry?.modality ?? 'unknown'}`,
 			};
 		});
 	}
 
-	async queryText(text: string, k: number = 10, traceId?: string): Promise<QueryResult[]> {
-		const results = this.native
-			? await this.native.query(text, k, traceId)
-			: await this.jsEngine!.query(text, k);
-		return this.mapResults(results);
+	queryText(text: string, k: number = 10, traceId?: string): Promise<QueryResult[]> {
+		return this.operation(async () => {
+			validateText(text);
+			validateLimit(k);
+			return this.mapResults(
+				this.native
+					? await this.native.query(text, k, traceId)
+					: await this.jsEngine!.query(text, k)
+			);
+		});
 	}
 
-	async findAnalogy(a: string, b: string, c: string, traceId?: string): Promise<QueryResult[]> {
-		const results = this.native
-			? await this.native.findAnalogy(a, b, c, undefined, traceId)
-			: await this.jsEngine!.findAnalogy(a, b, c);
-		return this.mapResults(results);
+	findAnalogy(a: string, b: string, c: string, traceId?: string): Promise<QueryResult[]> {
+		return this.operation(async () => {
+			[a, b, c].forEach(validateText);
+			return this.mapResults(
+				this.native
+					? await this.native.findAnalogy(a, b, c, undefined, traceId)
+					: await this.jsEngine!.findAnalogy(a, b, c)
+			);
+		});
 	}
 
-	async dream(): Promise<ConceptSummary[]> {
-		logger.info('HMS entering DREAM mode');
-		try {
+	dream(): Promise<ConceptSummary[]> {
+		return this.operation(async () => {
 			const concepts = this.native
 				? await this.native.synthesizeConcepts()
 				: await this.jsEngine!.synthesizeConcepts();
-			return concepts.map(
-				(c: {
-					centroidId: string;
-					coherence: number;
-					memberCount: number;
-					memberIds: string[];
-				}) => ({
-					conceptId: c.centroidId,
-					thematicDensity: c.coherence,
-					memberCount: c.memberCount,
-					memberIds: c.memberIds,
-					summary: `Concept: ${c.centroidId} (coherence: ${c.coherence.toFixed(3)}, members: ${c.memberCount})`,
-				})
+			return concepts.map((concept) => ({
+				conceptId: concept.centroidId,
+				thematicDensity: concept.coherence,
+				memberCount: concept.memberCount,
+				memberIds: concept.memberIds,
+				summary: `Concept: ${concept.centroidId} (coherence: ${concept.coherence.toFixed(3)}, members: ${concept.memberCount})`,
+			}));
+		});
+	}
+
+	discoverAssociations(id: string, threshold: number = 0.6): Promise<QueryResult[]> {
+		return this.operation(async () => {
+			validateHMSId(id);
+			if (!Number.isFinite(threshold) || threshold < -1 || threshold > 1)
+				throw new RangeError('Association threshold must be between -1 and 1');
+			const value = this.memoryIndex.get(id)?.originalData;
+			const text =
+				typeof value === 'string'
+					? value
+					: (value as ScrivenerDocument | undefined)?.content;
+			if (!text) return [];
+			const results = this.native
+				? await this.native.query(text, 20)
+				: await this.jsEngine!.query(text, 20);
+			return this.mapResults(
+				results.filter((result) => result.id !== id && result.similarity >= threshold)
 			);
-		} catch (error) {
-			logger.warn('HMS Dream mode failed', { error: (error as Error).message });
-			return [];
-		}
+		});
 	}
 
-	async discoverAssociations(id: string, threshold: number = 0.6): Promise<QueryResult[]> {
-		const indexEntry = this.memoryIndex.get(id);
-		if (!indexEntry?.originalData) return [];
-
-		const text =
-			typeof indexEntry.originalData === 'string'
-				? indexEntry.originalData
-				: (indexEntry.originalData as ScrivenerDocument).content || '';
-		if (!text) return [];
-
-		const results = this.native
-			? await this.native.query(text, 20)
-			: await this.jsEngine!.query(text, 20);
-		return this.mapResults(
-			results.filter(
-				(r: { id: string; similarity: number }) => r.id !== id && r.similarity >= threshold
-			)
-		);
+	memorizeTriplet(id: string, head: string, relation: string, tail: string): Promise<void> {
+		return this.operation(async () => {
+			[id, head, relation, tail].forEach(validateHMSId);
+			if (this.native) await this.native.memorizeTriplet(id, head, relation, tail);
+			else await this.jsEngine!.memorizeText(id, `${head} ${relation} ${tail}`);
+			this.triplets.set(id, { head, relation, tail });
+		});
 	}
 
-	async memorizeTriplet(id: string, head: string, relation: string, tail: string): Promise<void> {
-		if (this.native) {
-			await this.native.memorizeTriplet(id, head, relation, tail);
-		} else {
-			this.jsTriplets.set(id, { head, relation, tail });
-			await this.jsEngine!.memorizeText(id, `${head} ${relation} ${tail}`);
-		}
+	queryTriplet(head: string, relation: string, k: number = 10): Promise<QueryResult[]> {
+		return this.operation(async () => {
+			validateText(head);
+			validateText(relation);
+			validateLimit(k);
+			if (this.native)
+				return this.mapResults(await this.native.queryTriplet(head, relation, k));
+			const merged = new Map<string, { id: string; similarity: number }>();
+			for (const [id, triplet] of this.triplets)
+				if (
+					(!head || head === triplet.head) &&
+					(!relation || relation === triplet.relation)
+				)
+					merged.set(id, { id, similarity: 1 });
+			for (const hit of await this.jsEngine!.query(`${head} ${relation}`, k))
+				if (!merged.has(hit.id)) merged.set(hit.id, hit);
+			return this.mapResults(
+				[...merged.values()].sort((a, b) => b.similarity - a.similarity).slice(0, k)
+			);
+		});
 	}
 
-	async queryTriplet(head: string, relation: string, k: number = 10): Promise<QueryResult[]> {
-		if (this.native) {
-			const results: Array<{ id: string; similarity: number }> =
-				await this.native.queryTriplet(head, relation, k);
-			return this.mapResults(results);
-		}
+	memorizeSequence(id: string, sequence: string[]): Promise<void> {
+		return this.operation(async () => {
+			validateHMSId(id);
+			if (!Array.isArray(sequence) || sequence.length > 4096)
+				throw new RangeError('HMS sequence exceeds 4096 items');
+			sequence.forEach(validateHMSId);
+			if (this.native) await this.native.memorizeSequence(id, sequence);
+			else await this.jsEngine!.memorizeText(id, sequence.join(' -> '));
+		});
+	}
 
-		// JS fallback: exact match scan + vector query, merged and deduplicated
-		const exactMatches: Array<{ id: string; similarity: number }> = [];
-		for (const [id, triplet] of this.jsTriplets) {
-			const headMatch = !head || triplet.head === head;
-			const relationMatch = !relation || triplet.relation === relation;
-			if (headMatch && relationMatch) {
-				exactMatches.push({ id, similarity: 1.0 });
+	queryBatch(texts: string[], k: number): Promise<QueryResult[][]> {
+		return this.operation(async () => {
+			if (!Array.isArray(texts) || texts.length > 4096)
+				throw new RangeError('HMS query batch exceeds 4096 items');
+			let bytes = 0;
+			for (const text of texts) {
+				validateText(text);
+				bytes += Buffer.byteLength(text);
+				if (bytes > 8 * 1024 * 1024) throw new RangeError('HMS query batch exceeds 8 MiB');
 			}
-		}
-
-		const vectorResults = await this.jsEngine!.query(`${head} ${relation}`, k);
-
-		const seen = new Set<string>();
-		const merged: Array<{ id: string; similarity: number }> = [];
-		for (const r of exactMatches) {
-			if (!seen.has(r.id)) {
-				seen.add(r.id);
-				merged.push(r);
-			}
-		}
-		for (const r of vectorResults) {
-			if (!seen.has(r.id)) {
-				seen.add(r.id);
-				merged.push(r);
-			}
-		}
-		merged.sort((a, b) => b.similarity - a.similarity);
-		return this.mapResults(merged.slice(0, k));
-	}
-
-	async memorizeSequence(id: string, sequence: string[]): Promise<void> {
-		if (this.native) {
-			await this.native.memorizeSequence(id, sequence);
-		} else {
-			await this.jsEngine!.memorizeText(id, sequence.join(' -> '));
-		}
-	}
-
-	async queryBatch(texts: string[], k: number): Promise<QueryResult[][]> {
-		if (this.native) {
-			const batchResults: Array<Array<{ id: string; similarity: number }>> =
-				await this.native.queryBatch(texts, k);
-			return batchResults.map((results) => this.mapResults(results));
-		}
-		const allResults = await Promise.all(texts.map((t) => this.jsEngine!.query(t, k)));
-		return allResults.map((results) => this.mapResults(results));
+			validateLimit(k);
+			if (texts.length * k > 1000000)
+				throw new RangeError('HMS query batch result allocation exceeds its limit');
+			const results = this.native
+				? await this.native.queryBatch(texts, k)
+				: await Promise.all(texts.map((text) => this.jsEngine!.query(text, k)));
+			return results.map((hits) => this.mapResults(hits));
+		});
 	}
 
 	getStats(): Record<string, unknown> {
 		return {
-			dimensions: this.engineType === 'native' ? this.dimensions : 512,
-			engine: this.engineType === 'native' ? 'Rust Native v2.0' : 'JS Fallback',
-			totalMemories: this.memoryIndex.size,
-			totalTriplets: this.jsTriplets.size,
+			dimensions: this.native ? this.dimensions : Math.min(this.dimensions, 512),
+			engine: this.nativeVersion ? `Rust Native ${this.nativeVersion}` : 'JS Fallback',
+			version: this.nativeVersion,
+			totalMemories: this.native?.vectorCount ?? this.memoryIndex.size,
+			totalTriplets: this.triplets.size,
+			persistentDocuments: !!this.nativeVersion,
+			fallbackReason: this.fallbackReason,
+			closed: this.released || !!this.closing,
 		};
 	}
 
-	async destroy(): Promise<void> {
-		logger.info('Shutting down HMS Engine');
-		if (this.native) await this.native.flush();
-		this.native = null;
-		if (this.jsEngine) this.jsEngine.clear();
-		this.memoryIndex.clear();
-		this.jsTriplets.clear();
+	destroy(): Promise<void> {
+		if (this.closing) return this.closing;
+		this.closing = (async () => {
+			await Promise.allSettled(this.inFlight);
+			try {
+				await this.native?.flush();
+			} finally {
+				if (this.owner) this.owner.users--;
+				this.owner = undefined;
+				this.native = null;
+				this.jsEngine?.clear();
+				this.documentIndex.clear();
+				this.memoryIndex.clear();
+				this.triplets.clear();
+				this.released = true;
+			}
+		})();
+		return this.closing;
 	}
 }

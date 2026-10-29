@@ -1,0 +1,20 @@
+{
+	"license": "CC0-1.0",
+	"driver": "12.11.1",
+	"sqlite": "3.53.2",
+	"schemaVersion": 1,
+	"data": {
+		"before": {
+			"text": "Café — 東京 😀",
+			"revision": 12
+		},
+		"committed": {
+			"checkpoint": true
+		}
+	},
+	"files": {
+		"baseline.sqlite": 12288,
+		"interrupted.sqlite": 12288,
+		"interrupted.sqlite-wal": 8272
+	}
+}

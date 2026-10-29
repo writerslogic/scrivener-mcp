@@ -102,6 +102,7 @@ log.txt
 *.sqlite-journal
 *.sqlite-shm
 *.sqlite-wal
+!tests/fixtures/sqlite12/interrupted.sqlite-wal
 *.db-journal
 canon.sqlite
 

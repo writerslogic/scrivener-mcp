@@ -1,13 +1,11 @@
-/**
- * KeyDB/Redis connection detector and manager
- */
-
 import { Redis } from 'ioredis';
 import { getLogger } from '../../core/logger.js';
 import { NetworkResilience, NetworkHealthMonitor } from '../../utils/network-resilience.js';
 
 const logger = getLogger('keydb-detector');
 const networkMonitor = new NetworkHealthMonitor();
+// Existing Redis/KeyDB proxies may deny HELLO even when ordinary commands are permitted.
+const REDIS_PROTOCOL = 2;
 
 export interface ConnectionInfo {
 	type: 'keydb' | 'redis' | 'none';
@@ -16,13 +14,40 @@ export interface ConnectionInfo {
 	version?: string;
 }
 
-export async function detectConnection(): Promise<ConnectionInfo> {
-	// Priority order: KEYDB_URL > REDIS_URL > localhost:6379
-	const urls = [process.env.KEYDB_URL, process.env.REDIS_URL, 'redis://localhost:6379'].filter(
-		Boolean
-	);
+export async function detectConnection(candidateUrls?: readonly string[]): Promise<ConnectionInfo> {
+	if (candidateUrls === undefined && process.env.SCRIVENER_LOCAL_ONLY === 'true')
+		return { type: 'none', url: null, isAvailable: false };
+	if (candidateUrls !== undefined) {
+		if (!Array.isArray(candidateUrls) || candidateUrls.length > 16)
+			throw new Error('Explicit Redis candidates must be an array of at most 16 URLs');
+		for (const candidate of candidateUrls) {
+			if (
+				typeof candidate !== 'string' ||
+				Buffer.byteLength(candidate) > 4096 ||
+				/[\s\p{Cc}]/u.test(candidate)
+			)
+				throw new Error('Each explicit Redis URL must be a string of at most 4096 bytes');
+			let parsed: URL;
+			try {
+				parsed = new URL(candidate);
+			} catch {
+				throw new Error('Each explicit Redis candidate must be a valid Redis URL');
+			}
+			if (
+				!['redis:', 'rediss:'].includes(parsed.protocol) ||
+				!parsed.hostname ||
+				parsed.port === '0'
+			)
+				throw new Error(
+					'Explicit Redis URLs require redis/rediss, a host and a valid port'
+				);
+		}
+	}
+	const urls = candidateUrls
+		? [...candidateUrls]
+		: [process.env.KEYDB_URL, process.env.REDIS_URL, 'redis://localhost:6379'].filter(Boolean);
+	if (urls.length === 0) return { type: 'none', url: null, isAvailable: false };
 
-	// Test network connectivity first for better error handling
 	const connectionCandidates = urls
 		.map((url) => {
 			try {
@@ -40,7 +65,6 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 		})
 		.filter(Boolean) as Array<{ url: string; host: string; port: number; priority: number }>;
 
-	// Find the best connection using network resilience
 	const bestConnection = await NetworkResilience.findBestConnection(connectionCandidates, {
 		timeout: 3000,
 		retries: 1,
@@ -49,7 +73,6 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 	});
 
 	if (bestConnection) {
-		// Record the latency for adaptive timeouts
 		networkMonitor.recordLatency(bestConnection.latency);
 		logger.debug('Best connection found', {
 			host: bestConnection.host,
@@ -59,40 +82,39 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 	}
 
 	for (const url of urls) {
+		const target = connectionCandidates.find((candidate) => candidate.url === url);
 		let client: Redis | undefined;
 		try {
 			const startTime = Date.now();
 
-			// Use adaptive timeout based on network conditions
 			const adaptiveTimeout = bestConnection
-				? Math.max(3000, bestConnection.latency * 3) // 3x latency or min 3s
-				: 5000; // fallback to 5s
+				? Math.max(3000, bestConnection.latency * 3)
+				: 5000;
 
 			client = new Redis(url as string, {
+				protocol: REDIS_PROTOCOL,
 				connectTimeout: adaptiveTimeout,
-				retryStrategy: () => null, // Don't retry (we handle retries at higher level)
+				retryStrategy: () => null,
 				lazyConnect: true,
 			});
-			// A failed probe is an expected outcome handled by the catch below. Without a listener,
-			// ioredis prints "Unhandled error event" to stderr on every start when no server runs.
+			// Missing optional servers are expected; suppress ioredis's unhandled-error output.
 			client.on('error', () => undefined);
 
 			await client.connect();
 
-			// Check if it's KeyDB or Redis
 			const info = await client.info('server');
 			const isKeyDB = info.includes('keydb_version');
 			const version = extractVersion(info, isKeyDB);
 
 			await client.quit();
 
-			// Record successful connection latency
 			const connectionLatency = Date.now() - startTime;
 			networkMonitor.recordLatency(connectionLatency);
 
 			logger.info(`Detected ${isKeyDB ? 'KeyDB' : 'Redis'}`, {
 				version,
-				url: url?.includes('localhost') ? 'localhost:6379' : url,
+				host: target?.host ?? 'local socket',
+				port: target?.port,
 				latency: connectionLatency,
 				adaptiveTimeout,
 				networkHealth: networkMonitor.getHealthScore(),
@@ -106,8 +128,9 @@ export async function detectConnection(): Promise<ConnectionInfo> {
 			};
 		} catch (error) {
 			client?.disconnect();
-			// Continue to next URL
-			logger.debug(`Failed to connect to ${url}`, {
+			logger.debug('Failed to connect to Redis', {
+				host: target?.host ?? 'local socket',
+				port: target?.port,
 				error: (error as Error).message,
 				networkHealth: networkMonitor.getHealthScore(),
 			});
@@ -131,9 +154,9 @@ function extractVersion(info: string, isKeyDB: boolean): string {
 
 export function createBullMQConnection(url: string): Redis {
 	const client = new Redis(url, {
+		protocol: REDIS_PROTOCOL,
 		maxRetriesPerRequest: null, // Required for BullMQ
 		enableReadyCheck: false,
-		// KeyDB optimizations
 		enableOfflineQueue: true,
 		connectTimeout: 5000,
 		disconnectTimeout: 2000,

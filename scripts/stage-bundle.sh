@@ -72,8 +72,21 @@ tar -xzf "$WORK/$ARCHIVE" -C "$SERVER" --strip-components 1
 cp "$ROOT/package-lock.json" "$SERVER/package-lock.json"
 (cd "$SERVER" && PATH="$WORK/node-full/bin:$PATH" npm ci --omit=dev --ignore-scripts --os=darwin --cpu=arm64 --no-audit --no-fund >/dev/null)
 
-say "Installing the SQLite binary that matches the bundled Node"
-(cd "$SERVER/node_modules/better-sqlite3" && "$FULL_NODE" ../prebuild-install/bin.js --runtime node --target "$("$FULL_NODE" -p process.versions.node)" >/dev/null)
+say "Installing the C2PA binary for the bundle's platform"
+(cd "$SERVER/node_modules/@contentauth/c2pa-node" && "$FULL_NODE" scripts/postinstall.cjs)
+
+say "Verifying the shipped SQLite binary with the bundled Node"
+(cd "$SERVER" && "$FULL_NODE" -e '
+const Database = require("better-sqlite3");
+const database = new Database(":memory:");
+try {
+	if (database.prepare("SELECT 1 AS ready").get().ready !== 1) {
+		throw new Error("The bundled SQLite binary failed its query check");
+	}
+} finally {
+	database.close();
+}
+')
 
 say "Pruning files the server never loads"
 find "${SERVER:?}/node_modules" -type f \( -name '*.map' -o \( \( -name '*.md' -o -name '*.markdown' \) ! -iname 'license*' ! -iname 'licence*' ! -iname 'copying*' ! -iname 'notice*' \) \) -delete
@@ -81,6 +94,7 @@ rm -rf "${SERVER:?}/node_modules/narrative-lens/artifacts" "${SERVER:?}/node_mod
 find "${SERVER:?}/node_modules" -name '*.node' \( -path '*linux*' -o -path '*win32*' -o -path '*darwin-x64*' \) -type f -delete
 
 cp "$FULL_NODE" "$BUNDLE/runtime/bin/node"
+cp "$WORK/node-full/LICENSE" "$BUNDLE/runtime/LICENSE"
 cp -R "$SERVER" "$BUNDLE/server"
 cp "$ROOT/LICENSE" "$BUNDLE/LICENSE"
 
@@ -96,3 +110,7 @@ else
 fi
 [ "$SMOKE_STATUS" -le 1 ] || die "Bundled setup helper exited with status $SMOKE_STATUS."
 node -e 'const j=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(j.schemaVersion!==1||j.mode!=="check"||j.startup?.ok!==true||!Number.isSafeInteger(j.startup.toolCount)||j.startup.toolCount<1)process.exit(1);console.log("server started, "+j.startup.toolCount+" tools")' "$WORK/startup-report.json"
+
+say "Verifying the staged package through real MCP sessions"
+"$FULL_NODE" "$ROOT/scripts/check-release-smoke.mjs" --installed-server "$BUNDLE/server" \
+	--npm-cli "$WORK/node-full/lib/node_modules/npm/bin/npm-cli.js"

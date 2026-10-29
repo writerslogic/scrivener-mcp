@@ -2,10 +2,11 @@
  * AIWritingService tests. The chat-backed parsing paths (style analysis,
  * consistency-issue coercion, context-free generation) are covered
  * deterministically with a stubbed AIClient -- that is the bug-prone code. The
- * HMS-backed vector-store path is exercised by the app and the key-gated live
+ * HMS-backed vector-store path is exercised by the app and the explicitly opted-in live
  * tests, not mocked here.
  */
 
+import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import { AIWritingService } from '../../../../src/services/ai/ai-writing-service.js';
 import { AIClient } from '../../../../src/services/ai/ai-client.js';
 
@@ -87,13 +88,29 @@ describe('AIWritingService — deterministic (stubbed client)', () => {
 		});
 	});
 
-	it('clearMemory does not throw before any build', () => {
+	it('serializes build, clearing and rebuilding without retaining stale passages', async () => {
 		const { svc } = stub('{}');
-		expect(() => svc.clearMemory()).not.toThrow();
+		const first = {
+			id: 'scene',
+			title: 'Scene',
+			type: 'Text' as const,
+			path: '',
+			content: 'harbor lighthouse',
+		};
+		try {
+			await Promise.all([
+				svc.buildVectorStore([first]),
+				svc.clearMemory(),
+				svc.buildVectorStore([{ ...first, content: 'orchard violet' }]),
+			]);
+			expect(await svc.semanticSearch('harbor')).toEqual([]);
+			expect((await svc.semanticSearch('orchard'))[0].metadata.id).toBe('scene');
+		} finally {
+			await svc.close();
+		}
 	});
 });
 
-const liveAnthropic = process.env.ANTHROPIC_API_KEY ? describe : describe.skip;
 liveAnthropic('AIWritingService — live Claude', () => {
 	it('analyzes writing style into a structured object', async () => {
 		const svc = new AIWritingService();
