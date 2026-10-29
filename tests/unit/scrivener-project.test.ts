@@ -54,6 +54,7 @@ describe('ScrivenerProject', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		jest.mocked(isProjectOpenInScrivener).mockResolvedValue('closed');
 		project = new ScrivenerProject(projectPath);
 		mockDocumentManager = (project as any).documentManager;
 		if (jest.isMockFunction(mockDocumentManager.getMutationCoordinator))

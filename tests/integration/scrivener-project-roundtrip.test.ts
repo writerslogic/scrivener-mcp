@@ -110,10 +110,14 @@ describe('ScrivenerProject — fixture round-trip', () => {
 		});
 
 		it('round-trips a synopsis/notes update through update_document to disk and back', async () => {
-			await project.updateDocumentMetadata(CHAPTER2_ID, {
-				synopsis: 'Updated synopsis for chapter two.',
-				notes: 'Updated notes for chapter two.',
-			});
+			await project.updateDocumentMetadata(
+				CHAPTER2_ID,
+				{
+					synopsis: 'Updated synopsis for chapter two.',
+					notes: 'Updated notes for chapter two.',
+				},
+				{ force: true }
+			);
 
 			// The in-session index must reflect the update immediately, not just
 			// after a reload (see documentIndexer.patchDocumentMetadata).

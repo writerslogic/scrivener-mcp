@@ -155,7 +155,10 @@ describe('Scrivener Project Integration', () => {
 
 			const docId = await context.project.createDocument(
 				'Test Document',
-				'This is test content.'
+				'This is test content.',
+				undefined,
+				'Text',
+				{ force: true }
 			);
 
 			expect(docId).toBeTruthy();
@@ -177,6 +180,7 @@ describe('Scrivener Project Integration', () => {
 					documentId: testDocumentId,
 					synopsis: 'Test synopsis',
 					notes: 'Test notes',
+					force: true,
 				},
 				context
 			);

@@ -129,25 +129,24 @@ export class ProjectLoader {
 
 	private async saveProjectData(structure?: ProjectStructure): Promise<void> {
 		const projectToSave = structure || this.projectStructure;
+		const expectedRevision = this.loadedRevision;
 
 		if (!projectToSave) {
 			throw createError(ErrorCode.INVALID_STATE, 'No project loaded to save');
 		}
 
-		if (!this.loadedRevision)
+		if (!expectedRevision)
 			throw createError(
 				ErrorCode.INVALID_STATE,
 				'Load the project before saving so its saved revision can be checked'
 			);
+		const cleanStructure = this.cleanForSaving(projectToSave);
 		logger.info(`Saving project to ${this.scrivxPath}`);
 
 		// Create backup if enabled
 		if (this.options.autoBackup) {
 			await this.createBackup();
 		}
-
-		// Clean structure for saving (remove internal properties)
-		const cleanStructure = this.cleanForSaving(projectToSave);
 
 		const builder = new Builder({
 			xmldec: { version: '1.0', encoding: 'UTF-8' },
@@ -164,7 +163,7 @@ export class ProjectLoader {
 				);
 			}
 			const mutation = await this.coordinator.commitProjectFile(this.scrivxPath, xml, {
-				expectedRevision: this.loadedRevision,
+				expectedRevision,
 			});
 			this.loadedRevision = mutation.afterRevision;
 			this.projectStructure = projectToSave;
@@ -272,6 +271,7 @@ export class ProjectLoader {
 	}
 
 	private async restoreProject(backupPath: string): Promise<void> {
+		const observedRevision = this.loadedRevision;
 		try {
 			const resolved = path.resolve(backupPath);
 			if (
@@ -288,7 +288,7 @@ export class ProjectLoader {
 			if (!parsed?.ScrivenerProject)
 				throw new Error('Project backup does not contain a ScrivenerProject');
 			const current = await this.coordinator.readProjectFile(this.scrivxPath);
-			const expectedRevision = this.loadedRevision ?? current.revision;
+			const expectedRevision = observedRevision ?? current.revision;
 			if (current.revision !== expectedRevision)
 				throw new Error('Stale project revision; reload the saved binder before restoring');
 			await this.createBackup();

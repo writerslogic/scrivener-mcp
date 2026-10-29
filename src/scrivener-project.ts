@@ -118,9 +118,6 @@ export class ScrivenerProject {
 	private options: ScrivenerProjectOptions;
 	private indexInitialized = false;
 	private hhmSystem?: HolographicMemorySystem;
-	/** Short-lived cache of the "open in Scrivener" probe, to avoid spawning an
-	 * osascript per write in a batch. */
-
 	constructor(projectPath: string, options: ScrivenerProjectOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
 		this.options = {
@@ -178,7 +175,7 @@ export class ScrivenerProject {
 			this.projectPath,
 			this.projectLoader,
 			this.metadataManager,
-			() => this.saveProject(),
+			() => this.persistProject(),
 			() => this.indexInitialized
 		);
 
@@ -205,7 +202,7 @@ export class ScrivenerProject {
 		this.trash = new ProjectTrash(
 			this.documentManager,
 			this.compilationService,
-			() => this.saveProject(),
+			() => this.persistProject(),
 			(documentId) => this.readDocument(documentId),
 			(includeTrash) => this.getProjectStructure(includeTrash)
 		);
@@ -214,7 +211,7 @@ export class ScrivenerProject {
 			this.projectPath,
 			this.documentManager,
 			this.hhmSystem,
-			() => this.saveProject(),
+			() => this.persistProject(),
 			(documentId) => this.markDocumentChanged(documentId),
 			(documentId) => this.getDocumentInfo(documentId),
 			(documentId, title) => this.takeSnapshot(documentId, title)
@@ -284,7 +281,12 @@ export class ScrivenerProject {
 	/**
 	 * Save the project
 	 */
-	async saveProject(): Promise<void> {
+	async saveProject(options: Pick<WriteOptions, 'force'> = {}): Promise<void> {
+		await this.ensureWritable(options.force);
+		await this.persistProject();
+	}
+
+	private async persistProject(): Promise<void> {
 		const structure = this.projectLoader.getProjectStructure();
 		await this.projectLoader.saveProject(structure);
 	}
@@ -319,14 +321,6 @@ export class ScrivenerProject {
 		return await this.documentManager.readDocumentFormatted(documentId);
 	}
 
-	/**
-	 * Guard against writing while the project is open in Scrivener. Scrivener
-	 * holds the manuscript in memory and rewrites it on save, so an external edit
-	 * to a live project can be silently clobbered. Throws when the project is
-	 * detected open and `force` is false; allows the write when detection is
-	 * unavailable or ambiguous (never a false positive). The probe result is
-	 * cached briefly so a batch of writes spawns at most one detection call.
-	 */
 	async ensureWritable(force = false): Promise<void> {
 		return this.writer.ensureWritable(force);
 	}
@@ -453,28 +447,40 @@ export class ScrivenerProject {
 		title: string,
 		content = '',
 		parentId?: string,
-		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
+		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT,
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<string> {
-		return this.writer.createDocument(title, content, parentId, type);
+		return this.writer.createDocument(title, content, parentId, type, options);
 	}
 
-	async deleteDocument(documentId: string): Promise<void> {
+	async deleteDocument(
+		documentId: string,
+		options: Pick<WriteOptions, 'force'> = {}
+	): Promise<void> {
+		await this.ensureWritable(options.force);
 		await this.documentManager.deleteDocument(documentId);
-		await this.saveProject();
+		await this.persistProject();
 	}
 
-	async renameDocument(documentId: string, newTitle: string): Promise<void> {
+	async renameDocument(
+		documentId: string,
+		newTitle: string,
+		options: Pick<WriteOptions, 'force'> = {}
+	): Promise<void> {
+		await this.ensureWritable(options.force);
 		await this.documentManager.renameDocument(documentId, newTitle);
-		await this.saveProject();
+		await this.persistProject();
 	}
 
 	async moveDocument(
 		documentId: string,
 		newParentId: string | null,
-		_position?: number
+		_position?: number,
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
+		await this.ensureWritable(options.force);
 		await this.documentManager.moveDocument(documentId, newParentId);
-		await this.saveProject();
+		await this.persistProject();
 	}
 
 	async getWordCount(documentId?: string): Promise<{ words: number; characters: number }> {
@@ -564,7 +570,12 @@ export class ScrivenerProject {
 	}
 
 	// Metadata operations
-	async updateMetadata(documentId: string, metadata: Record<string, unknown>): Promise<void> {
+	async updateMetadata(
+		documentId: string,
+		metadata: Record<string, unknown>,
+		options: Pick<WriteOptions, 'force'> = {}
+	): Promise<void> {
+		await this.ensureWritable(options.force);
 		return this.metadataEditor.updateMetadata(documentId, metadata);
 	}
 
@@ -576,16 +587,20 @@ export class ScrivenerProject {
 			label?: string;
 			status?: string;
 			customMetadata?: Record<string, string>;
-		}
+		},
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
+		await this.ensureWritable(options.force);
 		return this.metadataEditor.updateDocumentMetadata(documentId, metadata);
 	}
 
 	async updateSynopsisAndNotes(
 		documentId: string,
 		synopsis?: string,
-		notes?: string
+		notes?: string,
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
+		await this.ensureWritable(options.force);
 		return this.metadataEditor.updateSynopsisAndNotes(documentId, synopsis, notes);
 	}
 
@@ -594,8 +609,10 @@ export class ScrivenerProject {
 			documentId: string;
 			synopsis?: string;
 			notes?: string;
-		}>
+		}>,
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<Array<{ documentId: string; success: boolean; error?: string }>> {
+		await this.ensureWritable(options.force);
 		return this.metadataEditor.batchUpdateSynopsisAndNotes(updates);
 	}
 
@@ -756,7 +773,12 @@ export class ScrivenerProject {
 		return this.trash.searchTrash(query, options);
 	}
 
-	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
+	async recoverFromTrash(
+		documentId: string,
+		targetParentId?: string,
+		options: Pick<WriteOptions, 'force'> = {}
+	): Promise<void> {
+		await this.ensureWritable(options.force);
 		return this.trash.recoverFromTrash(documentId, targetParentId);
 	}
 

@@ -226,8 +226,10 @@ export class ProjectWriter {
 		title: string,
 		content = '',
 		parentId?: string,
-		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
+		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT,
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<string> {
+		await this.ensureWritable(options.force);
 		const context: DocumentOperationContext = {
 			projectStructure: this.documentManager.getProjectStructureData(),
 			projectPath: this.projectPath,
