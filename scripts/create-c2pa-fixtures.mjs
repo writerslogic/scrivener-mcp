@@ -38,10 +38,10 @@ export async function createC2paTestSigner(directory) {
 		await command('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-aes-256-cbc', '-pass', 'env:C2PA_FIXTURE_PASSPHRASE', '-out', key], env);
 		await chmod(key, 0o600);
 	}
-	await command('openssl', ['req', '-new', '-x509', '-key', rootKey, '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-config', rootConfig, '-set_serial', '1', '-days', '2', '-sha256', '-out', trustAnchorsPath], env);
+	await command('openssl', ['req', '-batch', '-new', '-x509', '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-key', rootKey, '-config', rootConfig, '-set_serial', '1', '-days', '2', '-sha256', '-out', trustAnchorsPath], env);
 	const request = join(directory, 'test-leaf.csr');
-	await command('openssl', ['req', '-new', '-key', privateKeyPath, '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-subj', '/CN=Scrivener MCP Synthetic Fixture Signer - TEST ONLY', '-sha256', '-out', request], env);
-	await command('openssl', ['x509', '-req', '-in', request, '-CA', trustAnchorsPath, '-CAkey', rootKey, '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-set_serial', '2', '-days', '1', '-sha256', '-extfile', leafConfig, '-out', leaf], env);
+	await command('openssl', ['req', '-batch', '-new', '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-key', privateKeyPath, '-subj', '/CN=Scrivener MCP Synthetic Fixture Signer - TEST ONLY', '-sha256', '-out', request], env);
+	await command('openssl', ['x509', '-req', '-in', request, '-CA', trustAnchorsPath, '-passin', 'env:C2PA_FIXTURE_PASSPHRASE', '-CAkey', rootKey, '-set_serial', '2', '-days', '1', '-sha256', '-extfile', leafConfig, '-out', leaf], env);
 	await writeFile(certificatePath, Buffer.concat([await readFile(leaf), await readFile(trustAnchorsPath)]), { flag: 'wx', mode: 0o600 });
 	return { certificatePath, privateKeyPath, password, trustAnchorsPath };
 }
@@ -126,6 +126,8 @@ function triangle(binary = false) {
 
 export async function createC2paFixtures(outputDirectory) {
 	const stage = await mkdtemp(join(tmpdir(), 'c2pa-assets-'));
+	const envNames = ['SCRIVENER_LOCAL_ONLY', 'SCRIVENER_DISABLE_KEY_DISCOVERY', 'SCRIVENER_DATA_DIR'];
+	const priorEnv = new Map(envNames.map((name) => [name, process.env[name]]));
 	const fixtures = [];
 	const unavailable = [];
 	const save = async (file, mimeType, bytes, source = 'Node builtins; original synthetic CC0 content') => {
@@ -180,7 +182,7 @@ export async function createC2paFixtures(outputDirectory) {
 		const { validateExport } = await import(pathToFileURL(join(ROOT, 'dist/services/export/export-presets.js')).href);
 		const sections = [{ title: 'Original CC0 chapter', text: 'A lantern shone.\nAn original synthetic fixture for content credential tests.', depth: 0, isFolder: false, sectionType: 'chapter' }];
 		for (const [format, mime, fn, preset] of [
-			['docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'toDocx', 'submission'],
+			['docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'toDocx', 'submission-manuscript'],
 			['epub', 'application/epub+zip', 'toEpub', 'ebook'], ['pdf', 'application/pdf', 'toPdf', 'beta-reader'],
 		]) {
 			const bytes = await exporters[fn](sections, { title: 'Original CC0 fixture', author: 'Scrivener MCP contributors', preset });
@@ -192,7 +194,13 @@ export async function createC2paFixtures(outputDirectory) {
 		const index = { schemaVersion: 1, license: 'CC0-1.0', generator: 'scripts/create-c2pa-fixtures.mjs', fixtures, unavailable };
 		await writeFile(join(outputDirectory, 'index.json'), `${JSON.stringify(index, null, 2)}\n`);
 		return index;
-	} finally { await rm(stage, { recursive: true, force: true }); }
+	} finally {
+		for (const [name, value] of priorEnv) {
+			if (value === undefined) delete process.env[name];
+			else process.env[name] = value;
+		}
+		await rm(stage, { recursive: true, force: true });
+	}
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
