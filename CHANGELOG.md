@@ -34,6 +34,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Upgrade native local analysis libraries to 0.2.0
 - Finalize consolidated reliability and packaging checks
 - Bound provider requests and integrate current AI SDKs
 - Validate stable Node and N-API in standalone bootstrap

@@ -491,3 +491,21 @@ The real Redis 8.10.2/BullMQ 6.5.1/ioredis 6.0.0 lifecycle gate passes all nine 
 Redis startup timed out during host filesystem stalls; a clean retry passed without changing its
 60-second deadline. Changelog rendering deduplicates identical commit messages within release
 groups so preserving already-integrated branch history does not repeat release notes.
+
+## Native analysis libraries, 2026-10-29
+
+Scrivener MCP now declares `bluepencil-node ^0.2.0` and `narrative-lens ^0.2.0`; the lockfile pins
+both wrappers and every declared native platform package to 0.2.0. Holographic Memory was already
+declared, locked and installed at 0.6.4; its dependency record and existing native/fallback
+integration are retained. No unrelated dependency records or security overrides changed.
+
+The existing five Bluepencil and five Narrative Lens MCP handlers continue to call the libraries
+directly with their existing public contracts. The new Narrative Lens manuscript facade is not
+introduced as a parallel continuity or review implementation. Installed-package verification now
+invokes both native editorial analyzers through an actual MCP client and checks that the saved
+manuscript is unchanged. All demonstration projects and client homes are disposable.
+
+Validation uses Node 24.22.2 and local/free resources. The 19 focused handler regressions and
+TypeScript checks passed against the published 0.2.0 binaries; final gate results are retained in
+`logs/analysis-libraries-0.2.0-20261029/`. This dependency update does not resolve the separate
+correctness and safety findings identified by the quality audit.

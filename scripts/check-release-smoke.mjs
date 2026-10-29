@@ -700,6 +700,26 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 					'First-session proposal was not durable across server restart'
 				);
 			});
+			await check('installed-native-editorial-analysis', async () => {
+				const style = await tool(client, 'check_style_local', {
+					documentId: SAMPLE_DOCUMENT,
+				});
+				const craft = await tool(client, 'analyze_craft_local', {
+					documentId: SAMPLE_DOCUMENT,
+				});
+				verify(
+					style.words > 0 &&
+						Array.isArray(style.findings) &&
+						craft.readability?.wordCount > 0 &&
+						Array.isArray(craft.grammar) &&
+						Array.isArray(craft.dialogue),
+					'Installed native editorial libraries did not return usable analysis'
+				);
+				verify(
+					(await hash(originalFile)) === originalRevision,
+					'Local editorial analysis modified the saved manuscript'
+				);
+			});
 			await check('installed-local-concept-passage-search', async () => {
 				const result = await tool(client, 'search_passages', {
 					query: 'fear',
