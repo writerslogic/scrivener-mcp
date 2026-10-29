@@ -62,13 +62,12 @@ describe('SQLite transaction ownership and durability', () => {
 	}
 
 	function createService(): DatabaseService {
-		jest.spyOn(DatabaseSetup, 'getCredentials').mockResolvedValue({
-			neo4j: { uri: 'bolt://127.0.0.1:7687', user: '', password: '', database: 'scrivener' },
-		});
-		jest.spyOn(DatabaseSetup, 'checkNeo4jAvailability').mockResolvedValue({
-			installed: false,
-			running: false,
-		});
+		jest.spyOn(DatabaseSetup, 'getCredentials').mockRejectedValue(
+			new Error('SQLite-only initialization must not discover ambient credentials')
+		);
+		jest.spyOn(DatabaseSetup, 'checkNeo4jAvailability').mockRejectedValue(
+			new Error('SQLite-only initialization must not probe graph services')
+		);
 		const service = new DatabaseService(root, {
 			neo4j: { uri: 'bolt://127.0.0.1:7687', user: '', password: '', enabled: false },
 		});
@@ -481,7 +480,6 @@ describe('SQLite transaction ownership and durability', () => {
 	it('serializes DatabaseService initialization and waits for storage to close before reopening', async () => {
 		const service = createService();
 		await Promise.all([service.initialize(), service.initialize()]);
-		expect(DatabaseSetup.getCredentials).toHaveBeenCalledTimes(1);
 		const storage = service.getSQLite();
 		const old = storage.getDatabase();
 		await service.syncDocumentData({

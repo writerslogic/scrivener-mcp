@@ -131,62 +131,64 @@ export class DatabaseService {
 		// Ensure database directory exists
 		await ensureDir(this.paths.databaseDir);
 
-		// Get credentials from environment or config
-		const projectPath = path.dirname(this.paths.databaseDir);
-		const credentials = await DatabaseSetup.getCredentials({ projectPath });
+		if (this.config.neo4j.enabled) {
+			// Get credentials from environment or config
+			const projectPath = path.dirname(this.paths.databaseDir);
+			const credentials = await DatabaseSetup.getCredentials({ projectPath });
 
-		// Override Neo4j config with credentials if available
-		if (credentials.neo4j.password) {
-			this.config.neo4j = {
-				...this.config.neo4j,
-				...credentials.neo4j,
-			};
-		}
+			// Override Neo4j config with credentials if available
+			if (credentials.neo4j.password) {
+				this.config.neo4j = {
+					...this.config.neo4j,
+					...credentials.neo4j,
+				};
+			}
 
-		// Check Neo4j availability and offer auto-installation
-		const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
-		if (this.config.neo4j.enabled && !neo4jStatus.running) {
-			logger.warn('Neo4j is not running');
+			// Check Neo4j availability and offer auto-installation
+			const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
+			if (this.config.neo4j.enabled && !neo4jStatus.running) {
+				logger.warn('Neo4j is not running');
 
-			// Check if we should auto-install
-			const autoInstall =
-				process.env.NEO4J_AUTO_INSTALL === 'true' || this.config.neo4j.autoInstall === true;
+				// Check if we should auto-install
+				const autoInstall =
+					process.env.NEO4J_AUTO_INSTALL === 'true' ||
+					this.config.neo4j.autoInstall === true;
 
-			if (autoInstall) {
-				logger.info('Attempting automatic Neo4j installation...');
-				const installResult = await Neo4jAutoInstaller.install({
-					method: 'auto',
-					interactive: process.env.NEO4J_INTERACTIVE !== 'false',
-					projectPath,
-					autoStart: true,
-				});
+				if (autoInstall) {
+					logger.info('Attempting automatic Neo4j installation...');
+					const installResult = await Neo4jAutoInstaller.install({
+						method: 'auto',
+						interactive: process.env.NEO4J_INTERACTIVE !== 'false',
+						projectPath,
+						autoStart: true,
+					});
 
-				if (installResult.success && installResult.credentials) {
-					// Update config with new credentials
-					this.config.neo4j = {
-						...this.config.neo4j,
-						...installResult.credentials,
-					};
-					logger.info('Neo4j installed successfully');
+					if (installResult.success && installResult.credentials) {
+						// Update config with new credentials
+						this.config.neo4j = {
+							...this.config.neo4j,
+							...installResult.credentials,
+						};
+						logger.info('Neo4j installed successfully');
+					} else {
+						logger.warn('Auto-installation failed. Continuing with SQLite only');
+						logger.info('For manual installation:', {
+							instructions: DatabaseSetup.getSetupInstructions(),
+						});
+						this.config.neo4j.enabled = false;
+					}
 				} else {
-					logger.warn('Auto-installation failed. Continuing with SQLite only');
+					logger.warn('The application will continue with SQLite only');
+					logger.info(
+						'To enable automatic Neo4j installation: Set NEO4J_AUTO_INSTALL=true in your .env file or run: NEO4J_AUTO_INSTALL=true npm start'
+					);
 					logger.info('For manual installation:', {
 						instructions: DatabaseSetup.getSetupInstructions(),
 					});
 					this.config.neo4j.enabled = false;
 				}
-			} else {
-				logger.warn('The application will continue with SQLite only');
-				logger.info(
-					'To enable automatic Neo4j installation: Set NEO4J_AUTO_INSTALL=true in your .env file or run: NEO4J_AUTO_INSTALL=true npm start'
-				);
-				logger.info('For manual installation:', {
-					instructions: DatabaseSetup.getSetupInstructions(),
-				});
-				this.config.neo4j.enabled = false;
 			}
 		}
-
 		// Save config
 		await this.saveConfig();
 
