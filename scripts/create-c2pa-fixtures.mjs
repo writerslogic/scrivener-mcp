@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, KeyObject, randomBytes, webcrypto } from 'node:crypto';
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { deflateSync } from 'node:zlib';
+import JSZip from 'jszip';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const execute = promisify(execFile);
@@ -264,12 +265,109 @@ function triangle(binary = false) {
 	return Buffer.concat([header, json, binHeader, geometry]);
 }
 
+async function officeArchive(parts, mimeType) {
+	const archive = new JSZip();
+	const date = new Date('2020-01-01T00:00:00Z');
+	if (mimeType) archive.file('mimetype', mimeType, { compression: 'STORE', date });
+	for (const [name, contents] of Object.entries(parts))
+		archive.file(name, contents, { date, createFolders: false });
+	return archive.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+}
+
+function odfFixture(kind, mimeType) {
+	const paragraph = '<text:p>Original CC0: Café — 東京 😀. A lantern shone.</text:p>';
+	const frame = `<draw:frame draw:name="Original CC0" svg:x="1cm" svg:y="1cm" svg:width="12cm" svg:height="3cm"><draw:text-box>${paragraph}</draw:text-box></draw:frame>`;
+	const page = `<draw:page draw:name="Original CC0" draw:style-name="OriginalDrawingPage" draw:master-page-name="Default">${frame}</draw:page>`;
+	const bodies = {
+		odt: `<office:text>${paragraph}</office:text>`,
+		ods: `<office:spreadsheet><table:table table:name="Original CC0"><table:table-row><table:table-cell office:value-type="string">${paragraph}</table:table-cell><table:table-cell office:value-type="float" office:value="42"><text:p>42</text:p></table:table-cell></table:table-row></table:table></office:spreadsheet>`,
+		odp: `<office:presentation>${page}</office:presentation>`,
+		odg: `<office:drawing>${page}</office:drawing>`,
+	};
+	assert.ok(bodies[kind], 'Unknown original ODF fixture');
+	return officeArchive({
+		'content.xml': `<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" office:version="1.3"><office:automatic-styles><style:style style:name="OriginalDrawingPage" style:family="drawing-page"/></office:automatic-styles><office:body>${bodies[kind]}</office:body></office:document-content>`,
+		'styles.xml': '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.3"><office:styles/><office:automatic-styles><style:page-layout style:name="OriginalPage"><style:page-layout-properties fo:page-width="28cm" fo:page-height="21cm" style:print-orientation="landscape"/></style:page-layout></office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="OriginalPage"/></office:master-styles></office:document-styles>',
+		'meta.xml': '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" office:version="1.3"><office:meta><meta:generator>Scrivener MCP synthetic fixture generator</meta:generator><dc:title>Original CC0 fixture</dc:title><dc:description>Original synthetic content dedicated to CC0-1.0.</dc:description></office:meta></office:document-meta>',
+		'META-INF/manifest.xml': `<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3"><manifest:file-entry manifest:full-path="/" manifest:media-type="${mimeType}" manifest:version="1.3"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/></manifest:manifest>`,
+	}, mimeType);
+}
+
+const OOXML_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const PACKAGE_REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
+
+function xlsxFixture() {
+	return officeArchive({
+		'[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+		'_rels/.rels': `<Relationships xmlns="${PACKAGE_REL}"><Relationship Id="rId1" Type="${OOXML_REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+		'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${OOXML_REL}"><sheets><sheet name="Original CC0" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+		'xl/_rels/workbook.xml.rels': `<Relationships xmlns="${PACKAGE_REL}"><Relationship Id="rId1" Type="${OOXML_REL}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
+		'xl/worksheets/sheet1.xml': '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Original CC0: Café — 東京 😀.</t></is></c><c r="B1"><v>42</v></c></row></sheetData></worksheet>',
+	});
+}
+
+function presentationFixture(slideshow) {
+	const presentation = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+	const drawing = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+	const namespaces = `xmlns:p="${presentation}" xmlns:a="${drawing}" xmlns:r="${OOXML_REL}"`;
+	const group = '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>';
+	const shape = '<p:sp><p:nvSpPr><p:cNvPr id="2" name="Original CC0"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="914400" y="914400"/><a:ext cx="7315200" cy="1828800"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Original CC0: Café — 東京 😀. A lantern shone.</a:t></a:r><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp>';
+	const relationships = (rows) => `<Relationships xmlns="${PACKAGE_REL}">${rows.map(([id, type, target]) => `<Relationship Id="${id}" Type="${OOXML_REL}/${type}" Target="${target}"/>`).join('')}</Relationships>`;
+	const overrides = [
+		['presentation.xml', `application/vnd.openxmlformats-officedocument.presentationml.${slideshow ? 'slideshow' : 'presentation'}.main+xml`],
+		['slides/slide1.xml', 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'],
+		['slideLayouts/slideLayout1.xml', 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'],
+		['slideMasters/slideMaster1.xml', 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'],
+		['theme/theme1.xml', 'application/vnd.openxmlformats-officedocument.theme+xml'],
+		['presProps.xml', 'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml'],
+		['viewProps.xml', 'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml'],
+	];
+	const fill = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>';
+	const colors = [['dk1', '000000'], ['lt1', 'FFFFFF'], ['dk2', '222222'], ['lt2', 'EEEEEE'], ['accent1', '7155A0'], ['accent2', '008080'], ['accent3', '808000'], ['accent4', '800080'], ['accent5', '008000'], ['accent6', '800000'], ['hlink', '0000FF'], ['folHlink', '800080']];
+	return officeArchive({
+		'[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${overrides.map(([part, type]) => `<Override PartName="/ppt/${part}" ContentType="${type}"/>`).join('')}</Types>`,
+		'_rels/.rels': relationships([['rId1', 'officeDocument', 'ppt/presentation.xml']]),
+		'ppt/presentation.xml': `<p:presentation ${namespaces}><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst><p:sldSz cx="9144000" cy="6858000" type="screen4x3"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`,
+		'ppt/_rels/presentation.xml.rels': relationships([['rId1', 'slideMaster', 'slideMasters/slideMaster1.xml'], ['rId2', 'slide', 'slides/slide1.xml'], ['rId3', 'presProps', 'presProps.xml'], ['rId4', 'viewProps', 'viewProps.xml']]),
+		'ppt/slides/slide1.xml': `<p:sld ${namespaces}><p:cSld name="Original CC0"><p:spTree>${group}${shape}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`,
+		'ppt/slides/_rels/slide1.xml.rels': relationships([['rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml']]),
+		'ppt/slideLayouts/slideLayout1.xml': `<p:sldLayout ${namespaces} type="blank" preserve="1"><p:cSld name="Blank"><p:spTree>${group}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`,
+		'ppt/slideLayouts/_rels/slideLayout1.xml.rels': relationships([['rId1', 'slideMaster', '../slideMasters/slideMaster1.xml']]),
+		'ppt/slideMasters/slideMaster1.xml': `<p:sldMaster ${namespaces}><p:cSld name="Original CC0"><p:spTree>${group}</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" tx1="dk1" tx2="dk2" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles></p:sldMaster>`,
+		'ppt/slideMasters/_rels/slideMaster1.xml.rels': relationships([['rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml'], ['rId2', 'theme', '../theme/theme1.xml']]),
+		'ppt/theme/theme1.xml': `<a:theme xmlns:a="${drawing}" name="Original CC0"><a:themeElements><a:clrScheme name="Original CC0">${colors.map(([name, value]) => `<a:${name}><a:srgbClr val="${value}"/></a:${name}>`).join('')}</a:clrScheme><a:fontScheme name="Original CC0"><a:majorFont><a:latin typeface="Arial"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Arial"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="Original CC0"><a:fillStyleLst>${fill.repeat(3)}</a:fillStyleLst><a:lnStyleLst>${[9525, 25400, 38100].map((width) => `<a:ln w="${width}">${fill}<a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>`).join('')}</a:lnStyleLst><a:effectStyleLst>${'<a:effectStyle><a:effectLst/></a:effectStyle>'.repeat(3)}</a:effectStyleLst><a:bgFillStyleLst>${fill.repeat(3)}</a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`,
+		'ppt/presProps.xml': `<p:presentationPr xmlns:p="${presentation}"/>`,
+		'ppt/viewProps.xml': `<p:viewPr xmlns:p="${presentation}"/>`,
+	});
+}
+
+function checkImageContainer(mimeType, bytes) {
+	if (mimeType === 'image/webp') {
+		assert.ok(bytes.length >= 20 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.readUInt32LE(4) + 8 === bytes.length && bytes.toString('ascii', 8, 12) === 'WEBP' && ['VP8 ', 'VP8L', 'VP8X'].includes(bytes.toString('ascii', 12, 16)), 'WebP fixture must contain an actual RIFF WebP stream');
+	} else if (['image/avif', 'image/heic', 'image/heif'].includes(mimeType)) {
+		assert.ok(bytes.length >= 16 && bytes.toString('ascii', 4, 8) === 'ftyp', 'HEIF-family fixture must contain an ISO BMFF file type box');
+		const end = bytes.readUInt32BE(0);
+		assert.ok(end >= 16 && end <= bytes.length && end % 4 === 0);
+		const brands = [bytes.toString('ascii', 8, 12)];
+		for (let offset = 16; offset < end; offset += 4) brands.push(bytes.toString('ascii', offset, offset + 4));
+		const expected = mimeType === 'image/avif' ? ['avif', 'avis'] : mimeType === 'image/heic' ? ['heic', 'heix', 'hevc', 'hevx'] : ['mif1', 'msf1', 'heic', 'heix', 'hevc', 'hevx'];
+		assert.ok(expected.some((brand) => brands.includes(brand)), 'Generated ISO BMFF image has an unexpected codec brand');
+	} else if (mimeType === 'image/vnd.microsoft.icon') {
+		assert.ok(bytes.length >= 22 && bytes.readUInt16LE(0) === 0 && bytes.readUInt16LE(2) === 1 && bytes.readUInt16LE(4) > 0 && 6 + bytes.readUInt16LE(4) * 16 <= bytes.length, 'ICO fixture must contain an actual icon directory');
+	}
+}
+
 export async function createC2paFixtures(outputDirectory) {
 	const stage = await mkdtemp(join(tmpdir(), 'c2pa-assets-'));
 	const envNames = ['SCRIVENER_LOCAL_ONLY', 'SCRIVENER_DISABLE_KEY_DISCOVERY', 'SCRIVENER_DATA_DIR'];
 	const priorEnv = new Map(envNames.map((name) => [name, process.env[name]]));
 	const fixtures = [];
 	const unavailable = [];
+	const generatedBytes = async (file) => {
+		const info = await stat(file);
+		assert.ok(info.isFile() && info.size > 0 && info.size <= 1024 * 1024, 'Generated fixture exceeds one MiB');
+		return readFile(file);
+	};
 	const save = async (file, mimeType, bytes, source = 'Node builtins; original synthetic CC0 content') => {
 		assert.ok(bytes.length > 0 && bytes.length <= 1024 * 1024, 'Fixture exceeds one MiB');
 		await writeFile(join(stage, file), bytes, { mode: 0o644 });
@@ -287,13 +385,37 @@ export async function createC2paFixtures(outputDirectory) {
 			['story.md', 'text/markdown', '# Original CC0 story\n\nA lantern shone.\n'],
 			['story.html', 'text/html', '<!doctype html><html lang="en"><meta charset="utf-8"><title>Original CC0 story</title><p>A lantern shone.</p></html>\n'],
 			['story.json', 'application/json', '{"license":"CC0-1.0","story":"A lantern shone."}\n'],
+			['story.csv', 'text/csv', 'title,text\r\n"Original CC0","Café, 東京 😀. A lantern shone."\r\n'],
+			['story.tsv', 'text/tab-separated-values', 'title\ttext\nOriginal CC0\tCafé — 東京 😀. A lantern shone.\n'],
+			['story.xml', 'application/xml', '<?xml version="1.0" encoding="UTF-8"?><story license="CC0-1.0"><title>Original CC0</title><p>Café — 東京 😀. A lantern shone.</p></story>\n'],
+			['story.xhtml', 'application/xhtml+xml', '<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><head><meta charset="utf-8"/><title>Original CC0</title></head><body><p>Café — 東京 😀. A lantern shone.</p></body></html>\n'],
 			['triangle.obj', 'model/obj', '# Original CC0 triangle\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n'],
 			['triangle.stl', 'model/stl', 'solid original_cc0\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid original_cc0\n'],
 		]) await save(file, mime, Buffer.from(text));
 		await save('triangle.gltf', 'model/gltf+json', triangle());
 		await save('triangle.glb', 'model/gltf-binary', triangle(true));
 		await save('opaque.bin', 'application/octet-stream', Buffer.from('Original CC0 opaque fixture\0\x01\x02\x03'));
+		for (const [kind, mime] of [
+			['odt', 'application/vnd.oasis.opendocument.text'],
+			['ods', 'application/vnd.oasis.opendocument.spreadsheet'],
+			['odp', 'application/vnd.oasis.opendocument.presentation'],
+			['odg', 'application/vnd.oasis.opendocument.graphics'],
+		]) await save(`story.${kind}`, mime, await odfFixture(kind, mime), 'Existing JSZip; original synthetic CC0 OpenDocument 1.3 package');
+		await save('story.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', await xlsxFixture(), 'Existing JSZip; original synthetic CC0 SpreadsheetML package');
+		for (const [extension, type] of [['pptx', 'presentation'], ['ppsx', 'slideshow']])
+			await save(`story.${extension}`, `application/vnd.openxmlformats-officedocument.presentationml.${type}`, await presentationFixture(extension === 'ppsx'), 'Existing JSZip; original synthetic CC0 PresentationML package');
 		const ffmpeg = (await command('ffmpeg', ['-version'])).stdout.split(/\r?\n/, 1)[0];
+		let magickVersion;
+		const magickImage = async (file, mimeType) => {
+			magickVersion ??= command('magick', ['-version']).then((result) => result.stdout.split(/\r?\n/, 1)[0]);
+			const source = await magickVersion;
+			const coder = { 'image/webp': 'WEBP', 'image/avif': 'AVIF', 'image/heic': 'HEIC', 'image/heif': 'HEIC', 'image/vnd.microsoft.icon': 'ICO' }[mimeType];
+			assert.ok(coder, 'Unknown ImageMagick fixture encoder');
+			await command('magick', ['-limit', 'thread', '1', join(stage, 'image.png'), '-strip', '-quality', '85', `${coder}:${join(stage, file)}`]);
+			const bytes = await generatedBytes(join(stage, file));
+			checkImageContainer(mimeType, bytes);
+			await save(file, mimeType, bytes, source);
+		};
 		const media = [
 			['image.jpg', 'image/jpeg', ['-i', join(stage, 'image.png'), '-frames:v', '1']],
 			['image.gif', 'image/gif', ['-i', join(stage, 'image.png'), '-frames:v', '1']],
@@ -315,9 +437,23 @@ export async function createC2paFixtures(outputDirectory) {
 		for (const [file, mime, args] of media) {
 			try {
 				await command('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args, '-threads', '1', join(stage, file)]);
-				await save(file, mime, await readFile(join(stage, file)), ffmpeg);
-			} catch {
-				unavailable.push({ file, mimeType: mime, reason: 'Installed ffmpeg could not encode this optional fixture' });
+				const bytes = await generatedBytes(join(stage, file));
+				checkImageContainer(mime, bytes);
+				await save(file, mime, bytes, ffmpeg);
+			} catch (error) {
+				if (error instanceof assert.AssertionError) throw error;
+				if (['image/webp', 'image/avif'].includes(mime)) {
+					try { await magickImage(file, mime); continue; }
+					catch (fallbackError) { if (fallbackError instanceof assert.AssertionError) throw fallbackError; }
+				}
+				unavailable.push({ file, mimeType: mime, reason: mime === 'image/jxl' ? 'Local FFmpeg could not produce JPEG XL; no substitute asset was created' : 'Local encoders could not produce this optional fixture' });
+			}
+		}
+		for (const [file, mime] of [['image.heic', 'image/heic'], ['image.heif', 'image/heif'], ['image.ico', 'image/vnd.microsoft.icon']]) {
+			try { await magickImage(file, mime); }
+			catch (error) {
+				if (error instanceof assert.AssertionError) throw error;
+				unavailable.push({ file, mimeType: mime, reason: 'Installed ImageMagick could not produce this optional fixture' });
 			}
 		}
 		Object.assign(process.env, { SCRIVENER_LOCAL_ONLY: 'true', SCRIVENER_DISABLE_KEY_DISCOVERY: '1', SCRIVENER_DATA_DIR: stage });

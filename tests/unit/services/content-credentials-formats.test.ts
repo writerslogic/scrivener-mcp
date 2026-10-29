@@ -12,6 +12,15 @@ describe('Content Credentials format resolution', () => {
 		['application/docx', 'story.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
 		['application/xlsx', 'table.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
 		['application/pptx', 'slides.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+		['application/ppsx', 'slides.ppsx', 'application/vnd.openxmlformats-officedocument.presentationml.slideshow'],
+		['application/odt', 'story.odt', 'application/vnd.oasis.opendocument.text'],
+		['application/ods', 'table.ods', 'application/vnd.oasis.opendocument.spreadsheet'],
+		['application/odp', 'slides.odp', 'application/vnd.oasis.opendocument.presentation'],
+		['application/odg', 'drawing.odg', 'application/vnd.oasis.opendocument.graphics'],
+		['application/csv', 'story.csv', 'text/csv'],
+		['text/x-csv', 'story.csv', 'text/csv'],
+		['text/tsv', 'story.tsv', 'text/tab-separated-values'],
+		['text/xml', 'story.xml', 'application/xml'],
 		['text/rtf', 'story.rtf', 'application/rtf'],
 		['application/javascript', 'script.mjs', 'text/javascript'],
 		['text/x-yaml', 'story.yml', 'application/yaml'],
@@ -30,16 +39,26 @@ describe('Content Credentials format resolution', () => {
 			expect(() => resolveCredentialFormat(mime, file)).toThrow('conflicts');
 	});
 
-	it('requires explicit generic detached intent and does not claim embedded document, font or model support', () => {
+	it('requires explicit generic detached intent and preserves verified per-format mode constraints', () => {
 		for (const file of ['opaque.bin', 'unknown.asset', 'no-extension'])
 			expect(() => resolveCredentialFormat(undefined, file)).toThrow('Cannot infer');
 		const generic = resolveCredentialFormat('application/octet-stream', 'opaque.bin');
 		expect(generic).toMatchObject({ mimeType: 'application/octet-stream', embedded: 'unsupported', sidecar: true });
-		for (const file of ['story.docx', 'story.epub', 'original.ttf', 'original.woff', 'triangle.gltf', 'triangle.glb'])
+		for (const file of ['original.ttf', 'original.woff', 'triangle.gltf', 'triangle.glb', 'story.xlsx', 'story.pptx', 'story.ppsx', 'story.odt', 'story.ods', 'story.odp', 'story.odg', 'story.csv', 'story.tsv', 'story.xml', 'story.xhtml'])
 			expect(resolveCredentialFormat(undefined, file)).toMatchObject({ embedded: 'unsupported', sidecar: true });
+		for (const file of ['story.pdf', 'story.docx', 'story.epub', 'sound.mp3', 'sound.flac'])
+			expect(resolveCredentialFormat(undefined, file)).toMatchObject({ embedded: 'supported', sidecar: false });
 		for (const file of ['story.txt', 'story.md', 'story.html'])
 			expect(resolveCredentialFormat(undefined, file)).toMatchObject({ category: 'text', embedded: 'experimental', sidecar: true });
 		expect(resolveCredentialFormat(undefined, 'credential.c2pa')).toMatchObject({ embedded: 'unsupported', sidecar: false });
+	});
+
+	it('keeps XML, HTML, XHTML and presentation/slideshow media types distinct', () => {
+		expect(resolveCredentialFormat(undefined, 'story.xhtml').mimeType).toBe('application/xhtml+xml');
+		expect(resolveCredentialFormat(undefined, 'story.html').mimeType).toBe('text/html');
+		expect(resolveCredentialFormat(undefined, 'story.xml').mimeType).toBe('application/xml');
+		for (const [mime, file] of [['text/html', 'story.xhtml'], ['application/xhtml+xml', 'story.html'], ['application/pptx', 'slides.ppsx'], ['application/ppsx', 'slides.pptx']])
+			expect(() => resolveCredentialFormat(mime, file)).toThrow('conflicts');
 	});
 
 	it('rejects unknown, parameterized, injected and incorrectly typed MIME values without echoing them', () => {
