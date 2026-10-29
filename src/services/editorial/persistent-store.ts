@@ -120,7 +120,7 @@ export class PersistentStore {
 		)
 			throw new Error('Invalid history filter');
 		const projection = fields
-			? `json_object(${fields.map((field) => `'${field}', json_extract(value, '$.${field}')`).join(',')})`
+			? `json_object(${fields.map((field) => `'${field}', value -> '$.${field}'`).join(',')})`
 			: 'value';
 		const predicate = filter
 			? ` AND json_extract(value, '$.${filter.field}') IN (${filter.values.map(() => '?').join(',')})`
@@ -134,7 +134,12 @@ export class PersistentStore {
 			value: string;
 		}>;
 		return {
-			items: rows.slice(0, limit).map((row) => JSON.parse(row.value) as T),
+			items: rows.slice(0, limit).map((row) => {
+				const value = JSON.parse(row.value);
+				if (fields)
+					for (const field of fields) if (value[field] === null) delete value[field];
+				return value as T;
+			}),
 			nextCursor: rows.length > limit ? rows[limit - 1].id : null,
 		};
 	}

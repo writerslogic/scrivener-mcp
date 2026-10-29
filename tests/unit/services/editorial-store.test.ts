@@ -152,6 +152,15 @@ it('pages durable state with bounded SQL projections and stable cursors under in
 				edits: [{ text: 'replacement' }],
 			});
 		store.put('unrelated', '04', { id: '04' });
+		store.put('flags', 'one', {
+			enabled: true,
+			disabled: false,
+			optional: undefined,
+			detail: { empty: null, count: 0 },
+		});
+		expect(
+			store.page('flags', {}, ['enabled', 'disabled', 'optional', 'detail']).items
+		).toEqual([{ enabled: true, disabled: false, detail: { empty: null, count: 0 } }]);
 		const page = store.page<{ id: string; title: string }>('history', { limit: 2 }, [
 			'id',
 			'title',

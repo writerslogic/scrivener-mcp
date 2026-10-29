@@ -181,6 +181,8 @@ try {
 		`http://127.0.0.1:${address.port}`,
 	];
 	if (process.getuid?.() === 0) args.unshift('--no-sandbox');
+	if (process.platform === 'darwin')
+		args.unshift('--enable-features=ForceMacVSyncTimerForDebugging');
 	if (process.env.DASHBOARD_SCREENSHOT)
 		args.unshift('--window-size=1280,1100', '--screenshot=' + process.env.DASHBOARD_SCREENSHOT);
 	const { stdout } = await execute(chrome, args, { timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
@@ -188,6 +190,7 @@ try {
 	assert(result?.startsWith('PASS:'), result || 'browser produced no dashboard result');
 	process.stdout.write(`${result}\n`);
 } finally {
+	server.closeAllConnections();
 	await new Promise((resolve) => server.close(resolve));
 	await rm(profile, { recursive: true, force: true });
 }
