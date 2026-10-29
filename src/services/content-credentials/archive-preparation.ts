@@ -4,7 +4,9 @@ import { CREDENTIAL_LIMITS } from './limits.js';
 
 const MAX_ENTRIES = 4096;
 
-function archiveEntryCount(bytes: Buffer): number {
+export function archiveEntryCount(bytes: Buffer, maximumEntries = MAX_ENTRIES): number {
+	if (!Number.isInteger(maximumEntries) || maximumEntries < 1 || maximumEntries > 65534)
+		throw new Error('Archive entry limit must be between 1 and 65534');
 	for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset--) {
 		if (
 			bytes.readUInt32LE(offset) !== 0x06054b50 ||
@@ -12,8 +14,8 @@ function archiveEntryCount(bytes: Buffer): number {
 		)
 			continue;
 		const count = bytes.readUInt16LE(offset + 10);
-		if (count < 1 || count > MAX_ENTRIES)
-			throw new Error('Credential archives must contain at most 4096 entries');
+		if (count < 1 || count > maximumEntries)
+			throw new Error(`Credential archives must contain at most ${maximumEntries} entries`);
 		if (
 			bytes.readUInt16LE(offset + 4) !== 0 ||
 			bytes.readUInt16LE(offset + 6) !== 0 ||
