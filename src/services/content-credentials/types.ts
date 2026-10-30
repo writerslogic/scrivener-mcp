@@ -13,6 +13,9 @@ export interface CredentialFormat {
 
 export type CredentialMode = 'embedded' | 'sidecar';
 
+export type CredentialSigningAlgorithm =
+	'es256' | 'es384' | 'es512' | 'ps256' | 'ps384' | 'ps512' | 'ed25519';
+
 export interface CredentialCapabilities {
 	available: boolean;
 	sdkVersion: string | null;
@@ -37,8 +40,17 @@ export interface CredentialValidation {
 	trustPolicy: 'configured-roots' | 'none';
 	activeManifest?: string;
 	validationCodes: string[];
+	sourceValidationCodes?: string[];
 	report: Record<string, unknown> | null;
+	crjson?: Record<string, unknown>;
+	validationTime?: string;
+	activeIntegrity?: 'valid' | 'invalid' | 'not-evaluated';
 }
+
+export type CredentialSourceValidation = Omit<
+	CredentialValidation,
+	'report' | 'crjson' | 'validationTime'
+>;
 
 export interface CredentialSignerConfiguration {
 	certificatePath: string;
@@ -58,6 +70,11 @@ export interface CredentialAssetWorkerRequest {
 	title?: string;
 	signer?: CredentialSignerConfiguration;
 	trustAnchorsPath?: string;
+	timestampTrustAnchorsPath?: string;
+	validationTime?: string;
+	includeCrjson?: boolean;
+	sourceManifestPath?: string;
+	preserveInvalidSource?: boolean;
 }
 
 export type CredentialWorkerResponse =
@@ -69,6 +86,7 @@ export type CredentialWorkerResponse =
 			validation: CredentialValidation;
 			manifestBytes?: number;
 			assetBytes?: number;
+			sourceValidation?: CredentialSourceValidation;
 	  }
 	| {
 			ok: false;
@@ -82,12 +100,21 @@ export interface SignCredentialRequest {
 	mimeType?: string;
 	mode?: CredentialMode;
 	title?: string;
+	sourceManifestPath?: string;
+	preserveInvalidSource?: boolean;
 }
 
 export interface ValidateCredentialRequest {
 	assetPath: string;
 	mimeType?: string;
 	manifestPath?: string;
+	includeCrjson?: boolean;
+}
+
+export interface CredentialAssessmentPolicy {
+	trustAnchorsPath: string;
+	timestampTrustAnchorsPath: string;
+	validationTime: string;
 }
 
 export interface SignCredentialResult {
@@ -97,8 +124,10 @@ export interface SignCredentialResult {
 	mode: CredentialMode;
 	bytes: number;
 	sourceRevision: string;
+	sourceManifestRevision?: string;
 	sdkVersion: string;
 	validation: CredentialValidation;
+	sourceValidation?: CredentialSourceValidation;
 }
 
 export interface ValidateCredentialResult extends CredentialValidation {

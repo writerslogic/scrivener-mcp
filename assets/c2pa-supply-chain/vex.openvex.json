@@ -1,0 +1,85 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-10-30/ejs",
+  "author": "WritersLogic, Inc.",
+  "timestamp": "2026-10-30T06:15:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2023-29827",
+        "name": "CVE-2023-29827"
+      },
+      "products": [
+        {
+          "@id": "pkg:npm/ejs@3.1.10"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The reported attack requires control of EJS templates and closeDelimiter/options. scrivener-mcp toEpub constructs a fixed allowlist of generator options, uses the packaged EPUB templates, and passes escaped manuscript text and string metadata only as render data. No template path, template body, closeDelimiter, client, escapeFunction or EJS settings can be supplied through the export interface. Regression: tests/unit/services/manuscript-exporters.test.ts. Reassess when changing epub-gen-memory/ejs versions or export option mapping. Vendor disputes the CVE for untrusted template execution: https://github.com/mde/ejs/issues/720 and https://github.com/mde/ejs/blob/main/SECURITY.md . This statement does not suppress other CVEs or versions."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-111497",
+        "name": "CVE-2026-111497"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/brotli@1.2.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The Node runtime is constrained to ^22.23.4 || ^24.22.1 || >=26.12.1 by the shared runtime policy, checked again by the inventory producer. Node documents the Brotli decoder fix in these security releases despite process.versions.brotli retaining 1.2.0. The measured Node24.22.2 executable is recorded by SHA256. This disposition concerns Node-bundled Brotli, not standalone unpatched Brotli. https://nodejs.org/en/blog/vulnerability/october-2026-security-releases#nodejs-brotli-decoder-out-of-bounds-write-permits-remote-code-execution-cve-2026-111497---high"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2015-5380",
+        "name": "CVE-2015-5380"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/v8@13.6.233.17-node.63"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD matches without an appropriate modern V8 upper bound. The CVE concerns Node before0.12.6 / io.js before1.8.3/2.3.3; the measured V8 is bundled in supported Node24.22.2. https://cveawg.mitre.org/api/cve/CVE-2015-5380 and https://nodejs.org/en/blog/vulnerability/july-2015-security-releases . Exact V8 product version only; reassess other findings."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-93690",
+        "name": "CVE-2026-93690"
+      },
+      "products": [
+        {
+          "@id": "pkg:npm/uri-js@4.4.1"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "uri-js is used only by ESLint/Ajv6 development tooling, not the shipped generator or MCP runtime. npm lock dev-only status is enforced by the inventory producer. Schemas and lint configuration are repository-controlled, not supplied through manuscript/MCP inputs. Evidence: npm ls uri-js --all; src/services/export/manuscript-exporters.ts and package-lock.json. Reassess any runtime dependency introduction."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-112366",
+        "name": "CVE-2026-112366"
+      },
+      "products": [
+        {
+          "@id": "pkg:npm/picomatch@2.3.2"
+        },
+        {
+          "@id": "pkg:npm/picomatch@4.0.4"
+        },
+        {
+          "@id": "pkg:npm/picomatch@4.0.7"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "All affected copies are development-only Jest, TypeScript-ESLint and watcher dependencies. Patterns come from checked-in test/lint configuration and developer-selected paths; manuscript/MCP inputs cannot provide extglob expressions. npm lock dev-only status is enforced by the inventory producer. Evidence: npm ls picomatch --all and package-lock.json. Reassess any production use or untrusted pattern input."
+    }
+  ]
+}

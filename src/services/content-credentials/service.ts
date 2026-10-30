@@ -1,6 +1,6 @@
 import { fork } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, link, mkdir, mkdtemp, open, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
@@ -10,10 +10,16 @@ import { CREDENTIAL_LIMITS } from './limits.js';
 import {
 	readStableCredentialFile as readStableFile,
 	assertCredentialFileUnchanged as assertUnchanged,
+	writeExclusiveCredentialFile,
+	protectCredentialOutputPath as protectManuscriptOutput,
+	canonicalCredentialOutputPath as canonicalOutputPath,
 } from './local-files.js';
 import { credentialWorkerPath } from './worker-path.cjs';
+import { makeCredentialDirectoryPrivate } from './key-access.js';
+import { credentialProcessEnvironment } from './process-environment.js';
 import type {
 	CredentialCapabilities,
+	CredentialAssessmentPolicy,
 	CredentialSignerConfiguration,
 	CredentialWorkerRequest,
 	CredentialWorkerResponse,
@@ -36,7 +42,11 @@ const validationSchema = z.object({
 	trustPolicy: z.enum(['configured-roots', 'none']),
 	activeManifest: z.string().max(4096).optional(),
 	validationCodes: z.array(z.string().max(256)).max(1024),
+	sourceValidationCodes: z.array(z.string().max(128)).max(1024).optional(),
 	report: z.record(z.string(), z.unknown()).nullable(),
+	crjson: z.record(z.string(), z.unknown()).optional(),
+	validationTime: z.string().max(64).optional(),
+	activeIntegrity: z.enum(['valid', 'invalid', 'not-evaluated']).optional(),
 });
 const responseSchema = z.union([
 	z
@@ -52,6 +62,9 @@ const responseSchema = z.union([
 			operation: z.enum(['sign', 'validate']),
 			sdkVersion: z.string().max(64),
 			validation: validationSchema,
+			sourceValidation: validationSchema
+				.omit({ report: true, crjson: true, validationTime: true })
+				.optional(),
 			manifestBytes: z
 				.number()
 				.int()
@@ -120,6 +133,11 @@ function adminTrustAnchors(): string | undefined {
 	return value ? absolutePath(value, 'Trust anchors') : undefined;
 }
 
+function adminTimestampTrustAnchors(): string | undefined {
+	const value = process.env.SCRIVENER_C2PA_TSA_TRUST_ANCHORS_PATH;
+	return value ? absolutePath(value, 'Timestamp trust anchors') : undefined;
+}
+
 function invokeWorker(
 	request: CredentialWorkerRequest,
 	cwd: string
@@ -134,9 +152,7 @@ function invokeWorker(
 		);
 	activeWorkers++;
 	return new Promise((resolve, reject) => {
-		const env: NodeJS.ProcessEnv = {};
-		for (const key of ['PATH', 'SystemRoot', 'WINDIR', 'TMPDIR', 'TEMP', 'TMP'])
-			if (process.env[key]) env[key] = process.env[key];
+		const env = credentialProcessEnvironment();
 		let response: CredentialWorkerResponse | undefined;
 		let failure: Error | undefined;
 		let child: ReturnType<typeof fork>;
@@ -181,7 +197,7 @@ function invokeWorker(
 			try {
 				if (
 					Buffer.byteLength(JSON.stringify(value)) >
-					CREDENTIAL_LIMITS.manifestBytes + 256 * 1024
+					CREDENTIAL_LIMITS.manifestBytes * 2 + 256 * 1024
 				)
 					throw new Error('Oversized worker response');
 				response = responseSchema.parse(value);
@@ -254,6 +270,7 @@ async function withStage<T>(operation: (directory: string) => Promise<T>): Promi
 	try {
 		directory = await mkdtemp(path.join(tmpdir(), 'scrivener-credentials-'));
 		await chmod(directory, 0o700);
+		await makeCredentialDirectoryPrivate(directory);
 		outcome = { value: await operation(directory) };
 	} catch (error) {
 		const expected =
@@ -358,7 +375,8 @@ async function snapshotAsset(
 }
 
 export async function validateCredentialAsset(
-	input: ValidateCredentialRequest
+	input: ValidateCredentialRequest,
+	assessment?: CredentialAssessmentPolicy
 ): Promise<ValidateCredentialResult> {
 	const assetPath = absolutePath(input.assetPath, 'Asset path');
 	const format = resolveCredentialFormat(input.mimeType, assetPath);
@@ -372,7 +390,24 @@ export async function validateCredentialAsset(
 		input.manifestPath !== undefined
 			? absolutePath(input.manifestPath, 'Manifest path')
 			: undefined;
-	const trustAnchorsPath = adminTrustAnchors();
+	if (input.includeCrjson !== undefined && typeof input.includeCrjson !== 'boolean')
+		throw createError(ErrorCode.INVALID_INPUT, undefined, 'includeCrjson must be a boolean');
+	if (
+		assessment !== undefined &&
+		(!assessment ||
+			typeof assessment.validationTime !== 'string' ||
+			assessment.validationTime.length > 64 ||
+			!/^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/u.test(
+				assessment.validationTime
+			))
+	)
+		throw createError(ErrorCode.INVALID_INPUT, undefined, 'Use an RFC 3339 assessment time');
+	const trustAnchorsPath = assessment
+		? absolutePath(assessment.trustAnchorsPath, 'Assessment signing trust list')
+		: adminTrustAnchors();
+	const timestampTrustAnchorsPath = assessment
+		? absolutePath(assessment.timestampTrustAnchorsPath, 'Assessment timestamp trust list')
+		: adminTimestampTrustAnchors();
 	return withStage(async (directory) => {
 		const { staged, revision, identity } = await snapshotAsset(assetPath, directory);
 		let stagedManifest: string | undefined;
@@ -395,6 +430,9 @@ export async function validateCredentialAsset(
 				mode: manifestPath ? 'sidecar' : 'embedded',
 				manifestPath: stagedManifest,
 				trustAnchorsPath,
+				timestampTrustAnchorsPath,
+				includeCrjson: input.includeCrjson === true || assessment !== undefined,
+				...(assessment ? { validationTime: assessment.validationTime } : {}),
 			},
 			directory
 		);
@@ -416,44 +454,30 @@ export async function validateCredentialAsset(
 	});
 }
 
-function protectManuscriptOutput(outputPath: string): void {
-	const segments = outputPath.split(path.sep);
-	const projectIndex = segments.findIndex((part) => part.toLowerCase().endsWith('.scriv'));
-	if (projectIndex < 0) return;
-	if (segments[projectIndex + 1] !== '.scrivener-mcp' || segments[projectIndex + 2] !== 'exports')
-		throw createError(
-			ErrorCode.PATH_INVALID,
-			undefined,
-			'Content credential output inside a Scrivener project must use .scrivener-mcp/exports'
-		);
-}
-
-async function canonicalOutputPath(outputPath: string): Promise<string> {
-	let ancestor = path.dirname(outputPath);
-	const suffix = [path.basename(outputPath)];
-	while (true) {
-		try {
-			return path.join(await realpath(ancestor), ...suffix);
-		} catch (error) {
-			if (errorCode(error) !== 'ENOENT' || ancestor === path.dirname(ancestor))
-				throw createError(
-					ErrorCode.PATH_INVALID,
-					undefined,
-					'Output directory cannot be resolved safely'
-				);
-			suffix.unshift(path.basename(ancestor));
-			ancestor = path.dirname(ancestor);
-		}
-	}
-}
-
 export async function signCredentialAsset(
 	input: SignCredentialRequest
 ): Promise<SignCredentialResult> {
 	const assetPath = absolutePath(input.assetPath, 'Asset path');
 	const outputPath = absolutePath(input.outputPath, 'Output path');
+	const sourceManifestPath =
+		input.sourceManifestPath === undefined
+			? undefined
+			: absolutePath(input.sourceManifestPath, 'Source manifest path');
+	if (
+		input.preserveInvalidSource !== undefined &&
+		typeof input.preserveInvalidSource !== 'boolean'
+	)
+		throw createError(
+			ErrorCode.INVALID_INPUT,
+			undefined,
+			'preserveInvalidSource must be a boolean'
+		);
 	const mode = input.mode === undefined ? 'embedded' : input.mode;
-	if (!['embedded', 'sidecar'].includes(mode) || assetPath === outputPath)
+	if (
+		!['embedded', 'sidecar'].includes(mode) ||
+		assetPath === outputPath ||
+		sourceManifestPath === outputPath
+	)
 		throw createError(
 			ErrorCode.INVALID_INPUT,
 			undefined,
@@ -506,8 +530,23 @@ export async function signCredentialAsset(
 			'Signing requires administrator-configured SCRIVENER_C2PA_CERT_PATH, SCRIVENER_C2PA_KEY_PATH and SCRIVENER_C2PA_KEY_PASSWORD'
 		);
 	const trustAnchorsPath = adminTrustAnchors();
+	const timestampTrustAnchorsPath = adminTimestampTrustAnchors();
 	return withStage(async (directory) => {
 		const { staged, revision, identity } = await snapshotAsset(assetPath, directory);
+		let stagedSourceManifest: string | undefined;
+		let sourceManifestIdentity: string | undefined;
+		let sourceManifestRevision: string | undefined;
+		if (sourceManifestPath) {
+			const snapshot = await readStableFile(
+				sourceManifestPath,
+				CREDENTIAL_LIMITS.manifestBytes,
+				'Source manifest'
+			);
+			stagedSourceManifest = path.join(directory, 'source.c2pa');
+			sourceManifestIdentity = snapshot.identity;
+			sourceManifestRevision = createHash('sha256').update(snapshot.bytes).digest('hex');
+			await writeFile(stagedSourceManifest, snapshot.bytes, { flag: 'wx', mode: 0o600 });
+		}
 		const destinationPath = path.join(directory, `signed${path.extname(assetPath)}`);
 		const manifestPath = path.join(directory, 'signed.c2pa');
 		const response = await invokeWorker(
@@ -520,13 +559,21 @@ export async function signCredentialAsset(
 				title: input.title,
 				signer,
 				trustAnchorsPath,
+				timestampTrustAnchorsPath,
+				...(stagedSourceManifest ? { sourceManifestPath: stagedSourceManifest } : {}),
+				preserveInvalidSource: input.preserveInvalidSource === true,
 			},
 			directory
 		);
 		if (
 			!response.ok ||
 			response.operation !== 'sign' ||
-			response.validation.integrity !== 'valid'
+			(response.validation.integrity !== 'valid' &&
+				!(
+					input.preserveInvalidSource === true &&
+					response.validation.activeIntegrity === 'valid' &&
+					response.sourceValidation?.state === 'invalid'
+				))
 		)
 			throw createError(
 				ErrorCode.VALIDATION_FAILED,
@@ -541,34 +588,12 @@ export async function signCredentialAsset(
 			'Signed output'
 		);
 		await assertUnchanged(assetPath, identity);
+		if (sourceManifestPath && sourceManifestIdentity)
+			await assertUnchanged(sourceManifestPath, sourceManifestIdentity);
 		await mkdir(path.dirname(outputPath), { recursive: true });
 		const parent = await realpath(path.dirname(outputPath));
 		protectManuscriptOutput(path.join(parent, path.basename(outputPath)));
-		const publishDirectory = await mkdtemp(path.join(parent, '.scrivener-credentials-'));
-		try {
-			await chmod(publishDirectory, 0o700);
-			const publishFile = path.join(publishDirectory, 'output');
-			const handle = await open(publishFile, 'wx', 0o600);
-			try {
-				await handle.writeFile(bytes);
-				await handle.sync();
-			} finally {
-				await handle.close();
-			}
-			try {
-				await link(publishFile, path.join(parent, path.basename(outputPath)));
-			} catch (error) {
-				if (errorCode(error) === 'EEXIST')
-					throw createError(
-						ErrorCode.FILE_WRITE_ERROR,
-						undefined,
-						'Output already exists; choose a new path rather than overwrite an asset'
-					);
-				throw error;
-			}
-		} finally {
-			await rm(publishDirectory, { recursive: true, force: true });
-		}
+		await writeExclusiveCredentialFile(path.join(parent, path.basename(outputPath)), bytes);
 		return {
 			assetPath,
 			outputPath,
@@ -576,8 +601,10 @@ export async function signCredentialAsset(
 			mode,
 			bytes: bytes.length,
 			sourceRevision: revision,
+			...(sourceManifestRevision ? { sourceManifestRevision } : {}),
 			sdkVersion: response.sdkVersion,
 			validation: response.validation,
+			...(response.sourceValidation ? { sourceValidation: response.sourceValidation } : {}),
 		};
 	});
 }

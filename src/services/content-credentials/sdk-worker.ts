@@ -8,19 +8,28 @@ import {
 } from 'node:crypto';
 import { open, type FileHandle } from 'node:fs/promises';
 import { basename, isAbsolute, resolve } from 'node:path';
-import type * as C2paSdk from '@contentauth/c2pa-node';
 import { readStableCredentialFile } from './local-files.js';
 import { ErrorCode } from '../../core/errors.js';
 import { prepareUnsignedCredentialArchive } from './archive-preparation.js';
-import { credentialProductVersion, credentialSdkVersion } from './worker-path.cjs';
+import { credentialProductVersion } from './worker-path.cjs';
 import { CREDENTIAL_LIMITS, MAX_CONFIGURATION_BYTES, MAX_VALIDATION_CODES } from './limits.js';
 import { resolveCredentialFormat } from './formats.js';
+import {
+	readCredentialAsset,
+	probeCredentialBinding,
+	signCredentialAssetBytes,
+	type CredentialCallbackSigner,
+} from './binding.js';
+import { credentialWireSettings, parseCredentialTrustList } from './trust.js';
+import { MAX_TRUST_CONFIGURATION_BYTES } from './limits.js';
+import { CREDENTIAL_KEY_POLICY, inspectEncryptedCredentialKey } from './key-policy.js';
 import type {
 	CredentialAssetWorkerRequest,
 	CredentialSignerConfiguration,
 	CredentialValidation,
 	CredentialWorkerRequest,
 	CredentialWorkerResponse,
+	CredentialSigningAlgorithm,
 } from './types.js';
 
 const { assetBytes: MAX_ASSET_BYTES, manifestBytes: MAX_MANIFEST_BYTES } = CREDENTIAL_LIMITS;
@@ -31,8 +40,7 @@ const ASSET_BINDINGS = new Set([
 	'assertion.boxesHash.match',
 	'assertion.collectionHash.match',
 ]);
-type SDK = typeof C2paSdk;
-type SigningAlg = C2paSdk.SigningAlg;
+type SigningAlg = CredentialSigningAlgorithm;
 
 class WorkerError extends Error {
 	constructor(
@@ -86,6 +94,11 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 		'title',
 		'signer',
 		'trustAnchorsPath',
+		'timestampTrustAnchorsPath',
+		'validationTime',
+		'includeCrjson',
+		'sourceManifestPath',
+		'preserveInvalidSource',
 	]);
 	if (value.operation !== 'sign' && value.operation !== 'validate')
 		fail('REQUEST_INVALID', 'Credential operation is unsupported.');
@@ -99,6 +112,29 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 	if (value.mode !== 'embedded' && value.mode !== 'sidecar')
 		fail('REQUEST_INVALID', 'Credential mode is invalid.');
 	if (value.trustAnchorsPath !== undefined) localPath(value.trustAnchorsPath);
+	if (value.timestampTrustAnchorsPath !== undefined) localPath(value.timestampTrustAnchorsPath);
+	if (value.sourceManifestPath !== undefined) localPath(value.sourceManifestPath);
+	if (value.includeCrjson !== undefined && typeof value.includeCrjson !== 'boolean')
+		fail('REQUEST_INVALID', 'includeCrjson must be a boolean.');
+	if (
+		value.preserveInvalidSource !== undefined &&
+		typeof value.preserveInvalidSource !== 'boolean'
+	)
+		fail('REQUEST_INVALID', 'preserveInvalidSource must be a boolean.');
+	if (
+		value.validationTime !== undefined &&
+		(typeof value.validationTime !== 'string' ||
+			value.validationTime.length > 64 ||
+			!/^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/u.test(
+				value.validationTime
+			) ||
+			value.trustAnchorsPath === undefined ||
+			value.timestampTrustAnchorsPath === undefined)
+	)
+		fail(
+			'REQUEST_INVALID',
+			'Assessment validation requires an RFC 3339 time and both trust lists.'
+		);
 	if (value.destinationPath !== undefined) localPath(value.destinationPath);
 	if (value.manifestPath !== undefined) localPath(value.manifestPath);
 	if (
@@ -107,6 +143,8 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 	)
 		fail('REQUEST_INVALID', 'Credential title exceeds its supported bounds.');
 	if (value.operation === 'sign') {
+		if (value.validationTime !== undefined || value.includeCrjson !== undefined)
+			fail('REQUEST_INVALID', 'Assessment output and time are validation-only fields.');
 		if (!record(value.signer))
 			fail('SIGNER_REQUIRED', 'Signing requires administrator-configured credentials.');
 		keys(value.signer, ['certificatePath', 'privateKeyPath', 'password']);
@@ -131,11 +169,15 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 				value.signer.certificatePath,
 				value.signer.privateKeyPath,
 				value.trustAnchorsPath,
+				value.timestampTrustAnchorsPath,
+				value.sourceManifestPath,
 			].some((path) => path !== undefined && resolve(path as string) === resolve(output))
 		)
 			fail('REQUEST_INVALID', 'Credential output must be separate from its input files.');
 	} else if (
 		value.destinationPath !== undefined ||
+		value.sourceManifestPath !== undefined ||
+		value.preserveInvalidSource !== undefined ||
 		value.signer !== undefined ||
 		value.title !== undefined ||
 		(value.mode === 'sidecar') !== (value.manifestPath !== undefined)
@@ -148,14 +190,21 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 	return value as unknown as CredentialWorkerRequest;
 }
 
-async function readBounded(path: string, maximum: number): Promise<Buffer> {
+async function readBounded(path: string, maximum: number, privateKey = false): Promise<Buffer> {
 	try {
-		const { bytes } = await readStableCredentialFile(path, maximum, 'Credential input');
+		const { bytes } = await readStableCredentialFile(path, maximum, 'Credential input', {
+			privateKey,
+		});
 		if (!bytes.length) fail('INPUT_LIMIT', 'Credential input must not be empty.');
 		return bytes;
 	} catch (error) {
 		if (error instanceof WorkerError) throw error;
 		const code = (error as NodeJS.ErrnoException)?.code;
+		if (code === ErrorCode.CONFIGURATION_ERROR)
+			fail(
+				'SIGNER_KEY_ACCESS_INVALID',
+				'Signing key access must be restricted to its owner and trusted system administrators.'
+			);
 		if (code === ErrorCode.DOCUMENT_TOO_LARGE)
 			fail('INPUT_LIMIT', 'Credential input exceeds its supported size limit.');
 		if (code === ErrorCode.INVALID_STATE)
@@ -210,6 +259,16 @@ export function decryptCredentialKey(encrypted: Buffer, password: Buffer): KeyOb
 				'SIGNER_KEY_ENCRYPTION_REQUIRED',
 				'Signing requires an encrypted PKCS8 private key.'
 			);
+		try {
+			if (password.length < CREDENTIAL_KEY_POLICY.minimumPasswordBytes)
+				throw new Error('SHORT_PASSWORD');
+			inspectEncryptedCredentialKey(encrypted);
+		} catch {
+			fail(
+				'SIGNER_KEY_POLICY',
+				'Signing requires PBES2 AES-256-CBC, PBKDF2-HMAC-SHA256 with 600000–2000000 iterations, a 16–64 byte salt, and a password of at least 16 bytes. Re-encrypt the existing key using the documented migration.'
+			);
+		}
 		try {
 			return createPrivateKey({
 				key: encrypted,
@@ -301,9 +360,8 @@ export function createRawCredentialSigner(key: KeyObject): {
 }
 
 async function signerFor(
-	sdk: SDK,
 	configuration: CredentialSignerConfiguration
-): Promise<InstanceType<SDK['CallbackSigner']>> {
+): Promise<CredentialCallbackSigner> {
 	let encrypted: Buffer | undefined;
 	let password: Buffer | undefined;
 	try {
@@ -311,20 +369,16 @@ async function signerFor(
 		configuration.password = '';
 		const certs = await readBounded(configuration.certificatePath, MAX_CONFIGURATION_BYTES);
 		const chain = certificates(certs, 'SIGNER_CERTIFICATE_INVALID');
-		encrypted = await readBounded(configuration.privateKeyPath, MAX_CONFIGURATION_BYTES);
+		encrypted = await readBounded(configuration.privateKeyPath, MAX_CONFIGURATION_BYTES, true);
 		const key = decryptCredentialKey(encrypted, password);
 		if (!chain[0].checkPrivateKey(key))
 			fail('SIGNER_KEY_MISMATCH', 'Signing certificate and private key do not match.');
 		const callback = createRawCredentialSigner(key);
-		return sdk.CallbackSigner.newSigner(
-			{
-				alg: callback.algorithm,
-				certs: [certs],
-				reserveSize: certs.length + 32 * 1024,
-				directCoseHandling: false,
-			},
-			callback.sign
-		);
+		return {
+			algorithm: callback.algorithm,
+			certificates: certs.toString('ascii'),
+			sign: (bytes) => callback.sign(Buffer.from(bytes)),
+		};
 	} finally {
 		encrypted?.fill(0);
 		password?.fill(0);
@@ -332,21 +386,7 @@ async function signerFor(
 	}
 }
 
-export function credentialContextSettings(anchors?: string) {
-	return {
-		verify: {
-			verifyAfterReading: true,
-			verifyAfterSign: true,
-			verifyTrust: true,
-			verifyTimestampTrust: true,
-			ocspFetch: false,
-			remoteManifestFetch: false,
-		},
-		trust: { verifyTrustList: true, ...(anchors ? { trustAnchors: anchors } : {}) },
-		cawgTrust: { verifyTrustList: false },
-		builder: { generateC2paArchive: true as const, thumbnail: { enabled: false } },
-	};
-}
+export const credentialContextSettings = credentialWireSettings;
 
 function boundedReport(value: unknown): asserts value is Record<string, unknown> {
 	if (!record(value))
@@ -400,8 +440,14 @@ export function normalizeCredentialValidation(
 	boundedReport(report);
 	const codes = new Set<string>();
 	const failures = new Set<string>();
+	const activeFailures = new Set<string>();
 	const currentSuccesses = new Set<string>();
-	const statuses = (items: unknown, failure = false, currentSuccess = false): void => {
+	const statuses = (
+		items: unknown,
+		failure = false,
+		currentSuccess = false,
+		currentFailure = false
+	): void => {
 		if (items === undefined || items === null) return;
 		if (!Array.isArray(items))
 			fail('REPORT_INVALID', 'Native validation statuses are malformed.');
@@ -414,6 +460,7 @@ export function normalizeCredentialValidation(
 			codes.add(code);
 			if (failure || item.success === false) failures.add(code);
 			else if (currentSuccess) currentSuccesses.add(code);
+			if (currentFailure && (failure || item.success === false)) activeFailures.add(code);
 			if (codes.size > MAX_VALIDATION_CODES)
 				fail('REPORT_LIMIT', 'The native SDK returned too many validation codes.');
 		}
@@ -421,11 +468,11 @@ export function normalizeCredentialValidation(
 	const groups = (value: unknown, current = false): void => {
 		if (value === undefined || value === null) return;
 		if (!record(value)) fail('REPORT_INVALID', 'Native validation groups are malformed.');
-		statuses(value.success, false, current);
-		statuses(value.informational);
-		statuses(value.failure, true);
+		statuses(value.success, false, current, current);
+		statuses(value.informational, false, false, current);
+		statuses(value.failure, true, false, current);
 	};
-	statuses(report.validation_status, true);
+	statuses(report.validation_status, true, false, true);
 	if (report.validation_results !== undefined && report.validation_results !== null) {
 		if (!record(report.validation_results))
 			fail('REPORT_INVALID', 'Native validation results are malformed.');
@@ -461,6 +508,35 @@ export function normalizeCredentialValidation(
 		configuredRoots &&
 		state === 'Trusted' &&
 		![...failures].some((code) => TRUST_FAILURES.has(code));
+	const recordedSourceCodes = new Set<string>();
+	if (validActive && record(report.manifests)) {
+		for (const manifest of Object.values(report.manifests)) {
+			if (record(manifest) && Array.isArray(manifest.assertions)) {
+				for (const assertion of manifest.assertions) {
+					if (
+						!record(assertion) ||
+						assertion.label !== 'com.writerslogic.source-validation' ||
+						!record(assertion.data) ||
+						assertion.data.state !== 'invalid' ||
+						!Array.isArray(assertion.data.validationCodes)
+					)
+						continue;
+					for (const code of assertion.data.validationCodes) {
+						if (
+							typeof code !== 'string' ||
+							!/^[a-z][a-z0-9_.-]{0,127}$/iu.test(code) ||
+							recordedSourceCodes.size >= MAX_VALIDATION_CODES
+						)
+							fail(
+								'REPORT_INVALID',
+								'Recorded source validation codes are malformed or excessive.'
+							);
+						recordedSourceCodes.add(code);
+					}
+				}
+			}
+		}
+	}
 	return {
 		state: invalid ? 'invalid' : trusted ? 'valid' : 'untrusted',
 		integrity: invalid
@@ -472,22 +548,22 @@ export function normalizeCredentialValidation(
 		trustPolicy: policy,
 		...(validActive ? { activeManifest: active } : {}),
 		validationCodes: [...codes].sort(),
+		...(recordedSourceCodes.size
+			? { sourceValidationCodes: [...recordedSourceCodes].sort() }
+			: {}),
+		activeIntegrity:
+			validActive && evaluated && bound
+				? [...activeFailures].some((code) => !TRUST_FAILURES.has(code))
+					? 'invalid'
+					: 'valid'
+				: 'not-evaluated',
 		report,
 	};
 }
 
-async function loadSdk(): Promise<{ sdk: SDK; version: string }> {
+async function loadSdk(): Promise<{ version: string }> {
 	try {
-		const sdk = await import('@contentauth/c2pa-node');
-		const version = credentialSdkVersion();
-		if (
-			typeof sdk.Reader?.fromAsset !== 'function' ||
-			typeof sdk.Reader.fromManifestDataAndAsset !== 'function' ||
-			typeof sdk.Builder?.withJsonAsync !== 'function' ||
-			typeof sdk.CallbackSigner?.newSigner !== 'function'
-		)
-			throw new Error();
-		return { sdk, version };
+		return { version: await probeCredentialBinding() };
 	} catch {
 		fail(
 			'SDK_UNAVAILABLE',
@@ -498,6 +574,16 @@ async function loadSdk(): Promise<{ sdk: SDK; version: string }> {
 
 function nativeFailure(error: unknown, stage: 'read' | 'sign'): never {
 	if (error instanceof WorkerError) throw error;
+	if (typeof error === 'string') {
+		const errors: Record<string, string> = {
+			FORMAT_UNSUPPORTED: 'The SDK does not support this asset format or operation.',
+			ZIP_COMPRESSION_UNSUPPORTED: 'The SDK cannot read DEFLATE archive credentials.',
+			VALIDATION_TIME_INVALID: 'The assessment time is not a valid RFC 3339 date.',
+			INPUT_LIMIT: 'Credential input exceeds its supported bounds.',
+			REPORT_LIMIT: 'The credential report exceeds its supported bounds.',
+		};
+		if (Object.prototype.hasOwnProperty.call(errors, error)) fail(error, errors[error]);
+	}
 	const name = error instanceof Error ? error.name.slice(0, 512) : '';
 	const message = error instanceof Error ? error.message.slice(0, 1024) : '';
 	if (/compression method not supported: 8(?:\D|$)/u.test(message))
@@ -524,19 +610,32 @@ function nativeFailure(error: unknown, stage: 'read' | 'sign'): never {
 }
 
 async function validateAsset(
-	sdk: SDK,
 	asset: Buffer,
 	mimeType: string,
-	context: InstanceType<SDK['Context']>,
+	settings: string,
 	roots: boolean,
-	manifest?: Buffer
+	manifest?: Buffer,
+	includeCrjson = false,
+	validationTime?: string
 ): Promise<CredentialValidation> {
 	try {
-		const input = { buffer: asset, mimeType };
-		const reader = manifest
-			? await sdk.Reader.fromManifestDataAndAsset(manifest, input, context)
-			: await sdk.Reader.fromAsset(input, context);
-		return normalizeCredentialValidation(reader?.json() ?? null, roots);
+		const result = await readCredentialAsset(
+			mimeType,
+			asset,
+			settings,
+			manifest,
+			validationTime,
+			includeCrjson
+		);
+		const validation = normalizeCredentialValidation(result.report, roots);
+		if (includeCrjson) {
+			boundedReport(result.crjson);
+			if (!Array.isArray(result.crjson.manifests) || !record(result.crjson.jsonGenerator))
+				fail('REPORT_INVALID', 'The SDK returned malformed crJSON.');
+			validation.crjson = result.crjson;
+		}
+		if (validationTime !== undefined) validation.validationTime = validationTime;
+		return validation;
 	} catch (error) {
 		nativeFailure(error, 'read');
 	}
@@ -559,16 +658,42 @@ async function writeOutput(path: string, data: Buffer): Promise<void> {
 
 async function executeAsset(
 	request: CredentialAssetWorkerRequest,
-	sdk: SDK,
 	version: string
 ): Promise<CredentialWorkerResponse> {
 	let anchors: string | undefined;
+	let timestampAnchors: string | undefined;
 	if (request.trustAnchorsPath) {
-		const bytes = await readBounded(request.trustAnchorsPath, MAX_CONFIGURATION_BYTES);
-		certificates(bytes, 'TRUST_ANCHORS_INVALID');
-		anchors = bytes.toString('ascii');
+		const { bytes } = await readStableCredentialFile(
+			request.trustAnchorsPath,
+			MAX_TRUST_CONFIGURATION_BYTES,
+			'Signing trust list'
+		);
+		try {
+			anchors = parseCredentialTrustList(bytes);
+		} catch {
+			fail(
+				'TRUST_ANCHORS_INVALID',
+				'The signing trust list is invalid or exceeds its bounds.'
+			);
+		}
 	}
-	const context = new sdk.Context(credentialContextSettings(anchors));
+	if (request.timestampTrustAnchorsPath) {
+		const { bytes } = await readStableCredentialFile(
+			request.timestampTrustAnchorsPath,
+			MAX_TRUST_CONFIGURATION_BYTES,
+			'Timestamp trust list'
+		);
+		try {
+			timestampAnchors = parseCredentialTrustList(bytes);
+		} catch {
+			fail(
+				'TRUST_ANCHORS_INVALID',
+				'The timestamp trust list is invalid or exceeds its bounds.'
+			);
+		}
+	}
+	const settings = credentialContextSettings(anchors, timestampAnchors);
+	const roots = request.trustAnchorsPath !== undefined;
 	let asset = await readBounded(request.assetPath, MAX_ASSET_BYTES);
 	if (request.operation === 'validate') {
 		const manifest = request.manifestPath
@@ -579,12 +704,13 @@ async function executeAsset(
 			operation: 'validate',
 			sdkVersion: version,
 			validation: await validateAsset(
-				sdk,
 				asset,
 				request.mimeType,
-				context,
-				!!anchors,
-				manifest
+				settings,
+				roots,
+				manifest,
+				request.includeCrjson,
+				request.validationTime
 			),
 			assetBytes: asset.length,
 			...(manifest ? { manifestBytes: manifest.length } : {}),
@@ -592,8 +718,11 @@ async function executeAsset(
 	}
 	let existing: CredentialValidation | undefined;
 	let repackedSource: string | undefined;
+	const sourceManifest = request.sourceManifestPath
+		? await readBounded(request.sourceManifestPath, MAX_MANIFEST_BYTES)
+		: undefined;
 	try {
-		existing = await validateAsset(sdk, asset, request.mimeType, context, !!anchors);
+		existing = await validateAsset(asset, request.mimeType, settings, roots, sourceManifest);
 	} catch (error) {
 		if (
 			request.mode === 'embedded' &&
@@ -609,7 +738,7 @@ async function executeAsset(
 					'The unsigned archive could not be prepared safely; existing credentials and unsafe or oversized entries are rejected.'
 				);
 			}
-			existing = await validateAsset(sdk, asset, request.mimeType, context, !!anchors);
+			existing = await validateAsset(asset, request.mimeType, settings, roots);
 			if (existing.state !== 'unsigned')
 				fail(
 					'SOURCE_CREDENTIALS_UNVERIFIABLE',
@@ -622,11 +751,32 @@ async function executeAsset(
 		)
 			throw error;
 	}
-	if (existing?.state === 'invalid')
+	if (existing?.state === 'invalid' && !request.preserveInvalidSource)
 		fail(
 			'SOURCE_CREDENTIALS_INVALID',
 			'Existing credentials are invalid; attaching another credential would obscure the failure.'
 		);
+	if (sourceManifest) {
+		let embedded: CredentialValidation | undefined;
+		try {
+			embedded = await validateAsset(asset, request.mimeType, settings, roots);
+		} catch (error) {
+			if (!(error instanceof WorkerError) || error.code !== 'FORMAT_UNSUPPORTED') throw error;
+		}
+		if (embedded?.activeManifest && record(embedded.report?.manifests)) {
+			const sourceHistory = existing?.report?.manifests;
+			if (
+				!record(sourceHistory) ||
+				Object.keys(embedded.report.manifests).some(
+					(id) => !Object.prototype.hasOwnProperty.call(sourceHistory, id)
+				)
+			)
+				fail(
+					'SOURCE_CREDENTIALS_CONFLICT',
+					'The supplied sidecar omits embedded source history; resolve the conflicting credentials before signing.'
+				);
+		}
+	}
 	if (
 		request.mode === 'embedded' &&
 		existing?.state === 'unsigned' &&
@@ -644,47 +794,79 @@ async function executeAsset(
 		}
 	}
 	try {
-		const builder = await sdk.Builder.withJsonAsync(
+		const actions = repackedSource ? [{ action: 'c2pa.repackaged' }] : [];
+		const assertions: Array<{
+			label: string;
+			created: boolean;
+			data: Record<string, unknown>;
+		}> = [
 			{
-				title: request.title || 'Credential attached to existing asset',
-				format: request.mimeType,
-				claim_generator_info: [
-					{ name: 'scrivener-mcp', version: credentialProductVersion() },
-				],
+				label: 'c2pa.actions.v2',
+				created: true,
+				data: { actions, allActionsIncluded: true },
 			},
-			context
-		);
-		builder.setIntent('edit');
-		builder.setNoEmbed(request.mode === 'sidecar');
+		];
+		const definition = {
+			title: request.title || 'Credential attached to existing asset',
+			format: request.mimeType,
+			claim_generator_info: [
+				{ name: 'scrivener-mcp', version: credentialProductVersion(), specVersion: '2.4' },
+			],
+			assertions,
+		};
 		if (repackedSource) {
-			builder.addAssertion('com.writerslogic.input', {
-				sha256: repackedSource,
-				preparation: 'zip-store',
-				preserves: 'archive entry contents',
-				sourceCredentials: 'absent',
+			assertions.push({
+				label: 'com.writerslogic.input',
+				created: true,
+				data: {
+					sha256: repackedSource,
+					preparation: 'zip-store',
+					preserves: 'archive entry contents',
+					sourceCredentials: 'absent',
+				},
 			});
-			builder.addAction(JSON.stringify({ action: 'c2pa.repackaged' }));
 		}
-		const signer = await signerFor(sdk, request.signer!);
-		const output: { buffer: Buffer | null } = { buffer: null };
-		const manifest = await builder.signAsync(
+		if (existing?.state === 'invalid') {
+			assertions.push({
+				label: 'com.writerslogic.source-validation',
+				created: true,
+				data: {
+					disposition: 'invalid-source-preserved',
+					state: existing.state,
+					validationCodes: existing.validationCodes,
+				},
+			});
+		}
+		const signer = await signerFor(request.signer!);
+		const { asset: signedAsset, manifest } = await signCredentialAssetBytes({
+			mimeType: request.mimeType,
+			asset,
+			sourceManifest,
+			definition,
+			settings,
+			noEmbed: request.mode === 'sidecar',
 			signer,
-			{ buffer: asset, mimeType: request.mimeType },
-			output
-		);
+		});
 		if (
 			!Buffer.isBuffer(manifest) ||
 			!manifest.length ||
 			manifest.length > MAX_MANIFEST_BYTES ||
-			!Buffer.isBuffer(output.buffer) ||
-			output.buffer.length > MAX_ASSET_BYTES + MAX_MANIFEST_BYTES
+			!Buffer.isBuffer(signedAsset) ||
+			signedAsset.length > MAX_ASSET_BYTES + MAX_MANIFEST_BYTES
 		)
 			fail('OUTPUT_LIMIT', 'The native SDK output exceeds its supported bounds.');
 		const validation =
 			request.mode === 'sidecar'
-				? await validateAsset(sdk, asset, request.mimeType, context, !!anchors, manifest)
-				: await validateAsset(sdk, output.buffer, request.mimeType, context, !!anchors);
-		if (validation.integrity !== 'valid')
+				? await validateAsset(asset, request.mimeType, settings, roots, manifest)
+				: await validateAsset(signedAsset, request.mimeType, settings, roots);
+		if (
+			validation.integrity !== 'valid' &&
+			!(
+				request.preserveInvalidSource &&
+				existing?.state === 'invalid' &&
+				validation.activeIntegrity === 'valid'
+			)
+		)
 			fail(
 				'OUTPUT_VALIDATION_FAILED',
 				'The produced credential failed native integrity validation.'
@@ -700,14 +882,19 @@ async function executeAsset(
 			);
 		const destination =
 			request.mode === 'sidecar' ? request.manifestPath! : request.destinationPath!;
-		await writeOutput(destination, request.mode === 'sidecar' ? manifest : output.buffer);
+		await writeOutput(destination, request.mode === 'sidecar' ? manifest : signedAsset);
+		const sourceValidation = existing
+			? (({ report: _report, crjson: _crjson, validationTime: _time, ...summary }) =>
+					summary)(existing)
+			: undefined;
 		return {
 			ok: true,
 			operation: 'sign',
 			sdkVersion: version,
 			validation,
+			...(sourceValidation ? { sourceValidation } : {}),
 			manifestBytes: manifest.length,
-			assetBytes: request.mode === 'sidecar' ? asset.length : output.buffer.length,
+			assetBytes: request.mode === 'sidecar' ? asset.length : signedAsset.length,
 		};
 	} catch (error) {
 		nativeFailure(error, 'sign');
@@ -720,16 +907,16 @@ export async function handleCredentialWorkerRequest(
 	let request: CredentialWorkerRequest | undefined;
 	try {
 		request = validateCredentialWorkerRequest(value);
-		const { sdk, version } = await loadSdk();
+		const { version } = await loadSdk();
 		if (request.operation === 'probe') {
 			try {
-				await sdk.Builder.newAsync(new sdk.Context(credentialContextSettings()));
+				await probeCredentialBinding();
 			} catch {
 				fail('SDK_UNAVAILABLE', 'The native Content Credentials SDK could not initialize.');
 			}
 			return { ok: true, operation: 'probe', sdkVersion: version };
 		}
-		return await executeAsset(request, sdk, version);
+		return await executeAsset(request, version);
 	} catch (error) {
 		if (error instanceof WorkerError)
 			return { ok: false, code: error.code, message: error.message };

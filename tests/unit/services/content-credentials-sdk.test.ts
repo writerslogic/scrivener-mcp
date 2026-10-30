@@ -9,6 +9,7 @@ import {
 	normalizeCredentialValidation,
 	validateCredentialWorkerRequest,
 } from '../../../src/services/content-credentials/sdk-worker.js';
+import { encryptCredentialSigningKey } from '../../../src/services/content-credentials/key-policy.js';
 
 const report = (validationState: string = 'Valid') => ({
 	active_manifest: 'urn:fixture:manifest',
@@ -177,17 +178,21 @@ it('enforces the exact serialized native report size limit', () => {
 });
 
 it('disables remote manifests, OCSP, thumbnails and unconfigured trust anchors', () => {
-	expect(credentialContextSettings()).toMatchObject({
+	expect(JSON.parse(credentialContextSettings())).toMatchObject({
 		verify: {
-			remoteManifestFetch: false,
-			ocspFetch: false,
-			verifyAfterReading: true,
-			verifyAfterSign: true,
+			remote_manifest_fetch: false,
+			ocsp_fetch: false,
+			verify_after_reading: true,
+			verify_after_sign: true,
 		},
-		cawgTrust: { verifyTrustList: false },
+		trust: { anchors: [] },
 		builder: { thumbnail: { enabled: false } },
 	});
-	expect(credentialContextSettings().trust).not.toHaveProperty('trustAnchors');
+	const configured = JSON.parse(credentialContextSettings('signing-list', 'timestamp-list'));
+	expect(configured.trust.anchors).toEqual([
+		expect.objectContaining({ trust_kind: 'manifest', trust_anchors: 'signing-list' }),
+		expect.objectContaining({ trust_kind: 'tsa', trust_anchors: 'timestamp-list' }),
+	]);
 });
 
 it('rejects malformed IPC and signing requests without loading native code or echoing secrets', async () => {
@@ -229,18 +234,9 @@ it('rejects malformed IPC and signing requests without loading native code or ec
 	).toThrow(/inconsistent/i);
 });
 
-it('unlocks only encrypted PKCS8 data and wipes owned key/password buffers', () => {
+it('unlocks only encrypted PKCS8 data and wipes owned key/password buffers', async () => {
 	const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-	const encrypted = Buffer.from(
-		String(
-			privateKey.export({
-				type: 'pkcs8',
-				format: 'pem',
-				cipher: 'aes-256-cbc',
-				passphrase: 'fixture-password',
-			})
-		)
-	);
+	const encrypted = await encryptCredentialSigningKey(privateKey, 'fixture-password');
 	const password = Buffer.from('fixture-password');
 	const unlocked = decryptCredentialKey(encrypted, password);
 	expect(createPublicKey(unlocked).equals(publicKey)).toBe(true);
@@ -281,4 +277,39 @@ it('produces independently verifiable P1363 ECDSA, PSS and Ed25519 signatures', 
 	const edSignature = await createRawCredentialSigner(ed.privateKey).sign(payload);
 	expect(verify(null, payload, ed.publicKey, edSignature)).toBe(true);
 	expect(verify(null, Buffer.from('modified'), ed.publicKey, edSignature)).toBe(false);
+});
+
+it('keeps signed source-failure disclosures separate from current signature integrity', () => {
+	const value = report('Trusted');
+	Object.assign(value.manifests['urn:fixture:manifest'], {
+		assertions: [
+			{
+				label: 'com.writerslogic.source-validation',
+				data: { state: 'invalid', validationCodes: ['signingCredential.invalid'] },
+			},
+		],
+	});
+	expect(normalizeCredentialValidation(value, true)).toMatchObject({
+		state: 'valid',
+		integrity: 'valid',
+		sourceValidationCodes: ['signingCredential.invalid'],
+	});
+});
+
+it('retains historical failure disclosures when a later active manifest has no new disclosure', () => {
+	const value = report('Trusted');
+	Object.assign(value.manifests, {
+		previous: {
+			assertions: [
+				{
+					label: 'com.writerslogic.source-validation',
+					data: { state: 'invalid', validationCodes: ['signingCredential.invalid'] },
+				},
+			],
+		},
+	});
+	expect(normalizeCredentialValidation(value, true)).toMatchObject({
+		state: 'valid',
+		sourceValidationCodes: ['signingCredential.invalid'],
+	});
 });

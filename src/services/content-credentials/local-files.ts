@@ -1,9 +1,34 @@
 import { constants, type BigIntStats } from 'node:fs';
-import { lstat, open, type FileHandle } from 'node:fs/promises';
+import {
+	chmod,
+	link,
+	lstat,
+	mkdir,
+	mkdtemp,
+	open,
+	realpath,
+	rm,
+	type FileHandle,
+} from 'node:fs/promises';
+import { dirname, isAbsolute, join, basename } from 'node:path';
 import { createError, ErrorCode, ApplicationError } from '../../core/errors.js';
 import { CREDENTIAL_LIMITS } from './limits.js';
+import { assertCredentialKeyAccess, makeCredentialDirectoryPrivate } from './key-access.js';
 
 const READ_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
+
+function assertLocalCredentialPath(filePath: string): void {
+	const normalized = filePath.replace(/\//gu, '\\');
+	if (
+		/^\\\\\.\\|^\\\\\?\\(?:pipe|GLOBALROOT)(?:\\|$)/iu.test(normalized) ||
+		(normalized.startsWith('\\\\') && !/^\\\\\?\\[a-z]:\\/iu.test(normalized))
+	)
+		throw createError(
+			ErrorCode.PATH_INVALID,
+			undefined,
+			'Credential paths must identify local files, not network locations, devices or named pipes'
+		);
+}
 
 function acquireReadHandle(filePath: string): Promise<FileHandle> {
 	return open(filePath, READ_FLAGS, 0o600);
@@ -29,7 +54,8 @@ export async function assertCredentialFileUnchanged(
 export async function readStableCredentialFile(
 	filePath: string,
 	limit: number,
-	label: string
+	label: string,
+	options: { privateKey?: boolean } = {}
 ): Promise<{ bytes: Buffer; identity: string }> {
 	if (
 		!Number.isSafeInteger(limit) ||
@@ -41,12 +67,7 @@ export async function readStableCredentialFile(
 			undefined,
 			'Invalid credential file allocation limit'
 		);
-	if (/^\\\\\.\\|^\\\\\?\\(?:pipe|GLOBALROOT)(?:\\|$)|^\\\\[^\\]+\\pipe(?:\\|$)/iu.test(filePath))
-		throw createError(
-			ErrorCode.PATH_INVALID,
-			undefined,
-			'Credential input must be a regular local asset, not a device or named pipe'
-		);
+	assertLocalCredentialPath(filePath);
 	let buffer: Buffer | undefined;
 	let handle: FileHandle | undefined;
 	let verification: FileHandle | undefined;
@@ -65,6 +86,17 @@ export async function readStableCredentialFile(
 				undefined,
 				`${label} must be a regular file without a symbolic link`
 			);
+		if (options.privateKey) {
+			try {
+				await assertCredentialKeyAccess(filePath, before);
+			} catch {
+				throw createError(
+					ErrorCode.CONFIGURATION_ERROR,
+					undefined,
+					'Signing key access must be restricted to its owner and trusted system administrators'
+				);
+			}
+		}
 		if (before.size > BigInt(limit))
 			throw createError(
 				ErrorCode.DOCUMENT_TOO_LARGE,
@@ -130,4 +162,97 @@ export async function readStableCredentialFile(
 	}
 	if ('error' in outcome) throw outcome.error;
 	return outcome.value;
+}
+
+export function protectCredentialOutputPath(filePath: string, allowProjectExports = true): void {
+	const segments = filePath.split(/[\\/]/u);
+	const index = segments.findIndex((part) => part.toLowerCase().endsWith('.scriv'));
+	if (
+		index >= 0 &&
+		(!allowProjectExports ||
+			segments[index + 1] !== '.scrivener-mcp' ||
+			segments[index + 2] !== 'exports')
+	)
+		throw createError(
+			ErrorCode.PATH_INVALID,
+			undefined,
+			'Credential output must not modify Scrivener internals'
+		);
+}
+
+export async function canonicalCredentialOutputPath(filePath: string): Promise<string> {
+	assertLocalCredentialPath(filePath);
+	let ancestor = dirname(filePath);
+	const suffix = [basename(filePath)];
+	while (true) {
+		try {
+			return join(await realpath(ancestor), ...suffix);
+		} catch (error) {
+			if (
+				(error as NodeJS.ErrnoException)?.code !== 'ENOENT' ||
+				ancestor === dirname(ancestor)
+			)
+				throw createError(
+					ErrorCode.PATH_INVALID,
+					undefined,
+					'Output directory cannot be resolved safely'
+				);
+			suffix.unshift(basename(ancestor));
+			ancestor = dirname(ancestor);
+		}
+	}
+}
+
+export async function writeExclusiveCredentialFile(
+	filePath: string,
+	bytes: Buffer,
+	options: { allowProjectExports?: boolean } = {}
+): Promise<void> {
+	if (
+		!isAbsolute(filePath) ||
+		filePath.length > 4096 ||
+		filePath.includes('\0') ||
+		!Buffer.isBuffer(bytes) ||
+		!bytes.length ||
+		bytes.length > CREDENTIAL_LIMITS.assetBytes + CREDENTIAL_LIMITS.manifestBytes
+	)
+		throw createError(
+			ErrorCode.INVALID_INPUT,
+			undefined,
+			'Invalid credential output path or size'
+		);
+	protectCredentialOutputPath(filePath, options.allowProjectExports);
+	protectCredentialOutputPath(
+		await canonicalCredentialOutputPath(filePath),
+		options.allowProjectExports
+	);
+	await mkdir(dirname(filePath), { recursive: true });
+	const parent = await realpath(dirname(filePath));
+	protectCredentialOutputPath(join(parent, basename(filePath)), options.allowProjectExports);
+	const stage = await mkdtemp(join(parent, '.scrivener-credentials-'));
+	try {
+		await chmod(stage, 0o700);
+		await makeCredentialDirectoryPrivate(stage);
+		const temporary = join(stage, 'output');
+		const handle = await open(temporary, 'wx', 0o600);
+		try {
+			await handle.writeFile(bytes);
+			await handle.sync();
+		} finally {
+			await handle.close();
+		}
+		try {
+			await link(temporary, join(parent, basename(filePath)));
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException)?.code === 'EEXIST')
+				throw createError(
+					ErrorCode.FILE_WRITE_ERROR,
+					undefined,
+					'Output already exists; choose a new path rather than overwrite an asset'
+				);
+			throw error;
+		}
+	} finally {
+		await rm(stage, { recursive: true, force: true });
+	}
 }

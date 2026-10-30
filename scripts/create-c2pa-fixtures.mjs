@@ -10,6 +10,8 @@ import { promisify } from 'node:util';
 import { deflateSync } from 'node:zlib';
 import JSZip from 'jszip';
 import { readStableCredentialFile } from '../dist/services/content-credentials/local-files.js';
+import { encryptCredentialSigningKey } from '../dist/services/content-credentials/key-policy.js';
+import { makeCredentialDirectoryPrivate } from '../dist/services/content-credentials/key-access.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const execute = promisify(execFile);
@@ -34,6 +36,7 @@ async function command(program, args) {
 
 export async function createC2paTestSigner(directory) {
 	await mkdir(directory, { recursive: true, mode: 0o700 });
+	await makeCredentialDirectoryPrivate(directory);
 	assert.deepEqual(await readdir(directory), [], 'Test signer directory must be empty');
 	const password = randomBytes(32).toString('base64url');
 	const privateKeyPath = join(directory, 'test-leaf-key.encrypted.pem');
@@ -95,12 +98,10 @@ export async function createC2paTestSigner(directory) {
 		},
 		webcrypto
 	);
-	const encrypted = KeyObject.from(leafKeys.privateKey).export({
-		type: 'pkcs8',
-		format: 'pem',
-		cipher: 'aes-256-cbc',
-		passphrase: password,
-	});
+	const encrypted = await encryptCredentialSigningKey(
+		KeyObject.from(leafKeys.privateKey),
+		password
+	);
 	await writeFile(privateKeyPath, encrypted, { flag: 'wx', mode: 0o600 });
 	await writeFile(trustAnchorsPath, root.toString('pem'), { flag: 'wx', mode: 0o600 });
 	await writeFile(certificatePath, `${leaf.toString('pem')}\n${root.toString('pem')}\n`, {

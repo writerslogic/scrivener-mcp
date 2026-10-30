@@ -1,0 +1,66 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:4f798f93-be59-40f9-a5bd-1284f0d7ea16",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-28T18:22:29.802Z",
+    "lifecycles": [
+      {
+        "phase": "pre-build"
+      }
+    ],
+    "tools": [
+      {
+        "vendor": "npm",
+        "name": "cli",
+        "version": "10.9.9"
+      }
+    ],
+    "component": {
+      "bom-ref": "holographic-memory@0.6.4",
+      "type": "library",
+      "name": "holographic-memory",
+      "version": "0.6.4",
+      "scope": "required",
+      "author": "WritersLogic, Inc.",
+      "description": "Holographic Memory System (HMS): local document search (BM25 + embedding cosine) and vector-symbolic associative memory.",
+      "purl": "pkg:npm/holographic-memory@0.6.4",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": ""
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/writerslogic/holographic-memory.git"
+        },
+        {
+          "type": "website",
+          "url": "https://holographic-memory.com"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/writerslogic/holographic-memory/issues"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    }
+  },
+  "components": [],
+  "dependencies": [
+    {
+      "ref": "holographic-memory@0.6.4",
+      "dependsOn": []
+    }
+  ]
+}

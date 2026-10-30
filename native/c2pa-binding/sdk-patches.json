@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "upstream": "https://crates.io/api/v1/crates/c2pa/0.91.7/download",
+  "crateSha256": "f258d5bfe6465d1a5c570d32b70a261f35e4e45a753e7122a88d3ba0472999b0",
+  "purpose": "Restrict COSE signing trust and timestamp trust to their explicitly configured anchor kinds. No cryptographic algorithm changes.",
+  "patches": [
+    {
+      "file": "src/crypto/cose/certificate_trust_policy.rs",
+      "beforeSha256": "f7d177580ee5b865eb412476f79298c628ff165dcffe05923409e917e9df51f0",
+      "afterSha256": "880c69a0832d4b70a8580255e78b7db5cf9fd7eff9d032e498563591ab3346a6",
+      "before": "    /// Returns trust anchors whose trust_anchor_type is `Signing`\n    pub fn signing_trust_anchors(&self) -> Vec<&TrustAnchor> {",
+      "after": "    pub(crate) fn for_anchor_type(&self, kind: TrustAnchorType) -> Self {\n        let mut policy = self.clone();\n        policy.trust_anchors.retain(|anchor| anchor.trust_anchor_type == kind);\n        if kind != TrustAnchorType::Manifest { policy.end_entity_cert_set.clear(); }\n        policy\n    }\n\n    /// Returns trust anchors whose trust_anchor_type is `Signing`\n    pub fn signing_trust_anchors(&self) -> Vec<&TrustAnchor> {"
+    },
+    {
+      "file": "src/crypto/cose/verifier.rs",
+      "beforeSha256": "ff6d79bc63b72ce650f7be6139653851edb00989d8c0d345d7c458e4be06bb9b",
+      "afterSha256": "ecb41567b834ce8ef2d7cc949ab39547b2305fd630fe5f5a9619a1c8a9d42cae",
+      "before": "        let certs = cert_chain_from_sign1(sign1)?;\n        let end_entity_cert_der = &certs[0];\n        let chain_der = &certs[1..];",
+      "after": "        let ctp = ctp.for_anchor_type(TrustAnchorType::Manifest);\n        let certs = cert_chain_from_sign1(sign1)?;\n        let end_entity_cert_der = &certs[0];\n        let chain_der = &certs[1..];"
+    },
+    {
+      "file": "src/crypto/time_stamp/verify.rs",
+      "beforeSha256": "bbce6335ab8e3541d3eace92846ae8fefb858ad1a9dbc4bd9037d07532bdb3c7",
+      "afterSha256": "ef9458cd45598253b6a60152746e69dc4ed13bfd768c3eec16a6bde7d70830da",
+      "before": "            match ctp.check_certificate_trust(",
+      "after": "            let ctp = ctp.for_anchor_type(crate::crypto::cose::TrustAnchorType::TSA);\n            match ctp.check_certificate_trust("
+    }
+  ]
+}

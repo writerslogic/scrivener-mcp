@@ -105,13 +105,66 @@ jobs:
       - name: Dependency audit
         run: npm audit
 
+  c2pa-supply-chain:
+    name: C2PA native and runtime security
+    runs-on: ubuntu-latest
+    env:
+      GRYPE_DB_CACHE_DIR: ${{ github.workspace }}/build/c2pa-grype-db
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install verified pinned scanners
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/c2pa-scanners"
+          cd "$RUNNER_TEMP/c2pa-scanners"
+          curl -fsSL --max-time 180 https://github.com/sigstore/cosign/releases/download/v3.0.6/cosign-linux-amd64 -o cosign
+          printf '%s  %s\n' c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74 cosign | sha256sum --check --strict
+          chmod 700 cosign
+          for product in syft grype; do
+            if [ "$product" = syft ]; then version=1.55.0; digest=bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d; else version=0.121.0; digest=64e07133d3486115de647a66581461dccf5c732748a0a3119077395565f15519; fi
+            release="https://github.com/anchore/$product/releases/download/v$version"
+            checksums="${product}_${version}_checksums.txt"
+            archive="${product}_${version}_linux_amd64.tar.gz"
+            curl -fsSL --max-time 180 "$release/$archive" -o "$archive"
+            curl -fsSL --max-time 60 "$release/$checksums" -o "$checksums"
+            curl -fsSL --max-time 60 "$release/$checksums.sigstore.json" -o "$checksums.sigstore.json"
+            ./cosign verify-blob --bundle "$checksums.sigstore.json" --certificate-identity "https://github.com/anchore/$product/.github/workflows/release.yaml@refs/heads/main" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$checksums"
+            printf '%s  %s\n' "$digest" "$archive" | sha256sum --check --strict
+            tar -xzf "$archive" "$product"
+          done
+          echo "$RUNNER_TEMP/c2pa-scanners" >> "$GITHUB_PATH"
+      - name: Refresh vulnerability database
+        run: grype db update
+      - name: Inventory pinned source graphs and actual runtime
+        run: |
+          mkdir -p logs/c2pa
+          node scripts/create-c2pa-inventory.mjs --syft "$(command -v syft)" --output "$PWD/logs/c2pa/inventory"
+      - name: Reject applicable high and critical vulnerabilities
+        run: node scripts/check-c2pa-supply-chain.mjs --grype "$(command -v grype)" --manifest "$PWD/logs/c2pa/inventory/input-manifest.json" --output "$PWD/logs/c2pa/security" --vex "$PWD/assets/c2pa-supply-chain/vex.openvex.json"
+      - name: Retain inventory and security evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: c2pa-supply-chain
+          path: logs/c2pa
+          if-no-files-found: error
+
   release-gate:
     name: Release verification
-    needs: build
+    needs: [build, c2pa-supply-chain]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require the complete compatibility matrix
         env:
           MATRIX_RESULT: ${{ needs.build.result }}
-        run: test "$MATRIX_RESULT" = success
+          SECURITY_RESULT: ${{ needs.c2pa-supply-chain.result }}
+        run: test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success
