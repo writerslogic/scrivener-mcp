@@ -41,7 +41,7 @@
 		"setup:advanced": "node scripts/setup-advanced.cjs",
 		"setup:quick": "node scripts/setup-advanced.cjs --quick",
 		"health": "node scripts/setup-advanced.cjs --health",
-		"lint": "eslint src --ext .ts,.cts",
+		"lint": "eslint src --ext .ts,.cts --max-warnings=0",
 		"lint:fix": "eslint src --ext .ts,.cts --fix",
 		"format": "prettier --write \"src/**/*.{ts,cts}\"",
 		"format:check": "prettier --check \"src/**/*.{ts,cts}\"",

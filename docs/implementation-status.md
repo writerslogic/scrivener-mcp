@@ -518,22 +518,23 @@ Contributions used temporary isolated worker checkouts, now removed after verifi
 the final state retains only canonical main. Production fixes, verification and intentional limits
 are recorded here.
 
-| Finding                   | Acceptance                                                                                                                     | Owner / status                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| C1 RTF integrity          | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions     | Integrated; styled/Unicode/binary boundary regressions pass                                                          |
-| C2 Snapshot containment   | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely                    | Integrated; symlink/junction, special-file and enumeration boundary regressions pass                                 |
-| C3 Binder admission/CAS   | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict            | Guard/CAS/compound creation integrated; fault/recovery tests pass, legacy parent-race fixtures adapted to atomic CAS |
-| C4 Queue isolation        | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof                         | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass                                |
-| C5 Text exports           | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit                                     | Integrated; ordered full-body exports, local standard compilation and failed-read rejection pass                     |
-| C6 Analysis cache         | Context/position identity preserves warm/fresh equivalence, with bounded caching                                               | Integrated; equal-length/shared-prefix/position regressions pass                                                     |
-| C7 Equivalent interfaces  | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts                    | Integrated; canonical queued evidence/stale rejection, UTF-8 paging and installed MCP checks pass                    |
-| C8 Publication recovery   | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts                     | Same-journal publication integrated; interruption, changed-source/output, owner and path tests pass                  |
-| C9 Retrieval fusion       | Zero semantic evidence cannot outrank a genuine literal hit before truncation                                                  | Integrated; real fallback zero/opposite/positive relevance regressions pass                                          |
-| C10 Resource behavior     | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness                               | SQL-projected cursors, 101-match cap, linear source-acquisition fixtures, browser and installed MCP checks pass      |
-| C11 API contracts         | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results                       | Direct schemas and real source MCP protocol pass; honest generation tests pass                                       |
-| C12 Release verification  | Patched runtime, exact source/version/gate identity and pinned verified publisher                                              | 47 preflight regressions, actionlint, real publisher signature, fresh MCPB and packed launch pass                    |
-| C13 Diagnostic privacy    | Malformed provider replies and JSON parser error excerpts never enter logs; retain safe failure metadata                       | Metadata-only diagnostics implemented; real logger and AI caller regressions pass                                    |
-| C14 Bootstrap file safety | Release metadata, checksums and archive bytes come from bounded stable descriptors; links, replacement and modification reject | Integrated; 47 release regressions and 15 publication regressions pass                                               |
+| Finding                    | Acceptance                                                                                                                     | Owner / status                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| C1 RTF integrity           | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions     | Integrated; styled/Unicode/binary boundary regressions pass                                                                 |
+| C2 Snapshot containment    | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely                    | Integrated; symlink/junction, special-file and enumeration boundary regressions pass                                        |
+| C3 Binder admission/CAS    | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict            | Guard/CAS/compound creation integrated; fault/recovery tests pass, legacy parent-race fixtures adapted to atomic CAS        |
+| C4 Queue isolation         | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof                         | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass                                       |
+| C5 Text exports            | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit                                     | Integrated; ordered full-body exports, local standard compilation and failed-read rejection pass                            |
+| C6 Analysis cache          | Context/position identity preserves warm/fresh equivalence, with bounded caching                                               | Integrated; equal-length/shared-prefix/position regressions pass                                                            |
+| C7 Equivalent interfaces   | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts                    | Integrated; canonical queued evidence/stale rejection, UTF-8 paging and installed MCP checks pass                           |
+| C8 Publication recovery    | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts                     | Same-journal publication integrated; interruption, changed-source/output, owner and path tests pass                         |
+| C9 Retrieval fusion        | Zero semantic evidence cannot outrank a genuine literal hit before truncation                                                  | Integrated; real fallback zero/opposite/positive relevance regressions pass                                                 |
+| C10 Resource behavior      | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness                               | SQL-projected cursors, 101-match cap, linear source-acquisition fixtures, browser and installed MCP checks pass             |
+| C11 API contracts          | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results                       | Direct schemas and real source MCP protocol pass; honest generation tests pass                                              |
+| C12 Release verification   | Patched runtime, exact source/version/gate identity and pinned verified publisher                                              | 47 preflight regressions, actionlint, real publisher signature, fresh MCPB and packed launch pass                           |
+| C13 Diagnostic privacy     | Malformed provider replies and JSON parser error excerpts never enter logs; retain safe failure metadata                       | Metadata-only diagnostics implemented; real logger and AI caller regressions pass                                           |
+| C14 Bootstrap file safety  | Release metadata, checksums and archive bytes come from bounded stable descriptors; links, replacement and modification reject | Integrated; 47 release regressions and 15 publication regressions pass                                                      |
+| C15 Diagnostic correctness | Recovery errors retain both failures; lint warnings fail CI; security findings receive evidence-based triage                   | Recovery cause corrected; aggregate errors retained in logs; strict lint enabled; CodeQL #75 classified as a false positive |
 
 Shared contracts: one `MutationCoordinator` journal and guarded saved reader; one existing
 `PersistentStore` and validated `identity/project` UUID for source and queues; existing source
@@ -578,7 +579,7 @@ Final local evidence (Node 24.22.2) is retained in `logs/audit-remediation-20261
 
 | Gate                                   | Result                                                                                                                      | Evidence                                         |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Formatting, lint, TypeScript and build | Pass; zero lint warnings                                                                                                    | `post-privacy-results.json`                      |
+| Formatting, lint, TypeScript and build | Pass; strict lint enforces zero warnings (C15 corrects the earlier report)                                                  | `diagnostics-final-gates.json`                   |
 | Complete suite and resource cleanup    | 114 suites, 1,534 tests pass; nine live tests skipped; no detected open handles                                             | `candidate-tests.log`                            |
 | Privacy change and AI callers          | Seven suites, 101 tests pass; six opt-in live tests skipped                                                                 | `post-privacy-privacy.log`                       |
 | Tool registry and output contracts     | 80 tools, zero duplicate names; all metadata complete; 32 output checks pass                                                | `candidate-registry.log`, `candidate-output.log` |
@@ -623,3 +624,24 @@ Windows checks remain enabled. CodeQL passes with no open PR alerts after the de
 The corrected Git fixture passes all 47 release cases locally (`release-portable-config.log`). The
 CI-built extension from source `3b6dc9b` also passes the descriptor-based artifact preflight
 (`ci-artifact-preflight.json`); subsequent changes affect only tests and this ledger.
+
+A final log review corrected the earlier zero-warning claim: ESLint had exited successfully with one
+`preserve-caught-error` warning in compound creation recovery. The aggregate now identifies the
+immediate recovery failure as its cause while retaining the publication failure in `errors`; the
+logger preserves that array. A fault-injection regression proves both errors survive and the
+prepared operation can subsequently recover. `npm run lint` now uses `--max-warnings=0`, so warnings
+cannot pass the required gate. The script change requires no dependency or lockfile update.
+
+CodeQL alert #75 (`js/insufficient-password-hash`) was reviewed against every consumer of the
+configuration identifier in `src/handlers/async-handlers.ts`. It is an in-memory HMAC-SHA256 ID
+keyed by `crypto.randomBytes(32)` for this process, compared only to reuse initialized services and
+reset on shutdown. The key and digest are neither persisted, logged nor returned through an API. It
+is not a password-verifier store, so the
+[query's password-storage threat model](https://codeql.github.com/codeql-query-help/javascript/js-insufficient-password-hash/)
+does not apply. The alert was dismissed as a documented false positive; the query remains enabled
+and no code-level suppression or unnecessary password KDF was introduced.
+
+The diagnostics follow-up passes formatting, strict zero-warning lint, types/build and 26 focused
+creation/logger checks (`diagnostics-final-gates.json`). Extension CI now covers all runtime source,
+shipped assets/vendor code, scripts and package/build metadata rather than only `src/index.ts`; its
+Node setup checks the latest patched release. Actionlint passes for the touched workflow.

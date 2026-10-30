@@ -35,6 +35,7 @@ function serializeErrors(key: string, value: unknown): unknown {
 			message: value.message,
 			stack: value.stack,
 			...(value.cause !== undefined ? { cause: value.cause } : {}),
+			...(value instanceof AggregateError ? { errors: value.errors } : {}),
 		};
 	}
 	return value;

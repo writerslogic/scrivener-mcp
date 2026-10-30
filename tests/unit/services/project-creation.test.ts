@@ -215,6 +215,51 @@ test.each([false, true])(
 	}
 );
 
+test('a failed creation and failed recovery preserve both errors and remain recoverable', async () => {
+	const coordinator = documents.getMutationCoordinator();
+	const publicationError = new Error('Synthetic binder publication failure');
+	const recoveryError = new Error('Synthetic recovery failure');
+	const rename = nativeFs.rename.bind(nativeFs);
+	const publication = jest
+		.spyOn(nativeFs, 'rename')
+		.mockImplementation(async (source, target) => {
+			if (target.toString() === file) throw publicationError;
+			await rename(source, target);
+		});
+	const recovery = jest
+		.spyOn(
+			coordinator as unknown as { recoverCreation(record: MutationRecord): Promise<void> },
+			'recoverCreation'
+		)
+		.mockRejectedValueOnce(recoveryError);
+	const raw = new RTFHandler().convertToRTF('Recoverable created text.');
+	const after = SOURCE.replace(
+		'</Binder>',
+		`<BinderItem UUID="${DOCUMENT}" Type="Text"><Title>Created</Title></BinderItem></Binder>`
+	);
+	const failure = await coordinator
+		.commitProjectCreation(file, after, {
+			expectedRevision: documentRevision(SOURCE),
+			documents: [{ documentId: DOCUMENT, raw }],
+		})
+		.catch((error: unknown) => error);
+	expect(failure).toBeInstanceOf(AggregateError);
+	expect(failure).toMatchObject({
+		cause: recoveryError,
+		errors: [publicationError, recoveryError],
+	});
+	expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
+	publication.mockRestore();
+	recovery.mockRestore();
+	expect(await coordinator.recover()).toEqual([
+		expect.objectContaining({ creationOutcome: 'rolled-back', state: 'conflicted' }),
+	]);
+	await expect(
+		fs.readFile(path.join(root, 'Files', 'Data', DOCUMENT, 'content.rtf'))
+	).rejects.toMatchObject({ code: 'ENOENT' });
+	expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
+});
+
 test('replaying a committed operation returns its receipt without rewriting a later saved edit', async () => {
 	const coordinator = documents.getMutationCoordinator();
 	const raw = new RTFHandler().convertToRTF('Created text.');
