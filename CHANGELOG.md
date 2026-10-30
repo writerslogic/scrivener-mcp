@@ -99,6 +99,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Streamline retrieval and guard durable workflow transitions
 
 ### Security
+- Read release inputs through stable file descriptors
 - Keep malformed provider replies out of diagnostics
 - Patch js-yaml and integrate maintenance updates (#183)
 - Patch js-yaml and body-parser
