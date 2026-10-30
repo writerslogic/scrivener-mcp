@@ -517,20 +517,21 @@ authorized implementation of the audit's highest-value improvements and continue
 Work proceeds in temporary isolated worker checkouts; the final state retains only canonical main.
 Production fixes, verification and intentional limits are recorded here.
 
-| Finding                  | Acceptance                                                                                                                 | Owner / status                                                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| C1 RTF integrity         | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions | Integrated; styled/Unicode/binary boundary regressions pass                                                             |
-| C2 Snapshot containment  | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely                | Integrated; symlink/junction, special-file and enumeration boundary regressions pass                                    |
-| C3 Binder admission/CAS  | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict        | Guard/CAS/compound creation integrated; fault/recovery tests pass, legacy parent-race fixtures adapted to atomic CAS    |
-| C4 Queue isolation       | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof                     | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass                                   |
-| C5 Text exports          | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit                                 | Export fix passes; standard compilation hydration and read-error handling under validation                              |
-| C6 Analysis cache        | Context/position identity preserves warm/fresh equivalence, with bounded caching                                           | Integrated; equal-length/shared-prefix/position regressions pass                                                        |
-| C7 Equivalent interfaces | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts                | Integrated; canonical queued evidence/stale rejection and UTF-8 result paging pass; installed smoke pending             |
-| C8 Publication recovery  | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts                 | Same-journal publication integrated; interruption, changed-source/output, owner and path tests pass                     |
-| C9 Retrieval fusion      | Zero semantic evidence cannot outrank a genuine literal hit before truncation                                              | Integrated; real fallback zero/opposite/positive relevance regressions pass                                             |
-| C10 Resource behavior    | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness                           | SQL-projected cursor pages, 101-match cap and linear source-acquisition fixtures pass; browser/installed checks pending |
-| C11 API contracts        | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results                   | Direct schemas and real source MCP protocol pass; honest generation tests pass                                          |
-| C12 Release verification | Patched runtime, exact source/version/gate identity and pinned verified publisher                                          | 35 preflight regressions, actionlint, real publisher checksum/signature pass; fresh MCPB pending                        |
+| Finding                  | Acceptance                                                                                                                 | Owner / status                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| C1 RTF integrity         | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions | Integrated; styled/Unicode/binary boundary regressions pass                                                                  |
+| C2 Snapshot containment  | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely                | Integrated; symlink/junction, special-file and enumeration boundary regressions pass                                         |
+| C3 Binder admission/CAS  | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict        | Guard/CAS/compound creation integrated; fault/recovery tests pass, legacy parent-race fixtures adapted to atomic CAS         |
+| C4 Queue isolation       | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof                     | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass                                        |
+| C5 Text exports          | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit                                 | Integrated; ordered full-body exports, local standard compilation and failed-read rejection pass                             |
+| C6 Analysis cache        | Context/position identity preserves warm/fresh equivalence, with bounded caching                                           | Integrated; equal-length/shared-prefix/position regressions pass                                                             |
+| C7 Equivalent interfaces | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts                | Integrated; canonical queued evidence/stale rejection and UTF-8 result paging pass; installed smoke pending                  |
+| C8 Publication recovery  | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts                 | Same-journal publication integrated; interruption, changed-source/output, owner and path tests pass                          |
+| C9 Retrieval fusion      | Zero semantic evidence cannot outrank a genuine literal hit before truncation                                              | Integrated; real fallback zero/opposite/positive relevance regressions pass                                                  |
+| C10 Resource behavior    | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness                           | SQL-projected cursors, 101-match cap, linear source-acquisition fixtures and browser controls pass; installed checks pending |
+| C11 API contracts        | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results                   | Direct schemas and real source MCP protocol pass; honest generation tests pass                                               |
+| C12 Release verification | Patched runtime, exact source/version/gate identity and pinned verified publisher                                          | 35 preflight regressions, actionlint, real publisher checksum/signature pass; fresh MCPB pending                             |
+| C13 Diagnostic privacy   | Malformed provider replies and JSON parser error excerpts never enter logs; retain safe failure metadata                   | Metadata-only diagnostics implemented; real logger and AI caller regressions under validation                                |
 
 Shared contracts: one `MutationCoordinator` journal and guarded saved reader; one existing
 `PersistentStore` and validated `identity/project` UUID for source and queues; existing source
@@ -561,3 +562,12 @@ paths reuse the mutation guard, and SQLite targets reject links/directories/FIFO
 Queue counts aggregate in SQL without loading historical result bodies. Focused state/restart/path
 checks pass. Canonical passage identity includes its quote, so equal-length parser interpretation
 changes cannot leave stale HMS records behind an unchanged raw-file revision.
+
+The full integrated suite passes all 114 suites and 1,534 tests, with nine explicitly opted-in live
+provider tests skipped; `--runInBand --detectOpenHandles` reports no leaked handles. The
+source-entry protocol regression allows 30 seconds for cold `tsx` initialization (16.7 seconds
+observed), retaining 10-second tool deadlines and its 60-second overall test budget. This is a
+bounded semantic test, not a startup performance benchmark. Malformed model JSON diagnostics now
+retain only response length and the failure category; response previews and parser messages that may
+quote private text are excluded. A stopped pre-fix bundle is not release evidence; packaging
+restarts from current source.

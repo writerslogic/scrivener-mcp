@@ -5,6 +5,7 @@
  */
 
 import { getLogger } from '../../../src/core/logger.js';
+import { parseModelJson } from '../../../src/utils/json-parse.js';
 
 describe('logger error serialization', () => {
 	let writes: string[];
@@ -63,6 +64,11 @@ describe('logger error serialization', () => {
 				),
 			}
 		);
+		for (const response of [
+			'Confidential response without JSON',
+			'["Confidential model reply",invalid]',
+		])
+			expect(parseModelJson(response, getLogger('test-private-logger'))).toBeNull();
 		const out = writes.join('');
 		for (const value of [
 			'A private manuscript passage',
@@ -72,9 +78,12 @@ describe('logger error serialization', () => {
 			'sk-ant-secret-fixture-token',
 			'private-token-fixture',
 			'user:password',
+			'Confidential response',
+			'Confidential model',
 		])
 			expect(out).not.toContain(value);
 		expect(out).toContain('safe-identity');
+		expect(out).toContain('responseCharacters');
 		expect(out).toContain('[redacted]');
 	});
 });
