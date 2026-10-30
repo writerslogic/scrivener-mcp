@@ -29,7 +29,7 @@ and
 | C2PA-06 | Strong encrypted-key profile, owner/ACL checks, private staging, safe key generation and identity-preserving migration. No key/password parameters on MCP tools.                                                                                          | Local encrypted-key, boundary, access, migration and signing checks pass. Windows ACL enforcement is implemented and has real compatibility CI checks; final-candidate results must be attached; per-installation production provisioning still requires operator review. No hardware key-isolation claim.                                                                                                         |
 
 The complete local gate passes formatting, zero-warning lint, types/build, registry/output/HMS
-checks, **1,628 tests** across 118 suites (nine existing opt-in tests skipped), npm audit and **23
+checks, **1,629 tests** across 118 suites (nine existing opt-in tests skipped), npm audit and **23
 fresh installation/MCP smoke checks**. Fresh installation and tests use isolated configuration
 directories and synthetic manuscripts. They do not modify the developer's real client configuration
 or books. Windows/Linux results must be attached from the CI run for the final candidate;
@@ -97,6 +97,6 @@ time. Regenerate samples when testing current-time validity after their expiry.
    by assumption. Keep `conformance.status: not-assessed`, `maxAssuranceLevel: null` and no claimed
    attestation methods until the actual award supports a change.
 
-No application, email, external upload, purchase, npm release or deployment is performed by this
+No application, email, assessment upload, purchase, npm release or deployment is performed by this
 work. Compressed-manifest generation remains unsupported; local compressed PNG validation passes. No
 live stream, fMP4/CMAF segment, font or ML-model conformance claim is added.

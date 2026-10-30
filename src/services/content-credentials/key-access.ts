@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { type BigIntStats } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
+import { credentialProcessEnvironment } from './process-environment.js';
 
 const execute = promisify(execFile);
 let principal: Promise<string> | undefined;
@@ -28,15 +29,19 @@ async function powershell(script: string): Promise<unknown> {
 				'-NoProfile',
 				'-NonInteractive',
 				'-EncodedCommand',
-				Buffer.from(`$ErrorActionPreference='Stop';${script}`, 'utf16le').toString(
-					'base64'
-				),
+				Buffer.from(
+					`$ErrorActionPreference='Stop';$env:PSModulePath=$PSHOME+'\\Modules';${script}`,
+					'utf16le'
+				).toString('base64'),
 			],
 			{
 				timeout: 15000,
 				maxBuffer: 32768,
 				windowsHide: true,
-				env: { SystemRoot: systemRoot, WINDIR: systemRoot },
+				env: {
+					...credentialProcessEnvironment(),
+					PATH: join(systemRoot, 'System32'),
+				},
 			}
 		);
 		pending.child.stdin?.end();
@@ -84,7 +89,7 @@ export async function makeCredentialDirectoryPrivate(directory: string): Promise
 				timeout: 5000,
 				maxBuffer: 32768,
 				windowsHide: true,
-				env: { SystemRoot: systemRoot, WINDIR: systemRoot },
+				env: credentialProcessEnvironment(),
 			}
 		);
 		pending.child.stdin?.end();

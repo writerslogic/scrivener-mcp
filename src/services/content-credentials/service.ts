@@ -16,6 +16,7 @@ import {
 } from './local-files.js';
 import { credentialWorkerPath } from './worker-path.cjs';
 import { makeCredentialDirectoryPrivate } from './key-access.js';
+import { credentialProcessEnvironment } from './process-environment.js';
 import type {
 	CredentialCapabilities,
 	CredentialAssessmentPolicy,
@@ -151,9 +152,7 @@ function invokeWorker(
 		);
 	activeWorkers++;
 	return new Promise((resolve, reject) => {
-		const env: NodeJS.ProcessEnv = {};
-		for (const key of ['PATH', 'SystemRoot', 'WINDIR', 'TMPDIR', 'TEMP', 'TMP'])
-			if (process.env[key]) env[key] = process.env[key];
+		const env = credentialProcessEnvironment();
 		let response: CredentialWorkerResponse | undefined;
 		let failure: Error | undefined;
 		let child: ReturnType<typeof fork>;

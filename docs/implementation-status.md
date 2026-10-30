@@ -694,7 +694,9 @@ product result.
 
 Canonical acceptance: [C2PA-01 through C2PA-06](conformance/readiness.md). The failing 29 October
 packet remains unchanged. Current evidence is under `build/c2pa-remediation-20261030/packet/` and
-`logs/c2pa-remediation-*`. Final archive and candidate revision will be recorded after packaging.
+`logs/c2pa-remediation-*`. Archive checksums, candidate revision and retained CI results are
+recorded in `build/c2pa-remediation-20261030/{packet-verification,ci-verification}.json` after
+packaging.
 
 One source-built c2pa-rs 0.91.7 WASM binding now serves Builder, Reader and genuine crJSON through
 the existing domain service and one-request workers. Node's established signing callback retains
@@ -724,23 +726,26 @@ Local acceptance evidence:
   blockers. npm registry verification covers 239 signatures and 33 attestations; npm audit reports
   zero.
 - The complete required local gate passes: formatting, zero-warning lint, types/build, tool
-  registry, output conformance, HMS, 118 Jest suites / 1,628 passing tests (nine existing opt-in
+  registry, output conformance, HMS, 118 Jest suites / 1,629 passing tests (nine existing opt-in
   skips), npm audit and 23 isolated installation/protocol smoke checks. A subsequent portable-path
   adjustment to the ASN.1 Jest transformer is checked with POSIX and Windows paths plus its focused
   crypto suites.
 
 Worker ownership was confined to the SCA verifier, inventory producer and their/provenance tests;
 root inspected and integrated all contributions, owned shared contracts/manifests/CI and ran every
-check. Workers ran no installs, builds, scans or tests. Temporary worktrees/branches are removed.
-Credential filesystem operations also reject UNC/device paths before I/O, including canonical output
-resolution. The CI security job verifies pinned scanner downloads, retains raw evidence and is
-required by the release gate alongside the full platform matrix. Final-candidate Windows/Linux
-results must be checked in the retained CI artifacts for that revision; local measurements do not
-imply platform results.
+check. Workers ran no installs, builds, scans or tests. Worker worktrees/branches are removed;
+integration follows the required Release verification check. Windows subprocesses share an explicit
+OS bootstrap environment, exclude credentials and startup injection settings, and restrict
+PowerShell module lookup both before and after shell initialization. The real key-access regression
+and installed package smoke exercise these boundaries. Credential filesystem operations also reject
+UNC/device paths before I/O, including canonical output resolution. The CI security job verifies
+pinned scanner downloads, retains raw evidence and is required by the release gate alongside the
+full platform matrix. Final-candidate Windows/Linux results must be checked in the retained CI
+artifacts for that revision; local measurements do not imply platform results.
 
 Remaining external boundaries: the published 2.4 full crJSON schema is an unresolved include, so
 full official-schema validation awaits the administrator's authoritative file; this is separate from
 41 passing official-rubric reports. Product classification/role eligibility, legal/applicant review,
 production deployment key custody and the administrator/approver/CA decisions remain external. No
-formal conformance or assurance is claimed. No application, email, external upload, purchase, npm
+formal conformance or assurance is claimed. No application, email, assessment upload, purchase, npm
 release or deployment has been performed.

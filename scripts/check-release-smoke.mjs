@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
+import { credentialProcessEnvironment } from '../dist/services/content-credentials/process-environment.js';
 
 const APP_URI = 'ui://scrivener/manuscript-dashboard';
 const APP_MIME = 'text/html;profile=mcp-app';
@@ -115,23 +116,8 @@ async function npmCli(explicit) {
 }
 
 function cleanEnvironment(root) {
-	const env = {};
-	for (const name of [
-		'PATH',
-		'SystemRoot',
-		'SYSTEMROOT',
-		'WINDIR',
-		'ComSpec',
-		'COMSPEC',
-		'PATHEXT',
-		'PROCESSOR_ARCHITECTURE',
-		'OS',
-		'SystemDrive',
-	]) {
-		if (process.env[name]) env[name] = process.env[name];
-	}
 	return {
-		...env,
+		...credentialProcessEnvironment(),
 		HOME: join(root, 'isolated-home'),
 		USERPROFILE: join(root, 'isolated-home'),
 		APPDATA: join(root, 'isolated-home', 'AppData', 'Roaming'),
