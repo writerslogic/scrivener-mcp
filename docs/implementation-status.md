@@ -514,24 +514,25 @@ correctness and safety findings identified by the quality audit.
 
 Baseline: main `6fc0f9e`, including verified Bluepencil/Narrative Lens 0.2.0 and HMS 0.6.4. The user
 authorized implementation of the audit's highest-value improvements and continued main integration.
-Work proceeds in temporary isolated worker checkouts; the final state retains only canonical main.
-Production fixes, verification and intentional limits are recorded here.
+Contributions used temporary isolated worker checkouts, now removed after verification and archival;
+the final state retains only canonical main. Production fixes, verification and intentional limits
+are recorded here.
 
-| Finding                  | Acceptance                                                                                                                 | Owner / status                                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| C1 RTF integrity         | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions | Integrated; styled/Unicode/binary boundary regressions pass                                                                  |
-| C2 Snapshot containment  | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely                | Integrated; symlink/junction, special-file and enumeration boundary regressions pass                                         |
-| C3 Binder admission/CAS  | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict        | Guard/CAS/compound creation integrated; fault/recovery tests pass, legacy parent-race fixtures adapted to atomic CAS         |
-| C4 Queue isolation       | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof                     | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass                                        |
-| C5 Text exports          | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit                                 | Integrated; ordered full-body exports, local standard compilation and failed-read rejection pass                             |
-| C6 Analysis cache        | Context/position identity preserves warm/fresh equivalence, with bounded caching                                           | Integrated; equal-length/shared-prefix/position regressions pass                                                             |
-| C7 Equivalent interfaces | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts                | Integrated; canonical queued evidence/stale rejection and UTF-8 result paging pass; installed smoke pending                  |
-| C8 Publication recovery  | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts                 | Same-journal publication integrated; interruption, changed-source/output, owner and path tests pass                          |
-| C9 Retrieval fusion      | Zero semantic evidence cannot outrank a genuine literal hit before truncation                                              | Integrated; real fallback zero/opposite/positive relevance regressions pass                                                  |
-| C10 Resource behavior    | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness                           | SQL-projected cursors, 101-match cap, linear source-acquisition fixtures and browser controls pass; installed checks pending |
-| C11 API contracts        | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results                   | Direct schemas and real source MCP protocol pass; honest generation tests pass                                               |
-| C12 Release verification | Patched runtime, exact source/version/gate identity and pinned verified publisher                                          | 35 preflight regressions, actionlint, real publisher checksum/signature pass; fresh MCPB pending                             |
-| C13 Diagnostic privacy   | Malformed provider replies and JSON parser error excerpts never enter logs; retain safe failure metadata                   | Metadata-only diagnostics implemented; real logger and AI caller regressions under validation                                |
+| Finding                  | Acceptance                                                                                                                 | Owner / status                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| C1 RTF integrity         | Styled edits retain valid group/control structure; unsafe mappings disclose regeneration; independent boundary regressions | Integrated; styled/Unicode/binary boundary regressions pass                                                          |
+| C2 Snapshot containment  | Content/index/directory reads reuse guarded bounded source I/O; links, special files and growth fail safely                | Integrated; symlink/junction, special-file and enumeration boundary regressions pass                                 |
+| C3 Binder admission/CAS  | Native guard precedes mutation; expected revision belongs to immutable admitted content; overlapping saves conflict        | Guard/CAS/compound creation integrated; fault/recovery tests pass, legacy parent-race fixtures adapted to atomic CAS |
+| C4 Queue isolation       | Canonical project identity/path scope, owner-validated envelopes and IDs; real two-project Redis proof                     | Integrated; real Redis/SQLite isolation, restart, envelope rejection and cleanup pass                                |
+| C5 Text exports          | Public Markdown/HTML contain actual ordered saved manuscript prose; JSON coverage explicit                                 | Integrated; ordered full-body exports, local standard compilation and failed-read rejection pass                     |
+| C6 Analysis cache        | Context/position identity preserves warm/fresh equivalence, with bounded caching                                           | Integrated; equal-length/shared-prefix/position regressions pass                                                     |
+| C7 Equivalent interfaces | Search scope, async continuity, scheduling and retrievable large results have explicit consistent contracts                | Integrated; canonical queued evidence/stale rejection, UTF-8 paging and installed MCP checks pass                    |
+| C8 Publication recovery  | Export intent binds source revisions/output digest; interrupted retries do not overwrite changed artifacts                 | Same-journal publication integrated; interruption, changed-source/output, owner and path tests pass                  |
+| C9 Retrieval fusion      | Zero semantic evidence cannot outrank a genuine literal hit before truncation                                              | Integrated; real fallback zero/opposite/positive relevance regressions pass                                          |
+| C10 Resource behavior    | Bounded appearance/history results; avoid quadratic source acquisition while retaining freshness                           | SQL-projected cursors, 101-match cap, linear source-acquisition fixtures, browser and installed MCP checks pass      |
+| C11 API contracts        | Validate complete published input schemas before effects; correct protocol/discovery/unavailable results                   | Direct schemas and real source MCP protocol pass; honest generation tests pass                                       |
+| C12 Release verification | Patched runtime, exact source/version/gate identity and pinned verified publisher                                          | 35 preflight regressions, actionlint, real publisher signature, fresh MCPB and packed launch pass                    |
+| C13 Diagnostic privacy   | Malformed provider replies and JSON parser error excerpts never enter logs; retain safe failure metadata                   | Metadata-only diagnostics implemented; real logger and AI caller regressions pass                                    |
 
 Shared contracts: one `MutationCoordinator` journal and guarded saved reader; one existing
 `PersistentStore` and validated `identity/project` UUID for source and queues; existing source
@@ -571,3 +572,28 @@ bounded semantic test, not a startup performance benchmark. Malformed model JSON
 retain only response length and the failure category; response previews and parser messages that may
 quote private text are excluded. A stopped pre-fix bundle is not release evidence; packaging
 restarts from current source.
+
+Final local evidence (Node 24.22.2) is retained in `logs/audit-remediation-20261029/`:
+
+| Gate                                   | Result                                                                                                                      | Evidence                                         |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Formatting, lint, TypeScript and build | Pass; zero lint warnings                                                                                                    | `post-privacy-results.json`                      |
+| Complete suite and resource cleanup    | 114 suites, 1,534 tests pass; nine live tests skipped; no detected open handles                                             | `candidate-tests.log`                            |
+| Privacy change and AI callers          | Seven suites, 101 tests pass; six opt-in live tests skipped                                                                 | `post-privacy-privacy.log`                       |
+| Tool registry and output contracts     | 80 tools, zero duplicate names; all metadata complete; 32 output checks pass                                                | `candidate-registry.log`, `candidate-output.log` |
+| HMS and runtime policy                 | Native/fallback restart checks pass at HMS 0.6.4; patched runtime requirements agree                                        | `final-hms.log`, `final-runtime.log`             |
+| Native C2PA compatibility              | 48 format fixtures pass, 25 embedded and 37 detached roundtrips, compressed PNG validation and negative/trust checks        | `final-c2pa-evidence.json`                       |
+| Real Redis project isolation           | 15 checks pass with Redis 8.10.2, BullMQ 6.5.1 and ioredis 6.0.0                                                            | `final-redis.log`                                |
+| Fresh consumer installation            | All 23 CLI, native-library, actual MCP, Apps, Unicode, review, export and restart checks pass                               | `candidate-installed-smoke.log`                  |
+| Fresh Mac extension                    | 21 staged checks, schema validation, packing and actual archived startup pass                                               | `candidate-mcpb.log`                             |
+| Release artifact preflight             | Actual MCPB checksum, bounded archive/metadata and version checks pass; temporary registry stamping leaves source unchanged | `candidate-artifact-preflight.json`              |
+| Browser and EPUB                       | Dashboard navigation/review/paging exercise passes; four EPUBCheck 5.4.0 cases pass                                         | `dashboard-retest.log`, `candidate-epub.log`     |
+| Dependency and hosted alerts           | Zero npm vulnerabilities; zero open GitHub code-scanning or Dependabot alerts when checked                                  | `final-audit.json`; GitHub alert APIs            |
+
+The extension was built at `build/audit-remediation-20261029/mcpb-artifacts/`. No npm package,
+release tag, deployment or C2PA application was published. Formal conformance and assurance status
+remain unassessed. Synthetic signing certificates establish local test behavior only. Native
+Scrivener GUI acceptance, unsaved-buffer access, broad semantic relevance, large-project latency and
+native-memory benchmarks are not established by these checks. The privacy fix followed the full
+local suite and received the focused caller checks above; protected CI runs the complete final
+source again before integration.
