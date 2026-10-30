@@ -27,6 +27,14 @@ fixtures, 1,138 tests and 17 fresh-package/MCP checks. The staged Mac bundle sep
 [The retained native snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) is local evidence;
 Windows/Linux results are supplied by the matching CI jobs, not inferred from the Mac result.
 
+The C2PA remediation candidate now uses one source-built Rust/WASM engine for Builder, Reader and
+assessment crJSON. Its
+[new local compatibility evidence](compatibility/c2pa-0.14.0-c2pa-rs-0.91.7-macos-arm64.json) passes
+all 48 fixtures, controlled-clock/trust-role checks, detached-source preservation and encrypted-key
+migration. The complete local gate has 1,628 passing tests and 23 installed-package/MCP checks under
+Node 24.22.2. The previous snapshot above is retained as historical evidence. See
+[C2PA readiness](conformance/readiness.md) for formal-assessment boundaries and exact-candidate CI.
+
 The Node 22.13 and 26.8.1 observations below are historical. They do not establish current runtime
 support or verify the new CAI native SDK. The Node 22.13 results used SQLite driver 12.
 

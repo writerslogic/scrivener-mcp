@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, randomBytes } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join, resolve } from 'node:path';
@@ -23,12 +25,14 @@ for (let index = 2; index < process.argv.length; index += 2) {
 	options[process.argv[index]] = resolve(process.argv[index + 1]);
 }
 const fixtureRoot = options['--fixtures'] ?? join(ROOT, 'tests/fixtures/c2pa');
+const execute = promisify(execFile);
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const envNames = [
 	'SCRIVENER_C2PA_CERT_PATH',
 	'SCRIVENER_C2PA_KEY_PATH',
 	'SCRIVENER_C2PA_KEY_PASSWORD',
 	'SCRIVENER_C2PA_TRUST_ANCHORS_PATH',
+	'SCRIVENER_C2PA_TSA_TRUST_ANCHORS_PATH',
 	'SCRIVENER_LOCAL_ONLY',
 	'SCRIVENER_DISABLE_KEY_DISCOVERY',
 	'SCRIVENER_DATA_DIR',
@@ -70,6 +74,26 @@ function trusted(validation) {
 	assert.equal(validation.trust, 'trusted');
 	assert.equal(validation.trustPolicy, 'configured-roots');
 }
+function manifestRequirements(validation) {
+	assert.ok(
+		validation.crjson && Array.isArray(validation.crjson.manifests),
+		'Product crJSON is absent'
+	);
+	const manifest = validation.report?.manifests?.[validation.activeManifest];
+	const claim = validation.crjson.manifests[0]['claim.v2'];
+	assert.ok(
+		claim.created_assertions.some((entry) => entry.url.endsWith('c2pa.actions.v2')),
+		'Inception actions must be attributed to the created assertion list'
+	);
+	assert.ok(
+		manifest?.claim_generator_info?.some(
+			(item) => item.name === 'scrivener-mcp' && item.specVersion === '2.4'
+		)
+	);
+	const actions = manifest.assertions.filter((item) => /^c2pa.actions/u.test(item.label));
+	assert.ok(actions.length > 0 && actions.every((item) => item.data.allActionsIncluded === true));
+}
+
 function untrusted(validation, policy) {
 	assert.equal(validation.state, 'untrusted');
 	assert.equal(validation.integrity, 'valid');
@@ -307,6 +331,142 @@ try {
 		'unrelated-root-untrusted',
 		'configured-test-root-trusted'
 	);
+	phase = 'assessment-clock-and-trust-roles';
+	const assessment = {
+		trustAnchorsPath: signer.trustAnchorsPath,
+		timestampTrustAnchorsPath: otherSigner.trustAnchorsPath,
+		validationTime: new Date().toISOString(),
+	};
+	phase = 'clock-current';
+	const current = await validateCredentialAsset(
+		{ assetPath: trustImage, includeCrjson: true },
+		assessment
+	);
+	trusted(current);
+	manifestRequirements(current);
+	phase = 'clock-expired';
+	const future = await validateCredentialAsset(
+		{ assetPath: trustImage, includeCrjson: true },
+		{ ...assessment, validationTime: '2099-01-01T00:00:00Z' }
+	);
+	assert.equal(future.state, 'invalid', 'Expired signer accepted by assessment clock');
+	phase = 'clock-before-validity';
+	const before = await validateCredentialAsset(
+		{ assetPath: trustImage },
+		{ ...assessment, validationTime: '2000-01-01T00:00:00Z' }
+	);
+	assert.equal(before.state, 'invalid', 'Not-yet-valid signer accepted');
+	phase = 'trust-root-role';
+	const wrongRole = await validateCredentialAsset(
+		{ assetPath: trustImage },
+		{
+			...assessment,
+			trustAnchorsPath: otherSigner.trustAnchorsPath,
+			timestampTrustAnchorsPath: signer.trustAnchorsPath,
+		}
+	);
+	assert.notEqual(wrongRole.trust, 'trusted', 'Timestamp root incorrectly trusted a manifest');
+	phase = 'assessment-cli-output';
+	const cli = await execute(
+		process.execPath,
+		[
+			join(ROOT, 'dist/cli/content-credentials.js'),
+			'validate',
+			'--asset',
+			trustImage,
+			'--trust-list',
+			assessment.trustAnchorsPath,
+			'--tsa-trust-list',
+			assessment.timestampTrustAnchorsPath,
+			'--time',
+			assessment.validationTime,
+		],
+		{ timeout: 30000, maxBuffer: 8 * 1024 * 1024 }
+	);
+	assert.deepEqual(
+		JSON.parse(cli.stdout),
+		current.crjson,
+		'Assessment CLI differs from product crJSON'
+	);
+	phase = 'key-profile';
+	const keyInspection = await execute(
+		process.execPath,
+		[
+			join(ROOT, 'dist/cli/content-credentials.js'),
+			'inspect-key',
+			'--key',
+			signer.privateKeyPath,
+		],
+		{ timeout: 15000 }
+	);
+	assert.equal(JSON.parse(keyInspection.stdout).profile.iterations, 600000);
+	phase = 'key-migration';
+	const oldPassword = 'Disposable legacy import test password';
+	const replacementPassword = randomBytes(32).toString('base64url');
+	const originalKey = createPrivateKey({
+		key: await readFile(signer.privateKeyPath),
+		format: 'pem',
+		type: 'pkcs8',
+		passphrase: signer.password,
+	});
+	const legacyKey = join(workspace, 'signer', 'legacy-key.pem');
+	await writeFile(
+		legacyKey,
+		originalKey.export({
+			format: 'pem',
+			type: 'pkcs8',
+			cipher: 'aes-256-cbc',
+			passphrase: oldPassword,
+		}),
+		{ flag: 'wx', mode: 0o600 }
+	);
+	const migratedKey = join(workspace, 'signer', 'migrated-key.pem');
+	const migrated = await execute(
+		process.execPath,
+		[
+			join(ROOT, 'dist/cli/content-credentials.js'),
+			'reencrypt-key',
+			'--key',
+			legacyKey,
+			'--out',
+			migratedKey,
+		],
+		{
+			timeout: 30000,
+			env: {
+				...process.env,
+				SCRIVENER_C2PA_OLD_KEY_PASSWORD: oldPassword,
+				SCRIVENER_C2PA_KEY_PASSWORD: replacementPassword,
+			},
+		}
+	);
+	assert.equal(
+		JSON.parse(migrated.stdout).publicKeySha256,
+		hash(createPublicKey(originalKey).export({ format: 'der', type: 'spki' }))
+	);
+	const priorKey = process.env.SCRIVENER_C2PA_KEY_PATH;
+	process.env.SCRIVENER_C2PA_KEY_PATH = migratedKey;
+	process.env.SCRIVENER_C2PA_KEY_PASSWORD = replacementPassword;
+	try {
+		trusted(
+			(
+				await signCredentialAsset({
+					assetPath: imagePath,
+					outputPath: join(workspace, 'migrated-key.png'),
+				})
+			).validation
+		);
+	} finally {
+		process.env.SCRIVENER_C2PA_KEY_PATH = priorKey;
+		process.env.SCRIVENER_C2PA_KEY_PASSWORD = signer.password;
+	}
+	evidence.checks.push('administrator-key-migration-preserves-certificate-and-signing-identity');
+	evidence.checks.push(
+		'supplied-validation-time-enforced',
+		'signing-and-timestamp-trust-separated',
+		'assessment-cli-genuine-product-crjson',
+		'encrypted-key-profile-inspected'
+	);
 	phase = 'concurrent-exclusive-publication';
 	const racePath = join(workspace, 'concurrent.png');
 	const race = await Promise.allSettled(
@@ -392,10 +552,41 @@ try {
 						assetPath,
 						mimeType: format.mimeType,
 						manifestPath: sidecarPath,
+						includeCrjson: true,
 					});
 					trusted(validation);
 					assert.equal(validation.sourceRevision, fixture.sha256);
+					manifestRequirements(validation);
 					row.sidecar = { status: 'roundtrip', ...summary(validation) };
+					if (fixture.file === image.file) {
+						stage = 'detached-source-ingestion';
+						const next = await signCredentialAsset({
+							assetPath,
+							sourceManifestPath: sidecarPath,
+							outputPath: join(workspace, 'signed', 'second-image.c2pa'),
+							mode: 'sidecar',
+							mimeType: format.mimeType,
+						});
+						trusted(next.validation);
+						assert.equal(
+							next.sourceManifestRevision,
+							hash(await readFile(sidecarPath))
+						);
+						assert.ok(
+							next.validation.report.manifests[validation.activeManifest],
+							'Detached source history disappeared'
+						);
+						const parent =
+							next.validation.report.manifests[next.validation.activeManifest];
+						assert.ok(
+							parent.ingredients.some(
+								(item) =>
+									item.active_manifest === validation.activeManifest &&
+									item.relationship === 'parentOf'
+							)
+						);
+						evidence.checks.push('detached-source-history-and-parent-link-preserved');
+					}
 					if (fixture.file === image.file) {
 						stage = 'compressed-manifest-validation';
 						const compressed = compressedTestManifest(await readFile(sidecarPath));
@@ -459,6 +650,7 @@ try {
 						assetPath: tamperedPath,
 						mimeType: format.mimeType,
 						manifestPath: sidecarPath,
+						includeCrjson: true,
 					});
 				} else {
 					await assert.rejects(
@@ -496,9 +688,11 @@ try {
 					const validation = await validateCredentialAsset({
 						assetPath: embeddedPath,
 						mimeType: format.mimeType,
+						includeCrjson: true,
 					});
 					trusted(validation);
 					assert.equal(validation.sourceRevision, hash(await readFile(embeddedPath)));
+					manifestRequirements(validation);
 					row.embedded = { status: 'roundtrip', ...summary(validation) };
 					if (format.preparation === 'zip-store') {
 						stage = 'signed-archive-preserves-source-parts';

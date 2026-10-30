@@ -26,6 +26,8 @@ const signInput = z
 		mimeType: mimeType.optional(),
 		mode: z.enum(['embedded', 'sidecar']).default('embedded'),
 		title: z.string().max(500).optional(),
+		sourceManifestPath: localPath.optional(),
+		preserveInvalidSource: z.boolean().optional(),
 		includeReport: reportInput,
 	})
 	.strict()
@@ -38,6 +40,7 @@ const validateInput = z
 		assetPath: localPath,
 		mimeType: mimeType.optional(),
 		manifestPath: localPath.optional(),
+		includeCrjson: z.boolean().optional(),
 		includeReport: reportInput,
 	})
 	.strict();
@@ -60,6 +63,11 @@ const reportProperty = {
 	default: false,
 	description: 'Include the potentially large raw SDK validation report; default false.',
 };
+const crjsonProperty = {
+	type: 'boolean',
+	default: false,
+	description: 'Include genuine SDK crJSON; potentially large and omitted by default.',
+};
 const validationProperties: ToolSchema['properties'] = {
 	state: {
 		type: 'string',
@@ -71,6 +79,12 @@ const validationProperties: ToolSchema['properties'] = {
 		type: 'string',
 		enum: ['valid', 'invalid', 'not-evaluated'],
 		description: 'Whether the asset and credential signature passed integrity checks.',
+	},
+	activeIntegrity: {
+		type: 'string',
+		enum: ['valid', 'invalid', 'not-evaluated'],
+		description:
+			'Integrity of the active manifest alone; historical ingredient failures remain in the overall result.',
 	},
 	trust: {
 		type: 'string',
@@ -91,10 +105,30 @@ const validationProperties: ToolSchema['properties'] = {
 		items: { type: 'string', description: 'An SDK validation status code.' },
 		description: 'SDK validation codes supporting the normalized integrity and trust results.',
 	},
+	sourceValidationCodes: {
+		type: 'array',
+		maxItems: 1024,
+		items: {
+			type: 'string',
+			description: 'A source validation code recorded in the signed failure disclosure.',
+		},
+		description:
+			'Recorded source failures and evidence, distinct from current-manifest validation. A valid new signature does not repair the source history.',
+	},
 	report: {
 		type: ['object', 'null'],
 		additionalProperties: true,
 		description: 'Raw SDK report, returned only when includeReport is explicitly true.',
+	},
+	crjson: {
+		type: 'object',
+		additionalProperties: true,
+		description: 'Actual SDK crJSON, returned only when includeCrjson is explicitly true.',
+	},
+	validationTime: {
+		type: 'string',
+		maxLength: 64,
+		description: 'Administrator assessment time, when a privileged assessment policy was used.',
 	},
 };
 const validationRequired = ['state', 'integrity', 'trust', 'trustPolicy', 'validationCodes'];
@@ -118,10 +152,18 @@ const revisionProperties = {
 
 function validationResult<T extends CredentialValidation>(
 	result: T,
-	includeReport: boolean
-): Omit<T, 'report'> & { report?: CredentialValidation['report'] } {
-	const { report, ...summary } = result;
-	return includeReport ? { ...summary, report } : summary;
+	includeReport: boolean,
+	includeCrjson = false
+): Omit<T, 'report' | 'crjson'> & {
+	report?: CredentialValidation['report'];
+	crjson?: Record<string, unknown>;
+} {
+	const { report, crjson, ...summary } = result;
+	return {
+		...summary,
+		...(includeReport ? { report } : {}),
+		...(includeCrjson && crjson ? { crjson } : {}),
+	};
 }
 
 const capabilitiesOutput: ToolSchema = {
@@ -343,6 +385,17 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 					maxLength: 500,
 					description: 'Optional signed asset title.',
 				},
+				sourceManifestPath: {
+					...pathProperty,
+					description:
+						'Optional detached source manifest to preserve as a parent ingredient.',
+				},
+				preserveInvalidSource: {
+					type: 'boolean',
+					default: false,
+					description:
+						'Explicitly preserve invalid source credentials as an ingredient with signed failure disclosure. The source history is not repaired or declared valid.',
+				},
 				includeReport: reportProperty,
 			},
 			required: ['assetPath', 'outputPath'],
@@ -352,6 +405,10 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 			additionalProperties: false,
 			properties: {
 				...revisionProperties,
+				sourceManifestRevision: {
+					...revisionProperties.sourceRevision,
+					description: 'SHA-256 revision of the detached source manifest, when supplied.',
+				},
 				outputPath: { ...pathProperty, description: 'Created credential output path.' },
 				mode: {
 					type: 'string',
@@ -364,6 +421,16 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 					description: 'Number of output bytes written.',
 				},
 				validation: validationSchema,
+				sourceValidation: {
+					...validationSchema,
+					properties: Object.fromEntries(
+						Object.entries(validationProperties).filter(
+							([name]) => !['report', 'crjson', 'validationTime'].includes(name)
+						)
+					),
+					description:
+						'Original source validation, including preserved failures when explicitly requested.',
+				},
 			},
 			required: [
 				'assetPath',
@@ -383,7 +450,7 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: `Created ${result.mode} Content Credentials output. Integrity: ${result.validation.integrity}; trust: ${result.validation.trust}. A signature does not establish human authorship.`,
+						text: `Created ${result.mode} Content Credentials output. Integrity: ${result.validation.integrity}; trust: ${result.validation.trust}.${result.sourceValidation?.state === 'invalid' ? ' Invalid source history was preserved with a signed disclosure; it remains invalid.' : ''} A signature does not establish human authorship.`,
 					},
 				],
 				structuredContent: {
@@ -414,6 +481,7 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 					...pathProperty,
 					description: 'Optional absolute path to a detached credential manifest.',
 				},
+				includeCrjson: crjsonProperty,
 				includeReport: reportProperty,
 			},
 			required: ['assetPath'],
@@ -437,10 +505,12 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 				content: [
 					{
 						type: 'text',
-						text: `Content Credentials: ${result.state}. Integrity: ${result.integrity}; trust: ${result.trust} (${result.trustPolicy}). Validation does not establish human authorship.`,
+						text: `Content Credentials: ${result.state}. Integrity: ${result.integrity}; trust: ${result.trust} (${result.trustPolicy}).${result.sourceValidationCodes?.length ? ' The signed record discloses invalid source history; the new signature does not repair it.' : ''} Validation does not establish human authorship.`,
 					},
 				],
-				structuredContent: { ...validationResult(result, includeReport) },
+				structuredContent: {
+					...validationResult(result, includeReport, request.includeCrjson),
+				},
 			};
 		},
 	},

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "holographicMemory": [
+    {
+      "file": "holographic-memory-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-0.6.4.tgz.cdx.json",
+      "sha256": "6dd7c76c61c276858f57330e3de78a62a0f57fd4378e6e0f6bd3dd4e8bd43644"
+    },
+    {
+      "file": "holographic-memory-darwin-arm64-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-darwin-arm64-0.6.4.tgz.cdx.json",
+      "sha256": "2e8f274c6983ac31336b7b9ef854f473d4f8bdd04fc2580123b10cfbc7d32efa"
+    },
+    {
+      "file": "holographic-memory-darwin-x64-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-darwin-x64-0.6.4.tgz.cdx.json",
+      "sha256": "c1acf0635bd0029be100b9c2f47b76335ca6af1dffe420efd950487af4cd37f9"
+    },
+    {
+      "file": "holographic-memory-linux-arm64-gnu-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-linux-arm64-gnu-0.6.4.tgz.cdx.json",
+      "sha256": "323297a9fcb32476ec4b763351c2f45159b7353e0cdd5958487e1c87e274243a"
+    },
+    {
+      "file": "holographic-memory-linux-arm64-musl-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-linux-arm64-musl-0.6.4.tgz.cdx.json",
+      "sha256": "dea14205c91d55b6829eac8dc8f2c154c7cbffea9125d2e13a84f9003d5b1db2"
+    },
+    {
+      "file": "holographic-memory-linux-x64-gnu-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-linux-x64-gnu-0.6.4.tgz.cdx.json",
+      "sha256": "7f14bfc04b7d96bbec899a68199d44428231d5768d1ccefe01100b416e261b97"
+    },
+    {
+      "file": "holographic-memory-linux-x64-musl-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-linux-x64-musl-0.6.4.tgz.cdx.json",
+      "sha256": "2a4f61cfb01448072000d61a62688ef7347e3f53d187eb66a13f91dc20c029c9"
+    },
+    {
+      "file": "holographic-memory-win32-arm64-msvc-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-win32-arm64-msvc-0.6.4.tgz.cdx.json",
+      "sha256": "aa2ce52b7ccd321339434f024fca48de6496ac044dd38c3a8f36b8ec4f197057"
+    },
+    {
+      "file": "holographic-memory-win32-x64-msvc-0.6.4.tgz.cdx.json",
+      "url": "https://github.com/writerslogic/holographic-memory/releases/download/v0.6.4/holographic-memory-win32-x64-msvc-0.6.4.tgz.cdx.json",
+      "sha256": "b5be73691e8b35b5436cb1f6aa58ecec5c44828377d97cb9e1a6c985caab3b89"
+    }
+  ],
+  "sourceAssociation": {
+    "narrative-lens": {
+      "version": "0.2.0",
+      "commit": "930939f2ed35877ed5cfb46accec88205916078e",
+      "basis": "npm native package SLSA provenance",
+      "file": "narrative-lens/Cargo.lock",
+      "sha256": "411b253ae746f806ec65bd750a6e144667078c85f9f502687b4f66c86e552a9a"
+    },
+    "bluepencil": {
+      "version": "0.2.0",
+      "commit": "5638bf2c6b3f29f35f0473bbbe1b1c8d17b83082",
+      "basis": "npm registry gitHead",
+      "file": "bluepencil/Cargo.lock",
+      "sha256": "ecc6d03b039f7e563fcae5c58a388f8ff697254f48c5db773578e8ff0c9fd0b8"
+    }
+  }
+}

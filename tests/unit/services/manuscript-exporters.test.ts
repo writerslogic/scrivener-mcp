@@ -13,6 +13,7 @@ import {
 	type ExportSection,
 	type ExportMeta,
 } from '../../../src/services/export/manuscript-exporters.js';
+import JSZip from 'jszip';
 
 const META: ExportMeta = { title: 'The Test Manuscript', author: 'A. Writer' };
 
@@ -51,6 +52,22 @@ describe('manuscript binary exporters', () => {
 		const buf = await toEpub(SECTIONS, META);
 		expect(buf.length).toBeGreaterThan(0);
 		expect(buf.subarray(0, 4)).toEqual(ZIP_MAGIC);
+	});
+
+	it('treats template syntax in manuscript and metadata as text, with no user-supplied EJS options', async () => {
+		const payload = '<%= (() => { throw new Error("must not execute"); })() %>';
+		const archive = await JSZip.loadAsync(
+			await toEpub(
+				[{ title: payload, text: payload, depth: 0, isFolder: false, notes: [payload] }],
+				{ title: payload, author: payload }
+			)
+		);
+		const pages = await Promise.all(
+			Object.values(archive.files)
+				.filter((file) => /\.xhtml$/u.test(file.name))
+				.map((file) => file.async('string'))
+		);
+		expect(pages.some((page) => page.includes('&lt;%='))).toBe(true);
 	});
 
 	it('toPdf emits a %PDF- buffer and sanitizes non-WinAnsi text', async () => {

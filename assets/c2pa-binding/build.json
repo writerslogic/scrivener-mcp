@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "version": "0.91.7",
+  "target": "wasm32-unknown-unknown",
+  "compiler": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "packer": "wasm-pack 0.14.0",
+  "maximumMemoryBytes": 1073741824,
+  "flags": [
+    "remap project/cargo/sysroot paths",
+    "max-memory=1073741824"
+  ],
+  "artifacts": [
+    {
+      "file": "binding_bg.wasm",
+      "bytes": 8815939,
+      "sha256": "5382ea009984c2641c4bbd4cb9df4cf29cd919d44704e954f7f3ad89c965655c"
+    },
+    {
+      "file": "binding_bg.wasm.d.ts",
+      "bytes": 1382,
+      "sha256": "38eba6e3c59e6114d25dfe2d939f139d55b2595eb4ab9aa625a86f964a539b51"
+    },
+    {
+      "file": "binding.d.ts",
+      "bytes": 2886,
+      "sha256": "fc172d420c729ce2eb3db00b3d3d63b80d8265d2b5b51f5b074eeef09a885f44"
+    },
+    {
+      "file": "binding.js",
+      "bytes": 17726,
+      "sha256": "b4fa16102cfbaf1c37f2788a7566cf802dbcb527c80f230645ea085abf0fa201"
+    },
+    {
+      "file": "package.json",
+      "bytes": 33,
+      "sha256": "89c47db7851f89caec72da4f215ebc21cf1e294aeef3b45d2583562d846ab035"
+    }
+  ],
+  "sources": [
+    {
+      "file": "native/c2pa-binding/Cargo.toml",
+      "bytes": 786,
+      "sha256": "2ac1e595a3230e9018de350aeded1021d5d49d8f8a2b8c7e428fd1480dfb4f6a"
+    },
+    {
+      "file": "native/c2pa-binding/Cargo.lock",
+      "bytes": 86465,
+      "sha256": "f2007802edb8f19c79407a4ca0aa0a074078abd1325597aa004feeb22b698a19"
+    },
+    {
+      "file": "native/c2pa-binding/src/lib.rs",
+      "bytes": 8392,
+      "sha256": "80c51cea3828395aec8489defdb1291c1c35bde3771a4d8af46c992f3457abab"
+    },
+    {
+      "file": "native/c2pa-binding/c2pa-0.91.7.crate",
+      "bytes": 6972751,
+      "sha256": "f258d5bfe6465d1a5c570d32b70a261f35e4e45a753e7122a88d3ba0472999b0"
+    },
+    {
+      "file": "native/c2pa-binding/sdk-patches.json",
+      "bytes": 2270,
+      "sha256": "252564c81aef6109122e5449ad4c049650808ecfdb781d8cff7d1c7e736e9f44"
+    },
+    {
+      "file": "scripts/build-c2pa-binding.mjs",
+      "bytes": 4822,
+      "sha256": "95ef5163435cec4e354adb2a95ad6b2c9a6cfb995a6076ce6f13c1f60d97c4f4"
+    }
+  ]
+}

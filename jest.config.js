@@ -11,6 +11,10 @@ export default {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
 	},
 	transform: {
+		[/^.+[\\/]node_modules[\\/](?:asn1js|@peculiar[\\/]utils)[\\/].+\.js$/.source]: [
+			'ts-jest',
+			{ tsconfig: { allowJs: true, module: 'commonjs', target: 'es2022' }, useESM: false },
+		],
 		'^.+\\.cts$': [
 			'ts-jest',
 			{ tsconfig: { module: 'commonjs', target: 'es2022' }, useESM: false },
@@ -29,7 +33,7 @@ export default {
 		],
 	},
 	transformIgnorePatterns: [
-		'/node_modules/(?!(@modelcontextprotocol|chalk|cheerio|syllable|turndown|compromise|compromise-dates|compromise-numbers|compromise-adjectives)/)',
+		'/node_modules/(?!(@modelcontextprotocol|@peculiar/utils|asn1js|chalk|cheerio|syllable|turndown|compromise|compromise-dates|compromise-numbers|compromise-adjectives)/)',
 	],
 	roots: ['<rootDir>/src', '<rootDir>/tests'],
 	testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],

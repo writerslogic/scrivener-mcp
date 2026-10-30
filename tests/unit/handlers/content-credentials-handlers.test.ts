@@ -160,23 +160,28 @@ describe('content credentials tool boundaries', () => {
 		}
 	);
 
-	it.each(['certificatePath', 'privateKeyPath', 'password', 'trustAnchorsPath', 'url'])(
-		'rejects caller-controlled %s without exposing its value',
-		async (key) => {
-			const secret = 'secret-value-that-must-not-appear';
-			for (const [name, args] of [
-				['c2pa_capabilities', {}],
-				['sign_content_credentials', { assetPath, outputPath }],
-				['validate_content_credentials', { assetPath }],
-			] as const) {
-				const error: unknown = await tool(name)
-					.handler({ ...args, [key]: secret }, context)
-					.catch((failure: unknown) => failure);
-				expect(error).toBeInstanceOf(ZodError);
-				expect(String(error)).not.toContain(secret);
-			}
+	it.each([
+		'certificatePath',
+		'privateKeyPath',
+		'password',
+		'trustAnchorsPath',
+		'timestampTrustAnchorsPath',
+		'validationTime',
+		'url',
+	])('rejects caller-controlled %s without exposing its value', async (key) => {
+		const secret = 'secret-value-that-must-not-appear';
+		for (const [name, args] of [
+			['c2pa_capabilities', {}],
+			['sign_content_credentials', { assetPath, outputPath }],
+			['validate_content_credentials', { assetPath }],
+		] as const) {
+			const error: unknown = await tool(name)
+				.handler({ ...args, [key]: secret }, context)
+				.catch((failure: unknown) => failure);
+			expect(error).toBeInstanceOf(ZodError);
+			expect(String(error)).not.toContain(secret);
 		}
-	);
+	});
 
 	it.each([
 		{ assetPath: 'relative.jpg', outputPath },

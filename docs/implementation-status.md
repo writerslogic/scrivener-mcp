@@ -645,3 +645,102 @@ The diagnostics follow-up passes formatting, strict zero-warning lint, types/bui
 creation/logger checks (`diagnostics-final-gates.json`). Extension CI now covers all runtime source,
 shipped assets/vendor code, scripts and package/build metadata rather than only `src/index.ts`; its
 Node setup checks the latest patched release. Actionlint passes for the touched workflow.
+
+## C2PA application preparation: 29 October 2026
+
+Preparation is for the public scrivener-mcp 0.14.0 at source
+`9b673e010a7e3250b0e7ad9b2b75fdb37346cda7`. Production code and dependencies are unchanged. The
+[readiness assessment](conformance/readiness.md) is the canonical account of the application gates;
+the [GPSA](conformance/GPSA-scrivener-mcp.md) follows every section of the official v0.2
+architecture template and explicitly distinguishes AL1's target from an awarded assurance level.
+
+The private local packet is at `build/c2pa-preflight-20261029/packet/`. It contains populated
+applicant details, 35 signed format examples with inputs and sidecars, the administrator's six
+official source ingredients, native reports, independent c2patool crJSON, official rubric results,
+source/native hashes, a 325-component CycloneDX npm SBOM, a zero-vulnerability npm audit and five
+passing isolated key-rotation/plaintext-rejection checks. Test signing keys were deleted; public
+test certificates are explicitly untrusted and the leaf validity is 24 hours. Official sample media
+and private applicant details are not committed or published.
+
+The format examples pass all 35 registered-handler roundtrips. c2patool 0.26.68 exports crJSON for
+27 of them; its installed build does not support the eight tested embedded Office/ODF/EPUB types.
+The C2PA public 0.2/specification 2.4 rubric runs on those 27 samples plus the successful MP3
+ingredient example: 28 reports, zero evaluator errors, 28 passing traits and three failed traits per
+report. The failures confirm absent `claim_generator_info.specVersion` and absent action
+`allActionsIncluded` metadata. The eight independently unassessed formats are not treated as passing
+the rubric.
+
+Additional open gates are the product's missing crJSON/separate signing-and-TSA Trust Lists/time
+assessment harness, incomplete ingredient evidence and native/NVD vulnerability coverage, and
+deployment-specific key-protection evidence. Only one of six official-library ingredients completed
+signing under synthetic test roots; the other source failures do not prove defective official media.
+A complete official-list follow-up fails the existing PEM-only/32-certificate configuration parser.
+No failed check was weakened or relabeled as formal conformance.
+
+Evidence and preparation scripts are under `build/c2pa-preflight-20261029/`; concise run logs are
+`logs/c2pa-preflight-20261029-*.log`. The archive is deliberately labeled **NOT-SUBMISSION-READY**.
+The administrator's assessment, approval, Notice of Conformance and CA issuance remain external. No
+application, email, external upload, purchase, release or deployment was performed.
+
+The final private archive, `build/c2pa-preflight-20261029/GPSA-scrivener-mcp-0.14.0-readiness.zip`,
+contains 253 files. All 252 payload hashes, ZIP CRCs, sample/source mappings and all 30 template
+section identifiers pass the packaging checks; no private key or credential-bearing URL is present.
+The archive SHA-256 is `eb5d24338fd54182c311f02881f8d036913374481bbe79bfd66b0a837abe226c`. Evidence:
+`logs/c2pa-preflight-20261029-verification.json`. Touched documentation formatting, local links and
+script syntax pass. These artifact checks do not turn the failed conformance rubric into a passing
+product result.
+
+## C2PA readiness remediation: 30 October 2026
+
+Canonical acceptance: [C2PA-01 through C2PA-06](conformance/readiness.md). The failing 29 October
+packet remains unchanged. Current evidence is under `build/c2pa-remediation-20261030/packet/` and
+`logs/c2pa-remediation-*`. Final archive and candidate revision will be recorded after packaging.
+
+One source-built c2pa-rs 0.91.7 WASM binding now serves Builder, Reader and genuine crJSON through
+the existing domain service and one-request workers. Node's established signing callback retains
+private keys outside WASM. The former Node SDK is removed, with runtime security floors unchanged.
+An exact upstream crate archive and locked graph are shipped; a small before/after-hashed SDK patch
+restricts signing and timestamp policies to their respective trust-anchor purposes. Generated engine
+artifacts and all six source inputs are verified at build/package time. The source-reader shortcut
+was replaced with a proper SDK Ingredient carrying the source manifest and actual validation
+results, so detached history survives. New actions are correctly attributed to created assertions.
+
+Local acceptance evidence:
+
+- 41 actual product CLI crJSON reports (35 signed-source MIME choices plus six supplied ingredients)
+  pass all 31 pinned program 0.2/specification 2.4 rubric traits, with zero evaluator errors.
+- All 48 redistributable format fixtures pass their applicable roundtrips, tamper and preservation
+  checks. Cross-role signing/TSA roots are rejected, supplied before-validity/future clocks fail,
+  the CLI agrees with service crJSON, and four reference assets validate expired signing
+  certificates using trusted timestamps. Invalid historical PNG credentials are rejected by default
+  and explicitly preserved with signed disclosures when requested; later summaries retain them.
+- Key policy enforces PBES2/AES256/PBKDF2-SHA256 (600k–2m iterations, 16–64 salt bytes), ownership
+  or Windows ACLs, private publication, strong key generation and identity-preserving migration.
+- Verified Syft 1.55.0 / Grype 0.121.0 produce and scan five inventories: npm, core Rust, editorial
+  native source associations, all eight upstream HMS native SBOMs and the actual runtime. The
+  release gate uses fresh NVD-aware data, unfiltered findings and explicit bounded VEX decisions.
+  Reviewed exceptions concern the fixed Node Brotli issue, historical V8 matching, development-only
+  URI/glob packages and fixed EPUB template control. Other applicable high/critical findings remain
+  blockers. npm registry verification covers 239 signatures and 33 attestations; npm audit reports
+  zero.
+- The complete required local gate passes: formatting, zero-warning lint, types/build, tool
+  registry, output conformance, HMS, 118 Jest suites / 1,628 passing tests (nine existing opt-in
+  skips), npm audit and 23 isolated installation/protocol smoke checks. A subsequent portable-path
+  adjustment to the ASN.1 Jest transformer is checked with POSIX and Windows paths plus its focused
+  crypto suites.
+
+Worker ownership was confined to the SCA verifier, inventory producer and their/provenance tests;
+root inspected and integrated all contributions, owned shared contracts/manifests/CI and ran every
+check. Workers ran no installs, builds, scans or tests. Temporary worktrees/branches are removed.
+Credential filesystem operations also reject UNC/device paths before I/O, including canonical output
+resolution. The CI security job verifies pinned scanner downloads, retains raw evidence and is
+required by the release gate alongside the full platform matrix. Final-candidate Windows/Linux
+results must be checked in the retained CI artifacts for that revision; local measurements do not
+imply platform results.
+
+Remaining external boundaries: the published 2.4 full crJSON schema is an unresolved include, so
+full official-schema validation awaits the administrator's authoritative file; this is separate from
+41 passing official-rubric reports. Product classification/role eligibility, legal/applicant review,
+production deployment key custody and the administrator/approver/CA decisions remain external. No
+formal conformance or assurance is claimed. No application, email, external upload, purchase, npm
+release or deployment has been performed.

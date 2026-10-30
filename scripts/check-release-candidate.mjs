@@ -18,7 +18,7 @@ function requireCondition(condition, message) {
 	if (!condition) throw new Error(message);
 }
 
-async function readReleaseFile(file, maximum) {
+export async function readReleaseFile(file, maximum) {
 	const handle = await fs.open(
 		file,
 		constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
