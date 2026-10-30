@@ -6,6 +6,18 @@ import { promisify } from 'node:util';
 const execute = promisify(execFile);
 let principal: Promise<string> | undefined;
 
+function accessCommandError(error: unknown): Error {
+	const reason =
+		error instanceof SyntaxError
+			? 'invalid-response'
+			: error && typeof error === 'object' && 'killed' in error && error.killed === true
+				? 'timeout'
+				: error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'
+					? 'unavailable'
+					: 'command-failed';
+	return new Error(`SIGNER_KEY_ACCESS_INVALID:${reason}`);
+}
+
 async function powershell(script: string): Promise<unknown> {
 	const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
 	if (!systemRoot || !isAbsolute(systemRoot)) throw new Error('SIGNER_KEY_ACCESS_INVALID');
@@ -21,7 +33,7 @@ async function powershell(script: string): Promise<unknown> {
 				),
 			],
 			{
-				timeout: 5000,
+				timeout: 15000,
 				maxBuffer: 32768,
 				windowsHide: true,
 				env: { SystemRoot: systemRoot, WINDIR: systemRoot },
@@ -29,8 +41,8 @@ async function powershell(script: string): Promise<unknown> {
 		);
 		pending.child.stdin?.end();
 		return JSON.parse((await pending).stdout);
-	} catch {
-		throw new Error('SIGNER_KEY_ACCESS_INVALID');
+	} catch (error) {
+		throw accessCommandError(error);
 	}
 }
 
@@ -77,8 +89,8 @@ export async function makeCredentialDirectoryPrivate(directory: string): Promise
 		);
 		pending.child.stdin?.end();
 		await pending;
-	} catch {
-		throw new Error('SIGNER_KEY_ACCESS_INVALID');
+	} catch (error) {
+		throw accessCommandError(error);
 	}
 }
 
