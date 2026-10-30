@@ -50,18 +50,28 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		{ name: 'tool-contract-regression', version: '1' },
 		{ capabilities: {} }
 	);
+	let protocolError = '';
+	client.onerror = (error) => {
+		protocolError = error.message;
+	};
 	let notifications = 0;
 	client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
 		notifications++;
 	});
-	const call = (name: string, args: Record<string, unknown> = {}) =>
-		client.callTool({ name, arguments: args }, undefined, { timeout: 10000 });
-	const names = async () => (await client.listTools()).tools.map((tool) => tool.name);
+	let phase = 'initialize';
+	const call = (name: string, args: Record<string, unknown> = {}) => {
+		phase = `tools/call ${name}`;
+		return client.callTool({ name, arguments: args }, undefined, { timeout: 10000 });
+	};
+	const names = async () => {
+		phase = 'tools/list';
+		return (await client.listTools()).tools.map((tool) => tool.name);
+	};
 	try {
 		await cp(join(sourceRoot, 'assets', 'sample-project', 'Welcome.scriv'), project, {
 			recursive: true,
 		});
-		await client.connect(transport, { timeout: 15000 });
+		await client.connect(transport, { timeout: 30000 });
 		const initial = await names();
 		expect(initial).toContain('read_result');
 		expect(initial).not.toContain('analyze_document');
@@ -95,7 +105,10 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		expect(notifications).toBe(4);
 		expect((await call('close_project')).isError).not.toBe(true);
 	} catch (error) {
-		throw new Error(`Protocol child failed: ${stderr || 'no stderr'}`, { cause: error });
+		throw new Error(
+			`Protocol child failed during ${phase}: ${stderr || 'no stderr'}; ${protocolError || 'no transport error'}`,
+			{ cause: error }
+		);
 	} finally {
 		try {
 			await client.close();

@@ -191,9 +191,19 @@ export const dashboardHandler: ToolDefinition = {
 				type: 'object',
 				description: 'Independent bounded history cursors; null means complete.',
 				properties: {
-					proposals: { type: ['string', 'null'] },
-					applications: { type: ['string', 'null'] },
-					findings: { type: ['string', 'null'] },
+					proposals: {
+						type: ['string', 'null'],
+						description: 'Next proposal cursor, or null after the last proposal.',
+					},
+					applications: {
+						type: ['string', 'null'],
+						description: 'Next application cursor, or null after the last application.',
+					},
+					findings: {
+						type: ['string', 'null'],
+						description:
+							'Next unresolved finding cursor, or null after the last finding.',
+					},
 				},
 			},
 			pagination: {

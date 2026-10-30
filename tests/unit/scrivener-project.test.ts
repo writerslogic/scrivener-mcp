@@ -237,13 +237,12 @@ describe('ScrivenerProject', () => {
 			expect(result).toBe(mockResult);
 		});
 
-		it('should filter out non-text documents', async () => {
+		it('rejects an explicitly selected non-text document instead of silently omitting it', async () => {
 			const mockDocs = [
 				{ document: { id: 'doc1', title: 'Chapter', type: 'Text' } },
 				{ document: { id: 'folder1', title: 'Folder', type: 'Folder' } },
 			];
 
-			// Mock readDocumentFormatted and getDocumentInfo
 			mockDocumentManager.readDocumentFormatted = jest.fn().mockResolvedValue({
 				plainText: 'Content',
 				formattedText: [],
@@ -255,12 +254,9 @@ describe('ScrivenerProject', () => {
 				.mockResolvedValueOnce(mockDocs[1]);
 			mockCompilationService.compileDocuments = jest.fn().mockResolvedValue('');
 
-			await project.compileDocuments(['doc1', 'folder1']);
-
-			// Check that both are attempted to be read - filtering happens in compilation service
-			expect(mockDocumentManager.readDocumentFormatted).toHaveBeenCalledTimes(2);
-			expect(mockDocumentManager.readDocumentFormatted).toHaveBeenCalledWith('doc1');
-			expect(mockDocumentManager.readDocumentFormatted).toHaveBeenCalledWith('folder1');
+			await expect(project.compileDocuments(['doc1', 'folder1'])).rejects.toThrow(
+				'Compilation requires active text documents'
+			);
 		});
 	});
 

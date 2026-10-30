@@ -221,7 +221,7 @@ limits.
 
 ## All Tools
 
-78 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
+80 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
 startup, document and search tools once a project is open, the rest on demand. Set
 `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
@@ -387,6 +387,7 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 | `queue_document_analysis` | Enqueue an async analysis of one document; returns a job id                                        |
 | `queue_project_analysis`  | Enqueue an async analysis of the whole project                                                     |
 | `get_job_status`          | Poll progress/results for a queued job                                                             |
+| `get_queue_stats`         | Inspect project-scoped queue counts, connectivity and legacy migration guidance                    |
 | `editorial_workflow`      | Run chapter review, continuity audit or beta-reader preparation with durable progress and resuming |
 | `cancel_job`              | Cancel a queued or running job                                                                     |
 

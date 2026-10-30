@@ -21,7 +21,6 @@ const HIDDEN = [
 	'multi_agent_analysis',
 	'store_chapter_order',
 	'sync_to_neo4j',
-	'get_queue_stats',
 ];
 
 process.env.SCRIVENER_MCP_EAGER_TOOLS = '1';

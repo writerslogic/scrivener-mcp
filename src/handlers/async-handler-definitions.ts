@@ -485,11 +485,23 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'get_queue_stats',
-		description: 'Get job queue statistics',
+		title: 'Inspect Project Queues',
+		description:
+			'Inspect background queue counts, backend connectivity and the current project scope. ' +
+			'Reports excluded legacy queues and migration guidance without processing or modifying jobs.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				jobType: { type: 'string' },
+				jobType: {
+					type: 'string',
+					description: 'Optional job type to inspect; omit to report all project queues.',
+				},
 			},
 			required: [],
 		},
@@ -505,11 +517,25 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 					type: 'object',
 					description: 'Backend, project scope, and legacy-queue migration notice.',
 					properties: {
-						type: { type: 'string' },
-						isConnected: { type: 'boolean' },
-						scopeId: { type: 'string' },
-						legacyQueues: { type: 'string', enum: ['excluded'] },
-						migrationNotice: { type: 'string' },
+						type: { type: 'string', description: 'Selected queue backend.' },
+						isConnected: {
+							type: 'boolean',
+							description: 'Whether the selected backend is connected.',
+						},
+						scopeId: {
+							type: 'string',
+							description:
+								'Opaque identity binding queues to this project and location.',
+						},
+						legacyQueues: {
+							type: 'string',
+							enum: ['excluded'],
+							description: 'Unscoped legacy queues remain excluded from execution.',
+						},
+						migrationNotice: {
+							type: 'string',
+							description: 'Guidance for deliberately requeuing legacy work.',
+						},
 					},
 					required: ['type', 'isConnected', 'legacyQueues', 'migrationNotice'],
 				},

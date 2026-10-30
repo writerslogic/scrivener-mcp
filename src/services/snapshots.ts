@@ -135,7 +135,7 @@ export async function parseSnapshotIndex(
 /** List the RTF snapshot files in a directory, sorted chronologically by name. */
 async function listSnapshotRtfStems(reader: MutationCoordinator, dir: string): Promise<string[]> {
 	const names = await snapshotDirectoryNames(reader, dir);
-	const snapshots = names.filter((n) => n.toLowerCase().endsWith('.rtf')).sort();
+	const snapshots = names.filter((n) => n.toLowerCase().endsWith('.rtf'));
 	const identities = new Set<string>();
 	for (const name of snapshots) {
 		const identity = name.slice(0, -'.rtf'.length);
@@ -148,7 +148,7 @@ async function listSnapshotRtfStems(reader: MutationCoordinator, dir: string): P
 		if (!entry.isFile() || entry.isSymbolicLink() || entry.size > MAX_SNAPSHOT_BYTES)
 			throw new Error('Snapshot must be a regular file within the 64 MiB limit');
 	}
-	return snapshots.map((name) => name.slice(0, -'.rtf'.length));
+	return snapshots.map((name) => name.slice(0, -'.rtf'.length)).sort();
 }
 
 async function readDocumentSnapshots(

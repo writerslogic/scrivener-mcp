@@ -31,10 +31,10 @@ export class ProjectContent {
 	): Promise<string | object> {
 		const documents = [];
 		for (const id of documentIds) {
-			const content = await this.documentManager.readDocumentFormatted(id);
 			const doc = await this.getDocumentInfo(id);
 			if (!doc.document || doc.document.type !== 'Text')
 				throw new Error('Compilation requires active text documents');
+			const content = await this.documentManager.readDocumentFormatted(id);
 			documents.push({ id, content, title: doc.document.title || 'Untitled' });
 		}
 
