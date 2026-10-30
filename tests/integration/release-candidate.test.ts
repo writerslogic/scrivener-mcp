@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { devNull, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -26,6 +26,36 @@ const runner = `
 import { pathToFileURL } from 'node:url';
 const module = await import(pathToFileURL(process.argv[2]).href);
 const input = JSON.parse(process.argv[3]);
+if (input.fileAttack) {
+  const fs = (await import('node:fs/promises')).default;
+  const open = fs.open;
+  fs.open = async (file, ...args) => {
+    const handle = await open(file, ...args);
+    if (file !== input.path) return handle;
+    try {
+      if (input.fileAttack === 'replace') {
+        await fs.rename(file, file + '.opened');
+        await fs.copyFile(file + '.opened', file);
+      } else {
+        const read = handle.read.bind(handle);
+        let touched = false;
+        handle.read = async (...options) => {
+          const result = await read(...options);
+          if (!touched) {
+            touched = true;
+            const info = await handle.stat();
+            await fs.utimes(file, info.atime, new Date(info.mtimeMs + 1000));
+          }
+          return result;
+        };
+      }
+      return handle;
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
+  };
+}
 const commitSha = input.commitSha ?? input.sha;
 const repository = { id: 1049995250, full_name: 'writerslogic/scrivener-mcp' };
 const good = { id: 20, run_number: 4, run_attempt: 1, workflow_id: 186405613, path: '.github/workflows/ci.yml', name: 'CI', event: 'push', head_branch: 'main', head_sha: commitSha, repository, head_repository: repository, status: 'completed', conclusion: 'success' };
@@ -62,9 +92,10 @@ const fetchImpl = async (url, options) => {
   return Response.json(body);
 };
 try {
-  const result = input.mode === 'artifacts'
-    ? await module.checkReleaseArtifacts({ rootDirectory: input.root, directory: input.directory, tag: input.tag, stampRegistry: input.stamp })
-    : await module.checkReleaseSource({ rootDirectory: input.root, tag: input.tag, sha: input.sha, token: 'never-print-fixture-token', fetchImpl });
+  let result;
+  if (input.mode === 'hash') result = { bytes: (await module.verifyFileSHA256(input.path, input.expected)).length };
+  else if (input.mode === 'artifacts') result = await module.checkReleaseArtifacts({ rootDirectory: input.root, directory: input.directory, tag: input.tag, stampRegistry: input.stamp });
+  else result = await module.checkReleaseSource({ rootDirectory: input.root, tag: input.tag, sha: input.sha, token: 'never-print-fixture-token', fetchImpl });
   process.stdout.write(JSON.stringify({ ok: true, result, requests }));
 } catch (error) {
   process.stdout.write(JSON.stringify({ ok: false, error: error.message, requests }));
@@ -325,6 +356,86 @@ it.each([65535, 65536, 65537])(
 		const directory = await bundle(undefined, metadataBytes);
 		expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({
 			ok: metadataBytes <= 65536,
+		});
+	}
+);
+
+it.each([
+	['manifest', 65535],
+	['manifest', 65536],
+	['manifest', 65537],
+	['checksum', 4095],
+	['checksum', 4096],
+	['checksum', 4097],
+] as const)('bounds %s file reads at %i bytes', async (kind, bytes) => {
+	const directory = await bundle();
+	if (kind === 'manifest') {
+		const manifest = { name: 'scrivener-mcp', version: '1.2.3', padding: '' };
+		manifest.padding = 'x'.repeat(bytes - Buffer.byteLength(JSON.stringify(manifest)));
+		await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
+	} else {
+		const name = 'scrivener-mcp-1.2.3-macos-arm64.mcpb';
+		const file = join(directory, `${name}.sha256`);
+		const digest = (await readFile(file, 'utf8')).split(' ')[0];
+		const start = `${digest}  /`;
+		const end = `/${name}\n`;
+		await writeFile(file, `${start}${'x'.repeat(bytes - start.length - end.length)}${end}`);
+	}
+	const checked = await run({ mode: 'artifacts', directory, stamp: true });
+	expect(checked.ok).toBe(bytes <= (kind === 'manifest' ? 65536 : 4096));
+	if (!checked.ok) expect(checked.error).toMatch(/size limit/);
+});
+
+it.each(['metadata', 'checksum', 'archive'] as const)(
+	'rejects a symlinked %s without stamping registry metadata',
+	async (kind) => {
+		const directory = await bundle();
+		const name = 'scrivener-mcp-1.2.3-macos-arm64.mcpb';
+		const file =
+			kind === 'metadata'
+				? join(root, 'manifest.json')
+				: join(directory, `${name}${kind === 'checksum' ? '.sha256' : ''}`);
+		const target = join(await mkdtemp(join(root, 'link-target-')), 'original');
+		await rename(file, target);
+		try {
+			await symlink(target, file, 'file');
+			expect(await run({ mode: 'artifacts', directory, stamp: true })).toMatchObject({
+				ok: false,
+			});
+			expect(JSON.parse(await readFile(join(root, 'server.json'), 'utf8')).version).toBe(
+				'1.2.2'
+			);
+		} finally {
+			await rm(file, { force: true });
+			await rename(target, file);
+		}
+	}
+);
+
+it.each(['replace', 'touch'] as const)(
+	'rejects a file changed during %s even when its bytes and digest match',
+	async (fileAttack) => {
+		const path = join(root, `race-${fileAttack}`);
+		const bytes = Buffer.from('Original release artifact fixture');
+		await writeFile(path, bytes);
+		const checked = await run({
+			mode: 'hash',
+			path,
+			expected: createHash('sha256').update(bytes).digest('hex'),
+			fileAttack,
+		});
+		expect(checked.ok).toBe(false);
+		expect(checked.error).toMatch(/changed while/);
+	}
+);
+
+(process.platform === 'win32' ? it.skip : it)(
+	'rejects a FIFO without waiting for a writer',
+	async () => {
+		const path = join(root, 'release-fifo');
+		await execute('mkfifo', [path]);
+		expect(await run({ mode: 'hash', path, expected: '0'.repeat(64) })).toMatchObject({
+			ok: false,
 		});
 	}
 );

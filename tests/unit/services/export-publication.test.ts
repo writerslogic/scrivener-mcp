@@ -121,7 +121,7 @@ test('prepared bytes survive an interruption before publication without regenera
 	await expect(exporter().exportWorkflowPreset(request)).rejects.toThrow('Interrupted');
 	const pending = prepared();
 	expect(pending.state).toBe('prepared');
-	await expect(fs.stat(request.outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
+	await expect(fs.readFile(request.outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
 	await restart();
 	const result = await exporter(async () => {
 		throw new Error('A prepared retry must not reread source');

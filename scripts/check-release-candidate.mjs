@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { lstat, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import fs, { readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -18,13 +18,65 @@ function requireCondition(condition, message) {
 	if (!condition) throw new Error(message);
 }
 
-async function jsonFile(file) {
-	const info = await lstat(file);
-	requireCondition(
-		info.isFile() && !info.isSymbolicLink() && info.size <= 65536,
-		'Release metadata must be an ordinary file of at most 64 KiB'
+async function readReleaseFile(file, maximum) {
+	const handle = await fs.open(
+		file,
+		constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
 	);
-	return JSON.parse(await readFile(file, 'utf8'));
+	try {
+		const initial = await handle.stat({ bigint: true });
+		const entry = await fs.lstat(file, { bigint: true });
+		requireCondition(
+			initial.isFile() && initial.size > 0n && initial.size <= BigInt(maximum),
+			'Release input must be a regular nonempty file within its size limit'
+		);
+		requireCondition(
+			entry.isFile() &&
+				!entry.isSymbolicLink() &&
+				initial.dev === entry.dev &&
+				initial.ino === entry.ino,
+			'Release input changed while opening'
+		);
+		const buffer = Buffer.alloc(Number(initial.size) + 1);
+		let size = 0;
+		while (size < buffer.length) {
+			const { bytesRead } = await handle.read(buffer, size, buffer.length - size, size);
+			if (!bytesRead) break;
+			size += bytesRead;
+		}
+		const [final, current] = await Promise.all([
+			handle.stat({ bigint: true }),
+			fs.lstat(file, { bigint: true }),
+		]);
+		requireCondition(
+			current.isFile() &&
+				!current.isSymbolicLink() &&
+				[final, current].every(
+					(info) =>
+						info.dev === initial.dev &&
+						info.ino === initial.ino &&
+						info.size === initial.size &&
+						info.mtimeNs === initial.mtimeNs &&
+						info.ctimeNs === initial.ctimeNs
+				) &&
+				BigInt(size) === initial.size,
+			'Release input changed while reading'
+		);
+		return buffer.subarray(0, size);
+	} finally {
+		await handle.close();
+	}
+}
+
+async function releaseText(file, maximum) {
+	const bytes = await readReleaseFile(file, maximum);
+	const text = bytes.toString('utf8');
+	requireCondition(Buffer.from(text).equals(bytes), 'Release metadata must be valid UTF-8');
+	return text;
+}
+
+async function jsonFile(file) {
+	return JSON.parse(await releaseText(file, 65536));
 }
 
 async function versions(root, tag) {
@@ -291,25 +343,12 @@ export async function verifyFileSHA256(file, expected) {
 		typeof expected === 'string' && /^[a-f0-9]{64}$/.test(expected),
 		'Release artifact SHA-256 is invalid'
 	);
-	const info = await lstat(file);
+	const bytes = await readReleaseFile(file, 512 * 1024 * 1024);
 	requireCondition(
-		info.isFile() && !info.isSymbolicLink() && info.size > 0 && info.size <= 512 * 1024 * 1024,
-		'Release artifact must be an ordinary nonempty file of at most 512 MiB'
-	);
-	const hash = createHash('sha256');
-	const chunks = [];
-	let size = 0;
-	for await (const chunk of createReadStream(file)) {
-		size += chunk.length;
-		requireCondition(size <= 512 * 1024 * 1024, 'Release artifact grew beyond its size limit');
-		hash.update(chunk);
-		chunks.push(chunk);
-	}
-	requireCondition(
-		size === info.size && hash.digest('hex') === expected,
+		createHash('sha256').update(bytes).digest('hex') === expected,
 		'Release artifact SHA-256 does not match its recorded digest'
 	);
-	return Buffer.concat(chunks, size);
+	return bytes;
 }
 
 async function archiveJSON(archive, name) {
@@ -361,13 +400,8 @@ export async function checkReleaseArtifacts({
 	);
 	const archive = join(resolve(directory), name);
 	const checksum = join(resolve(directory), `${name}.sha256`);
-	const info = await lstat(checksum);
-	requireCondition(
-		info.isFile() && !info.isSymbolicLink() && info.size <= 4096,
-		'Release checksum sidecar is invalid'
-	);
 	const record = /^([a-f0-9]{64})[ \t]+\*?([^\r\n]+)\r?\n?$/.exec(
-		await readFile(checksum, 'utf8')
+		await releaseText(checksum, 4096)
 	);
 	requireCondition(
 		record && basename(record[2]) === name,
