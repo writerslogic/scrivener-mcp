@@ -6,12 +6,15 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'scripts/build-mcpb.sh'
-      - 'scripts/stage-bundle.sh'
-      - 'assets/draftbridge/icon.png'
-      - 'assets/infographics/capability-map.png'
+      - 'scripts/**'
+      - 'assets/**'
+      - 'vendor/**'
+      - 'package.json'
       - 'package-lock.json'
-      - 'src/index.ts'
+      - 'manifest.json'
+      - 'tsconfig.json'
+      - 'src/**'
+      - '.github/workflows/mcpb.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +29,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
+          check-latest: true
           cache: 'npm'
 
       - name: Install dependencies

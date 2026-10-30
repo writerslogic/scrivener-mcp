@@ -35,6 +35,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Preserve recovery diagnostics and reject lint warnings
 - Keep snapshot identities stable and complete tool contracts
 - Preserve summary types and reliable validation cleanup
 - Guard local state and verify durable creation through MCP

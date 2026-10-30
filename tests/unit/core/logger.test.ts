@@ -43,6 +43,20 @@ describe('logger error serialization', () => {
 		expect(out).toContain('root cause');
 	});
 
+	it('retains publication and recovery failures in an aggregate error', () => {
+		const publication = new Error('Publication failed');
+		const recovery = new Error('Recovery failed');
+		getLogger('test-logger').error('Creation needs inspection', {
+			error: new AggregateError([publication, recovery], 'Creation failed', {
+				cause: recovery,
+			}),
+		});
+		const out = writes.join('');
+		expect(out).toContain('Publication failed');
+		expect(out).toContain('Recovery failed');
+		expect(out).toContain('"errors":[');
+	});
+
 	it('leaves non-error context untouched', () => {
 		getLogger('test-logger').error('plain', { documentId: 'abc', count: 3 });
 		const out = writes.join('');

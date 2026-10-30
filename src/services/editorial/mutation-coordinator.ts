@@ -1261,7 +1261,7 @@ export class MutationCoordinator {
 					throw new AggregateError(
 						[error, recoveryError],
 						`Creation ${id} requires recovery inspection`,
-						{ cause: error }
+						{ cause: recoveryError }
 					);
 				}
 				if (record.state === 'committed') return record;
