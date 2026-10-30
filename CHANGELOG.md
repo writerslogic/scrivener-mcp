@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Integrate C2PA readiness remediation
+- Harden C2PA generation and assessment
 - Synchronize local passages through HMS document retrieval
 - Add scoped story bible and evidence-based continuity review
 - Add durable manuscript review and coordinated revisions
@@ -35,6 +37,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Preserve isolated Windows process requirements
+- Accommodate Windows permission-check startup
 - Preserve recovery diagnostics and reject lint warnings
 - Keep snapshot identities stable and complete tool contracts
 - Preserve summary types and reliable validation cleanup
