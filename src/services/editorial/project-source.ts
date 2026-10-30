@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import type { ScrivenerDocument } from '../../types/index.js';
 import type { PersistentStore } from './persistent-store.js';
 import type { ManuscriptSource, SourceDocument } from './types.js';
 import { RTFHandler } from '../parsers/rtf-handler.js';
 import { createError, ErrorCode } from '../../core/errors.js';
+import { getOrCreateProjectIdentity } from './project-identity.js';
 
 export const MAX_SOURCE_DOCUMENTS = 10000;
 export const MAX_SOURCE_CHARACTERS = 64 * 1024 * 1024;
@@ -17,6 +18,8 @@ export class ProjectSource implements ManuscriptSource {
 	readonly projectId: string;
 	readonly projectPath: string;
 	private readonly rtf = new RTFHandler();
+	private readonly textCache = new Map<string, { revision: string; text: string }>();
+	private cachedCharacters = 0;
 
 	constructor(
 		projectPath: string,
@@ -26,13 +29,7 @@ export class ProjectSource implements ManuscriptSource {
 		private readonly allDocuments?: () => Promise<ScrivenerDocument[]>
 	) {
 		this.projectPath = realpathSync(projectPath);
-		this.projectId = store.transaction(() => {
-			const existing = store.get<string>('identity', 'project');
-			if (existing) return existing;
-			const identity = randomUUID();
-			store.put('identity', 'project', identity);
-			return identity;
-		});
+		this.projectId = getOrCreateProjectIdentity(store);
 	}
 
 	async list(): Promise<SourceDocument[]> {
@@ -93,13 +90,37 @@ export class ProjectSource implements ManuscriptSource {
 		const raw = await this.readRaw(document.id);
 		if (Buffer.byteLength(raw) > 10 * 1024 * 1024)
 			throw new Error('Document exceeds the analysis size limit');
+		const revision = savedRevision(raw);
+		const cached = this.textCache.get(document.id);
+		let text: string;
+		if (cached?.revision === revision) {
+			text = cached.text;
+			this.textCache.delete(document.id);
+			this.textCache.set(document.id, cached);
+		} else {
+			text = raw ? (await this.rtf.parseRTF(raw)).plainText : '';
+			if (cached) {
+				this.cachedCharacters -= cached.text.length;
+				this.textCache.delete(document.id);
+			}
+			this.textCache.set(document.id, { revision, text });
+			this.cachedCharacters += text.length;
+			while (
+				this.cachedCharacters > 16 * 1024 * 1024 ||
+				this.textCache.size > MAX_SOURCE_DOCUMENTS
+			) {
+				const oldest = this.textCache.keys().next().value!;
+				this.cachedCharacters -= this.textCache.get(oldest)!.text.length;
+				this.textCache.delete(oldest);
+			}
+		}
 		return {
 			projectId: this.projectId,
 			documentId: document.id,
 			title: document.title,
 			path: document.path,
-			revision: savedRevision(raw),
-			text: raw ? (await this.rtf.parseRTF(raw)).plainText : '',
+			revision,
+			text,
 			order,
 			metadata: {
 				...document.metadata,

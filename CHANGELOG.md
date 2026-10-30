@@ -24,6 +24,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Record verified audit remediation and compatibility limits
 - Point Draftbridge buyers to live checkout
 - Align C2PA intake answers with the questionnaire
 - Describe Content Credentials workflow and intake targets
@@ -34,6 +35,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Keep snapshot identities stable and complete tool contracts
+- Preserve summary types and reliable validation cleanup
+- Guard local state and verify durable creation through MCP
+- Wire recoverable creation into public review services
+- Commit document creation with its binder and recovery plan
+- Unify evidence workflows and bound state retrieval
+- Reuse bounded archive validation in release preflight
+- Bind analysis caches to complete input context
+- Journal revision-bound workflow export publication
+- Gate releases on verified source and pinned publisher
+- Enforce callable MCP contracts and catalog transitions
+- Report unavailable content generation without fabricated output
+- Restore Unicode fallback scope in edited RTF
+- Bound dashboard mention scans and disclose truncation
+- Exclude unsupported semantic candidates from fallback fusion
+- Isolate production queues by durable project ownership
+- Preserve RTF structure and contain snapshot reads
+- Include saved document bodies in project text exports
+- Guard binder edits and retain admitted save revisions
+- Honor explicitly disabled graph services before discovery
+- Share validated project identity across scoped services
 - Upgrade native local analysis libraries to 0.2.0
 - Finalize consolidated reliability and packaging checks
 - Bound provider requests and integrate current AI SDKs
@@ -77,6 +99,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Streamline retrieval and guard durable workflow transitions
 
 ### Security
+- Read release inputs through stable file descriptors
+- Keep malformed provider replies out of diagnostics
 - Patch js-yaml and integrate maintenance updates (#183)
 - Patch js-yaml and body-parser
 ## [0.13.0] - 2026-10-22
@@ -297,7 +321,4 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ### Security
 - Fix all 23 open CodeQL findings across src, scripts, and tests
 - Fix 88 audit findings across 67 files; resolve all critical and high issues
-
-### Style
-- Fix prettier formatting in job-queue.ts
 

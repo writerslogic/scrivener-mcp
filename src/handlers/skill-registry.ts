@@ -1,11 +1,3 @@
-/**
- * Skill-based progressive tool registration.
- *
- * Tools are grouped into skills. Only meta-tools (list_skills, use_skill)
- * and open_project are registered at startup. Skills are hydrated on demand
- * via use_skill, which registers the skill's tools and notifies the client.
- */
-
 import { projectHandlers } from './project-handlers.js';
 import { documentHandlers } from './document-handlers.js';
 import { searchHandlers } from './search-handlers.js';
@@ -27,8 +19,11 @@ import { storyHandlers, continuityHandlers } from './story-handlers.js';
 import { localSearchHandlers } from './local-search-handlers.js';
 import { workflowHandlers } from './workflow-handlers.js';
 import { contentCredentialsHandlers } from './content-credentials-handlers.js';
+import { readResultHandler } from './result-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import type { JsonSchemaType, JsonSchemaValidator } from '@modelcontextprotocol/sdk/validation';
 
 export interface Skill {
 	name: string;
@@ -104,18 +99,49 @@ const HIDDEN_TOOLS = new Set<string>([
 	'hhm_dream',
 	'store_chapter_order',
 	'sync_to_neo4j',
-	'get_queue_stats',
 ]);
 
 function visibleTools(skill: Skill): ToolDefinition[] {
 	return skill.tools.filter((t) => !HIDDEN_TOOLS.has(t.name));
 }
 
-// Handler map for dispatch
 const handlerMap = new Map<string, ToolDefinition>();
 const activatedSkills = new Set<string>();
+const schemaValidator = new AjvJsonSchemaValidator();
+const validators = new WeakMap<object, JsonSchemaValidator<Record<string, unknown>>>();
+let catalogRevision = 0;
 
-// Meta-tools are always registered
+function validatorFor(tool: ToolDefinition): JsonSchemaValidator<Record<string, unknown>> {
+	let validator = validators.get(tool.inputSchema);
+	if (!validator) {
+		try {
+			validator = schemaValidator.getValidator<Record<string, unknown>>(
+				tool.inputSchema as unknown as JsonSchemaType
+			);
+		} catch (error) {
+			throw new HandlerError(
+				`Tool input schema could not be compiled: ${tool.name}`,
+				'SCHEMA_ERROR',
+				error
+			);
+		}
+		validators.set(tool.inputSchema, validator);
+	}
+	return validator;
+}
+
+function callableTool(tool: ToolDefinition, uiSupported = false) {
+	return {
+		name: tool.name,
+		description: tool.description,
+		inputSchema: tool.inputSchema,
+		...(tool.title ? { title: tool.title } : {}),
+		...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
+		...(tool.annotations ? { annotations: tool.annotations } : {}),
+		...(uiSupported && tool._meta ? { _meta: tool._meta } : {}),
+	};
+}
+
 const metaTools: ToolDefinition[] = [];
 
 function buildMetaTools(): void {
@@ -124,7 +150,7 @@ function buildMetaTools(): void {
 		title: 'List Skills',
 		description:
 			'List the available skills (tool groups) — project, documents, search, analysis, ' +
-			'compilation, memory, relationships — with a description, the tool count, whether the skill ' +
+			'compilation, credentials, memory, relationships, advanced — with a description, the tool count, whether the skill ' +
 			'is already active, and its tool names. Use this to discover capabilities, then call ' +
 			'use_skill to activate a group whose tools you need. Takes no parameters.',
 		annotations: {
@@ -195,9 +221,8 @@ function buildMetaTools(): void {
 		description:
 			"Activate a skill so its tools become available to call. Returns the activated skill's tool " +
 			'names and their schemas; clients that support tools/list_changed will also see the new ' +
-			'tools appear automatically. Call list_skills first to see the available skill names. Tools ' +
-			'are progressively disclosed, so activate the skill you need before using its tools (most ' +
-			'tools are pre-activated by default).',
+			'tools appear automatically. Call list_skills first to see the available skill names. ' +
+			'Tools activate when requested; already active skills return the same complete schemas.',
 		annotations: {
 			readOnlyHint: false,
 			destructiveHint: false,
@@ -216,11 +241,12 @@ function buildMetaTools(): void {
 			},
 			required: ['name'],
 		},
-		handler: async (args): Promise<HandlerResult> => {
+		handler: async (args, context): Promise<HandlerResult> => {
 			const name = args.name as string;
 			const skill = skills.find((s) => s.name === name);
 			if (!skill) {
 				return {
+					isError: true,
 					content: [
 						{
 							type: 'text',
@@ -230,47 +256,24 @@ function buildMetaTools(): void {
 				};
 			}
 			const visible = visibleTools(skill);
-			if (activatedSkills.has(name)) {
-				return {
-					content: [
-						{
-							type: 'text',
-							text: `Skill "${name}" already active. Tools: ${visible.map((t) => t.name).join(', ')}`,
-						},
-					],
-				};
-			}
-			activateSkill(name);
-			const toolSummary = visible
-				.map((t) => {
-					const required = (t.inputSchema.required as string[] | undefined) ?? [];
-					const props = t.inputSchema.properties as
-						Record<string, { type?: string; description?: string }> | undefined;
-					const params = props
-						? Object.entries(props)
-								.map(
-									([k, v]) =>
-										`${k}${required.includes(k) ? '*' : ''} (${v.type ?? 'any'}): ${v.description ?? ''}`
-								)
-								.join('; ')
-						: 'no parameters';
-					return `• ${t.name}: ${t.description}\n  params: ${params}`;
-				})
-				.join('\n');
+			const activated = activateSkill(name);
+			const tools = visible.map((tool) => callableTool(tool, context.uiSupported));
 			return {
+				structuredContent: { skill: name, activated, tools },
 				content: [
 					{
 						type: 'text',
-						text: `Activated "${name}" (${visible.length} tools). If your client does not auto-refresh the tool list, call these tools directly using the schemas below:\n\n${toolSummary}`,
+						text: `${activated ? 'Activated' : 'Already active'} "${name}" (${visible.length} tools). Callable tool schemas:\n${JSON.stringify(tools, null, 2)}`,
 					},
 				],
 			};
 		},
 	};
 
-	metaTools.push(listSkills, useSkill);
-	handlerMap.set('list_skills', listSkills);
-	handlerMap.set('use_skill', useSkill);
+	const tools = [listSkills, useSkill, readResultHandler];
+	for (const tool of tools) validatorFor(tool);
+	metaTools.push(...tools);
+	for (const tool of tools) handlerMap.set(tool.name, tool);
 }
 
 /**
@@ -282,11 +285,16 @@ export function activateSkill(name: string): boolean {
 	const skill = skills.find((s) => s.name === name);
 	if (!skill) return false;
 
-	for (const tool of visibleTools(skill)) {
+	const tools = visibleTools(skill);
+	for (const tool of tools) validatorFor(tool);
+	let changed = false;
+	for (const tool of tools) {
+		if (handlerMap.get(tool.name) !== tool) changed = true;
 		handlerMap.set(tool.name, tool);
 	}
 	activatedSkills.add(name);
-	return true;
+	if (changed) catalogRevision++;
+	return changed;
 }
 
 /**
@@ -321,40 +329,30 @@ export function isSkillActive(name: string): boolean {
 }
 
 export function initializeSkillRegistry(): void {
-	buildMetaTools();
-	// Always activate project skill (need open_project at minimum)
+	if (handlerMap.size) catalogRevision++;
+	handlerMap.clear();
+	activatedSkills.clear();
+	if (!metaTools.length) buildMetaTools();
+	else for (const tool of metaTools) handlerMap.set(tool.name, tool);
 	activateSkill('project');
-	// Progressive by default: only the project group + meta-tools register at startup
-	// (~300 tokens). The rest activate on demand — documents/search on open_project,
-	// others via use_skill — so interactive clients pay only for tools they use.
-	// Opt into eager registration (full set at startup, for registries/inspectors and
-	// clients that ignore notifications/tools/list_changed) with SCRIVENER_MCP_EAGER_TOOLS=1.
 	if (process.env.SCRIVENER_MCP_EAGER_TOOLS === '1') {
 		for (const s of skills) activateSkill(s.name);
 	}
 }
 
 export function getRegisteredTools(uiSupported = false) {
-	return Array.from(handlerMap.values()).map((h) => {
-		const tool: {
-			_meta?: Record<string, unknown>;
-			name: string;
-			title?: string;
-			description: string;
-			inputSchema: ToolDefinition['inputSchema'];
-			outputSchema?: ToolDefinition['outputSchema'];
-			annotations?: ToolDefinition['annotations'];
-		} = {
-			name: h.name,
-			description: h.description,
-			inputSchema: h.inputSchema,
-		};
-		if (h.title) tool.title = h.title;
-		if (h.outputSchema) tool.outputSchema = h.outputSchema;
-		if (h.annotations) tool.annotations = h.annotations;
-		if (uiSupported && h._meta) tool._meta = h._meta;
-		return tool;
-	});
+	const seen = new Set<string>();
+	return [...metaTools, ...skills.flatMap(visibleTools)]
+		.filter((tool) => {
+			if (!handlerMap.has(tool.name) || seen.has(tool.name)) return false;
+			seen.add(tool.name);
+			return true;
+		})
+		.map((tool) => callableTool(handlerMap.get(tool.name)!, uiSupported));
+}
+
+export function getToolCatalogRevision(): number {
+	return catalogRevision;
 }
 
 /**
@@ -365,17 +363,8 @@ export async function executeRegisteredHandler(
 	args: Record<string, unknown>,
 	context: HandlerContext
 ): Promise<HandlerResult> {
-	// The dispatcher auto-activates a tool's skill on demand, so a miss here is a
-	// genuinely unknown (or intentionally hidden) tool, not a not-yet-activated one.
-	activateSkillForTool(toolName);
-	const handler = handlerMap.get(toolName);
-
-	if (!handler) {
-		throw new HandlerError(
-			`Unknown tool: ${toolName}. Call list_skills to see available tool groups.`,
-			'UNKNOWN_TOOL'
-		);
-	}
+	validateRegisteredArgs(toolName, args);
+	const handler = handlerMap.get(toolName)!;
 
 	try {
 		return await handler.handler(args, context);
@@ -392,15 +381,16 @@ export async function executeRegisteredHandler(
 }
 
 export function validateRegisteredArgs(toolName: string, args: Record<string, unknown>): void {
+	activateSkillForTool(toolName);
 	const handler = handlerMap.get(toolName);
 	if (!handler) {
 		throw new HandlerError(`Unknown tool: ${toolName}`, 'UNKNOWN_TOOL');
 	}
 
-	const required = handler.inputSchema.required || [];
-	for (const prop of required) {
-		if (!(prop in args) || args[prop] === undefined) {
-			throw new HandlerError(`Missing required argument: ${prop}`, 'MISSING_ARGUMENT');
-		}
-	}
+	const result = validatorFor(handler)(args);
+	if (!result.valid)
+		throw new HandlerError(
+			`Invalid arguments for ${toolName}: ${result.errorMessage.slice(0, 1000)}`,
+			'INVALID_ARGUMENT'
+		);
 }

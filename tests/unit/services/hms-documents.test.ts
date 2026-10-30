@@ -76,6 +76,113 @@ it('replaces old chunks and versions, then removes the complete document', async
 	expect(await engine.searchDocuments('orchard')).toEqual([]);
 });
 
+it.each(['blend', 'rrf'] as const)(
+	'%s retains a rare literal hit ahead of more than k orthogonal distractors',
+	async (fusion) => {
+		const engine = memory();
+		await engine.memorizeDocuments([
+			...Array.from({ length: 3 }, (_, index) => ({
+				id: `a-distractor-${index}`,
+				text: 'She boarded the ferry and crossed the river.',
+				embeddings: [[0, 1]],
+			})),
+			{ id: 'z-literal-hit', text: 'The quartzneedle lay on the desk.' },
+		]);
+		const results = await engine.searchDocuments('mourning quartzneedle', {
+			embedding: [1, 0],
+			k: 1,
+			candidateLimit: 3,
+			lexicalWeight: 0.5,
+			semanticWeight: 0.5,
+			fusion,
+		});
+		expect(results).toHaveLength(1);
+		expect(results[0].documentId).toBe('z-literal-hit');
+		expect(results[0].lexicalScore).toBeGreaterThan(0);
+		expect(results[0].semanticScore).toBeUndefined();
+		expect(results[0].score).toBeGreaterThan(0);
+	}
+);
+
+it.each(['blend', 'rrf'] as const)(
+	'%s returns no fabricated relevance from orthogonal, opposite or missing embeddings',
+	async (fusion) => {
+		const engine = memory();
+		await engine.memorizeDocuments([
+			{ id: 'orthogonal', text: 'Across the river.', embeddings: [[0, 1]] },
+			{ id: 'opposite', text: 'The far shore.', embeddings: [[-1, 0]] },
+			{ id: 'unembedded', text: 'An ordinary description.' },
+		]);
+		for (const lexicalWeight of [0, 0.5]) {
+			for (const minSemanticScore of [undefined, -1, 0]) {
+				const results = await engine.searchDocuments('mourning', {
+					embedding: [1, 0],
+					lexicalWeight,
+					semanticWeight: 1,
+					minSemanticScore,
+					fusion,
+				});
+				expect(results).toEqual([]);
+			}
+		}
+	}
+);
+
+it.each(['blend', 'rrf'] as const)(
+	'%s preserves positive constant semantic evidence and disabled-channel behavior',
+	async (fusion) => {
+		const engine = memory();
+		await engine.memorizeDocuments([
+			{ id: 'a-positive', text: 'The orchard.', embeddings: [[3, 4]] },
+			{ id: 'b-positive', text: 'An abandoned cottage.', embeddings: [[3, 4]] },
+			{ id: 'literal', text: 'A quartzneedle.' },
+			{ id: 'orthogonal', text: 'Across the river.', embeddings: [[0, 1]] },
+		]);
+		const semantic = await engine.searchDocuments('quartzneedle', {
+			embedding: [1, 0],
+			lexicalWeight: 0,
+			semanticWeight: 1,
+			minSemanticScore: -1,
+			fusion,
+		});
+		expect(semantic.map((hit) => hit.documentId)).toEqual(['a-positive', 'b-positive']);
+		for (const hit of semantic) {
+			expect(hit.semanticScore).toBeCloseTo(0.6);
+			expect(hit.score).toBeGreaterThan(0);
+			if (fusion === 'blend') expect(hit.score).toBe(1);
+		}
+		const lexical = await engine.searchDocuments('quartzneedle', {
+			embedding: [1, 0],
+			lexicalWeight: 1,
+			semanticWeight: 0,
+			fusion,
+		});
+		expect(lexical.map((hit) => hit.documentId)).toEqual(['literal']);
+		expect(lexical[0].score).toBeGreaterThan(0);
+	}
+);
+
+it.each([-1, 0, 1])(
+	'keeps positive semantic thresholds inclusive at boundary %d',
+	async (delta) => {
+		const engine = memory();
+		await engine.memorizeDocuments([
+			{ id: 'strong', text: 'A remembered voice.', embeddings: [[1, 0]] },
+			{ id: 'boundary', text: 'An abandoned cottage.', embeddings: [[3, 4]] },
+			{ id: 'orthogonal', text: 'Across the river.', embeddings: [[0, 1]] },
+		]);
+		const results = await engine.searchDocuments('mourning', {
+			embedding: [1, 0],
+			lexicalWeight: 0,
+			semanticWeight: 1,
+			minSemanticScore: 0.6 + delta * Number.EPSILON,
+		});
+		expect(results.map((hit) => hit.documentId)).toEqual(
+			delta <= 0 ? ['strong', 'boundary'] : ['strong']
+		);
+	}
+);
+
 it('rejects invalid batches atomically and leaves the previous indexed revision intact', async () => {
 	const engine = memory();
 	await engine.memorizeDocuments([{ id: 'scene', text: 'lighthouse', version: 'saved-1' }]);

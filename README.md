@@ -221,7 +221,7 @@ limits.
 
 ## All Tools
 
-78 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
+80 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
 startup, document and search tools once a project is open, the rest on demand. Set
 `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
@@ -266,15 +266,15 @@ startup, document and search tools once a project is open, the rest on demand. S
 <details>
 <summary><strong>Search</strong> -- find content, passages, and mentions</summary>
 
-| Tool               | What it does                                                                                  |
-| ------------------ | --------------------------------------------------------------------------------------------- |
-| `search`           | Local hybrid passage search; `field: "title"` for titles, `scope: "trash"` for trash          |
-| `semantic_search`  | Local concept-vector passage retrieval, with scores, context and source revisions; no API key |
-| `search_passages`  | Local keyword, bounded English concept, or hybrid retrieval with exact quoted evidence        |
-| `find_mentions`    | Locate every occurrence of a specific name or term, with context                              |
-| `list_trash`       | List trashed documents                                                                        |
-| `restore_document` | Restore a document from trash                                                                 |
-| `read_annotations` | Read a document's comments and footnotes                                                      |
+| Tool               | What it does                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `search`           | Literal full-text search across the active binder; `field: "title"` for titles, `scope: "trash"` for trash |
+| `semantic_search`  | Local concept-vector passage retrieval, with scores, context and source revisions; no API key              |
+| `search_passages`  | Local keyword, bounded English concept, or hybrid retrieval with exact quoted evidence                     |
+| `find_mentions`    | Locate every occurrence of a specific name or term, with context                                           |
+| `list_trash`       | List trashed documents                                                                                     |
+| `restore_document` | Restore a document from trash                                                                              |
+| `read_annotations` | Read a document's comments and footnotes                                                                   |
 
 </details>
 
@@ -320,6 +320,7 @@ startup, document and search tools once a project is open, the rest on demand. S
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `compile_documents`            | Combine documents; `mode: "structured"` compiles the Draft folder with the binder hierarchy as headings and honors "Include in Compile" (no AI), `mode: "intelligent"` for AI-optimized output |
 | `export_project`               | Write the manuscript to disk -- Markdown, HTML, JSON inline, or DOCX, EPUB, PDF as a file                                                                                                      |
+| `read_result`                  | Retrieve large compiled/analysis results in bounded UTF-8 chunks without filesystem tools                                                                                                      |
 | `export_manuscript`            | Preflight and export submission DOCX, beta-reader DOCX and validated EPUB presets                                                                                                              |
 | `get_statistics`               | Project-level word/document/character counts                                                                                                                                                   |
 | `generate_marketing_materials` | Draft synopsis, query letter, pitch, and related materials                                                                                                                                     |
@@ -386,6 +387,7 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 | `queue_document_analysis` | Enqueue an async analysis of one document; returns a job id                                        |
 | `queue_project_analysis`  | Enqueue an async analysis of the whole project                                                     |
 | `get_job_status`          | Poll progress/results for a queued job                                                             |
+| `get_queue_stats`         | Inspect project-scoped queue counts, connectivity and legacy migration guidance                    |
 | `editorial_workflow`      | Run chapter review, continuity audit or beta-reader preparation with durable progress and resuming |
 | `cancel_job`              | Cancel a queued or running job                                                                     |
 

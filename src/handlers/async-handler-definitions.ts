@@ -1,3 +1,5 @@
+import { continuityFindingSchema } from './story-handlers.js';
+import { requireProject } from './types.js';
 /**
  * Async handler definitions for job queue operations
  */
@@ -284,10 +286,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		name: 'check_plot_consistency',
 		title: 'Check Plot Consistency',
 		description:
-			'Scan a set of documents for plot-level inconsistencies — timeline conflicts, contradicted ' +
-			'facts, dropped threads — and return the issues found with the documents involved. Use this ' +
-			'for story/plot coherence across chapters; use check_consistency for general consistency ' +
-			'checks or analyze_writing_style for prose-level analysis.',
+			'Analyze saved manuscript revisions using the same local, evidence-backed continuity and curated canon service as check_consistency. Inference and uncertainty stay explicit. Optional background execution returns identical report semantics; keyword counts and character absences are not treated as contradictions.',
 		annotations: {
 			readOnlyHint: true,
 			destructiveHint: false,
@@ -299,8 +298,18 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			properties: {
 				documents: {
 					type: 'array',
+					minItems: 1,
+					maxItems: 5000,
+					items: {
+						type: 'object',
+						properties: {
+							id: { type: 'string', minLength: 1, maxLength: 128 },
+							content: { type: 'string', maxLength: 10000000 },
+						},
+						required: ['id'],
+					},
 					description:
-						'Array of documents (id and content) to check together, e.g. the chapters of a manuscript.',
+						'Saved manuscript document IDs. Optional content must match the saved text; external or unsaved text is rejected.',
 				},
 				async: {
 					type: 'boolean',
@@ -315,30 +324,13 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			properties: {
 				issues: {
 					type: 'array',
-					description: 'Plot-level inconsistencies found (present for synchronous runs).',
-					items: {
-						type: 'object',
-						properties: {
-							issue: {
-								type: 'string',
-								description: 'Description of the inconsistency.',
-							},
-							severity: {
-								type: 'string',
-								description: 'Severity of the issue.',
-								enum: ['low', 'medium', 'high'],
-							},
-							locations: {
-								type: 'array',
-								description: 'Document ids involved in the issue.',
-								items: { type: 'string' },
-							},
-							suggestion: {
-								type: 'string',
-								description: 'Suggested way to resolve the issue.',
-							},
-						},
-					},
+					description:
+						'Canonical continuity findings with quoted evidence and saved revisions.',
+					items: continuityFindingSchema,
+				},
+				coverage: {
+					type: 'string',
+					description: 'Actual local analysis coverage and limitations.',
 				},
 				jobId: {
 					type: 'string',
@@ -350,12 +342,13 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				},
 			},
 		},
-		handler: async (args) => {
+		handler: async (args, context) => {
 			const result = await asyncHandlers.checkPlotConsistency(
 				args as {
-					documents: ScrivenerDocument[];
+					documents: Array<{ id: string; content?: string }>;
 					async?: boolean;
-				}
+				},
+				requireProject(context).getEditorialServices()
 			);
 			return {
 				content: [
@@ -492,17 +485,67 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 	},
 	{
 		name: 'get_queue_stats',
-		description: 'Get job queue statistics',
+		title: 'Inspect Project Queues',
+		description:
+			'Inspect background queue counts, backend connectivity and the current project scope. ' +
+			'Reports excluded legacy queues and migration guidance without processing or modifying jobs.',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		inputSchema: {
 			type: 'object',
 			properties: {
-				jobType: { type: 'string' },
+				jobType: {
+					type: 'string',
+					description: 'Optional job type to inspect; omit to report all project queues.',
+				},
 			},
 			required: [],
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				queues: {
+					type: 'array',
+					description: 'Selected project queue counts.',
+					items: { type: 'object' },
+				},
+				connection: {
+					type: 'object',
+					description: 'Backend, project scope, and legacy-queue migration notice.',
+					properties: {
+						type: { type: 'string', description: 'Selected queue backend.' },
+						isConnected: {
+							type: 'boolean',
+							description: 'Whether the selected backend is connected.',
+						},
+						scopeId: {
+							type: 'string',
+							description:
+								'Opaque identity binding queues to this project and location.',
+						},
+						legacyQueues: {
+							type: 'string',
+							enum: ['excluded'],
+							description: 'Unscoped legacy queues remain excluded from execution.',
+						},
+						migrationNotice: {
+							type: 'string',
+							description: 'Guidance for deliberately requeuing legacy work.',
+						},
+					},
+					required: ['type', 'isConnected', 'legacyQueues', 'migrationNotice'],
+				},
+			},
+			required: ['queues', 'connection'],
 		},
 		handler: async (args) => {
 			const result = await asyncHandlers.getQueueStats(args);
 			return {
+				structuredContent: result,
 				content: [
 					{
 						type: 'text',

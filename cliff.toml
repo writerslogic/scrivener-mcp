@@ -38,6 +38,7 @@ commit_parsers = [
   { message = "^docs: update changelog", skip = true },
   { message = "^docs", group = "Documentation" },
   { message = "^test", skip = true },
+  { message = "^style", skip = true },
   { message = "^chore", skip = true },
   { message = "^ci", skip = true },
   { message = "^build", skip = true },

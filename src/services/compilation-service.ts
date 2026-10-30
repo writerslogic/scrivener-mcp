@@ -102,6 +102,27 @@ export class CompilationService {
 			return doc.content as RTFContent;
 		});
 
+		if (outputFormat !== 'json' && (includeSynopsis || includeNotes)) {
+			for (let index = 0; index < rtfContents.length; index++) {
+				const content = rtfContents[index];
+				const additions = [
+					includeSynopsis && content.metadata?.synopsis
+						? `Synopsis: ${content.metadata.synopsis}`
+						: '',
+					includeNotes && content.metadata?.notes
+						? `Notes: ${content.metadata.notes}`
+						: '',
+				].filter(Boolean);
+				if (!additions.length) continue;
+				const supplement = `\n\n${additions.join('\n\n')}`;
+				rtfContents[index] = {
+					...content,
+					plainText: content.plainText + supplement,
+					formattedText: [...content.formattedText, { text: supplement }],
+				};
+			}
+		}
+
 		switch (outputFormat) {
 			case 'text':
 				return this.compileToText(rtfContents, separator);

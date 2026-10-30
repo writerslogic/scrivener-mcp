@@ -121,6 +121,98 @@ test('independent loaders reject a stale binder save and can save again after a 
 	expect(saved).toContain('Vendor="keep"');
 });
 
+test.each(['save', 'mutate'] as const)(
+	'a save owns its admitted revision and structure while backup is paused before an intervening %s',
+	async (intervening) => {
+		const instance = new ProjectLoader(root, { autoBackup: true });
+		loaders.push(instance);
+		const original = await instance.loadProject();
+		const admitted = structuredClone(original);
+		firstItem(admitted).Title = 'Admitted title';
+		let entered!: () => void;
+		let release!: () => void;
+		const started = new Promise<void>((resolve) => {
+			entered = resolve;
+		});
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const createBackup = instance.createBackup.bind(instance);
+		jest.spyOn(instance, 'createBackup').mockImplementationOnce(async () => {
+			entered();
+			await gate;
+			return createBackup();
+		});
+		const saving = instance.saveProject(admitted);
+		const outcome = saving.then(
+			() => undefined,
+			(error: unknown) => error
+		);
+		await started;
+		try {
+			if (intervening === 'save') {
+				firstItem(original).Title = 'Intervening title';
+				await instance.saveProject(original);
+			} else {
+				firstItem(admitted).Title = 'Unadmitted title';
+			}
+		} finally {
+			release();
+		}
+		const result = await outcome;
+		if (intervening === 'save') {
+			expect(result).toBeInstanceOf(Error);
+			expect((result as Error).message).toMatch(/stale.*revision/i);
+		} else {
+			expect(result).toBeUndefined();
+		}
+		const saved = await fs.readFile(file, 'utf8');
+		expect(saved).toContain(intervening === 'save' ? 'Intervening title' : 'Admitted title');
+		expect(saved).not.toContain('Unadmitted title');
+		expect(await instance.isProjectModified()).toBe(false);
+		await instance.reloadProject();
+		await instance.saveProject();
+	}
+);
+
+test('a restore cannot adopt a newer loader revision while reading its original backup', async () => {
+	const instance = loader();
+	const structure = await instance.loadProject();
+	const backup = await instance.createBackup();
+	const coordinator = (instance as unknown as { coordinator: MutationCoordinator }).coordinator;
+	const readArtifact = coordinator.readProjectArtifact.bind(coordinator);
+	let entered!: () => void;
+	let release!: () => void;
+	const started = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	jest.spyOn(coordinator, 'readProjectArtifact').mockImplementationOnce(async (artifactPath) => {
+		entered();
+		await gate;
+		return readArtifact(artifactPath);
+	});
+	const restoring = instance.restoreFromBackup(backup);
+	const outcome = restoring.then(
+		() => undefined,
+		(error: unknown) => error
+	);
+	await started;
+	try {
+		firstItem(structure).Title = 'Intervening title';
+		await instance.saveProject();
+	} finally {
+		release();
+	}
+	const result = await outcome;
+	expect(result).toBeInstanceOf(Error);
+	expect((result as Error).message).toMatch(/stale.*revision/i);
+	expect(await fs.readFile(file, 'utf8')).toContain('Intervening title');
+	expect(await instance.isProjectModified()).toBe(false);
+});
+
 test('project backup restoration is revision-guarded and preserves the official backup round trip', async () => {
 	const instance = loader();
 	const structure = await instance.loadProject();

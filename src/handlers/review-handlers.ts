@@ -8,6 +8,7 @@ const input = z
 		action: z.enum([
 			'propose',
 			'list',
+			'get',
 			'preview',
 			'reject',
 			'apply',
@@ -15,6 +16,11 @@ const input = z
 			'undo',
 			'recover',
 		]),
+		limit: z.number().int().min(1).max(100).optional(),
+		proposalsAfter: z.string().min(1).max(160).optional(),
+		applicationsAfter: z.string().min(1).max(160).optional(),
+		batchesAfter: z.string().min(1).max(160).optional(),
+		creationsAfter: z.string().min(1).max(160).optional(),
 		documentId: uuid.optional(),
 		proposalId: uuid.optional(),
 		proposalIds: z.array(uuid).min(1).max(100).optional(),
@@ -60,8 +66,49 @@ export const reviewChangesHandler: ToolDefinition = {
 		properties: {
 			action: {
 				type: 'string',
-				enum: ['propose', 'list', 'preview', 'reject', 'apply', 'batch', 'undo', 'recover'],
+				enum: [
+					'propose',
+					'list',
+					'get',
+					'preview',
+					'reject',
+					'apply',
+					'batch',
+					'undo',
+					'recover',
+				],
 				description: 'Review operation. Propose and preview never modify the manuscript.',
+			},
+			limit: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 100,
+				description:
+					'History page size, default20; list returns proposal summaries. Use get for full proposal details.',
+			},
+			proposalsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Proposal cursor from result.pagination.proposals.',
+			},
+			applicationsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Application cursor from result.pagination.applications.',
+			},
+			batchesAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Batch cursor from result.pagination.batches.',
+			},
+			creationsAfter: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 160,
+				description: 'Creation operation cursor from result.pagination.creations.',
 			},
 			documentId: { type: 'string', description: 'Source document UUID for a proposal.' },
 			proposalId: {
@@ -141,14 +188,21 @@ export const reviewChangesHandler: ToolDefinition = {
 		let result: object;
 		switch (request.action) {
 			case 'list':
-				result = {
-					proposals: review.list().map(({ before, ...proposal }) => ({
-						...proposal,
-						beforeLength: before.length,
-					})),
-					applications: review.listApplications(),
-					batches: review.listBatches(),
-				};
+				{
+					const history = review.history(request);
+					const creations = review.creationHistory({
+						after: request.creationsAfter,
+						limit: request.limit,
+					});
+					result = {
+						...history,
+						creationOperations: creations.items,
+						pagination: { ...history.pagination, creations: creations.nextCursor },
+					};
+				}
+				break;
+			case 'get':
+				result = review.get(required(request.proposalId, 'proposalId'));
 				break;
 			case 'propose':
 				if (!request.edits) throw new Error('edits are required for a proposal');
@@ -194,7 +248,18 @@ export const reviewChangesHandler: ToolDefinition = {
 				});
 				break;
 			case 'recover':
-				result = { applications: await review.recover() };
+				{
+					const applications = await review.recover();
+					const creations = review.creationHistory({
+						after: request.creationsAfter,
+						limit: request.limit,
+					});
+					result = {
+						applications,
+						creationOperations: creations.items,
+						pagination: { creations: creations.nextCursor },
+					};
+				}
 				break;
 		}
 		return {

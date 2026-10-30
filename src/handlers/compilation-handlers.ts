@@ -1,3 +1,6 @@
+import { CompilationService } from '../services/compilation-service.js';
+import type { RTFContent } from '../services/parsers/rtf-handler.js';
+import { getAccurateWordCount } from '../utils/text-metrics.js';
 import { AICompilationService } from '../services/compilation/ai-compiler.js';
 import type { ExportOptions } from '../types/index.js';
 import { validateInput } from '../utils/common.js';
@@ -18,7 +21,7 @@ const logger = getLogger('compilation-handlers');
 
 function formatCompileResult(text: string, sectionCount: number, format: string): HandlerResult {
 	const charCount = text.length;
-	const wordCount = text.split(/\s+/).filter(Boolean).length;
+	const wordCount = getAccurateWordCount(text);
 
 	if (charCount <= 4000) {
 		return {
@@ -44,12 +47,16 @@ function formatCompileResult(text: string, sectionCount: number, format: string)
 					charCount,
 					sections: sectionCount,
 					file: ref._file,
+					resultId: ref._ref,
+					hint: ref._hint,
 				}),
 			},
 		],
 		structuredContent: {
 			format,
 			file: ref._file,
+			resultId: ref._ref,
+			hint: ref._hint,
 			wordCount,
 			charCount,
 			sections: sectionCount,
@@ -62,7 +69,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 	title: 'Compile Documents',
 	description:
 		"Compile the project's documents into a single continuous manuscript in the requested format " +
-		'and return the compiled text (large results are spooled to a file reference). In "standard" ' +
+		'and return the compiled text (large results include a resultId for read_result). In "standard" ' +
 		'mode it joins documents in binder order; in "intelligent" mode it uses AI to optimize the ' +
 		'output for a specific target such as an agent query or synopsis. To write a manuscript to ' +
 		'disk in a publishing format (EPUB, etc.) use export_project instead. Requires an open project.',
@@ -177,6 +184,15 @@ export const compileDocumentsHandler: ToolDefinition = {
 				description:
 					'File reference the compiled text was spooled to. Present only when the result was too large to inline.',
 			},
+			resultId: {
+				type: 'string',
+				description:
+					'Opaque large-result identifier for read_result; no filesystem access is needed.',
+			},
+			hint: {
+				type: 'string',
+				description: 'How to retrieve the complete result and its retention limit.',
+			},
 			wordCount: {
 				type: 'number',
 				description: 'Word count of the compiled manuscript.',
@@ -205,15 +221,36 @@ export const compileDocumentsHandler: ToolDefinition = {
 		const explicitIds = args.documentIds as string[] | undefined;
 
 		// Resolve the set of documents to compile.
-		const toEntry = (doc: { id: string; content?: string; title?: string }) => ({
+		const toEntry = (doc: {
+			id: string;
+			title?: string;
+			synopsis?: string;
+			notes?: string;
+		}) => ({
 			id: doc.id,
-			content: doc.content || '',
 			title: doc.title || '',
+			synopsis: doc.synopsis,
+			notes: doc.notes,
 		});
-		let documentsToCompile: Array<{ id: string; content: string; title: string }>;
+		let documentsToCompile: Array<{
+			id: string;
+			content?: RTFContent;
+			title: string;
+			synopsis?: string;
+			notes?: string;
+		}>;
 		const rootFolderId = getOptionalStringArg(args, 'rootFolderId');
+		if (rootFolderId && explicitIds?.length)
+			throw new Error('Choose documentIds or rootFolderId, not both');
 		if (explicitIds && explicitIds.length > 0) {
 			const byId = new Map((await project.getAllDocuments()).map((d) => [d.id, d]));
+			if (
+				new Set(explicitIds).size !== explicitIds.length ||
+				explicitIds.some((id) => byId.get(id)?.type !== 'Text')
+			)
+				throw new Error(
+					'Compilation scope contains duplicate, missing or non-text document IDs'
+				);
 			documentsToCompile = explicitIds
 				.map((id) => byId.get(id))
 				.filter((d): d is NonNullable<typeof d> => !!d)
@@ -243,6 +280,10 @@ export const compileDocumentsHandler: ToolDefinition = {
 
 		// Structured mode: deterministic, binder-hierarchy-aware compile with no AI.
 		if (mode === 'structured') {
+			if (explicitIds?.length)
+				throw new Error(
+					'Structured compilation supports rootFolderId or the manuscript; use standard mode for explicit documentIds'
+				);
 			const text = await project.compileStructured({
 				rootFolderId,
 				outputFormat: format,
@@ -254,6 +295,21 @@ export const compileDocumentsHandler: ToolDefinition = {
 			return formatCompileResult(text, documentsToCompile.length, format);
 		}
 
+		const hydrated: Array<{ id: string; content: RTFContent; title: string }> = [];
+		for (const document of documentsToCompile) {
+			const content = await project.readDocumentFormatted(document.id);
+			hydrated.push({
+				...document,
+				content: {
+					...content,
+					metadata: {
+						...content.metadata,
+						synopsis: document.synopsis,
+						notes: document.notes,
+					},
+				},
+			});
+		}
 		// Intelligent mode: AI-optimized compilation toward a target.
 		if (mode === 'intelligent') {
 			const targetOptimization =
@@ -272,8 +328,10 @@ export const compileDocumentsHandler: ToolDefinition = {
 				await aiCompiler.initialize();
 				const preferenceDirective = await getPersonalization(context).buildDirective();
 
-				const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
+				const compiled = await aiCompiler.compileWithAI(hydrated, {
 					outputFormat: format,
+					includeSynopsis,
+					includeNotes,
 					targetOptimization,
 					target: target as
 						| 'agent-query'
@@ -299,6 +357,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 					error: (error as Error).message,
 				});
 				return {
+					isError: true,
 					content: [
 						{
 							type: 'text',
@@ -309,34 +368,18 @@ export const compileDocumentsHandler: ToolDefinition = {
 			}
 		}
 
-		// Standard mode: join documents, with a plain-concatenation fallback.
-		try {
-			const aiCompiler = new AICompilationService();
-			await aiCompiler.initialize();
-
-			const compiled = await aiCompiler.compileWithAI(documentsToCompile, {
-				outputFormat: format,
-				targetOptimization: 'general',
-				includeSynopsis,
-				includeNotes,
-				hierarchical,
-				intelligentFormatting: true,
-				enhanceContent: true,
-			});
-
-			const text =
-				typeof compiled.content === 'string'
-					? compiled.content
-					: JSON.stringify(compiled.content);
-			return formatCompileResult(text, documentsToCompile.length, format);
-		} catch {
-			const separator = getOptionalStringArg(args, 'separator') || '\n\n---\n\n';
-			const documentIds = documentsToCompile.map((doc) => doc.id);
-			const compiled = await project.compileDocuments(documentIds, separator, format);
-
-			const text = typeof compiled === 'string' ? compiled : JSON.stringify(compiled);
-			return formatCompileResult(text, documentsToCompile.length, format);
-		}
+		const compiled = await new CompilationService().compileDocuments(hydrated, {
+			outputFormat: format,
+			separator: getOptionalStringArg(args, 'separator') ?? '\n\n---\n\n',
+			includeSynopsis,
+			includeNotes,
+			hierarchical,
+		});
+		return formatCompileResult(
+			typeof compiled === 'string' ? compiled : JSON.stringify(compiled),
+			hydrated.length,
+			format
+		);
 	},
 };
 
@@ -345,14 +388,14 @@ export const exportProjectHandler: ToolDefinition = {
 	title: 'Export Project To File',
 	description:
 		'Export the whole project to a publishing/interchange format. Markdown, HTML, and JSON ' +
-		'are returned inline; DOCX (agent/editor submission), EPUB (e-readers), and PDF (print/' +
+		'include bodies from the full active binder (including research and excluded drafts) and are returned inline; DOCX (agent/editor submission), EPUB (e-readers), and PDF (print/' +
 		'review) are written to a file on disk and the path is returned. Use this to produce a ' +
 		'deliverable file; use compile_documents when you want the compiled text back in the ' +
 		'response rather than written to disk. Requires an open project.',
 	annotations: {
-		readOnlyHint: true,
+		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: true,
 	},
 	inputSchema: {

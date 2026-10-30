@@ -456,9 +456,10 @@ export const createDocumentHandler: ToolDefinition = {
 				);
 			}
 
-			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
 			const result = await measureExecution(() =>
-				project.createDocument(title, content, parentId, documentType)
+				project.createDocument(title, content, parentId, documentType, {
+					force: getOptionalBooleanArg(args, 'force') ?? false,
+				})
 			);
 
 			// Memorize new document in HHM
@@ -532,8 +533,9 @@ export const deleteDocumentHandler: ToolDefinition = {
 			validateInput(args, documentIdSchema);
 
 			const documentId = getStringArg(args, 'documentId');
-			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
-			await project.deleteDocument(documentId);
+			await project.deleteDocument(documentId, {
+				force: getOptionalBooleanArg(args, 'force') ?? false,
+			});
 			return {
 				content: [
 					{
@@ -585,8 +587,9 @@ export const moveDocumentHandler: ToolDefinition = {
 			const documentId = getStringArg(args, 'documentId');
 			const targetFolderId = getStringArg(args, 'targetFolderId');
 			const position = getOptionalNumberArg(args, 'position');
-			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
-			await project.moveDocument(documentId, targetFolderId, position);
+			await project.moveDocument(documentId, targetFolderId, position, {
+				force: getOptionalBooleanArg(args, 'force') ?? false,
+			});
 			return {
 				content: [
 					{
@@ -657,9 +660,11 @@ export const updateDocumentHandler: ToolDefinition = {
 		const label = getOptionalStringArg(args, 'label');
 		const status = getOptionalStringArg(args, 'status');
 		const customMetadata = args.customMetadata as Record<string, string> | undefined;
+		const options = { force: getOptionalBooleanArg(args, 'force') ?? false };
+		await project.ensureWritable(options.force);
 
 		if (title !== undefined) {
-			await project.renameDocument(documentId, title);
+			await project.renameDocument(documentId, title, options);
 		}
 		if (
 			synopsis !== undefined ||
@@ -668,14 +673,11 @@ export const updateDocumentHandler: ToolDefinition = {
 			status !== undefined ||
 			customMetadata !== undefined
 		) {
-			await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
-			await project.updateDocumentMetadata(documentId, {
-				synopsis,
-				notes,
-				label,
-				status,
-				customMetadata,
-			});
+			await project.updateDocumentMetadata(
+				documentId,
+				{ synopsis, notes, label, status, customMetadata },
+				options
+			);
 		}
 
 		return {

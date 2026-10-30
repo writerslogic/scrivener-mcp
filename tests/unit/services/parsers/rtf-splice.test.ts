@@ -11,6 +11,7 @@ import {
 	spliceRtfText,
 	describeReplacedConstructs,
 } from '../../../../src/services/parsers/rtf-splice.js';
+import { isStructurallyValidRtf } from '../../../../src/services/parsers/rtf-validation.js';
 
 const handler = new RTFHandler();
 
@@ -99,5 +100,69 @@ describe('scoped Unicode and astral insertions', () => {
 		expect(spliced).not.toBeNull();
 		expect((await handler.parseRTF(spliced!.rtf)).plainText).toBe(expected);
 		expect(scanRawText(spliced!.rtf).text.trim()).toBe(expected);
+	});
+});
+
+describe('structural edit boundaries', () => {
+	const header = String.raw`{\rtf1\ansi{\fonttbl{\f0 Times;}}\f0 `;
+
+	it.each([
+		['A {\\b bold} C}', 'bold', 'strong', '{\\b {\\uc0 strong}}'],
+		['A {\\b outer {\\i inner} end} Z}', 'inner', 'brighter', '{\\i {\\uc0 brighter}}'],
+		['A {\\b outer {\\i inner} end} Z}', 'outer', 'changed', '{\\b {\\uc0 changed} {\\i inner}'],
+	])('preserves the enclosing style when changing %s', async (body, before, after, retained) => {
+		const raw = header + body;
+		const text = await canonical(raw);
+		const expected = text.replace(before, after);
+		const result = spliceRtfText(raw, text, expected);
+		expect(result).not.toBeNull();
+		expect(result!.rtf).toContain(retained);
+		expect(isStructurallyValidRtf(result!.rtf)).toBe(true);
+		expect((await handler.parseRTF(result!.rtf)).plainText).toBe(expected);
+		expect(describeReplacedConstructs(result!.replacedRaw)).toEqual([]);
+	});
+
+	it.each([
+		['A {\\b bold} {\\i italic remains} Z}', 'bold italic', 'combined'],
+		['A \\b bold \\b0 ordinary Z}', 'bold ordinary', 'combined'],
+		['A {\\b outer {\\i inner} end} Z}', 'inner end', 'combined'],
+	])('falls back when changing %s would cross a style or group boundary', async (body, before, after) => {
+		const raw = header + body;
+		const text = await canonical(raw);
+			expect(text).toContain(before);
+		expect(spliceRtfText(raw, text, text.replace(before, after))).toBeNull();
+	});
+
+	it('retains Unicode escapes and opaque groups containing escaped braces and binary bytes', async () => {
+		const opaque = String.raw`{\*\Scrv_meta escaped \} brace {nested}}`;
+		const payload = '{}\\\0';
+		const image = `{\\pict\\bin${Buffer.byteLength(payload)} ${payload}}`;
+		const raw = header + String.raw`A {\b bold} caf\u233? ` + opaque + image + ' Z}';
+		const text = await canonical(raw);
+		const expected = text.replace('bold', '東京 🌙');
+		const result = spliceRtfText(raw, text, expected);
+		expect(result).not.toBeNull();
+		expect(isStructurallyValidRtf(result!.rtf)).toBe(true);
+		expect(result!.rtf).toContain(opaque);
+		expect(result!.rtf).toContain(image);
+		expect(result!.rtf).toContain(String.raw`caf\u233?`);
+		expect((await handler.parseRTF(result!.rtf)).plainText).toBe(expected);
+	});
+
+	it('keeps structural braces intact when inserting or deleting at the last styled character', async () => {
+		const raw = header + String.raw`A {\b ending}}`;
+		const text = await canonical(raw);
+		for (const expected of [text + '!', text.replace('ending', 'end')]) {
+			const result = spliceRtfText(raw, text, expected);
+			expect(result).not.toBeNull();
+			expect(isStructurallyValidRtf(result!.rtf)).toBe(true);
+			expect((await handler.parseRTF(result!.rtf)).plainText).toBe(expected);
+		}
+	});
+
+	it('refuses a structurally invalid original even when its canonical text can be recovered', async () => {
+		const raw = header + String.raw`A {\b bold} C`;
+		const text = await canonical(raw);
+		expect(spliceRtfText(raw, text, text.replace('bold', 'strong'))).toBeNull();
 	});
 });

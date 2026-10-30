@@ -13,17 +13,16 @@ export function parseModelJson(
 	const start = withoutFences.search(/[[{]/);
 	if (start === -1) {
 		logger?.warn('Model reply contained no JSON; treating as empty result', {
-			preview: raw.slice(0, 120),
+			responseCharacters: raw.length,
 		});
 		return null;
 	}
 	const end = Math.max(withoutFences.lastIndexOf(']'), withoutFences.lastIndexOf('}'));
 	try {
 		return JSON.parse(withoutFences.slice(start, end + 1));
-	} catch (error) {
+	} catch {
 		logger?.warn('Model reply was not valid JSON; treating as empty result', {
-			preview: raw.slice(0, 120),
-			error: error instanceof Error ? error.message : String(error),
+			responseCharacters: raw.length,
 		});
 		return null;
 	}

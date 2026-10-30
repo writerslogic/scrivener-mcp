@@ -1,4 +1,4 @@
-import type { PersistentStore } from './persistent-store.js';
+import type { PersistentStore, StorePageOptions, StorePage } from './persistent-store.js';
 import type { SeriesBible } from './series-bible.js';
 import type {
 	FactConfidence,
@@ -55,6 +55,7 @@ export interface ContinuityOptions {
 	checkTypes?: ContinuityCheck[];
 	documentIds?: string[];
 	seriesId?: string;
+	expectedRevisions?: Array<{ documentId: string; revision: string }>;
 }
 
 const FINDINGS = 'continuity:findings';
@@ -172,7 +173,38 @@ export class ContinuityService {
 				options.documentIds.length > 5000)
 		)
 			throw new Error('Document scope must contain 1 to 5000 document ids');
-		return this.analyzeSnapshot(options, await this.source.list());
+		const documents = await this.source.list();
+		if (options.expectedRevisions !== undefined) {
+			const expected = options.expectedRevisions;
+			if (
+				!Array.isArray(expected) ||
+				!expected.length ||
+				expected.length > 5000 ||
+				expected.some(
+					(doc) =>
+						!doc ||
+						typeof doc.documentId !== 'string' ||
+						typeof doc.revision !== 'string' ||
+						!/^[a-f0-9]{64}$/.test(doc.revision)
+				)
+			)
+				throw new Error('Invalid expected continuity revisions');
+			const selected = new Set(options.documentIds ?? documents.map((doc) => doc.documentId));
+			const current = new Map(documents.map((doc) => [doc.documentId, doc.revision]));
+			if (
+				expected.length !== selected.size ||
+				new Set(expected.map((doc) => doc.documentId)).size !== expected.length ||
+				expected.some(
+					(doc) =>
+						!selected.has(doc.documentId) ||
+						current.get(doc.documentId) !== doc.revision
+				)
+			)
+				throw new Error(
+					'Saved source changed before continuity analysis; refresh and queue a new analysis'
+				);
+		}
+		return this.analyzeSnapshot(options, documents);
 	}
 
 	private async analyzeSnapshot(
@@ -432,6 +464,17 @@ export class ContinuityService {
 					finding.status === 'confirmed'
 			)
 			.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+	}
+
+	listPage(
+		options: StorePageOptions & { includeResolved?: boolean } = {}
+	): StorePage<ContinuityFinding> {
+		return this.store.page(
+			FINDINGS,
+			options,
+			undefined,
+			options.includeResolved ? undefined : { field: 'status', values: ['open', 'confirmed'] }
+		);
 	}
 
 	transition(

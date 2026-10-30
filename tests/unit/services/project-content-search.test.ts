@@ -1,3 +1,5 @@
+import { searchContentHandler } from '../../../src/handlers/search-handlers.js';
+import type { HandlerContext } from '../../../src/handlers/types.js';
 import { ErrorCode } from '../../../src/core/errors.js';
 import { CompilationService } from '../../../src/services/compilation-service.js';
 import { documentIndexer } from '../../../src/services/document-indexer.js';
@@ -59,6 +61,39 @@ describe('ProjectContent search with an initialized binder index', () => {
 		const results = await project.searchContent('silver bridge');
 		expect(results.map((result) => result.documentId)).toEqual(['one', 'two']);
 		expect(results[0].matches).toEqual(['Alice met Bob beneath the Silver Bridge.']);
+	});
+
+	it('uses the same full active scope for default, explicit-case and regular-expression tools', async () => {
+		documents.push({
+			id: 'research',
+			title: 'Excluded research note',
+			type: 'Text',
+			path: '/Research',
+			includeInCompile: false,
+		});
+		content.set('research', 'A Silver Bridge reference in research.');
+		try {
+			const context = {
+				project: { searchContent: project.searchContent.bind(project) },
+			} as unknown as HandlerContext;
+			const plain = await searchContentHandler.handler({ query: 'Silver Bridge' }, context);
+			const explicit = await searchContentHandler.handler(
+				{ query: 'Silver Bridge', caseSensitive: false },
+				context
+			);
+			const regex = await searchContentHandler.handler(
+				{ query: 'Silver Bridge', regex: true },
+				context
+			);
+			for (const result of [plain, explicit, regex])
+				expect(
+					(result.structuredContent?.results as Array<{ id: string }>).map(
+						(item) => item.id
+					)
+				).toEqual(['one', 'two', 'research']);
+		} finally {
+			documents.pop();
+		}
 	});
 
 	it('matches original text case exactly', async () => {

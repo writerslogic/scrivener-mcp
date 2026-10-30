@@ -177,6 +177,7 @@ interface IndexedDocument {
 	projectId: string;
 	documentId: string;
 	revision: string;
+	textHash: string;
 	title: string;
 	path: string;
 	passages: IndexedPassage[];
@@ -254,7 +255,8 @@ function chunkDocument(doc: SourceDocument): IndexedPassage[] {
 		}
 		chunks.push({
 			id: createHash('sha256')
-				.update(`${doc.projectId}:${doc.documentId}:${doc.revision}:${start}:${end}`)
+				.update(JSON.stringify([doc.projectId, doc.documentId, doc.revision, start, end]))
+				.update(quote)
 				.digest('hex'),
 			projectId: doc.projectId,
 			documentId: doc.documentId,
@@ -431,10 +433,12 @@ export class PassageSearch {
 			if (doc.projectId !== this.source.projectId)
 				throw new Error('Source returned a document outside the project scope');
 			const prior = existing.get(doc.documentId);
+			const textHash = createHash('sha256').update(doc.text).digest('hex');
 			let next: IndexedDocument;
 			if (
 				!prior ||
 				prior.revision !== doc.revision ||
+				prior.textHash !== textHash ||
 				prior.version !== INDEX_VERSION ||
 				prior.title !== doc.title ||
 				prior.path !== doc.path
@@ -444,6 +448,7 @@ export class PassageSearch {
 					projectId: doc.projectId,
 					documentId: doc.documentId,
 					revision: doc.revision,
+					textHash,
 					title: doc.title,
 					path: doc.path,
 					passages: chunkDocument(doc),

@@ -21,8 +21,8 @@ export const searchContentHandler: ToolDefinition = {
 	name: 'search',
 	title: 'Search Documents',
 	description:
-		'Search the open project and return matching documents with relevance-ranked snippets. By ' +
-		'default performs an intelligent full-text/semantic search of document content; set field to ' +
+		'Search the open project and return matching documents with literal excerpts. By ' +
+		'default performs literal full-text search across the active binder, including research and excluded drafts; set field to ' +
 		'"title" for a fast case-insensitive title lookup, or scope to "trash" to search only trashed ' +
 		'documents. For meaning-based "find passages about X" queries use semantic_search; to find ' +
 		'every occurrence of a specific name or term use find_mentions. Requires an open project.',
@@ -157,20 +157,6 @@ export const searchContentHandler: ToolDefinition = {
 			};
 		}
 
-		if (!regex && !caseSensitive && !includeTrash && !searchIn?.length) {
-			const found = await project
-				.getEditorialServices()
-				.search.search(query, { limit: 20, mode: 'hybrid' });
-			const results = found.results.map((match) => ({
-				...match,
-				id: match.documentId,
-				snippet: match.context,
-			}));
-			return {
-				content: [{ type: 'text', text: JSON.stringify({ ...found, results }) }],
-				structuredContent: { ...found, results },
-			};
-		}
 		const found = await project.searchContent(query, {
 			caseSensitive,
 			regex,
@@ -278,8 +264,9 @@ export const recoverDocumentHandler: ToolDefinition = {
 
 		const documentId = getStringArg(args, 'documentId');
 		const targetFolderId = getOptionalStringArg(args, 'targetFolderId');
-		await project.ensureWritable(getOptionalBooleanArg(args, 'force') ?? false);
-		await project.recoverFromTrash(documentId, targetFolderId);
+		await project.recoverFromTrash(documentId, targetFolderId, {
+			force: getOptionalBooleanArg(args, 'force') ?? false,
+		});
 
 		return {
 			content: [

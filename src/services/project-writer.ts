@@ -13,9 +13,11 @@ import {
 import type { RTFContent } from './parsers/rtf-handler.js';
 import type { HolographicMemorySystem } from './memory/hhm/holographic-memory-system.js';
 import type { ScrivenerProject } from '../scrivener-project.js';
+import type { ProjectStructure } from '../types/internal.js';
 import {
 	documentRevision,
 	type CommitOptions,
+	type CreationDocument,
 	type MutationRecord,
 } from './editorial/mutation-coordinator.js';
 
@@ -41,10 +43,14 @@ export class ProjectWriter {
 		private readonly projectPath: string,
 		private readonly documentManager: DocumentManager,
 		private readonly hhmSystem: HolographicMemorySystem | undefined,
-		private readonly saveProject: () => Promise<void>,
+		_saveProject: () => Promise<void>,
 		private readonly markDocumentChanged: (documentId: string) => void,
 		private readonly getDocumentInfo: ScrivenerProject['getDocumentInfo'],
-		_takeSnapshot: ScrivenerProject['takeSnapshot']
+		_takeSnapshot: ScrivenerProject['takeSnapshot'],
+		private readonly commitCreation?: (
+			structure: ProjectStructure,
+			documents: readonly CreationDocument[]
+		) => Promise<void>
 	) {}
 
 	async ensureWritable(force = false): Promise<void> {
@@ -226,13 +232,28 @@ export class ProjectWriter {
 		title: string,
 		content = '',
 		parentId?: string,
-		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
+		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT,
+		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<string> {
+		await this.ensureWritable(options.force);
+		if (!this.commitCreation)
+			throw new Error('Document creation requires a project loader compound commit');
 		const context: DocumentOperationContext = {
 			projectStructure: this.documentManager.getProjectStructureData(),
 			projectPath: this.projectPath,
-			writeDocument: (id, text) => this.documentManager.writeDocument(id, text, true),
-			saveProject: () => this.saveProject(),
+			commitCreation: async (structure, documents) => {
+				const handler = new RTFHandler();
+				// Keep preparation synchronous so the loader admits the binder revision before another save.
+				const prepared = documents.map(({ documentId, content: text }) => {
+					const raw = handler.convertToRTF(text);
+					if (handler.extractPlainText(raw) !== text)
+						throw new Error('New document text cannot round-trip exactly through RTF');
+					return { documentId, raw };
+				});
+				await this.commitCreation!(structure, prepared);
+				this.documentManager.setProjectStructure(structure);
+				for (const document of documents) this.markDocumentChanged(document.documentId);
+			},
 		};
 		const result = await createDocumentUtil({ title, content, parentId, type }, context);
 		if (this.hhmSystem && result.id) {

@@ -27,10 +27,10 @@ import {
 	initializeSkillRegistry,
 	getRegisteredTools,
 	executeRegisteredHandler,
-	validateRegisteredArgs,
+	getToolCatalogRevision,
 	activateSkills,
-	activateSkillForTool,
 } from './handlers/skill-registry.js';
+import { HandlerError } from './handlers/types.js';
 import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
 import { APP_MIME_TYPE, DASHBOARD_URI, supportsApps } from './handlers/dashboard-handlers.js';
 import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
@@ -100,6 +100,7 @@ registerSamplingServer(server);
 
 // Initialize skill registry
 initializeSkillRegistry();
+let advertisedToolRevision = getToolCatalogRevision();
 
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -159,41 +160,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		}
 		context.uiSupported = supportsApps(server.getClientCapabilities());
 
-		// Progressive disclosure: if the model calls a tool whose skill is not
-		// active yet, activate it on demand instead of dead-ending on "unknown
-		// tool". Genuinely unknown/hidden tools are left to fail validation below.
-		const autoActivated = activateSkillForTool(name);
-
-		// Validate arguments
-		validateRegisteredArgs(name, args || {});
-
 		// Execute handler
-		const result = await executeRegisteredHandler(name, args || {}, context);
-
-		// After use_skill or open_project, notify the client that new tools are
-		// available. This is a side effect: a notification failure must not turn a
-		// successful tool call into an error, so it is isolated from the result.
-		try {
-			if (autoActivated) {
-				await server.sendToolListChanged();
-			}
-			if (name === 'use_skill') {
-				await server.sendToolListChanged();
-			} else if (name === 'open_project' && context.project) {
-				const changed = activateSkills('documents', 'search');
-				if (hhmInitialized) {
-					activateSkills('memory');
-				}
-				if (changed) {
-					await server.sendToolListChanged();
-				}
-			}
-		} catch (notifyError) {
-			logger.warn('Failed to send tools/list_changed notification', {
-				tool: name,
-				error: notifyError,
-			});
-		}
+		const result = await executeRegisteredHandler(name, args ?? {}, context);
+		if (name === 'open_project' && context.project && !result.isError)
+			activateSkills('documents', 'search', ...(hhmInitialized ? ['memory'] : []));
 
 		// Preserve isError so the client can tell a failed tool call (e.g. a
 		// handler reporting an unavailable database) from a successful one;
@@ -213,13 +183,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		}
 		return response;
 	} catch (error) {
-		logger.error('Tool error', { tool: name, error });
-		// Mark thrown handler errors (unknown tool, validation, etc.) as errors
-		// so the caller does not treat the failure text as a successful result.
+		if (error instanceof HandlerError && error.code === 'UNKNOWN_TOOL')
+			throw new McpError(McpErrorCode.InvalidParams, 'Unknown or unavailable tool');
+		if (error instanceof HandlerError && error.code === 'INVALID_ARGUMENT')
+			logger.warn('Tool arguments failed validation', { tool: name, code: error.code });
+		else logger.error('Tool error', { tool: name, error });
 		return {
 			content: [{ type: 'text', text: formatError(error, name) }],
 			isError: true,
 		};
+	} finally {
+		const revision = getToolCatalogRevision();
+		if (revision !== advertisedToolRevision) {
+			advertisedToolRevision = revision;
+			try {
+				await server.sendToolListChanged();
+			} catch {
+				logger.warn('Failed to send tools/list_changed notification', { tool: name });
+			}
+		}
 	}
 });
 

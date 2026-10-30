@@ -141,6 +141,18 @@ test('saved external changes refresh cached reads and reject stale previews, wri
 	expect(await documents.readDocument(DOCUMENT)).toContain('Changed externally.');
 });
 
+test('saved proposals with an obsolete text interpretation cannot preview or overwrite a document', async () => {
+	const proposal = await proposeOpening();
+	store.put('review-proposals', proposal.id, { ...proposal, before: '' });
+	await restartServices();
+	await expect(reviews.preview(proposal.id)).rejects.toThrow(/incompatible text interpretation/);
+	await expect(
+		reviews.apply(proposal.id, { force: true, allowFormattingLoss: true })
+	).rejects.toThrow(/incompatible text interpretation/);
+	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+	expect(await listDocumentSnapshots(root, DOCUMENT)).toHaveLength(0);
+});
+
 test('format risk must be acknowledged before application and native detection uncertainty requires explicit force', async () => {
 	const before = await documents.readDocument(DOCUMENT);
 	const proposal = await reviews.propose({

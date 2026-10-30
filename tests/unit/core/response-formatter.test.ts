@@ -1,11 +1,55 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { compact, formatList, formatPayload } from '../../../src/core/response-formatter.js';
+import {
+	compact,
+	formatList,
+	formatPayload,
+	readResult,
+} from '../../../src/core/response-formatter.js';
 
 const directories = new Set<string>();
 
 afterAll(() => {
 	for (const directory of directories) fs.rmSync(directory, { recursive: true, force: true });
+});
+
+test.each([4, 4095, 65535, 65536])(
+	'reconstructs a large Unicode result using bounded %i-byte pages',
+	(limit) => {
+		const value = { manuscript: 'Café — 東京 🌙\n'.repeat(600) };
+		const reference = result(formatPayload(value)) as { _ref: string };
+		let offset: number | null = 0;
+		let recovered = '';
+		do {
+			const page = readResult(reference._ref, offset, limit);
+			expect(Buffer.byteLength(page.text)).toBeLessThanOrEqual(limit);
+			expect(page.text).not.toContain('\ufffd');
+			recovered += page.text;
+			offset = page.nextOffset;
+		} while (offset !== null);
+		expect(JSON.parse(recovered)).toEqual(value);
+	}
+);
+
+test('rejects traversal, foreign results, invalid byte boundaries and allocation sizes', () => {
+	const reference = result(formatPayload('🌙'.repeat(2500))) as { _ref: string };
+	for (const id of ['../private', '00000000-0000-4000-8000-000000000000'])
+		expect(() => readResult(id)).toThrow(/identifier|not found/);
+	for (const limit of [3, 65537, Infinity, 4.5])
+		expect(() => readResult(reference._ref, 0, limit)).toThrow(/limit/);
+	for (const offset of [-1, 2, Number.MAX_SAFE_INTEGER + 1])
+		expect(() => readResult(reference._ref, offset)).toThrow(/offset/);
+});
+
+test('expired result identifiers cannot disclose prior content', () => {
+	const reference = result(formatPayload('private'.repeat(1000))) as { _ref: string };
+	const now = Date.now();
+	const clock = jest.spyOn(Date, 'now').mockReturnValue(now + 3600001);
+	try {
+		expect(() => readResult(reference._ref)).toThrow(/expired/);
+	} finally {
+		clock.mockRestore();
+	}
 });
 
 function result(text: string): Record<string, unknown> | unknown[] | string {

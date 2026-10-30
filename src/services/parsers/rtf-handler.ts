@@ -3,6 +3,7 @@ import parseRTF from 'rtf-parser';
 import { promisify } from 'util';
 import { safeReadFile, safeWriteFile } from '../../utils/common.js';
 import { getLogger } from '../../core/logger.js';
+import { isStructurallyValidRtf, readRtfControl, rtfGroupEnd } from './rtf-validation.js';
 import type {
 	RTFParserDocument,
 	RTFParserContent,
@@ -77,23 +78,25 @@ export class RTFHandler {
 	 * Returns the content between the outermost braces, or null if not found.
 	 */
 	private findBraceGroup(input: string, keyword: string): string | null {
-		const idx = input.indexOf(`{${keyword}`);
+		const idx = this.findBraceGroupStart(input, keyword);
 		if (idx === -1) return null;
 
-		let depth = 0;
-		const start = idx;
-		for (let i = start; i < input.length; i++) {
-			if (input[i] === '{') depth++;
-			else if (input[i] === '}') {
-				depth--;
-				if (depth === 0) {
-					// Return inner content after the keyword
-					const inner = input.substring(start + 1 + keyword.length, i);
-					return inner;
-				}
+		const end = rtfGroupEnd(input, idx);
+		return end === undefined ? null : input.substring(idx + 1 + keyword.length, end - 1);
+	}
+
+	private findBraceGroupStart(input: string, keyword: string, from = 0): number {
+		for (let offset = from; offset < input.length;) {
+			if (input[offset] === '\\') {
+				const control = readRtfControl(input, offset);
+				if (!control) return -1;
+				offset = control.end;
+			} else {
+				if (input.startsWith(`{${keyword}`, offset)) return offset;
+				offset++;
 			}
 		}
-		return null;
+		return -1;
 	}
 
 	/**
@@ -101,30 +104,18 @@ export class RTFHandler {
 	 * Uses linear scanning to avoid ReDoS.
 	 */
 	private removeBraceGroup(input: string, keyword: string): string {
-		let result = input;
-		const searchFrom = 0;
-
+		const parts: string[] = [];
+		let cursor = 0;
 		while (true) {
-			const idx = result.indexOf(`{${keyword}`, searchFrom);
+			const idx = this.findBraceGroupStart(input, keyword, cursor);
 			if (idx === -1) break;
-
-			let depth = 0;
-			let end = -1;
-			for (let i = idx; i < result.length; i++) {
-				if (result[i] === '{') depth++;
-				else if (result[i] === '}') {
-					depth--;
-					if (depth === 0) {
-						end = i;
-						break;
-					}
-				}
-			}
-			if (end === -1) break; // unbalanced braces, stop
-			result = result.substring(0, idx) + result.substring(end + 1);
-			// don't advance searchFrom; removal shifts content back
+			const end = rtfGroupEnd(input, idx);
+			if (end === undefined) break;
+			parts.push(input.slice(cursor, idx));
+			cursor = end;
 		}
-		return result;
+		parts.push(input.slice(cursor));
+		return parts.join('');
 	}
 
 	async readRTF(filePath: string): Promise<RTFContent> {
@@ -181,7 +172,9 @@ export class RTFHandler {
 			body = this.buildFormattedRTF(content.formattedText);
 		}
 
-		return `${header}${body}}`;
+		const raw = `${header}${body}}`;
+		if (!isStructurallyValidRtf(raw)) throw new Error('Generated RTF is structurally invalid');
+		return raw;
 	}
 
 	private buildRTFHeader(metadata?: RTFContent['metadata']): string {
@@ -253,16 +246,11 @@ export class RTFHandler {
 		// Extract metadata
 		result.metadata = this.extractMetadata(rtfString);
 
-		// Capture the document's \uc fallback count from the header before it is
-		// stripped (Scrivener uses \uc0), then parse the body with it.
-		const ucMatch = rtfString.match(/\\uc(\d+)/);
-		const documentUc = ucMatch ? Math.max(0, parseInt(ucMatch[1], 10)) : 1;
-
 		// Remove header sections
 		const content = this.stripRTFHeaders(rtfString);
 
 		// Parse formatting and content
-		const segments = this.parseRTFSegments(content, documentUc);
+		const segments = this.parseRTFSegments(content);
 
 		// Build plain text and formatted text
 		const plainTextParts: string[] = [];
@@ -304,9 +292,6 @@ export class RTFHandler {
 	private stripRTFHeaders(rtfString: string): string {
 		let content = rtfString;
 
-		// Remove RTF declaration
-		content = content.replace(/^\{\\rtf\d+[^}]*/, '');
-
 		// Remove various table definitions using brace-balanced scanning (avoids ReDoS).
 		// Image destinations (\*\shppict, \pict) are dropped too: their bodies are
 		// raw hex image data (\jpegblip/\pngblip) that must never surface as document
@@ -330,7 +315,7 @@ export class RTFHandler {
 		});
 
 		// Remove Scrivener-specific control words
-		content = content.replace(/\{\\Scrv_[^}]*\}/g, '');
+		content = this.removeBraceGroup(content, '\\Scrv_');
 
 		return content;
 	}
@@ -422,6 +407,10 @@ export class RTFHandler {
 							value: this.SPECIAL_CHARS.get(`\\${wordName}`)!,
 						});
 						i += controlMatch[0].length;
+					} else if (wordName === 'bin') {
+						const binary = readRtfControl(content, i);
+						if (!binary) throw new Error('Invalid RTF binary data');
+						i = binary.end;
 					} else if (wordName === 'uc') {
 						const n = parseInt(wordParam, 10);
 						uc = Number.isNaN(n) ? 1 : Math.max(0, n);

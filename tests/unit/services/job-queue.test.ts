@@ -7,9 +7,17 @@ import { JobQueueService, JobType } from '../../../src/services/queue/job-queue.
 import { Queue, Worker, QueueEvents, type Processor, type WorkerOptions } from 'bullmq';
 import * as keydbDetector from '../../../src/services/queue/keydb-detector.js';
 import { AIClient } from '../../../src/services/ai/ai-client.js';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Mock BullMQ
-jest.mock('bullmq');
+jest.mock('bullmq', () => ({
+	...jest.requireActual<typeof import('bullmq')>('bullmq'),
+	Queue: jest.fn(),
+	Worker: jest.fn(),
+	QueueEvents: jest.fn(),
+}));
 
 const workerConstructor: new (
 	name: string,
@@ -21,16 +29,6 @@ const workerConstructor: new (
 jest.mock('../../../src/services/queue/keydb-detector.js', () => ({
 	detectConnection: jest.fn(),
 	createBullMQConnection: jest.fn(),
-}));
-
-// Mock MemoryRedis
-jest.mock('../../../src/services/queue/memory-redis.js', () => ({
-	MemoryRedis: jest.fn().mockImplementation(() => ({
-		connect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-		disconnect: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-		on: jest.fn(),
-		once: jest.fn(),
-	})),
 }));
 
 // Mock services
@@ -73,16 +71,24 @@ describe('JobQueueService v2', () => {
 	let mockQueueEvents: any;
 	let detectConnectionMock: any;
 	let createBullMQConnectionMock: any;
+	let projectPath: string;
+	let storedJobs: Map<string, any>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
+		projectPath = await realpath(await mkdtemp(join(tmpdir(), 'scrivener-queue-unit-')));
+		storedJobs = new Map();
 		// Setup mocks
 		detectConnectionMock = keydbDetector.detectConnection as any;
 		createBullMQConnectionMock = keydbDetector.createBullMQConnection as any;
 
 		// Mock Queue
 		mockQueue = {
-			add: jest.fn(() => Promise.resolve({ id: 'job-123' })),
-			getJob: jest.fn(),
+			add: jest.fn((name: string, data: unknown, options: { jobId: string }) => {
+				const job = { id: options.jobId, name, data };
+				storedJobs.set(job.id, job);
+				return Promise.resolve(job);
+			}),
+			getJob: jest.fn((id: string) => Promise.resolve(storedJobs.get(id) ?? null)),
 			getWaitingCount: jest.fn(() => Promise.resolve(0)),
 			getActiveCount: jest.fn(() => Promise.resolve(0)),
 			getCompletedCount: jest.fn(() => Promise.resolve(0)),
@@ -109,13 +115,14 @@ describe('JobQueueService v2', () => {
 		(QueueEvents as any).mockImplementation(() => mockQueueEvents);
 
 		// Create service instance
-		jobQueueService = new JobQueueService('./test-project');
+		jobQueueService = new JobQueueService(projectPath);
 	});
 
 	afterEach(async () => {
 		if (jobQueueService) {
 			await jobQueueService.shutdown();
 		}
+		await rm(projectPath, { recursive: true, force: true });
 		jest.clearAllMocks();
 	});
 
@@ -208,11 +215,8 @@ describe('JobQueueService v2', () => {
 			const { AIWritingService } = require('../../../src/services/ai/ai-writing-service');
 			const { DatabaseService } = require('../../../src/handlers/database/database-service');
 
-			// JobQueueService always derives the database path from its own
-			// projectPath ('./test-project', passed to the constructor above);
-			// initialize()'s databasePath option is no longer read.
 			expect(AIWritingService).toHaveBeenCalledWith(expect.any(AIClient));
-			expect(DatabaseService).toHaveBeenCalledWith('./test-project');
+			expect(DatabaseService).toHaveBeenCalledWith(projectPath);
 		});
 	});
 
@@ -239,17 +243,23 @@ describe('JobQueueService v2', () => {
 				priority: 1,
 			});
 
-			expect(jobId).toBe('job-123');
-			expect(mockQueue.add).toHaveBeenCalledWith(JobType.ANALYZE_DOCUMENT, jobData, {
-				priority: 1,
+			const info = jobQueueService.getConnectionInfo();
+			expect(jobId).toMatch(new RegExp(`^${info.scopeId}-`));
+			expect(storedJobs.get(jobId).data).toMatchObject({
+				version: 1,
+				scopeId: info.scopeId,
+				jobType: JobType.ANALYZE_DOCUMENT,
+				payload: jobData,
 			});
 		});
 
 		it('should get job status', async () => {
+			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'test',
+			});
 			const mockJob = {
-				id: 'job-123',
+				...storedJobs.get(id),
 				progress: 50,
-				data: { test: 'data' },
 				returnvalue: { result: 'completed' },
 				failedReason: null,
 				getState: jest.fn(() => Promise.resolve('completed')),
@@ -257,7 +267,7 @@ describe('JobQueueService v2', () => {
 
 			mockQueue.getJob.mockResolvedValue(mockJob as any);
 
-			const status = await jobQueueService.getJobStatus(JobType.ANALYZE_DOCUMENT, 'job-123');
+			const status = await jobQueueService.getJobStatus(JobType.ANALYZE_DOCUMENT, id);
 
 			// getJobStatus returns the raw BullMQ Job unchanged; state resolution via
 			// job.getState() happens one layer up, in the async-handlers.ts caller.
@@ -265,14 +275,17 @@ describe('JobQueueService v2', () => {
 		});
 
 		it('should cancel job', async () => {
+			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'test',
+			});
 			const mockJob = {
-				id: 'job-123',
+				...storedJobs.get(id),
 				remove: jest.fn(() => Promise.resolve()),
 			};
 
 			mockQueue.getJob.mockResolvedValue(mockJob as any);
 
-			await jobQueueService.cancelJob(JobType.ANALYZE_DOCUMENT, 'job-123');
+			await jobQueueService.cancelJob(JobType.ANALYZE_DOCUMENT, id);
 
 			expect(mockJob.remove).toHaveBeenCalled();
 		});
@@ -305,6 +318,52 @@ describe('JobQueueService v2', () => {
 
 			expect(status).toBeNull();
 		});
+
+		it.each(['legacy', 'scope', 'project', 'version', 'type'] as const)(
+			'rejects a %s envelope before processing',
+			async (kind) => {
+				const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+					documentId: 'shared-document',
+					content: 'A local scene.',
+				});
+				const job = storedJobs.get(id);
+				if (kind === 'legacy') job.data = job.data.payload;
+				else {
+					const field = {
+						scope: 'scopeId',
+						project: 'projectId',
+						version: 'version',
+						type: 'jobType',
+					}[kind]!;
+					job.data[field] = kind === 'version' ? 2 : 'foreign';
+				}
+				const processor = jest
+					.mocked(workerConstructor)
+					.mock.calls.find(([type]) => type === JobType.ANALYZE_DOCUMENT)![1];
+				if (typeof processor !== 'function')
+					throw new Error('Missing production processor');
+				await expect(processor(job, 'fixture-token')).rejects.toThrow(/ownership/);
+				await expect(
+					jobQueueService.getJobStatus(JobType.ANALYZE_DOCUMENT, id)
+				).rejects.toThrow(/ownership/);
+				await expect(
+					jobQueueService.cancelJob(JobType.ANALYZE_DOCUMENT, id)
+				).rejects.toThrow(/ownership/);
+			}
+		);
+
+		it.each([2097150, 2097151, 2097152])(
+			'enforces the BullMQ priority boundary at %i',
+			async (priority) => {
+				const request = jobQueueService.addJob(
+					JobType.ANALYZE_DOCUMENT,
+					{ documentId: 'bounded' },
+					{ priority }
+				);
+				if (priority > 2097151) await expect(request).rejects.toThrow(/priority/);
+				else expect(await request).toMatch(/^[a-f0-9]{64}-/);
+			}
+		);
 	});
 
 	describe('concurrency settings', () => {
@@ -356,7 +415,8 @@ describe('JobQueueService v2', () => {
 			const mockConnection = { quit: jest.fn(() => Promise.resolve()) };
 
 			// Reinitialize with KeyDB
-			jobQueueService = new JobQueueService('./test-project');
+			await jobQueueService.shutdown();
+			jobQueueService = new JobQueueService(projectPath);
 
 			detectConnectionMock.mockResolvedValue({
 				isAvailable: true,

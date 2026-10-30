@@ -1,3 +1,4 @@
+import type { ContinuityOptions, ContinuityReport } from '../editorial/continuity-service.js';
 /**
  * Optimized BullMQ job queue with automatic KeyDB/Redis detection
  */
@@ -7,19 +8,30 @@ import { Queue, QueueEvents, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
 import * as path from 'path';
 import { randomUUID } from 'node:crypto';
+import { realpath } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
-import { getQueueStatePath } from '../../utils/project-utils.js';
 import { DatabaseService } from '../../handlers/database/database-service.js';
 import { getEnvConfig } from '../../utils/env-config.js';
 import { getDocumentPath } from '../../utils/scrivener-utils.js';
 import { AIClient } from '../ai/ai-client.js';
 import { AIWritingService } from '../ai/ai-writing-service.js';
 import { createBullMQConnection, detectConnection } from './keydb-detector.js';
-import { MemoryRedis } from './memory-redis.js';
+import { MutationCoordinator } from '../editorial/mutation-coordinator.js';
 import { PersistentStore } from '../editorial/persistent-store.js';
+import { getOrCreateProjectIdentity } from '../editorial/project-identity.js';
+import {
+	createQueueScope,
+	LEGACY_QUEUE_NOTICE,
+	ownsJobId,
+	readScopedJob,
+	scopeJob,
+	scopedJobId,
+	type QueueScope,
+	type ScopedJob,
+} from './project-scope.js';
 
 // Job types
 export enum JobType {
@@ -62,8 +74,9 @@ export interface BuildVectorStoreJob {
 }
 
 export interface CheckConsistencyJob {
-	documents: Array<{ id: string; content: string }>;
-	checkTypes?: string[];
+	projectId: string;
+	documents: Array<{ id: string; revision: string }>;
+	checkTypes?: ContinuityOptions['checkTypes'];
 }
 
 export interface SyncDatabaseJob {
@@ -99,10 +112,12 @@ export class JobQueueService {
 	private queues: Map<JobType, Queue> = new Map();
 	private workers: Map<JobType, Worker> = new Map();
 	private events: Map<JobType, QueueEvents> = new Map();
-	private connection: Redis | MemoryRedis | undefined = undefined;
-	private memoryRedis: MemoryRedis | undefined = undefined;
+	private connection: Redis | undefined = undefined;
 	private embeddedJobs: Map<string, EmbeddedJobStatus> = new Map();
 	private embeddedStore?: PersistentStore;
+	private scope?: QueueScope;
+	private readonly unboundIdentity = randomUUID();
+	private continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
 	private readonly embeddedRuns = new Map<string, Promise<void>>();
 	private logger: ReturnType<typeof getLogger>;
 
@@ -123,6 +138,9 @@ export class JobQueueService {
 
 	async initialize(
 		options: {
+			redisUrl?: string;
+			sqliteOnly?: boolean;
+			continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
 			openaiApiKey?: string;
 			databasePath?: string;
 			neo4jUri?: string;
@@ -131,10 +149,25 @@ export class JobQueueService {
 		if (this.isInitialized) {
 			return;
 		}
+		if (options.sqliteOnly !== undefined && typeof options.sqliteOnly !== 'boolean')
+			throw new Error('sqliteOnly must be a boolean');
 
 		try {
+			this.continuity = options.continuity;
+			if (this.projectPath) {
+				this.projectPath = await realpath(this.projectPath);
+				const statePath = path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite');
+				new MutationCoordinator(this.projectPath).assertProjectPath(statePath);
+				this.embeddedStore = new PersistentStore(statePath);
+				this.scope = createQueueScope(
+					getOrCreateProjectIdentity(this.embeddedStore),
+					this.projectPath
+				);
+			} else this.scope = createQueueScope(this.unboundIdentity);
 			// Step 1: Detect and establish connection
-			const connectionInfo = await detectConnection();
+			const connectionInfo = await detectConnection(
+				options.redisUrl !== undefined ? [options.redisUrl] : undefined
+			);
 
 			if (connectionInfo.isAvailable && connectionInfo.url) {
 				// Use KeyDB or Redis
@@ -144,27 +177,8 @@ export class JobQueueService {
 					version: connectionInfo.version,
 				});
 			} else {
-				// Fallback to embedded MemoryRedis
 				this.logger.info('No KeyDB/Redis found, using embedded queue');
-
-				const persistPath = this.projectPath
-					? getQueueStatePath(this.projectPath)
-					: './data/queue-state.json';
-
-				// Create directory if needed
-				const fs = await import('fs/promises');
-				const dir = path.dirname(persistPath);
-				await fs.mkdir(dir, { recursive: true });
-
-				this.memoryRedis = new MemoryRedis({ persistPath });
-				await this.memoryRedis.connect();
-				this.connection = this.memoryRedis;
 				this.connectionType = 'embedded';
-				if (this.projectPath) {
-					this.embeddedStore = new PersistentStore(
-						path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite')
-					);
-				}
 			}
 
 			// Step 2: Initialize services
@@ -180,7 +194,16 @@ export class JobQueueService {
 			}
 
 			if (this.projectPath) {
-				this.databaseService = new DatabaseService(this.projectPath);
+				this.databaseService = options.sqliteOnly
+					? new DatabaseService(this.projectPath, {
+							neo4j: {
+								enabled: false,
+								uri: 'bolt://127.0.0.1:1',
+								user: '',
+								password: '',
+							},
+						})
+					: new DatabaseService(this.projectPath);
 				await this.databaseService.initialize();
 				this.logger.info('Database service initialized');
 			}
@@ -188,11 +211,6 @@ export class JobQueueService {
 			this.contentAnalyzer = new ContentAnalyzer();
 
 			// Step 3: Create queues and workers for each job type.
-			// MemoryRedis is not a real ioredis client (no duplicate(), no Lua script
-			// support), so handing it to BullMQ as `connection` makes BullMQ treat it as
-			// connection *options* instead and open a real socket to the default
-			// 127.0.0.1:6379 -- which then fails forever since nothing listens there.
-			// The embedded fallback runs jobs inline instead of through BullMQ.
 			if (this.connectionType !== 'embedded') {
 				for (const jobType of Object.values(JobType)) {
 					this.createQueue(jobType);
@@ -231,6 +249,7 @@ export class JobQueueService {
 			throw createError(ErrorCode.INVALID_STATE, null, 'Connection not initialized');
 		}
 		const queue = new Queue(jobType, {
+			prefix: this.requireScope().prefix,
 			connection: this.connection as ConnectionOptions,
 			defaultJobOptions: {
 				removeOnComplete: {
@@ -266,6 +285,7 @@ export class JobQueueService {
 				}
 			},
 			{
+				prefix: this.requireScope().prefix,
 				connection: this.connection as ConnectionOptions,
 				concurrency: this.getConcurrency(jobType),
 			}
@@ -292,6 +312,7 @@ export class JobQueueService {
 	 */
 	private setupEventListeners(jobType: JobType): void {
 		const queueEvents = new QueueEvents(jobType, {
+			prefix: this.requireScope().prefix,
 			connection: this.connection as ConnectionOptions,
 		});
 
@@ -321,19 +342,20 @@ export class JobQueueService {
 	}
 
 	private async processJob(jobType: JobType, job: Job): Promise<unknown> {
+		const data = readScopedJob(this.requireScope(), jobType, job.id, job.data);
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
-				return this.processAnalyzeDocument(job.data as AnalyzeDocumentJob);
+				return this.processAnalyzeDocument(data as unknown as AnalyzeDocumentJob);
 			case JobType.ANALYZE_PROJECT:
-				return this.processAnalyzeProject(job.data as AnalyzeProjectJob);
+				return this.processAnalyzeProject(data as unknown as AnalyzeProjectJob);
 			case JobType.GENERATE_SUGGESTIONS:
-				return this.processGenerateSuggestions(job.data as GenerateSuggestionsJob);
+				return this.processGenerateSuggestions(data as unknown as GenerateSuggestionsJob);
 			case JobType.BUILD_VECTOR_STORE:
-				return this.processBuildVectorStore(job.data as BuildVectorStoreJob);
+				return this.processBuildVectorStore(data as unknown as BuildVectorStoreJob);
 			case JobType.CHECK_CONSISTENCY:
-				return this.processCheckConsistency(job.data as CheckConsistencyJob);
+				return this.processCheckConsistency(data as unknown as CheckConsistencyJob);
 			case JobType.SYNC_DATABASE:
-				return this.processSyncDatabase(job.data as SyncDatabaseJob);
+				return this.processSyncDatabase(data as unknown as SyncDatabaseJob);
 			default:
 				throw new Error(`Unknown job type: ${jobType}`);
 		}
@@ -511,224 +533,34 @@ export class JobQueueService {
 		}
 	}
 
-	private async processCheckConsistency(
-		data: CheckConsistencyJob
-	): Promise<Record<string, unknown>> {
-		// Perform comprehensive consistency checks
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-		const checkTypes = data.checkTypes || ['characters', 'timeline', 'locations', 'plot'];
-
-		try {
-			// Character consistency checks
-			if (checkTypes.includes('characters')) {
-				const characterIssues = this.checkCharacterConsistency(data.documents);
-				issues.push(...characterIssues);
-			}
-
-			// Timeline consistency checks
-			if (checkTypes.includes('timeline')) {
-				const timelineIssues = this.checkTimelineConsistency(data.documents);
-				issues.push(...timelineIssues);
-			}
-
-			// Location consistency checks
-			if (checkTypes.includes('locations')) {
-				const locationIssues = await this.checkLocationConsistency(data.documents);
-				issues.push(...locationIssues);
-			}
-
-			// Plot consistency checks
-			if (checkTypes.includes('plot')) {
-				const plotIssues = await this.checkPlotConsistency(data.documents);
-				issues.push(...plotIssues);
-			}
-
-			// Sort issues by severity
-			issues.sort((a, b) => {
-				const severityOrder = { high: 0, medium: 1, low: 2 };
-				return (
-					(severityOrder[a.severity as keyof typeof severityOrder] || 2) -
-					(severityOrder[b.severity as keyof typeof severityOrder] || 2)
-				);
-			});
-
-			return {
-				documents: data.documents.length,
-				issues,
-				totalIssues: issues.length,
-				byType: checkTypes.reduce(
-					(acc, type) => {
-						acc[type] = issues.filter((i) => i.type === type).length;
-						return acc;
-					},
-					{} as Record<string, number>
-				),
-				checkedAt: new Date().toISOString(),
-			};
-		} catch (error) {
-			this.logger.error('Consistency check failed', {
-				error: error instanceof Error ? error.message : String(error),
-			});
-			return { documents: data.documents.length, issues: [], error: 'Check failed' };
-		}
-	}
-
-	private checkCharacterConsistency(documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-		const characterMentions = new Map<string, number[]>();
-
-		// Track character mentions across documents
-		documents.forEach((doc, index) => {
-			// Simple character detection - look for capitalized names
-			const names = doc.content.match(/\b[A-Z][a-z]+\b/g) || [];
-			names.forEach((name) => {
-				if (!characterMentions.has(name)) {
-					characterMentions.set(name, []);
-				}
-				characterMentions.get(name)?.push(index);
-			});
+	private async processCheckConsistency(data: CheckConsistencyJob): Promise<ContinuityReport> {
+		if (!this.continuity || data.projectId !== this.requireScope().projectId)
+			throw new Error(
+				'Continuity analysis requires the selected project and its canonical evidence service'
+			);
+		if (
+			!Array.isArray(data.documents) ||
+			!data.documents.length ||
+			data.documents.length > 5000 ||
+			data.documents.some(
+				(doc) =>
+					!doc ||
+					typeof doc.id !== 'string' ||
+					typeof doc.revision !== 'string' ||
+					!/^[a-f0-9]{64}$/.test(doc.revision)
+			)
+		)
+			throw new Error(
+				'Continuity jobs require 1–5000 saved document identities and revisions'
+			);
+		return this.continuity({
+			documentIds: data.documents.map((doc) => doc.id),
+			expectedRevisions: data.documents.map((doc) => ({
+				documentId: doc.id,
+				revision: doc.revision,
+			})),
+			checkTypes: data.checkTypes,
 		});
-
-		// Check for disappearing characters
-		characterMentions.forEach((mentions, character) => {
-			if (mentions.length > 2) {
-				const gaps: Array<{ start: number; end: number; gap: number }> = [];
-				for (let i = 1; i < mentions.length; i++) {
-					const gap = mentions[i] - mentions[i - 1];
-					if (gap > 3) {
-						gaps.push({ start: mentions[i - 1], end: mentions[i], gap });
-					}
-				}
-				if (gaps.length > 0) {
-					issues.push({
-						type: 'characters',
-						severity: gaps.some((g) => g.gap > 5) ? 'high' : 'medium',
-						description: `Character "${character}" has unexplained absences`,
-						details: gaps,
-					});
-				}
-			}
-		});
-
-		return issues;
-	}
-
-	private checkTimelineConsistency(documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-		const timeMarkers: Array<{ docIndex: number; marker: string }> = [];
-
-		documents.forEach((doc, index) => {
-			// Look for time indicators
-			const timePatterns = [
-				/\b(\d{1,2})\s*(hours?|days?|weeks?|months?|years?)\s*(ago|later|before|after)\b/gi,
-				/\b(morning|afternoon|evening|night|dawn|dusk|midnight|noon)\b/gi,
-				/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi,
-			];
-
-			timePatterns.forEach((pattern) => {
-				const matches = doc.content.match(pattern) || [];
-				matches.forEach((match) => {
-					timeMarkers.push({ docIndex: index, marker: match });
-				});
-			});
-		});
-
-		// Check for conflicting time references
-		if (timeMarkers.length > 10) {
-			issues.push({
-				type: 'timeline',
-				severity: 'low',
-				description: 'Multiple time references detected - verify chronological consistency',
-				details: { markerCount: timeMarkers.length },
-			});
-		}
-
-		return issues;
-	}
-
-	private async checkLocationConsistency(_documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-
-		try {
-			// Use AI to detect spatial and location inconsistencies
-			if (this.aiWritingService) {
-				const response = await this.aiWritingService.generateWithContext(
-					`Analyze these manuscript excerpts for location and spatial inconsistencies.
-					Look for characters being in two places at once, distances changing, or layout contradictions.`
-				);
-
-				if (
-					response.toLowerCase().includes('inconsistency') ||
-					response.toLowerCase().includes('contradiction')
-				) {
-					issues.push({
-						type: 'locations',
-						severity: 'medium',
-						description: 'Potential spatial or location inconsistency detected',
-						details: response,
-					});
-				}
-			}
-		} catch (error) {
-			this.logger.warn('AI location check failed, falling back to pattern matching', {
-				error,
-			});
-		}
-
-		return issues;
-	}
-
-	private async checkPlotConsistency(documents: Array<{ id: string; content: string }>) {
-		const issues: Array<{
-			type: string;
-			severity: string;
-			description: string;
-			details: unknown;
-		}> = [];
-
-		try {
-			if (this.aiWritingService) {
-				const response = await this.aiWritingService.checkPlotConsistency(
-					documents.map((d) => ({
-						...d,
-						title: `Document ${d.id}`,
-						type: 'Text' as const,
-						path: '',
-					}))
-				);
-
-				return response.map((issue) => ({
-					type: 'plot',
-					severity: issue.severity,
-					description: issue.issue,
-					details: { suggestion: issue.suggestion, locations: issue.locations },
-				}));
-			}
-		} catch (error) {
-			this.logger.warn('AI plot check failed', { error });
-		}
-
-		return issues;
 	}
 
 	private async processSyncDatabase(data: SyncDatabaseJob): Promise<Record<string, unknown>> {
@@ -788,8 +620,35 @@ export class JobQueueService {
 		data: Record<string, unknown>,
 		options?: { priority?: number; delay?: number }
 	): Promise<string> {
+		if (!this.isInitialized)
+			throw createError(ErrorCode.INVALID_STATE, null, 'Job queue is not initialized');
+		if (!Object.values(JobType).includes(jobType))
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				`Queue for job type ${jobType} not found`
+			);
+		if (
+			options?.priority !== undefined &&
+			(!Number.isInteger(options.priority) ||
+				options.priority < 0 ||
+				options.priority > 2097151)
+		)
+			throw new Error('Queue priority must be an integer from 0 through 2097151');
+		if (
+			options?.delay !== undefined &&
+			(!Number.isSafeInteger(options.delay) || options.delay < 0)
+		)
+			throw new Error('Queue delay must be a non-negative safe integer');
+		const scope = this.requireScope();
+		const envelope = scopeJob(scope, jobType, data);
+		const jobId = scopedJobId(scope);
 		if (this.connectionType === 'embedded') {
-			return this.addEmbeddedJob(jobType, data);
+			if (options?.priority || options?.delay)
+				throw new Error(
+					'Embedded jobs run immediately; nonzero priority or delay requires Redis or KeyDB'
+				);
+			return this.addEmbeddedJob(jobType, envelope, jobId);
 		}
 
 		const queue = this.queues.get(jobType);
@@ -801,7 +660,8 @@ export class JobQueueService {
 			);
 		}
 
-		const job = await queue.add(jobType, data, options);
+		const job = await queue.add(jobType, envelope, { ...options, jobId });
+		if (job.id !== jobId) throw new Error('Queue returned a job outside the submitted scope');
 		this.logger.info(`Job ${job.id} added to queue ${jobType}`);
 		return job.id as string;
 	}
@@ -810,16 +670,11 @@ export class JobQueueService {
 	 * Run a job inline, without BullMQ, when no Redis/KeyDB connection is available.
 	 * Returns immediately; the result lands in `embeddedJobs` once the job settles.
 	 */
-	private async addEmbeddedJob(jobType: JobType, data: Record<string, unknown>): Promise<string> {
-		if (!Object.values(JobType).includes(jobType)) {
-			throw createError(
-				ErrorCode.NOT_FOUND,
-				undefined,
-				`Queue for job type ${jobType} not found`
-			);
-		}
-
-		const jobId = `embedded-${jobType}-${randomUUID()}`;
+	private async addEmbeddedJob(
+		jobType: JobType,
+		data: ScopedJob,
+		jobId: string
+	): Promise<string> {
 		this.storeEmbeddedJob(jobId, {
 			jobType,
 			state: 'active',
@@ -861,7 +716,7 @@ export class JobQueueService {
 
 	private storeEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
 		this.embeddedJobs.set(id, status);
-		this.embeddedStore?.put('embedded-jobs', id, { id, ...status });
+		this.embeddedStore?.put(this.embeddedNamespace(), id, { id, ...status });
 	}
 
 	private finishEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
@@ -874,7 +729,7 @@ export class JobQueueService {
 
 	private readEmbeddedJob(id: string): EmbeddedJobStatus | undefined {
 		const status =
-			this.embeddedStore?.get<EmbeddedJobStatus>('embedded-jobs', id) ??
+			this.embeddedStore?.get<EmbeddedJobStatus>(this.embeddedNamespace(), id) ??
 			this.embeddedJobs.get(id);
 		if (status?.state === 'active' && status.owner?.host === hostname()) {
 			try {
@@ -904,6 +759,7 @@ export class JobQueueService {
 	}
 
 	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
+		if (!this.scope || !ownsJobId(this.scope, jobId)) return null;
 		if (this.connectionType === 'embedded') {
 			const status = this.readEmbeddedJob(jobId);
 			return status?.jobType === jobType ? status : null;
@@ -922,6 +778,7 @@ export class JobQueueService {
 		if (!job) {
 			return null;
 		}
+		readScopedJob(this.requireScope(), jobType, job.id, job.data);
 
 		// Return the actual Job object
 		return job;
@@ -931,6 +788,12 @@ export class JobQueueService {
 	 * Cancel a job
 	 */
 	async cancelJob(jobType: JobType, jobId: string): Promise<void> {
+		if (!this.scope || !ownsJobId(this.scope, jobId))
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				'Job was not found in the selected project queue'
+			);
 		if (this.connectionType === 'embedded') {
 			const status = this.readEmbeddedJob(jobId);
 			if (!status || status.jobType !== jobType) {
@@ -962,6 +825,7 @@ export class JobQueueService {
 				`Job ${jobId} not found in queue ${jobType}`
 			);
 		}
+		readScopedJob(this.requireScope(), jobType, job.id, job.data);
 
 		await job.remove();
 		this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
@@ -981,9 +845,30 @@ export class JobQueueService {
 			let completed = 0;
 			let failed = 0;
 			let cancelled = 0;
-			const jobs = this.embeddedStore?.list<EmbeddedJobStatus>('embedded-jobs') ?? [
-				...this.embeddedJobs.values(),
-			];
+			if (this.embeddedStore) {
+				const counts = this.embeddedStore.countBy(this.embeddedNamespace(), 'state', {
+					field: 'jobType',
+					value: jobType,
+				});
+				if (
+					Object.keys(counts).some(
+						(state) =>
+							!['active', 'completed', 'failed', 'cancelled', 'interrupted'].includes(
+								state
+							)
+					)
+				)
+					throw new Error('Malformed embedded queue state');
+				return {
+					waiting: 0,
+					active: counts.active ?? 0,
+					completed: counts.completed ?? 0,
+					failed: (counts.failed ?? 0) + (counts.interrupted ?? 0),
+					cancelled: counts.cancelled ?? 0,
+					delayed: 0,
+				};
+			}
+			const jobs = this.embeddedJobs.values();
 			for (const job of jobs) {
 				if (job.jobType !== jobType) continue;
 				if (job.state === 'active') active++;
@@ -1014,10 +899,29 @@ export class JobQueueService {
 		return { waiting, active, completed, failed, delayed };
 	}
 
-	getConnectionInfo(): { type: string; isConnected: boolean } {
+	private requireScope(): QueueScope {
+		if (!this.scope)
+			throw createError(ErrorCode.INVALID_STATE, null, 'Queue project scope is unavailable');
+		return this.scope;
+	}
+
+	private embeddedNamespace(): string {
+		return `embedded-jobs:${this.requireScope().id}`;
+	}
+
+	getConnectionInfo(): {
+		type: string;
+		isConnected: boolean;
+		scopeId?: string;
+		legacyQueues: 'excluded';
+		migrationNotice: string;
+	} {
 		return {
 			type: this.connectionType,
 			isConnected: this.isInitialized,
+			scopeId: this.scope?.id,
+			legacyQueues: 'excluded',
+			migrationNotice: LEGACY_QUEUE_NOTICE,
 		};
 	}
 
@@ -1025,6 +929,7 @@ export class JobQueueService {
 	 * Shutdown gracefully
 	 */
 	async shutdown(): Promise<void> {
+		this.isInitialized = false;
 		this.logger.info('Shutting down job queue service');
 		await Promise.all(this.embeddedRuns.values());
 		this.embeddedStore?.close();
@@ -1050,11 +955,7 @@ export class JobQueueService {
 
 		// Close connection
 		if (this.connection) {
-			if (this.connectionType === 'embedded' && this.memoryRedis) {
-				await this.memoryRedis.disconnect();
-			} else if (this.connection.quit) {
-				await this.connection.quit();
-			}
+			await this.connection.quit();
 		}
 
 		// Clear maps
@@ -1071,7 +972,8 @@ export class JobQueueService {
 		if (results[1].status === 'fulfilled') this.aiWritingService = null;
 		this.contentAnalyzer = null;
 		this.connection = undefined;
-		this.memoryRedis = undefined;
+		this.scope = undefined;
+		this.continuity = undefined;
 
 		this.isInitialized = false;
 		const failures = results.flatMap((result) =>

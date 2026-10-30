@@ -77,6 +77,24 @@ it('retains a stable canonical project identity across independently opened data
 	expect(restarted.projectId).toMatch(/^[0-9a-f-]{36}$/i);
 });
 
+it.each(['', null, 7, {}, 'not-a-uuid'])(
+	'rejects malformed persisted identity without replacing its history: %j',
+	(value) => {
+		const store = openStore(join(root, '.scrivener-mcp', 'editorial.sqlite'));
+		store.put('identity', 'project', value);
+		expect(
+			() =>
+				new ProjectSource(
+					root,
+					store,
+					async () => [],
+					async () => ''
+				)
+		).toThrow('identity is invalid');
+		expect(store.get('identity', 'project')).toEqual(value);
+	}
+);
+
 it('binds source revisions to exact raw RTF and refreshes text without stale content caching', async () => {
 	const parser = new RTFHandler();
 	const originals = new Map([
@@ -121,6 +139,29 @@ it('binds source revisions to exact raw RTF and refreshes text without stale con
 		[SECOND, 1],
 	]);
 	expect(list[0].revision).toBe(changed.revision);
+});
+
+it('reuses parsing only after checking fresh raw content and returns fresh binder metadata', async () => {
+	let raw = new RTFHandler().convertToRTF('An unchanged scene.');
+	const documents = [document(FIRST, 'Original title')];
+	const parse = jest.spyOn(RTFHandler.prototype, 'parseRTF');
+	try {
+		const source = new ProjectSource(
+			root,
+			openStore(join(root, 'cache.sqlite')),
+			async () => documents,
+			async () => raw
+		);
+		expect((await source.read(FIRST)).text).toBe('An unchanged scene.');
+		documents[0] = { ...documents[0], title: 'Revised title' };
+		expect((await source.read(FIRST)).title).toBe('Revised title');
+		expect(parse).toHaveBeenCalledTimes(1);
+		raw = new RTFHandler().convertToRTF('A changed scene.');
+		expect((await source.read(FIRST)).text).toBe('A changed scene.');
+		expect(parse).toHaveBeenCalledTimes(2);
+	} finally {
+		parse.mockRestore();
+	}
 });
 
 it('keeps research and excluded draft text out of manuscript analysis while allowing explicit active-project provenance reads', async () => {
