@@ -613,3 +613,13 @@ even when the digest would match. Evidence: `release-reader-regressions.log`; ac
 verification uses the new reader in `descriptor-artifact-preflight.json`. Superseded CI was
 cancelled and the final source must pass CodeQL and the complete compatibility matrix before
 integration.
+
+The Windows matrix exposed a fixture-only portability issue: Git for Windows rejects Node
+`os.devNull` (`\\.\nul`) as `GIT_CONFIG_GLOBAL`. Release fixtures now create a real empty
+configuration file inside their disposable directory while disabling system configuration and
+filtering inherited `GIT_*` variables. No real Git/client configuration is read or changed, and the
+Windows checks remain enabled. CodeQL passes with no open PR alerts after the descriptor fix.
+
+The corrected Git fixture passes all 47 release cases locally (`release-portable-config.log`). The
+CI-built extension from source `3b6dc9b` also passes the descriptor-based artifact preflight
+(`ci-artifact-preflight.json`); subsequent changes affect only tests and this ledger.

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
-import { devNull, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import JSZip from 'jszip';
@@ -12,10 +12,9 @@ const tag = 'v1.2.3';
 let root: string;
 let sha: string;
 const originals = new Map<string, string>();
-const gitEnvironment = {
+const gitEnvironment: NodeJS.ProcessEnv = {
 	...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
 	GIT_CONFIG_NOSYSTEM: '1',
-	GIT_CONFIG_GLOBAL: devNull,
 };
 
 function fixtureGit(args: string[]) {
@@ -129,6 +128,9 @@ async function run(input: Record<string, unknown> = {}) {
 
 beforeAll(async () => {
 	root = await mkdtemp(join(tmpdir(), 'scrivener-release-candidate-'));
+	const globalConfig = join(root, 'empty-gitconfig');
+	await writeFile(globalConfig, '');
+	gitEnvironment.GIT_CONFIG_GLOBAL = globalConfig;
 	await mkdir(join(root, 'src'));
 	await Promise.all([
 		writeFile(join(root, 'src/server.ts'), 'export const releaseFixture = true;\n'),
