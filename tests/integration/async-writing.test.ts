@@ -1,7 +1,8 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { setImmediate } from 'node:timers/promises';
+import { performance } from 'node:perf_hooks';
+import { setTimeout as delay } from 'node:timers/promises';
 import { AIWritingService } from '../../src/services/ai/ai-writing-service.js';
 import { AIClient } from '../../src/services/ai/ai-client.js';
 import { HMSVectorStore } from '../../src/services/ai/hms-vector-store.js';
@@ -54,13 +55,15 @@ afterEach(async () => {
 
 async function complete(jobId: string | undefined): Promise<void> {
 	if (!jobId) throw new Error('Expected a queued index update');
-	for (let attempt = 0; attempt < 100; attempt++) {
+	const deadline = performance.now() + 5000;
+	for (;;) {
 		const status = await getJobStatus({ jobType: JobType.BUILD_VECTOR_STORE, jobId });
 		if (status.state === 'completed') return;
 		if (status.state !== 'active') throw new Error(`Index job failed: ${status.error}`);
-		await setImmediate();
+		if (performance.now() >= deadline)
+			throw new Error(`Index update did not settle within 5000 ms: ${status.state}`);
+		await delay(10);
 	}
-	throw new Error('Index update did not settle');
 }
 
 test('queued indexing and foreground search share one local index, retain metadata and honor rebuild', async () => {

@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { setImmediate } from 'node:timers/promises';
+import { performance } from 'node:perf_hooks';
+import { setTimeout as delay } from 'node:timers/promises';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import type { JsonSchemaType } from '@modelcontextprotocol/sdk/validation/types';
 import { AIClient } from '../../src/services/ai/ai-client.js';
@@ -77,12 +78,14 @@ afterEach(async () => {
 });
 
 async function completed(jobId: string) {
-	for (let attempt = 0; attempt < 200; attempt++) {
+	const deadline = performance.now() + 5000;
+	for (;;) {
 		const status = await getJobStatus({ jobId, jobType: JobType.GENERATE_SUGGESTIONS });
 		if (status.state !== 'active') return status;
-		await setImmediate();
+		if (performance.now() >= deadline)
+			throw new Error(`Suggestion fixture did not settle within 5000 ms: ${status.state}`);
+		await delay(10);
 	}
-	throw new Error('Suggestion fixture did not settle');
 }
 
 async function queued(params = request) {

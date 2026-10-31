@@ -2234,3 +2234,29 @@ in three sequential individual suites on Node 24.22.2. Scoped lint/format checks
 test diagnostics retain only exit code, signal and a recognized heap-failure classification;
 raw child stderr is not emitted. Logs and hashes are under
 `logs/production-readiness-remote-ci-20261031/`. The corrected full matrix remains pending.
+
+### Lifecycle instrumentation and asynchronous fixture corrections (2026-10-31)
+
+Commit `4fc8895b86601fe2bea4fd770867699335ab0979` ran in
+[CI 41243134078](https://github.com/writerslogic/scrivener-mcp/actions/runs/41243134078). All eight
+rows passed static/build, registry/schema and native compatibility gates; the native 64 MiB boundary
+suites also passed. The security policy job passed. Full tests failed because the server lifecycle
+probe still selected the former 128 MiB child argument, so its blocking preload never ran. Three
+Linux rows additionally exposed polling helpers that exhausted fixed `setImmediate` counts before
+asynchronous suggestions settled. No later release gate passed.
+
+The probe now uses the worker's shared heap constant. Suggestion and indexing helpers use a
+monotonic five-second deadline with a ten-millisecond delay; terminal-state, error, revision and
+index assertions are unchanged. Three sequential individual suites pass locally on Node 24.22.2:
+server shutdown/cancellation 4/4, writing suggestions 22/22 and asynchronous indexing 9/9.
+
+A current-source novel workload rerun passed all 15 Pride and Prejudice operations within the
+existing budgets, but Frankenstein and Moby Dick timed out during the 30-second initialization step,
+before analysis. Those failures remain explicit; neither initialization nor analysis budgets were
+loosened. An unchanged rerun initialized both novels and completed their 30 operations; Frankenstein
+passed, but three Moby Dick observations exceeded the 100 ms event-loop budget (maximum 552.62 ms).
+All operation durations and RSS-growth observations remained within budget. One bounded startup
+sample showed synchronous module/file reads, without establishing the cause of the earlier timeouts.
+The latency investigation and corrected full remote matrix remain open. Exact logs, the process
+sample and measurements from both invocations are retained under
+`logs/production-readiness-remote-ci-20261031/`.

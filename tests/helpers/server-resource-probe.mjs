@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { promisify } from 'node:util';
+import { NARRATIVE_HEAP_MIB } from '../../src/services/editorial/narrative-worker.ts';
 
 if (process.env.SCRIVENER_NOVEL_RESOURCE_PRELOAD) {
 	for (const name of ['spawn', 'execFile']) {
@@ -11,7 +12,7 @@ if (process.env.SCRIVENER_NOVEL_RESOURCE_PRELOAD) {
 				command,
 				command === process.execPath &&
 					Array.isArray(args) &&
-					args.includes('--max-old-space-size=128')
+					args.includes(`--max-old-space-size=${NARRATIVE_HEAP_MIB}`)
 					? ['--require', process.env.SCRIVENER_NOVEL_RESOURCE_PRELOAD, ...args]
 					: args,
 				...rest
