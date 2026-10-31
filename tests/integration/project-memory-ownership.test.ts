@@ -11,7 +11,9 @@ import { PersistentStore } from '../../src/services/editorial/persistent-store.j
 test('excludes a live process, then recovers its committed memory after hard termination', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'scrivener-memory-owner-'));
 	const repository = resolve(__dirname, '../..');
-	const loader = createRequire(join(repository, 'package.json')).resolve('tsx');
+	const loader = pathToFileURL(
+		createRequire(join(repository, 'package.json')).resolve('tsx')
+	).href;
 	const module = pathToFileURL(join(repository, 'src/memory-manager.ts')).href;
 	const child = spawn(
 		process.execPath,

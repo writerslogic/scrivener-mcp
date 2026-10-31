@@ -5,8 +5,12 @@ import { spawn } from 'node:child_process';
 import { once, getEventListeners } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
+import { captureInputFailureDiagnostics } from '../../helpers/native-input-diagnostics.js';
 import { NarrativeContext } from '../../../src/services/editorial/narrative-context.js';
-import { NARRATIVE_INPUT_BYTES } from '../../../src/services/editorial/narrative-worker.js';
+import {
+	NARRATIVE_HEAP_MIB,
+	NARRATIVE_INPUT_BYTES,
+} from '../../../src/services/editorial/narrative-worker.js';
 import { narrativeModulePath } from '../../../src/services/editorial/lens-native.cjs';
 
 jest.mock('../../../src/services/editorial/lens-native.cjs', () => ({
@@ -219,44 +223,52 @@ exports.ManuscriptContext = class {
 	it.each(['', '🌙'])(
 		'enforces input byte boundaries with prefix %j before native execution',
 		async (prefix) => {
-			let admittedPid: number | undefined;
-			for (const delta of [-1, 0, 1]) {
-				const pid = join(directory, `input-${prefix ? 'unicode' : 'ascii'}-${delta}.pid`);
-				const input = { pid, padding: '' };
-				const overhead = Buffer.byteLength(
-					JSON.stringify({
-						module: narrativeModulePath(),
-						cacheMaxBytes: 16 * 1024 * 1024,
-						operation: 'analyze',
-						input,
-					})
-				);
-				const payloadBytes = NARRATIVE_INPUT_BYTES + delta - overhead;
-				input.padding = prefix + 'x'.repeat(payloadBytes - Buffer.byteLength(prefix));
-				const pending = context.analyzeAsync(input as never);
-				input.padding = '';
-				if (delta <= 0) {
-					const result = (await pending) as unknown as {
-						pid: number;
-						calls: number;
-						inputBytes: number;
-					};
-					expect(result).toMatchObject({
-						calls: delta + 2,
-						inputBytes: payloadBytes,
-						text: '🌙',
-					});
-					expect(await waitPid(pid)).toBe(result.pid);
-					if (admittedPid !== undefined) expect(result.pid).toBe(admittedPid);
-					admittedPid = result.pid;
-				} else {
-					await expect(pending).rejects.toThrow('input exceeds 64 MiB');
-					await expect(readFile(pid)).rejects.toMatchObject({ code: 'ENOENT' });
-					expect(await context.analyzeAsync({} as never)).toMatchObject({
-						calls: 3,
-						pid: admittedPid,
-					});
+			const stopDiagnostics = captureInputFailureDiagnostics('spawn');
+			try {
+				let admittedPid: number | undefined;
+				for (const delta of [-1, 0, 1]) {
+					const pid = join(
+						directory,
+						`input-${prefix ? 'unicode' : 'ascii'}-${delta}.pid`
+					);
+					const input = { pid, padding: '' };
+					const overhead = Buffer.byteLength(
+						JSON.stringify({
+							module: narrativeModulePath(),
+							cacheMaxBytes: 16 * 1024 * 1024,
+							operation: 'analyze',
+							input,
+						})
+					);
+					const payloadBytes = NARRATIVE_INPUT_BYTES + delta - overhead;
+					input.padding = prefix + 'x'.repeat(payloadBytes - Buffer.byteLength(prefix));
+					const pending = context.analyzeAsync(input as never);
+					input.padding = '';
+					if (delta <= 0) {
+						const result = (await pending) as unknown as {
+							pid: number;
+							calls: number;
+							inputBytes: number;
+						};
+						expect(result).toMatchObject({
+							calls: delta + 2,
+							inputBytes: payloadBytes,
+							text: '🌙',
+						});
+						expect(await waitPid(pid)).toBe(result.pid);
+						if (admittedPid !== undefined) expect(result.pid).toBe(admittedPid);
+						admittedPid = result.pid;
+					} else {
+						await expect(pending).rejects.toThrow('input exceeds 64 MiB');
+						await expect(readFile(pid)).rejects.toMatchObject({ code: 'ENOENT' });
+						expect(await context.analyzeAsync({} as never)).toMatchObject({
+							calls: 3,
+							pid: admittedPid,
+						});
+					}
 				}
+			} finally {
+				stopDiagnostics();
 			}
 		}
 	);
@@ -285,7 +297,7 @@ exports.ManuscriptContext = class {
 		);
 		await writeFile(
 			join(directory, 'narrative-worker.js'),
-			'exports.NARRATIVE_INPUT_BYTES = 64 * 1024 * 1024;'
+			`exports.NARRATIVE_INPUT_BYTES = ${NARRATIVE_INPUT_BYTES}; exports.NARRATIVE_HEAP_MIB = ${NARRATIVE_HEAP_MIB};`
 		);
 		await writeFile(join(directory, 'owner.cjs'), script);
 		return spawn(process.execPath, [join(directory, 'owner.cjs')], { stdio: 'ignore' });

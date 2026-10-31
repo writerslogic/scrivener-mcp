@@ -3,6 +3,8 @@ import { narrativeModulePath } from './lens-native.cjs';
 
 const WALL_CLOCK_MS = 30000;
 export const NARRATIVE_INPUT_BYTES = 64 * 1024 * 1024;
+// Decoding and parsing can overlap two UTF-16 copies of a 64 MiB input; this is not an RSS limit.
+export const NARRATIVE_HEAP_MIB = 384;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const OPERATIONS = new Set([
 	'compareManuscriptReports',
@@ -36,9 +38,14 @@ process.stdin.on('end', async () => {
     try {
         await armed;
         watchdog.unref();
-        const { module, operation, args } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        let frame = Buffer.concat(chunks);
         chunks.length = 0;
-        const result = require(module)[operation](...args);
+        let source = frame.toString('utf8');
+        frame = undefined;
+        let request = JSON.parse(source);
+        source = undefined;
+        const result = require(request.module)[request.operation](...request.args);
+        request = undefined;
         const serialized = JSON.stringify({ ok: true, result });
         if (Buffer.byteLength(serialized) > ${MAX_OUTPUT_BYTES}) throw new Error('Narrative result exceeds 16 MiB');
         process.stdout.write(serialized);
@@ -67,7 +74,7 @@ export async function narrativeWorker(
 		const child = execFile(
 			process.execPath,
 			[
-				'--max-old-space-size=128',
+				`--max-old-space-size=${NARRATIVE_HEAP_MIB}`,
 				'--input-type=commonjs',
 				'--eval',
 				PROGRAM,

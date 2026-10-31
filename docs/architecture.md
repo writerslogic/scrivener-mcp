@@ -185,8 +185,9 @@ and waits for exit. A child watchdog enforces the execution deadline if its owne
 the service drains admitted operations before disposing its context. This is not a deadline for
 the complete workflow or source I/O; workflow cancellation still takes effect between steps.
 
-Child input/output limits are 64 MiB/16 MiB. The 128 MiB V8 old-generation setting does not contain
-native RSS. A separate one-vCPU Linux fixture verifies whole-workload cgroup OOM cleanup at
+Child input/output limits are 64 MiB/16 MiB. The 384 MiB V8 old-generation setting accommodates
+overlapping JSON source and decoded Unicode strings; it does not contain native RSS.
+A separate one-vCPU Linux fixture verifies whole-workload cgroup OOM cleanup at
 512 MiB with zero swap; the application does not install that containment policy automatically.
 Its limits and platform scope are recorded in the implementation ledger. Final source and
 cancellation checks precede synchronous baseline persistence, and

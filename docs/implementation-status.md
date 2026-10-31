@@ -2200,3 +2200,37 @@ Three sequential individual suites pass, 53 tests total: registry regression che
 schema consistency (6), and the memory contract (43). Scoped lint and formatting also pass. Evidence
 is retained in `logs/production-readiness-remote-ci-20261031/`; no local global build/typecheck,
 parallel test runner or paid provider call was used. Full CI on the corrected commit remains pending.
+
+### Full-matrix failures and native parsing capacity correction (2026-10-31)
+
+Registry-corrected commit `725bb64619f672b9527b7e7ce90cdd19e25e2cf0` ran in
+[CI 41241888058](https://github.com/writerslogic/scrivener-mcp/actions/runs/41241888058).
+All eight platform rows passed build/type/static gates, registry/output conformance and native
+C2PA compatibility. The separate security job passed its configured high/critical policy; its
+downloaded artifact digest, five inventory/scanner-output pairs and 26 source hashes were checked.
+Full tests exposed additional failures, so installed-package and container gates were not reached.
+
+The setup unit suite auto-mocked a dependency by loading its real queue/envelope imports while
+blanket filesystem mocks returned undefined package metadata. Explicit dependency factories now
+isolate setup, and 22 real status/health/setup/persistence/CLI assertions replace method-existence
+and self-mocked checks. Readability fixtures now require finite available scores before comparing
+them; short text is accepted with measured zero dialogue and unavailable description coverage.
+The Windows memory-owner fixture now passes its resolved tsx loader as a file URL; live-process
+exclusion and hard-termination recovery assertions remain unchanged.
+
+The native input-boundary failures were a production capacity mismatch. On local Node 22.23.4,
+the admitted sparse-Unicode input reproduced a child `SIGABRT` classified from V8's fatal heap
+diagnostic as out-of-memory. ASCII and Unicode inputs can retain the JSON source and decoded
+values simultaneously; a 64 MiB serialized request can exceed the former 128 MiB old-space cap
+before native dispatch. Both child adapters now share a 384 MiB V8 old-generation limit and
+release received buffers, decoded source and request references as soon as their stage finishes.
+The 64 MiB input cap, 16 MiB output cap, deadlines, cancellation and native cache budget are
+unchanged. This heap setting remains distinct from native RSS and external deployment containment.
+
+Both complete process suites pass on Node 22.23.4: worker 13/13 and persistent context 25/25,
+including byte-limit-minus-one/limit/limit-plus-one inputs, Unicode, output limits, deadlines,
+hard cancellation and owner death. Setup, readability and memory ownership pass 31 further tests
+in three sequential individual suites on Node 24.22.2. Scoped lint/format checks pass. Safe shared
+test diagnostics retain only exit code, signal and a recognized heap-failure classification;
+raw child stderr is not emitted. Logs and hashes are under
+`logs/production-readiness-remote-ci-20261031/`. The corrected full matrix remains pending.

@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
+import { captureInputFailureDiagnostics } from '../../helpers/native-input-diagnostics.js';
 import {
 	narrativeWorker,
 	NARRATIVE_INPUT_BYTES,
@@ -73,26 +74,34 @@ describe('native process deadlines and cleanup', () => {
 	it.each(['', '🌙'])(
 		'enforces the serialized input budget with prefix %j at limit minus one, limit and limit plus one',
 		async (prefix) => {
-			const operation = 'analyzeAuthorCausality';
-			const overhead = Buffer.byteLength(
-				JSON.stringify({
-					module: narrativeModulePath(),
-					operation,
-					args: [{ padding: '' }],
-				})
-			);
-			for (const delta of [-1, 0, 1]) {
-				const pending = narrativeWorker(operation, [
-					{
-						padding:
-							prefix +
-							'x'.repeat(
-								NARRATIVE_INPUT_BYTES + delta - overhead - Buffer.byteLength(prefix)
-							),
-					},
-				]);
-				if (delta <= 0) await expect(pending).resolves.toEqual({ value: '🌙' });
-				else await expect(pending).rejects.toThrow('input exceeds 64 MiB');
+			const stopDiagnostics = captureInputFailureDiagnostics('execFile');
+			try {
+				const operation = 'analyzeAuthorCausality';
+				const overhead = Buffer.byteLength(
+					JSON.stringify({
+						module: narrativeModulePath(),
+						operation,
+						args: [{ padding: '' }],
+					})
+				);
+				for (const delta of [-1, 0, 1]) {
+					const pending = narrativeWorker(operation, [
+						{
+							padding:
+								prefix +
+								'x'.repeat(
+									NARRATIVE_INPUT_BYTES +
+										delta -
+										overhead -
+										Buffer.byteLength(prefix)
+								),
+						},
+					]);
+					if (delta <= 0) await expect(pending).resolves.toEqual({ value: '🌙' });
+					else await expect(pending).rejects.toThrow('input exceeds 64 MiB');
+				}
+			} finally {
+				stopDiagnostics();
 			}
 		}
 	);

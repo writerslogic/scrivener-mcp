@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { ManuscriptContext } from 'narrative-lens';
 import { narrativeModulePath } from './lens-native.cjs';
-import { NARRATIVE_INPUT_BYTES } from './narrative-worker.js';
+import { NARRATIVE_HEAP_MIB, NARRATIVE_INPUT_BYTES } from './narrative-worker.js';
 
 type Manuscript = Parameters<ManuscriptContext['analyze']>[0];
 type Report = ReturnType<ManuscriptContext['analyze']>;
@@ -65,12 +65,15 @@ async function execute(frame) {
   let serialized;
   try {
     await arm(started + timeoutMs);
-    const request = JSON.parse(frame.toString('utf8', ${HEADER_BYTES}));
+    let source = frame.toString('utf8', ${HEADER_BYTES});
     frame = undefined;
+    let request = JSON.parse(source);
+    source = undefined;
     context ??= new (require(request.module).ManuscriptContext)(request.cacheMaxBytes);
     let report;
     if (request.operation === 'analyze') report = context.analyze(request.input);
     else if (request.operation !== 'stats') throw new Error('Unsupported native context operation');
+    request = undefined;
     serialized = JSON.stringify({ ok: true, report, stats: context.stats() });
     if (Buffer.byteLength(serialized) > ${OUTPUT_BYTES}) throw new Error('Narrative result exceeds 16 MiB');
   } catch (error) {
@@ -209,7 +212,12 @@ export class NarrativeContext {
 	private start(): ChildProcessWithoutNullStreams {
 		const child = spawn(
 			process.execPath,
-			['--max-old-space-size=128', '--input-type=commonjs', '--eval', PROGRAM],
+			[
+				`--max-old-space-size=${NARRATIVE_HEAP_MIB}`,
+				'--input-type=commonjs',
+				'--eval',
+				PROGRAM,
+			],
 			{
 				windowsHide: true,
 				stdio: ['pipe', 'pipe', 'pipe'],
