@@ -2355,3 +2355,23 @@ Docker smoke, real Redis checks, Chromium dashboard interactions and four EPUBCh
 (Unicode/empty, unsigned/signed). The separate security assessment failed solely on the newly
 versioned EJS match above. The aggregate release gate failed as intended. These successes are
 partial evidence at 3ba6846, not a passing release matrix; both corrections require a new run.
+
+### Verified audit closure (2026-10-31)
+
+Candidate `2eb6b9e2c4246767fee53eebeeb058e3ab217a6d` passed [CI 41247863036, attempt 1](https://github.com/writerslogic/scrivener-mcp/actions/runs/41247863036):
+all eight platform rows, native/runtime security and aggregate release verification. Every installed
+smoke ran; Ubuntu 24 also passed Docker, real Redis, the browser dashboard and four EPUBCheck cases.
+All ten artifact hashes, native fixture/index identities, container lifecycle and security
+source/SBOM/scanner/VEX provenance were verified against that exact candidate.
+
+All nine P0/P1/P2 criteria and the tested hard-cancellation contract now have passing implementation
+and functional evidence. The complete 45-operation novel workload passed unchanged budgets on
+3ba6846 with production source/dependencies/harness identical to the CI candidate. Historical lag
+and startup failures remain unattributed; sampled server RSS does not establish native containment.
+Security retains four medium findings and seven reviewed VEX exclusions. Comparative editorial
+accuracy, optional model paths, all MCP hosts and external certification remain unverified.
+
+The [final audit report](repository-audit-20261031.md) records exact platform totals, acceptance
+fixtures, workload p50/p95, artifact digests and evidence limits. This closing entry and report are
+documentation published after the tested SHA; they do not claim another CI execution. The original
+dirty main checkout and index remain preserved. No merge or package publication was performed.
