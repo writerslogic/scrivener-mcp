@@ -76,6 +76,26 @@ describe('manuscript binary exporters', () => {
 		expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
 	});
 
+	it('excludes injected template bodies and engine options from the EPUB generator', async () => {
+		const injected = '<% throw new Error("untrusted template executed"); %>';
+		const meta = {
+			...META,
+			chapterXHTML: injected,
+			contentOPF: injected,
+			tocXHTML: injected,
+			tocNCX: injected,
+			closeDelimiter: injected,
+			client: true,
+			escapeFunction: injected,
+			settings: { 'view options': { client: true, escapeFunction: injected } },
+		};
+		const archive = await JSZip.loadAsync(await toEpub(SECTIONS, meta));
+		const metadata = await archive.file('OEBPS/content.opf')!.async('string');
+		expect(metadata).toContain(META.title);
+		expect(metadata).toContain(META.author);
+		expect(metadata).not.toContain('untrusted template executed');
+	});
+
 	it('exportBinary dispatches each format to a valid buffer', async () => {
 		const docx = await exportBinary('docx', SECTIONS, META);
 		const epub = await exportBinary('epub', SECTIONS, META);

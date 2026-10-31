@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-10-30/ejs",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-10-30T06:15:00Z",
-  "version": 1,
+  "timestamp": "2026-10-31T22:09:59.662Z",
+  "version": 2,
   "statements": [
     {
       "vulnerability": {
@@ -12,12 +12,12 @@
       },
       "products": [
         {
-          "@id": "pkg:npm/ejs@3.1.10"
+          "@id": "pkg:npm/ejs@7.0.2"
         }
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
-      "impact_statement": "The reported attack requires control of EJS templates and closeDelimiter/options. scrivener-mcp toEpub constructs a fixed allowlist of generator options, uses the packaged EPUB templates, and passes escaped manuscript text and string metadata only as render data. No template path, template body, closeDelimiter, client, escapeFunction or EJS settings can be supplied through the export interface. Regression: tests/unit/services/manuscript-exporters.test.ts. Reassess when changing epub-gen-memory/ejs versions or export option mapping. Vendor disputes the CVE for untrusted template execution: https://github.com/mde/ejs/issues/720 and https://github.com/mde/ejs/blob/main/SECURITY.md . This statement does not suppress other CVEs or versions."
+      "impact_statement": "Reassessed for pinned EJS 7.0.2 with epub-gen-memory 1.1.2. The reported attack requires attacker-controlled templates or compilation options. ProjectExporter constructs title/author/preset metadata explicitly; toEpub constructs a fixed generator-option allowlist and escapes manuscript text. The generator renders its packaged templates with data only. In EJS 7.0.2 lib/cjs/ejs.js, render(template, data, options) uses only its third argument for compilation options; data is not copied into options. No template body/path, closeDelimiter, client, escapeFunction or settings from export metadata reaches that argument. Regressions in tests/unit/services/manuscript-exporters.test.ts exercise template syntax as text and malicious template/engine-option properties while verifying real EPUB output; all nine exporter cases pass. Vendor security policy: https://github.com/mde/ejs/blob/main/SECURITY.md . Exact product version and CVE only; reassess on any generator, EJS, template or export-option change."
     },
     {
       "vulnerability": {

@@ -2312,3 +2312,46 @@ creation; recorded GC pauses were below 5 ms. These measurements do not establis
 previous 552.62 ms stall or initialization failures, which remain preserved. The profile overlapped
 part of an npm resolution diagnostic, so it is not an idle-host performance claim. No speculative
 production performance change was made. Complete three-novel validation remains pending.
+
+### Complete novel measurement and EJS applicability reassessment (2026-10-31)
+
+Candidate `3ba6846f5f8e627e6105567f21bc1e5b9198629c` completed all three pinned novels through the
+real stdio server, five cold/warm/one-edit samples each: 45 operations, zero budget violations.
+Maximum server event-loop lag was 83.673 ms (budget 100 ms), elapsed time 870.953 ms (5,000 ms),
+and sampled server RSS growth 120,209,408 bytes (134,217,728 bytes). Initialization stayed within
+30 seconds and every tool within ten seconds. The run used Node 24.22.2 on macOS arm64, bounded
+profiling, the exact installed candidate dependency graph and no concurrent local installation,
+build or other suite. Results, per-phase p50/p95 and corpus hashes are in
+`novels-candidate-3ba6846-{profile,summary}.json` under the remote-CI evidence directory.
+With five samples, nearest-rank p95 is the observed maximum; these are fixture measurements,
+not a universal latency or native RSS guarantee. All earlier failed observations remain retained;
+the old intermittent startup/stall causes were not reproduced and remain unattributed.
+
+The corrected candidate's separate security job reported one critical CPE match for
+`CVE-2023-29827` against EJS 7.0.2. The existing exact-version VEX assessment covered EJS 3.1.10
+and correctly did not suppress the changed version. Reinspection established that project export
+and toEpub use explicit option allowlists, the EPUB generator uses packaged templates, and EJS
+7.0.2's render function takes compilation options only from its third argument, separate from data.
+An added real-export regression injects template bodies and engine-option properties and verifies
+normal EPUB metadata; all nine exporter tests pass. The VEX document now records this reassessment
+for exactly EJS 7.0.2 and that CVE, with source paths and regression evidence. The high/critical
+policy and every other disposition are unchanged. The failed scanner artifact, its SHA-256,
+source hashes and reassessment are retained; a new successful scan is still required.
+
+The same run exposed a macOS 22 cancellation-fixture race: the test aborted after a fixed 400 ms,
+then assumed the child had already written its PID. Cancellation could validly stop startup first.
+The fixture now waits for explicit native entry before cancellation, checks that PID is alive,
+then checks it has exited before the rejection settles. A deliberate 500 ms entry delay protects
+against the old race. Deadline tests retain their 400 ms execution deadline and 2,500 ms completion
+bound, but now assert exit of the actual spawned process; a missing PID file can no longer satisfy
+an assertion accidentally. All 13 worker tests pass on Node 22.23.4, including input/output byte
+boundaries, owner death, delayed-entry cancellation and recovery. Production lifecycle code and
+resource budgets are unchanged. Windows rows were still running when this correction was prepared.
+
+[Run 41246536667, attempt 1](https://github.com/writerslogic/scrivener-mcp/actions/runs/41246536667)
+then completed: seven platform rows passed, including installed-consumer audit/smoke everywhere
+except the macOS 22 row stopped by the fixture race. Ubuntu 24 also passed the immutable-image
+Docker smoke, real Redis checks, Chromium dashboard interactions and four EPUBCheck cases
+(Unicode/empty, unsigned/signed). The separate security assessment failed solely on the newly
+versioned EJS match above. The aggregate release gate failed as intended. These successes are
+partial evidence at 3ba6846, not a passing release matrix; both corrections require a new run.

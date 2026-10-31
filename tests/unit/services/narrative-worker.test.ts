@@ -17,6 +17,19 @@ jest.mock('../../../src/services/editorial/lens-native.cjs', () => ({
 	narrativeModulePath: jest.fn(),
 }));
 
+async function waitPid(path: string): Promise<number> {
+	const deadline = performance.now() + 3000;
+	while (performance.now() < deadline) {
+		const text = await readFile(path, 'utf8').catch((error) => {
+			if (error.code === 'ENOENT') return '';
+			throw error;
+		});
+		if (/^[1-9][0-9]*$/.test(text)) return Number(text);
+		await delay(20);
+	}
+	throw new Error('Native fixture did not start');
+}
+
 describe('native process deadlines and cleanup', () => {
 	let directory: string;
 	beforeAll(async () => {
@@ -25,6 +38,7 @@ describe('native process deadlines and cleanup', () => {
 		await writeFile(
 			module,
 			`exports.analyzeAuthorCausality = input => {
+            if (input.entryDelayMs) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, input.entryDelayMs);
             if (input.pid) require('node:fs').writeFileSync(input.pid, String(process.pid));
             if (input.stats) process.on('exit', () => require('node:fs').writeFileSync(input.stats,
                 JSON.stringify({ pid: process.pid, memory: process.memoryUsage(), maxRssKiB: process.resourceUsage().maxRSS })));
@@ -123,17 +137,27 @@ describe('native process deadlines and cleanup', () => {
 		}
 	});
 	it.each(['analyzeAuthorCausality', 'compareManuscriptReports'])(
-		'waits for hard termination of blocked %s before rejecting the deadline',
+		'waits for process exit of %s before rejecting the deadline',
 		async (operation) => {
-			const pid = join(directory, 'timeout.pid');
-			const started = Date.now();
-			await expect(
-				narrativeWorker(operation, [{ mode: 'block', pid }], { timeoutMs: 400 })
-			).rejects.toThrow(/terminated/);
-			expect(Date.now() - started).toBeLessThan(2500);
-			expect(() =>
-				process.kill(Number(require('node:fs').readFileSync(pid, 'utf8')), 0)
-			).toThrow();
+			const processes =
+				jest.requireActual<typeof import('node:child_process')>('node:child_process');
+			const launched = jest.spyOn(processes, 'execFile');
+			try {
+				const started = performance.now();
+				await expect(
+					narrativeWorker(operation, [{ mode: 'block' }], { timeoutMs: 400 })
+				).rejects.toThrow(/terminated/);
+				expect(performance.now() - started).toBeLessThan(2500);
+				expect(launched).toHaveBeenCalledTimes(1);
+				const child = launched.mock.results[0].value as ReturnType<
+					typeof processes.execFile
+				>;
+				expect(child.pid).toBeGreaterThan(0);
+				expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
+				expect(() => process.kill(child.pid!, 0)).toThrow();
+			} finally {
+				launched.mockRestore();
+			}
 		}
 	);
 	it.each([1, 2])(
@@ -149,22 +173,30 @@ describe('native process deadlines and cleanup', () => {
 		}
 	);
 	it.each(['analyzeAuthorCausality', 'compareManuscriptReports'])(
-		'hard-cancels blocked %s and leaves no child running',
+		'hard-cancels blocked %s after delayed entry and leaves no child running',
 		async (operation) => {
-			const pid = join(directory, 'cancel.pid');
+			const pid = join(directory, `cancel-${operation}.pid`);
 			const controller = new AbortController();
-			const pending = narrativeWorker(operation, [{ mode: 'block', pid }], {
-				signal: controller.signal,
-			});
+			const pending = narrativeWorker(
+				operation,
+				[{ mode: 'block', pid, entryDelayMs: 500 }],
+				{
+					signal: controller.signal,
+				}
+			);
 			const rejected = expect(pending).rejects.toThrow(/cancelled/);
-			const timer = setTimeout(() => controller.abort(), 400);
 			try {
+				const childId = await waitPid(pid);
+				expect(() => process.kill(childId, 0)).not.toThrow();
+				const started = performance.now();
+				controller.abort();
 				await rejected;
+				expect(performance.now() - started).toBeLessThan(2500);
+				expect(() => process.kill(childId, 0)).toThrow();
 			} finally {
-				clearTimeout(timer);
+				controller.abort();
+				await rejected;
 			}
-			const childId = Number(await readFile(pid, 'utf8'));
-			expect(() => process.kill(childId, 0)).toThrow();
 		}
 	);
 	it('enforces the deadline after its owner is killed while native work is blocked', async () => {
