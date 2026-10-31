@@ -107,7 +107,12 @@ export async function generateAnnotationSchema({
 		type: 'object',
 		additionalProperties: false,
 		properties: {
-			kind: { type: 'string', enum: Object.keys(modes) },
+			kind: {
+				type: 'string',
+				enum: Object.keys(modes),
+				description:
+					'Annotation analysis mode selecting the required nested input contract.',
+			},
 			input: {
 				type: 'object',
 				description:
@@ -119,7 +124,7 @@ export async function generateAnnotationSchema({
 		$defs: definitions,
 	});
 	const generated = await format(
-		`// Generated from Narrative Lens v${provenance.version} standalone.schema.json (SHA-256 ${provenance.fullSha256}).\n// Regenerate with scripts/generate-narrative-annotation-schema.mjs; do not edit by hand.\nimport type { ToolSchema } from './types.js';\nexport const annotationInputSchema: ToolSchema = ${JSON.stringify(schema, null, '\t')};\n`,
+		`// Generated from Narrative Lens v${provenance.version} standalone.schema.json (SHA-256 ${provenance.fullSha256}).\n// Regenerate with scripts/generate-narrative-annotation-schema.mjs; do not edit by hand.\nimport type { ToolDefinition } from './types.js';\nexport const annotationInputSchema: ToolDefinition['inputSchema'] = ${JSON.stringify(schema, null, '\t')};\n`,
 		{ ...(await resolveConfig(fileURLToPath(output))), filepath: fileURLToPath(output) }
 	);
 	if (check) {

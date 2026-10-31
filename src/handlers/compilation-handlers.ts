@@ -56,15 +56,38 @@ const compilationAnalysisSchema = {
 		envelope: ANALYSIS_ENVELOPE_SCHEMA,
 		metadata: {
 			type: 'object',
+			description: 'Compilation format, applied transformations, warnings and timing.',
 			additionalProperties: false,
 			properties: {
-				format: { type: 'string' },
-				wordCount: { type: 'integer', minimum: 0 },
-				optimizations: { type: 'array', items: { type: 'string' } },
-				warnings: { type: 'array', items: { type: 'string' } },
-				targetAudience: { type: 'string' },
-				compiledAt: { type: 'string' },
-				processingTime: { type: 'number', minimum: 0 },
+				format: { type: 'string', description: 'Requested compilation format.' },
+				wordCount: {
+					type: 'integer',
+					minimum: 0,
+					description: 'Word count of the compiled text.',
+				},
+				optimizations: {
+					type: 'array',
+					items: { type: 'string' },
+					description: 'Transformations successfully applied to the compiled text.',
+				},
+				warnings: {
+					type: 'array',
+					items: { type: 'string' },
+					description: 'Unavailable transformations or other compilation limitations.',
+				},
+				targetAudience: {
+					type: 'string',
+					description: 'Audience requested for this compilation.',
+				},
+				compiledAt: {
+					type: 'string',
+					description: 'ISO 8601 timestamp when compilation completed.',
+				},
+				processingTime: {
+					type: 'number',
+					minimum: 0,
+					description: 'Elapsed compilation time in milliseconds.',
+				},
 			},
 			required: [
 				'format',
@@ -77,6 +100,8 @@ const compilationAnalysisSchema = {
 		},
 		quality: {
 			type: 'object',
+			description:
+				'Provider assessment of the bounded compiled excerpt, with explicit unavailable fields.',
 			additionalProperties: false,
 			properties: {
 				score: {
@@ -86,34 +111,72 @@ const compilationAnalysisSchema = {
 					description:
 						'Provider opinion for the covered excerpt; not a calibrated manuscript-quality measurement.',
 				},
-				suggestions: { type: ['array', 'null'], items: { type: 'string' } },
-				issues: { type: ['array', 'null'], items: { type: 'string' } },
-				availability: { enum: ['available', 'partial', 'unavailable'] },
+				suggestions: {
+					type: ['array', 'null'],
+					items: { type: 'string' },
+					description: 'Validated provider suggestions; null when unavailable.',
+				},
+				issues: {
+					type: ['array', 'null'],
+					items: { type: 'string' },
+					description: 'Validated provider concerns; null when unavailable.',
+				},
+				availability: {
+					enum: ['available', 'partial', 'unavailable'],
+					description:
+						'Whether all, some or none of the requested assessment fields were usable.',
+				},
 				unavailableFields: {
 					type: 'array',
+					description:
+						'Assessment fields for which no usable provider value was returned.',
 					items: { enum: ['score', 'suggestions', 'issues'] },
 					uniqueItems: true,
 				},
 				partialFields: {
 					type: 'array',
+					description:
+						'List fields that retained valid entries after rejecting malformed entries.',
 					items: { enum: ['suggestions', 'issues'] },
 					uniqueItems: true,
 				},
-				reason: { enum: ['provider_failed', 'invalid_response', 'no_text'] },
+				reason: {
+					enum: ['provider_failed', 'invalid_response', 'no_text'],
+					description:
+						'Cause of unavailable or incomplete assessment data, when present.',
+				},
 				coverage: {
 					type: 'object',
+					description:
+						'Exact compiled-text revision and UTF-16 excerpt bounds used for assessment.',
 					additionalProperties: false,
 					properties: {
-						start: { const: 0 },
-						end: { type: 'integer', minimum: 0, maximum: 4000 },
-						sourceCharacters: { type: 'integer', minimum: 0 },
+						start: {
+							const: 0,
+							description: 'Inclusive UTF-16 start offset of the assessed excerpt.',
+						},
+						end: {
+							type: 'integer',
+							minimum: 0,
+							maximum: 4000,
+							description: 'Exclusive UTF-16 end offset of the assessed excerpt.',
+						},
+						sourceCharacters: {
+							type: 'integer',
+							minimum: 0,
+							description: 'UTF-16 length of the complete compiled text.',
+						},
 						sourceRevision: {
 							type: 'string',
 							description:
 								'SHA-256 of the complete compiled plain text assessed, including any provider revisions.',
 							pattern: '^[a-f0-9]{64}$',
 						},
-						truncated: { type: 'boolean' },
+						truncated: {
+							type: 'boolean',
+							description:
+								'Whether the assessed excerpt omits a suffix of the compiled text.',
+						},
 					},
 					required: ['start', 'end', 'sourceCharacters', 'sourceRevision', 'truncated'],
 				},
@@ -293,7 +356,11 @@ export const compileDocumentsHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
-			ai: { oneOf: [compilationAnalysisSchema, RESULT_REFERENCE_SCHEMA] },
+			ai: {
+				description:
+					'Compilation analysis with saved-source provenance, or a read_result reference to that analysis.',
+				oneOf: [compilationAnalysisSchema, RESULT_REFERENCE_SCHEMA],
+			},
 			format: {
 				type: 'string',
 				description: 'Format the manuscript was compiled to (text, markdown, or html).',
@@ -802,14 +869,18 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					content: { type: 'string' },
+					content: {
+						type: 'string',
+						description: 'Generated marketing text for the requested artifact.',
+					},
 					materialType: {
+						description:
+							'Marketing artifact generated from the selected saved documents.',
 						enum: [
 							'synopsis',
 							'query_letter',
@@ -818,17 +889,29 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 							'book_blurb',
 						],
 					},
-					processingTime: { type: 'number', minimum: 0 },
+					processingTime: {
+						type: 'number',
+						minimum: 0,
+						description: 'Elapsed marketing generation time in milliseconds.',
+					},
 					coverage: {
 						type: 'object',
+						description:
+							'Extent of the complete saved manuscript selection used for generation.',
 						additionalProperties: false,
 						properties: {
 							sourceCharacters: {
 								type: 'integer',
+								description:
+									'UTF-16 source length, including separators between selected documents.',
 								minimum: 1,
 								maximum: MAX_COMPILATION_AI_SOURCE,
 							},
-							truncated: { const: false },
+							truncated: {
+								const: false,
+								description:
+									'Always false: oversized source selections fail before provider generation.',
+							},
 						},
 						required: ['sourceCharacters', 'truncated'],
 					},

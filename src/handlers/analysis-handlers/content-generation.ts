@@ -20,6 +20,8 @@ const MAX_RESULT = 64000;
 const MAX_CHARACTER_BYTES = 16384;
 const identifier = {
 	type: 'string',
+	description:
+		'Saved document or character profile identifier, as selected in the request context.',
 	minLength: 1,
 	maxLength: 128,
 	pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
@@ -109,21 +111,39 @@ export const generateContentHandler: ToolDefinition = {
 		type: 'object',
 		additionalProperties: false,
 		properties: {
-			prompt: { type: 'string', minLength: 1, maxLength: MAX_PROMPT, pattern: '\\S' },
-			length: { type: 'integer', minimum: 1, maximum: 2000, default: 500 },
+			prompt: {
+				type: 'string',
+				minLength: 1,
+				maxLength: MAX_PROMPT,
+				pattern: '\\S',
+				description:
+					'Instructions for the new prose; nonblank text up to 16000 Unicode characters.',
+			},
+			length: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 2000,
+				default: 500,
+				description: 'Requested target word count; actual provider output length can vary.',
+			},
 			context: {
 				type: 'object',
+				description:
+					'Optional saved document, project character profiles and style guidance; saved context requires an open project.',
 				additionalProperties: false,
 				properties: {
 					documentId: identifier,
 					characterIds: {
 						type: 'array',
+						description:
+							'Unique project-memory character profile IDs; use recall to inspect available profiles.',
 						maxItems: 32,
 						uniqueItems: true,
 						items: identifier,
 					},
 					style: {
 						type: 'string',
+						description: 'Provider style guidance; defaults to creative when omitted.',
 						minLength: 1,
 						maxLength: 1000,
 						pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
@@ -135,21 +155,36 @@ export const generateContentHandler: ToolDefinition = {
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					content: { type: 'string', minLength: 1, maxLength: MAX_RESULT },
-					wordCount: { type: ['integer', 'null'], minimum: 0 },
-					type: { const: 'creative' },
+					content: {
+						type: 'string',
+						minLength: 1,
+						maxLength: MAX_RESULT,
+						description: 'Complete generated prose; no saved document is modified.',
+					},
+					wordCount: {
+						type: ['integer', 'null'],
+						minimum: 0,
+						description:
+							'Measured word count of the generated prose, or null when counting fails.',
+					},
+					type: {
+						const: 'creative',
+						description: 'Identifies the creative prose generation operation.',
+					},
 					availability: {
 						type: 'object',
+						description: 'Availability of independently measured result metadata.',
 						additionalProperties: false,
 						properties: {
 							unavailableFields: {
 								type: 'array',
+								description:
+									'Contains wordCount only when its measurement failed and the value is null.',
 								maxItems: 1,
 								items: { const: 'wordCount' },
 							},
@@ -159,9 +194,13 @@ export const generateContentHandler: ToolDefinition = {
 					envelope: ANALYSIS_ENVELOPE_SCHEMA,
 					context: {
 						type: 'object',
+						description:
+							'Exact saved document coverage and character profile revisions sent to the provider.',
 						additionalProperties: false,
 						properties: {
 							document: {
+								description:
+									'Saved document excerpt coverage, or null for requests without document context.',
 								oneOf: [
 									{ type: 'null' },
 									{
@@ -169,14 +208,29 @@ export const generateContentHandler: ToolDefinition = {
 										additionalProperties: false,
 										properties: {
 											documentId: identifier,
-											start: { const: 0 },
+											start: {
+												const: 0,
+												description:
+													'Inclusive UTF-16 start offset of the saved excerpt.',
+											},
 											end: {
 												type: 'integer',
 												minimum: 0,
 												maximum: MAX_CONTEXT,
+												description:
+													'Exclusive UTF-16 end offset of the excerpt sent to the provider.',
 											},
-											sourceCharacters: { type: 'integer', minimum: 0 },
-											truncated: { type: 'boolean' },
+											sourceCharacters: {
+												type: 'integer',
+												minimum: 0,
+												description:
+													'UTF-16 length of the complete decoded saved document text.',
+											},
+											truncated: {
+												type: 'boolean',
+												description:
+													'Whether the complete saved text extends beyond the supplied excerpt.',
+											},
 										},
 										required: [
 											'documentId',
@@ -190,13 +244,20 @@ export const generateContentHandler: ToolDefinition = {
 							},
 							characters: {
 								type: 'array',
+								description:
+									'Identities and digests of complete character profiles, in requested order; empty when none were requested.',
 								maxItems: 32,
 								items: {
 									type: 'object',
 									additionalProperties: false,
 									properties: {
 										id: identifier,
-										revision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+										revision: {
+											type: 'string',
+											pattern: '^[a-f0-9]{64}$',
+											description:
+												'SHA-256 analysis digest of the complete supplied character profile, checked again after generation.',
+										},
 									},
 									required: ['id', 'revision'],
 								},

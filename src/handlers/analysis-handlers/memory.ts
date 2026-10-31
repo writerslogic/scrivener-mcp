@@ -34,11 +34,24 @@ export const updateMemoryHandler: ToolDefinition = {
 		type: 'object',
 		additionalProperties: false,
 		properties: {
-			memoryType: { enum: [...MEMORY_TYPES] },
-			id: { type: ['string', 'null'] },
+			memoryType: {
+				enum: [...MEMORY_TYPES],
+				description: 'Category written; all records a patch to customContext.',
+			},
+			id: {
+				type: ['string', 'null'],
+				description:
+					'Created or updated record identifier; null for styleGuide and customContext patches.',
+			},
 			revision,
-			persisted: { const: true },
-			projectId: { type: 'string' },
+			persisted: {
+				const: true,
+				description: 'Confirms the resulting memory snapshot is durably saved.',
+			},
+			projectId: {
+				type: 'string',
+				description: 'Stable identity of the open project owning this memory.',
+			},
 		},
 		required: ['memoryType', 'id', 'revision', 'persisted', 'projectId'],
 	},
@@ -68,23 +81,34 @@ export const getMemoryHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		additionalProperties: false,
-		properties: { memoryType: { enum: [...MEMORY_TYPES] } },
+		properties: {
+			memoryType: {
+				enum: [...MEMORY_TYPES],
+				description:
+					'Category to read; omit or use all for the complete project memory snapshot.',
+			},
+		},
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					memoryType: { enum: [...MEMORY_TYPES] },
+					memoryType: {
+						enum: [...MEMORY_TYPES],
+						description: 'Selected memory category, or all for the complete snapshot.',
+					},
 					memory: {
 						description:
 							'Selected stored records or the complete project-memory JSON snapshot; legacy and custom fields are retained.',
 					},
 					revision,
-					projectId: { type: 'string' },
+					projectId: {
+						type: 'string',
+						description: 'Stable identity of the open project owning this memory.',
+					},
 				},
 				required: ['memoryType', 'memory', 'revision', 'projectId'],
 			},

@@ -183,24 +183,47 @@ function requireDocument(documents: SourceDocument[], id: string) {
 
 const textInput = {
 	type: 'string',
+	description: 'Identifier of an active saved text document in the open project.',
 	minLength: 1,
 	maxLength: 128,
 	pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
 };
-const kind = { enum: ['character', 'location'] };
+const kind = {
+	enum: ['character', 'location'],
+	description: 'Category of the registered entity.',
+};
+const documentIdSchema = {
+	type: 'string',
+	description: 'Identifier of the saved project document.',
+};
+const entityIdSchema = {
+	type: 'string',
+	description: 'Unique identifier of the entity in the project registry.',
+};
+const entityNameSchema = {
+	type: 'string',
+	description: 'Recorded entity name used for literal whole-word matching.',
+};
 const entitySchema = {
 	type: 'object',
 	additionalProperties: false,
-	properties: { id: { type: 'string' }, name: { type: 'string' }, type: kind },
+	properties: { id: entityIdSchema, name: entityNameSchema, type: kind },
 	required: ['id', 'name', 'type'],
 };
 const availabilitySchema = {
 	type: 'object',
+	description: 'Availability of the character and location registries used for this result.',
 	additionalProperties: false,
 	properties: {
-		status: { enum: ['available', 'partial', 'unavailable'] },
+		status: {
+			enum: ['available', 'partial', 'unavailable'],
+			description:
+				'Available when both registries were loaded, partial when one was loaded, and unavailable when neither was loaded.',
+		},
 		unavailableRegistries: {
 			type: 'array',
+			description:
+				'Registries whose database or table is unavailable; their entities are excluded from analysis.',
 			uniqueItems: true,
 			maxItems: 2,
 			items: { enum: ['characters', 'locations'] },
@@ -210,28 +233,54 @@ const availabilitySchema = {
 };
 const reportProperties = {
 	availability: availabilitySchema,
-	registryRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+	registryRevision: {
+		type: 'string',
+		pattern: '^[a-f0-9]{64}$',
+		description:
+			'SHA-256 revision of the entity records and registry availability used by the analysis.',
+	},
 	envelope: ANALYSIS_ENVELOPE_SCHEMA,
 	coverage: {
 		type: 'object',
+		description: 'Actual saved-text and registry scope examined for this result.',
 		additionalProperties: false,
 		properties: {
-			scope: { enum: ['selected-document', 'all-active-text'] },
-			documents: { type: 'integer', minimum: 0, maximum: 1000 },
-			entities: { type: 'integer', minimum: 0, maximum: 256 },
-			sourceCharacters: { type: 'integer', minimum: 0, maximum: 2097152 },
+			scope: {
+				enum: ['selected-document', 'all-active-text'],
+				description:
+					'Whether analysis examined the selected document or all active text, including Research and Draft items excluded from Compile.',
+			},
+			documents: {
+				type: 'integer',
+				minimum: 0,
+				maximum: 1000,
+				description:
+					'Number of saved text documents examined, including documents with no matches.',
+			},
+			entities: {
+				type: 'integer',
+				minimum: 0,
+				maximum: 256,
+				description:
+					'Number of entities loaded from the available registries, including unmatched entities.',
+			},
+			sourceCharacters: {
+				type: 'integer',
+				minimum: 0,
+				maximum: 2097152,
+				description: 'Total UTF-16 code units across examined plain text.',
+			},
 		},
 		required: ['scope', 'documents', 'entities', 'sourceCharacters'],
 	},
 };
 function output(
-	properties: ToolSchema['properties'],
+	properties: NonNullable<ToolSchema['properties']>,
 	required = Object.keys(properties),
 	variants?: ToolSchema['oneOf']
 ): ToolSchema {
 	return {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
@@ -261,26 +310,47 @@ export const getEntityReferencesHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		additionalProperties: false,
-		properties: { documentId: textInput, entity: { ...textInput, maxLength: 2000 } },
+		properties: {
+			documentId: textInput,
+			entity: {
+				...textInput,
+				maxLength: 2000,
+				description:
+					'Exact registry ID or case-insensitive entity name. IDs take precedence; ambiguous names require an ID. Supply instead of documentId.',
+			},
+		},
 		oneOf: [{ required: ['documentId'] }, { required: ['entity'] }],
 	},
 	outputSchema: output(
 		{
-			documentId: { type: 'string' },
-			entity: { type: 'string' },
+			documentId: documentIdSchema,
+			entity: {
+				type: 'string',
+				description:
+					'Caller-supplied registry ID or entity name after trimming, present for entity-based lookup.',
+			},
 			mentions: {
 				type: 'array',
+				description:
+					'Registered entities mentioned in the selected document, with all literal match positions.',
 				maxItems: 256,
 				items: {
 					type: 'object',
 					additionalProperties: false,
 					properties: {
-						entityId: { type: 'string' },
-						entityName: { type: 'string' },
+						entityId: entityIdSchema,
+						entityName: entityNameSchema,
 						type: kind,
-						count: { type: 'integer', minimum: 1 },
+						count: {
+							type: 'integer',
+							minimum: 1,
+							description:
+								'Number of literal whole-word occurrences of this entity in the document.',
+						},
 						positions: {
 							type: 'array',
+							description:
+								'Zero-based UTF-16 start offsets of every matching occurrence in the saved plain text.',
 							minItems: 1,
 							maxItems: 1000000,
 							items: { type: 'integer', minimum: 0 },
@@ -291,14 +361,24 @@ export const getEntityReferencesHandler: ToolDefinition = {
 			},
 			documents: {
 				type: 'array',
+				description:
+					'Saved documents mentioning the selected entity, ordered by descending mention count.',
 				maxItems: 1000,
 				items: {
 					type: 'object',
 					additionalProperties: false,
 					properties: {
-						documentId: { type: 'string' },
-						title: { type: 'string' },
-						count: { type: 'integer', minimum: 1 },
+						documentId: documentIdSchema,
+						title: {
+							type: 'string',
+							description: 'Saved title of the referencing document.',
+						},
+						count: {
+							type: 'integer',
+							minimum: 1,
+							description:
+								'Number of literal whole-word mentions of the selected entity in this document.',
+						},
 					},
 					required: ['documentId', 'title', 'count'],
 				},
@@ -342,8 +422,20 @@ export const findOrphanedEntitiesHandler: ToolDefinition = {
 	annotations,
 	inputSchema: { type: 'object', additionalProperties: false, properties: {} },
 	outputSchema: output({
-		orphans: { type: 'array', maxItems: 256, items: entitySchema },
-		registrySize: { type: 'integer', minimum: 0, maximum: 256 },
+		orphans: {
+			type: 'array',
+			maxItems: 256,
+			items: entitySchema,
+			description:
+				'Entities from available registries with no literal whole-word name mentions in the examined saved text.',
+		},
+		registrySize: {
+			type: 'integer',
+			minimum: 0,
+			maximum: 256,
+			description:
+				'Total entities loaded from the available registries before filtering for missing mentions.',
+		},
 	}),
 	handler: async (args, context) => {
 		argumentsFor(args, []);
@@ -366,19 +458,32 @@ export const suggestConnectionsHandler: ToolDefinition = {
 		required: ['documentId'],
 	},
 	outputSchema: output({
-		documentId: { type: 'string' },
+		documentId: documentIdSchema,
 		suggestions: {
 			type: 'array',
+			description:
+				'Registered entities absent from the selected document but associated with its mentioned entities elsewhere, ordered by descending coOccurrences.',
 			maxItems: 256,
 			items: {
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					entityId: { type: 'string' },
-					entityName: { type: 'string' },
+					entityId: entityIdSchema,
+					entityName: entityNameSchema,
 					type: kind,
-					coOccurrences: { type: 'integer', minimum: 1 },
-					relatedTo: { type: 'array', maxItems: 256, items: { type: 'string' } },
+					coOccurrences: {
+						type: 'integer',
+						minimum: 1,
+						description:
+							'Number of distinct entities from the selected document that share another document with this suggestion.',
+					},
+					relatedTo: {
+						type: 'array',
+						maxItems: 256,
+						items: { type: 'string' },
+						description:
+							'Names of those related entities from the selected document; distinct registry IDs may preserve duplicate names.',
+					},
 				},
 				required: ['entityId', 'entityName', 'type', 'coOccurrences', 'relatedTo'],
 			},

@@ -45,52 +45,103 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 				oneOf: [{ const: ['all'] }, { ...rolesSchema, minItems: 1 }],
 				description: 'Selected perspectives, or all by itself. Defaults to all five.',
 			},
-			collaborationMode: { type: 'string', enum: [...COLLABORATION_MODES] },
+			collaborationMode: {
+				type: 'string',
+				enum: [...COLLABORATION_MODES],
+				description:
+					'Collaborative compares perspectives, workshop proposes exercises, and review prioritizes feedback. Defaults to collaborative.',
+			},
 		},
 		required: ['documentId'],
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					method: { const: 'single-provider-perspectives' },
-					agents: { ...rolesSchema, minItems: 1 },
-					collaborationMode: { enum: [...COLLABORATION_MODES] },
+					method: {
+						const: 'single-provider-perspectives',
+						description:
+							'One provider response supplies all requested perspectives; no independent agent runs are performed.',
+					},
+					agents: {
+						...rolesSchema,
+						minItems: 1,
+						description: 'Requested perspectives in their normalized request order.',
+					},
+					collaborationMode: {
+						enum: [...COLLABORATION_MODES],
+						description: 'Critique workflow used to frame the provider instructions.',
+					},
 					perspectives: {
 						type: 'array',
+						description:
+							'Usable feedback entries returned for requested roles; missing roles are listed in availability.',
 						items: {
 							type: 'object',
 							additionalProperties: false,
 							properties: {
-								role: { enum: [...COLLABORATION_ROLES] },
-								feedback: { type: 'string', minLength: 1 },
+								role: {
+									enum: [...COLLABORATION_ROLES],
+									description:
+										'Requested critique perspective associated with this feedback.',
+								},
+								feedback: {
+									type: 'string',
+									minLength: 1,
+									description: 'Provider critique from the named perspective.',
+								},
 							},
 							required: ['role', 'feedback'],
 						},
 					},
-					synthesis: { type: ['string', 'null'] },
-					consensus: { type: ['string', 'null'] },
+					synthesis: {
+						type: ['string', 'null'],
+						description:
+							'Provider synthesis across perspectives, or null when absent or invalid.',
+					},
+					consensus: {
+						type: ['string', 'null'],
+						description:
+							'Provider account of shared revision priorities, or null when absent or invalid.',
+					},
 					availability: {
 						type: 'object',
+						description:
+							'Completeness of validated critique fields and coverage of requested roles.',
 						additionalProperties: false,
 						properties: {
-							status: { enum: ['available', 'partial', 'unavailable'] },
+							status: {
+								enum: ['available', 'partial', 'unavailable'],
+								description:
+									'Available when all requested feedback and summary fields are usable; partial when some are missing; unavailable when none are usable.',
+							},
 							unavailableFields: {
 								type: 'array',
+								description:
+									'Fields with no usable provider value; perspectives is unavailable only when no feedback entries survive validation.',
 								items: { enum: ['perspectives', 'synthesis', 'consensus'] },
 								uniqueItems: true,
 							},
-							unavailableRoles: rolesSchema,
+							unavailableRoles: {
+								...rolesSchema,
+								description:
+									'Requested roles for which no usable feedback was returned.',
+							},
 							partialFields: {
 								type: 'array',
+								description:
+									'Contains perspectives when some feedback is usable but roles are missing or invalid entries were discarded.',
 								items: { const: 'perspectives' },
 								maxItems: 1,
 							},
-							reason: { enum: ['no_text', 'invalid_response'] },
+							reason: {
+								enum: ['no_text', 'invalid_response'],
+								description:
+									'Present when critique is unavailable because the source is blank or the provider returned no usable fields.',
+							},
 						},
 						required: [
 							'status',
@@ -101,18 +152,39 @@ export const multiAgentAnalysisHandler: ToolDefinition = {
 					},
 					coverage: {
 						type: 'object',
+						description:
+							'Exact decoded source range supplied for critique and digest of the complete source text.',
 						additionalProperties: false,
 						properties: {
-							start: { const: 0 },
-							end: { type: 'integer', minimum: 0, maximum: 12000 },
-							sourceCharacters: { type: 'integer', minimum: 0, maximum: 5000000 },
+							start: {
+								const: 0,
+								description: 'Inclusive UTF-16 start offset of the excerpt.',
+							},
+							end: {
+								type: 'integer',
+								minimum: 0,
+								maximum: 12000,
+								description:
+									'Exclusive UTF-16 end offset of the excerpt; zero for blank source text.',
+							},
+							sourceCharacters: {
+								type: 'integer',
+								minimum: 0,
+								maximum: 5000000,
+								description:
+									'UTF-16 length of the complete decoded saved document text.',
+							},
 							sourceRevision: {
 								type: 'string',
 								pattern: '^[a-f0-9]{64}$',
 								description:
 									'SHA-256 of complete decoded text; envelope revisions hash saved RTF bytes.',
 							},
-							truncated: { type: 'boolean' },
+							truncated: {
+								type: 'boolean',
+								description:
+									'Whether the complete source extends beyond the supplied excerpt.',
+							},
 						},
 						required: [
 							'start',

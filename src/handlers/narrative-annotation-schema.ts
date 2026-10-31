@@ -1,7 +1,7 @@
 // Generated from Narrative Lens v0.2.0 standalone.schema.json (SHA-256 3d7e5eb4c47d645571d7146b133e75cb7cb1434f9fa2fd3338ccffab5e694b90).
 // Regenerate with scripts/generate-narrative-annotation-schema.mjs; do not edit by hand.
-import type { ToolSchema } from './types.js';
-export const annotationInputSchema: ToolSchema = {
+import type { ToolDefinition } from './types.js';
+export const annotationInputSchema: ToolDefinition['inputSchema'] = {
 	type: 'object',
 	additionalProperties: false,
 	properties: {
@@ -19,6 +19,7 @@ export const annotationInputSchema: ToolSchema = {
 				'uncertainty',
 				'history',
 			],
+			description: 'Annotation analysis mode selecting the required nested input contract.',
 		},
 		input: {
 			type: 'object',

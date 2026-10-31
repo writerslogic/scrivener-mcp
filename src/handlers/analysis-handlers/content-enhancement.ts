@@ -21,6 +21,8 @@ import {
 
 const optionsSchema = {
 	type: 'object',
+	description:
+		'Optional rewrite preferences and background context, combined with saved author preferences.',
 	additionalProperties: false,
 	properties: {
 		...Object.fromEntries(
@@ -65,42 +67,93 @@ export const enhanceContentHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
+				description:
+					'Saved document UUID from get_structure; the complete text must fit the enhancement source limit.',
 				minLength: 1,
 				maxLength: 128,
 				pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
 			},
-			enhancementType: { enum: Object.keys(ENHANCEMENT_INSTRUCTIONS) },
+			enhancementType: {
+				enum: Object.keys(ENHANCEMENT_INSTRUCTIONS),
+				description:
+					'Requested rewrite operation: grammar, style, clarity, expansion, summary or creative revision.',
+			},
 			options: optionsSchema,
 		},
 		required: ['documentId', 'enhancementType'],
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					documentId: { type: 'string' },
-					original: { type: 'string', minLength: 1, maxLength: MAX_ENHANCEMENT_SOURCE },
-					enhanced: { type: 'string', minLength: 1, maxLength: MAX_ENHANCEMENT_RESULT },
-					changed: { type: 'boolean' },
-					changes: { type: 'null' },
-					suggestions: { type: 'null' },
-					qualityValidation: { type: 'null' },
+					documentId: {
+						type: 'string',
+						description:
+							'Saved document UUID whose revision was checked before returning the rewrite.',
+					},
+					original: {
+						type: 'string',
+						minLength: 1,
+						maxLength: MAX_ENHANCEMENT_SOURCE,
+						description: 'Complete decoded saved text submitted for rewriting.',
+					},
+					enhanced: {
+						type: 'string',
+						minLength: 1,
+						maxLength: MAX_ENHANCEMENT_RESULT,
+						description:
+							'Complete proposed rewrite returned by the provider; not applied to the document.',
+					},
+					changed: {
+						type: 'boolean',
+						description: 'Whether the proposed rewrite differs from the original text.',
+					},
+					changes: {
+						type: 'null',
+						description:
+							'Unavailable: this operation does not produce a verified edit list.',
+					},
+					suggestions: {
+						type: 'null',
+						description:
+							'Unavailable: the provider returns a rewrite without separate suggestions.',
+					},
+					qualityValidation: {
+						type: 'null',
+						description:
+							'Unavailable: no independent quality validation of the rewrite is performed.',
+					},
 					metrics: {
 						type: 'object',
+						description:
+							'Native measurements of original and revised prose; failed measurements remain null.',
 						additionalProperties: false,
 						properties: {
-							originalWordCount: { type: ['integer', 'null'], minimum: 0 },
-							enhancedWordCount: { type: ['integer', 'null'], minimum: 0 },
+							originalWordCount: {
+								type: ['integer', 'null'],
+								minimum: 0,
+								description:
+									'Native word count of the original text, or null when unavailable.',
+							},
+							enhancedWordCount: {
+								type: ['integer', 'null'],
+								minimum: 0,
+								description:
+									'Native word count of the proposed rewrite, or null when unavailable.',
+							},
 							readabilityChange: {
 								type: ['number', 'null'],
 								description:
 									'Native Flesch reading-ease difference, revised minus original; unavailable when either measurement fails.',
 							},
-							changesApplied: { type: 'null' },
+							changesApplied: {
+								type: 'null',
+								description:
+									'Unavailable: edits are not enumerated or applied by this operation.',
+							},
 						},
 						required: [
 							'originalWordCount',
@@ -111,11 +164,19 @@ export const enhanceContentHandler: ToolDefinition = {
 					},
 					availability: {
 						type: 'object',
+						description:
+							'Explicitly identifies unmeasured metadata and failed native measurements.',
 						additionalProperties: false,
 						properties: {
-							status: { const: 'partial' },
+							status: {
+								const: 'partial',
+								description:
+									'A rewrite is available, but edit lists and independent quality validation are not.',
+							},
 							unavailableFields: {
 								type: 'array',
+								description:
+									'Result field paths returned as null because no measurement or assessment is available.',
 								uniqueItems: true,
 								maxItems: 7,
 								items: {
@@ -132,14 +193,27 @@ export const enhanceContentHandler: ToolDefinition = {
 					},
 					coverage: {
 						type: 'object',
+						description:
+							'Complete decoded source range and text digest used for this rewrite.',
 						additionalProperties: false,
 						properties: {
-							start: { const: 0 },
-							end: { type: 'integer', minimum: 1, maximum: MAX_ENHANCEMENT_SOURCE },
+							start: {
+								const: 0,
+								description: 'Inclusive UTF-16 start offset of the source text.',
+							},
+							end: {
+								type: 'integer',
+								minimum: 1,
+								maximum: MAX_ENHANCEMENT_SOURCE,
+								description:
+									'Exclusive UTF-16 end offset of the complete source text.',
+							},
 							sourceCharacters: {
 								type: 'integer',
 								minimum: 1,
 								maximum: MAX_ENHANCEMENT_SOURCE,
+								description:
+									'UTF-16 length of the complete decoded saved document text.',
 							},
 							sourceRevision: {
 								type: 'string',
@@ -147,7 +221,11 @@ export const enhanceContentHandler: ToolDefinition = {
 								description:
 									'SHA-256 of complete decoded text; envelope revisions identify saved RTF.',
 							},
-							truncated: { const: false },
+							truncated: {
+								const: false,
+								description:
+									'Always false because enhancement requires the complete source to fit its limit.',
+							},
 						},
 						required: [
 							'start',
@@ -177,14 +255,28 @@ export const enhanceContentHandler: ToolDefinition = {
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					documentId: { type: 'string' },
-					enhanced: { type: 'null' },
+					documentId: {
+						type: 'string',
+						description: 'Saved document UUID whose rewrite was unavailable.',
+					},
+					enhanced: {
+						type: 'null',
+						description: 'No complete rewrite was returned by the provider.',
+					},
 					availability: {
 						type: 'object',
+						description: 'Explicit provider failure status for an unavailable rewrite.',
 						additionalProperties: false,
 						properties: {
-							status: { const: 'unavailable' },
-							reason: { const: 'provider_failed' },
+							status: {
+								const: 'unavailable',
+								description: 'No usable complete rewrite is available.',
+							},
+							reason: {
+								const: 'provider_failed',
+								description:
+									'The provider failed or returned empty, incomplete or oversized output.',
+							},
 						},
 						required: ['status', 'reason'],
 					},

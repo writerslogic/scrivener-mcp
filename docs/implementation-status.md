@@ -2172,3 +2172,31 @@ This validates the harness, not Docker or the built application image. The exact
 command, terminal result and scoped checks are retained in
 `logs/production-readiness-container-gate-20261031/verification-summary.json`. Actual image and
 final-candidate matrix execution remain open; no global rebuild or remote workflow was run.
+
+### Authorized remote candidate and registry corrections (2026-10-31)
+
+The user authorized an isolated public candidate branch and full remote CI, including global
+builds/tests and Docker. Candidate `d331cf957c2178a89e68c9b3a6b03b0ca86e6a2f` is on
+`audit/production-readiness-20261031-befef94e`; the original main checkout, index and dirty work
+were preserved. [CI run 41240955045](https://github.com/writerslogic/scrivener-mcp/actions/runs/41240955045)
+completed: all eight platform rows passed typecheck, formatting, lint and build, then failed the
+tool-registry gate. The independent C2PA native/runtime security job passed. Later matrix steps,
+including tests and the image smoke, were skipped; the aggregate release gate correctly failed.
+
+The registry reported 267 metadata problems, including missing provenance descriptions, redundant
+empty union-root property maps and six structured tools still classified as text-only. The gate
+also omitted union alternatives and definition maps from its nested checks. It now visits those
+schemas, rejects blank descriptions and supports a source-only invocation without rebuilding.
+Handler schemas document source identities, availability, bounds, UTF-16 offsets and UTF-8 payload
+budgets against their actual producers. Inputs retain explicit root properties; output types permit
+fully specified union alternatives without redundant empty maps. The annotation schema generator
+owns its new mode description, preserving deterministic regeneration and upstream integrity checks.
+
+Current source passes the expanded gate: 82 tools, zero duplicate names, 68 structured data tools
+and no metadata failures. Comparing both runtime registries after removing descriptions and empty
+property maps found only the explicit `remember` root fields; their constraints are already implied
+by every unchanged variant. Handler execution paths and schema validation bounds are preserved.
+Three sequential individual suites pass, 53 tests total: registry regression checks (4), generated
+schema consistency (6), and the memory contract (43). Scoped lint and formatting also pass. Evidence
+is retained in `logs/production-readiness-remote-ci-20261031/`; no local global build/typecheck,
+parallel test runner or paid provider call was used. Full CI on the corrected commit remains pending.

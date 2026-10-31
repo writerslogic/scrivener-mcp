@@ -61,12 +61,13 @@ export interface ToolAnnotations {
 }
 
 export interface ToolSchema {
+	description?: string;
 	$defs?: Record<string, JSONValue>;
 	allOf?: JSONValue[];
 	oneOf?: JSONValue[];
 	anyOf?: JSONValue[];
 	type: 'object';
-	properties: Record<string, JSONValue>;
+	properties?: Record<string, JSONValue>;
 	required?: string[];
 	additionalProperties?: boolean;
 }
@@ -77,7 +78,7 @@ export interface ToolDefinition {
 	/** Human-readable title; defaults to a prettified name when omitted. */
 	title?: string;
 	description: string;
-	inputSchema: ToolSchema;
+	inputSchema: ToolSchema & { properties: Record<string, JSONValue> };
 	/** Shape of the structured result, when the tool returns one. */
 	outputSchema?: ToolSchema;
 	annotations?: ToolAnnotations;

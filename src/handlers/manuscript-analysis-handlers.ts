@@ -75,7 +75,12 @@ export const manuscriptAnalysisHandlers: ToolDefinition[] = [
 					type: 'string',
 					description: 'Finding ID returned with a manuscript report.',
 				},
-				note: { type: 'string', maxLength: 4096 },
+				note: {
+					type: 'string',
+					maxLength: 4096,
+					description:
+						'Optional author note saved when accepting or dismissing a finding.',
+				},
 				pageCursor: {
 					type: 'string',
 					description:

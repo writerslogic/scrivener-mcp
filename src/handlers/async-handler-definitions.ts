@@ -38,6 +38,16 @@ const prioritySchema = {
 
 const analysisContentSchema = { ...SHARED_DEFS.content, maxLength: MAX_ANALYSIS_CONTENT_LENGTH };
 const analysisDocumentIdSchema = { ...SHARED_DEFS.docId, minLength: 1, maxLength: 255 };
+const styleFieldDescriptions = {
+	voice: 'Narrative voice observed in the analyzed excerpts; null when unavailable.',
+	tone: 'Emotional tone observed in the analyzed excerpts; null when unavailable.',
+	sentenceStructure:
+		'Sentence construction and variety in the analyzed excerpts; null when unavailable.',
+	vocabularyComplexity: 'Vocabulary complexity in the analyzed excerpts; null when unavailable.',
+	pacing: 'Perceived narrative pace of the analyzed excerpts; null when unavailable.',
+	strengths: 'Provider-identified stylistic strengths; null when unavailable.',
+	improvements: 'Provider-proposed stylistic improvements; null when unavailable.',
+};
 
 const styleResultSchema = {
 	type: 'object',
@@ -45,15 +55,24 @@ const styleResultSchema = {
 	properties: {
 		analysis: {
 			type: 'object',
+			description:
+				'Validated provider observations for the portions of the samples actually analyzed.',
 			additionalProperties: false,
 			properties: {
 				...Object.fromEntries(
-					STYLE_SCALARS.map((field) => [field, { type: ['string', 'null'] }])
+					STYLE_SCALARS.map((field) => [
+						field,
+						{ type: ['string', 'null'], description: styleFieldDescriptions[field] },
+					])
 				),
 				...Object.fromEntries(
 					STYLE_LISTS.map((field) => [
 						field,
-						{ type: ['array', 'null'], items: { type: 'string' } },
+						{
+							type: ['array', 'null'],
+							items: { type: 'string' },
+							description: styleFieldDescriptions[field],
+						},
 					])
 				),
 			},
@@ -61,16 +80,26 @@ const styleResultSchema = {
 		},
 		availability: {
 			type: 'object',
+			description:
+				'Completeness of the validated style profile; unavailable fields remain null.',
 			additionalProperties: false,
 			properties: {
-				status: { enum: ['available', 'partial', 'unavailable'] },
+				status: {
+					enum: ['available', 'partial', 'unavailable'],
+					description:
+						'Available when every field is valid; partial when some fields or list entries are missing; unavailable when no field is usable.',
+				},
 				unavailableFields: {
 					type: 'array',
+					description:
+						'Fields whose provider values were missing or invalid and are returned as null.',
 					items: { enum: STYLE_FIELDS },
 					uniqueItems: true,
 				},
 				partialFields: {
 					type: 'array',
+					description:
+						'List fields retaining valid entries after invalid entries were removed.',
 					items: { enum: [...STYLE_LISTS] },
 					uniqueItems: true,
 				},
@@ -79,11 +108,19 @@ const styleResultSchema = {
 		},
 		coverage: {
 			type: 'object',
+			description:
+				'Exact supplied-text ranges included within the shared provider context limit.',
 			additionalProperties: false,
 			properties: {
-				truncated: { type: 'boolean' },
+				truncated: {
+					type: 'boolean',
+					description:
+						'Whether any supplied sample was only partially included or omitted.',
+				},
 				samples: {
 					type: 'array',
+					description:
+						'Coverage and complete-text revisions for every sample, in input order.',
 					minItems: 1,
 					maxItems: MAX_STYLE_SAMPLES,
 					items: {
@@ -95,15 +132,35 @@ const styleResultSchema = {
 								description:
 									'Positional supplied-text identity, sample-1 through sample-64; not a saved binder ID.',
 							},
-							revision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
-							start: { const: 0 },
-							end: { type: 'integer', minimum: 0, maximum: MAX_STYLE_CONTEXT },
+							revision: {
+								type: 'string',
+								pattern: '^[a-f0-9]{64}$',
+								description:
+									'SHA-256 of the complete supplied sample encoded as UTF-8.',
+							},
+							start: {
+								const: 0,
+								description:
+									'Inclusive UTF-16 offset where this sample excerpt starts.',
+							},
+							end: {
+								type: 'integer',
+								minimum: 0,
+								maximum: MAX_STYLE_CONTEXT,
+								description:
+									'Exclusive UTF-16 end offset; zero when the sample did not fit in the context.',
+							},
 							sourceCharacters: {
 								type: 'integer',
 								minimum: 1,
 								maximum: MAX_STYLE_SAMPLE_LENGTH,
+								description: 'UTF-16 length of the complete supplied sample.',
 							},
-							truncated: { type: 'boolean' },
+							truncated: {
+								type: 'boolean',
+								description:
+									'Whether this sample extends beyond its included excerpt.',
+							},
 						},
 						required: [
 							'sampleId',
@@ -356,32 +413,73 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			type: 'object',
 			additionalProperties: false,
 			properties: {
-				suggestions: { type: 'string' },
+				suggestions: {
+					type: 'string',
+					description:
+						'Provider-generated writing suggestions for the requested prompt and admitted context.',
+				},
 				envelope: ANALYSIS_ENVELOPE_SCHEMA,
 				context: {
+					description:
+						'Whether saved manuscript context was used and the exact excerpt sent to the provider.',
 					oneOf: [
 						{
 							type: 'object',
 							additionalProperties: false,
-							properties: { mode: { const: 'none' } },
+							properties: {
+								mode: {
+									const: 'none',
+									description: 'No saved manuscript context was read or sent.',
+								},
+							},
 							required: ['mode'],
 						},
 						{
 							type: 'object',
 							additionalProperties: false,
 							properties: {
-								mode: { const: 'saved-document' },
-								start: { const: 0 },
-								end: { type: 'integer', minimum: 0, maximum: 16000 },
-								sourceCharacters: { type: 'integer', minimum: 0 },
-								truncated: { type: 'boolean' },
+								mode: {
+									const: 'saved-document',
+									description:
+										'Context came from the saved document revision identified in the envelope.',
+								},
+								start: {
+									const: 0,
+									description:
+										'Inclusive UTF-16 start offset of the saved excerpt.',
+								},
+								end: {
+									type: 'integer',
+									minimum: 0,
+									maximum: 16000,
+									description:
+										'Exclusive UTF-16 end offset of the saved excerpt sent to the provider.',
+								},
+								sourceCharacters: {
+									type: 'integer',
+									minimum: 0,
+									description:
+										'UTF-16 length of the complete saved document text.',
+								},
+								truncated: {
+									type: 'boolean',
+									description:
+										'Whether the saved document extends beyond the provided excerpt.',
+								},
 							},
 							required: ['mode', 'start', 'end', 'sourceCharacters', 'truncated'],
 						},
 					],
 				},
-				jobId: { type: 'string' },
-				message: { type: 'string' },
+				jobId: {
+					type: 'string',
+					description:
+						'Identifier of the queued suggestion job; poll with get_job_status.',
+				},
+				message: {
+					type: 'string',
+					description: 'Status message confirming that suggestion generation was queued.',
+				},
 				...RESULT_REFERENCE_SCHEMA.properties,
 			},
 			oneOf: [
@@ -443,7 +541,6 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		},
 		outputSchema: {
 			type: 'object',
-			properties: {},
 			oneOf: [styleResultSchema, RESULT_REFERENCE_SCHEMA],
 		},
 		handler: async (args) => {

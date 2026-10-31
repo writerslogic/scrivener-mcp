@@ -32,6 +32,8 @@ export const analyzeDocumentHandler: ToolDefinition = {
 		properties: {
 			documentId: {
 				type: 'string',
+				description:
+					'Saved document UUID from get_structure; its complete decoded text is analyzed.',
 				minLength: 1,
 				maxLength: 128,
 				pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
@@ -53,7 +55,6 @@ export const analyzeDocumentHandler: ToolDefinition = {
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {},
 		oneOf: [
 			{
 				type: 'object',
@@ -61,42 +62,85 @@ export const analyzeDocumentHandler: ToolDefinition = {
 					envelope: ANALYSIS_ENVELOPE_SCHEMA,
 					focus: {
 						type: 'object',
+						description:
+							'Requested critique topics and whether they guided a provider or broad local analysis.',
 						additionalProperties: false,
 						properties: {
 							requested: {
 								type: 'array',
+								description:
+									'Normalized requested topics; all subsumes other topics and is the default.',
 								minItems: 1,
 								maxItems: DOCUMENT_ANALYSIS_TYPES.length,
 								uniqueItems: true,
 								items: { enum: [...DOCUMENT_ANALYSIS_TYPES] },
 							},
-							scope: { enum: ['provider-instructions', 'broad-local'] },
+							scope: {
+								enum: ['provider-instructions', 'broad-local'],
+								description:
+									'Provider instructions apply the requested focus; broad-local preserves all available fallback findings.',
+							},
 						},
 						required: ['requested', 'scope'],
 					},
 					coverage: {
 						type: 'object',
+						description:
+							'Complete saved-text range analyzed; source text is never silently truncated.',
 						additionalProperties: false,
 						properties: {
-							start: { const: 0 },
-							end: { type: 'integer', minimum: 0 },
-							sourceCharacters: { type: 'integer', minimum: 0 },
-							truncated: { const: false },
+							start: {
+								const: 0,
+								description: 'Inclusive UTF-16 start offset of the analyzed text.',
+							},
+							end: {
+								type: 'integer',
+								minimum: 0,
+								description: 'Exclusive UTF-16 end offset of the analyzed text.',
+							},
+							sourceCharacters: {
+								type: 'integer',
+								minimum: 0,
+								description: 'UTF-16 length of the complete saved document text.',
+							},
+							truncated: {
+								const: false,
+								description:
+									'Always false because provider and fallback paths assess the complete source.',
+							},
 						},
 						required: ['start', 'end', 'sourceCharacters', 'truncated'],
 					},
 					availability: {
 						type: 'object',
+						description:
+							'Independent provider, local analysis and grammar availability, including missing metrics.',
 						additionalProperties: false,
 						properties: {
-							provider: { enum: ['available', 'unavailable'] },
+							provider: {
+								enum: ['available', 'unavailable'],
+								description:
+									'Whether a complete, validated provider critique was returned.',
+							},
 							providerReason: {
 								enum: [null, 'empty_source', 'source_limit', 'provider_failed'],
+								description:
+									'Null on provider success; otherwise identifies empty input, input over the provider limit, or provider failure.',
 							},
-							local: { enum: ['available', 'unavailable', 'not_requested'] },
-							grammar: { enum: ['available', 'unavailable', 'not_requested'] },
+							local: {
+								enum: ['available', 'unavailable', 'not_requested'],
+								description:
+									'Whether broad local fallback completed; not_requested when the provider succeeded.',
+							},
+							grammar: {
+								enum: ['available', 'unavailable', 'not_requested'],
+								description:
+									'Whether the independent native grammar fallback completed; not_requested when the provider succeeded.',
+							},
 							unavailable: {
 								type: 'array',
+								description:
+									'Unavailable analysis components or metrics, with local metric paths prefixed by local.',
 								uniqueItems: true,
 								items: { type: 'string' },
 							},
