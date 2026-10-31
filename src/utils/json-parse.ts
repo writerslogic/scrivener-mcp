@@ -1,27 +1,23 @@
 /**
- * Best-effort parse of a model reply to JSON. Strips ``` code fences, extracts
- * the first JSON value (array or object), and returns null -- never throws --
- * when the reply contains no JSON or is malformed, so a flaky completion
- * degrades to an empty result instead of crashing the caller. Pass a logger to
- * record why a parse failed.
+ * Extract a model's JSON object/array without changing strings inside it.
+ * Returns null on malformed or absent JSON; callers must surface unavailability.
  */
 export function parseModelJson(
 	raw: string,
 	logger?: { warn: (message: string, context?: Record<string, unknown>) => void }
 ): unknown {
-	const withoutFences = raw.replace(/```(?:json)?/gi, '').trim();
-	const start = withoutFences.search(/[[{]/);
+	const start = raw.search(/[[{]/);
 	if (start === -1) {
-		logger?.warn('Model reply contained no JSON; treating as empty result', {
+		logger?.warn('Model reply contained no JSON; parsed value unavailable', {
 			responseCharacters: raw.length,
 		});
 		return null;
 	}
-	const end = Math.max(withoutFences.lastIndexOf(']'), withoutFences.lastIndexOf('}'));
+	const end = Math.max(raw.lastIndexOf(']'), raw.lastIndexOf('}'));
 	try {
-		return JSON.parse(withoutFences.slice(start, end + 1));
+		return JSON.parse(raw.slice(start, end + 1));
 	} catch {
-		logger?.warn('Model reply was not valid JSON; treating as empty result', {
+		logger?.warn('Model reply was not valid JSON; parsed value unavailable', {
 			responseCharacters: raw.length,
 		});
 		return null;

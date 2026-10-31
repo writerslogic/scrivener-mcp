@@ -1,3 +1,4 @@
+import { detectThemesSmart } from 'narrative-lens';
 import { getLogger } from '../core/logger.js';
 import { escapeRegExp } from '../utils/regex.js';
 import type { DatabaseService } from '../handlers/database/database-service.js';
@@ -171,9 +172,7 @@ export class ContextAnalyzer {
 			// Process character mentions with batch processing for large content
 			const characters = await this.extractCharacterMentions(document.id, content);
 
-			// Extract themes using truncated content for efficiency
-			const truncatedContent = truncate(content, 3000);
-			const themes = await this.extractThemes(truncatedContent, basicAnalysis);
+			const themes = await this.extractThemes(content, basicAnalysis);
 
 			// Get plot threads for this chapter
 			const plotThreads = await this.getChapterPlotThreads(document.id);
@@ -371,54 +370,11 @@ export class ContextAnalyzer {
 		content: string,
 		_analysis: ContentAnalysis
 	): Promise<ChapterContext['themes']> {
-		const themes: ChapterContext['themes'] = [];
-
-		// Common theme keywords
-		const themeKeywords = {
-			love: ['love', 'romance', 'heart', 'passion', 'affection'],
-			death: ['death', 'dying', 'mortality', 'grave', 'funeral'],
-			power: ['power', 'control', 'authority', 'dominance', 'strength'],
-			identity: ['identity', 'self', 'who am I', 'belonging', 'purpose'],
-			family: ['family', 'mother', 'father', 'sibling', 'parent', 'child'],
-			betrayal: ['betrayal', 'betray', 'deceive', 'lie', 'trust'],
-			redemption: ['redemption', 'forgive', 'atone', 'second chance', 'salvation'],
-			freedom: ['freedom', 'liberty', 'escape', 'prison', 'chains'],
-		};
-
-		for (const [theme, keywords] of Object.entries(themeKeywords)) {
-			const examples: string[] = [];
-			let totalMatches = 0;
-
-			for (const keyword of keywords) {
-				const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
-				const matches = content.match(regex);
-
-				if (matches) {
-					totalMatches += matches.length;
-
-					// Get example context
-					const firstMatch = content.search(regex);
-					if (firstMatch !== -1) {
-						const start = Math.max(0, firstMatch - 30);
-						const end = Math.min(content.length, firstMatch + keyword.length + 30);
-						examples.push(content.substring(start, end).trim());
-					}
-				}
-			}
-
-			if (totalMatches > 0) {
-				themes.push({
-					name: theme,
-					prominence: Math.min(1, totalMatches / 10), // Normalize to 0-1
-					examples: examples.slice(0, 3), // Keep top 3 examples
-				});
-			}
-		}
-
-		// Sort by prominence
-		themes.sort((a, b) => b.prominence - a.prominence);
-
-		return themes;
+		const tokens = content.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+		const scores = detectThemesSmart([content], [tokens])[0] ?? {};
+		return Object.entries(scores)
+			.map(([name, prominence]) => ({ name, prominence, examples: [] as string[] }))
+			.sort((a, b) => b.prominence - a.prominence);
 	}
 
 	private async getChapterPlotThreads(

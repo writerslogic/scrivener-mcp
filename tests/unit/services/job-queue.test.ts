@@ -3,10 +3,16 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { JobQueueService, JobType } from '../../../src/services/queue/job-queue.js';
+import {
+	JobQueueService,
+	JobType,
+	MAX_ANALYSIS_CONTENT_LENGTH,
+	MAX_ANALYSIS_DOCUMENTS,
+} from '../../../src/services/queue/job-queue.js';
 import { Queue, Worker, QueueEvents, type Processor, type WorkerOptions } from 'bullmq';
 import * as keydbDetector from '../../../src/services/queue/keydb-detector.js';
 import { AIClient } from '../../../src/services/ai/ai-client.js';
+import { ContentAnalyzer } from '../../../src/analysis/base-analyzer.js';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -50,6 +56,7 @@ jest.mock('../../../src/analysis/base-analyzer.js', () => ({
 
 jest.mock('../../../src/services/ai/ai-writing-service.js', () => ({
 	AIWritingService: jest.fn(() => ({
+		isAvailable: true,
 		generateWithContext: jest.fn(() => Promise.resolve('AI suggestion')),
 		buildVectorStore: jest.fn(() => Promise.resolve()),
 		semanticSearch: jest.fn(() => Promise.resolve([])),
@@ -182,7 +189,7 @@ describe('JobQueueService v2', () => {
 			expect(connectionInfo.isConnected).toBe(true);
 		});
 
-		it('should create queues for all job types', async () => {
+		it('retains legacy queue history but starts workers only for supported job types', async () => {
 			detectConnectionMock.mockResolvedValue({
 				isAvailable: true,
 				type: 'redis',
@@ -196,8 +203,14 @@ describe('JobQueueService v2', () => {
 			// Check that Queue was created for each job type
 			const jobTypeCount = Object.values(JobType).length;
 			expect(Queue).toHaveBeenCalledTimes(jobTypeCount);
-			expect(Worker).toHaveBeenCalledTimes(jobTypeCount);
+			expect(Worker).toHaveBeenCalledTimes(jobTypeCount - 2);
 			expect(QueueEvents).toHaveBeenCalledTimes(jobTypeCount);
+			expect(Queue).toHaveBeenCalledWith(
+				JobType.GENERATE_SUGGESTIONS,
+				expect.objectContaining({
+					defaultJobOptions: expect.objectContaining({ attempts: 1 }),
+				})
+			);
 		});
 
 		it('should initialize optional services when API keys provided', async () => {
@@ -256,6 +269,7 @@ describe('JobQueueService v2', () => {
 		it('should get job status', async () => {
 			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
 				documentId: 'test',
+				content: '',
 			});
 			const mockJob = {
 				...storedJobs.get(id),
@@ -277,6 +291,7 @@ describe('JobQueueService v2', () => {
 		it('should cancel job', async () => {
 			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
 				documentId: 'test',
+				content: '',
 			});
 			const mockJob = {
 				...storedJobs.get(id),
@@ -357,13 +372,172 @@ describe('JobQueueService v2', () => {
 			async (priority) => {
 				const request = jobQueueService.addJob(
 					JobType.ANALYZE_DOCUMENT,
-					{ documentId: 'bounded' },
+					{ documentId: 'bounded', content: '' },
 					{ priority }
 				);
 				if (priority > 2097151) await expect(request).rejects.toThrow(/priority/);
 				else expect(await request).toMatch(/^[a-f0-9]{64}-/);
 			}
 		);
+
+		it.each([-1, 0, 1])(
+			'bounds analysis text length at limit %+i before enqueueing',
+			async (delta) => {
+				const content = 'x'.repeat(MAX_ANALYSIS_CONTENT_LENGTH + delta);
+				const request = jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+					documentId: 'bounded',
+					content,
+				});
+				if (delta > 0) await expect(request).rejects.toThrow(/5000000/);
+				else expect(await request).toMatch(/^[a-f0-9]{64}-/);
+			}
+		);
+
+		it.each([254, 255, 256])('bounds document identifiers at %i characters', async (length) => {
+			const request = jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'x'.repeat(length),
+				content: '',
+			});
+			if (length > 255) await expect(request).rejects.toThrow(/documentId/);
+			else expect(await request).toMatch(/^[a-f0-9]{64}-/);
+		});
+
+		it.each([MAX_ANALYSIS_DOCUMENTS - 1, MAX_ANALYSIS_DOCUMENTS, MAX_ANALYSIS_DOCUMENTS + 1])(
+			'bounds project batches at %i documents',
+			async (length) => {
+				const documents = Array.from({ length }, (_, i) => ({
+					id: String(i),
+					content: '',
+				}));
+				const request = jobQueueService.addJob(JobType.ANALYZE_PROJECT, {
+					projectId: 'fixture',
+					documents,
+				});
+				if (length > MAX_ANALYSIS_DOCUMENTS)
+					await expect(request).rejects.toThrow(/1–5000/);
+				else expect(await request).toMatch(/^[a-f0-9]{64}-/);
+			}
+		);
+
+		it.each([0, 1, 4, 5, 6])('bounds concurrency at %i documents', async (batchSize) => {
+			const request = jobQueueService.addJob(JobType.ANALYZE_PROJECT, {
+				projectId: 'fixture',
+				documents: [{ id: 'scene', content: '' }],
+				options: { parallel: true, batchSize },
+			});
+			if (batchSize < 1 || batchSize > 5) await expect(request).rejects.toThrow(/batchSize/);
+			else expect(await request).toMatch(/^[a-f0-9]{64}-/);
+		});
+
+		it.each([
+			{ documentId: 'scene' },
+			{ documentId: 'scene', content: null },
+			{ documentId: ' ', content: '' },
+			{ documentId: 'scene', content: '', options: null },
+			{ documentId: 'scene', content: '', options: [] },
+			{ documentId: 'scene', content: '', options: { includeReadability: 'false' } },
+			{ documentId: 'scene', content: '', options: { unknown: true } },
+		])('rejects malformed analysis before admission: %j', async (data) => {
+			await expect(jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, data)).rejects.toThrow(
+				/Analysis/
+			);
+			expect(mockQueue.add).not.toHaveBeenCalled();
+		});
+
+		it('rejects malformed and duplicate project documents before admission', async () => {
+			for (const documents of [
+				[],
+				[null],
+				[{ id: 'scene' }],
+				[
+					{ id: 'scene', content: '' },
+					{ id: 'scene', content: '' },
+				],
+			]) {
+				await expect(
+					jobQueueService.addJob(JobType.ANALYZE_PROJECT, {
+						projectId: 'fixture',
+						documents,
+					})
+				).rejects.toThrow();
+			}
+			expect(mockQueue.add).not.toHaveBeenCalled();
+		});
+
+		it('rejects altered payloads at the worker boundary before native processing', async () => {
+			const id = await jobQueueService.addJob(JobType.ANALYZE_DOCUMENT, {
+				documentId: 'scene',
+				content: '',
+			});
+			const job = storedJobs.get(id);
+			job.data.payload.content = 7;
+			const processor = jest
+				.mocked(workerConstructor)
+				.mock.calls.find(([type]) => type === JobType.ANALYZE_DOCUMENT)![1];
+			if (typeof processor !== 'function') throw new Error('Missing production processor');
+			await expect(processor(job, 'fixture-token')).rejects.toThrow(/text/);
+		});
+
+		it.each([JobType.EXPORT_PROJECT, JobType.BATCH_ANALYSIS])(
+			'rejects unsupported %s jobs before admission',
+			async (jobType) => {
+				await expect(jobQueueService.addJob(jobType, {})).rejects.toThrow(
+					/legacy job type/
+				);
+				expect(mockQueue.add).not.toHaveBeenCalled();
+			}
+		);
+
+		it('honors bounded parallel batches while preserving document order', async () => {
+			const documents = Array.from({ length: 4 }, (_, i) => ({
+				id: `scene-${i}`,
+				content: 'A scene.',
+			}));
+			const id = await jobQueueService.addJob(JobType.ANALYZE_PROJECT, {
+				projectId: 'fixture',
+				documents,
+				options: { parallel: true, batchSize: 2 },
+			});
+			const analyzer = jest.mocked(ContentAnalyzer).mock.results[0].value as jest.Mocked<
+				Pick<ContentAnalyzer, 'analyzeContent'>
+			>;
+			const analyze = analyzer.analyzeContent;
+			const original = analyze.getMockImplementation()!;
+			const releases: Array<() => void> = [];
+			let drain = false;
+			analyze.mockImplementation(async (content, documentId) => {
+				if (!drain) await new Promise<void>((resolve) => releases.push(resolve));
+				return original(content, documentId);
+			});
+			const processor = jest
+				.mocked(workerConstructor)
+				.mock.calls.find(([type]) => type === JobType.ANALYZE_PROJECT)![1];
+			if (typeof processor !== 'function') throw new Error('Missing production processor');
+			const running = processor(storedJobs.get(id), 'fixture-token');
+			try {
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				expect(analyze.mock.calls.map(([, id]) => id)).toEqual(['scene-0', 'scene-1']);
+				releases
+					.splice(0)
+					.reverse()
+					.forEach((resolve) => resolve());
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				expect(analyze.mock.calls.map(([, id]) => id)).toEqual(
+					documents.map((doc) => doc.id)
+				);
+				releases
+					.splice(0)
+					.reverse()
+					.forEach((resolve) => resolve());
+				await expect(running).resolves.toMatchObject({
+					documents: documents.map((doc) => ({ documentId: doc.id })),
+				});
+			} finally {
+				drain = true;
+				releases.splice(0).forEach((resolve) => resolve());
+				await running;
+			}
+		});
 	});
 
 	describe('concurrency settings', () => {
@@ -438,6 +612,44 @@ describe('JobQueueService v2', () => {
 
 			// Should not throw
 			await expect(uninitializedService.shutdown()).resolves.toBeUndefined();
+		});
+
+		it('retains worker dependencies until failed workers can drain and close', async () => {
+			const writing = jobQueueService.getWritingService()!;
+			const connection =
+				createBullMQConnectionMock.mock.results[
+					createBullMQConnectionMock.mock.results.length - 1
+				].value;
+			mockWorker.close.mockRejectedValue(new Error('Worker close failure'));
+			try {
+				await expect(jobQueueService.shutdown()).rejects.toThrow(/failed to close/);
+				expect(mockQueueEvents.close).not.toHaveBeenCalled();
+				expect(mockQueue.close).not.toHaveBeenCalled();
+				expect(connection.quit).not.toHaveBeenCalled();
+				expect(writing.clearMemory).not.toHaveBeenCalled();
+				expect(jobQueueService.getConnectionInfo().isConnected).toBe(false);
+			} finally {
+				mockWorker.close.mockResolvedValue(undefined);
+			}
+			await expect(jobQueueService.shutdown()).resolves.toBeUndefined();
+			expect(connection.quit).toHaveBeenCalledTimes(1);
+			expect(writing.clearMemory).toHaveBeenCalledTimes(1);
+		});
+
+		it('retains the shared connection when queue-event cleanup needs a retry', async () => {
+			const connection =
+				createBullMQConnectionMock.mock.results[
+					createBullMQConnectionMock.mock.results.length - 1
+				].value;
+			mockQueueEvents.close.mockRejectedValue(new Error('Event close failure'));
+			try {
+				await expect(jobQueueService.shutdown()).rejects.toThrow(/failed to close/);
+				expect(connection.quit).not.toHaveBeenCalled();
+			} finally {
+				mockQueueEvents.close.mockResolvedValue(undefined);
+			}
+			await jobQueueService.shutdown();
+			expect(connection.quit).toHaveBeenCalledTimes(1);
 		});
 	});
 

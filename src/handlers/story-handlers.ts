@@ -335,7 +335,7 @@ export const storyBibleHandler: ToolDefinition = {
 				type: 'string',
 				enum: ['list', 'curate', 'correct', 'recheck', 'import_memory'],
 				description:
-					'Bible operation; legacy memory imports support only current project scope.',
+					'Bible operation; memory imports support only current project scope and commit atomically. Imported subjects must fit 200 UTF-16 characters and values 2000; curate longer profiles explicitly. Legacy world context supports up to 1000 locations.',
 			},
 			scope: scopeSchema,
 			fact: {

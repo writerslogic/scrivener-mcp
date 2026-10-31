@@ -1,92 +1,55 @@
-import { createError, ErrorCode } from '../../core/errors.js';
-import type {
-	CharacterProfile,
-	PlotThread,
-	ProjectMemory,
-	StyleGuide,
-} from '../../memory-manager.js';
-import { validateInput } from '../../utils/common.js';
-import { compact } from '../../core/response-formatter.js';
-import type { HandlerResult, ToolDefinition } from '../types.js';
-import { getObjectArg, getStringArg, requireMemoryManager } from '../types.js';
-import { memorySchema } from '../validation-schemas.js';
+import { formatPayload } from '../../core/response-formatter.js';
+import {
+	MEMORY_INPUT_SCHEMA,
+	MEMORY_TYPES,
+	memoryType,
+} from '../../services/memory/project-memory-contract.js';
+import { RESULT_REFERENCE_SCHEMA } from '../shared-schemas.js';
+import {
+	requireMemoryManager,
+	requireProject,
+	type HandlerResult,
+	type ToolDefinition,
+} from '../types.js';
+
+const revision = {
+	type: 'string',
+	pattern: '^[a-f0-9]{64}$',
+	description: 'Canonical SHA-256 of the decoded memory snapshot, including document contexts.',
+};
 
 export const updateMemoryHandler: ToolDefinition = {
 	name: 'remember',
 	title: 'Remember Project Facts',
 	description:
-		"Store or update a fact in the project's persistent memory so later tools and sessions stay " +
-		'consistent: a character profile, world-building detail, plot thread, or style-guide entry. ' +
-		'Pass an id inside data to update an existing entry, or omit it to add a new one. Use recall ' +
-		'to read memory back. Requires an open project.',
+		'Persist a character, world-building element, plot thread, style-guide patch or custom context in the open project. Records require a name on creation; include an existing id to update. Missing fields remain absent. Identical creations return the same id; unknown update IDs fail. styleGuide and all merge supplied fields by key. The complete request is limited to 64 KiB of JSON, depth 32; project memory is limited to 16 MiB. Acknowledges only durable writes; no manuscript text is changed. Use recall for stored records and IDs.',
 	annotations: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
-	inputSchema: {
+	inputSchema: MEMORY_INPUT_SCHEMA,
+	outputSchema: {
 		type: 'object',
+		additionalProperties: false,
 		properties: {
-			memoryType: {
-				type: 'string',
-				enum: ['characters', 'worldBuilding', 'plotThreads', 'styleGuide', 'all'],
-				description:
-					'Which memory store to write to: "characters", "worldBuilding", "plotThreads", ' +
-					'"styleGuide", or "all" for arbitrary custom context.',
-			},
-			data: {
-				type: 'object',
-				description:
-					'The entry to store. Include an "id" field to update an existing entry; omit it to ' +
-					'create a new one.',
-			},
+			memoryType: { enum: [...MEMORY_TYPES] },
+			id: { type: ['string', 'null'] },
+			revision,
+			persisted: { const: true },
+			projectId: { type: 'string' },
 		},
-		required: ['memoryType', 'data'],
+		required: ['memoryType', 'id', 'revision', 'persisted', 'projectId'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		const memoryManager = requireMemoryManager(context);
-		validateInput(args, memorySchema);
-
-		// Update memory based on type
-		const memoryType = getStringArg(args, 'memoryType');
-		const data = getObjectArg(args, 'data') as Record<string, unknown>;
-
-		switch (memoryType) {
-			case 'characters':
-				if (data.id) {
-					await memoryManager.updateCharacter(data.id as string, data);
-				} else {
-					await memoryManager.addCharacter(data as Omit<CharacterProfile, 'id'>);
-				}
-				break;
-			case 'plotThreads':
-				if (data.id) {
-					await memoryManager.updatePlotThread(data.id as string, data);
-				} else {
-					await memoryManager.addPlotThread(data as Omit<PlotThread, 'id'>);
-				}
-				break;
-			case 'styleGuide':
-				await memoryManager.updateStyleGuide(data as Partial<StyleGuide>);
-				break;
-			case 'worldBuilding':
-			case 'all':
-				for (const [key, value] of Object.entries(data)) {
-					await memoryManager.setCustomContext(key, value);
-				}
-				break;
-			default:
-				throw createError(ErrorCode.INVALID_INPUT, `Unknown memory type: ${memoryType}`);
-		}
-
+		const project = requireProject(context);
+		const memory = requireMemoryManager(context);
+		const projectId = project.getEditorialServices().source.projectId;
+		const result = { ...(await memory.remember(args)), projectId };
 		return {
-			content: [
-				{
-					type: 'text',
-					text: `${memoryType} memory updated`,
-				},
-			],
+			content: [{ type: 'text', text: JSON.stringify(result) }],
+			structuredContent: result,
 		};
 	},
 };
@@ -95,9 +58,7 @@ export const getMemoryHandler: ToolDefinition = {
 	name: 'recall',
 	title: 'Recall Project Facts',
 	description:
-		"Read back the project's persistent memory: stored characters, world-building, plot threads, " +
-		'and style guide. Returns the requested store, or the full memory when memoryType is omitted ' +
-		'or "all". Use remember to write new facts. Requires an open project.',
+		'Read stored project facts with a snapshot revision. characters, worldBuilding and plotThreads return record arrays; styleGuide returns supplied preferences; all returns complete memory including customContext and documentContexts keyed by document ID. Omitted fields are unrecorded. Use remember to persist changes. Requires an open project; large results use read_result.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -106,61 +67,50 @@ export const getMemoryHandler: ToolDefinition = {
 	},
 	inputSchema: {
 		type: 'object',
-		properties: {
-			memoryType: {
-				type: 'string',
-				enum: ['characters', 'worldBuilding', 'plotThreads', 'styleGuide', 'all'],
-				description:
-					'Which memory store to read. Omit or use "all" to return the full project memory.',
-			},
-		},
+		additionalProperties: false,
+		properties: { memoryType: { enum: [...MEMORY_TYPES] } },
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {
-			memory: {
-				description:
-					'The requested memory store. For "all" (or omitted) this is the full project ' +
-					'memory object (characters, worldBuilding, plotThreads, styleGuide, and more); ' +
-					'for a specific memoryType it is that store: an array for characters and ' +
-					'plotThreads, an object for styleGuide and worldBuilding.',
+		properties: {},
+		oneOf: [
+			{
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					memoryType: { enum: [...MEMORY_TYPES] },
+					memory: {
+						description:
+							'Selected stored records or the complete project-memory JSON snapshot; legacy and custom fields are retained.',
+					},
+					revision,
+					projectId: { type: 'string' },
+				},
+				required: ['memoryType', 'memory', 'revision', 'projectId'],
 			},
-		},
-		required: ['memory'],
+			RESULT_REFERENCE_SCHEMA,
+		],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		const memoryManager = requireMemoryManager(context);
-
-		let memory: ProjectMemory | CharacterProfile[] | PlotThread[] | StyleGuide | unknown;
-		if (!args.memoryType || args.memoryType === 'all') {
-			memory = memoryManager.getFullMemory();
-		} else {
-			switch (args.memoryType) {
-				case 'characters':
-					memory = await memoryManager.getAllCharacters();
-					break;
-				case 'plotThreads':
-					memory = await memoryManager.getPlotThreads();
-					break;
-				case 'styleGuide':
-					memory = await memoryManager.getStyleGuide();
-					break;
-				case 'worldBuilding':
-					memory = await memoryManager.getCustomContext('worldBuilding');
-					break;
-				default:
-					memory = null;
-			}
-		}
-
-		return {
-			content: [
-				{
-					type: 'text',
-					text: compact(memory),
-				},
-			],
-			structuredContent: { memory },
-		};
+		if (Object.keys(args).some((key) => key !== 'memoryType'))
+			throw new Error('Unsupported recall argument');
+		const type = memoryType(args.memoryType);
+		const project = requireProject(context);
+		const manager = requireMemoryManager(context);
+		const snapshot = manager.getMemorySnapshot();
+		const memory =
+			type === 'all'
+				? { ...snapshot, documentContexts: Object.fromEntries(snapshot.documentContexts) }
+				: snapshot[type];
+		const text = formatPayload(
+			{
+				memoryType: type,
+				memory,
+				revision: manager.memoryRevision(snapshot),
+				projectId: project.getEditorialServices().source.projectId,
+			},
+			'memory'
+		);
+		return { content: [{ type: 'text', text }], structuredContent: JSON.parse(text) };
 	},
 };

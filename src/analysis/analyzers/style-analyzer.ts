@@ -1,17 +1,24 @@
+import {
+	collectProseExamples,
+	computeReadability,
+	extractDialogue,
+	wordFrequencies,
+} from 'narrative-lens';
 import { splitIntoSentences } from '../../utils/text-metrics.js';
 import { generateHash } from '../../utils/common.js';
 import { getLogger } from '../../core/logger.js';
 import type { PredictiveCacheFactory } from '../../utils/predictive-cache.js';
 
 export interface StyleAnalysis {
-	sentenceVariety: 'low' | 'medium' | 'high';
-	vocabularyComplexity: 'simple' | 'moderate' | 'complex' | 'advanced';
-	adverbUsage: 'minimal' | 'moderate' | 'heavy';
-	passiveVoicePercentage: number;
-	dialoguePercentage: number;
-	descriptionPercentage: number;
+	sentenceVariety: 'low' | 'medium' | 'high' | 'unavailable';
+	vocabularyComplexity: 'simple' | 'moderate' | 'complex' | 'advanced' | 'unavailable';
+	adverbUsage: 'minimal' | 'moderate' | 'heavy' | 'unavailable';
+	passiveVoicePercentage: number | null;
+	proseFindings?: ReturnType<typeof collectProseExamples>;
+	dialoguePercentage: number | null;
+	descriptionPercentage: number | null;
 	mostFrequentWords: { word: string; count: number }[];
-	styleConsistency: number; // 0-100
+	styleConsistency: number | null; // 0-100
 }
 
 const logger = getLogger('style-analyzer');
@@ -56,21 +63,29 @@ export class StyleAnalyzer {
 	]);
 
 	constructor(
-		private predictiveStyleCache: ReturnType<typeof PredictiveCacheFactory.createMetadataCache>,
-		private countSyllables: (words: string[]) => number
+		private predictiveStyleCache: ReturnType<typeof PredictiveCacheFactory.createMetadataCache>
 	) {}
 
-	async analyzeStyle(content: string): Promise<StyleAnalysis> {
-		const contentHash = generateHash(content.substring(0, 500));
-		const cacheKey = `style:${contentHash}`;
+	async analyzeStyle(
+		content: string,
+		sharedProseFindings?: ReturnType<typeof collectProseExamples>
+	): Promise<StyleAnalysis> {
+		const contentHash = generateHash(content);
+		const cacheKey = `style:lens-0.2:availability-v2:${contentHash}`;
 		const context = ['style', 'text-analysis', contentHash.substring(0, 8)];
 
 		// Try predictive cache first
-		const cachedStyle = await this.predictiveStyleCache.get(cacheKey, context, 'style-session');
+		const cachedStyle = await this.predictiveStyleCache
+			.get(cacheKey, context, 'style-session')
+			.catch(() => {
+				logger.warn('Style cache read failed');
+				return undefined;
+			});
 		if (cachedStyle) {
 			return cachedStyle as StyleAnalysis;
 		}
 
+		let proseFindings = sharedProseFindings;
 		try {
 			if (!content || content.trim().length === 0) {
 				return this.getDefaultStyleAnalysis();
@@ -82,11 +97,6 @@ export class StyleAnalyzer {
 				.split(/\s+/)
 				.filter((w) => w.length > 0);
 
-			// Early exit for small content
-			if (words.length < 10) {
-				return this.getDefaultStyleAnalysis();
-			}
-
 			// Sentence variety
 			const sentenceLengths = sentences.map((s: string) => s.split(/\s+/).length);
 			const lengthVariance = this.calculateVariance(sentenceLengths);
@@ -94,13 +104,15 @@ export class StyleAnalyzer {
 				lengthVariance > 50 ? 'high' : lengthVariance > 20 ? 'medium' : 'low';
 
 			// Vocabulary complexity
-			const complexWords = words.filter((w) => this.countSyllables([w]) > 2).length;
+			const readability = computeReadability(content);
+			if (readability.wordCount === 0) return this.getDefaultStyleAnalysis();
+			const complexWords = readability.polysyllableCount;
 			const vocabularyComplexity: 'simple' | 'moderate' | 'complex' | 'advanced' =
-				complexWords / words.length > 0.3
+				complexWords / Math.max(readability.wordCount, 1) > 0.3
 					? 'advanced'
-					: complexWords / words.length > 0.2
+					: complexWords / Math.max(readability.wordCount, 1) > 0.2
 						? 'complex'
-						: complexWords / words.length > 0.1
+						: complexWords / Math.max(readability.wordCount, 1) > 0.1
 							? 'moderate'
 							: 'simple';
 
@@ -113,47 +125,44 @@ export class StyleAnalyzer {
 						? 'moderate'
 						: 'minimal';
 
-			// Passive voice - detect using pattern-based auxiliary verb detection
-			const passiveCount = words.filter((w) => this.isPassiveIndicator(w)).length;
-			const passiveVoicePercentage = (passiveCount / sentences.length) * 100;
+			proseFindings ??= collectProseExamples([content]);
 
-			// Dialogue vs description
-			const dialogueLines = content
-				.split('\n')
-				.filter((line) => line.includes('"') || line.includes("'"));
-			const dialoguePercentage = (dialogueLines.length / content.split('\n').length) * 100;
-			const descriptionPercentage = 100 - dialoguePercentage;
+			const dialogueWords = extractDialogue(content, 0, []).reduce(
+				(sum, line) => sum + computeReadability(line.quote).wordCount,
+				0
+			);
+			const dialoguePercentage = Math.min(
+				100,
+				(dialogueWords / Math.max(readability.wordCount, 1)) * 100
+			);
 
-			// Most frequent words (excluding common words)
-			const wordFrequency = new Map<string, number>();
-			words.forEach((word) => {
-				if (!this.commonWords.has(word) && word.length > 3) {
-					wordFrequency.set(word, (wordFrequency.get(word) || 0) + 1);
-				}
-			});
-			const mostFrequentWords = Array.from(wordFrequency.entries())
-				.sort((a, b) => b[1] - a[1])
-				.slice(0, 10)
-				.map(([word, count]) => ({ word, count }));
+			const mostFrequentWords = wordFrequencies(content, readability.wordCount)
+				.filter(({ word }) => !this.commonWords.has(word) && word.length > 3)
+				.slice(0, 10);
 
 			const result = {
 				sentenceVariety,
 				vocabularyComplexity,
 				adverbUsage,
-				passiveVoicePercentage: Math.min(Math.max(passiveVoicePercentage, 0), 100),
+				passiveVoicePercentage: null,
+				proseFindings,
 				dialoguePercentage: Math.min(Math.max(dialoguePercentage, 0), 100),
-				descriptionPercentage: Math.min(Math.max(descriptionPercentage, 0), 100),
+				descriptionPercentage: null,
 				mostFrequentWords,
-				styleConsistency: 85, // TODO: Simplified for now
+				styleConsistency: null,
 			};
 
 			// Store in predictive cache
-			await this.predictiveStyleCache.set(cacheKey, result, context, 'style-session');
+			await this.predictiveStyleCache
+				.set(cacheKey, result, context, 'style-session')
+				.catch(() => {
+					logger.warn('Style cache write failed');
+				});
 
 			return result;
 		} catch (error) {
-			logger.warn('Style analysis failed, using default', { error });
-			return this.getDefaultStyleAnalysis();
+			logger.warn('Style analysis failed; style percentages unavailable', { error });
+			return { ...this.getDefaultStyleAnalysis(), proseFindings };
 		}
 	}
 
@@ -163,21 +172,16 @@ export class StyleAnalyzer {
 		return squaredDifferences.reduce((a, b) => a + b, 0) / numbers.length;
 	}
 
-	private isPassiveIndicator(word: string): boolean {
-		const auxiliaryVerbs = ['was', 'were', 'been', 'being', 'be', 'is', 'are', 'am'];
-		return auxiliaryVerbs.includes(word.toLowerCase());
-	}
-
-	private getDefaultStyleAnalysis(): StyleAnalysis {
+	getDefaultStyleAnalysis(): StyleAnalysis {
 		return {
-			sentenceVariety: 'medium',
-			vocabularyComplexity: 'moderate',
-			adverbUsage: 'moderate',
-			passiveVoicePercentage: 15,
-			dialoguePercentage: 20,
-			descriptionPercentage: 80,
+			sentenceVariety: 'unavailable',
+			vocabularyComplexity: 'unavailable',
+			adverbUsage: 'unavailable',
+			passiveVoicePercentage: null,
+			dialoguePercentage: null,
+			descriptionPercentage: null,
 			mostFrequentWords: [],
-			styleConsistency: 75,
+			styleConsistency: null,
 		};
 	}
 }

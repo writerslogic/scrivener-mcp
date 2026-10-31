@@ -63,6 +63,10 @@ const DEFAULT_EMBED_MODEL = 'text-embedding-3-small';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_TIMEOUT_MS = 120_000;
+const MAX_EMBEDDING_INPUTS = 2048;
+const MAX_EMBEDDING_DIMENSIONS = 16384;
+const MAX_EMBEDDING_TEXT = 32768;
+const MAX_EMBEDDING_CHARACTERS = 1024 * 1024;
 
 /**
  * True when an error signals the provider account or service is unusable
@@ -70,13 +74,77 @@ const MAX_TIMEOUT_MS = 120_000;
  * the cases where retrying the same call on another provider can succeed.
  */
 export function isProviderUnavailable(error: unknown): boolean {
+	if (!error || typeof error !== 'object') return false;
 	const status = (error as { status?: unknown }).status;
-	if (typeof status !== 'number') return false;
-	if (status === 401 || status === 402 || status === 403 || status === 429 || status >= 500) {
+	if (typeof status !== 'number' || !Number.isInteger(status)) return false;
+	if (
+		status === 401 ||
+		status === 402 ||
+		status === 403 ||
+		status === 429 ||
+		(status >= 500 && status <= 599)
+	) {
 		return true;
 	}
 	// Anthropic reports exhausted credit as a 400 invalid_request_error.
-	return status === 400 && /credit|billing|quota/i.test(String((error as Error).message));
+	const message = (error as { message?: unknown }).message;
+	return status === 400 && typeof message === 'string' && /credit|billing|quota/i.test(message);
+}
+
+function completedText(provider: AIProvider, reason: unknown, text: unknown): string {
+	const complete =
+		provider === 'sampling'
+			? reason === undefined || reason === 'endTurn' || reason === 'stopSequence'
+			: provider === 'anthropic'
+				? reason === 'end_turn' || reason === 'stop_sequence'
+				: reason === 'stop';
+	if (!complete) {
+		const limited =
+			typeof reason === 'string' &&
+			['max_tokens', 'length', 'maxTokens', 'model_context_window_exceeded'].includes(reason);
+		throw createError(
+			ErrorCode.PROCESSING_ERROR,
+			{ provider },
+			limited
+				? 'AI response reached its token or context limit; no complete result is available'
+				: 'AI provider did not return a complete text response'
+		);
+	}
+	if (typeof text !== 'string' || !text.trim())
+		throw createError(ErrorCode.PROCESSING_ERROR, { provider }, 'AI provider returned no text');
+	return text;
+}
+
+function embeddingVectors(response: OpenAI.CreateEmbeddingResponse, count: number): number[][] {
+	const invalid = () =>
+		createError(
+			ErrorCode.PROCESSING_ERROR,
+			null,
+			'Embedding provider returned an incomplete or invalid vector batch'
+		);
+	if (!Array.isArray(response?.data) || response.data.length !== count) throw invalid();
+	const vectors: number[][] = new Array(count);
+	let dimensions: number | undefined;
+	for (const item of response.data) {
+		const index = item?.index;
+		const vector = item?.embedding;
+		if (
+			!Number.isInteger(index) ||
+			index < 0 ||
+			index >= count ||
+			vectors[index] !== undefined ||
+			!Array.isArray(vector) ||
+			!vector.length ||
+			vector.length > MAX_EMBEDDING_DIMENSIONS ||
+			(dimensions !== undefined && vector.length !== dimensions)
+		)
+			throw invalid();
+		for (const value of vector)
+			if (typeof value !== 'number' || !Number.isFinite(value)) throw invalid();
+		dimensions = vector.length;
+		vectors[index] = vector;
+	}
+	return vectors;
 }
 
 export class AIClient {
@@ -223,13 +291,24 @@ export class AIClient {
 					'The connected MCP client does not support sampling.'
 				);
 			}
-			const result = await server.createMessage({
-				messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
-				...(options.system ? { systemPrompt: options.system } : {}),
-				maxTokens,
-				temperature,
-			});
-			return result.content.type === 'text' ? result.content.text : '';
+			const result = await server.createMessage(
+				{
+					messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
+					...(options.system ? { systemPrompt: options.system } : {}),
+					maxTokens,
+					temperature,
+				},
+				{
+					timeout: this.timeoutMs,
+					maxTotalTimeout: this.timeoutMs,
+					resetTimeoutOnProgress: false,
+				}
+			);
+			return completedText(
+				provider,
+				result.stopReason,
+				result.content.type === 'text' ? result.content.text : undefined
+			);
 		}
 
 		if (provider === 'anthropic' && this.anthropic) {
@@ -242,10 +321,13 @@ export class AIClient {
 				},
 				{ signal: AbortSignal.timeout(this.timeoutMs) }
 			);
-			return response.content
-				.filter((block): block is Anthropic.TextBlock => block.type === 'text')
-				.map((block) => block.text)
-				.join('');
+			const blocks = response.content.filter(
+				(block): block is Anthropic.TextBlock => block?.type === 'text'
+			);
+			const text = blocks.every((block) => typeof block.text === 'string')
+				? blocks.map((block) => block.text).join('')
+				: undefined;
+			return completedText(provider, response.stop_reason, text);
 		}
 
 		// OpenRouter speaks the OpenAI chat-completions protocol.
@@ -263,7 +345,8 @@ export class AIClient {
 				},
 				{ signal: AbortSignal.timeout(this.timeoutMs) }
 			);
-			return response.choices[0]?.message?.content ?? '';
+			const choice = response.choices[0];
+			return completedText(provider, choice?.finish_reason, choice?.message?.content);
 		}
 
 		throw createError(
@@ -282,9 +365,12 @@ export class AIClient {
 	 * @throws when no chat provider is configured, or on non-account errors.
 	 */
 	async chat(prompt: string, options: ChatOptions = {}): Promise<string> {
-		if (!prompt || prompt.trim().length === 0) {
+		if (typeof prompt !== 'string' || !prompt.trim()) {
 			throw createError(ErrorCode.INVALID_INPUT, null, 'chat() requires a non-empty prompt');
 		}
+		if (!options || typeof options !== 'object' || Array.isArray(options))
+			throw createError(ErrorCode.INVALID_INPUT, null, 'Chat options must be an object');
+		const request = { ...options };
 
 		const chain = this.providerChain;
 		if (chain.length === 0) {
@@ -294,20 +380,22 @@ export class AIClient {
 				'No AI provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY.'
 			);
 		}
+		const models = chain.map((provider, index) =>
+			index === 0 ? (request.model ?? this.chatModel) : this.modelFor(provider)
+		);
 
 		let lastError: unknown;
 		for (let i = 0; i < chain.length; i++) {
 			const provider = chain[i];
-			const model = i === 0 ? (options.model ?? this.chatModel) : this.modelFor(provider);
 			try {
-				return await this.chatWith(provider, prompt, options, model);
+				return await this.chatWith(provider, prompt, request, models[i]);
 			} catch (error) {
 				lastError = error;
 				if (i === chain.length - 1 || !isProviderUnavailable(error)) throw error;
 				logger.warn('AI provider unavailable; falling back', {
 					from: provider,
 					to: chain[i + 1],
-					reason: (error as Error).message,
+					status: (error as { status: number }).status,
 				});
 			}
 		}
@@ -318,11 +406,24 @@ export class AIClient {
 	 * Embed texts into vectors. Uses OpenAI, or OpenRouter's proxy of the
 	 * OpenAI embeddings API (Anthropic has no embeddings API). Falls back
 	 * from OpenAI to OpenRouter on account-level errors.
+	 * Accepts at most 2048 nonblank texts, 32768 UTF-16 characters per text,
+	 * and 1 Mi UTF-16 characters in total. Provider token limits also apply.
 	 * @throws when neither OPENAI_API_KEY nor OPENROUTER_API_KEY is configured.
 	 */
 	async embed(texts: string[]): Promise<number[][]> {
 		if (process.env.SCRIVENER_LOCAL_ONLY === 'true')
 			throw new Error('Provider requests are disabled in local-only mode');
+		if (!Array.isArray(texts) || texts.length > MAX_EMBEDDING_INPUTS)
+			throw new RangeError('Embedding input must contain at most 2048 texts');
+		const inputs = [...texts];
+		let characters = 0;
+		for (const text of inputs) {
+			if (typeof text !== 'string' || text.length > MAX_EMBEDDING_TEXT || !text.trim())
+				throw new RangeError('Each embedding text must contain 1–32768 UTF-16 characters');
+			characters += text.length;
+			if (characters > MAX_EMBEDDING_CHARACTERS)
+				throw new RangeError('Embedding input exceeds 1 Mi UTF-16 characters');
+		}
 		const primary = this.openai ?? this.openrouter;
 		if (!primary) {
 			throw createError(
@@ -331,14 +432,14 @@ export class AIClient {
 				'Embeddings require OPENAI_API_KEY or OPENROUTER_API_KEY (Anthropic has no embeddings API).'
 			);
 		}
-		if (texts.length === 0) return [];
+		if (inputs.length === 0) return [];
 		const base = process.env.OPENAI_EMBED_MODEL ?? DEFAULT_EMBED_MODEL;
 		const embedWith = (client: OpenAI) => {
 			// OpenRouter namespaces model ids by vendor.
 			const model =
 				client === this.openrouter && !base.includes('/') ? `openai/${base}` : base;
 			return client.embeddings.create(
-				{ model, input: texts },
+				{ model, input: inputs },
 				{
 					signal: AbortSignal.timeout(this.timeoutMs),
 				}
@@ -347,15 +448,15 @@ export class AIClient {
 
 		try {
 			const response = await embedWith(primary);
-			return response.data.map((item) => item.embedding);
+			return embeddingVectors(response, inputs.length);
 		} catch (error) {
 			const fallback = primary === this.openai ? this.openrouter : undefined;
 			if (!fallback || !isProviderUnavailable(error)) throw error;
 			logger.warn('Embeddings provider unavailable; falling back to OpenRouter', {
-				reason: (error as Error).message,
+				status: (error as { status: number }).status,
 			});
 			const response = await embedWith(fallback);
-			return response.data.map((item) => item.embedding);
+			return embeddingVectors(response, inputs.length);
 		}
 	}
 }

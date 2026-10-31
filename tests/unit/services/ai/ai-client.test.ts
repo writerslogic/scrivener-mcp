@@ -145,9 +145,61 @@ describe('AIClient provider fallback', () => {
 	const stubOpenRouterReply = (text: string) => ({
 		chat: {
 			completions: {
-				create: jest.fn().mockResolvedValue({ choices: [{ message: { content: text } }] }),
+				create: jest.fn().mockResolvedValue({
+					choices: [{ finish_reason: 'stop', message: { content: text } }],
+				}),
 			},
 		},
+	});
+
+	it('keeps the admitted prompt options and provider models stable across an asynchronous fallback', async () => {
+		const priorModel = process.env.OPENROUTER_MODEL;
+		process.env.OPENROUTER_MODEL = 'fixture/original-model';
+		try {
+			const client = new AIClient({
+				anthropicApiKey: 'fixture',
+				openaiApiKey: '',
+				openrouterApiKey: 'fixture',
+				provider: 'anthropic',
+			});
+			let reject!: (error: Error) => void;
+			const primary = jest.fn(
+				() =>
+					new Promise((_resolve, fail) => {
+						reject = fail;
+					})
+			);
+			const fallback = stubOpenRouterReply('Complete fallback.');
+			Object.assign(client, {
+				anthropic: { messages: { create: primary } },
+				openrouter: fallback,
+			});
+			const options = { system: 'Original instruction', maxTokens: 100, temperature: 0.2 };
+			const pending = client.chat('  Preserve this exact prompt.  ', options);
+			options.system = 'Changed instruction';
+			options.maxTokens = 9999;
+			options.temperature = 1.8;
+			process.env.OPENROUTER_MODEL = 'fixture/changed-model';
+			reject(accountError(503, 'Provider unavailable'));
+			await expect(pending).resolves.toBe('Complete fallback.');
+			expect(primary).toHaveBeenCalledTimes(1);
+			expect(fallback.chat.completions.create).toHaveBeenCalledTimes(1);
+			expect(fallback.chat.completions.create).toHaveBeenCalledWith(
+				{
+					model: 'fixture/original-model',
+					max_tokens: 100,
+					temperature: 0.2,
+					messages: [
+						{ role: 'system', content: 'Original instruction' },
+						{ role: 'user', content: '  Preserve this exact prompt.  ' },
+					],
+				},
+				expect.any(Object)
+			);
+		} finally {
+			if (priorModel === undefined) delete process.env.OPENROUTER_MODEL;
+			else process.env.OPENROUTER_MODEL = priorModel;
+		}
 	});
 
 	it('retries on the next provider when the primary reports exhausted credit', async () => {
@@ -230,7 +282,11 @@ describe('AIClient MCP sampling', () => {
 		const c = new AIClient({ anthropicApiKey: '', openaiApiKey: '', openrouterApiKey: '' });
 		expect(c.isAvailable).toBe(true);
 		await expect(c.chat('hi')).resolves.toBe('sampled');
-		expect(createMessage).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: 1024 }));
+		expect(createMessage).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: 1024 }), {
+			timeout: 60000,
+			maxTotalTimeout: 60000,
+			resetTimeoutOnProgress: false,
+		});
 	});
 
 	it('ignores sampling when the client does not advertise the capability', () => {
@@ -266,6 +322,106 @@ describe('AIClient MCP sampling', () => {
 	});
 });
 
+describe('AIClient completion integrity', () => {
+	afterEach(() => registerSamplingServer(null));
+
+	function clientWithReply(
+		provider: 'anthropic' | 'openai' | 'openrouter' | 'sampling',
+		reason: unknown,
+		text: unknown = 'Complete response'
+	) {
+		const anthropic = jest
+			.fn()
+			.mockResolvedValue({ stop_reason: reason, content: [{ type: 'text', text }] });
+		const openai = jest.fn().mockResolvedValue({
+			choices: [{ finish_reason: reason, message: { content: text } }],
+		});
+		const openrouter = jest.fn().mockResolvedValue({
+			choices: [{ finish_reason: reason, message: { content: text } }],
+		});
+		const sampling = jest
+			.fn()
+			.mockResolvedValue({ stopReason: reason, content: { type: 'text', text } });
+		registerSamplingServer({
+			getClientCapabilities: () => ({ sampling: {} }),
+			createMessage: sampling,
+		} as unknown as Server);
+		const client = new AIClient({
+			provider,
+			anthropicApiKey: 'sk-ant-fixture',
+			openaiApiKey: 'sk-fixture',
+			openrouterApiKey: 'sk-or-fixture',
+		});
+		Object.assign(client, {
+			anthropic: { messages: { create: anthropic } },
+			openai: { chat: { completions: { create: openai } } },
+			openrouter: { chat: { completions: { create: openrouter } } },
+		});
+		return { client, calls: { anthropic, openai, openrouter, sampling } };
+	}
+
+	it.each([
+		['anthropic', 'end_turn'],
+		['anthropic', 'stop_sequence'],
+		['openai', 'stop'],
+		['openrouter', 'stop'],
+		['sampling', 'endTurn'],
+		['sampling', 'stopSequence'],
+		['sampling', undefined],
+	] as const)('accepts complete %s output with stop reason %s', async (provider, reason) => {
+		const { client } = clientWithReply(provider, reason);
+		await expect(client.chat('A request')).resolves.toBe('Complete response');
+	});
+
+	it.each([
+		['anthropic', 'max_tokens'],
+		['anthropic', 'model_context_window_exceeded'],
+		['anthropic', 'pause_turn'],
+		['anthropic', 'tool_use'],
+		['anthropic', 'refusal'],
+		['anthropic', null],
+		['openai', 'length'],
+		['openai', 'tool_calls'],
+		['openai', 'content_filter'],
+		['openai', undefined],
+		['openrouter', 'length'],
+		['openrouter', 'function_call'],
+		['openrouter', 'content_filter'],
+		['sampling', 'maxTokens'],
+		['sampling', 'unexpected'],
+	] as const)(
+		'rejects incomplete %s output (%s) without retrying another provider',
+		async (provider, reason) => {
+			const { client, calls } = clientWithReply(
+				provider,
+				reason,
+				'Private partial manuscript text'
+			);
+			await expect(client.chat('A request')).rejects.toThrow(/complete/);
+			expect(calls[provider]).toHaveBeenCalledTimes(1);
+			for (const [name, call] of Object.entries(calls))
+				if (name !== provider) expect(call).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each(['anthropic', 'openai', 'openrouter', 'sampling'] as const)(
+		'rejects blank or malformed %s text even when marked complete',
+		async (provider) => {
+			for (const text of ['', ' ', null, 20]) {
+				const reason =
+					provider === 'anthropic'
+						? 'end_turn'
+						: provider === 'sampling'
+							? 'endTurn'
+							: 'stop';
+				const { client, calls } = clientWithReply(provider, reason, text);
+				await expect(client.chat('A request')).rejects.toThrow('returned no text');
+				expect(calls[provider]).toHaveBeenCalledTimes(1);
+			}
+		}
+	);
+});
+
 describe('AIClient embeddings', () => {
 	const savedEmbedModel = process.env.OPENAI_EMBED_MODEL;
 
@@ -284,7 +440,7 @@ describe('AIClient embeddings', () => {
 			openaiApiKey: '',
 			openrouterApiKey: 'sk-or-test',
 		});
-		const create = jest.fn().mockResolvedValue({ data: [{ embedding: [1, 2] }] });
+		const create = jest.fn().mockResolvedValue({ data: [{ index: 0, embedding: [1, 2] }] });
 		Object.assign(c, { openrouter: { embeddings: { create } } });
 		await expect(c.embed(['x'])).resolves.toEqual([[1, 2]]);
 		expect(create).toHaveBeenCalledWith(
@@ -311,7 +467,9 @@ describe('AIClient embeddings', () => {
 				},
 			},
 			openrouter: {
-				embeddings: { create: jest.fn().mockResolvedValue({ data: [{ embedding: [3] }] }) },
+				embeddings: {
+					create: jest.fn().mockResolvedValue({ data: [{ index: 0, embedding: [3] }] }),
+				},
 			},
 		});
 		await expect(c.embed(['x'])).resolves.toEqual([[3]]);
@@ -336,6 +494,23 @@ describe('isProviderUnavailable', () => {
 			isProviderUnavailable(Object.assign(new Error('bad request'), { status: 400 }))
 		).toBe(false);
 		expect(isProviderUnavailable(new Error('TypeError: x is not a function'))).toBe(false);
+	});
+
+	it.each([
+		null,
+		undefined,
+		'',
+		0,
+		{ status: Infinity },
+		{ status: 499 },
+		{ status: 500.5 },
+		{ status: 600 },
+	])('does not turn an invalid status into provider fallback: %j', (error) => {
+		expect(isProviderUnavailable(error)).toBe(false);
+	});
+
+	it('accepts the upper valid server-error boundary', () => {
+		expect(isProviderUnavailable({ status: 599 })).toBe(true);
 	});
 });
 

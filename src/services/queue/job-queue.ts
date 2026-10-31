@@ -1,16 +1,20 @@
 import type { ContinuityOptions, ContinuityReport } from '../editorial/continuity-service.js';
+import type { ManuscriptSource } from '../editorial/types.js';
 /**
  * Optimized BullMQ job queue with automatic KeyDB/Redis detection
  */
 
 import type { Job, ConnectionOptions } from 'bullmq';
-import { Queue, QueueEvents, Worker } from 'bullmq';
+import { Queue, QueueEvents, UnrecoverableError, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
 import * as path from 'path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import { ContentAnalyzer } from '../../analysis/base-analyzer.js';
+import { extractNamedEntities } from 'narrative-lens';
+import { nlpAnalyzer } from '../analysis/nlp-sentiment-analyzer.js';
+import { analysisEnvelope } from '../editorial/analysis-envelope.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getLogger } from '../../core/logger.js';
 import { DatabaseService } from '../../handlers/database/database-service.js';
@@ -18,6 +22,12 @@ import { getEnvConfig } from '../../utils/env-config.js';
 import { getDocumentPath } from '../../utils/scrivener-utils.js';
 import { AIClient } from '../ai/ai-client.js';
 import { AIWritingService } from '../ai/ai-writing-service.js';
+import {
+	WritingSuggestions,
+	type SuggestionRequest,
+	type PreparedSuggestions,
+	type SuggestionResult,
+} from '../ai/writing-suggestions.js';
 import { createBullMQConnection, detectConnection } from './keydb-detector.js';
 import { MutationCoordinator } from '../editorial/mutation-coordinator.js';
 import { PersistentStore } from '../editorial/persistent-store.js';
@@ -59,14 +69,43 @@ export interface AnalyzeDocumentJob {
 export interface AnalyzeProjectJob {
 	projectId: string;
 	documents: Array<{ id: string; content: string }>;
+	options?: { parallel?: boolean; batchSize?: number };
 }
 
-export interface GenerateSuggestionsJob {
-	documentId: string;
-	content: string;
-	prompt: string;
-	analysisResults: Record<string, unknown>;
+const analysisFlags = ['includeReadability', 'includeEntities', 'includeSentiment'] as const;
+const liveEmbeddedOwners = new Set<string>();
+export const MAX_ANALYSIS_CONTENT_LENGTH = 5_000_000;
+export const MAX_ANALYSIS_DOCUMENTS = 5000;
+
+function validateDocumentAnalysis(data: AnalyzeDocumentJob): void {
+	if (
+		!data ||
+		typeof data.documentId !== 'string' ||
+		!data.documentId.trim() ||
+		data.documentId.length > 255 ||
+		typeof data.content !== 'string' ||
+		data.content.length > MAX_ANALYSIS_CONTENT_LENGTH
+	)
+		throw new UnrecoverableError(
+			'Analysis requires a 1–255 character documentId and text up to 5000000 characters'
+		);
+	if (
+		data.options !== undefined &&
+		(!data.options ||
+			typeof data.options !== 'object' ||
+			Array.isArray(data.options) ||
+			Object.entries(data.options).some(
+				([key, value]) =>
+					!analysisFlags.includes(key as (typeof analysisFlags)[number]) ||
+					typeof value !== 'boolean'
+			))
+	)
+		throw new UnrecoverableError(
+			'Analysis options must contain only boolean includeReadability, includeEntities and includeSentiment flags'
+		);
 }
+
+export type GenerateSuggestionsJob = PreparedSuggestions;
 
 export interface BuildVectorStoreJob {
 	documents: Array<{ id: string; content: string; metadata?: Record<string, unknown> }>;
@@ -102,7 +141,7 @@ interface EmbeddedJobStatus {
 	progress: number;
 	result?: unknown;
 	error?: string;
-	owner?: { pid: number; host: string };
+	owner?: { pid: number; host: string; instance?: string };
 }
 
 /**
@@ -119,11 +158,13 @@ export class JobQueueService {
 	private readonly unboundIdentity = randomUUID();
 	private continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
 	private readonly embeddedRuns = new Map<string, Promise<void>>();
+	private readonly pendingEmbeddedResults = new Map<string, EmbeddedJobStatus>();
 	private logger: ReturnType<typeof getLogger>;
 
 	// Services
 	private contentAnalyzer: ContentAnalyzer | null = null;
 	private aiWritingService: AIWritingService | null = null;
+	private writingSuggestions?: WritingSuggestions;
 	private databaseService: DatabaseService | null = null;
 
 	// State
@@ -141,6 +182,7 @@ export class JobQueueService {
 			redisUrl?: string;
 			sqliteOnly?: boolean;
 			continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
+			source?: () => ManuscriptSource;
 			openaiApiKey?: string;
 			databasePath?: string;
 			neo4jUri?: string;
@@ -151,6 +193,17 @@ export class JobQueueService {
 		}
 		if (options.sqliteOnly !== undefined && typeof options.sqliteOnly !== 'boolean')
 			throw new Error('sqliteOnly must be a boolean');
+		if (
+			this.embeddedStore ||
+			this.connection ||
+			this.workers.size ||
+			this.events.size ||
+			this.queues.size ||
+			this.contentAnalyzer ||
+			this.databaseService ||
+			this.aiWritingService
+		)
+			await this.shutdown();
 
 		try {
 			this.continuity = options.continuity;
@@ -188,10 +241,13 @@ export class JobQueueService {
 				anthropicApiKey: envConfig.anthropicApiKey,
 				openrouterApiKey: envConfig.openrouterApiKey,
 			});
-			if (aiClient.isAvailable) {
-				this.aiWritingService = new AIWritingService(aiClient);
-				this.logger.info('AI writing service initialized');
-			}
+			this.aiWritingService = new AIWritingService(aiClient);
+			this.writingSuggestions = new WritingSuggestions(
+				this.aiWritingService,
+				this.requireScope().projectId,
+				this.projectPath,
+				options.source
+			);
 
 			if (this.projectPath) {
 				this.databaseService = options.sqliteOnly
@@ -214,12 +270,14 @@ export class JobQueueService {
 			if (this.connectionType !== 'embedded') {
 				for (const jobType of Object.values(JobType)) {
 					this.createQueue(jobType);
-					this.createWorker(jobType);
+					if (![JobType.EXPORT_PROJECT, JobType.BATCH_ANALYSIS].includes(jobType))
+						this.createWorker(jobType);
 					this.setupEventListeners(jobType);
 				}
 			}
 
 			this.isInitialized = true;
+			liveEmbeddedOwners.add(this.unboundIdentity);
 			this.logger.info('Job queue service initialized', {
 				connection: this.connectionType,
 				queues: Object.values(JobType).length,
@@ -259,7 +317,7 @@ export class JobQueueService {
 				removeOnFail: {
 					age: 24 * 3600, // Keep failed jobs for 24 hours
 				},
-				attempts: 3,
+				attempts: jobType === JobType.GENERATE_SUGGESTIONS ? 1 : 3,
 				backoff: {
 					type: 'exponential',
 					delay: 2000,
@@ -343,6 +401,7 @@ export class JobQueueService {
 
 	private async processJob(jobType: JobType, job: Job): Promise<unknown> {
 		const data = readScopedJob(this.requireScope(), jobType, job.id, job.data);
+		this.validateAnalysisJob(jobType, data);
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
 				return this.processAnalyzeDocument(data as unknown as AnalyzeDocumentJob);
@@ -361,35 +420,110 @@ export class JobQueueService {
 		}
 	}
 
-	// TODO: Job processors (simplified versions)
 	private async processAnalyzeDocument(
 		data: AnalyzeDocumentJob
 	): Promise<Record<string, unknown>> {
+		validateDocumentAnalysis(data);
 		if (!this.contentAnalyzer) {
 			throw createError(ErrorCode.INVALID_STATE, null, 'Content analyzer not initialized');
 		}
 
+		const options = {
+			includeReadability: data.options?.includeReadability ?? true,
+			includeEntities: data.options?.includeEntities ?? false,
+			includeSentiment: data.options?.includeSentiment ?? false,
+		};
+		const analysis = await this.contentAnalyzer.analyzeContent(data.content, data.documentId);
 		const results: Record<string, unknown> = {
 			documentId: data.documentId,
 			timestamp: new Date().toISOString(),
+			envelope: analysisEnvelope(
+				this.scope?.projectId ?? this.unboundIdentity,
+				'document',
+				[
+					{
+						documentId: data.documentId,
+						revision: createHash('sha256').update(data.content).digest('hex'),
+					},
+				],
+				{},
+				'raw',
+				{ operation: 'queue_document_analysis', options },
+				'supplied-text'
+			),
+			analysis,
 		};
 
-		if (
-			data.options?.includeReadability ||
-			data.options?.includeEntities ||
-			data.options?.includeSentiment
-		) {
-			// Use the content analyzer for full analysis
-			const analysis = await this.contentAnalyzer.analyzeContent(
-				data.content,
-				data.documentId
-			);
-			results.analysis = analysis;
+		if (options.includeReadability) {
+			const available =
+				analysis.metrics.fleschReadingEase !== null &&
+				analysis.metrics.fleschKincaidGrade !== null;
 			results.readability = {
+				availability: available ? 'available' : 'unavailable',
+				...(!available
+					? {
+							reason: analysis.unavailable?.includes('metrics')
+								? 'analysis_failed'
+								: 'no_words',
+						}
+					: {}),
 				fleschReadingEase: analysis.metrics.fleschReadingEase,
 				fleschKincaidGrade: analysis.metrics.fleschKincaidGrade,
 				readingTime: analysis.metrics.readingTime,
 			};
+		}
+		if (options.includeEntities) {
+			try {
+				const value = extractNamedEntities([data.content]);
+				results.entities = value.modelIdentity
+					? { availability: 'available', method: 'narrative-lens-ner', value }
+					: {
+							availability: 'unavailable',
+							method: 'narrative-lens-ner',
+							reason: 'model_unavailable',
+							value: null,
+						};
+			} catch (error) {
+				results.entities = {
+					availability: 'unavailable',
+					method: 'narrative-lens-ner',
+					reason:
+						error instanceof Error && error.message === 'onnx_feature_disabled'
+							? 'onnx_feature_disabled'
+							: 'analysis_failed',
+					value: null,
+				};
+			}
+		}
+		if (options.includeSentiment) {
+			try {
+				const value = nlpAnalyzer.analyzeSentiment(data.content);
+				results.sentiment = value.tokens.length
+					? {
+							availability: 'available',
+							method: 'local-lexicon',
+							score: value.score,
+							comparative: value.comparative,
+							emotion: value.emotion,
+						}
+					: {
+							availability: 'unavailable',
+							method: 'local-lexicon',
+							reason: 'no_words',
+							score: null,
+							comparative: null,
+							emotion: null,
+						};
+			} catch {
+				results.sentiment = {
+					availability: 'unavailable',
+					method: 'local-lexicon',
+					reason: 'analysis_failed',
+					score: null,
+					comparative: null,
+					emotion: null,
+				};
+			}
 		}
 
 		// Store results in database if available
@@ -418,73 +552,115 @@ export class JobQueueService {
 	}
 
 	async analyzeDocument(data: AnalyzeDocumentJob): Promise<Record<string, unknown>> {
+		validateDocumentAnalysis(data);
+		const snapshot = scopeJob(
+			this.scope ?? createQueueScope(this.unboundIdentity),
+			JobType.ANALYZE_DOCUMENT,
+			data as unknown as Record<string, unknown>
+		).payload;
 		if (!this.contentAnalyzer) this.contentAnalyzer = new ContentAnalyzer();
-		return this.processAnalyzeDocument(data);
+		return this.processAnalyzeDocument(snapshot as unknown as AnalyzeDocumentJob);
+	}
+
+	private validateAnalysisJob(jobType: JobType, data: Record<string, unknown>): void {
+		if (jobType === JobType.ANALYZE_DOCUMENT)
+			validateDocumentAnalysis(data as unknown as AnalyzeDocumentJob);
+		if (jobType !== JobType.ANALYZE_PROJECT) return;
+		const project = data as unknown as AnalyzeProjectJob;
+		if (
+			typeof project.projectId !== 'string' ||
+			!project.projectId.trim() ||
+			project.projectId.length > 255 ||
+			!Array.isArray(project.documents) ||
+			!project.documents.length ||
+			project.documents.length > MAX_ANALYSIS_DOCUMENTS
+		)
+			throw new UnrecoverableError(
+				'Project analysis requires a 1–255 character projectId and 1–5000 documents'
+			);
+		const ids = new Set<string>();
+		for (const doc of project.documents) {
+			validateDocumentAnalysis({ documentId: doc?.id, content: doc?.content });
+			if (ids.has(doc.id))
+				throw new UnrecoverableError(
+					'Project analysis document identifiers must be unique'
+				);
+			ids.add(doc.id);
+		}
+		if (
+			project.options !== undefined &&
+			(!project.options ||
+				typeof project.options !== 'object' ||
+				Array.isArray(project.options) ||
+				Object.keys(project.options).some(
+					(key) => !['parallel', 'batchSize'].includes(key)
+				) ||
+				(project.options.parallel !== undefined &&
+					typeof project.options.parallel !== 'boolean') ||
+				(project.options.batchSize !== undefined &&
+					(!Number.isInteger(project.options.batchSize) ||
+						project.options.batchSize < 1 ||
+						project.options.batchSize > 5)))
+		)
+			throw new UnrecoverableError(
+				'Project analysis options require a boolean parallel flag and an integer batchSize from 1 through 5'
+			);
 	}
 
 	private async processAnalyzeProject(data: AnalyzeProjectJob): Promise<Record<string, unknown>> {
 		const results: Record<string, unknown>[] = [];
-		for (const doc of data.documents) {
-			const result = await this.processAnalyzeDocument({
-				documentId: doc.id,
-				content: doc.content,
-				options: { includeReadability: true },
-			});
-			results.push(result);
+		const batchSize = data.options?.parallel ? (data.options.batchSize ?? 5) : 1;
+		for (let start = 0; start < data.documents.length; start += batchSize) {
+			const batch = await Promise.allSettled(
+				data.documents
+					.slice(start, start + batchSize)
+					.map((doc) =>
+						this.processAnalyzeDocument({ documentId: doc.id, content: doc.content })
+					)
+			);
+			const failures = batch.flatMap((result) =>
+				result.status === 'rejected' ? [result.reason] : []
+			);
+			if (failures.length)
+				throw new AggregateError(failures, 'Project document analysis failed');
+			for (const result of batch)
+				if (result.status === 'fulfilled') results.push(result.value);
 		}
 		return { projectId: data.projectId, documents: results };
 	}
 
 	private async processGenerateSuggestions(
 		data: GenerateSuggestionsJob
-	): Promise<Record<string, unknown>> {
-		if (!this.aiWritingService) {
-			throw createError(ErrorCode.INVALID_STATE, null, 'AI writing service not initialized');
-		}
+	): Promise<SuggestionResult> {
+		if (!this.writingSuggestions) throw new Error('Writing suggestions are unavailable');
+		return this.writingSuggestions.generate(data);
+	}
 
-		// Generate suggestions using the AI writing service's RAG capabilities
-		const suggestions: Array<{ type: string; suggestion: string; timestamp: string }> = [];
-		let lastError: Error | undefined;
+	async generateSuggestions(data: SuggestionRequest): Promise<SuggestionResult> {
+		if (!this.isInitialized || !this.writingSuggestions)
+			throw new Error('Writing suggestions are unavailable');
+		return this.processGenerateSuggestions(await this.writingSuggestions.prepare(data));
+	}
 
-		try {
-			// Generate different types of suggestions based on the prompt
-			const promptTypes = [
-				'Suggest improvements for pacing and flow',
-				'Identify areas where character development could be enhanced',
-				'Recommend ways to strengthen dialogue',
-				'Suggest plot consistency improvements',
-			];
-
-			for (const promptType of promptTypes) {
-				const fullPrompt = `${data.prompt}\n\nSpecific focus: ${promptType}\n\nContent:\n${(data.content || '').substring(0, 3000)}`;
-				const suggestion = await this.aiWritingService.generateWithContext(fullPrompt, {
-					topK: 3,
-					temperature: 0.7,
-				});
-				suggestions.push({
-					type: promptType,
-					suggestion,
-					timestamp: new Date().toISOString(),
-				});
-			}
-		} catch (error) {
-			lastError = error instanceof Error ? error : new Error(String(error));
-			this.logger.error('Failed to generate suggestions', {
-				documentId: data.documentId,
-				error: lastError.message,
-			});
-		}
-
-		// Don't report success with zero results when generation actually failed;
-		// surface the error so the job is marked failed instead of silently empty.
-		if (suggestions.length === 0 && lastError) {
-			throw lastError;
-		}
-
+	async analyzeWritingStyle(samples: string[]) {
+		if (!this.isInitialized || !this.aiWritingService?.isAvailable)
+			throw new Error('AI writing provider is unavailable');
+		const { projectId } = this.requireScope();
+		const result = await this.aiWritingService.analyzeWritingStyle(samples);
 		return {
-			documentId: data.documentId,
-			suggestions,
-			generatedAt: new Date().toISOString(),
+			...result,
+			envelope: analysisEnvelope(
+				projectId,
+				'document',
+				result.coverage.samples.map(({ sampleId, revision }) => ({
+					documentId: sampleId,
+					revision,
+				})),
+				{},
+				'provider',
+				{ operation: 'analyze_writing_style', coverage: result.coverage },
+				'supplied-text'
+			),
 		};
 	}
 
@@ -497,22 +673,29 @@ export class JobQueueService {
 
 		// Build or rebuild the vector store with the provided documents
 		try {
-			// Clear existing vector store if rebuilding
-			if (data.rebuild) {
-				await this.aiWritingService.clearMemory();
-			}
-
 			// Convert documents to the format expected by the AI writing service
-			const scrivenerDocs = data.documents.map((doc) => ({
-				id: doc.id,
-				content: doc.content,
-				title: (doc.metadata?.title as string) || `Document ${doc.id}`,
-				type: 'Text' as const,
-				path: (doc.metadata?.path as string) || '',
-			}));
+			const scrivenerDocs = data.documents.map((doc) => {
+				const metadata = doc.metadata ?? {};
+				for (const key of ['title', 'path', 'revision'])
+					if (metadata[key] !== undefined && typeof metadata[key] !== 'string')
+						throw new Error(`Indexed document metadata ${key} must be a string`);
+				const {
+					title,
+					path: sourcePath,
+					revision,
+				} = metadata as Record<string, string | undefined>;
+				return {
+					id: doc.id,
+					content: doc.content,
+					title: title || `Document ${doc.id}`,
+					type: 'Text' as const,
+					path: sourcePath || '',
+					...(revision !== undefined ? { metadata: { revision } } : {}),
+				};
+			});
 
 			// Build the vector store
-			await this.aiWritingService.buildVectorStore(scrivenerDocs);
+			await this.aiWritingService.buildVectorStore(scrivenerDocs, { rebuild: data.rebuild });
 
 			this.logger.info('Vector store built successfully', {
 				documentCount: data.documents.length,
@@ -628,6 +811,10 @@ export class JobQueueService {
 				undefined,
 				`Queue for job type ${jobType} not found`
 			);
+		if ([JobType.EXPORT_PROJECT, JobType.BATCH_ANALYSIS].includes(jobType))
+			throw new Error(
+				'This legacy job type cannot be submitted; use the export_project tool or queue_project_analysis.'
+			);
 		if (
 			options?.priority !== undefined &&
 			(!Number.isInteger(options.priority) ||
@@ -641,7 +828,17 @@ export class JobQueueService {
 		)
 			throw new Error('Queue delay must be a non-negative safe integer');
 		const scope = this.requireScope();
-		const envelope = scopeJob(scope, jobType, data);
+		const payload =
+			jobType === JobType.GENERATE_SUGGESTIONS
+				? {
+						...(await this.writingSuggestions!.prepare(
+							data as unknown as SuggestionRequest
+						)),
+					}
+				: data;
+		if (!this.isInitialized) throw new Error('Job queue closed during request admission');
+		const envelope = scopeJob(scope, jobType, payload);
+		this.validateAnalysisJob(jobType, envelope.payload);
 		const jobId = scopedJobId(scope);
 		if (this.connectionType === 'embedded') {
 			if (options?.priority || options?.delay)
@@ -679,31 +876,29 @@ export class JobQueueService {
 			jobType,
 			state: 'active',
 			progress: 0,
-			owner: { pid: process.pid, host: hostname() },
+			owner: { pid: process.pid, host: hostname(), instance: this.unboundIdentity },
 		});
 		this.logger.info(`Job ${jobId} added to embedded queue ${jobType}`);
 
 		const run = new Promise<void>((resolve) => setImmediate(resolve)).then(async () => {
-			if (this.readEmbeddedJob(jobId)?.state === 'cancelled') return;
-			await this.processJob(jobType, { id: jobId, data } as Job)
-				.then((result) => {
-					this.finishEmbeddedJob(jobId, {
-						jobType,
-						state: 'completed',
-						progress: 100,
-						result,
-					});
-					this.logger.info(`Job completed: ${jobId}`);
-				})
-				.catch((error: unknown) => {
-					this.finishEmbeddedJob(jobId, {
-						jobType,
-						state: 'failed',
-						progress: 0,
-						error: error instanceof Error ? error.message : String(error),
-					});
-					this.logger.error(`Job failed: ${jobId}`, { error });
-				});
+			let status: EmbeddedJobStatus;
+			try {
+				if (this.readEmbeddedJob(jobId)?.state === 'cancelled') return;
+				const result = await this.processJob(jobType, { id: jobId, data } as Job);
+				status = { jobType, state: 'completed', progress: 100, result };
+			} catch (error) {
+				status = {
+					jobType,
+					state: 'failed',
+					progress: 0,
+					error: error instanceof Error ? error.message : String(error),
+				};
+			}
+			try {
+				this.finishEmbeddedJob(jobId, status);
+			} catch {
+				this.logger.error('Background job outcome is awaiting durable storage', { jobId });
+			}
 		});
 		this.embeddedRuns.set(jobId, run);
 		void run.then(
@@ -715,35 +910,64 @@ export class JobQueueService {
 	}
 
 	private storeEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
-		this.embeddedJobs.set(id, status);
-		this.embeddedStore?.put(this.embeddedNamespace(), id, { id, ...status });
+		if (this.embeddedStore)
+			this.embeddedStore.put(this.embeddedNamespace(), id, { id, ...status });
+		else this.embeddedJobs.set(id, status);
 	}
 
 	private finishEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
-		const finish = (): void => {
-			if (this.readEmbeddedJob(id)?.state === 'active') this.storeEmbeddedJob(id, status);
+		const terminal = this.pendingEmbeddedResults.get(id) ?? status;
+		const finish = (): EmbeddedJobStatus => {
+			const current = this.embeddedStore
+				? this.embeddedStore.get<EmbeddedJobStatus>(this.embeddedNamespace(), id)
+				: this.embeddedJobs.get(id);
+			if (!current) throw new Error('Embedded job state disappeared before completion');
+			if (current.state !== 'active') return current;
+			this.embeddedStore?.put(this.embeddedNamespace(), id, { id, ...terminal });
+			return terminal;
 		};
-		if (this.embeddedStore) this.embeddedStore.transaction(finish);
-		else finish();
+		try {
+			const committed = this.embeddedStore
+				? this.embeddedStore.transaction(finish)
+				: finish();
+			if (!this.embeddedStore) this.embeddedJobs.set(id, committed);
+			this.pendingEmbeddedResults.delete(id);
+		} catch (cause) {
+			this.pendingEmbeddedResults.set(id, terminal);
+			throw new Error(
+				'Background job outcome is awaiting durable storage; retry after storage recovers.',
+				{ cause }
+			);
+		}
 	}
 
 	private readEmbeddedJob(id: string): EmbeddedJobStatus | undefined {
-		const status =
-			this.embeddedStore?.get<EmbeddedJobStatus>(this.embeddedNamespace(), id) ??
-			this.embeddedJobs.get(id);
+		const pending = this.pendingEmbeddedResults.get(id);
+		if (pending) this.finishEmbeddedJob(id, pending);
+		const status = this.embeddedStore
+			? this.embeddedStore.get<EmbeddedJobStatus>(this.embeddedNamespace(), id)
+			: this.embeddedJobs.get(id);
 		if (status?.state === 'active' && status.owner?.host === hostname()) {
-			try {
-				process.kill(status.owner.pid, 0);
-			} catch (error) {
-				if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
-					const interrupted: EmbeddedJobStatus = {
-						...status,
-						state: 'interrupted',
-						error: 'The previous server stopped; this job was not automatically replayed.',
-					};
-					this.storeEmbeddedJob(id, interrupted);
-					return interrupted;
+			let stopped =
+				status.owner.pid === process.pid &&
+				Boolean(status.owner.instance) &&
+				!liveEmbeddedOwners.has(status.owner.instance!);
+			if (!stopped) {
+				try {
+					process.kill(status.owner.pid, 0);
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code === 'ESRCH') stopped = true;
+					else if ((error as NodeJS.ErrnoException).code !== 'EPERM') throw error;
 				}
+			}
+			if (stopped) {
+				const interrupted: EmbeddedJobStatus = {
+					...status,
+					state: 'interrupted',
+					error: 'The previous server stopped; this job was not automatically replayed.',
+				};
+				this.storeEmbeddedJob(id, interrupted);
+				return interrupted;
 			}
 		}
 		return status;
@@ -840,6 +1064,8 @@ export class JobQueueService {
 					`Queue for job type ${jobType} not found`
 				);
 			}
+			for (const [id, status] of this.pendingEmbeddedResults)
+				if (status.jobType === jobType) this.finishEmbeddedJob(id, status);
 
 			let active = 0;
 			let completed = 0;
@@ -905,6 +1131,11 @@ export class JobQueueService {
 		return this.scope;
 	}
 
+	/** Borrowed service; queue shutdown drains work and owns its cleanup. */
+	getWritingService(): AIWritingService | null {
+		return this.aiWritingService;
+	}
+
 	private embeddedNamespace(): string {
 		return `embedded-jobs:${this.requireScope().id}`;
 	}
@@ -931,53 +1162,68 @@ export class JobQueueService {
 	async shutdown(): Promise<void> {
 		this.isInitialized = false;
 		this.logger.info('Shutting down job queue service');
-		await Promise.all(this.embeddedRuns.values());
-		this.embeddedStore?.close();
-		this.embeddedStore = undefined;
-
+		const failures: unknown[] = [];
+		const close = async (operation: () => unknown): Promise<boolean> => {
+			try {
+				await operation();
+				return true;
+			} catch (error) {
+				failures.push(error);
+				return false;
+			}
+		};
+		for (const run of await Promise.allSettled(this.embeddedRuns.values()))
+			if (run.status === 'rejected') failures.push(run.reason);
+		for (const [id, status] of this.pendingEmbeddedResults) {
+			try {
+				this.finishEmbeddedJob(id, status);
+			} catch (error) {
+				failures.push(error);
+			}
+		}
 		// Close workers first
 		for (const [type, worker] of this.workers.entries()) {
-			await worker.close();
-			this.logger.debug(`Worker ${type} closed`);
+			if (await close(() => worker.close())) this.workers.delete(type);
 		}
+		if (this.workers.size)
+			throw new AggregateError(
+				failures,
+				'Job queue workers failed to close; dependent resources retained'
+			);
+		liveEmbeddedOwners.delete(this.unboundIdentity);
+		if (await close(() => this.embeddedStore?.close())) this.embeddedStore = undefined;
+		this.pendingEmbeddedResults.clear();
 
 		// Close event listeners
 		for (const [type, events] of this.events.entries()) {
-			await events.close();
-			this.logger.debug(`Events ${type} closed`);
+			if (await close(() => events.close())) this.events.delete(type);
 		}
 
 		// Close queues
 		for (const [type, queue] of this.queues.entries()) {
-			await queue.close();
-			this.logger.debug(`Queue ${type} closed`);
+			if (await close(() => queue.close())) this.queues.delete(type);
 		}
 
 		// Close connection
-		if (this.connection) {
-			await this.connection.quit();
-		}
+		if (!this.queues.size && !this.events.size && (await close(() => this.connection?.quit())))
+			this.connection = undefined;
 
 		// Clear maps
-		this.queues.clear();
-		this.workers.clear();
-		this.events.clear();
 		this.embeddedJobs.clear();
-		this.contentAnalyzer?.dispose();
+		this.writingSuggestions = undefined;
+		if (await close(() => this.contentAnalyzer?.dispose())) this.contentAnalyzer = null;
 		const results = await Promise.allSettled([
 			this.databaseService?.close(),
 			this.aiWritingService?.clearMemory(),
 		]);
 		if (results[0].status === 'fulfilled') this.databaseService = null;
 		if (results[1].status === 'fulfilled') this.aiWritingService = null;
-		this.contentAnalyzer = null;
-		this.connection = undefined;
 		this.scope = undefined;
 		this.continuity = undefined;
 
 		this.isInitialized = false;
-		const failures = results.flatMap((result) =>
-			result.status === 'rejected' ? [result.reason] : []
+		failures.push(
+			...results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : []))
 		);
 		if (failures.length === 1) throw failures[0];
 		if (failures.length > 1)

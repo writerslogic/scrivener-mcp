@@ -454,7 +454,7 @@ export class CompilationService {
 
 			if (content.plainText?.trim()) {
 				// Add document title as heading
-				parts.push(`# ${doc.title}\n`);
+				if (doc.title) parts.push(`# ${doc.title}\n`);
 
 				// Process formatted text
 				if (content.formattedText) {
@@ -495,7 +495,7 @@ export class CompilationService {
 				continue;
 			}
 
-			parts.push(`<h1>${this.escapeHtml(doc.title)}</h1>`);
+			if (doc.title) parts.push(`<h1>${this.escapeHtml(doc.title)}</h1>`);
 
 			if (content.formattedText) {
 				let html = '';

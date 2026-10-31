@@ -80,7 +80,6 @@ function context(): HandlerContext {
 		project,
 		memoryManager: null,
 		contentAnalyzer: {} as HandlerContext['contentAnalyzer'],
-		contentEnhancer: {} as HandlerContext['contentEnhancer'],
 	};
 }
 

@@ -33,11 +33,11 @@ import {
 import { HandlerError } from './handlers/types.js';
 import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
 import { APP_MIME_TYPE, DASHBOARD_URI, supportsApps } from './handlers/dashboard-handlers.js';
-import { ContentEnhancer } from './services/enhancements/content-enhancer.js';
 import { PersonalizationService } from './services/personalization/personalization-service.js';
 import { initializeHHM } from './handlers/memory-handlers.js';
 import { applyDiscoveredAIKeys } from './utils/env-config.js';
 import { registerSamplingServer } from './services/ai/sampling-bridge.js';
+import { CancellationSafeTransport } from './utils/cancellation-safe-transport.js';
 
 const logger = getLogger('main');
 
@@ -73,7 +73,6 @@ async function initializeContext(): Promise<HandlerContext> {
 		project: null,
 		memoryManager: null,
 		contentAnalyzer: new ContentAnalyzer(),
-		contentEnhancer: new ContentEnhancer(),
 		personalization: new PersonalizationService(null),
 		hhmSystem,
 	};
@@ -150,7 +149,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 });
 
 // Handle tool execution
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 	const { name, arguments: args } = request.params;
 
 	try {
@@ -161,7 +160,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		context.uiSupported = supportsApps(server.getClientCapabilities());
 
 		// Execute handler
-		const result = await executeRegisteredHandler(name, args ?? {}, context);
+		const result = await executeRegisteredHandler(name, args ?? {}, context, {
+			signal: extra.signal,
+		});
 		if (name === 'open_project' && context.project && !result.isError)
 			activateSkills('documents', 'search', ...(hhmInitialized ? ['memory'] : []));
 
@@ -248,7 +249,7 @@ async function main() {
 	);
 
 	cleanupSpool();
-	const transport = new StdioServerTransport();
+	const transport = new CancellationSafeTransport(new StdioServerTransport());
 	await server.connect(transport);
 	logger.info('Scrivener MCP Server started');
 }
@@ -259,6 +260,9 @@ async function shutdown(): Promise<void> {
 	shuttingDown = true;
 	let failed = false;
 	const operations = [
+		async () => {
+			await server.close();
+		},
 		async () => {
 			await context?.memoryManager?.stopAutoSave();
 		},

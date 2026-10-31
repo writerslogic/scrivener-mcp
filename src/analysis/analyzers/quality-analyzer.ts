@@ -1,37 +1,26 @@
+import { collectProseExamples } from 'narrative-lens';
 import { getLogger } from '../../core/logger.js';
 import { splitIntoSentences } from '../../utils/text-metrics.js';
 import type { MLWordClassifierPro } from '../ml-word-classifier-pro.js';
 
 export interface QualityIndicators {
-	repetitiveness: number; // 0-100, lower is better
+	repetitiveness: number | null; // 0-100, lower is better
 	cliches: string[];
 	filterWords: string[];
-	tellingVsShowing: number; // ratio
-	sensoryDetails: 'lacking' | 'adequate' | 'rich';
-	whiteSpace: 'cramped' | 'balanced' | 'excessive';
+	tellingVsShowing: number | null; // ratio
+	sensoryDetails: 'lacking' | 'adequate' | 'rich' | 'unavailable';
+	whiteSpace: 'cramped' | 'balanced' | 'excessive' | 'unavailable';
 }
 
 const logger = getLogger('quality-analyzer');
 
 export class QualityAnalyzer {
-	private clichePhrases = [
-		'dark and stormy night',
-		'in the nick of time',
-		'avoid like the plague',
-		'dead as a doornail',
-		'fit as a fiddle',
-		'time will tell',
-		'only time will tell',
-		'lost track of time',
-		'all walks of life',
-		'calm before the storm',
-		'cry over spilled milk',
-		'every cloud has a silver lining',
-	];
-
 	constructor(private classifier: MLWordClassifierPro) {}
 
-	async assessQuality(content: string): Promise<QualityIndicators> {
+	async assessQuality(
+		content: string,
+		sharedProseFindings?: ReturnType<typeof collectProseExamples>
+	): Promise<QualityIndicators> {
 		try {
 			if (!content || content.trim().length === 0) {
 				return this.getDefaultQualityIndicators();
@@ -41,14 +30,9 @@ export class QualityAnalyzer {
 			const words = lowerContent.split(/\s+/).filter((w) => w.length > 0);
 			const sentences = splitIntoSentences(content);
 
-			// Early exit for very small content
-			if (words.length < 5) {
-				return this.getDefaultQualityIndicators();
-			}
-
 			// Optimized repetitiveness calculation with limited scope
-			let repetitiveness = 0;
-			if (words.length > 20) {
+			let repetitiveness: number | null = null;
+			if (words.length > 1) {
 				const wordPairs = new Map<string, number>();
 				const maxPairsToCheck = Math.min(words.length - 1, 1000); // Limit for performance
 
@@ -65,10 +49,9 @@ export class QualityAnalyzer {
 				repetitiveness = Math.min((repetitivePairs / wordPairs.size) * 100, 100);
 			}
 
-			// Optimized cliché detection
-			const foundClichés = this.clichePhrases.filter((cliché) =>
-				lowerContent.includes(cliché)
-			);
+			const foundClichés = (sharedProseFindings ?? collectProseExamples([content]))
+				.filter((example) => example.issueType === 'cliche')
+				.map((example) => example.snippet);
 
 			// Optimized filter word detection with batching
 			const foundFilterWords: string[] = [];
@@ -98,7 +81,9 @@ export class QualityAnalyzer {
 			// Optimized telling vs showing calculation
 			const tellingWords = words.filter((w) => this.isCognitiveVerb(w));
 			const actionWords = words.filter((w) => w.endsWith('ed') || w.endsWith('ing'));
-			const tellingVsShowing = tellingWords.length / Math.max(actionWords.length, 1);
+			const tellingVsShowing = actionWords.length
+				? tellingWords.length / actionWords.length
+				: null;
 
 			// Optimized sensory details calculation
 			const sensoryPatterns =
@@ -122,10 +107,10 @@ export class QualityAnalyzer {
 						: 'cramped';
 
 			return {
-				repetitiveness: Math.min(Math.max(repetitiveness, 0), 100),
+				repetitiveness,
 				cliches: foundClichés.slice(0, 10), // Limit for memory
 				filterWords: foundFilterWords.slice(0, 20), // Limit for memory
-				tellingVsShowing: Math.min(Math.max(tellingVsShowing, 0), 10),
+				tellingVsShowing,
 				sensoryDetails,
 				whiteSpace,
 			};
@@ -157,14 +142,14 @@ export class QualityAnalyzer {
 		);
 	}
 
-	private getDefaultQualityIndicators(): QualityIndicators {
+	getDefaultQualityIndicators(): QualityIndicators {
 		return {
-			repetitiveness: 15,
+			repetitiveness: null,
 			cliches: [],
 			filterWords: [],
-			tellingVsShowing: 0.3,
-			sensoryDetails: 'adequate',
-			whiteSpace: 'balanced',
+			tellingVsShowing: null,
+			sensoryDetails: 'unavailable',
+			whiteSpace: 'unavailable',
 		};
 	}
 }

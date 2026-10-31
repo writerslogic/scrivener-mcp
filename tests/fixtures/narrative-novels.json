@@ -1,0 +1,38 @@
+[
+	{
+		"id": 84,
+		"title": "Frankenstein",
+		"author": "Mary Wollstonecraft Shelley",
+		"catalogue": "https://www.gutenberg.org/ebooks/84",
+		"url": "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+		"file": "pg84.txt",
+		"bytes": 448885,
+		"sha256": "2b97b7f8aad508649481d8dd4f6b54f9b965ddb3ba634e9151c815f537b49e42",
+		"downloadedAt": "2026-10-31T13:50:51.103Z",
+		"copyright": "Public domain in the USA, as stated by the publisher catalogue"
+	},
+	{
+		"id": 1342,
+		"title": "Pride and Prejudice",
+		"author": "Jane Austen",
+		"catalogue": "https://www.gutenberg.org/ebooks/1342",
+		"url": "https://www.gutenberg.org/cache/epub/1342/pg1342.txt",
+		"file": "pg1342.txt",
+		"bytes": 772386,
+		"sha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75",
+		"downloadedAt": "2026-10-31T13:50:51.277Z",
+		"copyright": "Public domain in the USA, as stated by the publisher catalogue"
+	},
+	{
+		"id": 2701,
+		"title": "Moby Dick; Or, The Whale",
+		"author": "Herman Melville",
+		"catalogue": "https://www.gutenberg.org/ebooks/2701",
+		"url": "https://www.gutenberg.org/cache/epub/2701/pg2701.txt",
+		"file": "pg2701.txt",
+		"bytes": 1276315,
+		"sha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+		"downloadedAt": "2026-10-31T13:50:51.474Z",
+		"copyright": "Public domain in the USA, as stated by the publisher catalogue"
+	}
+]

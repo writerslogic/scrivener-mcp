@@ -1,6 +1,6 @@
 /**
  * AIWritingService tests. The chat-backed parsing paths (style analysis,
- * consistency-issue coercion, context-free generation) are covered
+ * context-free generation) are covered
  * deterministically with a stubbed AIClient -- that is the bug-prone code. The
  * HMS-backed vector-store path is exercised by the app and the explicitly opted-in live
  * tests, not mocked here.
@@ -37,39 +37,17 @@ describe('AIWritingService — deterministic (stubbed client)', () => {
 		it('parses a JSON object reply', async () => {
 			const { svc } = stub('```json\n{"voice":"first-person","tone":"wry"}\n```');
 			const out = await svc.analyzeWritingStyle(['some prose']);
-			expect(out).toEqual({ voice: 'first-person', tone: 'wry' });
-		});
-
-		it('falls back to a minimal object when the reply is not JSON', async () => {
-			const { svc } = stub('I cannot analyze this.');
-			const out = await svc.analyzeWritingStyle(['x']);
-			expect(out).toMatchObject({ tone: 'neutral', complexity: 'medium' });
-		});
-	});
-
-	describe('checkPlotConsistency', () => {
-		const docs = [{ id: 'd1', title: 'Ch1', type: 'Text' as const, path: '', content: 'text' }];
-
-		it('parses issues, coercing bad severity and dropping invalid entries', async () => {
-			const { svc } = stub(
-				'[{"issue":"Age conflict","severity":"critical","locations":["Ch 1"],"suggestion":"fix"},' +
-					'{"issue":"Name typo","severity":"low"},' +
-					'{"severity":"high","suggestion":"no issue text"}]'
-			);
-			const out = await svc.checkPlotConsistency(docs);
-			expect(out).toHaveLength(2);
-			expect(out[0]).toEqual({
-				issue: 'Age conflict',
-				severity: 'medium', // "critical" is not a valid level -> default
-				locations: ['Ch 1'],
-				suggestion: 'fix',
+			expect(out.analysis).toMatchObject({
+				voice: 'first-person',
+				tone: 'wry',
+				sentenceStructure: null,
 			});
-			expect(out[1]).toMatchObject({ issue: 'Name typo', severity: 'low', locations: [] });
+			expect(out.availability.status).toBe('partial');
 		});
 
-		it('returns [] for a non-array reply', async () => {
-			const { svc } = stub('No inconsistencies found.');
-			expect(await svc.checkPlotConsistency(docs)).toEqual([]);
+		it('reports unavailable analysis when the provider reply is not a JSON object', async () => {
+			const { svc } = stub('I cannot analyze this.');
+			await expect(svc.analyzeWritingStyle(['x'])).rejects.toThrow(/unavailable/);
 		});
 	});
 
@@ -119,30 +97,5 @@ liveAnthropic('AIWritingService — live Claude', () => {
 		]);
 		expect(out).toBeInstanceOf(Object);
 		expect(Object.keys(out).length).toBeGreaterThan(0);
-	}, 30000);
-
-	it('returns a well-formed consistency-issue array', async () => {
-		const svc = new AIWritingService();
-		const issues = await svc.checkPlotConsistency([
-			{
-				id: 'a',
-				title: 'One',
-				type: 'Text',
-				path: '',
-				content: 'Sara was 30 and had brown eyes.',
-			},
-			{
-				id: 'b',
-				title: 'Two',
-				type: 'Text',
-				path: '',
-				content: 'Sara, 25, gazed with her blue eyes.',
-			},
-		]);
-		expect(Array.isArray(issues)).toBe(true);
-		for (const i of issues) {
-			expect(['low', 'medium', 'high']).toContain(i.severity);
-			expect(typeof i.issue).toBe('string');
-		}
 	}, 30000);
 });

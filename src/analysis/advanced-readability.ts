@@ -1,34 +1,26 @@
+import { computeReadability } from 'narrative-lens';
 /**
  * Advanced Readability Metrics Service
  * Provides comprehensive text readability analysis using multiple algorithms
- * Implements standard readability formulas manually for reliability
+ * Delegates supported readability formulas to Narrative Lens
  */
 
-// Type definitions are now in types/analysis.d.ts
-import {
-	validateInput,
-	processBatch,
-	truncate,
-	formatDuration,
-	formatBytes,
-	getTextMetrics,
-	splitIntoSentences,
-	generateHash,
-} from '../utils/common.js';
+import { validateInput, processBatch, splitIntoSentences } from '../utils/common.js';
 import { getLogger } from '../core/logger.js';
 
 const logger = getLogger('advanced-readability');
 
-export interface ReadabilityMetrics {
-	[key: string]: number | string | ReadingLevel | ReadabilityRecommendation[] | undefined;
+export interface AvailableReadabilityMetrics {
+	availability: 'available';
 	// Core readability scores
 	fleschReadingEase: number;
 	fleschKincaidGrade: number;
-	smogIndex: number;
+	smogIndex: number | null;
+	smogAvailable: boolean;
 	colemanLiauIndex: number;
 	automatedReadabilityIndex: number;
 	gunningFogIndex: number;
-	linsearWriteFormula: number;
+	linsearWriteFormula: null;
 
 	// Text statistics
 	textStandard: string;
@@ -59,6 +51,24 @@ export interface ReadabilityMetrics {
 	recommendations: ReadabilityRecommendation[];
 }
 
+export type UnavailableReadabilityMetrics = {
+	[
+		Key in keyof Omit<
+			AvailableReadabilityMetrics,
+			'availability' | 'readingLevel' | 'comprehensionDifficulty'
+		>
+	]: AvailableReadabilityMetrics[Key] extends number
+		? number | null
+		: AvailableReadabilityMetrics[Key];
+} & {
+	availability: 'unavailable';
+	reason: 'empty_text' | 'no_words' | 'analysis_failed';
+	readingLevel: null;
+	comprehensionDifficulty: 'unavailable';
+};
+
+export type ReadabilityMetrics = AvailableReadabilityMetrics | UnavailableReadabilityMetrics;
+
 export interface ReadabilityRecommendation {
 	category:
 		| 'sentence_length'
@@ -83,7 +93,7 @@ export interface ComparativeAnalysis {
 	text1: ReadabilityMetrics;
 	text2: ReadabilityMetrics;
 	comparison: {
-		easier: 'text1' | 'text2' | 'similar';
+		easier: 'text1' | 'text2' | 'similar' | 'unavailable';
 		keyDifferences: string[];
 		recommendations: string[];
 	};
@@ -92,11 +102,11 @@ export interface ComparativeAnalysis {
 export interface ReadabilityTrends {
 	segments: Array<{
 		position: number;
-		fleschScore: number;
-		avgSentenceLength: number;
-		difficultWords: number;
+		fleschScore: number | null;
+		avgSentenceLength: number | null;
+		difficultWords: number | null;
 	}>;
-	overallTrend: 'improving' | 'declining' | 'stable';
+	overallTrend: 'improving' | 'declining' | 'stable' | 'unavailable';
 	problematicSections: number[];
 	recommendations?: string[];
 }
@@ -105,197 +115,67 @@ export class AdvancedReadabilityService {
 	private readingSpeedWPM = 200; // Average reading speed in words per minute
 
 	calculateMetrics(text: string): ReadabilityMetrics {
+		if (typeof text !== 'string') throw new TypeError('text must be a string');
+		const characterCount = text.replace(/\s/g, '').length;
 		try {
-			validateInput(
-				{ text },
-				{
-					text: { type: 'string', required: true, minLength: 1 },
-				}
-			);
-
-			if (!text || text.trim().length === 0) {
-				return this.getEmptyMetrics();
-			}
-
-			const textMetrics = getTextMetrics(text);
-			const textHash = generateHash(text);
-			logger.debug('Calculating readability metrics', {
-				textHash: truncate(textHash, 8),
-				wordCount: textMetrics.wordCount,
-				sentenceCount: textMetrics.sentenceCount,
-				contentSize: formatBytes(text.length),
-			});
-
-			const calculateMetricsSync = () => {
-				// Calculate basic text statistics using utility functions where possible
-				const sentences = this.countSentences(text);
-				const words = this.countWords(text);
-				const syllables = this.countSyllables(text);
-				const characters = this.countCharacters(text, false);
-				const difficultWords = this.countDifficultWords(text);
-
-				const sentenceCount = sentences.length;
-				const lexiconCount = words.length;
-				const syllableCount = syllables;
-				const characterCount = characters;
-
-				const averageSentenceLength = lexiconCount / sentenceCount;
-				const averageSyllablesPerWord = syllableCount / lexiconCount;
-				const averageLettersPerWord = characterCount / lexiconCount;
-
-				// Calculate readability scores using manual implementations
-				const fleschReadingEase = this.calculateFleschReadingEase(
-					averageSentenceLength,
-					averageSyllablesPerWord
-				);
-				const fleschKincaidGrade = this.calculateFleschKincaidGrade(
-					averageSentenceLength,
-					averageSyllablesPerWord
-				);
-				const smogIndex = this.calculateSmogIndex(
-					sentenceCount,
-					this.countComplexWords(text)
-				);
-				const colemanLiauIndex = this.calculateColemanLiauIndex(
-					characterCount,
-					lexiconCount,
-					sentenceCount
-				);
-				const automatedReadabilityIndex = this.calculateAutomatedReadabilityIndex(
-					characterCount,
-					lexiconCount,
-					sentenceCount
-				);
-				const gunningFogIndex = this.calculateGunningFogIndex(
-					averageSentenceLength,
-					this.countComplexWords(text),
-					lexiconCount
-				);
-				const linsearWriteFormula = this.calculateLinsearWriteFormula(text);
-				const textStandard = this.determineTextStandard(fleschKincaidGrade);
-
-				// Calculate derived metrics
-				const readingTimeMinutes = Math.ceil(lexiconCount / this.readingSpeedWPM);
-				const readingLevel = this.determineReadingLevel(fleschKincaidGrade);
-				const comprehensionDifficulty =
-					this.determineComprehensionDifficulty(fleschReadingEase);
-				const targetAudience = this.determineTargetAudience(
-					fleschKincaidGrade,
-					comprehensionDifficulty
-				);
-				const fullMetrics = {
-					fleschReadingEase,
-					fleschKincaidGrade,
-					smogIndex,
-					colemanLiauIndex,
-					automatedReadabilityIndex,
-					gunningFogIndex,
-					linsearWriteFormula,
-					textStandard,
-					syllableCount,
-					lexiconCount,
-					sentenceCount,
-					characterCount,
-					averageSentenceLength,
-					averageWordsPerSentence: averageSentenceLength,
-					averageSyllablesPerWord,
-					averageLettersPerWord,
-					difficultWords,
-					daleChallReadabilityScore: 0,
-					gunningFog: gunningFogIndex,
-					readingTimeMinutes,
-					readingLevel,
-					comprehensionDifficulty,
-					targetAudience,
-					recommendations: [],
-				};
-				const recommendations = this.generateRecommendations(fullMetrics);
-
-				return {
-					fleschReadingEase,
-					fleschKincaidGrade,
-					smogIndex,
-					colemanLiauIndex,
-					automatedReadabilityIndex,
-					gunningFogIndex,
-					linsearWriteFormula,
-					textStandard,
-					syllableCount,
-					lexiconCount,
-					sentenceCount,
-					characterCount,
-					averageSentenceLength,
-					averageWordsPerSentence: averageSentenceLength,
-					averageSyllablesPerWord,
-					averageLettersPerWord,
-					difficultWords,
-					daleChallReadabilityScore: 0, // Not implemented yet
-					gunningFog: gunningFogIndex,
-					readingTimeMinutes,
-					readingLevel,
-					comprehensionDifficulty,
-					targetAudience,
-					recommendations,
-				};
+			const readability = computeReadability(text);
+			const counts = {
+				syllableCount: readability.syllableCount,
+				lexiconCount: readability.wordCount,
+				sentenceCount: readability.sentenceCount,
+				characterCount,
+				difficultWords: readability.polysyllableCount,
+				readingTimeMinutes: Math.ceil(readability.wordCount / this.readingSpeedWPM),
 			};
-
-			const startTime = performance.now();
-			const result = calculateMetricsSync();
-			const executionTime = performance.now() - startTime;
-
-			logger.debug('Readability calculation completed', {
-				executionTime: formatDuration(executionTime),
-				fleschScore: result.fleschReadingEase,
-			});
-
-			return result;
+			if (readability.wordCount === 0 || readability.sentenceCount === 0)
+				return this.getUnavailableMetrics(text.trim() ? 'no_words' : 'empty_text', counts);
+			const comprehensionDifficulty = this.determineComprehensionDifficulty(
+				readability.fleschEase
+			);
+			const metrics: AvailableReadabilityMetrics = {
+				availability: 'available',
+				...counts,
+				fleschReadingEase: readability.fleschEase,
+				fleschKincaidGrade: readability.fkgl,
+				smogIndex: readability.smogAvailable ? readability.smog : null,
+				smogAvailable: readability.smogAvailable,
+				colemanLiauIndex: readability.colemanLiau,
+				automatedReadabilityIndex: readability.ari,
+				gunningFogIndex: readability.gunningFog,
+				linsearWriteFormula: null,
+				textStandard: this.determineTextStandard(readability.fkgl),
+				averageSentenceLength: readability.wordCount / readability.sentenceCount,
+				averageWordsPerSentence: readability.wordCount / readability.sentenceCount,
+				averageSyllablesPerWord: readability.syllableCount / readability.wordCount,
+				averageLettersPerWord: characterCount / readability.wordCount,
+				daleChallReadabilityScore: readability.daleChall,
+				gunningFog: readability.gunningFog,
+				readingLevel: this.determineReadingLevel(readability.fkgl),
+				comprehensionDifficulty,
+				targetAudience: this.determineTargetAudience(
+					readability.fkgl,
+					comprehensionDifficulty
+				),
+				recommendations: [],
+			};
+			metrics.recommendations = this.generateRecommendations(metrics);
+			return metrics;
 		} catch (error) {
 			logger.error('Failed to calculate readability metrics', { error });
-			return this.getEmptyMetrics();
+			return this.getUnavailableMetrics('analysis_failed', { characterCount });
 		}
 	}
 
 	async calculateMetricsBatch(texts: string[]): Promise<ReadabilityMetrics[]> {
-		try {
-			validateInput(
-				{ texts },
-				{
-					texts: { type: 'array', required: true, minLength: 1, maxLength: 1000 },
-				}
-			);
-
-			// Optimized batch processing function
-			const processBatchOfTexts = async (batch: string[]): Promise<ReadabilityMetrics[]> => {
-				return batch.map((text) => {
-					// Add minimal validation for each text
-					if (!text || text.trim().length === 0) {
-						return this.getEmptyMetrics();
-					}
-					return this.calculateMetrics(text);
-				});
-			};
-
-			const startTime = performance.now();
-			logger.debug('Starting batch readability calculation', {
-				textsCount: texts.length,
-				estimatedTime: formatDuration(texts.length * 50), // Rough estimate
-			});
-
-			const results = await processBatch(texts, processBatchOfTexts, 20);
-			const flatResults = results.flat();
-
-			const executionTime = performance.now() - startTime;
-			logger.debug('Batch readability calculation completed', {
-				textsProcessed: flatResults.length,
-				executionTime: formatDuration(executionTime),
-				averageTimePerText: formatDuration(executionTime / Math.max(texts.length, 1)),
-			});
-
-			return flatResults;
-		} catch (error) {
-			logger.error('Failed to calculate batch metrics', { error });
-			return [];
-		}
+		validateInput(
+			{ texts },
+			{ texts: { type: 'array', required: true, minLength: 1, maxLength: 1000 } }
+		);
+		return processBatch(
+			texts,
+			async (batch) => batch.map((text) => this.calculateMetrics(text)),
+			20
+		);
 	}
 
 	/**
@@ -304,6 +184,17 @@ export class AdvancedReadabilityService {
 	compareReadability(text1: string, text2: string): ComparativeAnalysis {
 		const metrics1 = this.calculateMetrics(text1);
 		const metrics2 = this.calculateMetrics(text2);
+
+		if (metrics1.availability === 'unavailable' || metrics2.availability === 'unavailable')
+			return {
+				text1: metrics1,
+				text2: metrics2,
+				comparison: {
+					easier: 'unavailable',
+					keyDifferences: [],
+					recommendations: [],
+				},
+			};
 
 		const easier = this.determineEasierText(metrics1, metrics2);
 		const keyDifferences = this.identifyKeyDifferences(metrics1, metrics2);
@@ -321,11 +212,13 @@ export class AdvancedReadabilityService {
 	}
 
 	analyzeReadabilityTrends(text: string, segmentCount: number = 10): ReadabilityTrends {
+		if (!Number.isInteger(segmentCount) || segmentCount < 1 || segmentCount > 1000)
+			throw new Error('segmentCount must be an integer from 1 to 1000');
 		const segments = this.splitTextIntoSegments(text, segmentCount);
 		const segmentMetrics = segments.map((segment, index) => {
 			const metrics = this.calculateMetrics(segment);
 			return {
-				position: ((index + 1) / segmentCount) * 100,
+				position: ((index + 1) / segments.length) * 100,
 				fleschScore: metrics.fleschReadingEase,
 				avgSentenceLength: metrics.averageSentenceLength,
 				difficultWords: metrics.difficultWords,
@@ -353,6 +246,7 @@ export class AdvancedReadabilityService {
 			| 'general_public'
 	): ReadabilityRecommendation[] {
 		const metrics = this.calculateMetrics(text);
+		if (metrics.availability === 'unavailable') return [];
 		const targetGradeLevel = this.getTargetGradeLevel(targetAudience);
 		const recommendations: ReadabilityRecommendation[] = [];
 
@@ -376,8 +270,10 @@ export class AdvancedReadabilityService {
 	getContextualReadability(
 		text: string,
 		context: 'academic' | 'business' | 'creative' | 'technical' | 'marketing' | 'educational'
-	): { score: number; contextAppropriateness: string; suggestions: string[] } {
+	): { score: number | null; contextAppropriateness: string; suggestions: string[] } {
 		const metrics = this.calculateMetrics(text);
+		if (metrics.availability === 'unavailable')
+			return { score: null, contextAppropriateness: 'unavailable', suggestions: [] };
 		const contextRanges = this.getContextualRanges(context);
 
 		let score = 0;
@@ -471,7 +367,7 @@ export class AdvancedReadabilityService {
 
 	private determineComprehensionDifficulty(
 		fleschScore: number
-	): ReadabilityMetrics['comprehensionDifficulty'] {
+	): AvailableReadabilityMetrics['comprehensionDifficulty'] {
 		if (fleschScore >= 90) return 'very_easy';
 		if (fleschScore >= 80) return 'easy';
 		if (fleschScore >= 70) return 'fairly_easy';
@@ -483,7 +379,7 @@ export class AdvancedReadabilityService {
 
 	private determineTargetAudience(
 		gradeLevel: number,
-		difficulty: ReadabilityMetrics['comprehensionDifficulty']
+		difficulty: AvailableReadabilityMetrics['comprehensionDifficulty']
 	): string {
 		if (gradeLevel < 6 || difficulty === 'very_easy') {
 			return 'Elementary students, beginning readers';
@@ -498,7 +394,9 @@ export class AdvancedReadabilityService {
 		}
 	}
 
-	private generateRecommendations(metrics: ReadabilityMetrics): ReadabilityRecommendation[] {
+	private generateRecommendations(
+		metrics: AvailableReadabilityMetrics
+	): ReadabilityRecommendation[] {
 		const recommendations: ReadabilityRecommendation[] = [];
 
 		// Sentence length recommendations
@@ -570,43 +468,54 @@ export class AdvancedReadabilityService {
 		return recommendations;
 	}
 
-	private getEmptyMetrics(): ReadabilityMetrics {
+	private getUnavailableMetrics(
+		reason: UnavailableReadabilityMetrics['reason'],
+		counts: Partial<
+			Pick<
+				AvailableReadabilityMetrics,
+				| 'syllableCount'
+				| 'lexiconCount'
+				| 'sentenceCount'
+				| 'characterCount'
+				| 'difficultWords'
+				| 'readingTimeMinutes'
+			>
+		> = {}
+	): UnavailableReadabilityMetrics {
 		return {
-			fleschReadingEase: 0,
-			fleschKincaidGrade: 0,
-			smogIndex: 0,
-			colemanLiauIndex: 0,
-			automatedReadabilityIndex: 0,
-			gunningFogIndex: 0,
-			linsearWriteFormula: 0,
-			textStandard: 'N/A',
-			syllableCount: 0,
-			lexiconCount: 0,
-			sentenceCount: 0,
-			characterCount: 0,
-			averageSentenceLength: 0,
-			averageSyllablesPerWord: 0,
-			averageLettersPerWord: 0,
-			difficultWords: 0,
-			averageWordsPerSentence: 0,
-			daleChallReadabilityScore: 0,
-			gunningFog: 0,
-			readingTimeMinutes: 0,
-			readingLevel: {
-				grade: 0,
-				description: 'Unknown',
-				ageRange: 'N/A',
-				examples: [],
-			},
-			comprehensionDifficulty: 'standard',
-			targetAudience: 'Unknown',
+			availability: 'unavailable',
+			reason,
+			fleschReadingEase: null,
+			fleschKincaidGrade: null,
+			smogIndex: null,
+			smogAvailable: false,
+			colemanLiauIndex: null,
+			automatedReadabilityIndex: null,
+			gunningFogIndex: null,
+			linsearWriteFormula: null,
+			textStandard: 'unavailable',
+			syllableCount: counts.syllableCount ?? null,
+			lexiconCount: counts.lexiconCount ?? null,
+			sentenceCount: counts.sentenceCount ?? null,
+			characterCount: counts.characterCount ?? null,
+			difficultWords: counts.difficultWords ?? null,
+			readingTimeMinutes: counts.readingTimeMinutes ?? null,
+			averageSentenceLength: null,
+			averageSyllablesPerWord: null,
+			averageLettersPerWord: null,
+			averageWordsPerSentence: null,
+			daleChallReadabilityScore: null,
+			gunningFog: null,
+			readingLevel: null,
+			comprehensionDifficulty: 'unavailable',
+			targetAudience: 'unavailable',
 			recommendations: [],
 		};
 	}
 
 	private determineEasierText(
-		metrics1: ReadabilityMetrics,
-		metrics2: ReadabilityMetrics
+		metrics1: AvailableReadabilityMetrics,
+		metrics2: AvailableReadabilityMetrics
 	): 'text1' | 'text2' | 'similar' {
 		const score1 = metrics1.fleschReadingEase;
 		const score2 = metrics2.fleschReadingEase;
@@ -624,8 +533,8 @@ export class AdvancedReadabilityService {
 	 * Identify key differences between two texts
 	 */
 	private identifyKeyDifferences(
-		metrics1: ReadabilityMetrics,
-		metrics2: ReadabilityMetrics
+		metrics1: AvailableReadabilityMetrics,
+		metrics2: AvailableReadabilityMetrics
 	): string[] {
 		const differences: string[] = [];
 
@@ -664,8 +573,8 @@ export class AdvancedReadabilityService {
 	}
 
 	private generateComparativeRecommendations(
-		metrics1: ReadabilityMetrics,
-		metrics2: ReadabilityMetrics
+		metrics1: AvailableReadabilityMetrics,
+		metrics2: AvailableReadabilityMetrics
 	): string[] {
 		const recommendations: string[] = [];
 
@@ -694,26 +603,28 @@ export class AdvancedReadabilityService {
 
 	private splitTextIntoSegments(text: string, segmentCount: number): string[] {
 		const sentences = splitIntoSentences(text);
-		const sentencesPerSegment = Math.ceil(sentences.length / segmentCount);
-		const segments: string[] = [];
-
-		for (let i = 0; i < segmentCount; i++) {
-			const start = i * sentencesPerSegment;
-			const end = Math.min(start + sentencesPerSegment, sentences.length);
-			const segment = `${sentences.slice(start, end).join('. ')}.`;
-			segments.push(segment);
-		}
-
-		return segments;
+		const count = Math.min(sentences.length, segmentCount);
+		return Array.from({ length: count }, (_, index) =>
+			sentences
+				.slice(
+					Math.floor((index * sentences.length) / count),
+					Math.floor(((index + 1) * sentences.length) / count)
+				)
+				.join(' ')
+		);
 	}
 
 	private determineTrend(
 		segments: ReadabilityTrends['segments']
 	): ReadabilityTrends['overallTrend'] {
-		if (segments.length < 3) return 'stable';
+		const measured = segments.filter(
+			(segment): segment is typeof segment & { fleschScore: number } =>
+				segment.fleschScore !== null
+		);
+		if (measured.length !== segments.length || measured.length < 3) return 'unavailable';
 
-		const firstThird = segments.slice(0, Math.floor(segments.length / 3));
-		const lastThird = segments.slice(-Math.floor(segments.length / 3));
+		const firstThird = measured.slice(0, Math.floor(measured.length / 3));
+		const lastThird = measured.slice(-Math.floor(measured.length / 3));
 
 		const firstAvg = firstThird.reduce((sum, s) => sum + s.fleschScore, 0) / firstThird.length;
 		const lastAvg = lastThird.reduce((sum, s) => sum + s.fleschScore, 0) / lastThird.length;
@@ -729,13 +640,15 @@ export class AdvancedReadabilityService {
 	 * Identify problematic sections with low readability
 	 */
 	private identifyProblematicSections(segments: ReadabilityTrends['segments']): number[] {
-		const averageScore = segments.reduce((sum, s) => sum + s.fleschScore, 0) / segments.length;
+		const measured = segments.flatMap((segment, index) =>
+			segment.fleschScore === null ? [] : [{ index, score: segment.fleschScore }]
+		);
+		if (measured.length < 2) return [];
+		const averageScore =
+			measured.reduce((sum, segment) => sum + segment.score, 0) / measured.length;
 		const threshold = averageScore - 10; // 10 points below average
 
-		return segments
-			.map((segment, index) => ({ index, score: segment.fleschScore }))
-			.filter((s) => s.score < threshold)
-			.map((s) => s.index + 1); // Convert to 1-based indexing
+		return measured.filter((s) => s.score < threshold).map((s) => s.index + 1); // Convert to 1-based indexing
 	}
 
 	private getTargetGradeLevel(audience: string): number {
@@ -751,7 +664,7 @@ export class AdvancedReadabilityService {
 	}
 
 	private getAudienceSpecificSuggestions(
-		metrics: ReadabilityMetrics,
+		metrics: AvailableReadabilityMetrics,
 		audience: string
 	): ReadabilityRecommendation[] {
 		const suggestions: ReadabilityRecommendation[] = [];
@@ -876,129 +789,6 @@ export class AdvancedReadabilityService {
 			minFlesch: selected.minFlesch,
 			maxFlesch: selected.maxFlesch,
 		};
-	}
-
-	/**
-	 * Manual text analysis methods
-	 */
-	private countSentences(text: string): string[] {
-		return splitIntoSentences(text);
-	}
-
-	private countWords(text: string): string[] {
-		return text
-			.toLowerCase()
-			.replace(/[^\w\s]/g, ' ')
-			.split(/\s+/)
-			.filter((w) => w.length > 0);
-	}
-
-	private countSyllables(text: string): number {
-		const words = this.countWords(text);
-		return words.reduce((total, word) => total + this.syllablesInWord(word), 0);
-	}
-
-	private syllablesInWord(word: string): number {
-		word = word.toLowerCase();
-		let count = 0;
-		let previousWasVowel = false;
-
-		for (let i = 0; i < word.length; i++) {
-			const isVowel = /[aeiou]/.test(word[i]);
-			if (isVowel && !previousWasVowel) {
-				count++;
-			}
-			previousWasVowel = isVowel;
-		}
-
-		// Adjust for silent e
-		if (word.endsWith('e') && count > 1) {
-			count--;
-		}
-
-		return Math.max(1, count);
-	}
-
-	private countCharacters(text: string, includeSpaces: boolean = false): number {
-		return includeSpaces ? text.length : text.replace(/\s/g, '').length;
-	}
-
-	private countDifficultWords(text: string): number {
-		const words = this.countWords(text);
-		return words.filter((word) => {
-			// Words with 3+ syllables are considered difficult
-			return this.syllablesInWord(word) >= 3;
-		}).length;
-	}
-
-	private countComplexWords(text: string): number {
-		return this.countDifficultWords(text);
-	}
-
-	private calculateFleschReadingEase(
-		avgSentenceLength: number,
-		avgSyllablesPerWord: number
-	): number {
-		return 206.8348 - 1.015 * avgSentenceLength - 84.6 * avgSyllablesPerWord;
-	}
-
-	private calculateFleschKincaidGrade(
-		avgSentenceLength: number,
-		avgSyllablesPerWord: number
-	): number {
-		return 0.39 * avgSentenceLength + 11.8 * avgSyllablesPerWord - 15.59;
-	}
-
-	private calculateSmogIndex(sentenceCount: number, complexWords: number): number {
-		if (sentenceCount < 3) return 0;
-		return 1.043 * Math.sqrt(complexWords * (30 / sentenceCount)) + 3.1291;
-	}
-
-	private calculateColemanLiauIndex(
-		characters: number,
-		words: number,
-		sentences: number
-	): number {
-		const L = (characters / words) * 100;
-		const S = (sentences / words) * 100;
-		return 0.0588 * L - 0.296 * S - 15.8;
-	}
-
-	private calculateAutomatedReadabilityIndex(
-		characters: number,
-		words: number,
-		sentences: number
-	): number {
-		return 4.71 * (characters / words) + 0.5 * (words / sentences) - 21.43;
-	}
-
-	private calculateGunningFogIndex(
-		avgSentenceLength: number,
-		complexWords: number,
-		totalWords: number
-	): number {
-		const complexWordPercentage = (complexWords / totalWords) * 100;
-		return 0.4 * (avgSentenceLength + complexWordPercentage);
-	}
-
-	private calculateLinsearWriteFormula(text: string): number {
-		const words = this.countWords(text);
-		const sentences = this.countSentences(text);
-
-		let easyWords = 0;
-		let difficultWords = 0;
-
-		words.forEach((word) => {
-			if (this.syllablesInWord(word) < 3) {
-				easyWords++;
-			} else {
-				difficultWords++;
-			}
-		});
-
-		const score =
-			(100 - (difficultWords / words.length) * 100 + easyWords / sentences.length) / 2;
-		return score > 20 ? score / 2 : (score - 2) / 2;
 	}
 
 	private determineTextStandard(gradeLevel: number): string {

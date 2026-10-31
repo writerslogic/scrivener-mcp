@@ -1,8 +1,13 @@
 import { CompilationService } from '../services/compilation-service.js';
 import type { RTFContent } from '../services/parsers/rtf-handler.js';
 import { getAccurateWordCount } from '../utils/text-metrics.js';
-import { AICompilationService } from '../services/compilation/ai-compiler.js';
+import {
+	AICompilationService,
+	MAX_COMPILATION_AI_SOURCE,
+} from '../services/compilation/ai-compiler.js';
+import { analysisDigest, analysisEnvelope } from '../services/editorial/analysis-envelope.js';
 import type { ExportOptions } from '../types/index.js';
+import type { SourceDocument } from '../services/editorial/types.js';
 import { validateInput } from '../utils/common.js';
 import { compact, formatPayload } from '../core/response-formatter.js';
 import { getLogger } from '../core/logger.js';
@@ -14,19 +19,135 @@ import {
 	getStringArg,
 	requireProject,
 } from './types.js';
-import { SHARED_DEFS } from './shared-schemas.js';
+import {
+	ANALYSIS_ENVELOPE_SCHEMA,
+	RESULT_REFERENCE_SCHEMA,
+	SHARED_DEFS,
+} from './shared-schemas.js';
 import { compileSchema, exportSchema } from './validation-schemas.js';
 
 const logger = getLogger('compilation-handlers');
 
-function formatCompileResult(text: string, sectionCount: number, format: string): HandlerResult {
+const documentScopeSchema = {
+	type: 'array',
+	items: { type: 'string', minLength: 1, maxLength: 128, pattern: '\\S' },
+	minItems: 1,
+	maxItems: 5000,
+	uniqueItems: true,
+};
+
+function documentScope(value: unknown): string[] | undefined {
+	if (value === undefined) return undefined;
+	if (
+		!Array.isArray(value) ||
+		!value.length ||
+		value.length > 5000 ||
+		[...value].some((id) => typeof id !== 'string' || !id.trim() || id.length > 128) ||
+		new Set(value).size !== value.length
+	)
+		throw new Error('Document scope requires 1–5000 unique document IDs of 1–128 characters');
+	return [...value];
+}
+
+const compilationAnalysisSchema = {
+	type: 'object',
+	additionalProperties: false,
+	properties: {
+		envelope: ANALYSIS_ENVELOPE_SCHEMA,
+		metadata: {
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				format: { type: 'string' },
+				wordCount: { type: 'integer', minimum: 0 },
+				optimizations: { type: 'array', items: { type: 'string' } },
+				warnings: { type: 'array', items: { type: 'string' } },
+				targetAudience: { type: 'string' },
+				compiledAt: { type: 'string' },
+				processingTime: { type: 'number', minimum: 0 },
+			},
+			required: [
+				'format',
+				'wordCount',
+				'optimizations',
+				'warnings',
+				'targetAudience',
+				'compiledAt',
+			],
+		},
+		quality: {
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				score: {
+					type: ['number', 'null'],
+					minimum: 0,
+					maximum: 1,
+					description:
+						'Provider opinion for the covered excerpt; not a calibrated manuscript-quality measurement.',
+				},
+				suggestions: { type: ['array', 'null'], items: { type: 'string' } },
+				issues: { type: ['array', 'null'], items: { type: 'string' } },
+				availability: { enum: ['available', 'partial', 'unavailable'] },
+				unavailableFields: {
+					type: 'array',
+					items: { enum: ['score', 'suggestions', 'issues'] },
+					uniqueItems: true,
+				},
+				partialFields: {
+					type: 'array',
+					items: { enum: ['suggestions', 'issues'] },
+					uniqueItems: true,
+				},
+				reason: { enum: ['provider_failed', 'invalid_response', 'no_text'] },
+				coverage: {
+					type: 'object',
+					additionalProperties: false,
+					properties: {
+						start: { const: 0 },
+						end: { type: 'integer', minimum: 0, maximum: 4000 },
+						sourceCharacters: { type: 'integer', minimum: 0 },
+						sourceRevision: {
+							type: 'string',
+							description:
+								'SHA-256 of the complete compiled plain text assessed, including any provider revisions.',
+							pattern: '^[a-f0-9]{64}$',
+						},
+						truncated: { type: 'boolean' },
+					},
+					required: ['start', 'end', 'sourceCharacters', 'sourceRevision', 'truncated'],
+				},
+			},
+			required: [
+				'score',
+				'suggestions',
+				'issues',
+				'availability',
+				'unavailableFields',
+				'partialFields',
+				'coverage',
+			],
+		},
+	},
+	required: ['metadata', 'quality', 'envelope'],
+};
+
+function formatCompileResult(
+	text: string,
+	sectionCount: number,
+	format: string,
+	analysis?: Record<string, unknown>
+): HandlerResult {
 	const charCount = text.length;
 	const wordCount = getAccurateWordCount(text);
+	const ai = analysis ? JSON.parse(formatPayload(analysis, 'compiled-analysis')) : undefined;
+	const analysisContent = ai ? [{ type: 'text', text: compact({ ai }) }] : [];
 
 	if (charCount <= 4000) {
 		return {
-			content: [{ type: 'text', text }],
+			content: [{ type: 'text', text }, ...analysisContent],
 			structuredContent: {
+				...(ai ? { ai } : {}),
 				format,
 				text,
 				wordCount,
@@ -51,8 +172,10 @@ function formatCompileResult(text: string, sectionCount: number, format: string)
 					hint: ref._hint,
 				}),
 			},
+			...analysisContent,
 		],
 		structuredContent: {
+			...(ai ? { ai } : {}),
 			format,
 			file: ref._file,
 			resultId: ref._ref,
@@ -71,13 +194,13 @@ export const compileDocumentsHandler: ToolDefinition = {
 		"Compile the project's documents into a single continuous manuscript in the requested format " +
 		'and return the compiled text (large results include a resultId for read_result). In "standard" ' +
 		'mode it joins documents in binder order; in "intelligent" mode it uses AI to optimize the ' +
-		'output for a specific target such as an agent query or synopsis. To write a manuscript to ' +
+		'output for a specific target such as an agent query or synopsis. AI rewrites require the complete source to fit 12000 UTF-16 characters; otherwise the complete original is preserved with warnings. Provider quality assessments cover at most 4000 characters and declare unavailable fields. Intelligent results include saved revisions and reject source changes during generation. To write a manuscript to ' +
 		'disk in a publishing format (EPUB, etc.) use export_project instead. Requires an open project.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: false,
+		idempotentHint: false,
+		openWorldHint: true,
 	},
 	inputSchema: {
 		type: 'object',
@@ -104,7 +227,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 					'text documents.',
 			},
 			documentIds: {
-				...SHARED_DEFS.documentIds,
+				...documentScopeSchema,
 				description:
 					'Optional explicit list of document ids to compile, in order. Overrides rootFolderId ' +
 					'when provided; most useful with mode "intelligent".',
@@ -170,6 +293,7 @@ export const compileDocumentsHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			ai: { oneOf: [compilationAnalysisSchema, RESULT_REFERENCE_SCHEMA] },
 			format: {
 				type: 'string',
 				description: 'Format the manuscript was compiled to (text, markdown, or html).',
@@ -218,7 +342,11 @@ export const compileDocumentsHandler: ToolDefinition = {
 		const includeSynopsis = (args.includeSynopsis as boolean) || false;
 		const includeNotes = (args.includeNotes as boolean) || false;
 		const hierarchical = (args.hierarchical as boolean) || false;
-		const explicitIds = args.documentIds as string[] | undefined;
+		const explicitIds = documentScope(args.documentIds);
+		if (!['standard', 'structured', 'intelligent'].includes(mode))
+			throw new Error('Unsupported compilation mode');
+		if (!['text', 'markdown', 'html'].includes(format))
+			throw new Error('Unsupported compilation format');
 
 		// Resolve the set of documents to compile.
 		const toEntry = (doc: {
@@ -232,38 +360,28 @@ export const compileDocumentsHandler: ToolDefinition = {
 			synopsis: doc.synopsis,
 			notes: doc.notes,
 		});
-		let documentsToCompile: Array<{
-			id: string;
-			content?: RTFContent;
-			title: string;
-			synopsis?: string;
-			notes?: string;
-		}>;
 		const rootFolderId = getOptionalStringArg(args, 'rootFolderId');
 		if (rootFolderId && explicitIds?.length)
 			throw new Error('Choose documentIds or rootFolderId, not both');
-		if (explicitIds && explicitIds.length > 0) {
-			const byId = new Map((await project.getAllDocuments()).map((d) => [d.id, d]));
-			if (
-				new Set(explicitIds).size !== explicitIds.length ||
-				explicitIds.some((id) => byId.get(id)?.type !== 'Text')
-			)
-				throw new Error(
-					'Compilation scope contains duplicate, missing or non-text document IDs'
-				);
-			documentsToCompile = explicitIds
-				.map((id) => byId.get(id))
-				.filter((d): d is NonNullable<typeof d> => !!d)
-				.map(toEntry);
-		} else if (rootFolderId) {
-			documentsToCompile = (await project.getDocumentsUnderFolder(rootFolderId))
-				.filter((doc) => doc.type === 'Text')
-				.map(toEntry);
-		} else {
-			documentsToCompile = (await project.getAllDocuments())
-				.filter((doc) => doc.type === 'Text')
-				.map(toEntry);
-		}
+		const readScope = async () => {
+			if (explicitIds) {
+				const byId = new Map((await project.getAllDocuments()).map((d) => [d.id, d]));
+				if (explicitIds.some((id) => byId.get(id)?.type !== 'Text'))
+					throw new Error(
+						'Compilation scope contains duplicate, missing or non-text document IDs'
+					);
+				return explicitIds.map((id) => toEntry(byId.get(id)!));
+			} else if (rootFolderId) {
+				return (await project.getDocumentsUnderFolder(rootFolderId))
+					.filter((doc) => doc.type === 'Text')
+					.map(toEntry);
+			} else {
+				return (await project.getAllDocuments())
+					.filter((doc) => doc.type === 'Text')
+					.map(toEntry);
+			}
+		};
+		const documentsToCompile = await readScope();
 
 		// A filter that matches nothing is an error, not an empty success: an empty
 		// manuscript previously masked bugs where the documents were never found.
@@ -295,9 +413,15 @@ export const compileDocumentsHandler: ToolDefinition = {
 			return formatCompileResult(text, documentsToCompile.length, format);
 		}
 
+		const source = mode === 'intelligent' ? project.getEditorialServices().source : undefined;
+		const sourceRevisions: Array<{ documentId: string; revision: string }> = [];
 		const hydrated: Array<{ id: string; content: RTFContent; title: string }> = [];
 		for (const document of documentsToCompile) {
-			const content = await project.readDocumentFormatted(document.id);
+			const saved = source
+				? await project.readDocumentFormattedVersion(document.id)
+				: undefined;
+			const content = saved?.content ?? (await project.readDocumentFormatted(document.id));
+			if (saved) sourceRevisions.push({ documentId: document.id, revision: saved.revision });
 			hydrated.push({
 				...document,
 				content: {
@@ -314,15 +438,17 @@ export const compileDocumentsHandler: ToolDefinition = {
 		if (mode === 'intelligent') {
 			const targetOptimization =
 				getOptionalStringArg(args, 'targetOptimization') || 'general';
-			const targetMap: Record<string, string> = {
+			const targetMap: Record<string, string | undefined> = {
 				agent: 'agent-query',
 				query_letter: 'agent-query',
 				submission: 'submission',
 				pitch_packet: 'pitch-packet',
 				synopsis: 'synopsis',
-				general: 'general',
+				general: undefined,
 			};
 			const target = targetMap[targetOptimization];
+			if (!Object.prototype.hasOwnProperty.call(targetMap, targetOptimization))
+				throw new Error('Unsupported compilation target');
 			try {
 				const aiCompiler = new AICompilationService();
 				await aiCompiler.initialize();
@@ -332,7 +458,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 					outputFormat: format,
 					includeSynopsis,
 					includeNotes,
-					targetOptimization,
 					target: target as
 						| 'agent-query'
 						| 'submission'
@@ -340,8 +465,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 						| 'publication'
 						| 'pitch-packet'
 						| 'synopsis',
-					intelligentFormatting: true,
-					generateMarketingMaterials: targetOptimization !== 'general',
 					enhanceContent: true,
 					optimizeForTarget: !!target,
 					preferenceDirective,
@@ -351,17 +474,40 @@ export const compileDocumentsHandler: ToolDefinition = {
 					typeof compiled.content === 'string'
 						? compiled.content
 						: JSON.stringify(compiled.content);
-				return formatCompileResult(text, documentsToCompile.length, format);
-			} catch (error) {
-				logger.error('Intelligent compilation failed', {
-					error: (error as Error).message,
+				for (const saved of sourceRevisions)
+					if ((await source!.read(saved.documentId)).revision !== saved.revision)
+						throw new Error('Saved source changed during intelligent compilation');
+				if (analysisDigest(documentsToCompile) !== analysisDigest(await readScope()))
+					throw new Error('Saved binder metadata changed during intelligent compilation');
+				const envelope = analysisEnvelope(
+					source!.projectId,
+					'manuscript',
+					sourceRevisions,
+					{},
+					'provider',
+					{
+						operation: 'compile_documents',
+						format,
+						targetOptimization,
+						includeSynopsis,
+						includeNotes,
+						metadata: documentsToCompile,
+					}
+				);
+				envelope.policy.revisionChecked = true;
+				return formatCompileResult(text, documentsToCompile.length, format, {
+					metadata: compiled.metadata,
+					quality: compiled.quality,
+					envelope,
 				});
+			} catch {
+				logger.error('Intelligent compilation failed or its saved source changed');
 				return {
 					isError: true,
 					content: [
 						{
 							type: 'text',
-							text: 'Intelligent compilation failed; details are in the server logs. Try standard mode or check document content.',
+							text: 'Intelligent compilation failed or its saved source changed. Retry with the current source or use standard mode.',
 						},
 					],
 				};
@@ -616,17 +762,18 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 	description:
 		'Generate a publishing/marketing artifact from the manuscript — a synopsis, query letter, ' +
 		'pitch packet, elevator pitch, or book blurb — using the project content as context, and ' +
-		'return the generated text. Use this for submission and pitching materials; use ' +
+		'return the generated text with saved-source revisions. Defaults to the Draft manuscript; documentIds selects a smaller scope. The complete source must fit 12000 UTF-16 characters including separators; larger scopes fail before generation. Saved revisions and the default manuscript scope are rechecked after generation. Large results include a read_result reference. Use ' +
 		'compile_documents to assemble the manuscript itself. Requires an open project with text ' +
 		'content. Each call regenerates fresh output (not idempotent).',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
 		idempotentHint: false,
-		openWorldHint: false,
+		openWorldHint: true,
 	},
 	inputSchema: {
 		type: 'object',
+		additionalProperties: false,
 		properties: {
 			materialType: {
 				type: 'string',
@@ -641,61 +788,162 @@ export const generateMarketingMaterialsHandler: ToolDefinition = {
 			},
 			targetAudience: {
 				type: 'string',
+				maxLength: 2000,
 				description:
 					'Optional description of the intended audience or market (e.g. "YA fantasy readers").',
+			},
+			documentIds: {
+				...documentScopeSchema,
+				description:
+					'Optional explicit saved-text document IDs in source order; defaults to the Draft manuscript.',
 			},
 		},
 		required: ['materialType'],
 	},
+	outputSchema: {
+		type: 'object',
+		properties: {},
+		oneOf: [
+			{
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					content: { type: 'string' },
+					materialType: {
+						enum: [
+							'synopsis',
+							'query_letter',
+							'pitch_packet',
+							'elevator_pitch',
+							'book_blurb',
+						],
+					},
+					processingTime: { type: 'number', minimum: 0 },
+					coverage: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							sourceCharacters: {
+								type: 'integer',
+								minimum: 1,
+								maximum: MAX_COMPILATION_AI_SOURCE,
+							},
+							truncated: { const: false },
+						},
+						required: ['sourceCharacters', 'truncated'],
+					},
+					envelope: ANALYSIS_ENVELOPE_SCHEMA,
+				},
+				required: ['content', 'materialType', 'processingTime', 'coverage', 'envelope'],
+			},
+			RESULT_REFERENCE_SCHEMA,
+		],
+	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
 		const materialType = getStringArg(args, 'materialType');
-		const lengthStr = (args.length as string) || 'medium';
-		const length = lengthStr === 'short' ? 500 : lengthStr === 'long' ? 2000 : 1000; // medium = 1000
-		const targetAudience = args.targetAudience as string;
+		const lengthStr = args.length ?? 'medium';
+		if (
+			!['synopsis', 'query_letter', 'pitch_packet', 'elevator_pitch', 'book_blurb'].includes(
+				materialType
+			)
+		)
+			throw new Error('Unsupported marketing material type');
+		if (typeof lengthStr !== 'string' || !['short', 'medium', 'long'].includes(lengthStr))
+			throw new Error('Marketing length must be short, medium or long');
+		const length = lengthStr === 'short' ? 500 : lengthStr === 'long' ? 2000 : 1000;
+		const targetAudience = args.targetAudience;
+		if (
+			targetAudience !== undefined &&
+			(typeof targetAudience !== 'string' || targetAudience.length > 2000)
+		)
+			throw new Error('Target audience must contain at most 2000 characters');
+		if (
+			Object.keys(args).some(
+				(key) => !['materialType', 'length', 'targetAudience', 'documentIds'].includes(key)
+			)
+		)
+			throw new Error('Unsupported marketing argument');
+		const ids = documentScope(args.documentIds);
+		const source = project.getEditorialServices().source;
+		const saved: SourceDocument[] = [];
+		if (ids) {
+			for (const id of ids) saved.push(await source.read(id));
+		} else saved.push(...(await source.list()));
+		let sourceCharacters = 0;
+		for (const document of saved) {
+			sourceCharacters += (sourceCharacters ? 2 : 0) + document.text.length;
+			if (sourceCharacters > MAX_COMPILATION_AI_SOURCE)
+				throw new Error(
+					'Marketing source exceeds 12000 UTF-16 characters; select a smaller documentIds scope'
+				);
+		}
+		if (!saved.some((document) => document.text.trim()))
+			throw new Error('Marketing generation requires nonempty saved text');
 
 		try {
-			// Get all project documents for context
-			const documents = await project.getAllDocuments();
-			const textDocuments = documents
-				.filter((doc) => doc.type === 'Text' && doc.content)
-				.map((doc) => ({ id: doc.id, content: doc.content || '', title: doc.title || '' }));
-
-			if (textDocuments.length === 0) {
-				throw new Error('No text documents found in project');
-			}
-
-			// Initialize AI compilation service
 			const aiCompiler = new AICompilationService();
 			await aiCompiler.initialize();
-
-			// Generate marketing materials
 			const preferenceDirective = await getPersonalization(context).buildDirective();
-			const result = await aiCompiler.generateMarketingMaterials(textDocuments, {
-				materialType,
-				length,
-				targetAudience,
-				includeGenreAnalysis: true,
-				preferenceDirective,
-			});
-
+			const result = await aiCompiler.generateMarketingMaterials(
+				saved.map((document) => ({
+					id: document.documentId,
+					title: document.title,
+					content: document.text,
+				})),
+				{
+					materialType,
+					length,
+					targetAudience,
+					preferenceDirective,
+				}
+			);
+			const revisions = (documents: SourceDocument[]) =>
+				documents.map(({ documentId, revision }) => ({ documentId, revision }));
+			if (ids) {
+				for (const document of saved)
+					if ((await source.read(document.documentId)).revision !== document.revision)
+						throw new Error('Saved source changed during marketing generation');
+			} else if (
+				analysisDigest(revisions(saved)) !== analysisDigest(revisions(await source.list()))
+			)
+				throw new Error('Saved manuscript changed during marketing generation');
+			const envelope = analysisEnvelope(
+				source.projectId,
+				'manuscript',
+				saved,
+				{},
+				'provider',
+				{
+					operation: 'generate_marketing_materials',
+					materialType,
+					length,
+					targetAudience,
+				}
+			);
+			envelope.policy.revisionChecked = true;
+			const text = formatPayload(
+				{
+					content: result.content,
+					processingTime: result.processingTime,
+					materialType,
+					coverage: { sourceCharacters: result.sourceCharacters, truncated: false },
+					envelope,
+				},
+				'marketing'
+			);
 			return {
-				content: [
-					{
-						type: 'text',
-						text: result.content,
-					},
-				],
+				content: [{ type: 'text', text }],
+				structuredContent: JSON.parse(text),
 			};
-		} catch (error) {
-			logger.error('Marketing material generation failed', {
-				error: (error as Error).message,
-			});
+		} catch {
+			logger.error('Marketing generation failed or its saved source changed');
 			return {
+				isError: true,
 				content: [
 					{
 						type: 'text',
-						text: 'Marketing material generation failed; details are in the server logs.',
+						text: 'Marketing generation failed or its saved source changed. Retry with the current source and an available provider.',
 					},
 				],
 			};

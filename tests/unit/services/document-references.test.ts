@@ -35,6 +35,61 @@ const DOCS: DocumentText[] = [
 ];
 
 describe('findEntityMentions', () => {
+	it.each([99, 100, 101])(
+		'retains all %i source offsets instead of silently capping a mention list',
+		(count) => {
+			const content = 'Mara '.repeat(count);
+			const [mention] = findEntityMentions({ id: 'scene', title: 'Scene', content }, [
+				{ id: 'mara', name: 'Mara', type: 'character' },
+			]);
+			expect(mention.count).toBe(count);
+			expect(mention.positions).toEqual(
+				Array.from({ length: count }, (_, index) => index * 5)
+			);
+		}
+	);
+	it.each([999999, 1000000, 1000001])(
+		'enforces the total evidence position budget at %i matches',
+		(count) => {
+			const analyze = () =>
+				buildReferenceIndex(
+					[{ id: 'scene', title: 'Scene', content: 'A '.repeat(count) }],
+					[{ id: 'a', name: 'A', type: 'character' }]
+				);
+			if (count > 1000000) expect(analyze).toThrow('1000000 source positions');
+			else expect(analyze()[0].mentions[0].positions).toHaveLength(count);
+		}
+	);
+	it('rejects oversized mention evidence before returning an incomplete index', () => {
+		const entities: RegistryEntity[] = Array.from({ length: 256 }, (_, index) => ({
+			id: `entity-${index}`,
+			name: `Name${index} ${'x'.repeat(1990)}`,
+			type: 'character',
+			aliases: ['A'],
+		}));
+		const docs = Array.from({ length: 40 }, (_, index) => ({
+			id: `scene-${index}`,
+			title: 'Scene',
+			content: 'A',
+		}));
+		expect(() => buildReferenceIndex(docs, entities)).toThrow('16 MiB of mention evidence');
+	});
+	it('matches accented and non-Latin names at Unicode boundaries with exact UTF-16 offsets', () => {
+		const content =
+			'🌙 Élodie met 李雷. PréÉlodie and 李雷子 are different names. ÉLODIE waved.';
+		const mentions = findEntityMentions({ id: 'unicode', title: 'Names', content }, [
+			{ id: 'elodie', name: 'Élodie', type: 'character' },
+			{ id: 'li', name: '李雷', type: 'character' },
+		]);
+		expect(mentions).toMatchObject([
+			{
+				entityId: 'elodie',
+				count: 2,
+				positions: [content.indexOf('Élodie'), content.indexOf('ÉLODIE')],
+			},
+			{ entityId: 'li', count: 1, positions: [content.indexOf('李雷')] },
+		]);
+	});
 	it('counts whole-word, case-insensitive matches and records positions', () => {
 		const mentions = findEntityMentions(DOCS[0], ENTITIES);
 		const elena = mentions.find((m) => m.entityId === 'c1');
@@ -83,17 +138,17 @@ describe('documentsReferencing', () => {
 	const index = buildReferenceIndex(DOCS, ENTITIES);
 
 	it('finds documents by entity name (case-insensitive), ranked by count', () => {
-		const docs = documentsReferencing(index, 'thornfield manor');
+		const docs = documentsReferencing(index, 'thornfield manor', ENTITIES);
 		expect(docs.map((d) => d.documentId)).toEqual(['d1', 'd2']);
 	});
 
 	it('finds documents by entity id', () => {
-		const docs = documentsReferencing(index, 'c1');
+		const docs = documentsReferencing(index, 'c1', ENTITIES);
 		expect(docs).toEqual([{ documentId: 'd1', title: 'Chapter 1', count: 3 }]);
 	});
 
 	it('returns empty for an unknown entity', () => {
-		expect(documentsReferencing(index, 'Nobody')).toEqual([]);
+		expect(documentsReferencing(index, 'Nobody', ENTITIES)).toEqual([]);
 	});
 });
 
@@ -109,6 +164,30 @@ describe('orphanedEntities', () => {
 });
 
 describe('suggestConnections', () => {
+	it('counts distinct registry identities even when their display names coincide', () => {
+		const entities: RegistryEntity[] = [
+			{ id: 'character', name: 'Jordan', type: 'character' },
+			{ id: 'location', name: 'Jordan', type: 'location' },
+			{ id: 'candidate', name: 'Mara', type: 'character' },
+		];
+		const index = buildReferenceIndex(
+			[
+				{ id: 'own', title: 'Own', content: 'Jordan.' },
+				{ id: 'other', title: 'Other', content: 'Jordan and Mara.' },
+			],
+			entities
+		);
+		expect(suggestConnections(index, 'own')).toEqual([
+			{
+				entityId: 'candidate',
+				entityName: 'Mara',
+				type: 'character',
+				coOccurrences: 2,
+				relatedTo: ['Jordan', 'Jordan'],
+			},
+		]);
+	});
+
 	it('suggests entities that co-occur elsewhere with a document’s cast', () => {
 		// Build a graph where Elena and Marcus co-occur, and Marcus co-occurs with
 		// Thornfield Manor — so a doc with only Elena should be nudged toward both.

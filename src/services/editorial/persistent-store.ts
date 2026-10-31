@@ -84,9 +84,34 @@ export class PersistentStore {
 		return row ? (JSON.parse(row.value) as T) : undefined;
 	}
 
-	list<T>(namespace: string): T[] {
+	list<T>(namespace: string, limits?: { maxItems: number; maxBytes: number }): T[] {
+		if (limits) {
+			if (
+				![limits.maxItems, limits.maxBytes].every(
+					(value) => Number.isSafeInteger(value) && value > 0
+				)
+			)
+				throw new Error('State list bounds must be positive safe integers');
+			return this.transaction(() => {
+				const size = this.db
+					.prepare(
+						'SELECT COUNT(*) AS count, COALESCE(SUM(length(CAST(value AS BLOB))), 0) AS bytes FROM editorial_state WHERE namespace = ?'
+					)
+					.get(namespace) as { count: number; bytes: number };
+				if (size.count > limits.maxItems || size.bytes > limits.maxBytes)
+					throw new Error('Stored state exceeds the bounded read budget');
+				return this.list<T>(namespace);
+			});
+		}
 		const rows = this.statements.list.all(namespace) as Array<{ value: string }>;
 		return rows.map((row) => JSON.parse(row.value) as T);
+	}
+
+	count(namespace: string): number {
+		const row = this.db
+			.prepare('SELECT COUNT(*) AS count FROM editorial_state WHERE namespace = ?')
+			.get(namespace) as { count: number };
+		return row.count;
 	}
 
 	page<T>(

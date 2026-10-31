@@ -121,6 +121,7 @@ The administrator CLI exposes the same validator with separate lists and a suppl
 
 ```sh
 scrivener-c2pa validate --asset /absolute/asset.png --trust-list /absolute/signing.pem --tsa-trust-list /absolute/tsa.pem --time 2026-10-30T00:00:00Z --out /absolute/new-report.json
+scrivener-c2pa validate --asset /absolute/asset.png --trust-list /absolute/signing.pem --tsa-trust-list /absolute/tsa.pem --time 2026-10-30T00:00:00Z --crjson-version 2.4 --out /absolute/new-assessment.json --native-out /absolute/new-native-evidence.json
 scrivener-c2pa keygen --out /absolute/private/new-key.pem
 scrivener-c2pa inspect-key --key /absolute/private/new-key.pem
 scrivener-c2pa reencrypt-key --key /absolute/private/old-key.pem --out /absolute/private/new-key.pem
@@ -131,6 +132,21 @@ Passwords come from `SCRIVENER_C2PA_KEY_PASSWORD`; migration additionally uses
 bounded legacy PBES2/AES256 key and preserves its public identity. It does not renew a certificate.
 Outputs are new files; key commands reject manuscript destinations, including symlink aliases. MCP
 callers cannot override the administrator's trust lists or assessment clock.
+
+Default validation output preserves native SDK crJSON. The explicit `--crjson-version 2.4` export
+validates against the pinned, unmodified [official 2.4 schema](../assets/c2pa-crjson-2.4/README.md)
+and requires both output paths. SDK 0.91.7 includes `isUpdateManifest` and `isCompressedManifest`,
+which that schema forbids. The assessment projection omits those two fields and identifies
+Scrivener MCP as its JSON generator. The native evidence file retains the complete inspection,
+including the flags, original SDK generator, validation failures, source revision and assessment
+time, and records the exact assessment bytes' SHA-256 and length. Schema validity does not change
+the asset's cryptographic status or establish formal conformance.
+
+The assessment is capped at 8 MiB; the complete native evidence file at 16 MiB + 256 KiB, including
+its trailing newline. Unsupported versions, incompatible structures and excess size fail explicitly.
+The native evidence file is published first. If the assessment write fails, the error identifies
+the retained evidence; inspect both destinations and retry with two new paths. Existing files are
+never overwritten, and a successful command requires both writes.
 
 To preserve detached source provenance, pass `sourceManifestPath` when signing the original asset.
 Its revision is checked alongside the asset. Conflicting embedded history is rejected. Invalid

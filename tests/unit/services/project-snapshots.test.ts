@@ -59,6 +59,13 @@ test('reads native metadata and text without opening an editorial database', asy
 	expect((await snapshots.readSnapshot(DOCUMENT, SNAPSHOT)).text).toBe('Snapshot scene. Café 🌙');
 });
 
+test('counts saved acronym words and reports their actual revision delta', async () => {
+	await fs.writeFile(file, new RTFHandler().convertToRTF('F.B.I. U.S.A.'));
+	expect((await snapshots.readSnapshot(DOCUMENT, SNAPSHOT)).wordCount).toBe(2);
+	const result = await snapshots.compareSnapshot(DOCUMENT, SNAPSHOT);
+	expect(result).toMatchObject({ from: { wordCount: 2 }, to: { wordCount: 2 }, wordDelta: 0 });
+});
+
 test('keeps missing metadata and missing snapshots as ordinary absence', async () => {
 	await fs.unlink(index);
 	expect(await snapshots.readSnapshot(DOCUMENT, SNAPSHOT)).toMatchObject({

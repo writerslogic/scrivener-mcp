@@ -10,8 +10,6 @@ import {
 	safeStringify,
 	safeWriteFile,
 } from '../../utils/common.js';
-import { RelationshipEngine } from '../../services/relationship-engine.js';
-import type { HolographicMemorySystem } from '../../services/memory/hhm/holographic-memory-system.js';
 import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';
@@ -22,16 +20,6 @@ import { Neo4jManager } from './neo4j-manager.js';
 
 import { SearchService } from './search-service.js';
 import { SQLiteManager } from './sqlite-manager.js';
-import type {
-	CharacterArcIssue,
-	PacingIssue,
-	PlotHole,
-	StoryRecommendation,
-	TimelineEvent,
-} from './story-intelligence.js';
-import { StoryIntelligence } from './story-intelligence.js';
-import type { ProductivityTrend, WritingPattern } from './writing-analytics.js';
-import { WritingAnalytics } from './writing-analytics.js';
 import type {
 	FeedbackInput,
 	FeedbackRecord,
@@ -78,9 +66,6 @@ export class DatabaseService {
 	private graphAnalytics: GraphAnalytics | null = null;
 	private migrationManager: MigrationManager | null = null;
 	private searchService: SearchService | null = null;
-	private writingAnalytics: WritingAnalytics | null = null;
-	private storyIntelligence: StoryIntelligence | null = null;
-	private relationshipEngine: RelationshipEngine | null = null;
 
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
@@ -101,8 +86,7 @@ export class DatabaseService {
 
 		this.sync = new DatabaseSync(
 			() => this.sqliteManager,
-			() => this.neo4jManager,
-			() => this.relationshipEngine
+			() => this.neo4jManager
 		);
 	}
 
@@ -218,14 +202,6 @@ export class DatabaseService {
 
 		// Initialize search service
 		this.searchService = new SearchService(this.sqliteManager, this.neo4jManager);
-
-		// Initialize analytics services
-		this.writingAnalytics = new WritingAnalytics(this.sqliteManager, this.neo4jManager);
-		this.storyIntelligence = new StoryIntelligence(
-			this.sqliteManager,
-			this.neo4jManager,
-			this.graphAnalytics
-		);
 
 		this.initialized = true;
 	}
@@ -456,8 +432,6 @@ export class DatabaseService {
 		this.migrationManager = null;
 		this.searchService = null;
 		this.graphAnalytics = null;
-		this.writingAnalytics = null;
-		this.storyIntelligence = null;
 		const failures = results.filter(
 			(result): result is PromiseRejectedResult => result.status === 'rejected'
 		);
@@ -548,76 +522,6 @@ export class DatabaseService {
 			throw new AppError('Search service not available', ErrorCode.DATABASE_ERROR);
 		}
 		return this.searchService.search(query, options);
-	}
-
-	getWritingAnalytics(): WritingAnalytics | null {
-		return this.writingAnalytics;
-	}
-
-	getStoryIntelligence(): StoryIntelligence | null {
-		return this.storyIntelligence;
-	}
-
-	setHMS(hms: HolographicMemorySystem): void {
-		this.relationshipEngine = new RelationshipEngine(hms, this.neo4jManager);
-	}
-
-	getRelationshipEngine(): RelationshipEngine | null {
-		return this.relationshipEngine;
-	}
-
-	async getWritingInsights(): Promise<{
-		patterns: WritingPattern;
-		productivity: ProductivityTrend[];
-		recommendations: {
-			immediate: string[];
-			shortTerm: string[];
-			longTerm: string[];
-			exercises: Array<{ title: string; description: string; benefit: string }>;
-		};
-		completion: {
-			currentWords: number;
-			targetWords: number;
-			percentComplete: number;
-			estimatedCompletionDate: string;
-			recommendedDailyWords: number;
-			onTrack: boolean;
-		};
-	}> {
-		if (!this.writingAnalytics) {
-			throw new AppError('Writing analytics not available', ErrorCode.DATABASE_ERROR);
-		}
-
-		const [patterns, productivity, recommendations, completion] = await Promise.all([
-			this.writingAnalytics.analyzeWritingPatterns(),
-			this.writingAnalytics.getProductivityTrends(),
-			this.writingAnalytics.getWritingRecommendations(),
-			this.writingAnalytics.predictProjectCompletion(80000), // Default novel length
-		]);
-
-		return { patterns, productivity, recommendations, completion };
-	}
-
-	async getStoryAnalysis(): Promise<{
-		plotHoles: PlotHole[];
-		characterArcs: CharacterArcIssue[];
-		pacing: PacingIssue[];
-		recommendations: StoryRecommendation[];
-		timeline: TimelineEvent[];
-	}> {
-		if (!this.storyIntelligence) {
-			throw new AppError('Story intelligence not available', ErrorCode.DATABASE_ERROR);
-		}
-
-		const [plotHoles, characterArcs, pacing, recommendations, timeline] = await Promise.all([
-			this.storyIntelligence.detectPlotHoles(),
-			this.storyIntelligence.analyzeCharacterArcs(),
-			this.storyIntelligence.analyzePacing(),
-			this.storyIntelligence.generateRecommendations(),
-			this.storyIntelligence.buildTimeline(),
-		]);
-
-		return { plotHoles, characterArcs, pacing, recommendations, timeline };
 	}
 
 	/**

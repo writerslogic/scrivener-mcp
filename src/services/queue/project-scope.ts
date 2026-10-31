@@ -47,9 +47,19 @@ export function scopeJob(
 	if (!payload || typeof payload !== 'object' || Array.isArray(payload))
 		throw new Error('Queue payload must be an object');
 	const serialized = JSON.stringify(payload);
+	if (serialized === undefined) throw new Error('Queue payload must serialize to an object');
 	if (Buffer.byteLength(serialized) > 64 * 1024 * 1024)
 		throw new Error('Queue payload exceeds 64 MiB');
-	return { version: 1, scopeId: scope.id, projectId: scope.projectId, jobType, payload };
+	const snapshot: unknown = JSON.parse(serialized);
+	if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot))
+		throw new Error('Queue payload must serialize to an object');
+	return {
+		version: 1,
+		scopeId: scope.id,
+		projectId: scope.projectId,
+		jobType,
+		payload: snapshot as Record<string, unknown>,
+	};
 }
 
 export function readScopedJob(
@@ -65,6 +75,9 @@ export function readScopedJob(
 		typeof envelope !== 'object' ||
 		Array.isArray(envelope) ||
 		Object.keys(envelope).length !== 5 ||
+		!['version', 'scopeId', 'projectId', 'jobType', 'payload'].every((key) =>
+			Object.prototype.hasOwnProperty.call(envelope, key)
+		) ||
 		envelope.version !== 1 ||
 		envelope.scopeId !== scope.id ||
 		envelope.projectId !== scope.projectId ||

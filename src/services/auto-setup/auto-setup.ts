@@ -217,8 +217,3 @@ export class AutoSetup {
 		process.exit(result.success ? 0 : 1);
 	}
 }
-
-// CLI execution
-if (require.main === module) {
-	AutoSetup.cli(process.argv.slice(2));
-}

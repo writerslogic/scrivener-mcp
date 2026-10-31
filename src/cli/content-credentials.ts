@@ -3,6 +3,8 @@ import { generateKeyPair, createHash, createPublicKey } from 'node:crypto';
 import { isAbsolute, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 import { validateCredentialAsset } from '../services/content-credentials/service.js';
+import { createCrjsonAssessmentExport } from '../services/content-credentials/crjson-assessment.js';
+import { prepareCrjsonAssessmentFiles } from '../services/content-credentials/crjson-assessment-files.js';
 import {
 	readStableCredentialFile,
 	writeExclusiveCredentialFile,
@@ -16,7 +18,7 @@ import {
 	inspectEncryptedCredentialKey,
 	reencryptCredentialSigningKey,
 } from '../services/content-credentials/key-policy.js';
-import { ApplicationError } from '../core/errors.js';
+import { ApplicationError, createError, ErrorCode } from '../core/errors.js';
 
 const generate = promisify(generateKeyPair);
 
@@ -43,13 +45,15 @@ async function main(): Promise<void> {
 			'tsa-trust-list': { type: 'string' },
 			time: { type: 'string' },
 			out: { type: 'string' },
+			'crjson-version': { type: 'string' },
+			'native-out': { type: 'string' },
 			key: { type: 'string' },
 			help: { type: 'boolean' },
 		},
 	});
 	if (values.help) {
 		process.stdout.write(
-			'scrivener-c2pa validate --asset ABS --trust-list ABS --tsa-trust-list ABS --time RFC3339 [--manifest ABS] [--mime MIME] [--out ABS]\nscrivener-c2pa keygen --out ABS (password from SCRIVENER_C2PA_KEY_PASSWORD)\nscrivener-c2pa inspect-key --key ABS\nscrivener-c2pa reencrypt-key --key ABS --out ABS (old/new passwords from SCRIVENER_C2PA_OLD_KEY_PASSWORD / SCRIVENER_C2PA_KEY_PASSWORD)\n'
+			'scrivener-c2pa validate --asset ABS --trust-list ABS --tsa-trust-list ABS --time RFC3339 [--manifest ABS] [--mime MIME] [--out ABS]\nFor a C2PA 2.4 assessment export, also supply --crjson-version 2.4 --out ABS --native-out ABS (two new files). Default output preserves native SDK crJSON.\nscrivener-c2pa keygen --out ABS (password from SCRIVENER_C2PA_KEY_PASSWORD)\nscrivener-c2pa inspect-key --key ABS\nscrivener-c2pa reencrypt-key --key ABS --out ABS (old/new passwords from SCRIVENER_C2PA_OLD_KEY_PASSWORD / SCRIVENER_C2PA_KEY_PASSWORD)\n'
 		);
 		return;
 	}
@@ -59,6 +63,23 @@ async function main(): Promise<void> {
 	if (command === 'validate') {
 		if (typeof values.time !== 'string' || values.key !== undefined)
 			throw new Error('Validation requires both trust lists and an RFC 3339 time.');
+		const version = values['crjson-version'];
+		const nativeOut = values['native-out'];
+		if (
+			(version !== undefined && version !== '2.4') ||
+			(nativeOut !== undefined && version === undefined) ||
+			(version !== undefined && (!values.out || !nativeOut))
+		)
+			throw createError(
+				ErrorCode.INVALID_INPUT,
+				undefined,
+				'Assessment export requires --crjson-version 2.4, --out and --native-out; both outputs must be new files.'
+			);
+		const outputPath = values.out === undefined ? undefined : local(values.out);
+		const writeAssessment =
+			version === '2.4'
+				? await prepareCrjsonAssessmentFiles(outputPath!, local(nativeOut))
+				: undefined;
 		const result = await validateCredentialAsset(
 			{
 				assetPath: local(values.asset),
@@ -72,11 +93,15 @@ async function main(): Promise<void> {
 				validationTime: values.time,
 			}
 		);
+		if (writeAssessment) {
+			await writeAssessment(createCrjsonAssessmentExport(result, '2.4'));
+			return;
+		}
 		if (!result.crjson) throw new Error('The product did not return crJSON.');
 		const bytes = Buffer.from(`${JSON.stringify(result.crjson, null, 2)}\n`);
 		if (bytes.length > CREDENTIAL_LIMITS.manifestBytes)
 			throw new Error('The crJSON report exceeds its supported bounds.');
-		if (values.out) await writeExclusiveCredentialFile(local(values.out), bytes);
+		if (outputPath) await writeExclusiveCredentialFile(outputPath, bytes);
 		else process.stdout.write(bytes);
 		return;
 	}

@@ -4,8 +4,8 @@ import { splitIntoSentences } from '../../utils/text-metrics.js';
 export interface EmotionalAnalysis {
 	dominantEmotion: string;
 	emotionalArc: { position: number; emotion: string; intensity: number }[];
-	tensionLevel: number; // 0-100
-	moodConsistency: number; // 0-100
+	tensionLevel: number | null; // 0-100
+	moodConsistency: number | null; // 0-100
 }
 
 const logger = getLogger('emotion-analyzer');
@@ -43,7 +43,9 @@ export class EmotionAnalyzer {
 			}
 
 			const dominantEmotion =
-				Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
+				Object.entries(emotionCounts)
+					.filter(([, count]) => count > 0)
+					.sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
 			// Simplified emotional arc for performance
 			const segmentCount = Math.min(5, Math.max(2, Math.floor(content.length / 1000)));
@@ -68,7 +70,7 @@ export class EmotionAnalyzer {
 				dominantEmotion,
 				emotionalArc: emotionalArc.slice(0, 10), // Limit for memory
 				tensionLevel: Math.max(0, tensionLevel),
-				moodConsistency: 75, // Simplified for performance
+				moodConsistency: null,
 			};
 		} catch (error) {
 			logger.warn('Emotion analysis failed, using default', { error });
@@ -194,12 +196,12 @@ export class EmotionAnalyzer {
 		);
 	}
 
-	private getDefaultEmotionalAnalysis(): EmotionalAnalysis {
+	getDefaultEmotionalAnalysis(): EmotionalAnalysis {
 		return {
-			dominantEmotion: 'neutral',
+			dominantEmotion: 'unavailable',
 			emotionalArc: [],
-			tensionLevel: 50,
-			moodConsistency: 75,
+			tensionLevel: null,
+			moodConsistency: null,
 		};
 	}
 }

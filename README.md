@@ -44,7 +44,8 @@ working.
 
 Works with [Claude Desktop](https://claude.ai/download),
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code), VS Code (Copilot/Continue), Cursor,
-and any MCP-compatible client. Scrivener 3 on macOS, Windows, and Linux. Listed on the
+and any MCP-compatible client. Reads Scrivener 3 projects on the
+[supported platforms](#requirements). Listed on the
 [official MCP Registry](https://registry.modelcontextprotocol.io) as
 `io.github.writerslogic/scrivener-mcp`.
 
@@ -78,8 +79,6 @@ Prefer to do it yourself? The `.mcpb` extension (Claude Desktop only) and the te
 do the same job for free.
 
 From a terminal:
-
-Otherwise, from a terminal:
 
 ```bash
 npm install -g scrivener-mcp
@@ -137,9 +136,14 @@ brew install writerslogic/tap/scrivener-mcp
 **Docker**
 
 ```bash
-docker build -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
-docker run -i --rm -v /path/to/your/projects:/projects scrivener-mcp
+docker build --platform linux/amd64 -t scrivener-mcp https://github.com/writerslogic/scrivener-mcp.git
+docker run --platform linux/amd64 -i --rm -v /path/to/your/projects:/projects scrivener-mcp
 ```
+
+The container uses Linux x64 with glibc because the pinned Narrative Lens 0.2.0 package has no Linux
+ARM64 or musl binary. Linux ARM64 and musl hosts can use this Docker configuration; ARM hosts need
+Docker's amd64 emulation. The image runs as the non-root `node` user;
+mounted project directories must permit that user to read and write.
 
 Any other MCP client: point it at `npx scrivener-mcp` as a stdio server.
 
@@ -204,9 +208,9 @@ never appears, within the disclosed English story-concept vocabulary. The instal
 with supplied local concept vectors. Results include exact passages, locations and saved revisions;
 changed passages are replaced incrementally. Provider interpretation and explanations are optional.
 
-**Track relationships.** Query how characters, locations, themes, and plot threads connect. No Neo4j
-required — relationships live in the semantic memory engine and persist with the project; Neo4j adds
-deeper graph analysis if you have it.
+**Track relationships.** Record and query how characters, locations, themes, and plot threads
+connect. Relationships persist in the project's local SQLite state. Discovery proposes unrecorded
+character/location pairs using saved-text co-occurrence with source revisions.
 
 **Compile and export.** Assemble chapters into one manuscript with your own formatting and structure
 preserved. Export inline as Markdown, HTML, or JSON, or write a DOCX, EPUB, or PDF to disk.
@@ -221,7 +225,7 @@ limits.
 
 ## All Tools
 
-80 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
+82 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
 startup, document and search tools once a project is open, the rest on demand. Set
 `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
@@ -283,29 +287,35 @@ startup, document and search tools once a project is open, the rest on demand. S
 
 | Tool                            | What it does                                                                                                                                                             |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `analyze_document`              | AI writing analysis; focus with `aspects` (structure, style, pacing, themes...)                                                                                          |
+| `analyze_document`              | Analyze complete saved text; `analysisTypes` steers provider issues, with explicit broad local fallback and revision checks                                               |
 | `check_consistency`             | Evidence-backed continuity report with source revisions, canon and inferred candidates                                                                                   |
 | `continuity_findings`           | Confirm, dismiss, resolve and recheck evidence-bound continuity findings                                                                                                 |
 | `analyze_writing_style`         | Style-focused analysis                                                                                                                                                   |
 | `check_plot_consistency`        | Plot-thread consistency check                                                                                                                                            |
 | `suggest_improvements`          | AI-generated improvement suggestions                                                                                                                                     |
-| `enhance_content`               | Suggest a specific improvement to a document                                                                                                                             |
-| `generate_content`              | Generate new prose from a prompt and context                                                                                                                             |
+| `enhance_content`               | Propose a complete saved-document rewrite with source revisions; maximum 12000 UTF-16 characters                                                                          |
+| `generate_content`              | Generate prose from a prompt, saved-text excerpts and character profiles with revision-checked context                                                                   |
 | `set_writing_goal`              | Set a word-count goal (daily, weekly, or whole project) with an optional target date                                                                                     |
 | `get_writing_goals`             | List goals with progress -- percent complete, words remaining, on-pace status                                                                                            |
 | `set_writing_preferences`       | Set author preferences (tone, complexity, length, POV, style guide) that steer AI output                                                                                 |
 | `get_writing_preferences`       | Show current preferences plus feedback insights and suggestions                                                                                                          |
 | `collect_feedback`              | Record a rating/comment on an AI operation to inform those insights                                                                                                      |
+| `analyze_manuscript_local` | Local manuscript findings with exact evidence, author controls, coverage, persistent baselines and revision comparisons |
+| `analyze_narrative_annotations` | Check author-supplied causality, knowledge, promises, subtext and other annotations against saved quotations |
 | `analyze_craft_local`           | Offline readability, grammar, syntax-tension, dialogue, and word-frequency report for one document (narrative-lens, no AI call)                                          |
 | `check_continuity_local`        | Offline timeline and world-state continuity pass across the manuscript                                                                                                   |
 | `analyze_foreshadowing_local`   | Offline setup/payoff tracking across scenes                                                                                                                              |
 | `measure_voice_drift_local`     | Compare a character's earlier vs later dialogue for voice drift                                                                                                          |
-| `analyze_opening_local`         | Offline hook, clarity, and genre-fit scoring of an opening                                                                                                               |
+| `analyze_opening_local`         | Offline opening cues, source ranges and coverage; editorial quality remains unassessed                                                                                                               |
 | `check_style_local`             | Line-edit one document for adverbs, filter words, hedges, clichés, passive voice, nominalizations, and personal tics, each with line and column (bluepencil, no AI call) |
 | `find_repetition_local`         | Echoes (a word reappearing within a window) and repeated phrases, with both locations                                                                                    |
 | `analyze_rhythm_local`          | Sentence-length distribution, monotonous runs, overlong sentences, and repeated openers                                                                                  |
 | `analyze_dialogue_tags_local`   | Dialogue ratio and every quoted line's tag classified as plain, showy, adverb-modified, or untagged                                                                      |
 | `manuscript_style_report_local` | Per-document style density across the manuscript with word-weighted means and outliers                                                                                   |
+
+Manuscript comparisons include `comparisonBaseline.name` and its original `envelope`, alongside the
+current result's `envelope`, so both saved source revisions remain identifiable after a baseline name
+is reused.
 
 **Enhancement types:** `eliminate-filter-words`, `strengthen-verbs`, `vary-sentences`,
 `add-sensory-details`, `show-dont-tell`, `improve-flow`, `enhance-descriptions`,
@@ -324,6 +334,13 @@ startup, document and search tools once a project is open, the rest on demand. S
 | `export_manuscript`            | Preflight and export submission DOCX, beta-reader DOCX and validated EPUB presets                                                                                                              |
 | `get_statistics`               | Project-level word/document/character counts                                                                                                                                                   |
 | `generate_marketing_materials` | Draft synopsis, query letter, pitch, and related materials                                                                                                                                     |
+
+Intelligent compilation returns provider warnings, explicit quality availability, and saved-source
+revisions. Rewrites require the complete source to fit 12000 UTF-16 characters; otherwise the
+complete original is preserved. Quality opinions cover at most 4000 characters and identify that
+coverage. Marketing generation reads the saved Draft by default; use `documentIds` to select a
+smaller scope within the same 12000-character limit. Both reject source changes during generation
+and provide `read_result` references for large output.
 
 </details>
 
@@ -358,6 +375,13 @@ Project memory travels within each .scriv project. Explicit series memberships a
 the server's persistent registry; see
 [editorial workflows](docs/editorial-workflows.md#curate-a-project-or-series-bible).
 
+`remember` validates nested records and acknowledges the saved snapshot with its revision and record
+ID. Use that ID for updates; identical creations reuse their ID, and unknown update IDs fail.
+Unrecorded profile fields, style preferences and writing statistics stay absent. `worldBuilding`
+stores named records, for example `{ name: "Moon Harbor", type: "location" }`; `all` merges custom
+JSON by key. Requests are capped at 64 KiB and complete project memory at 16 MiB. Large `recall`
+results use `read_result`. Earlier custom world data remains available under `recall` with `all`.
+
 </details>
 
 <details>
@@ -367,15 +391,26 @@ the server's persistent registry; see
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `add_relationship`       | Store a relationship between characters, locations, themes, or plot threads                                                                |
 | `find_relationships`     | Query entities related to a given character/theme/location                                                                                 |
-| `discover_connections`   | Find co-occurring entities across the manuscript                                                                                           |
+| `discover_connections`   | Find unrecorded pairs of known characters/locations that co-occur in saved Draft documents, with source revisions |
 | `character_network`      | The character relationship network                                                                                                         |
 | `get_entity_references`  | Trace the reference graph in either direction: entities a document mentions (by documentId), or documents mentioning an entity (by entity) |
 | `find_orphaned_entities` | List registered characters/locations that no document actually mentions                                                                    |
 | `suggest_connections`    | Suggest entities a document may be missing, inferred from cross-document co-occurrence                                                     |
 
-Works without Neo4j -- relationships live in the Holographic Memory System and are available
-immediately. The document cross-reference tools are fully deterministic (exact whole-word matching,
-no AI) and need no external services; Neo4j adds advanced graph analysis when connected.
+Relationship tools use project-owned SQLite without an external service. Storage admits up to
+10000 relationships; names contain at most 128 UTF-16 characters and labels 64. Discovery covers
+the characters and locations already recorded in that graph, up to 256 entities, 1000 Draft
+documents, 2 Mi UTF-16 source characters and a source-character count multiplied by entity count
+of at most 134217728. Its score is the
+fraction of documents mentioning both entities among those mentioning either; it is a candidate
+association, not a confirmed story fact. Result limits disclose omitted candidates, and large
+responses use `read_result`. Relationship queries page in stable identity order using `nextOffset`
+and `graphRevision`; edits require restarting the query. Document cross-reference tools use the
+character/location registries and saved text, including Research and Draft items excluded from
+Compile. Document queries read only the requested document; entity-wide queries and suggestions
+inspect all active text within the same source limits. They disclose missing registries, reject
+source/registry changes, and preserve every admitted match offset (up to 1000000 positions and
+16 MiB of serialized mention records).
 
 </details>
 
@@ -384,12 +419,34 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 
 | Tool                      | What it does                                                                                       |
 | ------------------------- | -------------------------------------------------------------------------------------------------- |
-| `queue_document_analysis` | Enqueue an async analysis of one document; returns a job id                                        |
-| `queue_project_analysis`  | Enqueue an async analysis of the whole project                                                     |
+| `queue_document_analysis` | Analyze supplied document text asynchronously; returns a job id                                   |
+| `queue_project_analysis`  | Analyze an ordered batch of supplied document texts                                               |
 | `get_job_status`          | Poll progress/results for a queued job                                                             |
 | `get_queue_stats`         | Inspect project-scoped queue counts, connectivity and legacy migration guidance                    |
 | `editorial_workflow`      | Run chapter review, continuity audit or beta-reader preparation with durable progress and resuming |
-| `cancel_job`              | Cancel a queued or running job                                                                     |
+| `cancel_job`              | Request cancellation; running embedded work finishes internally and its result is discarded        |
+
+Queued analysis always runs local prose analysis and includes readability by default. Optional
+named entities require a native build with ONNX support and a loaded NER model; unavailable results
+are explicit. Optional sentiment uses a local lexicon heuristic. Source revisions hash the supplied
+UTF-8 text, and the envelope identifies this raw policy separately from saved RTF analysis and saved
+project controls. Project batches preserve input order and run sequentially unless `parallel` is
+selected, with at most five documents in flight. Large completed results return a `_ref` retrieved
+through `read_result`. Redis/KeyDB cannot remove an active job; embedded cancellation prevents work
+that has not started and discards the result of work already running.
+
+`suggest_improvements` accepts `async: true` for the same suggestion result through `get_job_status`.
+With `useContext: true`, `documentId` is required: generation uses up to the first 16000 UTF-16
+characters of that saved document and rejects a changed revision. Its result reports the exact
+excerpt range, truncation and source revision. The default `useContext: false` sends only the prompt.
+Suggestions use the configured provider or client sampling, and queued generation is not automatically
+retried. Large synchronous and queued results use `read_result` references.
+
+`analyze_writing_style` accepts 1–64 nonempty text samples, each up to 64000 UTF-16 characters.
+Its provider prompt includes at most 8000 characters including separators; coverage reports the
+range used from every sample, including any omitted samples. Missing or malformed profile fields
+are explicitly unavailable, partial finding lists preserve valid entries, and sample revisions
+hash the original supplied UTF-8 text. Large profiles also use `read_result` references.
 
 </details>
 
@@ -429,7 +486,8 @@ no AI) and need no external services; Neo4j adds advanced graph analysis when co
 
 - **Stable Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`** (24.22.1 or newer on Node 24 recommended)
 - **Scrivener 3** project files (.scriv)
-- macOS, Windows, or Linux
+- Native npm/npx installs: macOS x64/ARM64, Windows x64, or Linux x64 with glibc. Architecture
+  refers to the Node.js runtime.
 - Optional: Anthropic, OpenAI, or OpenRouter API key for provider-backed AI features
 - Optional: Neo4j for persistence and advanced graph queries; core relationship tools work without
   it

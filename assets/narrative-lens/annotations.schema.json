@@ -1,0 +1,1221 @@
+{
+  "AuthorCausalNodes": {
+    "$defs": {
+      "AuthorCausalMechanism": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "fixed",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "all",
+                "type": "string"
+              },
+              "parents": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "parents"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "any",
+                "type": "string"
+              },
+              "parents": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "parents"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "not",
+                "type": "string"
+              },
+              "parent": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "parent"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AuthorCausalNode": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "$ref": "#/$defs/AuthorSource"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mechanism": {
+            "$ref": "#/$defs/AuthorCausalMechanism"
+          }
+        },
+        "required": [
+          "id",
+          "mechanism",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorCausalNode"
+    },
+    "title": "Array_of_AuthorCausalNode",
+    "type": "array"
+  },
+  "AuthorInterventions": {
+    "$defs": {
+      "AuthorIntervention": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nodeId",
+          "value"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorIntervention"
+    },
+    "title": "Array_of_AuthorIntervention",
+    "type": "array"
+  },
+  "AuthorPropositions": {
+    "$defs": {
+      "AuthorProposition": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/$defs/AuthorSource"
+          },
+          "id": {
+            "type": "string"
+          },
+          "truth": {
+            "$ref": "#/$defs/TruthValue"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "truth",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "TruthValue": {
+        "enum": [
+          "true",
+          "false",
+          "unknown"
+        ],
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorProposition"
+    },
+    "title": "Array_of_AuthorProposition",
+    "type": "array"
+  },
+  "AuthorKnowledgeEvents": {
+    "$defs": {
+      "AuthorAudience": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "reader",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "characterId": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "character",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "characterId"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AuthorKnowledgeAction": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "truth",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/TruthValue"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "$ref": "#/$defs/AuthorAudience"
+              },
+              "kind": {
+                "const": "know",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "actor",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "$ref": "#/$defs/AuthorAudience"
+              },
+              "kind": {
+                "const": "believe",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "actor",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "$ref": "#/$defs/AuthorAudience"
+              },
+              "kind": {
+                "const": "uncertain",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "actor"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "$ref": "#/$defs/AuthorAudience"
+              },
+              "kind": {
+                "const": "forget",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "actor"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "communicate",
+                "type": "string"
+              },
+              "recipient": {
+                "$ref": "#/$defs/AuthorAudience"
+              },
+              "sender": {
+                "$ref": "#/$defs/AuthorAudience"
+              },
+              "uptake": {
+                "$ref": "#/$defs/AuthorUptake"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "sender",
+              "recipient",
+              "value",
+              "uptake"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AuthorKnowledgeEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/$defs/AuthorKnowledgeAction"
+          },
+          "evidence": {
+            "$ref": "#/$defs/AuthorSource"
+          },
+          "id": {
+            "type": "string"
+          },
+          "propositionId": {
+            "type": "string"
+          },
+          "sequence": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "propositionId",
+          "action",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "AuthorUptake": {
+        "enum": [
+          "unchanged",
+          "belief",
+          "knowledge"
+        ],
+        "type": "string"
+      },
+      "TruthValue": {
+        "enum": [
+          "true",
+          "false",
+          "unknown"
+        ],
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorKnowledgeEvent"
+    },
+    "title": "Array_of_AuthorKnowledgeEvent",
+    "type": "array"
+  },
+  "AuthorEpistemicQueries": {
+    "$defs": {
+      "AuthorAudience": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "reader",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "characterId": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "character",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "characterId"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AuthorEpistemicQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "atSequence": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "observer": {
+            "$ref": "#/$defs/AuthorAudience"
+          },
+          "propositionId": {
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/$defs/AuthorAudience"
+          }
+        },
+        "required": [
+          "id",
+          "propositionId",
+          "observer",
+          "subject"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorEpistemicQuery"
+    },
+    "title": "Array_of_AuthorEpistemicQuery",
+    "type": "array"
+  },
+  "AuthorPromiseEvents": {
+    "$defs": {
+      "AuthorPromiseEvent": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "evidence": {
+                "$ref": "#/$defs/AuthorSource"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "setup",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "description",
+              "evidence"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "evidence": {
+                "$ref": "#/$defs/AuthorSource"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "resolution",
+                "type": "string"
+              },
+              "outcome": {
+                "$ref": "#/$defs/AuthorResolution"
+              },
+              "setupId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "setupId",
+              "outcome",
+              "evidence"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AuthorResolution": {
+        "enum": [
+          "fulfilled",
+          "partial",
+          "subverted",
+          "abandoned"
+        ],
+        "type": "string"
+      },
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorPromiseEvent"
+    },
+    "title": "Array_of_AuthorPromiseEvent",
+    "type": "array"
+  },
+  "AuthorSubtextAnnotations": {
+    "$defs": {
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "AuthorSubtextAnnotation": {
+        "additionalProperties": false,
+        "properties": {
+          "characters": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "implied": {
+            "type": "string"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthorSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "subtextType": {
+            "$ref": "#/$defs/SubtextType"
+          },
+          "surface": {
+            "$ref": "#/$defs/AuthorSource"
+          }
+        },
+        "required": [
+          "id",
+          "surface",
+          "implied",
+          "subtextType"
+        ],
+        "type": "object"
+      },
+      "SubtextType": {
+        "enum": [
+          "EmotionalDenial",
+          "PowerPlay",
+          "SelfDeception",
+          "CodedCommunication",
+          "DramaticIronySubtext",
+          "Deflection",
+          "VerbalIrony",
+          "ActionContradiction"
+        ],
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorSubtextAnnotation"
+    },
+    "title": "Array_of_AuthorSubtextAnnotation",
+    "type": "array"
+  },
+  "AuthorThematicTheses": {
+    "$defs": {
+      "AuthorThematicThesis": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "opposes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "statement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "statement"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorThematicThesis"
+    },
+    "title": "Array_of_AuthorThematicThesis",
+    "type": "array"
+  },
+  "AuthorThematicAnnotations": {
+    "$defs": {
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "AuthorThematicAnnotation": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "$ref": "#/$defs/EvidenceDelivery"
+          },
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/AuthorSource"
+          },
+          "thesisId": {
+            "type": "string"
+          },
+          "valence": {
+            "$ref": "#/$defs/EvidenceValence"
+          }
+        },
+        "required": [
+          "id",
+          "thesisId",
+          "source",
+          "valence",
+          "delivery"
+        ],
+        "type": "object"
+      },
+      "EvidenceDelivery": {
+        "oneOf": [
+          {
+            "enum": [
+              "Narration"
+            ],
+            "type": "string"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "CharacterAction": {
+                "properties": {
+                  "character": {
+                    "type": "string"
+                  },
+                  "decision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "character",
+                  "decision"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "CharacterAction"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "PlotConsequence": {
+                "properties": {
+                  "cause": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cause"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "PlotConsequence"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "Dialogue": {
+                "properties": {
+                  "speaker": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "speaker"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "Dialogue"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "Symbolism": {
+                "properties": {
+                  "symbol": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "symbol"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "Symbolism"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "StructuralParallel": {
+                "properties": {
+                  "parallel_scene": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "parallel_scene"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "StructuralParallel"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "StructuralParallelById": {
+                "properties": {
+                  "scene_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "scene_id"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "StructuralParallelById"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "EvidenceValence": {
+        "enum": [
+          "Supporting",
+          "Contradicting",
+          "Complicating",
+          "Transcending"
+        ],
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorThematicAnnotation"
+    },
+    "title": "Array_of_AuthorThematicAnnotation",
+    "type": "array"
+  },
+  "AuthorCoreferenceLinks": {
+    "$defs": {
+      "AuthorCoreferenceLink": {
+        "additionalProperties": false,
+        "properties": {
+          "antecedent": {
+            "$ref": "#/$defs/AuthorSource"
+          },
+          "characterId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mention": {
+            "$ref": "#/$defs/AuthorSource"
+          }
+        },
+        "required": [
+          "id",
+          "mention",
+          "antecedent",
+          "characterId"
+        ],
+        "type": "object"
+      },
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/AuthorCoreferenceLink"
+    },
+    "title": "Array_of_AuthorCoreferenceLink",
+    "type": "array"
+  },
+  "SuppliedUncertaintyObservations": {
+    "$defs": {
+      "HypothesisProbability": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "probability": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "probability"
+        ],
+        "type": "object"
+      },
+      "SuppliedUncertainty": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "items": {
+              "$ref": "#/$defs/HypothesisProbability"
+            },
+            "type": "array"
+          },
+          "questionId": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "sceneId",
+          "outcomes"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/SuppliedUncertainty"
+    },
+    "title": "Array_of_SuppliedUncertainty",
+    "type": "array"
+  },
+  "HistoricalEntries": {
+    "$defs": {
+      "HistoricalBasis": {
+        "enum": [
+          "first_attestation",
+          "availability",
+          "author_constraint"
+        ],
+        "type": "string"
+      },
+      "HistoricalEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "$ref": "#/$defs/HistoricalBasis"
+          },
+          "context": {
+            "type": "string"
+          },
+          "earliestYear": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "senseAmbiguous": {
+            "type": "boolean"
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "term",
+          "earliestYear",
+          "basis",
+          "reference",
+          "context",
+          "senseAmbiguous"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/HistoricalEntry"
+    },
+    "title": "Array_of_HistoricalEntry",
+    "type": "array"
+  },
+  "HistoricalUsages": {
+    "$defs": {
+      "AuthorSource": {
+        "additionalProperties": false,
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "sceneId": {
+            "type": "string"
+          },
+          "utf16End": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "utf16Start": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sceneId",
+          "utf16Start",
+          "utf16End",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "HistoricalUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/$defs/AuthorSource"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entryId",
+          "evidence"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/HistoricalUsage"
+    },
+    "title": "Array_of_HistoricalUsage",
+    "type": "array"
+  }
+}

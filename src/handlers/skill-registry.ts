@@ -4,6 +4,7 @@ import { searchHandlers } from './search-handlers.js';
 import { compilationHandlers } from './compilation-handlers.js';
 import { analysisHandlers, memoryHandlers, semanticSearchHandler } from './analysis-handlers.js';
 import { narrativeLensHandlers } from './narrative-lens-handlers.js';
+import { manuscriptAnalysisHandlers } from './manuscript-analysis-handlers.js';
 import { bluepencilHandlers } from './bluepencil-handlers.js';
 import { asyncHandlerDefinitions } from './async-handler-definitions.js';
 import { nativeHHMTools } from './memory-handlers.js';
@@ -54,6 +55,7 @@ const skills: Skill[] = [
 		tools: [
 			...analysisHandlers,
 			...narrativeLensHandlers,
+			...manuscriptAnalysisHandlers,
 			...bluepencilHandlers,
 			...goalsHandlers,
 			...personalizationHandlers,
@@ -361,14 +363,17 @@ export function getToolCatalogRevision(): number {
 export async function executeRegisteredHandler(
 	toolName: string,
 	args: Record<string, unknown>,
-	context: HandlerContext
+	context: HandlerContext,
+	options: { signal?: AbortSignal } = {}
 ): Promise<HandlerResult> {
 	validateRegisteredArgs(toolName, args);
 	const handler = handlerMap.get(toolName)!;
 
 	try {
-		return await handler.handler(args, context);
+		options.signal?.throwIfAborted();
+		return await handler.handler(args, context, options);
 	} catch (error) {
+		if (options.signal?.aborted) throw new HandlerError('Tool request cancelled', 'CANCELLED');
 		if (error instanceof HandlerError) {
 			throw error;
 		}

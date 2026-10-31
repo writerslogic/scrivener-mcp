@@ -20,6 +20,9 @@ jest.mock('../../../src/services/queue/job-queue.js', () => {
 			instances.push(this);
 		}
 		async initialize(): Promise<void> {}
+		getWritingService() {
+			return null;
+		}
 		getConnectionInfo() {
 			return { type: 'embedded', isConnected: !this.closed };
 		}
@@ -59,11 +62,14 @@ interface QueueInstance {
 	inFlight: number;
 	gate?: Promise<void>;
 	entered?: () => void;
+	initialize(): Promise<void>;
+	shutdown(): Promise<void>;
 }
 
 describe('async service resource lifecycle', () => {
 	const state = jest.requireMock('../../../src/services/queue/job-queue.js') as {
 		__instances: QueueInstance[];
+		JobQueueService: { prototype: QueueInstance };
 	};
 	let releases: Array<() => void>;
 	const request = {
@@ -76,6 +82,7 @@ describe('async service resource lifecycle', () => {
 	});
 	afterEach(async () => {
 		for (const release of releases) release();
+		jest.restoreAllMocks();
 		await shutdownAsyncServices();
 		state.__instances.length = 0;
 	});
@@ -177,4 +184,60 @@ describe('async service resource lifecycle', () => {
 		expect(await laterOutcome).toBeInstanceOf(Error);
 		expect(original.closed).toBe(true);
 	});
+
+	it('retains failed shutdown ownership, refuses work and retries cleanup on the same instance', async () => {
+		await initializeAsyncServices({ projectPath: join(tmpdir(), 'scrivener-close-retry') });
+		const original = state.__instances[0];
+		const close = jest
+			.spyOn(original, 'shutdown')
+			.mockRejectedValueOnce(new Error('Fixture close failure'));
+		await expect(shutdownAsyncServices()).rejects.toThrow('Fixture close failure');
+		expect(original.closed).toBe(false);
+		await expect(queueDocumentAnalysis(request)).rejects.toThrow('unavailable after a failed');
+		await shutdownAsyncServices();
+		expect(close).toHaveBeenCalledTimes(2);
+		expect(original.closed).toBe(true);
+	});
+
+	it('does not allocate a replacement until the previous service can close', async () => {
+		await initializeAsyncServices({ projectPath: join(tmpdir(), 'scrivener-replace-first') });
+		const original = state.__instances[0];
+		const close = jest
+			.spyOn(original, 'shutdown')
+			.mockRejectedValueOnce(new Error('Fixture close failure'));
+		const options = { projectPath: join(tmpdir(), 'scrivener-replace-second') };
+		await expect(initializeAsyncServices(options)).rejects.toThrow('Fixture close failure');
+		expect(state.__instances).toHaveLength(1);
+		await initializeAsyncServices(options);
+		expect(close).toHaveBeenCalledTimes(2);
+		expect(original.closed).toBe(true);
+		expect((await queueDocumentAnalysis(request)).jobId).toBe('generation-2');
+	});
+
+	it.each([false, true])(
+		'surfaces initialization failure and retains failed cleanup=%s for retry',
+		async (cleanupFailure) => {
+			const initialize = jest
+				.spyOn(state.JobQueueService.prototype, 'initialize')
+				.mockRejectedValue(new Error('Fixture initialization failure'));
+			const close = jest.spyOn(state.JobQueueService.prototype, 'shutdown');
+			if (cleanupFailure) close.mockRejectedValueOnce(new Error('Fixture cleanup failure'));
+			const options = { projectPath: join(tmpdir(), 'scrivener-init-recovery') };
+			await expect(initializeAsyncServices(options)).rejects.toThrow(
+				cleanupFailure
+					? 'initialization and cleanup failed'
+					: 'Fixture initialization failure'
+			);
+			expect(initialize).toHaveBeenCalledTimes(3);
+			const original = state.__instances[0];
+			expect(original.closed).toBe(!cleanupFailure);
+			await expect(queueDocumentAnalysis(request)).rejects.toThrow(
+				'unavailable after a failed'
+			);
+			initialize.mockRestore();
+			await initializeAsyncServices(options);
+			expect(original.closed).toBe(true);
+			expect((await queueDocumentAnalysis(request)).jobId).toBe('generation-2');
+		}
+	);
 });

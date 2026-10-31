@@ -9,7 +9,6 @@ import * as fs from 'fs/promises';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
 import { MemoryManager } from '../../src/memory-manager.js';
 import { ContentAnalyzer } from '../../src/analysis/base-analyzer.js';
-import { ContentEnhancer } from '../../src/services/enhancements/content-enhancer.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
 import { documentHandlers } from '../../src/handlers/document-handlers.js';
 
@@ -46,7 +45,6 @@ describe('Scrivener Project Integration', () => {
 			project: null,
 			memoryManager: new MemoryManager(testProjectPath),
 			contentAnalyzer: new ContentAnalyzer(),
-			contentEnhancer: new ContentEnhancer(),
 		};
 	}, 45000);
 

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { DocumentManager } from '../../../src/services/document-manager.js';
 import { RTFHandler } from '../../../src/services/parsers/rtf-handler.js';
 
@@ -126,6 +127,33 @@ describe('DocumentManager', () => {
 		expect(await manager.readDocument(DOC)).toBe('Test content with café and 東京.');
 		await fs.writeFile(file(), rtf.convertToRTF('A saved external change.'));
 		expect(await manager.readDocument(DOC)).toBe('A saved external change.');
+	});
+
+	test('binds formatted content to one raw revision even when an external save occurs during parsing', async () => {
+		const raw = '{\\rtf1\\ansi Before {\\b bold} save.}';
+		await fs.writeFile(file(), raw);
+		const parse = RTFHandler.prototype.parseRTF;
+		const parsing = jest
+			.spyOn(RTFHandler.prototype, 'parseRTF')
+			.mockImplementationOnce(async function (this: RTFHandler, text) {
+				const content = await parse.call(this, text);
+				await fs.writeFile(file(), rtf.convertToRTF('After external save.'));
+				return content;
+			});
+		try {
+			const saved = await manager.readDocumentFormattedVersion(DOC);
+			expect(saved.content.plainText).toBe('Before bold save.');
+			expect(
+				saved.content.formattedText.some(
+					(span) => span.text.includes('bold') && span.style?.bold
+				)
+			).toBe(true);
+			expect(saved.revision).toBe(createHash('sha256').update(raw).digest('hex'));
+			expect(saved.exists).toBe(true);
+			expect((await manager.readDocumentVersion(DOC)).text).toBe('After external save.');
+		} finally {
+			parsing.mockRestore();
+		}
 	});
 
 	test.each(['../escape', 'not-a-uuid', ''])(

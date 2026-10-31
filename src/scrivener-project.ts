@@ -69,6 +69,8 @@ import { SeriesBible } from './services/editorial/series-bible.js';
 import { ContinuityService } from './services/editorial/continuity-service.js';
 import { PassageSearch } from './services/editorial/passage-search.js';
 import { WorkflowService } from './services/editorial/workflow-service.js';
+import { NarrativeAnalysis } from './services/editorial/narrative-analysis.js';
+import { RelationshipEngine } from './services/relationship-engine.js';
 import type { PresetOptions } from './services/export/export-presets.js';
 
 export interface EditorialServices {
@@ -80,6 +82,8 @@ export interface EditorialServices {
 	continuity: ContinuityService;
 	search: PassageSearch;
 	workflows: WorkflowService;
+	narrative: NarrativeAnalysis;
+	relationships: RelationshipEngine;
 }
 
 const logger = getLogger('scrivener-project');
@@ -257,6 +261,7 @@ export class ScrivenerProject {
 		await initializeAsyncServices({
 			projectPath: this.projectPath,
 			continuity: (options) => this.getEditorialServices().continuity.analyze(options),
+			source: () => this.getEditorialServices().source,
 			databasePath: path.join(this.projectPath, 'scrivener.db'),
 			openaiApiKey: process.env.OPENAI_API_KEY,
 		});
@@ -323,6 +328,12 @@ export class ScrivenerProject {
 
 	async readDocumentFormatted(documentId: string): Promise<RTFContent> {
 		return await this.documentManager.readDocumentFormatted(documentId);
+	}
+
+	async readDocumentFormattedVersion(
+		documentId: string
+	): Promise<{ content: RTFContent; revision: string; exists: boolean }> {
+		return this.documentManager.readDocumentFormattedVersion(documentId);
 	}
 
 	async ensureWritable(force = false): Promise<void> {
@@ -408,7 +419,13 @@ export class ScrivenerProject {
 			);
 			const continuity = new ContinuityService(source, store, bible);
 			const search = new PassageSearch(source, store);
+			const narrative = new NarrativeAnalysis(source, store);
+			const relationships = new RelationshipEngine(source, store, () =>
+				this.databaseService.getNeo4j()
+			);
 			const workflows = new WorkflowService(source, store, search, {
+				analyzeDocument: (document) => narrative.analyzeDocument(document),
+				suggestEdits: (document) => narrative.suggestEdits(document),
 				propose: (input) => review.propose(input),
 				auditContinuity: (input) => continuity.analyze(input),
 				exportBeta: (input) => this.exporter.exportWorkflowPreset(input),
@@ -422,6 +439,8 @@ export class ScrivenerProject {
 				continuity,
 				search,
 				workflows,
+				narrative,
+				relationships,
 			};
 			return this.editorial;
 		} catch (error) {
@@ -839,6 +858,7 @@ export class ScrivenerProject {
 		await this.editorial?.workflows.close();
 		await shutdownAsyncServices();
 		if (this.editorial) {
+			await this.editorial.narrative.close();
 			await this.editorial.search.close();
 			this.editorial.seriesStore.close();
 			this.editorial.store.close();

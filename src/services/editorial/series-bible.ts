@@ -247,75 +247,106 @@ export class SeriesBible {
 	}
 
 	async importMemory(memory: MemoryManager): Promise<StoryFact[]> {
+		const snapshot = memory.getMemorySnapshot();
+		const revision = memory.memoryRevision(snapshot);
 		const scope: StoryScope = { kind: 'project', id: this.source.projectId };
-		const imported: StoryFact[] = [];
-		const characters = await memory.getAllCharacters();
-		for (const character of characters) {
-			const input = {
+		const inputs = new Map<string, CurateFactInput>();
+		const add = (
+			sourceKind: string,
+			sourceId: string,
+			kind: FactKind,
+			subject: string,
+			predicate: string,
+			value: string
+		) => {
+			const id = stableStoryId('memory', this.source.projectId, sourceKind, sourceId);
+			if (this.projectStore.get(FACTS, id)) return;
+			const previous = inputs.get(id);
+			if (previous && previous.value !== value)
+				throw new Error(
+					'Memory contains conflicting facts with the same identity; curate them explicitly'
+				);
+			inputs.set(id, {
+				id,
 				scope,
-				kind: 'character' as const,
-				subject: character.name,
-				predicate: 'profile',
-				value: character.description || character.name,
-				confidence: 'inferred' as const,
+				kind,
+				subject,
+				predicate,
+				value,
+				confidence: 'inferred',
 				sources: [],
-			};
-			const id = stableStoryId('memory', this.source.projectId, 'character', character.id);
-			if (!this.projectStore.get(FACTS, id))
-				imported.push(await this.curate({ ...input, id }));
-		}
-		const world = memory.getCustomContext('worldBuilding');
-		if (world && typeof world === 'object' && !Array.isArray(world)) {
+			});
+		};
+		for (const character of snapshot.characters)
+			add(
+				'character',
+				character.id,
+				'character',
+				character.name,
+				'profile',
+				character.description || character.name
+			);
+		for (const element of snapshot.worldBuilding)
+			add(
+				'world',
+				element.id,
+				element.type === 'location' ? 'location' : 'world-rule',
+				element.name,
+				'description',
+				element.description || element.name
+			);
+		const canonicalLocations = new Set(
+			snapshot.worldBuilding
+				.filter((element) => element.type === 'location')
+				.map((element) =>
+					JSON.stringify([element.name, element.description || element.name])
+				)
+		);
+		let remainingLocations = 1000;
+		for (const world of [snapshot.customContext.worldBuilding, snapshot.customContext]) {
+			if (!world || typeof world !== 'object' || Array.isArray(world)) continue;
 			const locations = (world as Record<string, unknown>).locations;
 			if (Array.isArray(locations)) {
-				for (const location of locations.slice(0, 1000)) {
+				remainingLocations -= locations.length;
+				if (remainingLocations < 0)
+					throw new Error(
+						'Legacy world memory exceeds the 1000-location import limit; curate selected facts explicitly'
+					);
+				for (const location of locations) {
 					if (!location || typeof location !== 'object') continue;
 					const entry = location as Record<string, unknown>;
 					if (typeof entry.name !== 'string') continue;
-					const id = stableStoryId(
-						'memory',
-						this.source.projectId,
-						'location',
-						entry.name
-					);
-					if (!this.projectStore.get(FACTS, id))
-						imported.push(
-							await this.curate({
-								id,
-								scope,
-								kind: 'location',
-								subject: entry.name,
-								predicate: 'description',
-								value:
-									typeof entry.description === 'string' &&
-									entry.description.trim()
-										? entry.description
-										: entry.name,
-								confidence: 'inferred',
-								sources: [],
-							})
-						);
+					const value =
+						typeof entry.description === 'string' && entry.description.trim()
+							? entry.description
+							: entry.name;
+					if (canonicalLocations.has(JSON.stringify([entry.name, value]))) continue;
+					add('location', entry.name, 'location', entry.name, 'description', value);
 				}
 			}
 		}
-		const plots = await memory.getPlotThreads();
-		for (const plot of plots) {
-			const id = stableStoryId('memory', this.source.projectId, 'plot', plot.id);
-			if (!this.projectStore.get(FACTS, id))
-				imported.push(
-					await this.curate({
-						id,
-						scope,
-						kind: 'chronology',
-						subject: plot.name,
-						predicate: 'plot-thread',
-						value: plot.description || plot.status,
-						confidence: 'inferred',
-						sources: [],
-					})
-				);
-		}
-		return imported;
+		for (const plot of snapshot.plotThreads)
+			add(
+				'plot',
+				plot.id,
+				'chronology',
+				plot.name,
+				'plot-thread',
+				plot.description || plot.status || plot.name
+			);
+		const prepared: StoryFact[] = [];
+		for (const input of inputs.values()) prepared.push(await this.prepareFact(input));
+		if (memory.memoryRevision() !== revision)
+			throw new Error('Project memory changed during import; retry');
+		return this.projectStore.transaction(() => {
+			const imported: StoryFact[] = [];
+			for (const fact of prepared) {
+				if (this.projectStore.get(FACTS, fact.id)) continue;
+				this.projectStore.put(FACTS, fact.id, fact);
+				imported.push(fact);
+			}
+			return imported;
+		});
 	}
 
 	private requireSeries(id: string): SeriesDefinition {

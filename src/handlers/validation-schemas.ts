@@ -42,28 +42,6 @@ export const documentMoveSchema: ValidationSchema = {
 	position: { type: 'number', required: false },
 };
 
-export const analysisSchema: ValidationSchema = {
-	documentId: { type: 'string', required: true },
-	analysisTypes: { type: 'array', required: false },
-};
-
-export const enhancementSchema: ValidationSchema = {
-	documentId: { type: 'string', required: true },
-	enhancementType: { type: 'string', required: true },
-	options: { type: 'object', required: false },
-};
-
-export const promptSchema: ValidationSchema = {
-	prompt: { type: 'string', required: true, minLength: 1 },
-	context: { type: 'object', required: false },
-	length: { type: 'number', required: false },
-};
-
-export const memorySchema: ValidationSchema = {
-	memoryType: { type: 'string', required: true },
-	data: { type: 'object', required: true },
-};
-
 export const searchSchema: ValidationSchema = {
 	documentId: { type: 'string', required: true },
 	includeComments: { type: 'boolean', required: false },

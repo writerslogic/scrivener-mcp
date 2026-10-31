@@ -6,7 +6,7 @@
 
 import {
 	analyzeForeshadowing,
-	analyzeOpening,
+	analyzeOpeningChecked,
 	analyzeSyntaxTension,
 	buildTimeline,
 	checkGrammar,
@@ -27,12 +27,58 @@ import {
 	getStringArg,
 } from './types.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
-import { SHARED_DEFS } from './shared-schemas.js';
+import { SHARED_DEFS, ANALYSIS_ENVELOPE_SCHEMA } from './shared-schemas.js';
+
+import { analysisEnvelope } from '../services/editorial/analysis-envelope.js';
+import type { SourceDocument } from '../services/editorial/types.js';
+import type { ScrivenerProject } from '../scrivener-project.js';
+
+async function savedDocument(project: ScrivenerProject, id: string) {
+	const source = await project.getEditorialServices().source.read(id);
+	return { id, title: source.title, content: source.text, source };
+}
+async function savedManuscript(project: ScrivenerProject, includeExcluded = false) {
+	const selected = await project.getManuscriptDocuments(includeExcluded);
+	const documents = [];
+	for (const document of selected) documents.push(await savedDocument(project, document.id));
+	return documents;
+}
+async function rawResult(
+	project: ScrivenerProject,
+	documents: SourceDocument[],
+	request: Record<string, unknown>,
+	result: HandlerResult
+): Promise<HandlerResult> {
+	const source = project.getEditorialServices().source;
+	for (const document of documents) {
+		if ((await source.read(document.documentId)).revision !== document.revision)
+			throw new Error('Saved source changed during local analysis');
+	}
+	const manuscript = request.scope === 'manuscript';
+	if (manuscript) {
+		const current = await project.getManuscriptDocuments(Boolean(request.includeExcluded));
+		if (
+			current.length !== documents.length ||
+			current.some((document, index) => document.id !== documents[index].documentId)
+		)
+			throw new Error('Saved manuscript order changed during local analysis');
+	}
+	const envelope = analysisEnvelope(
+		source.projectId,
+		manuscript ? 'manuscript' : 'document',
+		documents,
+		{},
+		'raw',
+		request
+	);
+	envelope.policy.revisionChecked = true;
+	return { ...result, structuredContent: { ...result.structuredContent, envelope } };
+}
 
 // Word tokenizer shared by the manuscript-scale analyzers below: lowercase
 // word tokens, matching what analyzeForeshadowing expects per scene.
 function tokenize(text: string): string[] {
-	return text.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+	return text.toLowerCase().match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu) ?? [];
 }
 
 export const analyzeCraftLocalHandler: ToolDefinition = {
@@ -53,6 +99,12 @@ export const analyzeCraftLocalHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			policy: {
+				type: 'string',
+				enum: ['raw', 'configured'],
+				description:
+					'Raw native analysis; saved project rules, suppressions and intentions are not applied.',
+			},
 			documentId: SHARED_DEFS.docId,
 			knownCharacters: {
 				type: 'array',
@@ -71,6 +123,7 @@ export const analyzeCraftLocalHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			envelope: ANALYSIS_ENVELOPE_SCHEMA,
 			readability: {
 				type: 'object',
 				description:
@@ -93,19 +146,42 @@ export const analyzeCraftLocalHandler: ToolDefinition = {
 				description: 'Most frequent words in the document.',
 			},
 		},
-		required: ['readability', 'grammar', 'syntaxTension', 'dialogue', 'topWords'],
+		anyOf: [
+			{
+				required: [
+					'readability',
+					'grammar',
+					'syntaxTension',
+					'dialogue',
+					'topWords',
+					'envelope',
+				],
+			},
+			{ required: ['report', 'envelope'] },
+		],
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (args, context, options): Promise<HandlerResult> => {
 		const project = requireProject(context);
+		if (args.policy !== undefined && args.policy !== 'raw' && args.policy !== 'configured')
+			throw new Error('Unsupported analysis policy');
 		const documentId = getStringArg(args, 'documentId');
 		const knownCharacters = getOptionalArrayArg<string>(args, 'knownCharacters') ?? [];
 		const wordFrequencyLimit = getOptionalNumberArg(args, 'wordFrequencyLimit') ?? 20;
 
-		const document = await project.getDocument(documentId);
+		const document = await savedDocument(project, documentId);
 		if (!document) {
 			throw createError(ErrorCode.NOT_FOUND, {}, 'Document not found');
 		}
 
+		if (args.policy === 'configured') {
+			const report = await project
+				.getEditorialServices()
+				.narrative.analyzeDocument(document.source, options);
+			return {
+				content: [{ type: 'text', text: JSON.stringify(report) }],
+				structuredContent: { report, envelope: report.envelope },
+			};
+		}
 		const text = document.content || '';
 
 		const readability = computeReadability(text);
@@ -126,10 +202,15 @@ export const analyzeCraftLocalHandler: ToolDefinition = {
 				.map((w) => `${w.word} (${w.count})`)
 				.join(', ')}`;
 
-		return {
-			content: [{ type: 'text', text: summary }],
-			structuredContent: { readability, grammar, syntaxTension, dialogue, topWords },
-		};
+		return rawResult(
+			project,
+			[document.source],
+			{ ...args, operation: 'craft', knownCharacters, wordFrequencyLimit },
+			{
+				content: [{ type: 'text', text: summary }],
+				structuredContent: { readability, grammar, syntaxTension, dialogue, topWords },
+			}
+		);
 	},
 };
 
@@ -153,6 +234,12 @@ export const checkContinuityLocalHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			policy: {
+				type: 'string',
+				enum: ['raw'],
+				description:
+					'Raw native analysis; saved project rules, suppressions and intentions are not applied.',
+			},
 			includeExcluded: {
 				type: 'boolean',
 				description:
@@ -164,6 +251,7 @@ export const checkContinuityLocalHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			envelope: ANALYSIS_ENVELOPE_SCHEMA,
 			timeline: {
 				type: 'array',
 				description: 'Per-document timeline projection, in binder order.',
@@ -178,10 +266,12 @@ export const checkContinuityLocalHandler: ToolDefinition = {
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
+		if (args.policy !== undefined && args.policy !== 'raw')
+			throw new Error('Unsupported analysis policy');
 		const memoryManager = requireMemoryManager(context);
 		const includeExcluded = Boolean(args.includeExcluded);
 
-		const docs = await project.getManuscriptDocuments(includeExcluded);
+		const docs = await savedManuscript(project, includeExcluded);
 		const characters = memoryManager.getAllCharacters().map((c) => c.name);
 
 		const timeline = buildTimeline(docs.map((d) => [d.id, d.content] as [string, string]));
@@ -204,10 +294,15 @@ export const checkContinuityLocalHandler: ToolDefinition = {
 					: ''
 			}`;
 
-		return {
-			content: [{ type: 'text', text: summary }],
-			structuredContent: { timeline, worldState, documentCount: docs.length },
-		};
+		return rawResult(
+			project,
+			docs.map((document) => document.source),
+			{ ...args, scope: 'manuscript', operation: 'continuity', characters },
+			{
+				content: [{ type: 'text', text: summary }],
+				structuredContent: { timeline, worldState, documentCount: docs.length },
+			}
+		);
 	},
 };
 
@@ -228,6 +323,12 @@ export const analyzeForeshadowingLocalHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			policy: {
+				type: 'string',
+				enum: ['raw'],
+				description:
+					'Raw native analysis; saved project rules, suppressions and intentions are not applied.',
+			},
 			includeExcluded: {
 				type: 'boolean',
 				description:
@@ -239,6 +340,7 @@ export const analyzeForeshadowingLocalHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			envelope: ANALYSIS_ENVELOPE_SCHEMA,
 			items: {
 				type: 'array',
 				description:
@@ -250,9 +352,11 @@ export const analyzeForeshadowingLocalHandler: ToolDefinition = {
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
+		if (args.policy !== undefined && args.policy !== 'raw')
+			throw new Error('Unsupported analysis policy');
 		const includeExcluded = Boolean(args.includeExcluded);
 
-		const docs = await project.getManuscriptDocuments(includeExcluded);
+		const docs = await savedManuscript(project, includeExcluded);
 		const scenesTokens = docs.map((d) => tokenize(d.content));
 		const rawItems = analyzeForeshadowing(scenesTokens, docs.length);
 
@@ -282,10 +386,15 @@ export const analyzeForeshadowingLocalHandler: ToolDefinition = {
 					: ''
 			}`;
 
-		return {
-			content: [{ type: 'text', text: summary }],
-			structuredContent: { items, documentCount: docs.length },
-		};
+		return rawResult(
+			project,
+			docs.map((document) => document.source),
+			{ ...args, scope: 'manuscript', operation: 'foreshadowing' },
+			{
+				content: [{ type: 'text', text: summary }],
+				structuredContent: { items, documentCount: docs.length },
+			}
+		);
 	},
 };
 
@@ -307,6 +416,12 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			policy: {
+				type: 'string',
+				enum: ['raw'],
+				description:
+					'Raw native analysis; saved project rules, suppressions and intentions are not applied.',
+			},
 			characterName: {
 				type: 'string',
 				description: 'Character name to match against extracted dialogue speaker tags.',
@@ -327,6 +442,7 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			envelope: ANALYSIS_ENVELOPE_SCHEMA,
 			drift: {
 				type: 'object',
 				description: 'Overall and per-feature drift between the halves.',
@@ -341,12 +457,14 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
+		if (args.policy !== undefined && args.policy !== 'raw')
+			throw new Error('Unsupported analysis policy');
 		const characterName = getStringArg(args, 'characterName');
 		const splitFractionArg = getOptionalNumberArg(args, 'splitFraction') ?? 0.5;
 		const splitFraction = Math.min(1, Math.max(0, splitFractionArg));
 		const includeExcluded = Boolean(args.includeExcluded);
 
-		const docs = await project.getManuscriptDocuments(includeExcluded);
+		const docs = await savedManuscript(project, includeExcluded);
 		const splitIndex = Math.floor(docs.length * splitFraction);
 		const baselineDocs = docs.slice(0, splitIndex);
 		const currentDocs = docs.slice(splitIndex);
@@ -366,13 +484,18 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 				`Not enough dialogue found for "${characterName}" to measure drift: ` +
 				`${baselineLines.length} line(s) in the earlier half, ${currentLines.length} in the ` +
 				'later half. Both halves need at least one attributed line.';
-			return {
-				content: [{ type: 'text', text: summary }],
-				structuredContent: {
-					baselineLineCount: baselineLines.length,
-					currentLineCount: currentLines.length,
-				},
-			};
+			return rawResult(
+				project,
+				docs.map((document) => document.source),
+				{ ...args, scope: 'manuscript', operation: 'voice-drift' },
+				{
+					content: [{ type: 'text', text: summary }],
+					structuredContent: {
+						baselineLineCount: baselineLines.length,
+						currentLineCount: currentLines.length,
+					},
+				}
+			);
 		}
 
 		const drift = measureVoiceDriftFromText(characterName, baselineLines, currentLines);
@@ -384,14 +507,19 @@ export const measureVoiceDriftLocalHandler: ToolDefinition = {
 				drift.notes.length > 0 ? drift.notes.join('\n') : ''
 			}`;
 
-		return {
-			content: [{ type: 'text', text: summary }],
-			structuredContent: {
-				drift,
-				baselineLineCount: baselineLines.length,
-				currentLineCount: currentLines.length,
-			},
-		};
+		return rawResult(
+			project,
+			docs.map((document) => document.source),
+			{ ...args, scope: 'manuscript', operation: 'voice-drift' },
+			{
+				content: [{ type: 'text', text: summary }],
+				structuredContent: {
+					drift,
+					baselineLineCount: baselineLines.length,
+					currentLineCount: currentLines.length,
+				},
+			}
+		);
 	},
 };
 
@@ -399,11 +527,10 @@ export const analyzeOpeningLocalHandler: ToolDefinition = {
 	name: 'analyze_opening_local',
 	title: 'Analyze Opening (Local)',
 	description:
-		"Analyze a document's opening as a manuscript first-page/first-chapter hook: hook type and " +
-		'strength, first-line and first-paragraph quality, backstory ratio, how fast voice and world ' +
-		'are established, an engagement trajectory, and a genre-aware read-on prediction. Defaults to ' +
-		"the manuscript's first document when documentId is omitted, matching how an agent or editor " +
-		'reads it. No AI model and no network call. Requires an open project.',
+		'Analyze opening cues, source ranges, voice sample coverage and genre diagnostics locally. ' +
+		'Quality and read-on prediction are unassessed by this heuristic engine; numeric legacy ' +
+		'fields are not calibrated quality scores. Defaults to the first manuscript document. ' +
+		'No AI model or network call. Requires an open project.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -413,6 +540,12 @@ export const analyzeOpeningLocalHandler: ToolDefinition = {
 	inputSchema: {
 		type: 'object',
 		properties: {
+			policy: {
+				type: 'string',
+				enum: ['raw'],
+				description:
+					'Raw native analysis; saved project rules, suppressions and intentions are not applied.',
+			},
 			documentId: {
 				...SHARED_DEFS.docId,
 				description: `${
@@ -431,6 +564,7 @@ export const analyzeOpeningLocalHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			envelope: ANALYSIS_ENVELOPE_SCHEMA,
 			documentId: { type: 'string', description: 'The document that was analyzed.' },
 			documentTitle: {
 				type: 'string',
@@ -440,27 +574,28 @@ export const analyzeOpeningLocalHandler: ToolDefinition = {
 			analysis: {
 				type: 'object',
 				description:
-					'Hook type/strength, first-line/paragraph quality, backstory ratio, voice ' +
-					'establishment, engagement trajectory, issues, strengths, and a revision suggestion.',
+					'Native opening evidence, availability, diagnostics and qualityAssessed. Legacy numeric quality fields must not be treated as calibrated scores.',
 			},
 		},
 		required: ['documentId', 'documentTitle', 'genre', 'analysis'],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
 		const project = requireProject(context);
+		if (args.policy !== undefined && args.policy !== 'raw')
+			throw new Error('Unsupported analysis policy');
 		const documentId = getOptionalStringArg(args, 'documentId');
 		const genreLabel = getOptionalStringArg(args, 'genre');
 		const genre = genreLabel ? (genreFromLabel(genreLabel) ?? 'General') : 'General';
 
-		let doc: { id: string; title: string; content: string };
+		let doc: Awaited<ReturnType<typeof savedDocument>>;
 		if (documentId) {
-			const document = await project.getDocument(documentId);
+			const document = await savedDocument(project, documentId);
 			if (!document) {
 				throw createError(ErrorCode.NOT_FOUND, {}, 'Document not found');
 			}
-			doc = { id: documentId, title: document.title, content: document.content || '' };
+			doc = document;
 		} else {
-			const docs = await project.getManuscriptDocuments();
+			const docs = await savedManuscript(project);
 			const first = docs[0];
 			if (!first) {
 				throw createError(
@@ -472,27 +607,28 @@ export const analyzeOpeningLocalHandler: ToolDefinition = {
 			doc = first;
 		}
 
-		const analysis = analyzeOpening(doc.content, genre);
+		const analysis = analyzeOpeningChecked(doc.content, genre);
 
 		const summary =
-			`"${doc.title}" as opening (genre: ${genre}): hook=${analysis.hookType ?? 'none detected'} ` +
-			`(score ${analysis.hookScore.toFixed(2)}), first line quality ` +
-			`${analysis.firstLineQuality.toFixed(2)}, backstory ratio ${analysis.backstoryRatio.toFixed(2)}, ` +
-			`read-on prediction ${analysis.readOnPrediction.toFixed(2)}.\n${
-				analysis.issues.length > 0 ? `Issues: ${analysis.issues.join('; ')}\n` : ''
-			}${
-				analysis.strengths.length > 0 ? `Strengths: ${analysis.strengths.join('; ')}\n` : ''
-			}${analysis.revisionSuggestion}`;
+			`"${doc.title}" opening (${genre}): ${analysis.cues.length} located cues. ` +
+			`Availability: ${analysis.availability}; quality assessed: ${analysis.qualityAssessed}. ${analysis.diagnostics.join(
+				' '
+			)}`;
 
-		return {
-			content: [{ type: 'text', text: summary }],
-			structuredContent: {
-				documentId: doc.id,
-				documentTitle: doc.title,
-				genre,
-				analysis,
-			},
-		};
+		return rawResult(
+			project,
+			[doc.source],
+			{ ...args, operation: 'opening', genre },
+			{
+				content: [{ type: 'text', text: summary }],
+				structuredContent: {
+					documentId: doc.id,
+					documentTitle: doc.title,
+					genre,
+					analysis,
+				},
+			}
+		);
 	},
 };
 

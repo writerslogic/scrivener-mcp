@@ -21,10 +21,16 @@ export interface SourcePassage {
 	quote: string;
 }
 
+export interface SourceScopeOptions {
+	scope?: 'draft' | 'all';
+	maxDocuments?: number;
+	maxCharacters?: number;
+}
+
 export interface ManuscriptSource {
 	readonly projectId: string;
 	readonly projectPath: string;
-	list(): Promise<SourceDocument[]>;
+	list(options?: SourceScopeOptions): Promise<SourceDocument[]>;
 	read(documentId: string): Promise<SourceDocument>;
 }
 

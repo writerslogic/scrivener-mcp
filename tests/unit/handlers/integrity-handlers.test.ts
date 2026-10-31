@@ -16,7 +16,6 @@ function createContext(project: StubProject): HandlerContext {
 		project: project as unknown as HandlerContext['project'],
 		memoryManager: null,
 		contentAnalyzer: {} as HandlerContext['contentAnalyzer'],
-		contentEnhancer: {} as HandlerContext['contentEnhancer'],
 	};
 }
 

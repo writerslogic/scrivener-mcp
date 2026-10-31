@@ -1,55 +1,10 @@
 // Type definitions for analysis modules
 
-export interface ReadabilityMetrics {
-	fleschReadingEase: number;
-	fleschKincaidGrade: number;
-	gunningFog: number;
-	smogIndex: number;
-	automatedReadabilityIndex: number;
-	colemanLiauIndex: number;
-	linsearWriteFormula: number;
-	daleChallReadabilityScore: number;
-	targetAudience: string;
-	readingLevel: string | { grade: number; description: string; ageRange: string };
-	averageSentenceLength: number;
-	averageWordsPerSentence: number;
-	averageSyllablesPerWord: number;
-	lexiconCount: number;
-	sentenceCount: number;
-	syllableCount: number;
-	difficultWords: number;
-	[key: string]:
-		| number
-		| string
-		| undefined
-		| { grade: number; description: string; ageRange: string }
-		| unknown[];
-}
-
-export interface ReadabilityComparison {
-	text1: ReadabilityMetrics;
-	text2: ReadabilityMetrics;
-	comparison: {
-		easier: string;
-		keyDifferences: string[];
-		recommendations: string[];
-	};
-}
-
-export interface ReadabilityTrends {
-	segments: Array<{
-		index?: number;
-		position?: number;
-		fleschScore?: number;
-		avgSentenceLength?: number;
-		difficultWords?: number;
-		metrics?: ReadabilityMetrics;
-		trend?: string;
-	}>;
-	overallTrend: string;
-	problematicSections: number[];
-	recommendations?: string[];
-}
+export type {
+	ReadabilityMetrics,
+	ComparativeAnalysis as ReadabilityComparison,
+	ReadabilityTrends,
+} from '../analysis/advanced-readability.js';
 
 export interface WritingSuggestion {
 	type: string;

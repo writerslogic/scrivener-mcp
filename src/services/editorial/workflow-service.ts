@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { checkGrammar } from 'narrative-lens';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { analyzeWorkflowDocument } from '../../handlers/async-handlers.js';
@@ -51,6 +52,9 @@ export interface EditorialWorkflow {
 }
 
 export interface WorkflowDependencies {
+	suggestEdits?: (
+		document: SourceDocument
+	) => Promise<Array<{ start: number; end: number; text: string }>>;
 	analyzeDocument?: (document: SourceDocument) => Promise<unknown>;
 	propose: (input: {
 		documentId: string;
@@ -459,13 +463,20 @@ export class WorkflowService {
 					}
 					case 'propose': {
 						if (!document) throw new Error('Workflow document is missing');
-						const edits: Array<{ start: number; end: number; text: string }> = [];
-						for (const match of document.text.matchAll(/[^\S\r\n]{2,}(?=\S)/gu)) {
-							const start = match.index ?? 0;
-							if (start === 0 || /[\r\n]/u.test(document.text[start - 1])) continue;
-							edits.push({ start, end: start + match[0].length, text: ' ' });
-							if (edits.length >= 1000) break;
-						}
+						const edits = this.dependencies.suggestEdits
+							? await this.dependencies.suggestEdits(document)
+							: checkGrammar(document.text)
+									.filter(
+										(finding) =>
+											finding.kind === 'whitespace' &&
+											finding.replacements.length === 1
+									)
+									.slice(0, 1000)
+									.map((finding) => ({
+										start: finding.utf16Start,
+										end: finding.utf16End,
+										text: finding.replacements[0],
+									}));
 						result = edits.length
 							? await this.dependencies.propose({
 									documentId: document.documentId,

@@ -18,6 +18,31 @@ afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 
+it('checks exact UTF-8 state size and row bounds in a transaction before materializing results', () => {
+	const store = new PersistentStore(file);
+	try {
+		const value = { feedback: '🌙é' };
+		const bytes = Buffer.byteLength(JSON.stringify(value));
+		store.put('bounded', 'one', value);
+		for (const delta of [-1, 0, 1]) {
+			const read = () => store.list('bounded', { maxItems: 1, maxBytes: bytes + delta });
+			if (delta < 0) expect(read).toThrow('bounded read budget');
+			else expect(read()).toEqual([value]);
+		}
+		store.put('bounded', 'two', value);
+		for (const maxItems of [1, 2, 3]) {
+			const read = () => store.list('bounded', { maxItems, maxBytes: bytes * 2 });
+			if (maxItems === 1) expect(read).toThrow('bounded read budget');
+			else expect(read()).toEqual([value, value]);
+		}
+		expect(() => store.list('bounded', { maxItems: 0, maxBytes: bytes })).toThrow(
+			'positive safe integers'
+		);
+	} finally {
+		store.close();
+	}
+});
+
 it('rejects directory state targets before opening SQLite', async () => {
 	await mkdir(file);
 	expect(() => new PersistentStore(file)).toThrow(/regular file/);

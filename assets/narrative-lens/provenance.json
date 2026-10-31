@@ -1,0 +1,23 @@
+{
+	"version": "0.2.0",
+	"tag": "v0.2.0",
+	"commit": "14b272f0e7f83ead97f37d8eeae9af7754c0abda",
+	"source": "https://github.com/writerslogic/narrative-lens/blob/14b272f0e7f83ead97f37d8eeae9af7754c0abda/docs/standalone.schema.json",
+	"fullSha256": "3d7e5eb4c47d645571d7146b133e75cb7cb1434f9fa2fd3338ccffab5e694b90",
+	"subsetSha256": "0abcf90636dc45a9786c0e2291b10b8be1f799047ffd983ae3c94844dd7db617",
+	"contracts": [
+		"AuthorCausalNodes",
+		"AuthorInterventions",
+		"AuthorPropositions",
+		"AuthorKnowledgeEvents",
+		"AuthorEpistemicQueries",
+		"AuthorPromiseEvents",
+		"AuthorSubtextAnnotations",
+		"AuthorThematicTheses",
+		"AuthorThematicAnnotations",
+		"AuthorCoreferenceLinks",
+		"SuppliedUncertaintyObservations",
+		"HistoricalEntries",
+		"HistoricalUsages"
+	]
+}

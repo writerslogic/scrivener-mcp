@@ -15,9 +15,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import { redactDiagnostics } from '../dist/setup/redaction.js';
 import { ContentAnalyzer } from '../dist/analysis/base-analyzer.js';
-import { ContentEnhancer } from '../dist/services/enhancements/content-enhancer.js';
 import {
 	initializeSkillRegistry,
 	getRegisteredTools,
@@ -27,8 +27,16 @@ import { createC2paTestSigner } from './create-c2pa-fixtures.mjs';
 
 const out = (l) => process.stdout.write(`${l}\n`);
 const ajv = new Ajv({ strict: false, allErrors: true });
+addFormats(ajv);
 
 const PLAN = [
+	['analyze_manuscript_local', { action: 'capabilities' }],
+	['analyze_manuscript_local', { action: 'analyze', saveAs: 'conformance' }],
+	['analyze_manuscript_local', { action: 'analyze', baseline: 'conformance' }],
+	[
+		'analyze_narrative_annotations',
+		{ kind: 'causality', input: { nodes: [], interventions: [] } },
+	],
 	['c2pa_capabilities', {}],
 	[
 		'sign_content_credentials',
@@ -112,7 +120,6 @@ async function main() {
 		project: null,
 		memoryManager: null,
 		contentAnalyzer: new ContentAnalyzer(),
-		contentEnhancer: new ContentEnhancer(),
 		credentialAssetPath: path.join(tmp, 'credential-source.txt'),
 		credentialManifestPath: path.join(tmp, 'credential-source.c2pa'),
 	};

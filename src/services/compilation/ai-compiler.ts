@@ -1,18 +1,10 @@
-/**
- * AI-assisted compilation backed by the direct-SDK AIClient (Claude default)
- * via AISemanticExtractor.generateWithTemplate. Replaces the LangChain-based
- * LangChainCompilationService: standard/intelligent manuscript compilation with
- * optional target optimization, prose enhancement, and quality assessment, plus
- * direct generation of submission/marketing artifacts.
- */
-
-import type { LogContext } from '../../core/logger.js';
+import { createHash } from 'node:crypto';
 import { getLogger } from '../../core/logger.js';
 import type { ProjectStatistics } from '../../types/index.js';
-import { AppError, ErrorCode } from '../../utils/common.js';
-import { AISemanticExtractor } from '../ai/ai-semantic-extractor.js';
+import { getAccurateWordCount } from '../../utils/text-metrics.js';
+import { AIClient } from '../ai/ai-client.js';
 import { parseModelJson } from '../../utils/json-parse.js';
-import { clip, untrustedBlock } from '../../utils/prompt-input.js';
+import { untrustedBlock } from '../../utils/prompt-input.js';
 import type { CompilationOptions } from '../compilation-service.js';
 import { CompilationService } from '../compilation-service.js';
 import type { RTFContent } from '../parsers/rtf-handler.js';
@@ -25,12 +17,8 @@ export interface AICompilationOptions extends CompilationOptions {
 	materialType?: string;
 	length?: number;
 	targetAudience?: string;
-	includeGenreAnalysis?: boolean;
 	optimizeForTarget?: boolean;
 	enhanceContent?: boolean;
-	targetOptimization?: string;
-	intelligentFormatting?: boolean;
-	generateMarketingMaterials?: boolean;
 	/** Author-preference directive appended to prose-generation prompts. */
 	preferenceDirective?: string;
 }
@@ -41,43 +29,80 @@ export interface CompiledDocument {
 		format: string;
 		wordCount: number;
 		optimizations: string[];
+		warnings: string[];
 		targetAudience: string;
 		compiledAt: string;
 		processingTime?: number;
 	};
-	quality: {
-		score: number;
-		suggestions: string[];
-		issues: string[];
+	quality: CompilationQuality;
+}
+
+export interface CompilationQuality {
+	score: number | null;
+	suggestions: string[] | null;
+	issues: string[] | null;
+	availability: 'available' | 'partial' | 'unavailable';
+	unavailableFields: Array<'score' | 'suggestions' | 'issues'>;
+	partialFields: Array<'suggestions' | 'issues'>;
+	reason?: 'provider_failed' | 'invalid_response' | 'no_text';
+	coverage: {
+		start: 0;
+		end: number;
+		sourceCharacters: number;
+		sourceRevision: string;
+		truncated: boolean;
 	};
 }
 
-interface TargetOptimization {
-	maxLength: number;
-	style: string;
+export const MAX_COMPILATION_AI_SOURCE = 12000;
+export const MAX_QUALITY_CONTEXT = 4000;
+
+interface CompilationTransform {
+	content: string;
+	optimizations: string[];
+	warnings: string[];
+}
+
+function requireGeneratedText(content: unknown): string {
+	if (typeof content !== 'string' || !content.trim())
+		throw new Error('Provider returned no generated text');
+	return content;
 }
 
 export class AICompilationService extends CompilationService {
-	private ai: AISemanticExtractor;
+	private ai: AIClient;
 	private logger: ReturnType<typeof getLogger>;
-	private targetOptimizations: Map<string, TargetOptimization>;
+	private targetWordLimits: Map<string, number>;
 
-	constructor(ai: AISemanticExtractor = new AISemanticExtractor()) {
+	constructor(ai: AIClient = new AIClient()) {
 		super();
 		this.ai = ai;
 		this.logger = getLogger('AICompilationService');
-		this.targetOptimizations = new Map([
-			['agent-query', { maxLength: 250, style: 'professional' }],
-			['submission', { maxLength: 5000, style: 'polished' }],
-			['beta-readers', { maxLength: Infinity, style: 'readable' }],
-			['publication', { maxLength: Infinity, style: 'publication-ready' }],
-			['pitch-packet', { maxLength: 2000, style: 'marketing' }],
-			['synopsis', { maxLength: 1000, style: 'synopsis' }],
+		this.targetWordLimits = new Map([
+			['agent-query', 250],
+			['submission', 5000],
+			['pitch-packet', 2000],
+			['synopsis', 1000],
 		]);
 	}
 
 	async initialize(): Promise<void> {
 		this.logger.info('AI Compilation Service initialized');
+	}
+
+	private generate(
+		prompt: string,
+		options: { json?: boolean; maxTokens?: number; preferenceDirective?: string } = {}
+	): Promise<string> {
+		const system = options.json
+			? 'Respond with STRICT JSON only -- no prose, no markdown code fences.'
+			: 'You are a precise writing analyst.';
+		const directive = options.json ? '' : options.preferenceDirective?.trim();
+		return this.ai.chat(prompt, {
+			system: directive ? `${system}\n\n${directive}` : system,
+			temperature: 0.2,
+			maxTokens: options.maxTokens ?? 2000,
+		});
 	}
 
 	async compileWithAI(
@@ -86,81 +111,61 @@ export class AICompilationService extends CompilationService {
 		projectStats?: ProjectStatistics
 	): Promise<CompiledDocument> {
 		const start = Date.now();
-		try {
-			this.logger.info(`Starting AI compilation for target: ${options.target || 'default'}`);
-			if (projectStats) {
-				this.logger.debug('Project statistics available for compilation', {
-					documentCount: projectStats.totalDocuments,
-					wordCount: projectStats.totalWords,
-				});
-			}
-
-			const baseCompiled = await super.compileDocuments(documents, options);
-			let content =
-				typeof baseCompiled === 'string' ? baseCompiled : JSON.stringify(baseCompiled);
-			const optimizations: string[] = [];
-
-			if (options.optimizeForTarget && options.target) {
-				const optimized = await this.optimizeForTarget(content, options.target, options);
-				content = optimized.content;
-				optimizations.push(...optimized.optimizations);
-			}
-
-			if (options.enhanceContent) {
-				const enhanced = await this.enhanceContent(content, options);
-				content = enhanced.content;
-				optimizations.push(...enhanced.optimizations);
-			}
-
-			const quality = await this.assessQuality(content, options.target);
-
-			// In JSON mode, keep the raw text if it does not parse rather than
-			// silently collapsing the compiled output to an empty object.
-			let resultContent: string | object = content;
-			if (options.outputFormat === 'json') {
-				const parsed = parseModelJson(content, this.logger);
-				resultContent = parsed && typeof parsed === 'object' ? parsed : content;
-			}
-
-			return {
-				content: resultContent,
-				metadata: {
-					format: options.outputFormat || 'text',
-					wordCount: content.split(/\s+/).filter(Boolean).length,
-					optimizations,
-					targetAudience: options.audience || 'general',
-					compiledAt: new Date().toISOString(),
-					processingTime: Date.now() - start,
-				},
-				quality,
-			};
-		} catch (error) {
-			const appError = new AppError(
-				'AI compilation failed, falling back to standard compilation',
-				ErrorCode.PROCESSING_ERROR,
-				{ originalError: (error as Error).message }
-			);
-			this.logger.error(appError.message, appError.details as LogContext);
-
-			const fallback = await super.compileDocuments(documents, options);
-			const fallbackText = typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
-			return {
-				content: fallback,
-				metadata: {
-					format: options.outputFormat || 'text',
-					wordCount: fallbackText.split(/\s+/).filter(Boolean).length,
-					optimizations: ['fallback-to-standard'],
-					targetAudience: options.audience || 'general',
-					compiledAt: new Date().toISOString(),
-					processingTime: Date.now() - start,
-				},
-				quality: {
-					score: 0.5,
-					suggestions: ['AI compilation failed, manual review recommended'],
-					issues: ['Could not perform AI optimization'],
-				},
-			};
+		if (projectStats)
+			this.logger.debug('Project statistics available for compilation', {
+				documentCount: projectStats.totalDocuments,
+				wordCount: projectStats.totalWords,
+			});
+		const baseCompiled = await super.compileDocuments(documents, options);
+		const originalText =
+			!options.outputFormat || options.outputFormat === 'text'
+				? (baseCompiled as string)
+				: ((await super.compileDocuments(documents, {
+						...options,
+						outputFormat: 'text',
+					})) as string);
+		let content = originalText;
+		const optimizations: string[] = [];
+		const warnings: string[] = [];
+		if (options.optimizeForTarget && options.target) {
+			const optimized = await this.optimizeForTarget(content, options.target, options);
+			content = optimized.content;
+			optimizations.push(...optimized.optimizations);
+			warnings.push(...optimized.warnings);
 		}
+		if (options.enhanceContent) {
+			const enhanced = await this.enhanceContent(content, options);
+			content = enhanced.content;
+			optimizations.push(...enhanced.optimizations);
+			warnings.push(...enhanced.warnings);
+		}
+		const resultContent =
+			content === originalText
+				? baseCompiled
+				: await super.compileDocuments(
+						[
+							{
+								id: 'generated',
+								title: documents.length === 1 ? documents[0].title : '',
+								content,
+							},
+						],
+						{ outputFormat: options.outputFormat }
+					);
+		const quality = await this.assessQuality(content, options.target);
+		return {
+			content: resultContent,
+			metadata: {
+				format: options.outputFormat || 'text',
+				wordCount: getAccurateWordCount(content),
+				optimizations,
+				warnings,
+				targetAudience: options.audience || 'general',
+				compiledAt: new Date().toISOString(),
+				processingTime: Date.now() - start,
+			},
+			quality,
+		};
 	}
 
 	/**
@@ -170,14 +175,32 @@ export class AICompilationService extends CompilationService {
 	async generateMarketingMaterials(
 		documents: Array<{ id: string; content: RTFContent | string; title: string }>,
 		options: AICompilationOptions = {}
-	): Promise<{ content: string; processingTime: number }> {
+	): Promise<{ content: string; processingTime: number; sourceCharacters: number }> {
 		const start = Date.now();
-		const materialType = options.materialType || 'synopsis';
-		const length = options.length || 1000;
-		const source = documents
-			.map((d) => (typeof d.content === 'string' ? d.content : d.content?.plainText || ''))
-			.join('\n\n')
-			.slice(0, 12000);
+		const materialType = options.materialType ?? 'synopsis';
+		const length = options.length ?? 1000;
+		if (!Number.isInteger(length) || length < 1 || length > 2000)
+			throw new Error('Marketing length must be an integer from 1 to 2000 words');
+		if (
+			options.targetAudience !== undefined &&
+			(typeof options.targetAudience !== 'string' || options.targetAudience.length > 2000)
+		)
+			throw new Error('Target audience must contain at most 2000 characters');
+		let source = '';
+		for (const document of documents) {
+			const text =
+				typeof document.content === 'string'
+					? document.content
+					: document.content?.plainText;
+			if (typeof text !== 'string') throw new Error('Marketing source requires text content');
+			const separator = source ? '\n\n' : '';
+			if (source.length + separator.length + text.length > MAX_COMPILATION_AI_SOURCE)
+				throw new Error(
+					'Marketing generation requires a complete source within 12000 UTF-16 characters; select a smaller document scope'
+				);
+			source += separator + text;
+		}
+		if (!source.trim()) throw new Error('Marketing generation requires nonempty source text');
 
 		const labels: Record<string, string> = {
 			synopsis: 'a professional synopsis (third person, present tense, including the ending)',
@@ -186,7 +209,9 @@ export class AICompilationService extends CompilationService {
 			elevator_pitch: 'a one-paragraph elevator pitch',
 			book_blurb: 'a back-cover book blurb that hooks readers without spoilers',
 		};
-		const description = labels[materialType] || labels.synopsis;
+		if (!Object.prototype.hasOwnProperty.call(labels, materialType))
+			throw new Error('Unsupported marketing material type');
+		const description = labels[materialType];
 
 		const prompt =
 			`Write ${description} for this ${options.genre || 'fiction'} manuscript.\n` +
@@ -194,157 +219,217 @@ export class AICompilationService extends CompilationService {
 				options.targetAudience ? ` Target audience: ${options.targetAudience}.` : ''
 			}\n\nManuscript:\n${untrustedBlock(source)}\n\nReturn only the ${materialType.replace(/_/g, ' ')} text.`;
 
-		const result = await this.ai.generateWithTemplate(materialType, prompt, {
-			customPrompt: prompt,
-			genre: options.genre,
+		const content = await this.generate(prompt, {
+			maxTokens: Math.min(8192, length * 3 + 512),
 			preferenceDirective: options.preferenceDirective,
 		});
-		return { content: result.content, processingTime: Date.now() - start };
+		return {
+			content: requireGeneratedText(content),
+			processingTime: Date.now() - start,
+			sourceCharacters: source.length,
+		};
 	}
 
 	private async optimizeForTarget(
 		content: string,
 		target: string,
 		options: AICompilationOptions
-	): Promise<{ content: string; optimizations: string[] }> {
-		const config = this.targetOptimizations.get(target);
-		if (!config) return { content, optimizations: [] };
+	): Promise<CompilationTransform> {
+		const maxWords = this.targetWordLimits.get(target);
+		if (maxWords === undefined)
+			return {
+				content,
+				optimizations: [],
+				warnings: ['Target optimization unavailable: unsupported target'],
+			};
+		if (!content.trim() || content.length > MAX_COMPILATION_AI_SOURCE)
+			return {
+				content,
+				optimizations: [],
+				warnings: [
+					'Target optimization unavailable: complete source must contain 1–12000 UTF-16 characters',
+				],
+			};
 
 		const intents: Record<string, { instruction: string; optimizations: string[] }> = {
 			'agent-query': {
 				instruction:
 					'Transform this content into a compelling query letter for literary agents: a strong ' +
 					'opening hook, the main conflict and stakes, and what makes the story unique. Max 250 words.',
-				optimizations: ['Formatted as query letter', 'Optimized hook and stakes'],
+				optimizations: ['Generated query letter'],
 			},
 			submission: {
 				instruction:
 					'Prepare this manuscript content for submission: publication-ready, a strong opening ' +
 					'hook, consistent voice and pacing.',
-				optimizations: ['Polished for submission', 'Enhanced opening hook'],
+				optimizations: ['Provider submission revision'],
 			},
 			'pitch-packet': {
 				instruction:
 					'Create a pitch packet from this content: a one-line logline, a short synopsis, market ' +
 					'positioning, and unique selling points. Max 2000 words.',
-				optimizations: ['Formatted as pitch packet', 'Added market positioning'],
+				optimizations: ['Generated pitch packet'],
 			},
 			synopsis: {
 				instruction:
 					'Create a professional synopsis from this content: third person, present tense, a ' +
 					'complete plot summary including the ending and character arcs. Max 1000 words.',
-				optimizations: ['Professional synopsis format', 'Complete plot summary'],
+				optimizations: ['Generated synopsis'],
 			},
 		};
 
 		const intent = intents[target];
-		if (!intent) return { content, optimizations: [] };
+		if (!intent)
+			return {
+				content,
+				optimizations: [],
+				warnings: ['Target optimization unavailable: unsupported target'],
+			};
 
 		const optimizations: string[] = [];
-		let optimized = content;
 		try {
-			const boundedContent = clip(content, 12000, this.logger, `optimize_${target} content`);
-			const prompt = `${intent.instruction}\n\nGenre: ${options.genre || 'fiction'}\n\nContent:\n${untrustedBlock(boundedContent)}\n\nReturn only the resulting text.`;
-			const result = await this.ai.generateWithTemplate(`optimize_${target}`, prompt, {
-				customPrompt: prompt,
-				style: config.style,
-				genre: options.genre,
+			const prompt = `${intent.instruction}\n\nGenre: ${options.genre || 'fiction'}\n\nContent:\n${untrustedBlock(content)}\n\nReturn only the resulting text.`;
+			const result = await this.generate(prompt, {
+				maxTokens: 8192,
 				preferenceDirective: options.preferenceDirective,
 			});
-			optimized = result.content;
+			let optimized = requireGeneratedText(result);
 			optimizations.push(...intent.optimizations);
 
-			if (
-				config.maxLength !== Infinity &&
-				optimized.split(/\s+/).filter(Boolean).length > config.maxLength
-			) {
-				optimized = await this.condenseToLength(optimized, config.maxLength);
-				optimizations.push(`Condensed to ${config.maxLength} words`);
+			if (getAccurateWordCount(optimized) > maxWords) {
+				optimized = await this.condenseToLength(optimized, maxWords);
+				optimizations.push(`Condensed to at most ${maxWords} words`);
 			}
-		} catch (error) {
-			this.logger.warn(`Target optimization failed for ${target}`, {
-				error: (error as Error).message,
-			});
-			optimizations.push('Target optimization failed, using original content');
+			return { content: optimized, optimizations, warnings: [] };
+		} catch {
+			this.logger.warn('Target optimization unavailable');
+			return {
+				content,
+				optimizations: [],
+				warnings: ['Target optimization unavailable; original content preserved'],
+			};
 		}
-		return { content: optimized, optimizations };
 	}
 
 	private async condenseToLength(content: string, maxWords: number): Promise<string> {
-		const boundedContent = clip(content, 12000, this.logger, 'condense content');
+		if (content.length > MAX_COMPILATION_AI_SOURCE)
+			throw new Error('Condensation source exceeds 12000 characters');
 		const prompt =
 			`Condense this content to at most ${maxWords} words while preserving the essential ` +
-			`information and a professional tone:\n\n${untrustedBlock(boundedContent)}`;
-		const result = await this.ai.generateWithTemplate('condense', prompt, {
-			customPrompt: prompt,
+			`information and a professional tone:\n\n${untrustedBlock(content)}`;
+		const result = await this.generate(prompt, {
+			maxTokens: Math.min(8192, maxWords * 3 + 512),
 		});
-		return result.content;
+		const condensed = requireGeneratedText(result);
+		if (getAccurateWordCount(condensed) > maxWords)
+			throw new Error('Condensation did not satisfy the requested word limit');
+		return condensed;
 	}
 
 	private async enhanceContent(
 		content: string,
 		options: AICompilationOptions
-	): Promise<{ content: string; optimizations: string[] }> {
-		const boundedContent = clip(content, 12000, this.logger, 'enhance content');
+	): Promise<CompilationTransform> {
+		if (!content.trim() || content.length > MAX_COMPILATION_AI_SOURCE)
+			return {
+				content,
+				optimizations: [],
+				warnings: [
+					'Content enhancement unavailable: complete source must contain 1–12000 UTF-16 characters',
+				],
+			};
 		const prompt =
 			`Enhance this ${options.genre || 'fiction'} content for publication quality: improve clarity ` +
 			'and flow, strengthen word choice, and preserve the author’s voice. Make minimal but ' +
-			`impactful edits.\n\nContent:\n${untrustedBlock(boundedContent)}\n\nReturn only the enhanced text.`;
+			`impactful edits.\n\nContent:\n${untrustedBlock(content)}\n\nReturn only the enhanced text.`;
 		try {
-			const result = await this.ai.generateWithTemplate('enhance', prompt, {
-				customPrompt: prompt,
-				genre: options.genre,
+			const result = await this.generate(prompt, {
+				maxTokens: 8192,
 				preferenceDirective: options.preferenceDirective,
 			});
+			const enhanced = requireGeneratedText(result);
+			const maxWords =
+				options.optimizeForTarget && options.target
+					? this.targetWordLimits.get(options.target)
+					: undefined;
+			if (maxWords !== undefined && getAccurateWordCount(enhanced) > maxWords)
+				throw new Error('Enhancement exceeded the target word limit');
 			return {
-				content: result.content,
-				optimizations: ['Enhanced prose quality', 'Improved clarity and flow'],
+				content: enhanced,
+				optimizations: ['Provider prose revision'],
+				warnings: [],
 			};
-		} catch (error) {
-			this.logger.warn('Content enhancement failed', { error: (error as Error).message });
-			return { content, optimizations: ['Content enhancement unavailable'] };
+		} catch {
+			this.logger.warn('Content enhancement unavailable');
+			return {
+				content,
+				optimizations: [],
+				warnings: ['Content enhancement unavailable; original content preserved'],
+			};
 		}
 	}
 
-	private async assessQuality(
-		content: string,
-		target?: string
-	): Promise<{ score: number; suggestions: string[]; issues: string[] }> {
+	private async assessQuality(content: string, target?: string): Promise<CompilationQuality> {
+		let end = Math.min(content.length, MAX_QUALITY_CONTEXT);
+		if (end < content.length && /[\uD800-\uDBFF]/.test(content[end - 1])) end--;
+		const quality: CompilationQuality = {
+			score: null,
+			suggestions: null,
+			issues: null,
+			availability: 'unavailable',
+			unavailableFields: ['score', 'suggestions', 'issues'],
+			partialFields: [],
+			coverage: {
+				start: 0,
+				end,
+				sourceCharacters: content.length,
+				sourceRevision: createHash('sha256').update(content).digest('hex'),
+				truncated: end < content.length,
+			},
+		};
+		if (!content.trim()) return { ...quality, reason: 'no_text' };
+		let parsed: unknown;
 		try {
 			const prompt =
 				`Assess the quality of this ${target || 'general'} content for clarity, engagement, and ` +
 				'professional presentation. Return JSON: {"score": 0.0-1.0, "suggestions": [up to 3 ' +
-				`strings], "issues": [strings]}.\n\nContent:\n${content.slice(0, 4000)}`;
-			const result = await this.ai.generateWithTemplate('quality_assessment', prompt, {
-				customPrompt: prompt,
-				format: 'json',
-			});
-			const parsedAssessment = parseModelJson(result.content, this.logger);
-			const assessment = (
-				parsedAssessment && typeof parsedAssessment === 'object' ? parsedAssessment : {}
-			) as {
-				score?: number;
-				suggestions?: unknown;
-				issues?: unknown;
-			};
-			return {
-				score: Math.max(0, Math.min(1, assessment.score ?? 0.7)),
-				suggestions: Array.isArray(assessment.suggestions)
-					? (
-							assessment.suggestions.filter((s) => typeof s === 'string') as string[]
-						).slice(0, 3)
-					: [],
-				issues: Array.isArray(assessment.issues)
-					? (assessment.issues.filter((s) => typeof s === 'string') as string[])
-					: [],
-			};
-		} catch (error) {
-			this.logger.warn('Quality assessment failed', { error: (error as Error).message });
-			return {
-				score: 0.7,
-				suggestions: ['Manual quality review recommended'],
-				issues: ['Automated assessment unavailable'],
-			};
+				`strings], "issues": [strings]}.\n\nContent:\n${untrustedBlock(content.slice(0, end))}`;
+			const result = await this.generate(prompt, { json: true });
+			parsed = typeof result === 'string' ? parseModelJson(result, this.logger) : null;
+		} catch {
+			this.logger.warn('Quality assessment unavailable');
+			return { ...quality, reason: 'provider_failed' };
 		}
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+			return { ...quality, reason: 'invalid_response' };
+		const assessment = parsed as Record<string, unknown>;
+		if (
+			typeof assessment.score === 'number' &&
+			Number.isFinite(assessment.score) &&
+			assessment.score >= 0 &&
+			assessment.score <= 1
+		)
+			quality.score = assessment.score;
+		for (const field of ['suggestions', 'issues'] as const) {
+			const values = assessment[field];
+			if (!Array.isArray(values)) continue;
+			const valid = values.filter(
+				(item): item is string => typeof item === 'string' && Boolean(item.trim())
+			);
+			if (valid.length || !values.length) {
+				quality[field] = valid;
+				if (valid.length !== values.length) quality.partialFields.push(field);
+			}
+		}
+		quality.unavailableFields = quality.unavailableFields.filter(
+			(field) => quality[field] === null
+		);
+		quality.availability =
+			quality.unavailableFields.length === 3
+				? 'unavailable'
+				: quality.unavailableFields.length || quality.partialFields.length
+					? 'partial'
+					: 'available';
+		return quality;
 	}
 }

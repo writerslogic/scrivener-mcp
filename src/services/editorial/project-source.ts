@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import type { ScrivenerDocument } from '../../types/index.js';
 import type { PersistentStore } from './persistent-store.js';
-import type { ManuscriptSource, SourceDocument } from './types.js';
+import type { ManuscriptSource, SourceDocument, SourceScopeOptions } from './types.js';
 import { RTFHandler } from '../parsers/rtf-handler.js';
 import { createError, ErrorCode } from '../../core/errors.js';
 import { getOrCreateProjectIdentity } from './project-identity.js';
@@ -32,17 +32,45 @@ export class ProjectSource implements ManuscriptSource {
 		this.projectId = getOrCreateProjectIdentity(store);
 	}
 
-	async list(): Promise<SourceDocument[]> {
-		const documents = this.selectDocuments(await this.documents());
+	async list(options: SourceScopeOptions = {}): Promise<SourceDocument[]> {
+		if (
+			!options ||
+			typeof options !== 'object' ||
+			Array.isArray(options) ||
+			Object.keys(options).some(
+				(key) => !['scope', 'maxDocuments', 'maxCharacters'].includes(key)
+			)
+		)
+			throw new Error('Invalid source scope options');
+		const scope = options.scope === undefined ? 'draft' : options.scope;
+		const maxDocuments =
+			options.maxDocuments === undefined ? MAX_SOURCE_DOCUMENTS : options.maxDocuments;
+		const maxCharacters =
+			options.maxCharacters === undefined ? MAX_SOURCE_CHARACTERS : options.maxCharacters;
+		if (
+			!['draft', 'all'].includes(scope) ||
+			!Number.isSafeInteger(maxDocuments) ||
+			maxDocuments < 1 ||
+			maxDocuments > MAX_SOURCE_DOCUMENTS ||
+			!Number.isSafeInteger(maxCharacters) ||
+			maxCharacters < 1 ||
+			maxCharacters > MAX_SOURCE_CHARACTERS
+		)
+			throw new Error('Source scope requires bounded positive document and character limits');
+		if (scope === 'all' && !this.allDocuments)
+			throw new Error('All-document source scope is unavailable');
+		const documents = this.selectDocuments(
+			await (scope === 'all' ? this.allDocuments!() : this.documents())
+		);
+		if (documents.length > maxDocuments)
+			throw new Error('Source exceeds the requested document budget');
 		const result: SourceDocument[] = [];
 		let characters = 0;
 		for (let order = 0; order < documents.length; order++) {
 			const document = await this.materialize(documents[order], order);
 			characters += document.text.length;
-			if (characters > MAX_SOURCE_CHARACTERS)
-				throw new Error(
-					'Manuscript scope exceeds the 64 Mi UTF-16 character analysis budget'
-				);
+			if (characters > maxCharacters)
+				throw new Error('Source exceeds the requested UTF-16 character analysis budget');
 			result.push(document);
 		}
 		return result;

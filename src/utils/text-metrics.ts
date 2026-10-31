@@ -65,25 +65,7 @@ function restoreProtectedPeriods(text: string): string {
  */
 export function getAccurateWordCount(content: string): number {
 	if (!content) return 0;
-
-	// Use NLP for more accurate word counting
-	const text = normalizeText(content);
-	const doc = nlp(text);
-
-	// Get word count from NLP (handles contractions, possessives, etc. properly)
-	let wordCount = doc.wordCount();
-
-	// Adjust for acronyms that NLP might split
-	const acronyms = doc.acronyms().out('array');
-	wordCount =
-		wordCount -
-		acronyms.reduce((count: number, acronym: string) => {
-			// If NLP counted an acronym as multiple words (e.g., "U.S.A." as 3), adjust
-			const dots = (acronym.match(/\./g) || []).length;
-			return count + Math.max(0, dots - 1);
-		}, 0);
-
-	return wordCount;
+	return nlp(normalizeText(content)).wordCount();
 }
 
 export function getAccurateSentenceCount(content: string): number {
@@ -103,7 +85,7 @@ export function getAccurateSentenceCount(content: string): number {
 		sentenceCount = lines.filter((line) => getAccurateWordCount(line) > 0).length;
 	}
 
-	return Math.max(1, sentenceCount); // At least 1 sentence if there's content
+	return sentenceCount;
 }
 
 export function getAccurateParagraphCount(content: string): number {
@@ -116,7 +98,7 @@ export function getAccurateParagraphCount(content: string): number {
 		return trimmed.length > 0 && getAccurateWordCount(trimmed) > 0;
 	});
 
-	return paragraphs.length || 1; // At least 1 paragraph if there's content
+	return paragraphs.length;
 }
 
 export function splitIntoSentences(content: string): string[] {
@@ -139,8 +121,8 @@ export interface WritingTextMetrics {
 	wordCount: number;
 	sentenceCount: number;
 	paragraphCount: number;
-	averageWordsPerSentence: number;
-	averageWordsPerParagraph: number;
+	averageWordsPerSentence: number | null;
+	averageWordsPerParagraph: number | null;
 	readingTimeMinutes: number;
 }
 
@@ -153,8 +135,8 @@ export function getWritingTextMetrics(content: string): WritingTextMetrics {
 		wordCount,
 		sentenceCount,
 		paragraphCount,
-		averageWordsPerSentence: sentenceCount > 0 ? wordCount / sentenceCount : 0,
-		averageWordsPerParagraph: paragraphCount > 0 ? wordCount / paragraphCount : 0,
+		averageWordsPerSentence: sentenceCount > 0 ? wordCount / sentenceCount : null,
+		averageWordsPerParagraph: paragraphCount > 0 ? wordCount / paragraphCount : null,
 		readingTimeMinutes: Math.ceil(wordCount / 250), // Average adult reading speed
 	};
 }

@@ -5,7 +5,6 @@
 import type { ContentAnalyzer } from '../analysis/base-analyzer.js';
 import type { MemoryManager } from '../memory-manager.js';
 import type { ScrivenerProject } from '../scrivener-project.js';
-import type { ContentEnhancer } from '../services/enhancements/content-enhancer.js';
 import type { DatabaseService } from './database/database-service.js';
 import type { HolographicMemorySystem } from '../services/memory/hhm/holographic-memory-system.js';
 import { PersonalizationService as PersonalizationServiceImpl } from '../services/personalization/personalization-service.js';
@@ -18,7 +17,6 @@ export interface HandlerContext {
 	project: ScrivenerProject | null;
 	memoryManager: MemoryManager | null;
 	contentAnalyzer: ContentAnalyzer;
-	contentEnhancer: ContentEnhancer;
 	databaseService?: DatabaseService;
 	personalization?: PersonalizationService;
 	hhmSystem?: HolographicMemorySystem;
@@ -41,7 +39,8 @@ export interface HandlerResult {
 
 export type ToolHandler = (
 	args: Record<string, unknown>,
-	context: HandlerContext
+	context: HandlerContext,
+	options?: { signal?: AbortSignal }
 ) => Promise<HandlerResult>;
 
 /**
@@ -62,6 +61,10 @@ export interface ToolAnnotations {
 }
 
 export interface ToolSchema {
+	$defs?: Record<string, JSONValue>;
+	allOf?: JSONValue[];
+	oneOf?: JSONValue[];
+	anyOf?: JSONValue[];
 	type: 'object';
 	properties: Record<string, JSONValue>;
 	required?: string[];

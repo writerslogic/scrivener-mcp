@@ -12,6 +12,7 @@ import {
 	checkContinuityLocalHandler,
 	measureVoiceDriftLocalHandler,
 } from '../../../src/handlers/narrative-lens-handlers.js';
+import { createHash } from 'node:crypto';
 import type { HandlerContext } from '../../../src/handlers/types.js';
 
 const scene =
@@ -30,10 +31,32 @@ const docs = [
 	{ id: 'd2', title: 'Two', content: laterScene },
 ];
 
+function editorial(documents: { id: string; title: string; content: string }[]) {
+	return {
+		source: {
+			projectId: 'fixture',
+			read: async (id: string) => {
+				const document = documents.find((item) => item.id === id);
+				if (!document) throw new Error('Document not found');
+				return {
+					projectId: 'fixture',
+					documentId: id,
+					title: document.title,
+					path: document.title,
+					order: documents.indexOf(document),
+					metadata: {},
+					text: document.content,
+					revision: createHash('sha256').update(document.content).digest('hex'),
+				};
+			},
+		},
+	};
+}
 const context = {
 	project: {
 		getDocument: async (id: string) => docs.find((d) => d.id === id) ?? null,
 		getManuscriptDocuments: async () => docs,
+		getEditorialServices: () => editorial(docs),
 	},
 } as unknown as HandlerContext;
 
@@ -42,7 +65,7 @@ describe('analyze_craft_local', () => {
 		const res = await analyzeCraftLocalHandler.handler({ documentId: 'd1' }, context);
 		const out = res.structuredContent as Record<string, unknown>;
 		expect(Object.keys(out).sort()).toEqual(
-			['dialogue', 'grammar', 'readability', 'syntaxTension', 'topWords'].sort()
+			['dialogue', 'grammar', 'readability', 'syntaxTension', 'topWords', 'envelope'].sort()
 		);
 		expect((out.readability as { wordCount: number }).wordCount).toBeGreaterThan(0);
 		expect(res.content[0]).toMatchObject({ type: 'text' });
@@ -71,7 +94,10 @@ describe('measure_voice_drift_local', () => {
 			{ characterName: 'Mara', splitFraction: 0.5 },
 			context
 		);
-		const out = res.structuredContent as { baselineLineCount: number; currentLineCount: number };
+		const out = res.structuredContent as {
+			baselineLineCount: number;
+			currentLineCount: number;
+		};
 		expect(out.baselineLineCount).toBeGreaterThan(0);
 		expect(out.currentLineCount).toBeGreaterThan(0);
 		expect(res.structuredContent).toHaveProperty('drift.overall');
@@ -81,7 +107,14 @@ describe('measure_voice_drift_local', () => {
 describe('analyze_opening_local', () => {
 	it('falls back to the first manuscript document when no id is given', async () => {
 		const res = await analyzeOpeningLocalHandler.handler({ genre: 'thriller' }, context);
-		expect(res.structuredContent).toMatchObject({ documentId: 'd1' });
+		expect(res.structuredContent).toMatchObject({
+			documentId: 'd1',
+			analysis: { qualityAssessed: false },
+		});
+		expect(res.content[0]).toMatchObject({
+			type: 'text',
+			text: expect.stringContaining('quality assessed: false'),
+		});
 	});
 });
 
@@ -111,6 +144,7 @@ const ordered = [
 const orderedContext = {
 	project: {
 		getManuscriptDocuments: async () => ordered,
+		getEditorialServices: () => editorial(ordered),
 	},
 	memoryManager: { getAllCharacters: () => [{ name: 'Mara' }] },
 } as unknown as HandlerContext;
@@ -125,7 +159,9 @@ describe('check_continuity_local', () => {
 		};
 		expect(out.documentCount).toBe(3);
 		expect(out.timeline.map((t) => t.documentId)).toEqual(['ch1', 'ch2', 'ch3']);
-		expect(out.timeline.map((t) => t.order)).toEqual([...out.timeline.map((t) => t.order)].sort());
+		expect(out.timeline.map((t) => t.order)).toEqual(
+			[...out.timeline.map((t) => t.order)].sort()
+		);
 		expect(out.worldState.snapshots).toHaveLength(3);
 		expect(Array.isArray(out.worldState.violations)).toBe(true);
 		expect(res.content[0]).toMatchObject({ type: 'text' });

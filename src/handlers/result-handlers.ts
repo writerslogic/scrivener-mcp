@@ -1,12 +1,11 @@
-import { readResult } from '../core/response-formatter.js';
+import { readResult, RESULT_RETENTION } from '../core/response-formatter.js';
 import type { ToolDefinition } from './types.js';
 import { getStringArg, getOptionalNumberArg } from './types.js';
 
 export const readResultHandler: ToolDefinition = {
 	name: 'read_result',
 	title: 'Read Large Result',
-	description:
-		'Retrieve a bounded UTF-8 chunk of a large compiled or analysis result using its opaque resultId. Continue using nextOffset until null, then concatenate text in order to reconstruct the original JSON. Available without filesystem tools. Results expire after one hour or a server restart.',
+	description: `Retrieve a bounded UTF-8 chunk of a large compiled or analysis result using its opaque resultId. Continue using nextOffset until null, then concatenate text in order to reconstruct the original JSON. Available without filesystem tools. ${RESULT_RETENTION}`,
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -31,7 +30,8 @@ export const readResultHandler: ToolDefinition = {
 				type: 'integer',
 				minimum: 4,
 				maximum: 65536,
-				description: 'Maximum bytes returned, default 16384; characters are never split.',
+				description:
+					'Maximum UTF-8 bytes of chunk text, default 16384; characters are never split. MCP serialization overhead is additional.',
 			},
 		},
 		required: ['resultId'],

@@ -4,6 +4,7 @@
  */
 
 import nlp from 'compromise';
+import { computeReadability, collectProseExamples } from 'narrative-lens';
 import { nlpAnalyzer } from '../services/analysis/nlp-sentiment-analyzer.js';
 import {
 	withErrorHandling,
@@ -285,7 +286,6 @@ const CLICHE_WORDS: ReadonlySet<string> = new Set([
 // Two- and three-word clichés, matched against the bigram/trigram window.
 const CLICHE_PHRASES: ReadonlySet<string> = new Set([
 	'time flies',
-	'crystal clear',
 	'stark contrast',
 	'perfect storm',
 	'low hanging',
@@ -514,8 +514,7 @@ export class MLWordClassifierPro {
 		const isAdjective = wordDoc.adjectives().length > 0;
 		const isAdverb = wordDoc.adverbs().length > 0;
 
-		// Calculate syllables manually
-		const syllables = this.countSyllables(word);
+		const syllables = Math.max(1, computeReadability(word).syllableCount);
 
 		// Get morphological analysis
 		const conjugations = nlp(word).verbs().conjugate() as Array<{ Infinitive?: string }>;
@@ -705,8 +704,11 @@ export class MLWordClassifierPro {
 	}
 
 	private detectCliche(features: WordFeatures): number {
-		let score = 0;
 		const { word, precedingWord, followingWord } = features;
+		const window = [precedingWord, word, followingWord].filter(Boolean).join(' ');
+		let score = collectProseExamples([window]).some((finding) => finding.issueType === 'cliche')
+			? 1
+			: 0;
 
 		// Create bigrams and trigrams
 		const bigram = precedingWord ? `${precedingWord} ${word}` : '';
@@ -871,29 +873,6 @@ export class MLWordClassifierPro {
 		const suffixes =
 			/(ing|ed|er|est|ly|ness|ment|ful|less|ish|ous|able|ible|al|ial|ian|ive|tion|sion)$/;
 		return suffixes.test(word.toLowerCase());
-	}
-
-	private countSyllables(word: string): number {
-		// Simple syllable counting algorithm
-		word = word.toLowerCase();
-		let count = 0;
-		let previousWasVowel = false;
-
-		for (let i = 0; i < word.length; i++) {
-			const isVowel = /[aeiou]/.test(word[i]);
-			if (isVowel && !previousWasVowel) {
-				count++;
-			}
-			previousWasVowel = isVowel;
-		}
-
-		// Adjust for silent e
-		if (word.endsWith('e') && count > 1) {
-			count--;
-		}
-
-		// Ensure at least one syllable
-		return Math.max(1, count);
 	}
 
 	private generatePhonemes(word: string): string {

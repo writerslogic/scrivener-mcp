@@ -235,6 +235,13 @@ export class DocumentManager {
 	async readDocumentVersion(
 		documentId: string
 	): Promise<{ text: string; revision: string; exists: boolean }> {
+		const saved = await this.readDocumentFormattedVersion(documentId);
+		return { text: saved.content.plainText, revision: saved.revision, exists: saved.exists };
+	}
+
+	async readDocumentFormattedVersion(
+		documentId: string
+	): Promise<{ content: RTFContent; revision: string; exists: boolean }> {
 		const saved = await this.writer.coordinator.readRaw(documentId);
 		const parsed = saved.exists
 			? await this.rtfHandler.parseRTF(saved.raw)
@@ -242,7 +249,7 @@ export class DocumentManager {
 		this.documentCache.set(`doc:${documentId}`, parsed);
 		this.cachedRevisions.set(documentId, saved.revision);
 		this.observedRevisions.set(documentId, saved.revision);
-		return { text: parsed.plainText, revision: saved.revision, exists: saved.exists };
+		return { content: parsed, revision: saved.revision, exists: saved.exists };
 	}
 
 	/**

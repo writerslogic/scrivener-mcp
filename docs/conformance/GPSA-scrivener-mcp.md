@@ -3,7 +3,7 @@
 Assessment candidate **0.14.0**, prepared 30 October 2026, with source parent
 `9b673e010a7e3250b0e7ad9b2b75fdb37346cda7`. Final candidate and source/artifact identities are
 recorded in the private evidence packet. The [readiness assessment](readiness.md) records passing
-local controls and external schema, platform and administrator-review boundaries. This document
+local controls, report-schema compatibility, platform and administrator-review boundaries. This document
 describes the implementation; formal conformance and assurance remain unassessed.
 
 The section numbers follow the C2PA v0.2
@@ -33,8 +33,13 @@ The assessment target is Content Credentials Specification **2.4**. The installe
 `c2pa-rs` **0.91.7**, compiled to one local WASM binding for generation and validation. A
 hash-checked compatibility patch restricts the SDK’s existing certificate policies to signing and
 timestamp purposes; its source and upstream archive are shipped. These versions do not establish
-conformance. In the inspected outputs, `claim_generator_info.specVersion` and
-`c2pa.actions.v2.allActionsIncluded` are absent. The public 0.2/2.4 rubric rejects these omissions.
+conformance. The original 29 October baseline omitted `claim_generator_info.specVersion` and
+`c2pa.actions.v2.allActionsIncluded` and failed the public 0.2/2.4 rubric. The retained 30 October
+remediation packet passes all 31 rubric traits for its 41 reports. A subsequent full-schema check
+found that the native serializer emits two manifest flags forbidden by the official 2.4 schema.
+The explicit assessment export and preserved native evidence address this report-version mismatch;
+the [readiness assessment](readiness.md) distinguishes that evidence from formal conformance and
+current release-candidate certification.
 
 ### 1.4 Product identity
 
@@ -315,7 +320,9 @@ certificates, an SBOM, npm audit, key-rotation evidence and checksums. Private s
 passwords are excluded.
 
 The administrator CLI invokes the same worker and validation engine as MCP tools, with separate
-signing/TSA Trust Lists and an RFC 3339 assessment time. It emits actual SDK crJSON. Ordinary tools
+signing/TSA Trust Lists and an RFC 3339 assessment time. Default output is actual SDK crJSON. An
+explicit 2.4 assessment export validates the projected report against the pinned official schema
+and requires a separate native evidence file preserving the complete original inspection. Ordinary tools
 cannot override trust or time. The clock is scoped to one worker process, with no parent clock
 change. Local roots and disposable test certificates do not establish formal conformance, an awarded
 assurance level, production certificate eligibility or public trust. Final program assessment,

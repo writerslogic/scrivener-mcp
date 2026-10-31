@@ -1,3 +1,4 @@
+import { collectProseExamples } from 'narrative-lens';
 // import type { ScrivenerDocument } from '../scrivener-project.js';
 import { getLogger } from '../core/logger.js';
 import { webContentParser } from '../services/web-content-parser.js';
@@ -53,6 +54,7 @@ export interface ContentAnalysis {
 	suggestions: Suggestion[];
 	emotions: EmotionalAnalysis;
 	pacing: PacingAnalysis;
+	unavailable?: string[];
 }
 
 // Re-export types for backward compatibility
@@ -69,7 +71,6 @@ export type {
 export class ContentAnalyzer {
 	// Caching and resource-reuse structures
 	private readonly memoizedCalculations = new Map<string, unknown>();
-	private readonly resourcePool = new Map<string, unknown[]>();
 	private readonly analysisQueue: Array<{
 		content: string;
 		documentId: string;
@@ -87,7 +88,6 @@ export class ContentAnalyzer {
 	private disposed = false;
 	private isProcessingQueue = false;
 	private readonly maxCacheSize = 1000;
-	private readonly maxPoolSize = 50;
 
 	// Analyzer instances
 	private readonly metricsAnalyzer: MetricsAnalyzer;
@@ -102,15 +102,10 @@ export class ContentAnalyzer {
 		// Initialize analyzers with required dependencies
 		this.metricsAnalyzer = new MetricsAnalyzer(
 			this.predictiveMetricsCache,
-			this.memoizeAsync.bind(this),
-			this.getResourceFromPool.bind(this),
-			this.returnResourceToPool.bind(this)
+			this.memoizeAsync.bind(this)
 		);
 
-		this.styleAnalyzer = new StyleAnalyzer(
-			this.predictiveStyleCache,
-			this.countSyllables.bind(this)
-		);
+		this.styleAnalyzer = new StyleAnalyzer(this.predictiveStyleCache);
 
 		this.structureAnalyzer = new StructureAnalyzer();
 
@@ -130,7 +125,6 @@ export class ContentAnalyzer {
 		this.predictiveMetricsCache.dispose();
 		this.predictiveStyleCache.dispose();
 		this.memoizedCalculations.clear();
-		this.resourcePool.clear();
 	}
 
 	private async memoizeAsync<T>(key: string, calculator: () => Promise<T>): Promise<T> {
@@ -149,36 +143,6 @@ export class ContentAnalyzer {
 		const result = await calculator();
 		if (!this.disposed) this.memoizedCalculations.set(key, result);
 		return result;
-	}
-
-	private getResourceFromPool<T>(type: string, creator: () => T): T {
-		if (this.disposed) return creator();
-		const existing = this.resourcePool.get(type);
-		const pool = existing || [];
-
-		if (!existing) {
-			this.resourcePool.set(type, pool);
-		}
-
-		if (pool.length > 0) {
-			return pool.pop() as T;
-		}
-
-		return creator();
-	}
-
-	private returnResourceToPool<T>(type: string, resource: T): void {
-		if (this.disposed) return;
-		const existing = this.resourcePool.get(type);
-		const pool = existing || [];
-
-		if (!existing) {
-			this.resourcePool.set(type, pool);
-		}
-
-		if (pool.length < this.maxPoolSize) {
-			pool.push(resource);
-		}
 	}
 
 	private async processAnalysisQueue(): Promise<void> {
@@ -251,16 +215,17 @@ export class ContentAnalyzer {
 
 	async analyzeContentDirect(content: string, documentId: string): Promise<ContentAnalysis> {
 		// Create intelligent cache key with content fingerprint
-		const contentHash = generateHash(content.substring(0, 1000));
-		const cacheKey = `analysis:${documentId}:${contentHash}`;
+		const contentHash = generateHash(content);
+		const cacheKey = `analysis:availability-v2:${documentId}:${contentHash}`;
 		const context = [documentId, 'content-analysis', contentHash.substring(0, 8)];
 
 		// Try predictive cache first
-		const cachedResult = await this.predictiveAnalysisCache.get(
-			cacheKey,
-			context,
-			'analysis-session'
-		);
+		const cachedResult = await this.predictiveAnalysisCache
+			.get(cacheKey, context, 'analysis-session')
+			.catch(() => {
+				logger.warn('Analysis cache read failed');
+				return undefined;
+			});
 		if (cachedResult) {
 			logger.debug('Predictive cache hit for analysis', {
 				documentId: truncate(documentId, 50),
@@ -274,8 +239,8 @@ export class ContentAnalyzer {
 				{
 					content: {
 						type: 'string',
-						required: true,
-						minLength: 10,
+						required: false,
+						minLength: 0,
 						maxLength: 5_000_000,
 					},
 					documentId: { type: 'string', required: true, minLength: 1, maxLength: 255 },
@@ -284,8 +249,7 @@ export class ContentAnalyzer {
 
 			// Pre-calculate metrics once for reuse
 			const textMetrics = getTextMetrics(content);
-			const contentHash = generateHash(content.substring(0, 1000));
-			const truncatedContent = truncate(content, 5000); // Limit for performance
+			const contentHash = generateHash(content);
 
 			logger.debug('Analyzing content for document', {
 				documentId: truncate(documentId, 50),
@@ -297,75 +261,103 @@ export class ContentAnalyzer {
 			});
 
 			// Execute analysis steps with optimized error handling
+			const unavailable: string[] = [];
 			const executionResult = await measureExecution(async () => {
-				try {
-					// Run lightweight analyses first using the new modular analyzers
-					const metrics = await this.metricsAnalyzer.calculateMetrics(
-						content,
-						textMetrics
-					);
-					const structure = this.structureAnalyzer.analyzeStructure(content);
-
-					// Run heavier analyses with fallbacks
-					const [style, quality, emotions, pacing] = await Promise.allSettled([
-						this.styleAnalyzer.analyzeStyle(content),
-						this.qualityAnalyzer.assessQuality(content),
-						this.emotionAnalyzer.analyzeEmotions(content),
-						this.pacingAnalyzer.analyzePacing(content),
-					]);
-
-					// Generate suggestions based on completed analyses
-					const suggestions = await this.suggestionGenerator.generateSuggestions(
-						truncatedContent,
-						metrics,
-						style.status === 'fulfilled' ? style.value : this.getDefaultStyleAnalysis(),
-						quality.status === 'fulfilled'
-							? quality.value
-							: this.getDefaultQualityIndicators()
-					);
-
-					return {
-						documentId,
-						timestamp: new Date().toISOString(),
-						metrics,
-						style:
-							style.status === 'fulfilled'
-								? style.value
-								: this.getDefaultStyleAnalysis(),
-						structure,
-						quality:
-							quality.status === 'fulfilled'
-								? quality.value
-								: this.getDefaultQualityIndicators(),
-						suggestions,
-						emotions:
-							emotions.status === 'fulfilled'
-								? emotions.value
-								: this.getDefaultEmotionalAnalysis(),
-						pacing:
-							pacing.status === 'fulfilled'
-								? pacing.value
-								: this.getDefaultPacingAnalysis(),
-					};
-				} catch (error) {
-					logger.warn('Analysis step failed, using fallback data', { error, documentId });
-					return this.getMinimalAnalysis(documentId, textMetrics);
-				}
+				const fallback = this.getMinimalAnalysis(documentId, textMetrics);
+				const attempt = async <T>(
+					name: string,
+					operation: () => T | Promise<T>,
+					unavailableValue: T
+				): Promise<T> => {
+					try {
+						return await operation();
+					} catch {
+						unavailable.push(name);
+						logger.warn(`Analysis unavailable: ${name}`, { documentId });
+						return unavailableValue;
+					}
+				};
+				const metrics = await attempt(
+					'metrics',
+					() => this.metricsAnalyzer.calculateMetrics(content, textMetrics),
+					fallback.metrics
+				);
+				const structure = await attempt(
+					'structure',
+					() => this.structureAnalyzer.analyzeStructure(content),
+					fallback.structure
+				);
+				const proseFindings = await attempt(
+					'prose',
+					() => collectProseExamples([content]),
+					[]
+				);
+				const style = await attempt(
+					'style',
+					() => this.styleAnalyzer.analyzeStyle(content, proseFindings),
+					fallback.style
+				);
+				const quality = await attempt(
+					'quality',
+					() => this.qualityAnalyzer.assessQuality(content, proseFindings),
+					fallback.quality
+				);
+				const emotions = await attempt(
+					'emotions',
+					() => this.emotionAnalyzer.analyzeEmotions(content),
+					fallback.emotions
+				);
+				const pacing = await attempt(
+					'pacing',
+					() => this.pacingAnalyzer.analyzePacing(content),
+					fallback.pacing
+				);
+				const nativeSuggestions: Suggestion[] = proseFindings.map((finding) => ({
+					type: 'style',
+					severity: 'minor',
+					issue: finding.issueType,
+					suggestion: finding.suggestion,
+					example: finding.snippet,
+				}));
+				const suggestions = await attempt(
+					'suggestions',
+					() =>
+						this.suggestionGenerator.generateSuggestions(
+							content,
+							metrics,
+							style,
+							quality,
+							proseFindings
+						),
+					nativeSuggestions
+				);
+				return {
+					unavailable,
+					...fallback,
+					metrics,
+					structure,
+					style,
+					quality,
+					emotions,
+					pacing,
+					suggestions,
+				};
 			});
 
 			logger.debug('Content analysis completed', {
 				documentId: truncate(documentId, 50),
 				executionTime: formatDuration(executionResult.ms),
-				cacheKey: `analysis:${documentId}:${truncate(contentHash, 8)}`,
+				cacheKey: `analysis:availability-v2:${documentId}:${truncate(contentHash, 8)}`,
 			});
 
 			// Store result in predictive cache for future access
-			await this.predictiveAnalysisCache.set(
-				cacheKey,
-				executionResult.result,
-				context,
-				'analysis-session'
-			);
+			if (
+				unavailable.length === 0 &&
+				executionResult.result.style.sentenceVariety !== 'unavailable'
+			)
+				await this.predictiveAnalysisCache
+					.set(cacheKey, executionResult.result, context, 'analysis-session')
+					.catch(() => logger.warn('Analysis cache write failed'));
 
 			return executionResult.result;
 		} catch (error) {
@@ -373,28 +365,6 @@ export class ContentAnalyzer {
 				cause: error,
 			});
 		}
-	}
-
-	// Helper methods that are still used by analyzers
-	private countSyllables(words: string[]): number {
-		return words.reduce((count, word) => {
-			word = word.toLowerCase().replace(/[^a-z]/g, '');
-			let syllables = 0;
-			let previousWasVowel = false;
-
-			for (let i = 0; i < word.length; i++) {
-				const isVowel = /[aeiou]/.test(word[i]);
-				if (isVowel && !previousWasVowel) syllables++;
-				previousWasVowel = isVowel;
-			}
-
-			// Adjustments
-			if (word.endsWith('e')) syllables--;
-			if (word.endsWith('le') && word.length > 2) syllables++;
-			if (syllables === 0) syllables = 1;
-
-			return count + syllables;
-		}, 0);
 	}
 
 	async getAdvancedReadabilityAnalysis(content: string): Promise<ReadabilityMetrics> {
@@ -513,66 +483,27 @@ export class ContentAnalyzer {
 	private mergeMetrics(metricsArray: WritingMetrics[]): WritingMetrics | undefined {
 		if (metricsArray.length === 0) return undefined;
 
-		const totals = metricsArray.reduce((acc, curr) => ({
-			wordCount: acc.wordCount + curr.wordCount,
-			sentenceCount: acc.sentenceCount + curr.sentenceCount,
-			paragraphCount: acc.paragraphCount + curr.paragraphCount,
-			averageSentenceLength: acc.averageSentenceLength + curr.averageSentenceLength,
-			averageParagraphLength: acc.averageParagraphLength + curr.averageParagraphLength,
-			readingTime: acc.readingTime + curr.readingTime,
-			fleschReadingEase: acc.fleschReadingEase + curr.fleschReadingEase,
-			fleschKincaidGrade: acc.fleschKincaidGrade + curr.fleschKincaidGrade,
-		}));
+		const totals = metricsArray.reduce(
+			(acc, curr) => ({
+				wordCount: acc.wordCount + curr.wordCount,
+				sentenceCount: acc.sentenceCount + curr.sentenceCount,
+				paragraphCount: acc.paragraphCount + curr.paragraphCount,
+			}),
+			{ wordCount: 0, sentenceCount: 0, paragraphCount: 0 }
+		);
 
 		return {
 			...totals,
-			averageSentenceLength: totals.averageSentenceLength / metricsArray.length,
-			averageParagraphLength: totals.averageParagraphLength / metricsArray.length,
-			fleschReadingEase: totals.fleschReadingEase / metricsArray.length,
-			fleschKincaidGrade: totals.fleschKincaidGrade / metricsArray.length,
-		};
-	}
-
-	// Fallback methods for graceful degradation
-	private getDefaultStyleAnalysis(): StyleAnalysis {
-		return {
-			sentenceVariety: 'medium',
-			vocabularyComplexity: 'moderate',
-			adverbUsage: 'moderate',
-			passiveVoicePercentage: 15,
-			dialoguePercentage: 20,
-			descriptionPercentage: 80,
-			mostFrequentWords: [],
-			styleConsistency: 75,
-		};
-	}
-
-	private getDefaultQualityIndicators(): QualityIndicators {
-		return {
-			repetitiveness: 15,
-			cliches: [],
-			filterWords: [],
-			tellingVsShowing: 0.3,
-			sensoryDetails: 'adequate',
-			whiteSpace: 'balanced',
-		};
-	}
-
-	private getDefaultEmotionalAnalysis(): EmotionalAnalysis {
-		return {
-			dominantEmotion: 'neutral',
-			emotionalArc: [],
-			tensionLevel: 50,
-			moodConsistency: 75,
-		};
-	}
-
-	private getDefaultPacingAnalysis(): PacingAnalysis {
-		return {
-			overall: 'moderate',
-			sections: [],
-			actionVsReflection: 1.0,
-			recommendedAdjustments: [],
+			averageSentenceLength: totals.sentenceCount
+				? totals.wordCount / totals.sentenceCount
+				: null,
+			averageParagraphLength: totals.paragraphCount
+				? totals.wordCount / totals.paragraphCount
+				: null,
+			readingTime: Math.ceil(totals.wordCount / 250),
+			// Clamped native scores cannot be aggregated; final analysis measures the complete source.
+			fleschReadingEase: null,
+			fleschKincaidGrade: null,
 		};
 	}
 
@@ -590,23 +521,23 @@ export class ContentAnalyzer {
 				averageSentenceLength: textMetrics.averageWordsPerSentence,
 				averageParagraphLength: textMetrics.averageWordsPerParagraph,
 				readingTime: textMetrics.readingTimeMinutes,
-				fleschReadingEase: 60,
-				fleschKincaidGrade: 8,
+				fleschReadingEase: null,
+				fleschKincaidGrade: null,
 			},
-			style: this.getDefaultStyleAnalysis(),
+			style: this.styleAnalyzer.getDefaultStyleAnalysis(),
 			structure: {
-				sceneBreaks: 0,
-				chapters: 0,
-				averageSceneLength: textMetrics.wordCount,
-				openingStrength: 'moderate',
-				endingStrength: 'moderate',
-				hookPresence: false,
-				cliffhangers: 0,
+				sceneBreaks: null,
+				chapters: null,
+				averageSceneLength: null,
+				openingStrength: 'unassessed',
+				endingStrength: 'unavailable',
+				hookPresence: null,
+				cliffhangers: null,
 			},
-			quality: this.getDefaultQualityIndicators(),
+			quality: this.qualityAnalyzer.getDefaultQualityIndicators(),
 			suggestions: [],
-			emotions: this.getDefaultEmotionalAnalysis(),
-			pacing: this.getDefaultPacingAnalysis(),
+			emotions: this.emotionAnalyzer.getDefaultEmotionalAnalysis(),
+			pacing: this.pacingAnalyzer.getDefaultPacingAnalysis(),
 		};
 	}
 }
