@@ -1,4 +1,4 @@
-import { performance } from 'node:perf_hooks';
+import { performance, PerformanceObserver } from 'node:perf_hooks';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { promisify } from 'node:util';
@@ -26,6 +26,36 @@ if (process.env.SCRIVENER_NOVEL_RESOURCE_PRELOAD) {
 let measurement;
 let timer;
 const profiling = process.env.SCRIVENER_NOVEL_PROFILE === '1';
+function span(stage, start, cpu, longest = false) {
+	if (!profiling || !timer) return;
+	const value = {
+		stage,
+		startMs: start - measurement.started,
+		endMs: performance.now() - measurement.started,
+		cpu: process.cpuUsage(cpu),
+	};
+	if (longest) {
+		measurement.longestPages.push(value);
+		measurement.longestPages.sort((a, b) => b.endMs - b.startMs - (a.endMs - a.startMs));
+		measurement.longestPages.length = Math.min(8, measurement.longestPages.length);
+	} else if (measurement.spans.length < 128) measurement.spans.push(value);
+	else measurement.droppedSpans++;
+}
+function instrument(prototype, name, label) {
+	const original = prototype[name];
+	prototype[name] = function (...args) {
+		const start = performance.now();
+		const cpu = process.cpuUsage();
+		let result;
+		try {
+			result = original.apply(this, args);
+		} finally {
+			span(`${label}:call`, start, cpu);
+		}
+		if (!result || typeof result.then !== 'function') return result;
+		return result.finally(() => span(`${label}:complete`, start, cpu));
+	};
+}
 function mark(stage) {
 	if (!profiling || !timer) return;
 	measurement.stages.push({
@@ -35,6 +65,25 @@ function mark(stage) {
 	});
 }
 if (profiling) {
+	new PerformanceObserver((list) => {
+		if (!timer) return;
+		for (const entry of list.getEntries()) {
+			if (entry.startTime < measurement.started) continue;
+			if (measurement.gc.length < 64)
+				measurement.gc.push({
+					startMs: entry.startTime - measurement.started,
+					durationMs: entry.duration,
+				});
+			else measurement.droppedGc++;
+		}
+	}).observe({ entryTypes: ['gc'] });
+	const { ProjectSource } = await import('../../src/services/editorial/project-source.ts');
+	instrument(ProjectSource.prototype, 'list', 'source.list');
+	const { NarrativeContext } = await import('../../src/services/editorial/narrative-context.ts');
+	instrument(NarrativeContext.prototype, 'request', 'context.request');
+	const { PersistentStore } = await import('../../src/services/editorial/persistent-store.ts');
+	for (const name of ['get', 'transaction', 'put'])
+		instrument(PersistentStore.prototype, name, `store.${name}`);
 	const { NarrativeAnalysis } =
 		await import('../../src/services/editorial/narrative-analysis.ts');
 	for (const name of ['serializedAnalysis', 'compareReports']) {
@@ -51,16 +100,28 @@ if (profiling) {
 	const { ReportTransport } = await import('../../src/services/editorial/report-transport.ts');
 	const page = ReportTransport.prototype.pageSerialized;
 	ReportTransport.prototype.pageSerialized = function (...args) {
+		const start = performance.now();
+		const cpu = process.cpuUsage();
 		if (args[2] !== undefined) mark('first-page:start');
 		try {
 			return page.apply(this, args);
 		} finally {
+			span('page', start, cpu, true);
 			if (args[2] !== undefined) mark('first-page:end');
 		}
 	};
 }
 function sample() {
 	const now = performance.now();
+	const lag = now - measurement.lastTick - 5;
+	if (profiling && lag > measurement.eventLoopLagMs) {
+		measurement.worstLag = {
+			startMs: measurement.lastTick - measurement.started,
+			endMs: now - measurement.started,
+			cpu: process.cpuUsage(measurement.lastCpu),
+		};
+	}
+	if (profiling) measurement.lastCpu = process.cpuUsage();
 	measurement.eventLoopLagMs = Math.max(
 		measurement.eventLoopLagMs,
 		now - measurement.lastTick - 5
@@ -78,7 +139,17 @@ process.on('message', ({ id, action }) => {
 			rssStartBytes: process.memoryUsage.rss(),
 			rssPeakBytes: 0,
 			eventLoopLagMs: 0,
-			...(profiling ? { stages: [] } : {}),
+			...(profiling
+				? {
+						stages: [],
+						spans: [],
+						droppedSpans: 0,
+						gc: [],
+						droppedGc: 0,
+						longestPages: [],
+						lastCpu: process.cpuUsage(),
+					}
+				: {}),
 		};
 		measurement.rssPeakBytes = measurement.rssStartBytes;
 		timer = setInterval(sample, 5);
@@ -91,7 +162,7 @@ process.on('message', ({ id, action }) => {
 		clearInterval(timer);
 		timer = undefined;
 		sample();
-		const { started, lastTick, ...metrics } = measurement;
+		const { started, lastTick, lastCpu, ...metrics } = measurement;
 		process.send({
 			id,
 			metrics: {

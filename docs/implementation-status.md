@@ -2260,3 +2260,55 @@ sample showed synchronous module/file reads, without establishing the cause of t
 The latency investigation and corrected full remote matrix remain open. Exact logs, the process
 sample and measurements from both invocations are retained under
 `logs/production-readiness-remote-ci-20261031/`.
+
+### Requested session checkpoint (2026-10-31)
+
+The user requested a safe stopping point and a fresh-session continuation prompt. Candidate
+`9b1647c908c80f72ead4c31e8eaa19fe88c0d344` is published on the isolated audit branch;
+[CI 41244515251](https://github.com/writerslogic/scrivener-mcp/actions/runs/41244515251)
+is running, with no observed failures at the checkpoint. Its terminal result and release artifacts
+remain unverified. The candidate worktree is clean; the original main checkout and index remain
+preserved. This checkpoint section is a local, unpublished ledger update.
+
+The additional five-sample Moby profiling attempt exited 1 after an initialization timeout,
+before collecting measurements. Its test process and server child have exited; no local suite
+remains running. This does not resolve the earlier latency failures. No performance thresholds
+were changed and no further production edits were made. Continue from the detailed state and
+artifact checklist in `logs/production-readiness-remote-ci-20261031/continuation-state.md`;
+the audit specification is also retained there as `quality-audit-updated.md`.
+
+### Installed-consumer dependency correction and bounded profiling (2026-10-31)
+
+[Run 41244515251, attempt 1](https://github.com/writerslogic/scrivener-mcp/actions/runs/41244515251)
+completed unsuccessfully at exact commit `9b1647c908c80f72ead4c31e8eaa19fe88c0d344`.
+All eight rows passed the build/static/native gates and complete default test run: Linux/macOS
+155 suites and 2,554 tests passed (12 skips); Windows 154 suites and 2,530 tests passed (40 skips).
+All eight then failed the installed-consumer dependency audit. Docker, Redis, dashboard and
+EPUBCheck did not execute. The separate native/runtime security policy passed; release verification
+correctly failed. Complete per-row logs and exact run metadata are retained in
+`logs/production-readiness-remote-ci-20261031/`.
+
+A fresh consumer dependency resolution reproduced five moderate findings originating in minimatch
+through EPUB's EJS/Jake build-tool dependencies. The repository audit additionally identified the
+glob cancellation advisory in development tooling. The correction pins EJS 7.0.2 for EPUB, removing
+Jake/filelist from production, and pins patched minimatch 11.0.3 and glob 14.0.3 for development.
+EPUB's dependency tree is bundled into the application tarball so consumers receive the tested EJS
+resolution: npm ignores overrides declared by installed dependencies. No audit threshold changed.
+See [minimatch advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249),
+[glob advisory](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), and
+[npm bundle/override semantics](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/).
+
+The final local npm audit reports zero vulnerabilities. The locked dependency graph installed
+successfully with scripts disabled; no local global build/typecheck ran. Two sequential individual
+suites pass 16 tests: EPUB/DOCX/PDF export (including Unicode and template-injection input) and
+actual Jest dependency security (prototype poisoning, cancelled filesystem traversal, adversarial
+globstar preprocessing). Full installed-package/platform verification remains pending.
+
+Profile-only instrumentation now records bounded stage spans, process CPU deltas for the worst lag
+window, up to 64 GC events and the eight longest page operations, without manuscript content.
+The new Moby Dick run completed all 15 operations within unchanged budgets: maximum event-loop
+lag 87.55 ms. The largest observed windows overlapped final report serialization and first-page
+creation; recorded GC pauses were below 5 ms. These measurements do not establish the cause of the
+previous 552.62 ms stall or initialization failures, which remain preserved. The profile overlapped
+part of an npm resolution diagnostic, so it is not an idle-host performance claim. No speculative
+production performance change was made. Complete three-novel validation remains pending.
