@@ -36,6 +36,7 @@ commit_parsers = [
   { message = "^refactor", group = "Changed" },
   { message = "^security", group = "Security" },
   { message = "^docs: update changelog", skip = true },
+  { message = "(?i)^docs.*(audit|intake|questionnaire|security and code quality findings)", skip = true },
   { message = "^docs", group = "Documentation" },
   { message = "^test", skip = true },
   { message = "^style", skip = true },
