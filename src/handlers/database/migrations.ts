@@ -296,7 +296,6 @@ export class MigrationManager {
 
 	async initialize(): Promise<void> {
 		if (this.sqliteManager) {
-			// Create migrations table
 			this.sqliteManager.getDatabase().exec(`
 				CREATE TABLE IF NOT EXISTS migrations (
 					version INTEGER PRIMARY KEY,
@@ -305,7 +304,6 @@ export class MigrationManager {
 				)
 			`);
 
-			// Get current version
 			const result = this.sqliteManager.queryOne(
 				'SELECT MAX(version) as version FROM migrations'
 			) as { version: number | null };
@@ -314,9 +312,6 @@ export class MigrationManager {
 		}
 	}
 
-	/**
-	 * Run pending migrations
-	 */
 	async migrate(): Promise<void> {
 		await this.initialize();
 
@@ -342,17 +337,12 @@ export class MigrationManager {
 		}
 	}
 
-	/**
-	 * Run a single migration
-	 */
 	private async runMigration(migration: Migration): Promise<void> {
-		// Start transaction
 		if (this.sqliteManager) {
 			this.sqliteManager.getDatabase().exec('BEGIN TRANSACTION');
 		}
 
 		try {
-			// Run migration
 			await migration.up(this.sqliteManager || undefined, this.neo4jManager || undefined);
 
 			// Record migration

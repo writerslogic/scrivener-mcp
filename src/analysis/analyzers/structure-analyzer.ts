@@ -1,11 +1,14 @@
+import { analyzeOpeningChecked } from 'narrative-lens';
+
 export interface StructureAnalysis {
-	sceneBreaks: number;
-	chapters: number;
-	averageSceneLength: number;
-	openingStrength: 'weak' | 'moderate' | 'strong';
-	endingStrength: 'weak' | 'moderate' | 'strong';
-	hookPresence: boolean;
-	cliffhangers: number;
+	sceneBreaks: number | null;
+	chapters: number | null;
+	averageSceneLength: number | null;
+	openingStrength: 'weak' | 'moderate' | 'strong' | 'unassessed';
+	openingEvidence?: ReturnType<typeof analyzeOpeningChecked>;
+	endingStrength: 'weak' | 'moderate' | 'strong' | 'unavailable';
+	hookPresence: boolean | null;
+	cliffhangers: number | null;
 }
 
 export class StructureAnalyzer {
@@ -30,10 +33,11 @@ export class StructureAnalyzer {
 		const firstParagraph = paragraphs[0] || '';
 		const lastParagraph = paragraphs[paragraphs.length - 1] || '';
 
-		const openingStrength = this.assessOpeningStrength(firstParagraph);
+		const openingEvidence = analyzeOpeningChecked(firstParagraph, 'general');
+		const openingStrength = 'unassessed' as const;
 		const endingStrength = this.assessEndingStrength(lastParagraph);
 
-		const hookPresence = this.detectHook(firstParagraph);
+		const hookPresence = openingEvidence.hookType !== null;
 		const cliffhangers = this.countCliffhangers(paragraphs);
 
 		return {
@@ -41,23 +45,11 @@ export class StructureAnalyzer {
 			chapters,
 			averageSceneLength,
 			openingStrength,
+			openingEvidence,
 			endingStrength,
 			hookPresence,
 			cliffhangers,
 		};
-	}
-
-	private assessOpeningStrength(paragraph: string): 'weak' | 'moderate' | 'strong' {
-		if (!paragraph) return 'weak';
-
-		const hasHook = this.detectHook(paragraph);
-		const hasAction = /\b(ran|jumped|crashed|exploded|screamed)\b/i.test(paragraph);
-		const hasDialogue = paragraph.includes('"') || paragraph.includes("'");
-		const isShort = paragraph.length < 200;
-
-		const strength = [hasHook, hasAction, hasDialogue, isShort].filter(Boolean).length;
-
-		return strength >= 3 ? 'strong' : strength >= 2 ? 'moderate' : 'weak';
 	}
 
 	private assessEndingStrength(paragraph: string): 'weak' | 'moderate' | 'strong' {
@@ -73,25 +65,12 @@ export class StructureAnalyzer {
 		return strength === 2 ? 'strong' : strength === 1 ? 'moderate' : 'weak';
 	}
 
-	private detectHook(text: string): boolean {
-		const hookPatterns = [
-			/^"[^"]+"/, // Opens with dialogue
-			/^\w+\s+(ran|jumped|crashed|fell|screamed)/i, // Opens with action
-			/^(The|A)\s+\w+\s+was\s+dead/i, // Opens with shocking statement
-			/\?$/, // Opens with question
-		];
-
-		return hookPatterns.some((pattern) => pattern.test(text.slice(0, 100)));
-	}
-
 	private countCliffhangers(paragraphs: string[]): number {
 		return paragraphs.filter((p) => {
 			if (!p.trim()) return false;
 
-			// Check if paragraph ends with a question
 			if (p.trim().endsWith('?')) return true;
 
-			// Check for cliffhanger keywords at the end
 			const lastSentence = p.split(/[.!?]/).pop()?.trim() || '';
 			return /\b(but|however|suddenly|then)\b/i.test(lastSentence);
 		}).length;

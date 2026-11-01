@@ -62,6 +62,9 @@ jobs:
       - name: Tool registry gate
         run: node scripts/check-tool-registry.mjs
 
+      - name: Narrative annotation schema drift gate
+        run: node scripts/generate-narrative-annotation-schema.mjs --check
+
       - name: Output-schema conformance gate
         run: node scripts/check-output-conformance.mjs
 
@@ -84,6 +87,22 @@ jobs:
 
       - name: Installed package and protocol smoke
         run: node scripts/check-release-smoke.mjs
+
+      - name: Linux container build and protocol smoke
+        if: runner.os == 'Linux' && matrix.node-version == '24.x'
+        timeout-minutes: 10
+        run: |
+          mkdir -p logs/container
+          docker build --platform linux/amd64 --iidfile logs/container/image.id --progress plain . > logs/container/build.log 2>&1
+          node scripts/check-container-smoke.mjs --image "$(cat logs/container/image.id)" --output "$PWD/logs/container/smoke.json"
+
+      - name: Retain container startup evidence
+        if: always() && runner.os == 'Linux' && matrix.node-version == '24.x'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: container-linux-amd64
+          path: logs/container
+          if-no-files-found: ignore
 
       - name: Real Redis backend compatibility
         if: runner.os == 'Linux' && matrix.node-version == '24.x'
@@ -157,9 +176,57 @@ jobs:
           path: logs/c2pa
           if-no-files-found: error
 
+  c2pa-rebuild:
+    name: C2PA reproducible build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: 1.96.0
+      CARGO_BUILD_JOBS: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: npm
+      - name: Install locked JavaScript dependencies
+        run: npm ci --ignore-scripts
+      - name: Install pinned Rust and wasm-pack
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --target wasm32-unknown-unknown
+          cargo install wasm-pack --version 0.14.0 --locked
+      - name: Rebuild and compare the shipped engine
+        run: |
+          mkdir -p logs/c2pa-rebuild
+          cp assets/c2pa-binding/build.json logs/c2pa-rebuild/expected-build.json
+          git rev-parse HEAD > logs/c2pa-rebuild/checkout.sha
+          rustc --version --verbose > logs/c2pa-rebuild/compiler.txt
+          cargo --version --verbose > logs/c2pa-rebuild/cargo.txt
+          npm run build:c2pa > logs/c2pa-rebuild/build.log 2>&1
+          cp assets/c2pa-binding/build.json logs/c2pa-rebuild/rebuilt-build.json
+          cp -R assets/c2pa-binding logs/c2pa-rebuild/rebuilt
+          git diff -- assets/c2pa-binding > logs/c2pa-rebuild/artifact.diff
+          node scripts/check-c2pa-binding.mjs
+          git diff --exit-code --quiet -- assets/c2pa-binding
+      - name: Diagnose a nonmatching clean rebuild
+        if: failure()
+        run: |
+          cargo clean --manifest-path native/c2pa-binding/Cargo.toml
+          npm run build:c2pa > logs/c2pa-rebuild/repeat-build.log 2>&1
+          cp -R assets/c2pa-binding logs/c2pa-rebuild/repeated
+          diff -r logs/c2pa-rebuild/rebuilt logs/c2pa-rebuild/repeated > logs/c2pa-rebuild/repeat.diff
+      - name: Retain reproducible build evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: c2pa-rebuild
+          path: logs/c2pa-rebuild
+          if-no-files-found: error
+
   release-gate:
     name: Release verification
-    needs: [build, c2pa-supply-chain]
+    needs: [build, c2pa-supply-chain, c2pa-rebuild]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -167,4 +234,5 @@ jobs:
         env:
           MATRIX_RESULT: ${{ needs.build.result }}
           SECURITY_RESULT: ${{ needs.c2pa-supply-chain.result }}
-        run: test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success
+          REBUILD_RESULT: ${{ needs.c2pa-rebuild.result }}
+        run: test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success && test "$REBUILD_RESULT" = success

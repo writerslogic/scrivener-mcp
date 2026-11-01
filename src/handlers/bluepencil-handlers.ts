@@ -1,11 +1,3 @@
-/**
- * Local, deterministic line-editing checks backed by bluepencil: the editor's
- * pass that narrative-lens does not cover -- adverbs, filter words, hedges,
- * clichés, passive voice, echoes and repeated phrases, sentence rhythm, and
- * dialogue tags -- every finding with a line and column in the document.
- * No AI model, no network call.
- */
-
 import {
 	analyzeDialogue,
 	analyzeRhythm,
@@ -553,7 +545,7 @@ export const manuscriptStyleReportLocalHandler: ToolDefinition = {
 		// Population standard deviation and at least four documents: with fewer,
 		// no single document can sit 1.5 deviations from the mean (the largest
 		// possible z-score is sqrt(n - 1)), so the list would always be empty and
-		// read as a clean bill of health.
+
 		if (populated.length >= 4) {
 			for (const key of rateKeys) {
 				const values = populated.map((r) => r[key]);

@@ -4,20 +4,190 @@ import { requireProject } from './types.js';
  * Async handler definitions for job queue operations
  */
 
-import type { JobType } from '../services/queue/job-queue.js';
-import type { ScrivenerDocument } from '../types/index.js';
-import { compact } from '../core/response-formatter.js';
+import {
+	MAX_ANALYSIS_CONTENT_LENGTH,
+	MAX_ANALYSIS_DOCUMENTS,
+	type JobType,
+	type AnalyzeProjectJob,
+} from '../services/queue/job-queue.js';
+import { compact, formatPayload } from '../core/response-formatter.js';
 import * as asyncHandlers from './async-handlers.js';
-import { SHARED_DEFS } from './shared-schemas.js';
+import {
+	ANALYSIS_ENVELOPE_SCHEMA,
+	RESULT_REFERENCE_SCHEMA,
+	SHARED_DEFS,
+} from './shared-schemas.js';
+import { MAX_SUGGESTION_PROMPT } from '../services/ai/writing-suggestions.js';
+import {
+	MAX_STYLE_SAMPLES,
+	MAX_STYLE_SAMPLE_LENGTH,
+	MAX_STYLE_CONTEXT,
+	STYLE_FIELDS,
+	STYLE_SCALARS,
+	STYLE_LISTS,
+} from '../services/ai/writing-style.js';
 import type { ToolDefinition } from './types.js';
+
+const prioritySchema = {
+	type: 'integer' as const,
+	minimum: 0,
+	maximum: 2097151,
+	description:
+		'Default 0 runs before prioritized jobs; lower positive numbers run sooner. Nonzero priorities require Redis or KeyDB.',
+};
+
+const analysisContentSchema = { ...SHARED_DEFS.content, maxLength: MAX_ANALYSIS_CONTENT_LENGTH };
+const analysisDocumentIdSchema = { ...SHARED_DEFS.docId, minLength: 1, maxLength: 255 };
+const styleFieldDescriptions = {
+	voice: 'Narrative voice observed in the analyzed excerpts; null when unavailable.',
+	tone: 'Emotional tone observed in the analyzed excerpts; null when unavailable.',
+	sentenceStructure:
+		'Sentence construction and variety in the analyzed excerpts; null when unavailable.',
+	vocabularyComplexity: 'Vocabulary complexity in the analyzed excerpts; null when unavailable.',
+	pacing: 'Perceived narrative pace of the analyzed excerpts; null when unavailable.',
+	strengths: 'Provider-identified stylistic strengths; null when unavailable.',
+	improvements: 'Provider-proposed stylistic improvements; null when unavailable.',
+};
+
+const styleResultSchema = {
+	type: 'object',
+	additionalProperties: false,
+	properties: {
+		analysis: {
+			type: 'object',
+			description:
+				'Validated provider observations for the portions of the samples actually analyzed.',
+			additionalProperties: false,
+			properties: {
+				...Object.fromEntries(
+					STYLE_SCALARS.map((field) => [
+						field,
+						{ type: ['string', 'null'], description: styleFieldDescriptions[field] },
+					])
+				),
+				...Object.fromEntries(
+					STYLE_LISTS.map((field) => [
+						field,
+						{
+							type: ['array', 'null'],
+							items: { type: 'string' },
+							description: styleFieldDescriptions[field],
+						},
+					])
+				),
+			},
+			required: STYLE_FIELDS,
+		},
+		availability: {
+			type: 'object',
+			description:
+				'Completeness of the validated style profile; unavailable fields remain null.',
+			additionalProperties: false,
+			properties: {
+				status: {
+					enum: ['available', 'partial', 'unavailable'],
+					description:
+						'Available when every field is valid; partial when some fields or list entries are missing; unavailable when no field is usable.',
+				},
+				unavailableFields: {
+					type: 'array',
+					description:
+						'Fields whose provider values were missing or invalid and are returned as null.',
+					items: { enum: STYLE_FIELDS },
+					uniqueItems: true,
+				},
+				partialFields: {
+					type: 'array',
+					description:
+						'List fields retaining valid entries after invalid entries were removed.',
+					items: { enum: [...STYLE_LISTS] },
+					uniqueItems: true,
+				},
+			},
+			required: ['status', 'unavailableFields', 'partialFields'],
+		},
+		coverage: {
+			type: 'object',
+			description:
+				'Exact supplied-text ranges included within the shared provider context limit.',
+			additionalProperties: false,
+			properties: {
+				truncated: {
+					type: 'boolean',
+					description:
+						'Whether any supplied sample was only partially included or omitted.',
+				},
+				samples: {
+					type: 'array',
+					description:
+						'Coverage and complete-text revisions for every sample, in input order.',
+					minItems: 1,
+					maxItems: MAX_STYLE_SAMPLES,
+					items: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							sampleId: {
+								type: 'string',
+								description:
+									'Positional supplied-text identity, sample-1 through sample-64; not a saved binder ID.',
+							},
+							revision: {
+								type: 'string',
+								pattern: '^[a-f0-9]{64}$',
+								description:
+									'SHA-256 of the complete supplied sample encoded as UTF-8.',
+							},
+							start: {
+								const: 0,
+								description:
+									'Inclusive UTF-16 offset where this sample excerpt starts.',
+							},
+							end: {
+								type: 'integer',
+								minimum: 0,
+								maximum: MAX_STYLE_CONTEXT,
+								description:
+									'Exclusive UTF-16 end offset; zero when the sample did not fit in the context.',
+							},
+							sourceCharacters: {
+								type: 'integer',
+								minimum: 1,
+								maximum: MAX_STYLE_SAMPLE_LENGTH,
+								description: 'UTF-16 length of the complete supplied sample.',
+							},
+							truncated: {
+								type: 'boolean',
+								description:
+									'Whether this sample extends beyond its included excerpt.',
+							},
+						},
+						required: [
+							'sampleId',
+							'revision',
+							'start',
+							'end',
+							'sourceCharacters',
+							'truncated',
+						],
+					},
+				},
+			},
+			required: ['truncated', 'samples'],
+		},
+		envelope: ANALYSIS_ENVELOPE_SCHEMA,
+	},
+	required: ['analysis', 'availability', 'coverage', 'envelope'],
+};
 
 export const asyncHandlerDefinitions: ToolDefinition[] = [
 	{
 		name: 'queue_document_analysis',
 		title: 'Queue Document Analysis',
 		description:
-			'Enqueue a background NLP analysis of one document (readability, entities, sentiment) and ' +
-			'return a job id immediately without blocking. Poll the job with get_job_status and stop it ' +
+			'Enqueue local analysis of supplied text with a SHA-256 source revision and raw policy. ' +
+			'Base prose analysis always runs; readability is included by default. Optional named entities require a local Narrative Lens NER model; sentiment uses a local lexicon heuristic. Unavailable sections are explicit. ' +
+			'return a job id immediately without blocking. Poll the job with get_job_status and request cancellation ' +
 			'with cancel_job. Use this for large documents where a synchronous analyze_document call ' +
 			'would be slow; use analyze_document directly for quick, inline results.',
 		annotations: {
@@ -28,31 +198,34 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		},
 		inputSchema: {
 			type: 'object',
+			additionalProperties: false,
 			properties: {
-				documentId: SHARED_DEFS.docId,
-				content: SHARED_DEFS.content,
+				documentId: analysisDocumentIdSchema,
+				content: analysisContentSchema,
 				options: {
 					type: 'object',
+					additionalProperties: false,
 					description:
-						'Optional flags selecting which analyses to run and the job priority.',
+						'Optional result sections and scheduling priority; base prose analysis always runs.',
 					properties: {
 						includeReadability: {
 							type: 'boolean',
-							description: 'Include readability scoring. Default false.',
+							default: true,
+							description: 'Include readability scoring. Default true.',
 						},
 						includeEntities: {
 							type: 'boolean',
+							default: false,
 							description:
-								'Include named-entity extraction (characters, places). Default false.',
+								'Include native named-entity extraction or an explicit unavailable result when the native build or model is unavailable. Default false.',
 						},
 						includeSentiment: {
 							type: 'boolean',
-							description: 'Include sentiment analysis. Default false.',
+							default: false,
+							description:
+								'Include local lexicon sentiment scores; these are heuristic signals, not model probabilities. Default false.',
 						},
-						priority: {
-							type: 'number',
-							description: 'Queue priority; higher runs sooner. Default 0.',
-						},
+						priority: prioritySchema,
 					},
 				},
 			},
@@ -88,7 +261,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
-				structuredContent: { jobId: result.jobId },
+				structuredContent: result,
 			};
 		},
 	},
@@ -96,8 +269,8 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		name: 'queue_project_analysis',
 		title: 'Queue Project Analysis',
 		description:
-			'Enqueue a background batch analysis across many documents at once and return a job id ' +
-			'immediately. Poll progress with get_job_status and stop it with cancel_job. Use this to ' +
+			'Enqueue local analysis of 1–5000 supplied document texts, preserving input order and a source revision per document, and return a job id ' +
+			'immediately. Poll progress with get_job_status and request cancellation with cancel_job. Use this to ' +
 			'analyze a whole manuscript or large set of documents; for a single document prefer ' +
 			'queue_document_analysis or the synchronous analyze_document.',
 		annotations: {
@@ -108,18 +281,34 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		},
 		inputSchema: {
 			type: 'object',
+			additionalProperties: false,
 			properties: {
 				projectId: {
 					type: 'string',
-					description: 'Identifier of the project the documents belong to.',
+					minLength: 1,
+					maxLength: 255,
+					description:
+						'Caller-supplied project label. The result envelope separately identifies the selected queue project; supplied text is not read from or checked against saved documents.',
 				},
 				documents: {
 					type: 'array',
+					minItems: 1,
+					maxItems: MAX_ANALYSIS_DOCUMENTS,
+					items: {
+						type: 'object',
+						additionalProperties: false,
+						properties: {
+							id: analysisDocumentIdSchema,
+							content: analysisContentSchema,
+						},
+						required: ['id', 'content'],
+					},
 					description:
 						'Array of documents (id and content) to include in the batch analysis.',
 				},
 				options: {
 					type: 'object',
+					additionalProperties: false,
 					description: 'Optional batch execution settings.',
 					properties: {
 						parallel: {
@@ -128,14 +317,13 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 								'Process documents concurrently rather than sequentially. Default false.',
 						},
 						batchSize: {
-							type: 'number',
+							type: 'integer',
+							minimum: 1,
+							maximum: 5,
 							description:
-								'Number of documents per batch when processing in parallel.',
+								'Maximum concurrent documents when parallel is true. Default 5. Sequential execution uses one document at a time.',
 						},
-						priority: {
-							type: 'number',
-							description: 'Queue priority; higher runs sooner. Default 0.',
-						},
+						priority: prioritySchema,
 					},
 				},
 			},
@@ -155,7 +343,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			const result = await asyncHandlers.queueProjectAnalysis(
 				args as {
 					projectId: string;
-					documents: ScrivenerDocument[];
+					documents: AnalyzeProjectJob['documents'];
 					options?: {
 						parallel?: boolean;
 						batchSize?: number;
@@ -170,7 +358,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 						text: compact(result),
 					},
 				],
-				structuredContent: { jobId: result.jobId },
+				structuredContent: result,
 			};
 		},
 	},
@@ -179,28 +367,33 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		title: 'Suggest Improvements',
 		description:
 			'Generate AI writing suggestions for a prompt or a specific document — ideas for revision, ' +
-			'next steps, or alternatives. Returns suggestion text. Optionally grounds the suggestions in ' +
-			'a document\'s content. Use this for generative "how could this be better" help; use ' +
+			'next steps, or alternatives. Returns suggestion text, context coverage and a provenance envelope; large results use read_result references. ' +
+			'With useContext, sends up to the first 16000 UTF-16 characters of the saved document to the configured provider, checking its revision before and after generation. ' +
+			'Queued jobs return the same result through get_job_status and are not automatically retried. Use this for generative "how could this be better" help; use ' +
 			'analyze_document for structured metrics or check_consistency to find contradictions.',
 		annotations: {
-			readOnlyHint: true,
+			readOnlyHint: false,
 			destructiveHint: false,
 			idempotentHint: false,
-			openWorldHint: false,
+			openWorldHint: true,
 		},
 		inputSchema: {
 			type: 'object',
+			additionalProperties: false,
 			properties: {
 				prompt: {
 					type: 'string',
+					minLength: 1,
+					maxLength: MAX_SUGGESTION_PROMPT,
 					description:
 						'What to get suggestions about, e.g. "tighten the opening paragraph".',
 				},
-				documentId: SHARED_DEFS.docId,
+				documentId: analysisDocumentIdSchema,
 				useContext: {
 					type: 'boolean',
 					description:
-						"Ground suggestions in the referenced document's content. Default false.",
+						'Use the saved document identified by documentId, which is required when true. Default false; no manuscript context is sent when false.',
+					default: false,
 				},
 				async: {
 					type: 'boolean',
@@ -209,6 +402,91 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				},
 			},
 			required: ['prompt'],
+			allOf: [
+				{
+					if: { properties: { useContext: { const: true } }, required: ['useContext'] },
+					then: { required: ['documentId'] },
+				},
+			],
+		},
+		outputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				suggestions: {
+					type: 'string',
+					description:
+						'Provider-generated writing suggestions for the requested prompt and admitted context.',
+				},
+				envelope: ANALYSIS_ENVELOPE_SCHEMA,
+				context: {
+					description:
+						'Whether saved manuscript context was used and the exact excerpt sent to the provider.',
+					oneOf: [
+						{
+							type: 'object',
+							additionalProperties: false,
+							properties: {
+								mode: {
+									const: 'none',
+									description: 'No saved manuscript context was read or sent.',
+								},
+							},
+							required: ['mode'],
+						},
+						{
+							type: 'object',
+							additionalProperties: false,
+							properties: {
+								mode: {
+									const: 'saved-document',
+									description:
+										'Context came from the saved document revision identified in the envelope.',
+								},
+								start: {
+									const: 0,
+									description:
+										'Inclusive UTF-16 start offset of the saved excerpt.',
+								},
+								end: {
+									type: 'integer',
+									minimum: 0,
+									maximum: 16000,
+									description:
+										'Exclusive UTF-16 end offset of the saved excerpt sent to the provider.',
+								},
+								sourceCharacters: {
+									type: 'integer',
+									minimum: 0,
+									description:
+										'UTF-16 length of the complete saved document text.',
+								},
+								truncated: {
+									type: 'boolean',
+									description:
+										'Whether the saved document extends beyond the provided excerpt.',
+								},
+							},
+							required: ['mode', 'start', 'end', 'sourceCharacters', 'truncated'],
+						},
+					],
+				},
+				jobId: {
+					type: 'string',
+					description:
+						'Identifier of the queued suggestion job; poll with get_job_status.',
+				},
+				message: {
+					type: 'string',
+					description: 'Status message confirming that suggestion generation was queued.',
+				},
+				...RESULT_REFERENCE_SCHEMA.properties,
+			},
+			oneOf: [
+				{ required: ['suggestions', 'envelope', 'context'] },
+				{ required: ['jobId', 'message'] },
+				{ required: RESULT_REFERENCE_SCHEMA.required },
+			],
 		},
 		handler: async (args) => {
 			const result = await asyncHandlers.generateSuggestions(
@@ -219,13 +497,15 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 					async?: boolean;
 				}
 			);
+			const text = formatPayload(result, 'writing-suggestions');
 			return {
 				content: [
 					{
 						type: 'text',
-						text: compact(result),
+						text,
 					},
 				],
+				structuredContent: JSON.parse(text),
 			};
 		},
 	},
@@ -234,20 +514,25 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		title: 'Analyze Writing Style',
 		description:
 			'Analyze the prose style of one or more text samples — sentence variety, tone, voice, ' +
-			'pacing, and other stylistic features — and return a structured style profile. Use this to ' +
+			'pacing, and other stylistic features — using the configured provider or client sampling. Sends at most 8000 UTF-16 characters, including sample separators. ' +
+			'Returns a structured style profile with field availability, exact sample coverage, supplied-text revisions and a provenance envelope; large results use read_result references. Use this to ' +
 			'characterize how something is written; use analyze_document for document-level metrics or ' +
 			'check_plot_consistency for narrative coherence.',
 		annotations: {
 			readOnlyHint: true,
 			destructiveHint: false,
-			idempotentHint: true,
-			openWorldHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
 		},
 		inputSchema: {
 			type: 'object',
+			additionalProperties: false,
 			properties: {
 				samples: {
 					type: 'array',
+					minItems: 1,
+					maxItems: MAX_STYLE_SAMPLES,
+					items: { type: 'string', minLength: 1, maxLength: MAX_STYLE_SAMPLE_LENGTH },
 					description:
 						'Array of text samples (strings) to analyze. Provide one or more passages of prose.',
 				},
@@ -256,14 +541,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		},
 		outputSchema: {
 			type: 'object',
-			properties: {
-				analysis: {
-					type: 'object',
-					description:
-						'Structured style profile of the samples (sentence variety, tone, voice, pacing, and other stylistic features).',
-				},
-			},
-			required: ['analysis'],
+			oneOf: [styleResultSchema, RESULT_REFERENCE_SCHEMA],
 		},
 		handler: async (args) => {
 			const result = await asyncHandlers.analyzeWritingStyle(
@@ -271,14 +549,15 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 					samples: string[];
 				}
 			);
+			const text = formatPayload(result, 'writing-style');
 			return {
 				content: [
 					{
 						type: 'text',
-						text: compact(result),
+						text,
 					},
 				],
-				structuredContent: { analysis: result.analysis },
+				structuredContent: JSON.parse(text),
 			};
 		},
 	},
@@ -368,7 +647,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			'Look up the status and progress of a background job previously started by ' +
 			'queue_document_analysis, queue_project_analysis, or another async tool. Returns the job ' +
 			'state (queued, running, completed, failed), progress, and result when finished. Poll this ' +
-			'after enqueuing work; use cancel_job to stop a job.',
+			'after enqueuing work; use cancel_job to request cancellation.',
 		annotations: {
 			readOnlyHint: true,
 			destructiveHint: false,
@@ -412,7 +691,8 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 					description: 'Completion progress of the job.',
 				},
 				result: {
-					description: 'Job result when the job has completed.',
+					description:
+						'Completed result, or an opaque _ref for large results. Retrieve _ref with read_result, follow nextOffset, concatenate text, then JSON.parse. References expire after one hour or server restart.',
 				},
 				error: {
 					type: 'string',
@@ -422,12 +702,18 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 			required: ['state', 'progress'],
 		},
 		handler: async (args) => {
-			const result = await asyncHandlers.getJobStatus(
+			const status = await asyncHandlers.getJobStatus(
 				args as {
 					jobType: JobType;
 					jobId: string;
 				}
 			);
+			const result = {
+				...status,
+				...(status.result !== undefined
+					? { result: JSON.parse(formatPayload(status.result, 'job-result')) }
+					: {}),
+			};
 			return {
 				content: [
 					{
@@ -443,8 +729,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		name: 'cancel_job',
 		title: 'Cancel Job',
 		description:
-			'Cancel a queued or running background job by its type and id. Returns whether the ' +
-			'cancellation succeeded. Cancelling an already-finished or unknown job is harmless. Use ' +
+			'Cancel background work by its type and id. Embedded jobs cancelled before execution do not run; already running embedded work finishes internally and its result is discarded. Redis/KeyDB jobs must be waiting or delayed to be removed; active-job cancellation can fail. Unknown or foreign jobs return an error. Use ' +
 			'get_job_status first to check whether a job is still in progress.',
 		annotations: {
 			readOnlyHint: false,

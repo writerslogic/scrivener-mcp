@@ -133,7 +133,6 @@ function compose(proposal: ChangeProposal, additional: string[] = []): string {
 
 export class ReviewService {
 	constructor(
-		_projectPath: string,
 		private readonly documents: DocumentManager,
 		private readonly writer: ProjectWriter,
 		private readonly store: PersistentStore,

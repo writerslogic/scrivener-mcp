@@ -3,16 +3,12 @@ import { escapeIdentifier } from '../../utils/database.js';
 import { SQLQueryBuilder } from './query-builder.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 import type { Neo4jManager } from './neo4j-manager.js';
-import type { RelationshipEngine } from '../../services/relationship-engine.js';
-import type { TransactionCoordinator } from './transaction-coordinator.js';
 
 /** Document sync, character sync and relationship writes across the stores. */
 export class DatabaseSync {
 	constructor(
 		private readonly getSqlite: () => SQLiteManager | null,
-		private readonly getNeo4j: () => Neo4jManager | null,
-		private readonly getRelationshipEngine: () => RelationshipEngine | null,
-		_transactions?: TransactionCoordinator
+		private readonly getNeo4j: () => Neo4jManager | null
 	) {}
 
 	private get sqliteManager(): SQLiteManager | null {
@@ -21,10 +17,6 @@ export class DatabaseSync {
 
 	private get neo4jManager(): Neo4jManager | null {
 		return this.getNeo4j();
-	}
-
-	private get relationshipEngine(): RelationshipEngine | null {
-		return this.getRelationshipEngine();
 	}
 
 	private upsert(
@@ -81,7 +73,6 @@ export class DatabaseSync {
 		traits?: string[];
 		notes?: string;
 	}): Promise<void> {
-		// Update SQLite
 		const sqlite = this.sqliteManager;
 		if (sqlite) {
 			this.upsert(sqlite, 'characters', {
@@ -95,7 +86,6 @@ export class DatabaseSync {
 			});
 		}
 
-		// Update Neo4j if available
 		if (this.neo4jManager) {
 			await this.neo4jManager.upsertCharacter(characterData);
 		}
@@ -135,19 +125,6 @@ export class DatabaseSync {
 				relationshipType,
 				properties
 			);
-		}
-
-		// Also write to RelationshipEngine for HMS-backed storage
-		if (this.relationshipEngine) {
-			await this.relationshipEngine.addRelationship({
-				id: `${fromType}:${fromId}--${relationshipType}--${toType}:${toId}`,
-				head: fromId,
-				headType: this.getNodeLabel(fromType),
-				relation: relationshipType,
-				tail: toId,
-				tailType: this.getNodeLabel(toType),
-				properties,
-			});
 		}
 	}
 

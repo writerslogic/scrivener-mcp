@@ -1,7 +1,3 @@
-/**
- * Test setup and utilities
- */
-
 import * as fs from 'fs/promises';
 import { mkdtempSync } from 'fs';
 import * as path from 'path';
@@ -23,7 +19,6 @@ export const TEMP_DIR = mkdtempSync(
 
 // Setup before each test file
 beforeAll(async () => {
-	// Create temp directory (idempotent)
 	await fs.mkdir(TEMP_DIR, { recursive: true });
 });
 
@@ -32,7 +27,6 @@ beforeEach(async () => {
 	await fs.mkdir(TEMP_DIR, { recursive: true });
 });
 
-// Cleanup after all tests
 afterAll(async () => {
 	// Clean temp directory
 	try {
@@ -52,7 +46,6 @@ global.console = {
 	debug: jest.fn(),
 };
 
-// Test utilities
 export async function createTempDir(): Promise<string> {
 	return fs.mkdtemp(path.join(TEMP_DIR, 'test-'));
 }
@@ -120,7 +113,6 @@ export function createMockEnhancer() {
 	};
 }
 
-// Assertion helpers
 export function expectError(fn: () => void, code?: string) {
 	expect(fn).toThrow();
 	if (code) {

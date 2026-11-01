@@ -9,6 +9,12 @@ import { MLWordClassifierPro } from '../../../src/analysis/ml-word-classifier-pr
 describe('MLWordClassifierPro', () => {
 	const classifier = new MLWordClassifierPro();
 
+	it('uses native syllable handling for a silent-e word without changing length/frequency weighting', () => {
+		expect(classifier.classify('table', 'table', 0).complexity).toBe(
+			classifier.classify('hello', 'hello', 0).complexity
+		);
+	});
+
 	it('keeps equal-length contexts and repeated word positions equivalent to fresh analysis', () => {
 		const instance = new MLWordClassifierPro();
 		const first = 'we think outside box';

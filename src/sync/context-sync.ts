@@ -70,7 +70,6 @@ export class ContextSyncService {
 	private async initializeContextDirectory(): Promise<void> {
 		await ensureDir(this.contextDir);
 
-		// Create subdirectories
 		const subdirs = ['chapters', 'characters', 'themes', 'plots', 'analysis'];
 		for (const subdir of subdirs) {
 			const dirPath = buildPath(this.contextDir, subdir);
@@ -78,9 +77,6 @@ export class ContextSyncService {
 		}
 	}
 
-	/**
-	 * Start automatic synchronization
-	 */
 	startAutoSync(): void {
 		if (this.syncTimer) {
 			clearInterval(this.syncTimer);
@@ -95,9 +91,6 @@ export class ContextSyncService {
 		}, this.options.syncInterval);
 	}
 
-	/**
-	 * Stop automatic synchronization
-	 */
 	stopAutoSync(): void {
 		if (this.syncTimer) {
 			clearInterval(this.syncTimer);
@@ -129,16 +122,13 @@ export class ContextSyncService {
 				await this.syncDocument(documentId);
 			}
 
-			// Clear pending changes
 			this.pendingChanges.clear();
 			this.syncStatus.pendingChanges = [];
 
-			// Update sync status
 			this.syncStatus.lastSync = new Date();
 			this.syncStatus.documentsInSync = await this.countSyncedDocuments();
 			this.syncStatus.documentsOutOfSync = 0;
 
-			// Generate story-wide context if needed
 			if (this.options.includeAnalysis) {
 				await this.generateStoryContext();
 			}
@@ -159,14 +149,12 @@ export class ContextSyncService {
 	 */
 	async syncDocument(documentId: string): Promise<void> {
 		try {
-			// Get document from database
 			const document = await this.getDocumentFromDatabase(documentId);
 			if (!document) {
 				// Document ${documentId} not found in database
 				return;
 			}
 
-			// Get or generate chapter context
 			let context = await this.contextAnalyzer.getChapterContext(documentId);
 
 			if (!context || this.isContextOutdated(document, context)) {
@@ -180,10 +168,8 @@ export class ContextSyncService {
 				);
 			}
 
-			// Write context files
 			await this.writeChapterContextFiles(context);
 
-			// Update relationships if needed
 			if (this.options.includeRelationships) {
 				await this.syncDocumentRelationships(documentId, context);
 			}
@@ -204,7 +190,6 @@ export class ContextSyncService {
 		const chapterDir = buildPath(this.contextDir, 'chapters');
 		const baseFileName = `${this.sanitizeFileName(context.title)}-${context.documentId.substring(0, 8)}`;
 
-		// Write JSON format
 		if (
 			this.options.contextFileFormat === 'json' ||
 			this.options.contextFileFormat === 'both'
@@ -216,7 +201,6 @@ export class ContextSyncService {
 			);
 		}
 
-		// Write Markdown format
 		if (
 			this.options.contextFileFormat === 'markdown' ||
 			this.options.contextFileFormat === 'both'
@@ -383,7 +367,6 @@ export class ContextSyncService {
 	}
 
 	private async generateStoryContext(): Promise<void> {
-		// Get all chapter contexts
 		const chapters = await this.getAllChapterContexts();
 
 		if (chapters.length === 0) {
@@ -391,11 +374,8 @@ export class ContextSyncService {
 			return;
 		}
 
-		// Build story context
-		const documents = await this.getAllDocuments();
-		const storyContext = await this.contextAnalyzer.buildStoryContext(documents, chapters);
+		const storyContext = await this.contextAnalyzer.buildStoryContext(chapters);
 
-		// Write story context files
 		const storyPath = buildPath(this.contextDir, 'story-context');
 
 		if (
@@ -479,12 +459,10 @@ export class ContextSyncService {
 	}
 
 	private isContextOutdated(document: ScrivenerDocument, context: ChapterContext): boolean {
-		// Check if word count has changed significantly
 		if (Math.abs(document.wordCount - context.wordCount) > 50) {
 			return true;
 		}
 
-		// Check if synopsis or notes have changed
 		if (document.synopsis !== context.synopsis || document.notes !== context.notes) {
 			return true;
 		}
@@ -596,7 +574,7 @@ export class ContextSyncService {
 		}
 
 		const files = await fs.promises.readdir(chapterDir);
-		// Count unique documents (may have both .json and .md files)
+
 		const uniqueDocs = new Set(files.map((f) => f.replace(/\.(json|md)$/, '')));
 
 		return uniqueDocs.size;
@@ -643,9 +621,6 @@ export class ContextSyncService {
 		// Context files exported successfully
 	}
 
-	/**
-	 * Clean up and close
-	 */
 	close(): void {
 		this.stopAutoSync();
 	}

@@ -220,6 +220,30 @@ it.each([-1, 0, 1])('enforces metadata and source byte budgets at boundary %d', 
 	}
 });
 
+it.each(['value', 'key', 'aggregate'])(
+	'bounds metadata string allocation before serialization for %s',
+	(kind) => {
+		const text = '🌙'.repeat(16385);
+		const metadata =
+			kind === 'key'
+				? { [text]: true }
+				: kind === 'aggregate'
+					? { a: text.slice(0, 20000), b: text.slice(20000) }
+					: { payload: text };
+		const stringify = jest.spyOn(JSON, 'stringify');
+		let error: unknown;
+		try {
+			validateHMSMetadata(metadata);
+		} catch (failure) {
+			error = failure;
+		}
+		const serialized = stringify.mock.calls.length;
+		stringify.mockRestore();
+		expect(error).toBeInstanceOf(RangeError);
+		expect(serialized).toBe(0);
+	}
+);
+
 it.each([-1, 0, 1])('bounds aggregate query allocation at boundary %d', async (delta) => {
 	const engine = memory();
 	const half = 4 * 1024 * 1024;

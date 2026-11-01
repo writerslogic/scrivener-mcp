@@ -1,8 +1,17 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	readdir,
+	rename,
+	rm,
+	symlink,
+	writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MemoryManager } from '../../../src/memory-manager.js';
-import { AppError, ErrorCode, safeReadFile, safeWriteFile } from '../../../src/utils/common.js';
+import { safeWriteFile } from '../../../src/utils/common.js';
 
 jest.mock('../../../src/utils/common.js', () => {
 	const actual = jest.requireActual<typeof import('../../../src/utils/common.js')>(
@@ -10,7 +19,6 @@ jest.mock('../../../src/utils/common.js', () => {
 	);
 	return {
 		...actual,
-		safeReadFile: jest.fn(actual.safeReadFile),
 		safeWriteFile: jest.fn(actual.safeWriteFile),
 	};
 });
@@ -120,13 +128,69 @@ describe('serialized memory persistence', () => {
 		expect(await readFile(file, 'utf8')).toBe(saved);
 		delete memory.getFullMemory().customContext.unsupported;
 	});
+
+	it.each(['cycle', 'map'])(
+		'rejects unsupported %s values without rewriting saved JSON',
+		async (kind) => {
+			const value: Record<string, unknown> = {};
+			if (kind === 'cycle') value.self = value;
+			else value.map = new Map([['key', 'value']]);
+			const file = join(root, '.ai-memory', 'project-memory.json');
+			const saved = await readFile(file, 'utf8');
+			memory.setCustomContext('unsupported', value);
+			await expect(memory.saveMemory()).rejects.toThrow('could not be serialized');
+			expect(await readFile(file, 'utf8')).toBe(saved);
+			delete memory.getFullMemory().customContext.unsupported;
+		}
+	);
+
+	it('keeps the old snapshot when import persistence fails, then retries the same import', async () => {
+		const before = memory.getMemorySnapshot();
+		const imported = memory.getMemorySnapshot();
+		imported.customContext = { imported: true };
+		write.mockRejectedValueOnce(new Error('Synthetic import failure'));
+		await expect(memory.importMemory(imported)).rejects.toThrow('Synthetic import failure');
+		expect(memory.getMemorySnapshot()).toEqual(before);
+		await memory.importMemory(imported);
+		expect(memory.getCustomContext('imported')).toBe(true);
+	});
+
+	it('retains seven daily backups without deleting similarly named user files', async () => {
+		const directory = join(root, '.ai-memory');
+		for (let day = 1; day <= 8; day++)
+			await writeFile(join(directory, `backup-2000-01-0${day}.json`), '{}');
+		await writeFile(join(directory, 'backup-notes.txt'), 'Keep this note');
+		await memory.saveMemory();
+		expect(
+			(await readdir(directory)).filter((file) =>
+				/^backup-\d{4}-\d{2}-\d{2}\.json$/.test(file)
+			)
+		).toHaveLength(7);
+		expect(await readFile(join(directory, 'backup-notes.txt'), 'utf8')).toBe('Keep this note');
+	});
+
+	it.each([-1, 0, 1])('caps complete persisted JSON at 16 MiB plus %i bytes', async (delta) => {
+		const file = join(root, '.ai-memory', 'project-memory.json');
+		const previous = await readFile(file, 'utf8');
+		memory.setCustomContext('payload', '');
+		const snapshot = memory.getFullMemory();
+		const overhead = Buffer.byteLength(JSON.stringify({ ...snapshot, documentContexts: [] }));
+		memory.setCustomContext('payload', 'x'.repeat(16 * 1024 * 1024 - overhead + delta));
+		if (delta <= 0) {
+			await memory.saveMemory();
+			expect((await readFile(file)).length).toBe(16 * 1024 * 1024 + delta);
+		} else {
+			await expect(memory.saveMemory()).rejects.toThrow('16 MiB');
+			expect(await readFile(file, 'utf8')).toBe(previous);
+		}
+		delete memory.getFullMemory().customContext.payload;
+	});
 });
 
 describe('project memory loading', () => {
 	const actual = jest.requireActual<typeof import('../../../src/utils/common.js')>(
 		'../../../src/utils/common.js'
 	);
-	const read = safeReadFile as jest.MockedFunction<typeof safeReadFile>;
 	const write = safeWriteFile as jest.MockedFunction<typeof safeWriteFile>;
 	let root: string;
 	let file: string;
@@ -134,7 +198,6 @@ describe('project memory loading', () => {
 	let initialized: boolean;
 
 	beforeEach(async () => {
-		read.mockImplementation(actual.safeReadFile);
 		write.mockImplementation(actual.safeWriteFile);
 		write.mockClear();
 		root = await mkdtemp(join(tmpdir(), 'scrivener-memory-load-'));
@@ -145,7 +208,6 @@ describe('project memory loading', () => {
 	});
 
 	afterEach(async () => {
-		read.mockImplementation(actual.safeReadFile);
 		write.mockImplementation(actual.safeWriteFile);
 		if (initialized) await memory.stopAutoSave();
 		jest.restoreAllMocks();
@@ -158,6 +220,9 @@ describe('project memory loading', () => {
 		'[]',
 		'{"characters":{}}',
 		'{"styleGuide":null}',
+		'{"characters":[null]}',
+		'{"characters":[{"id":"x","name":"Mara","traits":"invalid"}]}',
+		'{"characters":[{"id":"x","name":"Mara"},{"id":"x","name":"Other"}]}',
 		'{"documentContexts":{}}',
 		'{"documentContexts":[["short"]]}',
 		'{"documentContexts":[["long",{},"extra"]]}',
@@ -168,6 +233,7 @@ describe('project memory loading', () => {
 			memory.setCustomContext('retained', true);
 			const timers = jest.spyOn(global, 'setInterval');
 			await expect(memory.initialize()).rejects.toThrow('Invalid project memory');
+			await memory.stopAutoSave();
 			expect(memory.getCustomContext('retained')).toBe(true);
 			expect(await readFile(file, 'utf8')).toBe(saved);
 			expect(write).not.toHaveBeenCalled();
@@ -177,11 +243,101 @@ describe('project memory loading', () => {
 
 	it('propagates read errors instead of treating inaccessible memory as absent', async () => {
 		await writeFile(file, '{"customContext":{"retained":true}}');
-		const failure = new AppError('Synthetic read failure', ErrorCode.PERMISSION_DENIED);
-		read.mockRejectedValueOnce(failure);
+		const failure = Object.assign(new Error('Synthetic read failure'), { code: 'EACCES' });
+		jest.spyOn(
+			jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises'),
+			'open'
+		).mockRejectedValueOnce(failure);
 		await expect(memory.initialize()).rejects.toBe(failure);
+		await memory.stopAutoSave();
 		expect(write).not.toHaveBeenCalled();
 		expect(JSON.parse(await readFile(file, 'utf8')).customContext.retained).toBe(true);
+	});
+
+	it('does not silently reset a missing primary when a backup survives', async () => {
+		const backup = join(root, '.ai-memory', 'backup-2026-01-01.json');
+		const saved = '{"customContext":{"retained":true}}';
+		await writeFile(backup, saved);
+		await expect(memory.initialize()).rejects.toThrow('restore a verified backup');
+		await memory.stopAutoSave();
+		expect(await readFile(backup, 'utf8')).toBe(saved);
+		await expect(readFile(file)).rejects.toMatchObject({ code: 'ENOENT' });
+		expect(write).not.toHaveBeenCalled();
+	});
+
+	it.each(['directory', 'file'])(
+		'rejects a symlinked memory %s without changing its target',
+		async (kind) => {
+			const outside = join(root, 'outside');
+			await mkdir(outside);
+			const target = join(outside, 'project-memory.json');
+			const saved = '{"customContext":{"retained":true}}';
+			await writeFile(target, saved);
+			if (kind === 'directory') {
+				await rm(join(root, '.ai-memory'), { recursive: true });
+				await symlink(outside, join(root, '.ai-memory'));
+			} else await symlink(target, file);
+			await expect(memory.initialize()).rejects.toThrow(/symbolic link|symlinks/);
+			await memory.stopAutoSave();
+			expect(await readFile(target, 'utf8')).toBe(saved);
+			expect(write).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each(['regular file', 'symlink'])(
+		'rejects replacement with a %s after opening',
+		async (kind) => {
+			const saved = '{"customContext":{"retained":true}}';
+			const target = join(root, 'outside.json');
+			await writeFile(file, saved);
+			await writeFile(target, saved);
+			const nativeFs =
+				jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+			const originalOpen = nativeFs.open;
+			let opened: Awaited<ReturnType<typeof originalOpen>> | undefined;
+			jest.spyOn(nativeFs, 'open').mockImplementationOnce(async (...args) => {
+				opened = await originalOpen(...args);
+				try {
+					await rename(file, join(root, 'original.json'));
+					if (kind === 'symlink') await symlink(target, file);
+					else await writeFile(file, saved);
+					return opened;
+				} catch (error) {
+					await opened.close();
+					throw error;
+				}
+			});
+			await expect(memory.initialize()).rejects.toThrow(/changed while opening|symlinks/);
+			await memory.stopAutoSave();
+			await expect(opened!.stat()).rejects.toMatchObject({ code: 'EBADF' });
+			expect(await readFile(target, 'utf8')).toBe(saved);
+			expect(write).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each([-1, 0, 1])('bounds memory-file reads at 16 MiB plus %i bytes', async (delta) => {
+		const saved = '{}' + ' '.repeat(16 * 1024 * 1024 + delta - 2);
+		await writeFile(file, saved);
+		if (delta <= 0) {
+			await memory.initialize();
+			initialized = true;
+			expect(memory.getWritingStats()).toEqual({});
+		} else await expect(memory.initialize()).rejects.toThrow('16 MiB');
+		await memory.stopAutoSave();
+		expect(await readFile(file, 'utf8')).toBe(saved);
+		expect(write).not.toHaveBeenCalled();
+	});
+
+	it('rejects malformed UTF-8 instead of replacing authored characters', async () => {
+		const saved = Buffer.concat([
+			Buffer.from('{"customContext":{"name":"'),
+			Buffer.from([0xff]),
+			Buffer.from('"}}'),
+		]);
+		await writeFile(file, saved);
+		await expect(memory.initialize()).rejects.toThrow();
+		await memory.stopAutoSave();
+		expect(await readFile(file)).toEqual(saved);
 	});
 
 	it.each([

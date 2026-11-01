@@ -34,12 +34,26 @@ export function validateHMSId(value: unknown): asserts value is string {
 		throw new TypeError('HMS identity must contain 1 to 4096 UTF-8 bytes without NUL');
 }
 
-export function validateHMSMetadata(value: unknown): asserts value is Record<string, unknown> {
+function serializeMetadata(
+	value: unknown,
+	limits: { maxBytes?: number; maxNodes?: number } = {}
+): string {
+	const maxBytes = limits.maxBytes ?? MAX_METADATA_BYTES;
+	const maxNodes = limits.maxNodes ?? 32768;
+	integer(maxBytes, 1, 16 * 1024 * 1024, 'JSON byte budget');
+	integer(maxNodes, 1, 1048576, 'JSON node budget');
+	const oversized = () => new RangeError(`JSON metadata exceeds ${maxBytes / 1024} KiB`);
 	const ancestors = new Set<object>();
 	let nodes = 0;
+	let stringBytes = 0;
+	function countString(value: string): void {
+		stringBytes += Buffer.byteLength(value);
+		if (stringBytes > maxBytes) throw oversized();
+	}
 	function visit(item: unknown, depth: number): void {
-		if (++nodes > 32768 || depth > 32) throw new RangeError('HMS metadata is too complex');
-		if (item === null || typeof item === 'string' || typeof item === 'boolean') return;
+		if (++nodes > maxNodes || depth > 32) throw new RangeError('HMS metadata is too complex');
+		if (typeof item === 'string') return countString(item);
+		if (item === null || typeof item === 'boolean') return;
 		if (typeof item === 'number' && Number.isFinite(item)) return;
 		if (typeof item !== 'object' || ancestors.has(item))
 			throw new TypeError('HMS metadata must contain finite JSON values without cycles');
@@ -50,23 +64,32 @@ export function validateHMSMetadata(value: unknown): asserts value is Record<str
 		)
 			throw new TypeError('HMS metadata must contain plain JSON objects');
 		ancestors.add(item);
-		if (Array.isArray(item) && item.length > 32768)
+		if (Array.isArray(item) && item.length > maxNodes)
 			throw new RangeError('HMS metadata is too complex');
 		for (const key in item)
-			if (Object.prototype.hasOwnProperty.call(item, key))
+			if (Object.prototype.hasOwnProperty.call(item, key)) {
+				if (!Array.isArray(item)) countString(key);
 				visit((item as Record<string, unknown>)[key], depth + 1);
+			}
 		ancestors.delete(item);
 	}
 	if (!value || typeof value !== 'object' || Array.isArray(value))
 		throw new TypeError('HMS metadata must be a JSON object');
 	visit(value, 0);
-	if (Buffer.byteLength(JSON.stringify(value)) > MAX_METADATA_BYTES)
-		throw new RangeError('HMS metadata exceeds 64 KiB');
+	const serialized = JSON.stringify(value);
+	if (Buffer.byteLength(serialized) > maxBytes) throw oversized();
+	return serialized;
 }
 
-export function cloneHMSMetadata(value: unknown): Record<string, unknown> {
-	validateHMSMetadata(value);
-	return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+export function validateHMSMetadata(value: unknown): asserts value is Record<string, unknown> {
+	serializeMetadata(value);
+}
+
+export function cloneHMSMetadata(
+	value: unknown,
+	limits?: { maxBytes?: number; maxNodes?: number }
+): Record<string, unknown> {
+	return JSON.parse(serializeMetadata(value, limits)) as Record<string, unknown>;
 }
 
 export function validateEmbeddingSpace(space: HMSEmbeddingSpace): void {

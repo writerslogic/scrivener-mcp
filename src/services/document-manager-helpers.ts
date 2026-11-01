@@ -112,7 +112,6 @@ export function* iterateAllBinderItems(container: BinderContainer): Generator<Bi
 
 export function findBinderItemById(container: BinderContainer, id: string): BinderItem | undefined {
 	for (const item of iterateAllBinderItems(container)) {
-		// Check both UUID and ID fields (tests use ID)
 		if (item.UUID === id || (item as { ID?: string }).ID === id) {
 			return item;
 		}
@@ -124,7 +123,6 @@ export function findParentOfBinderItem(
 	container: BinderContainer,
 	childId: string
 ): { parent: BinderItem | null; container: BinderContainer } {
-	// Check if it's a root item
 	for (const item of iterateBinderItems(container)) {
 		if (item.UUID === childId || (item as { ID?: string }).ID === childId) {
 			return { parent: null, container };
@@ -151,7 +149,6 @@ export function removeBinderItem(container: BinderContainer, id: string): Binder
 		? container.BinderItem
 		: [container.BinderItem];
 
-	// Find and remove from current level
 	const index = items.findIndex(
 		(item: BinderItem) => item.UUID === id || (item as { ID?: string }).ID === id
 	);
@@ -159,7 +156,6 @@ export function removeBinderItem(container: BinderContainer, id: string): Binder
 	if (index >= 0) {
 		const [removed] = items.splice(index, 1);
 
-		// Update container
 		if (Array.isArray(container.BinderItem)) {
 			container.BinderItem = items;
 		} else {
@@ -197,27 +193,18 @@ export function addBinderItem(
 			container.BinderItem.push(item);
 		}
 	} else {
-		// Convert to array
-		container.BinderItem = [container.BinderItem, item];
+		container.BinderItem =
+			position === 0 ? [item, container.BinderItem] : [container.BinderItem, item];
 	}
 }
 
-/**
- * Append an item to a folder's children, normalizing a missing or single-item
- * Children.BinderItem to an array.
- */
-export function appendBinderChild(parent: BinderItem, item: BinderItem): void {
+export function addBinderChild(parent: BinderItem, item: BinderItem, position?: number): void {
 	if (!parent.Children) {
 		parent.Children = { BinderItem: [] };
 	}
 	const existing = parent.Children.BinderItem;
-	if (!existing) {
-		parent.Children.BinderItem = [item];
-	} else if (Array.isArray(existing)) {
-		existing.push(item);
-	} else {
-		parent.Children.BinderItem = [existing, item];
-	}
+	parent.Children.BinderItem = Array.isArray(existing) ? existing : existing ? [existing] : [];
+	addBinderItem(parent.Children, item, position);
 }
 
 /**

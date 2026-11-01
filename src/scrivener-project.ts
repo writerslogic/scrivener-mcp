@@ -69,6 +69,8 @@ import { SeriesBible } from './services/editorial/series-bible.js';
 import { ContinuityService } from './services/editorial/continuity-service.js';
 import { PassageSearch } from './services/editorial/passage-search.js';
 import { WorkflowService } from './services/editorial/workflow-service.js';
+import { NarrativeAnalysis } from './services/editorial/narrative-analysis.js';
+import { RelationshipEngine } from './services/relationship-engine.js';
 import type { PresetOptions } from './services/export/export-presets.js';
 
 export interface EditorialServices {
@@ -80,6 +82,8 @@ export interface EditorialServices {
 	continuity: ContinuityService;
 	search: PassageSearch;
 	workflows: WorkflowService;
+	narrative: NarrativeAnalysis;
+	relationships: RelationshipEngine;
 }
 
 const logger = getLogger('scrivener-project');
@@ -129,7 +133,6 @@ export class ScrivenerProject {
 		};
 		this.hhmSystem = options.hhmSystem;
 
-		// Initialize services
 		this.documentManager = new DocumentManager(this.projectPath);
 		this.projectLoader = new ProjectLoader(this.projectPath, {
 			autoBackup: this.options.autoBackup,
@@ -141,7 +144,6 @@ export class ScrivenerProject {
 		this.contentAnalyzer = new ContentAnalyzer();
 		this.cleanupManager = new CleanupManager();
 
-		// Register cleanup
 		this.cleanupManager.register(async () => {
 			await this.close();
 		});
@@ -212,10 +214,8 @@ export class ScrivenerProject {
 			this.projectPath,
 			this.documentManager,
 			this.hhmSystem,
-			() => this.persistProject(),
 			(documentId) => this.markDocumentChanged(documentId),
 			(documentId) => this.getDocumentInfo(documentId),
-			(documentId, title) => this.takeSnapshot(documentId, title),
 			(structure, documents) =>
 				this.projectLoader.saveProjectWithDocuments(structure, documents)
 		);
@@ -228,40 +228,32 @@ export class ScrivenerProject {
 		);
 	}
 
-	/**
-	 * Load the project
-	 */
 	async loadProject(): Promise<void> {
 		logger.info('Loading Scrivener project');
 		this.documentManager
 			.getMutationCoordinator()
 			.assertProjectPath(path.join(this.projectPath, '.scrivener-mcp'));
 
-		// Create .scrivener-mcp directory for project-specific data
 		await ensureProjectDataDirectory(this.projectPath);
 
-		// Load project structure
 		const structure = await this.projectLoader.loadProject();
 		this.documentManager.setProjectStructure(structure);
 
-		// Initialize document indexer
 		const documents = await this.getAllDocuments();
 		await documentIndexer.buildIndex(documents);
 		this.indexInitialized = true;
 		logger.info('Document index built');
 
-		// Initialize database
 		await this.databaseService.initialize();
 
-		// Initialize async services (job queue, AI services)
 		await initializeAsyncServices({
 			projectPath: this.projectPath,
 			continuity: (options) => this.getEditorialServices().continuity.analyze(options),
+			source: () => this.getEditorialServices().source,
 			databasePath: path.join(this.projectPath, 'scrivener.db'),
 			openaiApiKey: process.env.OPENAI_API_KEY,
 		});
 
-		// Initialize enhanced services
 		this.contextAnalyzer = new ContextAnalyzer(this.databaseService, this.contentAnalyzer);
 
 		this.contextSync = new ContextSyncService(
@@ -282,9 +274,6 @@ export class ScrivenerProject {
 		logger.info('Project loaded successfully');
 	}
 
-	/**
-	 * Save the project
-	 */
 	async saveProject(options: Pick<WriteOptions, 'force'> = {}): Promise<void> {
 		await this.ensureWritable(options.force);
 		await this.persistProject();
@@ -295,17 +284,11 @@ export class ScrivenerProject {
 		await this.projectLoader.saveProject(structure);
 	}
 
-	/**
-	 * Get project structure
-	 */
 	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
 		await this.refreshSavedStructure();
 		return await this.documentManager.getProjectStructure(includeTrash);
 	}
 
-	/**
-	 * Get all documents
-	 */
 	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
 		await this.refreshSavedStructure();
 		return await this.documentManager.getAllDocuments(includeTrash);
@@ -323,6 +306,12 @@ export class ScrivenerProject {
 
 	async readDocumentFormatted(documentId: string): Promise<RTFContent> {
 		return await this.documentManager.readDocumentFormatted(documentId);
+	}
+
+	async readDocumentFormattedVersion(
+		documentId: string
+	): Promise<{ content: RTFContent; revision: string; exists: boolean }> {
+		return this.documentManager.readDocumentFormattedVersion(documentId);
 	}
 
 	async ensureWritable(force = false): Promise<void> {
@@ -387,7 +376,6 @@ export class ScrivenerProject {
 			);
 			registerProject(seriesStore, source);
 			const review = new ReviewService(
-				this.projectPath,
 				this.documentManager,
 				this.writer,
 				store,
@@ -408,7 +396,13 @@ export class ScrivenerProject {
 			);
 			const continuity = new ContinuityService(source, store, bible);
 			const search = new PassageSearch(source, store);
+			const narrative = new NarrativeAnalysis(source, store);
+			const relationships = new RelationshipEngine(source, store, () =>
+				this.databaseService.getNeo4j()
+			);
 			const workflows = new WorkflowService(source, store, search, {
+				analyzeDocument: (document) => narrative.analyzeDocument(document),
+				suggestEdits: (document) => narrative.suggestEdits(document),
 				propose: (input) => review.propose(input),
 				auditContinuity: (input) => continuity.analyze(input),
 				exportBeta: (input) => this.exporter.exportWorkflowPreset(input),
@@ -422,6 +416,8 @@ export class ScrivenerProject {
 				continuity,
 				search,
 				workflows,
+				narrative,
+				relationships,
 			};
 			return this.editorial;
 		} catch (error) {
@@ -471,11 +467,11 @@ export class ScrivenerProject {
 	async moveDocument(
 		documentId: string,
 		newParentId: string | null,
-		_position?: number,
+		position?: number,
 		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
 		await this.ensureWritable(options.force);
-		await this.documentManager.moveDocument(documentId, newParentId);
+		await this.documentManager.moveDocument(documentId, newParentId, position);
 		await this.persistProject();
 	}
 
@@ -747,7 +743,6 @@ export class ScrivenerProject {
 		return this.contextBridge.exportContextFiles(exportPath);
 	}
 
-	// Additional methods
 	async getDocumentInfo(documentId: string): Promise<{
 		document: ScrivenerDocument | null;
 		path: Array<{ id: string; title: string; type: string }>;
@@ -828,17 +823,16 @@ export class ScrivenerProject {
 		return this.getStructure();
 	}
 
-	// Private helpers
 	private async performInitialSync(): Promise<void> {
 		return this.contextBridge.performInitialSync();
 	}
 
-	// Cleanup
 	async close(): Promise<void> {
 		logger.info('Closing Scrivener project');
 		await this.editorial?.workflows.close();
 		await shutdownAsyncServices();
 		if (this.editorial) {
+			await this.editorial.narrative.close();
 			await this.editorial.search.close();
 			this.editorial.seriesStore.close();
 			this.editorial.store.close();

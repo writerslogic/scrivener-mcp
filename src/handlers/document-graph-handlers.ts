@@ -1,301 +1,510 @@
-/**
- * Document cross-reference graph handlers (issue #27). These tools compute how
- * documents reference the project's registered entities (characters, locations)
- * directly from the SQLite registry and document text — deterministically, with
- * no Neo4j or AI dependency — so they work for every user. Neo4j persistence and
- * AI-assisted implicit-reference detection are deferred follow-ups.
- */
-
-import { compact } from '../core/response-formatter.js';
+import { formatPayload } from '../core/response-formatter.js';
 import {
 	buildReferenceIndex,
 	referencesForDocument,
 	documentsReferencing,
 	orphanedEntities,
 	suggestConnections,
+	referenceSourceOptions,
+	MAX_REFERENCE_ENTITIES,
 	type RegistryEntity,
-	type DocumentText,
+	type DocumentReferences,
 } from '../services/document-references.js';
-import type { ScrivenerProject } from '../scrivener-project.js';
-import { createError, ErrorCode } from '../utils/common.js';
-import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
-import { requireProject, getStringArg, getOptionalStringArg } from './types.js';
+import { analysisDigest, analysisEnvelope } from '../services/editorial/analysis-envelope.js';
+import { storyText } from '../services/editorial/provenance.js';
+import type { SourceDocument } from '../services/editorial/types.js';
+import type { HandlerContext, HandlerResult, ToolDefinition, ToolSchema } from './types.js';
+import { requireProject } from './types.js';
+import { ANALYSIS_ENVELOPE_SCHEMA, RESULT_REFERENCE_SCHEMA } from './shared-schemas.js';
+import { AppError, ErrorCode } from '../utils/common.js';
 
-/**
- * Read the project's character and location registries from SQLite. Returns []
- * (rather than throwing) when the database or a table is unavailable, so the
- * graph tools degrade to "no known entities" instead of failing.
- */
-function loadRegistryEntities(context: HandlerContext): RegistryEntity[] {
-	const service = context.databaseService;
-	if (!service) return [];
-
+function loadRegistry(context: HandlerContext) {
 	const entities: RegistryEntity[] = [];
-	let database: ReturnType<ReturnType<typeof service.getSQLite>['getDatabase']>;
+	const unavailableRegistries: Array<'characters' | 'locations'> = [];
+	let sqlite: ReturnType<NonNullable<HandlerContext['databaseService']>['getSQLite']> | undefined;
 	try {
-		database = service.getSQLite().getDatabase();
-	} catch {
-		return [];
+		sqlite = context.databaseService?.getSQLite();
+	} catch (error) {
+		if (!(error instanceof AppError) || error.code !== ErrorCode.DATABASE_ERROR) throw error;
 	}
-	const sources: Array<{ table: string; type: 'character' | 'location' }> = [
-		{ table: 'characters', type: 'character' },
-		{ table: 'locations', type: 'location' },
-	];
-	for (const { table, type } of sources) {
-		try {
-			const rows = database.prepare(`SELECT id, name FROM ${table}`).all() as Array<{
-				id?: string;
-				name?: string;
-			}>;
-			for (const row of rows) {
-				if (row.id && row.name) entities.push({ id: row.id, name: row.name, type });
+	if (!sqlite) unavailableRegistries.push('characters', 'locations');
+	else {
+		const database = sqlite.getDatabase();
+		database.transaction(() => {
+			const tables = new Set(
+				(
+					database
+						.prepare(
+							"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('characters', 'locations')"
+						)
+						.all() as Array<{ name: string }>
+				).map(({ name }) => name)
+			);
+			for (const [table, type] of [
+				['characters', 'character'],
+				['locations', 'location'],
+			] as const) {
+				if (!tables.has(table)) {
+					unavailableRegistries.push(table);
+					continue;
+				}
+				const size = database
+					.prepare(
+						`SELECT COUNT(*) AS count, MAX(length(CAST(id AS BLOB))) AS idBytes, MAX(length(CAST(name AS BLOB))) AS nameBytes FROM ${table}`
+					)
+					.get() as { count: number; idBytes: number | null; nameBytes: number | null };
+				if (
+					size.count + entities.length > MAX_REFERENCE_ENTITIES ||
+					(size.idBytes ?? 0) > 512 ||
+					(size.nameBytes ?? 0) > 8000
+				)
+					throw new Error(
+						'Entity registry exceeds the bounded reference-analysis input limits'
+					);
+				const rows = database
+					.prepare(`SELECT id, name FROM ${table} ORDER BY id LIMIT 257`)
+					.all() as Array<{ id: unknown; name: unknown }>;
+				for (const row of rows) {
+					const id = storyText(row.id, 'Entity identifier', 128);
+					if (id !== row.id)
+						throw new Error(
+							'Entity identifiers must not contain surrounding whitespace'
+						);
+					entities.push({
+						id,
+						name: storyText(row.name, 'Entity name', 2000),
+						type,
+					});
+				}
 			}
-		} catch {
-			// Table absent (migrations not run) — skip this source.
-		}
+		})();
 	}
-	return entities;
+	if (new Set(entities.map(({ id }) => id)).size !== entities.length)
+		throw new Error('Entity identifiers are ambiguous across the registries');
+	const availability = {
+		status:
+			unavailableRegistries.length === 2
+				? 'unavailable'
+				: unavailableRegistries.length
+					? 'partial'
+					: 'available',
+		unavailableRegistries,
+	};
+	return { entities, availability, revision: analysisDigest({ entities, availability }) };
 }
 
-async function loadDocuments(project: ScrivenerProject): Promise<DocumentText[]> {
-	const docs = await project.getAllDocuments();
-	return docs.map((doc) => ({
-		id: doc.id,
-		title: doc.title || 'Untitled',
-		content: doc.content || '',
-	}));
+const scopeIdentity = (documents: SourceDocument[]) =>
+	analysisDigest(
+		documents.map(({ documentId, revision, title, path, order }) => ({
+			documentId,
+			revision,
+			title,
+			path,
+			order,
+		}))
+	);
+
+async function referenceAnalysis(
+	context: HandlerContext,
+	operation: string,
+	request: Record<string, unknown>,
+	select: (
+		index: DocumentReferences[],
+		entities: RegistryEntity[],
+		documents: SourceDocument[]
+	) => Record<string, unknown>,
+	documentId?: string
+): Promise<HandlerResult> {
+	const { source } = requireProject(context).getEditorialServices();
+	const registry = loadRegistry(context);
+	const options = referenceSourceOptions(registry.entities.length, 'all');
+	const read = documentId
+		? async () => [await source.read(documentId)]
+		: () => source.list(options);
+	const scope = documentId ? 'selected-document' : 'all-active-text';
+	const documents = await read();
+	const scopeRevision = scopeIdentity(documents);
+	const index = buildReferenceIndex(
+		documents.map(({ documentId, title, text }) => ({ id: documentId, title, content: text })),
+		registry.entities
+	);
+	const result = select(index, registry.entities, documents);
+	const latest = await read();
+	if (
+		scopeIdentity(latest) !== scopeRevision ||
+		loadRegistry(context).revision !== registry.revision
+	)
+		throw new Error('Saved documents or the entity registry changed during reference analysis');
+	const envelope = analysisEnvelope(
+		source.projectId,
+		documentId ? 'document' : 'manuscript',
+		documents,
+		{},
+		'local',
+		{
+			operation,
+			...request,
+			scope,
+			scopeRevision,
+			registryRevision: registry.revision,
+		}
+	);
+	envelope.policy.revisionChecked = true;
+	const text = formatPayload(
+		{
+			...result,
+			availability: registry.availability,
+			registryRevision: registry.revision,
+			envelope,
+			coverage: {
+				scope,
+				documents: documents.length,
+				entities: registry.entities.length,
+				sourceCharacters: documents.reduce(
+					(total, document) => total + document.text.length,
+					0
+				),
+			},
+		},
+		'references'
+	);
+	return { content: [{ type: 'text', text }], structuredContent: JSON.parse(text) };
 }
+
+function argumentsFor(args: Record<string, unknown>, keys: string[]) {
+	if (Object.keys(args).some((key) => !keys.includes(key)))
+		throw new Error('Unsupported reference-analysis argument');
+}
+
+function requireDocument(documents: SourceDocument[], id: string) {
+	if (!documents.some((document) => document.documentId === id))
+		throw new Error('Document is not active text in the selected project');
+}
+
+const textInput = {
+	type: 'string',
+	description: 'Identifier of an active saved text document in the open project.',
+	minLength: 1,
+	maxLength: 128,
+	pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
+};
+const kind = {
+	enum: ['character', 'location'],
+	description: 'Category of the registered entity.',
+};
+const documentIdSchema = {
+	type: 'string',
+	description: 'Identifier of the saved project document.',
+};
+const entityIdSchema = {
+	type: 'string',
+	description: 'Unique identifier of the entity in the project registry.',
+};
+const entityNameSchema = {
+	type: 'string',
+	description: 'Recorded entity name used for literal whole-word matching.',
+};
+const entitySchema = {
+	type: 'object',
+	additionalProperties: false,
+	properties: { id: entityIdSchema, name: entityNameSchema, type: kind },
+	required: ['id', 'name', 'type'],
+};
+const availabilitySchema = {
+	type: 'object',
+	description: 'Availability of the character and location registries used for this result.',
+	additionalProperties: false,
+	properties: {
+		status: {
+			enum: ['available', 'partial', 'unavailable'],
+			description:
+				'Available when both registries were loaded, partial when one was loaded, and unavailable when neither was loaded.',
+		},
+		unavailableRegistries: {
+			type: 'array',
+			description:
+				'Registries whose database or table is unavailable; their entities are excluded from analysis.',
+			uniqueItems: true,
+			maxItems: 2,
+			items: { enum: ['characters', 'locations'] },
+		},
+	},
+	required: ['status', 'unavailableRegistries'],
+};
+const reportProperties = {
+	availability: availabilitySchema,
+	registryRevision: {
+		type: 'string',
+		pattern: '^[a-f0-9]{64}$',
+		description:
+			'SHA-256 revision of the entity records and registry availability used by the analysis.',
+	},
+	envelope: ANALYSIS_ENVELOPE_SCHEMA,
+	coverage: {
+		type: 'object',
+		description: 'Actual saved-text and registry scope examined for this result.',
+		additionalProperties: false,
+		properties: {
+			scope: {
+				enum: ['selected-document', 'all-active-text'],
+				description:
+					'Whether analysis examined the selected document or all active text, including Research and Draft items excluded from Compile.',
+			},
+			documents: {
+				type: 'integer',
+				minimum: 0,
+				maximum: 1000,
+				description:
+					'Number of saved text documents examined, including documents with no matches.',
+			},
+			entities: {
+				type: 'integer',
+				minimum: 0,
+				maximum: 256,
+				description:
+					'Number of entities loaded from the available registries, including unmatched entities.',
+			},
+			sourceCharacters: {
+				type: 'integer',
+				minimum: 0,
+				maximum: 2097152,
+				description: 'Total UTF-16 code units across examined plain text.',
+			},
+		},
+		required: ['scope', 'documents', 'entities', 'sourceCharacters'],
+	},
+};
+function output(
+	properties: NonNullable<ToolSchema['properties']>,
+	required = Object.keys(properties),
+	variants?: ToolSchema['oneOf']
+): ToolSchema {
+	return {
+		type: 'object',
+		oneOf: [
+			{
+				type: 'object',
+				additionalProperties: false,
+				properties: { ...properties, ...reportProperties },
+				required: [...required, ...Object.keys(reportProperties)],
+				...(variants ? { oneOf: variants } : {}),
+			},
+			RESULT_REFERENCE_SCHEMA,
+		],
+	};
+}
+const annotations = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: true,
+	openWorldHint: false,
+};
+const scopeDescription =
+	' Uses saved active text, including Research and Draft items excluded from Compile. Reports source revisions and registry availability; changed inputs reject the result. Limits: 256 registry entities, 1000 documents, 2 Mi UTF-16 characters, source characters multiplied by entities at most 134217728, 1000000 match positions and 16 MiB of serialized mention records. Large results use read_result.';
 
 export const getEntityReferencesHandler: ToolDefinition = {
 	name: 'get_entity_references',
 	title: 'Get Entity References',
-	description:
-		'Trace the reference graph between documents and registered characters/locations, in either ' +
-		'direction. Pass documentId to list the entities a document mentions (its cast and settings, ' +
-		'with counts and offsets); pass entity (registry id or name) to list every document that ' +
-		'mentions it, ranked by count. Provide exactly one of documentId or entity. Exact whole-word, ' +
-		'case-insensitive matching against the registries — no AI. Returns empty when there are no ' +
-		'matches or the registries are empty. Requires an open project.',
-	annotations: {
-		readOnlyHint: true,
-		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: false,
-	},
+	description: `Trace literal, case-insensitive whole-word references between saved documents and registered characters/locations. Provide exactly one of documentId (all entities mentioned, with every UTF-16 offset) or entity (registry ID or name, returning mentioning documents and counts). Exact registry IDs take precedence; ambiguous names require an ID.${scopeDescription}`,
+	annotations,
 	inputSchema: {
 		type: 'object',
+		additionalProperties: false,
 		properties: {
-			documentId: {
-				type: 'string',
+			documentId: textInput,
+			entity: {
+				...textInput,
+				maxLength: 2000,
 				description:
-					'UUID of a document to list the entities it mentions (from get_structure). ' +
-					'Mutually exclusive with entity.',
+					'Exact registry ID or case-insensitive entity name. IDs take precedence; ambiguous names require an ID. Supply instead of documentId.',
 			},
+		},
+		oneOf: [{ required: ['documentId'] }, { required: ['entity'] }],
+	},
+	outputSchema: output(
+		{
+			documentId: documentIdSchema,
 			entity: {
 				type: 'string',
 				description:
-					'Registry id or name of a character/location to list the documents that mention ' +
-					'it, e.g. "Elena". Mutually exclusive with documentId.',
+					'Caller-supplied registry ID or entity name after trimming, present for entity-based lookup.',
 			},
-		},
-	},
-	outputSchema: {
-		type: 'object',
-		properties: {
-			documentId: { type: 'string', description: 'Echoed when querying by document.' },
-			entity: { type: 'string', description: 'Echoed when querying by entity.' },
 			mentions: {
 				type: 'array',
 				description:
-					'Entities the document references (present when querying by documentId).',
+					'Registered entities mentioned in the selected document, with all literal match positions.',
+				maxItems: 256,
 				items: {
 					type: 'object',
+					additionalProperties: false,
 					properties: {
-						entityId: { type: 'string', description: 'Registry id of the entity.' },
-						entityName: { type: 'string', description: 'Entity name as registered.' },
-						type: {
-							type: 'string',
-							description: 'Entity kind: "character" or "location".',
+						entityId: entityIdSchema,
+						entityName: entityNameSchema,
+						type: kind,
+						count: {
+							type: 'integer',
+							minimum: 1,
+							description:
+								'Number of literal whole-word occurrences of this entity in the document.',
 						},
-						count: { type: 'number', description: 'Number of occurrences.' },
 						positions: {
 							type: 'array',
-							description: 'Character offsets of matches (capped at 100).',
-							items: { type: 'number', description: 'Offset of one match.' },
+							description:
+								'Zero-based UTF-16 start offsets of every matching occurrence in the saved plain text.',
+							minItems: 1,
+							maxItems: 1000000,
+							items: { type: 'integer', minimum: 0 },
 						},
 					},
+					required: ['entityId', 'entityName', 'type', 'count', 'positions'],
 				},
 			},
 			documents: {
 				type: 'array',
-				description: 'Documents referencing the entity (present when querying by entity).',
+				description:
+					'Saved documents mentioning the selected entity, ordered by descending mention count.',
+				maxItems: 1000,
 				items: {
 					type: 'object',
+					additionalProperties: false,
 					properties: {
-						documentId: { type: 'string', description: 'Referencing document id.' },
-						title: { type: 'string', description: 'Document title.' },
-						count: { type: 'number', description: 'Mentions in that document.' },
+						documentId: documentIdSchema,
+						title: {
+							type: 'string',
+							description: 'Saved title of the referencing document.',
+						},
+						count: {
+							type: 'integer',
+							minimum: 1,
+							description:
+								'Number of literal whole-word mentions of the selected entity in this document.',
+						},
 					},
+					required: ['documentId', 'title', 'count'],
 				},
 			},
 		},
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const documentId = getOptionalStringArg(args, 'documentId');
-		const entity = getOptionalStringArg(args, 'entity');
-		if ((documentId && entity) || (!documentId && !entity)) {
-			throw createError(
-				ErrorCode.INVALID_INPUT,
-				{ documentId, entity },
-				'Provide exactly one of documentId or entity.'
-			);
-		}
-
-		const entities = loadRegistryEntities(context);
-		const index = buildReferenceIndex(await loadDocuments(project), entities);
-
-		const result = documentId
-			? { documentId, mentions: referencesForDocument(index, documentId) }
-			: { entity, documents: documentsReferencing(index, entity as string) };
-		return {
-			content: [{ type: 'text', text: compact(result) }],
-			structuredContent: result as unknown as Record<string, unknown>,
-		};
+		[],
+		[{ required: ['documentId', 'mentions'] }, { required: ['entity', 'documents'] }]
+	),
+	handler: async (args, context) => {
+		argumentsFor(args, ['documentId', 'entity']);
+		if ((args.documentId !== undefined) === (args.entity !== undefined))
+			throw new Error('Provide exactly one of documentId or entity');
+		const documentId =
+			args.documentId === undefined
+				? undefined
+				: storyText(args.documentId, 'Document identifier', 128);
+		const entity =
+			args.entity === undefined
+				? undefined
+				: storyText(args.entity, 'Entity identifier or name', 2000);
+		return referenceAnalysis(
+			context,
+			'get_entity_references',
+			documentId ? { documentId } : { entity },
+			(index, entities, documents) => {
+				if (documentId) {
+					requireDocument(documents, documentId);
+					return { documentId, mentions: referencesForDocument(index, documentId) };
+				}
+				return { entity, documents: documentsReferencing(index, entity!, entities) };
+			},
+			documentId
+		);
 	},
 };
 
 export const findOrphanedEntitiesHandler: ToolDefinition = {
 	name: 'find_orphaned_entities',
 	title: 'Find Orphaned Entities',
-	description:
-		'List registered characters and locations that no document actually mentions — entities added ' +
-		'to the registry but with no textual presence, which are candidates for removal or for prose ' +
-		'that still needs writing. Uses exact whole-word matching, no AI. Requires an open project.',
-	annotations: {
-		readOnlyHint: true,
-		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: false,
-	},
-	inputSchema: {
-		type: 'object',
-		properties: {},
-	},
-	outputSchema: {
-		type: 'object',
-		properties: {
-			orphans: {
-				type: 'array',
-				description: 'Registered entities with zero mentions across all documents.',
-				items: {
-					type: 'object',
-					properties: {
-						id: { type: 'string', description: 'Registry id of the entity.' },
-						name: { type: 'string', description: 'Entity name.' },
-						type: {
-							type: 'string',
-							description: 'Entity kind: "character" or "location".',
-						},
-					},
-				},
-			},
-			registrySize: {
-				type: 'number',
-				description: 'Total number of registered entities considered.',
-			},
+	description: `List registered characters and locations with no literal name mentions in the selected saved text.${scopeDescription}`,
+	annotations,
+	inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+	outputSchema: output({
+		orphans: {
+			type: 'array',
+			maxItems: 256,
+			items: entitySchema,
+			description:
+				'Entities from available registries with no literal whole-word name mentions in the examined saved text.',
 		},
-		required: ['orphans', 'registrySize'],
-	},
-	handler: async (_args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const entities = loadRegistryEntities(context);
-		const index = buildReferenceIndex(await loadDocuments(project), entities);
-		const orphans = orphanedEntities(index, entities).map((e) => ({
-			id: e.id,
-			name: e.name,
-			type: e.type,
+		registrySize: {
+			type: 'integer',
+			minimum: 0,
+			maximum: 256,
+			description:
+				'Total entities loaded from the available registries before filtering for missing mentions.',
+		},
+	}),
+	handler: async (args, context) => {
+		argumentsFor(args, []);
+		return referenceAnalysis(context, 'find_orphaned_entities', {}, (index, entities) => ({
+			orphans: orphanedEntities(index, entities),
+			registrySize: entities.length,
 		}));
-		const result = { orphans, registrySize: entities.length };
-		return {
-			content: [{ type: 'text', text: compact(result) }],
-			structuredContent: result as unknown as Record<string, unknown>,
-		};
 	},
 };
 
 export const suggestConnectionsHandler: ToolDefinition = {
 	name: 'suggest_connections',
 	title: 'Suggest Missing Connections',
-	description:
-		'Suggest characters or locations a document might be missing: entities it does not mention ' +
-		'but that frequently co-occur — in other documents — with the entities it does mention. ' +
-		'Deterministic co-occurrence inference (no AI), ranked by how many of the document’s ' +
-		'entities each suggestion travels with. Use this to spot a scene that omits a character who ' +
-		'usually appears with its cast. Returns empty when the document has no known entities. ' +
-		'Requires an open project.',
-	annotations: {
-		readOnlyHint: true,
-		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: false,
-	},
+	description: `Suggest registered characters or locations absent from a document but co-occurring elsewhere with its mentioned entities. The count is the number of distinct registry entities from that document sharing another document with each suggestion; relatedTo preserves their names, including duplicates. This is an association to review.${scopeDescription}`,
+	annotations,
 	inputSchema: {
 		type: 'object',
-		properties: {
-			documentId: {
-				type: 'string',
-				description: 'UUID of the document to suggest connections for.',
-			},
-		},
+		additionalProperties: false,
+		properties: { documentId: textInput },
 		required: ['documentId'],
 	},
-	outputSchema: {
-		type: 'object',
-		properties: {
-			documentId: { type: 'string', description: 'The document suggestions are for.' },
-			suggestions: {
-				type: 'array',
-				description: 'Candidate entities to consider adding, strongest first.',
-				items: {
-					type: 'object',
-					properties: {
-						entityId: { type: 'string', description: 'Registry id of the suggestion.' },
-						entityName: { type: 'string', description: 'Suggested entity name.' },
-						type: {
-							type: 'string',
-							description: 'Entity kind: "character" or "location".',
-						},
-						coOccurrences: {
-							type: 'number',
-							description: "How many of the document's entities it co-occurs with.",
-						},
-						relatedTo: {
-							type: 'array',
-							description: "The document's entities it usually appears alongside.",
-							items: { type: 'string', description: 'A related entity name.' },
-						},
+	outputSchema: output({
+		documentId: documentIdSchema,
+		suggestions: {
+			type: 'array',
+			description:
+				'Registered entities absent from the selected document but associated with its mentioned entities elsewhere, ordered by descending coOccurrences.',
+			maxItems: 256,
+			items: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					entityId: entityIdSchema,
+					entityName: entityNameSchema,
+					type: kind,
+					coOccurrences: {
+						type: 'integer',
+						minimum: 1,
+						description:
+							'Number of distinct entities from the selected document that share another document with this suggestion.',
+					},
+					relatedTo: {
+						type: 'array',
+						maxItems: 256,
+						items: { type: 'string' },
+						description:
+							'Names of those related entities from the selected document; distinct registry IDs may preserve duplicate names.',
 					},
 				},
+				required: ['entityId', 'entityName', 'type', 'coOccurrences', 'relatedTo'],
 			},
 		},
-		required: ['documentId', 'suggestions'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		const documentId = getStringArg(args, 'documentId');
-		const entities = loadRegistryEntities(context);
-		const index = buildReferenceIndex(await loadDocuments(project), entities);
-		const suggestions = suggestConnections(index, documentId);
-		const result = { documentId, suggestions };
-		return {
-			content: [{ type: 'text', text: compact(result) }],
-			structuredContent: result as unknown as Record<string, unknown>,
-		};
+	}),
+	handler: async (args, context) => {
+		argumentsFor(args, ['documentId']);
+		const documentId = storyText(args.documentId, 'Document identifier', 128);
+		return referenceAnalysis(
+			context,
+			'suggest_connections',
+			{ documentId },
+			(index, _entities, documents) => {
+				requireDocument(documents, documentId);
+				return { documentId, suggestions: suggestConnections(index, documentId) };
+			}
+		);
 	},
 };
 
-export const documentGraphHandlers: ToolDefinition[] = [
+export const documentGraphHandlers = [
 	getEntityReferencesHandler,
 	findOrphanedEntitiesHandler,
 	suggestConnectionsHandler,

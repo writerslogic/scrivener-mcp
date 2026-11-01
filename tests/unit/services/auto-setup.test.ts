@@ -1,8 +1,33 @@
+import { existsSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import { AutoSetup } from '../../../src/services/auto-setup/auto-setup.js';
+import { AIConfigWizard } from '../../../src/services/auto-setup/ai-config-wizard.js';
+import { initializeAsyncServices } from '../../../src/handlers/async-handlers.js';
+import { readJSON, writeJSON } from '../../../src/utils/common.js';
 
-jest.mock('../../../src/services/auto-setup/ai-config-wizard.js');
-jest.mock('../../../src/handlers/async-handlers.js');
-jest.mock('fs');
+jest.mock('../../../src/services/auto-setup/ai-config-wizard.js', () => ({
+	AIConfigWizard: jest.fn().mockImplementation(() => ({
+		getActiveConfig: jest.fn(),
+		quickSetup: jest.fn(),
+		runWizard: jest.fn(),
+	})),
+}));
+jest.mock('../../../src/handlers/async-handlers.js', () => ({
+	initializeAsyncServices: jest.fn(),
+}));
+jest.mock('fs', () => ({
+	...jest.requireActual<typeof import('fs')>('fs'),
+	existsSync: jest.fn(),
+	mkdirSync: jest.fn(),
+}));
+jest.mock('../../../src/utils/common.js', () => ({
+	...jest.requireActual<typeof import('../../../src/utils/common.js')>(
+		'../../../src/utils/common.js'
+	),
+	readJSON: jest.fn(),
+	writeJSON: jest.fn(),
+}));
 jest.mock('chalk', () => ({
 	cyan: jest.fn((str) => str),
 	white: { bold: jest.fn((str) => str) },
@@ -13,158 +38,234 @@ jest.mock('chalk', () => ({
 }));
 
 describe('AutoSetup', () => {
+	const directory = join(homedir(), '.scrivener-mcp');
+	const setupPath = join(directory, 'setup.json');
 	let autoSetup: AutoSetup;
+	let wizard: jest.Mocked<AIConfigWizard>;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		jest.mocked(existsSync).mockReset().mockReturnValue(false);
+		jest.mocked(mkdirSync).mockReset();
+		jest.mocked(readJSON).mockReset().mockResolvedValue({ completed: false });
+		jest.mocked(writeJSON).mockReset().mockResolvedValue(undefined);
+		jest.mocked(initializeAsyncServices).mockReset().mockResolvedValue(undefined);
 		autoSetup = new AutoSetup();
+		wizard = jest.mocked(AIConfigWizard).mock.results[0].value;
+		wizard.getActiveConfig.mockResolvedValue({});
+		wizard.quickSetup.mockResolvedValue({});
+		wizard.runWizard.mockResolvedValue({ enableLocalModels: true });
 	});
 
-	describe('Basic functionality', () => {
-		it('should create an instance', () => {
-			expect(autoSetup).toBeDefined();
-			expect(autoSetup).toBeInstanceOf(AutoSetup);
-		});
-
-		it('should have isSetupComplete method', () => {
-			expect(autoSetup.isSetupComplete).toBeDefined();
-			expect(typeof autoSetup.isSetupComplete).toBe('function');
-		});
-
-		it('should have run method', () => {
-			expect(autoSetup.run).toBeDefined();
-			expect(typeof autoSetup.run).toBe('function');
-		});
-
-		it('should have runHealthChecks method', () => {
-			expect(autoSetup.runHealthChecks).toBeDefined();
-			expect(typeof autoSetup.runHealthChecks).toBe('function');
-		});
+	afterEach(() => {
+		jest.restoreAllMocks();
 	});
 
 	describe('Setup status', () => {
-		it('should detect when setup is not complete', async () => {
-			const result = await autoSetup.isSetupComplete();
-			expect(typeof result).toBe('boolean');
+		it('reports incomplete setup without reading a missing status file', async () => {
+			await expect(autoSetup.isSetupComplete()).resolves.toBe(false);
+			expect(existsSync).toHaveBeenCalledWith(setupPath);
+			expect(readJSON).not.toHaveBeenCalled();
 		});
 
-		it('should be able to run health checks', async () => {
-			// Mock the method to avoid complex dependency injection
-			autoSetup.runHealthChecks = jest.fn().mockResolvedValue({
-				redis: false,
+		it.each([true, false, 'true', null])(
+			'accepts only an explicit completed boolean: %p',
+			async (completed) => {
+				jest.mocked(existsSync).mockReturnValue(true);
+				jest.mocked(readJSON).mockResolvedValue({ completed });
+				await expect(autoSetup.isSetupComplete()).resolves.toBe(completed === true);
+				expect(readJSON).toHaveBeenCalledWith(setupPath, { completed: false });
+			}
+		);
+
+		it('reports incomplete setup when reading the status fails', async () => {
+			jest.mocked(existsSync).mockReturnValue(true);
+			jest.mocked(readJSON).mockRejectedValue(new Error('Status unavailable'));
+			await expect(autoSetup.isSetupComplete()).resolves.toBe(false);
+		});
+	});
+
+	describe('Health checks', () => {
+		it('keeps the embedded queue healthy when optional AI is unconfigured', async () => {
+			await expect(autoSetup.runHealthChecks()).resolves.toEqual({
+				queue: true,
 				ai: false,
-				overall: false,
-				details: [],
+				overall: true,
+				details: [
+					'✅ Embedded queue system is ready',
+					'⚠️  AI services not configured (optional)',
+				],
 			});
+			expect(wizard.getActiveConfig).toHaveBeenCalledTimes(1);
+			expect(initializeAsyncServices).not.toHaveBeenCalled();
+		});
 
+		it.each([
+			[{ openaiApiKey: 'test-openai-key' }, 'OpenAI'],
+			[{ anthropicApiKey: 'test-anthropic-key' }, 'Anthropic'],
+			[{ enableLocalModels: true }, 'Local Models'],
+		] as const)('reports configured AI %p', async (config, provider) => {
+			wizard.getActiveConfig.mockResolvedValue(config);
 			const health = await autoSetup.runHealthChecks();
+			expect(health).toMatchObject({ queue: true, ai: true, overall: true });
+			expect(health.details).toContain(`✅ AI configured: ${provider}`);
+		});
 
-			expect(health).toBeDefined();
-			expect(health).toHaveProperty('redis');
-			expect(health).toHaveProperty('ai');
-			expect(health).toHaveProperty('overall');
-			expect(health).toHaveProperty('details');
+		it('reports AI configuration errors without marking the queue unhealthy', async () => {
+			wizard.getActiveConfig.mockRejectedValue(new Error('Configuration unavailable'));
+			const health = await autoSetup.runHealthChecks();
+			expect(health).toMatchObject({ queue: true, ai: false, overall: true });
+			expect(health.details).toContain(
+				'⚠️  AI check failed: Error: Configuration unavailable'
+			);
 		});
 	});
 
 	describe('Setup process', () => {
-		it('should be able to run setup process', async () => {
-			// Mock the method to avoid complex dependency injection
-			autoSetup.run = jest.fn().mockResolvedValue({
-				success: true,
-				warnings: [],
-				errors: [],
-			});
-
+		it('initializes services and saves completion while warning about optional AI', async () => {
 			const result = await autoSetup.run();
-
-			expect(result).toBeDefined();
-			expect(result).toHaveProperty('success');
-			expect(result).toHaveProperty('warnings');
-			expect(result).toHaveProperty('errors');
+			expect(result).toEqual({
+				success: true,
+				warnings: ['AI services not configured. Run with --interactive to configure.'],
+				errors: [],
+			});
+			expect(initializeAsyncServices).toHaveBeenCalledWith({ openaiApiKey: undefined });
+			expect(mkdirSync).toHaveBeenCalledWith(directory, { recursive: true });
+			expect(writeJSON).toHaveBeenCalledWith(setupPath, {
+				completed: true,
+				timestamp: expect.any(String),
+				aiConfigured: undefined,
+			});
+			expect(jest.mocked(initializeAsyncServices).mock.invocationCallOrder[0]).toBeLessThan(
+				jest.mocked(writeJSON).mock.invocationCallOrder[0]
+			);
 		});
 
-		it('should handle setup with options', async () => {
-			autoSetup.run = jest.fn().mockResolvedValue({
+		it('skips every AI configuration path when requested', async () => {
+			await expect(autoSetup.run({ skipAI: true })).resolves.toEqual({
 				success: true,
 				warnings: [],
 				errors: [],
 			});
-
-			const options = {
-				interactive: false,
-				skipRedis: true,
-				skipAI: false,
-			};
-
-			const result = await autoSetup.run(options);
-
-			expect(autoSetup.run).toHaveBeenCalledWith(options);
-			expect(result.success).toBe(true);
+			expect(wizard.getActiveConfig).not.toHaveBeenCalled();
+			expect(wizard.quickSetup).not.toHaveBeenCalled();
+			expect(wizard.runWizard).not.toHaveBeenCalled();
+			expect(initializeAsyncServices).toHaveBeenCalledTimes(1);
+			expect(writeJSON).toHaveBeenCalledTimes(1);
 		});
 
-		it('should handle setup errors', async () => {
-			autoSetup.run = jest.fn().mockResolvedValue({
+		it('uses quick setup and passes the requested key to service initialization', async () => {
+			const result = await autoSetup.run({ quickSetup: true, openaiApiKey: 'test-key' });
+			expect(result).toEqual({ success: true, aiConfigured: true, warnings: [], errors: [] });
+			expect(wizard.quickSetup).toHaveBeenCalledWith('test-key');
+			expect(wizard.getActiveConfig).not.toHaveBeenCalled();
+			expect(wizard.runWizard).not.toHaveBeenCalled();
+			expect(initializeAsyncServices).toHaveBeenCalledWith({ openaiApiKey: 'test-key' });
+		});
+
+		it('uses the interactive wizard when requested', async () => {
+			await expect(autoSetup.run({ interactive: true })).resolves.toMatchObject({
+				success: true,
+				aiConfigured: true,
+			});
+			expect(wizard.runWizard).toHaveBeenCalledTimes(1);
+			expect(wizard.getActiveConfig).not.toHaveBeenCalled();
+			expect(wizard.quickSetup).not.toHaveBeenCalled();
+		});
+
+		it('recognizes existing AI configuration without running the wizard', async () => {
+			wizard.getActiveConfig.mockResolvedValue({ anthropicApiKey: 'test-key' });
+			await expect(autoSetup.run()).resolves.toEqual({
+				success: true,
+				aiConfigured: true,
+				warnings: [],
+				errors: [],
+			});
+			expect(wizard.runWizard).not.toHaveBeenCalled();
+		});
+
+		it('skips completed setup unless forced', async () => {
+			jest.mocked(existsSync).mockReturnValue(true);
+			jest.mocked(readJSON).mockResolvedValue({ completed: true });
+			await expect(autoSetup.run()).resolves.toEqual({
+				success: true,
+				warnings: ['Setup was already completed. Use --force to re-run.'],
+				errors: [],
+			});
+			expect(wizard.getActiveConfig).not.toHaveBeenCalled();
+			expect(initializeAsyncServices).not.toHaveBeenCalled();
+			expect(writeJSON).not.toHaveBeenCalled();
+
+			await expect(autoSetup.run({ force: true, skipAI: true })).resolves.toMatchObject({
+				success: true,
+				warnings: [],
+			});
+			expect(initializeAsyncServices).toHaveBeenCalledTimes(1);
+			expect(writeJSON).toHaveBeenCalledTimes(1);
+			expect(mkdirSync).not.toHaveBeenCalled();
+		});
+
+		it('does not initialize or mark setup complete when AI configuration fails', async () => {
+			wizard.getActiveConfig.mockRejectedValue(new Error('Configuration failed'));
+			await expect(autoSetup.run()).resolves.toMatchObject({
+				success: false,
+				errors: ['Setup failed: Error: Configuration failed'],
+			});
+			expect(initializeAsyncServices).not.toHaveBeenCalled();
+			expect(writeJSON).not.toHaveBeenCalled();
+		});
+
+		it('does not mark setup complete when service initialization fails', async () => {
+			jest.mocked(initializeAsyncServices).mockRejectedValue(
+				new Error('Initialization failed')
+			);
+			await expect(autoSetup.run({ skipAI: true })).resolves.toEqual({
 				success: false,
 				warnings: [],
-				errors: ['Setup failed'],
+				errors: ['Setup failed: Error: Initialization failed'],
 			});
+			expect(writeJSON).not.toHaveBeenCalled();
+		});
 
-			const result = await autoSetup.run();
-
-			expect(result.success).toBe(false);
-			expect(result.errors).toContain('Setup failed');
+		it('reports persistence failure instead of claiming setup succeeded', async () => {
+			jest.mocked(writeJSON).mockRejectedValue(new Error('Status write failed'));
+			await expect(autoSetup.run({ skipAI: true })).resolves.toEqual({
+				success: false,
+				warnings: [],
+				errors: ['Setup failed: Error: Status write failed'],
+			});
+			expect(initializeAsyncServices).toHaveBeenCalledTimes(1);
 		});
 	});
 
 	describe('CLI integration', () => {
-		it('should have static CLI method', () => {
-			expect(AutoSetup.cli).toBeDefined();
-			expect(typeof AutoSetup.cli).toBe('function');
-		});
-
-		it('should handle CLI arguments', async () => {
-			// Mock process.exit to prevent actual exit
+		it('applies CLI flags through the real setup workflow and exits successfully', async () => {
+			jest.mocked(existsSync).mockReturnValue(true);
+			jest.mocked(readJSON).mockResolvedValue({ completed: true });
 			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
 				throw new Error('process.exit');
 			});
 
-			const mockRun = jest.spyOn(AutoSetup.prototype, 'run').mockResolvedValue({
-				success: true,
-				warnings: [],
-				errors: [],
-			});
-
-			const args = ['--quick', '--skip-redis'];
-
-			await expect(AutoSetup.cli(args)).rejects.toThrow('process.exit');
-
-			expect(mockRun).toHaveBeenCalled();
+			await expect(AutoSetup.cli(['--force', '--skip-ai'])).rejects.toThrow('process.exit');
+			const cliWizard = jest.mocked(AIConfigWizard).mock.results[1]
+				.value as jest.Mocked<AIConfigWizard>;
+			expect(cliWizard.getActiveConfig).not.toHaveBeenCalled();
+			expect(initializeAsyncServices).toHaveBeenCalledTimes(1);
+			expect(writeJSON).toHaveBeenCalledTimes(1);
 			expect(mockExit).toHaveBeenCalledWith(0);
-
-			mockRun.mockRestore();
-			mockExit.mockRestore();
 		});
-	});
 
-	describe('Error handling', () => {
-		it('should handle method errors gracefully', () => {
-			const errorSetup = new AutoSetup();
-
-			// Mock method that throws
-			errorSetup.isSetupComplete = jest.fn(() => {
-				throw new Error('Method error');
+		it('exits unsuccessfully when setup fails', async () => {
+			jest.mocked(initializeAsyncServices).mockRejectedValue(
+				new Error('Initialization failed')
+			);
+			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
+				throw new Error('process.exit');
 			});
 
-			expect(() => errorSetup.isSetupComplete()).toThrow('Method error');
-		});
-
-		it('should handle async method errors', async () => {
-			const errorSetup = new AutoSetup();
-
-			errorSetup.run = jest.fn().mockRejectedValue(new Error('Async error'));
-
-			await expect(errorSetup.run()).rejects.toThrow('Async error');
+			await expect(AutoSetup.cli(['--skip-ai'])).rejects.toThrow('process.exit');
+			expect(writeJSON).not.toHaveBeenCalled();
+			expect(mockExit).toHaveBeenCalledWith(1);
 		});
 	});
 });

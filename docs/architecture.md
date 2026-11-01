@@ -6,7 +6,7 @@ For a user-facing feature overview, see the
 ## Overview
 
 Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3
-project files directly (XML binder structure + RTF document files) and exposes 80 tools over the
+project files directly (XML binder structure + RTF document files) and exposes 82 tools over the
 Model Context Protocol via skill-based registration (progressive disclosure by default; eager
 registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
 
@@ -131,9 +131,26 @@ extensions (annotations, comments) and Unicode.
 Persistent key-value storage for project memory (character profiles, plot threads, style guide,
 writing stats). Stored as JSON in `.ai-memory/` within the project.
 
-Only a missing memory file initializes empty state. Unreadable or invalid existing files fail
-loading without replacing the current memory or overwriting the file. Saves are serialized, and each
-primary file and daily backup use the same serialized snapshot. The embedded Redis-compatible store
+The public `remember` contract validates and snapshots requests before queuing at most 32 writes.
+Records use stable creation IDs; updates require existing IDs. The primary JSON file commits before
+the new snapshot becomes visible or success is returned. `recall` binds its records to a canonical
+snapshot revision and spools large responses. Missing profile, style and progress fields remain
+unrecorded. Input JSON is bounded at 64 KiB, depth 32; complete memory is bounded at 16 MiB.
+
+Reads use bounded regular-file descriptors, reject symlinks and invalid UTF-8, and preserve literal
+JSON values. Invalid existing memory fails without a cleanup write. A missing primary with surviving
+daily backups requires restoring a verified backup. Otherwise, initial loading can import the optional
+SQLite snapshot or legacy tables using their actual columns. Secondary database mirrors commit in one
+transaction with updates that preserve dependent rows; mirror failures are logged after primary
+persistence. Primary JSON remains authoritative. Primary and daily backup use the same snapshot.
+
+A separate SQLite ownership record permits one live memory owner per project; short synchronous
+transactions acquire and release ownership. Dead local processes can be recovered, while ambiguous
+ownership fails explicitly. Files changed outside the owner fail revision checks before updates;
+closing an unchanged session permits reopening the edited file. These checks do not provide an atomic
+compare-and-swap against an external program that writes between revision verification and rename.
+
+The embedded Redis-compatible store
 follows the same load and save rules, preserves sorted-set scores across restarts, and keeps a
 failed final save retryable with its background persistence timers restored.
 
@@ -148,9 +165,60 @@ during shutdown; pending analyses may finish without retaining new cached result
 resources afterward. Replacements count only their size delta. Loader results beyond capacity are
 returned to callers without caching.
 
+`analyze_document` always reports saved-source revisions and complete decoded-text coverage.
+Validated `analysisTypes` steer provider craft issues while readability and pacing remain baseline
+assessments. The provider accepts whole sources up to 12000 UTF-16 characters; longer or empty
+sources, provider errors and malformed reports use explicitly broad raw local analysis. Missing
+provider fields are never filled with fabricated assessments, and malformed issues are never
+silently discarded. Local analysis and grammar fail independently, preserving successful sibling
+findings and declaring missing work. Saved revisions and project selection are rechecked before
+returning results. Large reports use `read_result`; small reports retain their readable summary.
+
+### Manuscript analysis (`src/services/editorial/`)
+
+`NarrativeAnalysis` serializes project operations and owns a persistent `NarrativeContext` child.
+The child owns the native 16 MiB manuscript cache; successful calls retain it, and terminating
+the child discards it. Manuscript analysis, configured document analysis, control validation,
+finding decisions and rechecks use this context. Annotation and comparison calls use separate
+short-lived children. Each child request has a 30-second deadline; cancellation kills its child
+and waits for exit. A child watchdog enforces the execution deadline if its owner dies. Closing
+the service drains admitted operations before disposing its context. This is not a deadline for
+the complete workflow or source I/O; workflow cancellation still takes effect between steps.
+
+Child input/output limits are 64 MiB/16 MiB. The 384 MiB V8 old-generation setting accommodates
+overlapping JSON source and decoded Unicode strings; it does not contain native RSS.
+A separate one-vCPU Linux fixture verifies whole-workload cgroup OOM cleanup at
+512 MiB with zero swap; the application does not install that containment policy automatically.
+Its limits and platform scope are recorded in the implementation ledger. Final source and
+cancellation checks precede synchronous baseline persistence, and
+immutable paginated reports retain their source/configuration envelope. The annotation schema is
+generated from the pinned source bundle in `assets/narrative-lens`; CI checks its version, source
+hash and generated output without rewriting files.
+
 ### Content Enhancer (`src/services/enhancements/`)
 
-Applies targeted improvements to text (12+ enhancement types). Uses the style guide when available.
+The public `enhance_content` handler proposes a provider-generated rewrite for grammar, style,
+clarity, expansion, summary or creative revision. It reads complete saved RTF through ProjectSource
+and rejects sources beyond 12000 UTF-16 characters before provider use. Explicit editing options
+and author preferences are included in the request identity; background context is fenced as data.
+The saved revision is rechecked after generation. Exact input/output text and decoded-text coverage
+are retained, with large results retrieved through `read_result`. Output is bounded at 64000 UTF-16
+characters; token-limited, empty, malformed or failed provider output is explicitly unavailable.
+The operation never writes a document. Native word counts and Flesch reading-ease differences are
+measured independently; missing measurements are null without discarding the rewrite. No edit list,
+quality score or applied-change count is invented. The unused local rewrite engine and its static
+rewrite catalogs have been removed.
+
+`generate_content` reads requested document context from saved RTF and character profiles from
+project memory. It sends their actual contents to the provider, preserving the prompt and binding
+source revisions, profile hashes, options and preferences to the common envelope. Document excerpts
+are limited to 16000 UTF-16 characters without splitting a surrogate pair; coverage and truncation
+are explicit. At most 32 profiles and 16 KiB of profile JSON are admitted. Selection and source/profile
+revisions are checked before returning generated prose. Context-free generation reads no manuscript
+text and declares a null project identity. Input limits follow JSON Schema Unicode character counting:
+16000 for the prompt and 1000 for the requested style. Target length is 1–2000 words; complete output
+is bounded at 64000 UTF-16 characters and uses `read_result` when large. Token-limited or unavailable
+provider output remains an error; unavailable local word counting does not discard generated prose.
 
 ### Holographic Memory System (`src/services/memory/hhm/`)
 
@@ -191,10 +259,29 @@ present; otherwise its default is `~/.scrivener-mcp/hms-v0.6.4`. Set `SCRIVENER_
 override that location. This legacy store is separate from the project-scoped passage cache and the
 curated facts/series database.
 
-Dual-write relationship storage that writes to HMS (always) and Neo4j (when connected). HMS handles
-fast lookups via triplet queries. Neo4j adds advanced graph operations (PageRank, community
-detection, shortest path) when available. Relationships persist in the local triplet store and can
-be synced to Neo4j on demand.
+Public relationship tools use the project's existing editorial SQLite store, owned and closed by
+`ScrivenerProject`. Deterministic SHA-256 identities bind typed endpoints and labels; idempotent
+writes use synchronous transactions, and failures propagate as MCP tool errors. Queries match exact
+stored endpoints. Networks read all stored character edges, including after reopening the project.
+Discovery reuses the document-reference matcher against saved Draft text, reports measured document
+co-occurrence and checks both saved-source and graph revisions before returning. It does not query
+the shared legacy HMS store or infer entity identities from memory IDs. Legacy HMS data remains in
+its original store without automatic attribution to a project.
+
+Relationship output uses bounded result spooling. Storage is limited to 10000 edges; discovery is
+limited to 256 recorded characters/locations, 1000 documents, 2 Mi UTF-16 source characters and
+the source-character count multiplied by entity count at most 134217728. Internal chapter-sequence and Neo4j-copy handlers remain hidden
+from MCP dispatch, as established by the tool registry; Neo4j is not a dependency of public graph
+reads or writes.
+
+Registry cross-reference tools read saved RTF through ProjectSource, with an explicit selected-document
+or all-active-text scope. The latter includes Research and Draft items excluded from Compile, while
+the default manuscript source remains Draft-only. Registry snapshots use synchronous SQLite reads,
+bounded row/field admission and explicit availability for missing tables; broken connections fail.
+Saved revisions, relevant binder metadata and registry identity are rechecked after matching. Matchers
+are compiled once per analysis, use Unicode word boundaries and preserve complete admitted offset
+lists. Full reference evidence is limited to 1000000 positions and 16 MiB of serialized mention
+records; co-occurrence discovery checks presence without allocating offset arrays.
 
 ### Database Service (`src/handlers/database/`)
 

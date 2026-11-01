@@ -86,33 +86,27 @@ export class WebContentParser {
 	): ParsedWebContent {
 		const $ = cheerio.load(html);
 
-		// Remove unwanted elements
 		if (options.removeElements) {
 			options.removeElements.forEach((selector: string) => {
 				$(selector).remove();
 			});
 		}
 
-		// Remove scripts, styles, and other non-content elements
 		$(
 			'script, style, noscript, nav, footer, aside, .ads, .advertisement, .social-share'
 		).remove();
 
-		// Extract metadata
 		const title = this.extractTitle($);
 		const author = this.extractAuthor($);
 		const publishDate = this.extractPublishDate($);
 
-		// Extract main content
 		const content = this.extractMainContent($, options.mainContentSelector);
 		const summary = this.extractSummary($);
 
-		// Extract structural elements
 		const links = options.includeLinks ? this.extractLinks($, baseUrl) : [];
 		const images = options.includeImages ? this.extractImages($, baseUrl) : [];
 		const headings = options.includeHeadings ? this.extractHeadings($) : [];
 
-		// Calculate metadata
 		const metadata = this.calculateMetadata($, content);
 
 		return {
@@ -132,22 +126,16 @@ export class WebContentParser {
 		const $ = cheerio.load(parsedContent.content);
 		const text = $('body').text() || parsedContent.content;
 
-		// Extract facts (sentences with specific patterns)
 		const facts = this.extractFacts(text);
 
-		// Extract quotes (text in quotation marks or blockquotes)
 		const quotes = this.extractQuotes($, text);
 
-		// Extract statistics (numbers with context)
 		const statistics = this.extractStatistics(text);
 
-		// Extract sources (citations, references)
 		const sources = this.extractSources($, parsedContent.links);
 
-		// Extract key terms
 		const keyTerms = this.extractKeyTerms(text, keywords);
 
-		// Calculate relevance score
 		const relevanceScore = this.calculateRelevanceScore(text, keyTerms, keywords);
 
 		return {
@@ -365,7 +353,6 @@ export class WebContentParser {
 			if (href && text) {
 				let url = href;
 
-				// Convert relative URLs to absolute if baseUrl provided
 				if (baseUrl && href.startsWith('/')) {
 					url = new URL(href, baseUrl).href;
 				}
@@ -397,7 +384,6 @@ export class WebContentParser {
 			if (src) {
 				let imageSrc = src;
 
-				// Convert relative URLs to absolute if baseUrl provided
 				if (baseUrl && src.startsWith('/')) {
 					imageSrc = new URL(src, baseUrl).href;
 				}
@@ -474,7 +460,6 @@ export class WebContentParser {
 	private extractQuotes($: CheerioAPI, text: string): string[] {
 		const quotes: string[] = [];
 
-		// Extract blockquotes
 		$('blockquote').each((_, element: AnyNode) => {
 			const quote = $(element).text().trim();
 			if (quote.length > 10) {
@@ -482,7 +467,6 @@ export class WebContentParser {
 			}
 		});
 
-		// Extract quoted text from content
 		const quotedText = text.match(/"([^"]{20,500})"/g);
 		if (quotedText) {
 			quotedText.forEach((quote) => {
@@ -490,7 +474,7 @@ export class WebContentParser {
 			});
 		}
 
-		return [...new Set(quotes)].slice(0, 10); // Remove duplicates, limit to 10
+		return [...new Set(quotes)].slice(0, 10);
 	}
 
 	private extractStatistics(text: string): string[] {
@@ -520,7 +504,6 @@ export class WebContentParser {
 	private extractSources($: CheerioAPI, links: ParsedWebContent['links']): string[] {
 		const sources: string[] = [];
 
-		// Add external links as potential sources
 		links
 			.filter((link) => link.type === 'external')
 			.forEach((link) => {
@@ -535,7 +518,7 @@ export class WebContentParser {
 			}
 		});
 
-		return [...new Set(sources)].slice(0, 10); // Remove duplicates, limit to 10
+		return [...new Set(sources)].slice(0, 10);
 	}
 
 	private extractKeyTerms(text: string, keywords?: string[]): string[] {
@@ -545,20 +528,17 @@ export class WebContentParser {
 			.split(/\s+/)
 			.filter((word) => word.length > 3);
 
-		// Count word frequency
 		const frequency: { [key: string]: number } = {};
 		words.forEach((word) => {
 			frequency[word] = (frequency[word] || 0) + 1;
 		});
 
-		// Get most frequent terms
 		const keyTerms = Object.entries(frequency)
 			.filter(([_word, count]) => count > 2)
 			.sort((a, b) => b[1] - a[1])
 			.slice(0, 20)
 			.map(([word]) => word);
 
-		// Add provided keywords if they appear in text
 		if (keywords) {
 			keywords.forEach((keyword) => {
 				if (
@@ -598,7 +578,6 @@ export class WebContentParser {
 	private extractArticleMetadata($: CheerioAPI): Record<string, unknown> {
 		const metadata: Record<string, unknown> = {};
 
-		// Extract Open Graph and Twitter Card metadata
 		$('meta[property^="og:"], meta[name^="twitter:"]').each((_, element: AnyNode) => {
 			const $el = $(element);
 			const property = $el.attr('property') || $el.attr('name');
@@ -609,7 +588,6 @@ export class WebContentParser {
 			}
 		});
 
-		// Extract JSON-LD structured data
 		const safeJsonLdFields = new Set([
 			'@context',
 			'@type',

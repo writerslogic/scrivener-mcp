@@ -1,11 +1,3 @@
-/**
- * Locks the snapshot reader for issue #14 against the sample project fixture:
- * parses Snapshots/<uuid>.snapshots/index.xml, correlates it with the RTF files,
- * and verifies the defensive accessors degrade to empty/undefined (rather than
- * throwing or escaping the snapshot set) on missing dirs, garbage input, invalid
- * ids, and path-traversal attempts.
- */
-
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as os from 'os';

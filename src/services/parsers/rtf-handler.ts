@@ -159,10 +159,8 @@ export class RTFHandler {
 	private unifiedConvertToRTF(content: RTFContent | string): string {
 		const isPlainText = typeof content === 'string';
 
-		// Build RTF header
 		const header = this.buildRTFHeader(isPlainText ? undefined : content.metadata);
 
-		// Build body content
 		let body: string;
 		if (isPlainText) {
 			body = this.encodeTextForRTF(content);
@@ -183,7 +181,6 @@ export class RTFHandler {
 		// Generator identification
 		parts.push('{\\*\\generator WritersLogic Scrivener MCP;}');
 
-		// Add metadata if present
 		if (metadata) {
 			const info: string[] = [];
 			if (metadata.title) info.push(`{\\title ${this.encodeRTFString(metadata.title)}}`);
@@ -243,16 +240,12 @@ export class RTFHandler {
 			formattedText: [],
 		};
 
-		// Extract metadata
 		result.metadata = this.extractMetadata(rtfString);
 
-		// Remove header sections
 		const content = this.stripRTFHeaders(rtfString);
 
-		// Parse formatting and content
 		const segments = this.parseRTFSegments(content);
 
-		// Build plain text and formatted text
 		const plainTextParts: string[] = [];
 		segments.forEach((segment) => {
 			plainTextParts.push(segment.text);
@@ -271,7 +264,6 @@ export class RTFHandler {
 		if (!info) return undefined;
 		const metadata: RTFContent['metadata'] = {};
 
-		// Extract individual metadata fields
 		const extractField = (field: string) => {
 			const regex = new RegExp(`\\\\${field}\\s+([^\\\\}]+)`);
 			const match = info.match(regex);
@@ -292,7 +284,6 @@ export class RTFHandler {
 	private stripRTFHeaders(rtfString: string): string {
 		let content = rtfString;
 
-		// Remove various table definitions using brace-balanced scanning (avoids ReDoS).
 		// Image destinations (\*\shppict, \pict) are dropped too: their bodies are
 		// raw hex image data (\jpegblip/\pngblip) that must never surface as document
 		// text — and a long hex run with no delimiters otherwise bloats the parser.
@@ -314,7 +305,6 @@ export class RTFHandler {
 			content = this.removeBraceGroup(content, keyword);
 		});
 
-		// Remove Scrivener-specific control words
 		content = this.removeBraceGroup(content, '\\Scrv_');
 
 		return content;
@@ -334,7 +324,6 @@ export class RTFHandler {
 
 		for (const token of tokens) {
 			if (token.type === 'control') {
-				// Save current segment if we have text
 				if (currentText) {
 					segments.push({
 						text: currentText,
@@ -344,7 +333,6 @@ export class RTFHandler {
 					currentText = '';
 				}
 
-				// Handle control word
 				this.applyControlWord(token.value, currentStyle);
 			} else if (token.type === 'group-start') {
 				stack.push({ ...currentStyle });
@@ -366,7 +354,6 @@ export class RTFHandler {
 			}
 		}
 
-		// Add any remaining text
 		if (currentText) {
 			segments.push({
 				text: currentText,
@@ -485,10 +472,8 @@ export class RTFHandler {
 	 * Apply RTF control word to current style
 	 */
 	private applyControlWord(control: string, style: RTFStyle): void {
-		// Remove the backslash and any trailing space
 		const cleaned = control.replace(/^\\/, '').replace(/\s+$/, '');
 
-		// Check for special characters
 		for (const [rtfChar] of this.SPECIAL_CHARS) {
 			if (control.startsWith(rtfChar.slice(1))) {
 				// This is handled in tokenization
@@ -496,7 +481,6 @@ export class RTFHandler {
 			}
 		}
 
-		// Handle formatting controls
 		switch (cleaned) {
 			case 'b':
 				style.bold = true;
@@ -525,7 +509,6 @@ export class RTFHandler {
 				break;
 		}
 
-		// Handle font size
 		const fsMatch = cleaned.match(/^fs(\d+)$/);
 		if (fsMatch) {
 			style.fontSize = parseInt(fsMatch[1]) / 2; // RTF uses half-points
@@ -539,7 +522,6 @@ export class RTFHandler {
 			metadata: {},
 		};
 
-		// Extract metadata
 		if (doc.meta) {
 			result.metadata = {
 				title: doc.meta.title,
@@ -551,7 +533,6 @@ export class RTFHandler {
 			};
 		}
 
-		// Process content recursively
 		const processContent = (content: RTFParserContent, currentStyle?: RTFStyle) => {
 			if (typeof content === 'string') {
 				result.plainText += content;
@@ -566,7 +547,6 @@ export class RTFHandler {
 				const node = content as RTFParserContentNode;
 
 				if ('value' in node && typeof node.value === 'string') {
-					// Handle rtf-parser output format
 					const text = node.value;
 					result.plainText += text;
 					const style: RTFStyle = { ...currentStyle };
@@ -672,12 +652,12 @@ export class RTFHandler {
 	private cleanAnnotationText(text: string): string {
 		// Remove RTF control words but preserve text
 		let cleaned = text
-			.replace(/\\[a-z]+\d*\s?/gi, '') // Remove control words
+			.replace(/\\[a-z]+\d*\s?/gi, '')
 			.replace(/\\'([0-9a-fA-F]{2})/g, (_match, hex) =>
 				String.fromCharCode(parseInt(hex, 16))
 			) // Decode hex
 			.replace(/\\([{}\\])/g, '$1') // Unescape special chars
-			.replace(/\{|\}/g, '') // Remove braces
+			.replace(/\{|\}/g, '')
 			.trim();
 
 		// Apply special character replacements
@@ -700,7 +680,6 @@ export class RTFHandler {
 		encoded = encoded.replace(/\{/g, '\\{');
 		encoded = encoded.replace(/\}/g, '\\}');
 
-		// Convert line breaks
 		encoded = encoded.replace(/\n/g, '\\par\n');
 		encoded = encoded.replace(/\t/g, '\\tab ');
 
@@ -757,9 +736,6 @@ export class RTFHandler {
 		});
 	}
 
-	/**
-	 * Merge multiple RTF files
-	 */
 	async mergeRTFFiles(filePaths: string[]): Promise<string> {
 		const contents: RTFContent[] = [];
 
@@ -768,7 +744,6 @@ export class RTFHandler {
 			contents.push(rtfContent);
 		}
 
-		// Merge all formatted text
 		const merged: RTFContent = {
 			plainText: contents.map((c) => c.plainText).join('\n\n'),
 			formattedText: [],

@@ -50,9 +50,7 @@ describe('database synchronization with real SQLite', () => {
 		graph = null;
 		sync = new DatabaseSync(
 			() => sqlite,
-			() => graph as Neo4jManager | null,
-			() => null,
-			transactions
+			() => graph as Neo4jManager | null
 		);
 	});
 
@@ -183,8 +181,7 @@ describe('database synchronization with real SQLite', () => {
 		};
 		const ownedSync = new DatabaseSync(
 			() => current,
-			() => graph as Neo4jManager,
-			() => null
+			() => graph as Neo4jManager
 		);
 		const pending = ownedSync.syncDocumentData(document(IDS[0]));
 		const rejection = expect(pending).rejects.toThrow('Database not initialized');

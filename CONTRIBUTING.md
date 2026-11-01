@@ -54,9 +54,25 @@ It reports batch ingestion, first query (including deferred vector construction)
 times for 1,000 documents at 512 dimensions over three repetitions. Compare batch plus first-query
 time on the same runtime and hardware; batch time alone excludes deferred work.
 
+### Tools and tests
+
+Register new tools through `src/handlers/index.ts`, validate arguments with the existing typed
+extractors, and return MCP text plus schema-validated structured content. Use `getLogger()` rather
+than writing to stdout, which carries the MCP protocol.
+
+Tests use Jest and ts-jest. During iteration, run the relevant suite:
+
+```sh
+npm test -- --runInBand --runTestsByPath tests/unit/path/to/change.test.ts
+```
+
+Keep regression tests for behavior, security, data integrity and concurrency. Prefer exercising a
+real boundary over assertions on constants or mocks. Copy fixtures before modifying them, use
+synthetic content, and keep credentials, local reports and workflow notes outside the public tree.
+
 ### Code Style
 
-- Match the surrounding code's idiom, naming, and comment density.
+- Match the surrounding idiom and naming. Keep comments only for non-obvious constraints.
 - `npm run format` (Prettier) is the source of truth for formatting.
 - Conventional commit subjects: `<type>: <description>` where
   `type ∈ fix | feat | refactor | test | docs | perf | security | chore`.

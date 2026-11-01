@@ -4,6 +4,7 @@
  */
 
 import { getLogger } from '../core/logger.js';
+import { truncate } from './common.js';
 
 const logger = getLogger('predictive-cache');
 
@@ -56,7 +57,7 @@ export class PredictiveCache<T> {
 	private readonly maxCacheSize: number;
 	private readonly maxHistorySize = 10000;
 	private readonly prefetchThreshold = 0.7;
-	private readonly modelUpdateInterval = 1000; // Update model every 1000 accesses
+	private readonly modelUpdateInterval = 1000;
 
 	private currentCacheSize = 0;
 	private totalAccesses = 0;
@@ -121,14 +122,13 @@ export class PredictiveCache<T> {
 				accessDuration: performance.now() - startTime,
 			});
 
-			// Update prediction confidence
 			if (cacheEntry.predictedAccess > 0) {
 				this.prefetchHits++;
 				cacheEntry.confidence = Math.min(cacheEntry.confidence * 1.1, 1.0);
 			}
 
 			logger.debug('Cache hit', {
-				key: this.truncateKey(key),
+				key: truncate(key, 50),
 				accessCount: cacheEntry.accessCount,
 				confidence: cacheEntry.confidence.toFixed(3),
 			});
@@ -156,14 +156,14 @@ export class PredictiveCache<T> {
 				});
 
 				logger.debug('Cache miss - loaded data', {
-					key: this.truncateKey(key),
+					key: truncate(key, 50),
 					size: this.formatBytes(this.estimateSize(value)),
 				});
 
 				return value;
 			} catch (error) {
 				logger.warn('Failed to load data for cache miss', {
-					key: this.truncateKey(key),
+					key: truncate(key, 50),
 					error,
 				});
 			}
@@ -204,7 +204,7 @@ export class PredictiveCache<T> {
 		this.currentCacheSize += sizeDelta;
 
 		logger.debug('Cached item', {
-			key: this.truncateKey(key),
+			key: truncate(key, 50),
 			size: this.formatBytes(size),
 			predicted: entry.predictedAccess.toFixed(3),
 		});
@@ -218,7 +218,7 @@ export class PredictiveCache<T> {
 		if (entry) {
 			this.currentCacheSize -= entry.size;
 			this.cache.delete(key);
-			logger.debug('Deleted cache entry', { key: this.truncateKey(key) });
+			logger.debug('Deleted cache entry', { key: truncate(key, 50) });
 			return true;
 		}
 		return false;
@@ -290,11 +290,8 @@ export class PredictiveCache<T> {
 			candidates.push(candidate);
 		}
 
-		// Sort by priority
 		return candidates.sort((a, b) => b.priority - a.priority);
 	}
-
-	// Private methods
 
 	private startBackgroundProcesses(): void {
 		if (this.started) return;
@@ -328,7 +325,6 @@ export class PredictiveCache<T> {
 	}
 
 	private predictNextAccess(key: string, context: string[], userSession: string): number {
-		// Extract features for prediction
 		const features = [
 			this.featureExtractors.timeOfDay(),
 			this.featureExtractors.dayOfWeek(),
@@ -339,7 +335,10 @@ export class PredictiveCache<T> {
 			1.0, // Bias feature
 		];
 
-		// Simple linear model prediction
+		return this.predict(features);
+	}
+
+	private predict(features: number[]): number {
 		let prediction = this.model.bias;
 		for (let i = 0; i < Math.min(features.length, this.model.weights.length); i++) {
 			prediction += features[i] * this.model.weights[i];
@@ -355,7 +354,6 @@ export class PredictiveCache<T> {
 		const trainingData: Array<{ features: number[]; label: number }> = [];
 		const patterns: AccessPattern[] = [];
 
-		// Collect training patterns
 		let pattern = this.accessHistory.shift();
 		while (pattern && patterns.length < 1000) {
 			patterns.push(pattern);
@@ -365,12 +363,10 @@ export class PredictiveCache<T> {
 		// Re-queue patterns
 		patterns.forEach((p) => this.accessHistory.push(p));
 
-		// Generate training examples
 		for (let i = 0; i < patterns.length - 1; i++) {
 			const current = patterns[i];
 			const next = patterns[i + 1];
 
-			// Check if next access was within reasonable time window
 			const timeDiff = next.timestamp - current.timestamp;
 			const wasAccessed = timeDiff < 60000 * 60 * 24; // Within 24 hours
 
@@ -397,27 +393,8 @@ export class PredictiveCache<T> {
 		const epochs = 10;
 
 		for (let epoch = 0; epoch < epochs; epoch++) {
-			const _totalLoss = 0;
-
 			for (const example of trainingData) {
-				// Forward pass
-				let prediction = this.model.bias;
-				for (
-					let i = 0;
-					i < Math.min(example.features.length, this.model.weights.length);
-					i++
-				) {
-					prediction += example.features[i] * this.model.weights[i];
-				}
-				prediction = 1 / (1 + Math.exp(-prediction)); // Sigmoid
-
-				// Calculate loss (binary cross-entropy)
-				const _loss = -(
-					example.label * Math.log(prediction + 1e-15) +
-					(1 - example.label) * Math.log(1 - prediction + 1e-15)
-				);
-				// Track loss for monitoring (commented out to avoid unused variable warning)
-				// totalLoss += loss;
+				const prediction = this.predict(example.features);
 
 				// Backward pass
 				const error = prediction - example.label;
@@ -432,19 +409,10 @@ export class PredictiveCache<T> {
 				}
 			}
 
-			// Update accuracy
 			if (epoch === epochs - 1) {
 				let correct = 0;
 				for (const example of trainingData) {
-					let prediction = this.model.bias;
-					for (
-						let i = 0;
-						i < Math.min(example.features.length, this.model.weights.length);
-						i++
-					) {
-						prediction += example.features[i] * this.model.weights[i];
-					}
-					prediction = 1 / (1 + Math.exp(-prediction));
+					const prediction = this.predict(example.features);
 
 					if (
 						(prediction > 0.5 && example.label === 1) ||
@@ -475,7 +443,6 @@ export class PredictiveCache<T> {
 		// Simple pattern-based prefetch candidate generation
 		const basePriority = this.predictNextAccess(accessedKey, context, userSession);
 
-		// Generate related keys based on patterns
 		const candidates = [
 			`${accessedKey}_next`,
 			`${accessedKey}_related`,
@@ -505,13 +472,11 @@ export class PredictiveCache<T> {
 
 	private ensureSpace(requiredSize: number, replacedKey: string): void {
 		while (this.currentCacheSize + requiredSize > this.maxCacheSize) {
-			// Find least valuable item to evict
 			let leastValuable: { key: string; score: number } | null = null;
 
 			for (const [key, entry] of this.cache) {
 				if (key === replacedKey) continue;
 
-				// Calculate eviction score (lower is worse)
 				const timeSinceAccess = Date.now() - entry.lastAccess;
 				const ageHours = timeSinceAccess / (1000 * 60 * 60);
 				const frequencyScore = Math.log(entry.accessCount + 1);
@@ -528,7 +493,7 @@ export class PredictiveCache<T> {
 			if (leastValuable) {
 				this.delete(leastValuable.key);
 				logger.debug('Evicted cache entry', {
-					key: this.truncateKey(leastValuable.key),
+					key: truncate(leastValuable.key, 50),
 					score: leastValuable.score.toFixed(3),
 				});
 			} else {
@@ -554,13 +519,13 @@ export class PredictiveCache<T> {
 						await this.set(candidate.key, value, [candidate.key]);
 						if (this.disposed) return;
 						logger.debug('Prefetched data', {
-							key: this.truncateKey(candidate.key),
+							key: truncate(candidate.key, 50),
 							confidence: candidate.confidence.toFixed(3),
 						});
 					} catch (error) {
 						// Prefetch failures are non-critical
 						logger.debug('Prefetch failed', {
-							key: this.truncateKey(candidate.key),
+							key: truncate(candidate.key, 50),
 							error,
 						});
 					}
@@ -583,7 +548,6 @@ export class PredictiveCache<T> {
 		const maintenanceInterval = 300000; // 5 minutes
 
 		return setInterval(() => {
-			// Clean up expired entries
 			const now = Date.now();
 			const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -628,10 +592,6 @@ export class PredictiveCache<T> {
 		const i = Math.floor(Math.log(bytes) / Math.log(1024));
 		return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 	}
-
-	private truncateKey(key: string): string {
-		return key.length > 50 ? `${key.substring(0, 47)}...` : key;
-	}
 }
 
 /**
@@ -642,16 +602,7 @@ export class PredictiveCacheFactory {
 		return new PredictiveCache<T>(50 * 1024 * 1024, dataLoader); // 50MB for analysis
 	}
 
-	static createDocumentCache<T>(dataLoader?: (key: string) => Promise<T>): PredictiveCache<T> {
-		return new PredictiveCache<T>(200 * 1024 * 1024, dataLoader); // 200MB for documents
-	}
-
 	static createMetadataCache<T>(dataLoader?: (key: string) => Promise<T>): PredictiveCache<T> {
 		return new PredictiveCache<T>(10 * 1024 * 1024, dataLoader); // 10MB for metadata
 	}
 }
-
-// Export singleton instances for common use cases
-export const analysisCache = PredictiveCacheFactory.createAnalysisCache();
-export const documentCache = PredictiveCacheFactory.createDocumentCache();
-export const metadataCache = PredictiveCacheFactory.createMetadataCache();

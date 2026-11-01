@@ -1,5 +1,8 @@
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { generateContentHandler } from '../../../src/handlers/analysis-handlers/document-analysis.js';
+import {
+	analyzeDocumentHandler,
+	generateContentHandler,
+} from '../../../src/handlers/analysis-handlers/document-analysis.js';
 import type { HandlerContext, HandlerResult } from '../../../src/handlers/types.js';
 import type { ScrivenerProject } from '../../../src/scrivener-project.js';
 import { registerSamplingServer } from '../../../src/services/ai/sampling-bridge.js';
@@ -29,14 +32,16 @@ let requests: Request[];
 let respond: (request: Request) => Promise<Response>;
 let manuscriptAccesses: PropertyKey[];
 
-function response(content: string): Response {
+function response(content: string, finishReason = 'stop'): Response {
 	return new Response(
 		JSON.stringify({
 			id: 'chatcmpl-fixture',
 			object: 'chat.completion',
 			created: 1,
 			model: 'fixture-model',
-			choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+			choices: [
+				{ index: 0, message: { role: 'assistant', content }, finish_reason: finishReason },
+			],
 			usage: { prompt_tokens: 9, completion_tokens: 4, total_tokens: 13 },
 		}),
 		{ headers: { 'content-type': 'application/json' } }
@@ -57,7 +62,6 @@ function context(): HandlerContext {
 		project,
 		memoryManager: null,
 		contentAnalyzer: {} as HandlerContext['contentAnalyzer'],
-		contentEnhancer: {} as HandlerContext['contentEnhancer'],
 	};
 }
 
@@ -70,7 +74,7 @@ function generate(): Promise<HandlerResult> {
 		{
 			prompt,
 			length: 900,
-			context: { documentId: '11111111-1111-4111-8111-111111111111', style: 'concise' },
+			context: { style: 'concise' },
 		},
 		context()
 	);
@@ -100,6 +104,55 @@ afterEach(() => {
 		else process.env[key] = value;
 	}
 	expect(manuscriptAccesses).toEqual([]);
+});
+
+test('analyze_document fallback projects local metrics, pacing, and suggestions', async () => {
+	const documentId = '11111111-1111-4111-8111-111111111111';
+	const project = {
+		getEditorialServices: () => ({
+			source: {
+				projectId: 'test',
+				read: async () => ({
+					projectId: 'test',
+					documentId,
+					revision: 'saved-revision',
+					text: 'The bell rang. "Go," she said.',
+				}),
+			},
+		}),
+	};
+	const contentAnalyzer = {
+		analyzeContent: jest.fn(async () => ({
+			metrics: { fleschReadingEase: 72.25, fleschKincaidGrade: 5.5 },
+			pacing: {
+				overall: 'fast',
+				sections: [],
+				actionVsReflection: 1,
+				recommendedAdjustments: [],
+			},
+			suggestions: [
+				{
+					issue: 'Repeated opener',
+					suggestion: 'Vary the first words.',
+					severity: 'minor',
+				},
+			],
+		})),
+	};
+	const result = await analyzeDocumentHandler.handler({ documentId }, {
+		project,
+		memoryManager: null,
+		contentAnalyzer,
+	} as unknown as HandlerContext);
+	const structured = result.structuredContent as {
+		readability: string;
+		pacing: string;
+		issues: { description: string }[];
+	};
+	expect(structured.readability).toBe('Flesch 72.3, grade 5.5');
+	expect(structured.pacing).toBe('fast');
+	expect(structured.issues[0]?.description).toContain('Repeated opener: Vary');
+	expect(text(result)).not.toMatch(/\?|\[object Object\]|deep_analyze_content/);
 });
 
 test('an absent provider reports an actionable error without invented prose or word counts', async () => {
@@ -151,8 +204,21 @@ test.each(['', ' \n\t'])(
 		respond = async () => response(content);
 		const result = await generate();
 		expect(result.isError).toBe(true);
-		expect(text(result)).toMatch(/returned no prose.*model settings/i);
+		expect(text(result)).toMatch(/generation failed.*model access.*No prose was returned/i);
 		expect(text(result)).not.toMatch(/placeholder|wordCount|900/);
+		expect(requests).toHaveLength(1);
+	}
+);
+
+test.each(['length', 'content_filter', 'tool_calls'])(
+	'incomplete provider output (%s) is never returned as generated prose',
+	async (reason) => {
+		process.env.OPENAI_API_KEY = 'fixture-openai-key';
+		respond = async () => response('Private partial manuscript output', reason);
+		const result = await generate();
+		expect(result.isError).toBe(true);
+		expect(text(result)).toContain('No prose was returned');
+		expect(text(result)).not.toMatch(/Private partial|wordCount|900/);
 		expect(requests).toHaveLength(1);
 	}
 );

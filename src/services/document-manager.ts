@@ -74,7 +74,6 @@ export class DocumentManager {
 			this.projectPath,
 			this.rtfHandler,
 			this.documentCache,
-			(key, operation) => this.dedupedOperation(key, operation),
 			(documentId) => this.observedRevisions.get(documentId),
 			(documentId, revision) => this.observedRevisions.set(documentId, revision)
 		);
@@ -88,12 +87,8 @@ export class DocumentManager {
 		return this.projectStructure;
 	}
 
-	/**
-	 * Read document content with deduplication
-	 */
 	async readDocument(documentId: string): Promise<string> {
 		try {
-			// Validate input
 			validateInput(
 				{ documentId },
 				{
@@ -134,9 +129,6 @@ export class DocumentManager {
 		return promise;
 	}
 
-	/**
-	 * Read raw RTF document content (for annotation extraction)
-	 */
 	async readDocumentRaw(documentId: string): Promise<string> {
 		const saved = await this.writer.coordinator.readRaw(documentId);
 		this.observedRevisions.set(documentId, saved.revision);
@@ -148,7 +140,6 @@ export class DocumentManager {
 	 */
 	async readDocumentFormatted(documentId: string): Promise<RTFContent> {
 		try {
-			// Validate input
 			validateInput(
 				{ documentId },
 				{
@@ -201,12 +192,7 @@ export class DocumentManager {
 		return this.writer.writeDocument(documentId, content, immediate, options);
 	}
 
-	/**
-	 * Write raw RTF bytes to a document's content.rtf, backing up the prior version
-	 * first (fail-closed like writeDocumentImmediate). Used by the fidelity-preserving
-	 * write path, which produces the exact bytes to store and must not have them
-	 * re-serialized by the RTF writer. Invalidates the parsed cache.
-	 */
+	// Preserve supplied RTF bytes; back up first and invalidate the parsed cache.
 	async writeRawContent(
 		documentId: string,
 		rawRtf: string,
@@ -235,6 +221,13 @@ export class DocumentManager {
 	async readDocumentVersion(
 		documentId: string
 	): Promise<{ text: string; revision: string; exists: boolean }> {
+		const saved = await this.readDocumentFormattedVersion(documentId);
+		return { text: saved.content.plainText, revision: saved.revision, exists: saved.exists };
+	}
+
+	async readDocumentFormattedVersion(
+		documentId: string
+	): Promise<{ content: RTFContent; revision: string; exists: boolean }> {
 		const saved = await this.writer.coordinator.readRaw(documentId);
 		const parsed = saved.exists
 			? await this.rtfHandler.parseRTF(saved.raw)
@@ -242,7 +235,7 @@ export class DocumentManager {
 		this.documentCache.set(`doc:${documentId}`, parsed);
 		this.cachedRevisions.set(documentId, saved.revision);
 		this.observedRevisions.set(documentId, saved.revision);
-		return { text: parsed.plainText, revision: saved.revision, exists: saved.exists };
+		return { content: parsed, revision: saved.revision, exists: saved.exists };
 	}
 
 	/**
@@ -254,9 +247,6 @@ export class DocumentManager {
 		return this.writer.flushPendingWrites();
 	}
 
-	/**
-	 * Create a new document
-	 */
 	async createDocument(
 		title: string,
 		content = '',
@@ -267,9 +257,6 @@ export class DocumentManager {
 		return this.binder.createDocument(title, content, parentId, type);
 	}
 
-	/**
-	 * Delete a document (move to trash)
-	 */
 	async deleteDocument(documentId: string): Promise<void> {
 		this.assertOpen();
 		return this.binder.deleteDocument(documentId);
@@ -286,9 +273,13 @@ export class DocumentManager {
 	/**
 	 * Move a document to a different parent
 	 */
-	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
+	async moveDocument(
+		documentId: string,
+		newParentId: string | null,
+		position?: number
+	): Promise<void> {
 		this.assertOpen();
-		return this.binder.moveDocument(documentId, newParentId);
+		return this.binder.moveDocument(documentId, newParentId, position);
 	}
 
 	/**
@@ -299,12 +290,8 @@ export class DocumentManager {
 		return this.binder.recoverFromTrash(documentId, targetParentId);
 	}
 
-	/**
-	 * Get word count for a document
-	 */
 	async getWordCount(documentId?: string): Promise<{ words: number; characters: number }> {
 		try {
-			// Validate input if provided
 			if (documentId) {
 				validateInput(
 					{ documentId },
@@ -334,13 +321,11 @@ export class DocumentManager {
 				totalWords = words.length;
 				totalChars = content.length;
 			} else {
-				// Count all documents using AsyncUtils for better performance
 				const documents = await this.getAllDocuments();
 				const textDocuments = documents.filter(
 					(doc) => doc.type === DOCUMENT_TYPES.TEXT && doc.id
 				);
 
-				// Process documents in batches
 				const results: Array<{ words: number; characters: number }> = [];
 				for (let i = 0; i < textDocuments.length; i += this.batchSize) {
 					const batch = textDocuments.slice(i, i + this.batchSize);
@@ -369,9 +354,6 @@ export class DocumentManager {
 		}
 	}
 
-	/**
-	 * Get all documents in the project
-	 */
 	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
 		return this.tree.getAllDocuments(includeTrash);
 	}
@@ -385,16 +367,10 @@ export class DocumentManager {
 		return this.tree.getDocumentsUnderFolder(folderId);
 	}
 
-	/**
-	 * Get project structure as hierarchical documents
-	 */
 	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
 		return this.tree.getProjectStructure(includeTrash);
 	}
 
-	/**
-	 * Clear document cache
-	 */
 	clearCache(documentId?: string): void {
 		if (documentId) {
 			this.documentCache.delete(`doc:${documentId}`);
@@ -405,9 +381,6 @@ export class DocumentManager {
 		}
 	}
 
-	/**
-	 * Clean up resources
-	 */
 	async close(): Promise<void> {
 		this.closing = true;
 		clearInterval(this.flushInterval);

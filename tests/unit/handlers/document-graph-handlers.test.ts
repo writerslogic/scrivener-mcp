@@ -9,20 +9,52 @@ import type { HandlerContext } from '../../../src/handlers/types.js';
 
 const context = {
 	project: {
-		getAllDocuments: async () => [{ id: 'd1', title: 'Scene', content: '' }],
+		getEditorialServices: () => ({
+			source: {
+				projectId: 'project',
+				read: async () => ({
+					documentId: 'd1',
+					title: 'Scene',
+					text: '',
+					revision: 'saved',
+					order: 0,
+					path: 'Scene',
+				}),
+				list: async () => [
+					{
+						documentId: 'd1',
+						title: 'Scene',
+						text: '',
+						revision: 'saved',
+						order: 0,
+						path: 'Scene',
+					},
+				],
+			},
+		}),
 	},
-	// No databaseService: the registry loader degrades to "no known entities".
 } as unknown as HandlerContext;
 
 describe('get_entity_references', () => {
 	it('returns a mentions shape when queried by documentId', async () => {
 		const res = await getEntityReferencesHandler.handler({ documentId: 'd1' }, context);
-		expect(res.structuredContent).toEqual({ documentId: 'd1', mentions: [] });
+		expect(res.structuredContent).toMatchObject({
+			documentId: 'd1',
+			mentions: [],
+			availability: {
+				status: 'unavailable',
+				unavailableRegistries: ['characters', 'locations'],
+			},
+		});
 	});
 
 	it('returns a documents shape when queried by entity', async () => {
 		const res = await getEntityReferencesHandler.handler({ entity: 'Elena' }, context);
-		expect(res.structuredContent).toEqual({ entity: 'Elena', documents: [] });
+		expect(res.structuredContent).toMatchObject({
+			entity: 'Elena',
+			documents: [],
+			availability: { status: 'unavailable' },
+		});
 	});
 
 	it('rejects when both documentId and entity are given', async () => {

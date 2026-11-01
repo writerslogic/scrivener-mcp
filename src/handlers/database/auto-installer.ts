@@ -69,16 +69,13 @@ export class Neo4jAutoInstaller {
 	static async install(options: InstallOptions): Promise<InstallResult> {
 		logger.info('Neo4j Auto-Installation Starting');
 
-		// Check what's available on the system
 		const systemInfo = await this.checkSystemCapabilities();
 
-		// Determine installation method
 		let method = options.method;
 		if (method === 'auto') {
 			method = await this.determineOptimalMethod(systemInfo);
 		}
 
-		// Get user confirmation if interactive
 		if (options.interactive) {
 			const confirmed = await this.getUserConfirmation(method, systemInfo);
 			if (!confirmed) {
@@ -109,7 +106,6 @@ export class Neo4jAutoInstaller {
 				);
 		}
 
-		// Save credentials if successful
 		if (result.success && result.credentials) {
 			await this.saveCredentials(options.projectPath, result.credentials);
 		}
@@ -128,19 +124,16 @@ export class Neo4jAutoInstaller {
 			java11Available: false,
 		};
 
-		// Check Docker
 		try {
 			await execAsync('docker --version');
 			info.dockerAvailable = true;
 
-			// Check if Docker daemon is running
 			await execAsync('docker ps');
 			info.dockerRunning = true;
 		} catch {
 			// Docker not available or not running
 		}
 
-		// Check Homebrew (macOS/Linux)
 		if (info.platform === 'darwin' || info.platform === 'linux') {
 			try {
 				await execAsync('brew --version');
@@ -150,7 +143,6 @@ export class Neo4jAutoInstaller {
 			}
 		}
 
-		// Check for existing Neo4j installation
 		try {
 			await execAsync('neo4j version');
 			info.neo4jInstalled = true;
@@ -158,7 +150,6 @@ export class Neo4jAutoInstaller {
 			// Neo4j not installed
 		}
 
-		// Check for Java 11+
 		try {
 			const javaVersion = await execAsync('java -version 2>&1');
 			if (javaVersion.stdout.includes('11') || javaVersion.stdout.includes('17')) {
@@ -264,18 +255,15 @@ export class Neo4jAutoInstaller {
 			console.error('📥 Downloading Neo4j Docker image...');
 			await execAsync(`docker pull neo4j:${options.version || this.NEO4J_VERSION}`);
 
-			// Check if container already exists
 			try {
 				await execAsync('docker rm -f scrivener-neo4j 2>/dev/null');
 			} catch {
 				// Container doesn't exist, that's fine
 			}
 
-			// Create data volume
 			console.error('💾 Creating data volume...');
 			await execAsync('docker volume create scrivener-neo4j-data');
 
-			// Run Neo4j container
 			console.error('🚀 Starting Neo4j container...');
 			const password = this.DEFAULT_PASSWORD;
 			const runCommand = [
@@ -335,7 +323,6 @@ export class Neo4jAutoInstaller {
 		try {
 			console.error('\n🍺 Installing Neo4j via Homebrew...');
 
-			// Update Homebrew
 			console.error('📥 Updating Homebrew...');
 			await PermissionManager.executeWithPermissions('brew update', {
 				operation: 'update-homebrew',
@@ -352,13 +339,11 @@ export class Neo4jAutoInstaller {
 			// Configure Neo4j
 			const password = this.DEFAULT_PASSWORD;
 
-			// Set initial password
 			console.error('🔐 Setting initial password...');
 			await execFileAsync('neo4j-admin', ['set-initial-password', password], {
 				timeout: 10000,
 			});
 
-			// Start Neo4j service
 			if (options.autoStart) {
 				console.error('🚀 Starting Neo4j service...');
 				await PermissionManager.executeWithPermissions('brew services start neo4j', {
@@ -405,18 +390,15 @@ export class Neo4jAutoInstaller {
 		try {
 			console.error('\n📦 Installing Neo4j natively...');
 
-			// Check Java availability
 			const javaVersion = await this.checkJava();
 			if (!javaVersion) {
 				console.error('☕ Java is required for Neo4j. Installing Java...');
 				await this.installJava();
 			}
 
-			// Determine download URL
 			const platform = os.platform();
 			const downloadUrl = this.getNeo4jDownloadUrl(platform);
 
-			// Create installation directory
 			const installDir = path.join(os.homedir(), '.scrivener-mcp', 'neo4j');
 			await ensureDir(installDir);
 
@@ -426,11 +408,9 @@ export class Neo4jAutoInstaller {
 			const downloadPath = path.join(installDir, filename);
 			await this.downloadFile(downloadUrl, downloadPath);
 
-			// Extract Neo4j
 			console.error('📂 Extracting Neo4j...');
 			await this.extractArchive(downloadPath, installDir);
 
-			// Find Neo4j directory
 			const dirs = await fs.readdir(installDir);
 			const neo4jDir = dirs.find((d) => d.startsWith('neo4j-'));
 			if (!neo4jDir) {
@@ -447,10 +427,8 @@ export class Neo4jAutoInstaller {
 			console.error('🔐 Configuring Neo4j...');
 			await this.configureNeo4j(neo4jHome, password);
 
-			// Create start script
 			await this.createStartScript(neo4jHome, options.projectPath);
 
-			// Start Neo4j if requested
 			if (options.autoStart) {
 				console.error('🚀 Starting Neo4j...');
 				await this.startNeo4j(neo4jHome);
@@ -532,9 +510,6 @@ export class Neo4jAutoInstaller {
 		}
 	}
 
-	/**
-	 * Get Neo4j download URL for platform
-	 */
 	private static getNeo4jDownloadUrl(platform: string): string {
 		const version = this.NEO4J_VERSION;
 		const baseUrl = 'https://neo4j.com/artifact.php';
@@ -562,7 +537,6 @@ export class Neo4jAutoInstaller {
 			protocol
 				.get(url, (response) => {
 					if (response.statusCode === 302 || response.statusCode === 301) {
-						// Handle redirect
 						const redirectUrl = response.headers.location;
 						if (redirectUrl) {
 							this.downloadFile(redirectUrl, destination).then(resolve).catch(reject);
@@ -601,11 +575,9 @@ export class Neo4jAutoInstaller {
 	private static async configureNeo4j(neo4jHome: string, password: string): Promise<void> {
 		const configPath = path.join(neo4jHome, 'conf', 'neo4j.conf');
 
-		// Set initial password
 		const adminCmd = path.join(neo4jHome, 'bin', 'neo4j-admin');
 		await execFileAsync(adminCmd, ['set-initial-password', password]);
 
-		// Update configuration
 		let config = await safeReadFile(configPath);
 
 		// Enable APOC procedures
@@ -627,9 +599,6 @@ export class Neo4jAutoInstaller {
 		await fs.chmod(scriptPath, 0o755);
 	}
 
-	/**
-	 * Start Neo4j
-	 */
 	private static async startNeo4j(neo4jHome: string): Promise<void> {
 		const neo4jBin = path.join(neo4jHome, 'bin', 'neo4j');
 
@@ -665,7 +634,7 @@ export class Neo4jAutoInstaller {
 		});
 
 		await timeout.wait(
-			new Promise<void>((resolve, _reject) => {
+			new Promise<void>((resolve) => {
 				const checkDocker = async () => {
 					try {
 						await execAsync('docker ps', { timeout: 5000 });
@@ -719,7 +688,7 @@ export class Neo4jAutoInstaller {
 		});
 
 		await timeout.wait(
-			new Promise<void>((resolve, _reject) => {
+			new Promise<void>((resolve) => {
 				const checkNeo4j = async () => {
 					try {
 						const driver = neo4j.default.driver(
@@ -740,9 +709,6 @@ export class Neo4jAutoInstaller {
 		// Note: If timeout.wait() rejects due to timeout, it will throw an appropriate error
 	}
 
-	/**
-	 * Save credentials to project
-	 */
 	private static async saveCredentials(
 		projectPath: string,
 		credentials: Neo4jCredentials

@@ -253,7 +253,6 @@ export function recordFeedback(sqlite: SQLiteManager | null, input: FeedbackInpu
 	return mapFeedbackRow(row);
 }
 
-/** Return recorded feedback, most recent first. */
 export function getFeedbackRecords(sqlite: SQLiteManager | null, limit = 500): FeedbackRecord[] {
 	if (!sqlite) {
 		return [];

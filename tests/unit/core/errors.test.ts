@@ -1,7 +1,3 @@
-/**
- * Error handling tests
- */
-
 import {
 	ApplicationError,
 	ErrorCode,

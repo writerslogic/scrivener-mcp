@@ -13,7 +13,6 @@ const configPaths = [
   join(homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json')
 ];
 
-// Find existing config
 const configPath = configPaths.find(p => existsSync(p));
 
 if (!configPath) {
@@ -30,7 +29,6 @@ try {
     process.exit(0);
   }
   
-  // Remove scrivener from mcpServers
   delete config.mcpServers.scrivener;
   
   // If mcpServers is now empty, remove it
@@ -38,7 +36,6 @@ try {
     delete config.mcpServers;
   }
   
-  // Write updated config
   writeFileSync(configPath, JSON.stringify(config, null, 2));
   
   console.log('✅ Successfully removed Scrivener MCP from Claude Desktop configuration.');

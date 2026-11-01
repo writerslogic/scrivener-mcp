@@ -5,7 +5,6 @@ import { isNativeError } from 'node:util/types';
 
 /** Error codes for standardized error handling */
 export enum ErrorCode {
-	// File & Resource Errors
 	NOT_FOUND = 'NOT_FOUND',
 	PERMISSION_DENIED = 'PERMISSION_DENIED',
 	IO_ERROR = 'IO_ERROR',
@@ -15,7 +14,6 @@ export enum ErrorCode {
 	PATH_INVALID = 'PATH_INVALID',
 	INVALID_FORMAT = 'INVALID_FORMAT',
 
-	// Project & Document Errors
 	PROJECT_NOT_FOUND = 'PROJECT_NOT_FOUND',
 	PROJECT_NOT_OPEN = 'PROJECT_NOT_OPEN',
 	PROJECT_INVALID = 'PROJECT_INVALID',
@@ -26,7 +24,6 @@ export enum ErrorCode {
 	DOCUMENT_LOCKED = 'DOCUMENT_LOCKED',
 	DOCUMENT_TOO_LARGE = 'DOCUMENT_TOO_LARGE',
 
-	// Validation & Input Errors
 	INVALID_INPUT = 'INVALID_INPUT',
 	INVALID_REQUEST = 'INVALID_REQUEST',
 	VALIDATION_ERROR = 'VALIDATION_ERROR',
@@ -34,7 +31,6 @@ export enum ErrorCode {
 	MISSING_REQUIRED = 'MISSING_REQUIRED',
 	TYPE_MISMATCH = 'TYPE_MISMATCH',
 
-	// System & Runtime Errors
 	INITIALIZATION_ERROR = 'INITIALIZATION_ERROR',
 	CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
 	INVALID_CONFIG = 'INVALID_CONFIG',
@@ -42,14 +38,12 @@ export enum ErrorCode {
 	INVALID_STATE = 'INVALID_STATE',
 	NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
 
-	// Database & Sync Errors
 	DATABASE_ERROR = 'DATABASE_ERROR',
 	SYNC_ERROR = 'SYNC_ERROR',
 	CONNECTION_ERROR = 'CONNECTION_ERROR',
 	TRANSACTION_ERROR = 'TRANSACTION_ERROR',
 	QUERY_ERROR = 'QUERY_ERROR',
 
-	// API & Network Errors
 	API_ERROR = 'API_ERROR',
 	NETWORK_ERROR = 'NETWORK_ERROR',
 	TIMEOUT = 'TIMEOUT',
@@ -58,7 +52,6 @@ export enum ErrorCode {
 	RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
 	RATE_LIMITED = 'RATE_LIMITED',
 
-	// Cache & Memory Errors
 	CACHE_ERROR = 'CACHE_ERROR',
 	MEMORY_ERROR = 'MEMORY_ERROR',
 	CACHE_FULL = 'CACHE_FULL',
@@ -70,13 +63,11 @@ export enum ErrorCode {
 	UNAUTHORIZED = 'UNAUTHORIZED',
 	FORBIDDEN = 'FORBIDDEN',
 
-	// Analysis & AI Errors
 	ANALYSIS_ERROR = 'ANALYSIS_ERROR',
 	ENHANCEMENT_ERROR = 'ENHANCEMENT_ERROR',
 	AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
 	PROCESSING_ERROR = 'PROCESSING_ERROR',
 
-	// Service Errors
 	SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
 	OPERATION_FAILED = 'OPERATION_FAILED',
 	DEPENDENCY_ERROR = 'DEPENDENCY_ERROR',
@@ -252,16 +243,12 @@ export function buildPath(base: string, ...segments: string[]): string {
 	return path.join(base, ...segments);
 }
 
-/**
- * Validate UUID v4 with options for case sensitivity and numeric IDs
- */
 export function isValidUUID(
 	uuid: string,
 	options?: { caseSensitive?: boolean; allowNumeric?: boolean }
 ): boolean {
 	const opts = { caseSensitive: false, allowNumeric: false, ...options };
 
-	// Handle numeric IDs if allowed (Scrivener sometimes uses numeric IDs)
 	if (opts.allowNumeric && /^\d+$/.test(uuid)) return true;
 
 	// UUID v4 pattern with case handling
@@ -393,7 +380,6 @@ export async function writeJSON(filePath: string, data: unknown, pretty = true):
 			try {
 				output = JSON.stringify(data, null, 2);
 			} catch {
-				// Handle circular references or other JSON.stringify errors
 				output = safeStringify(data);
 			}
 		} else {
@@ -409,12 +395,10 @@ export class CleanupManager {
 	private cleanupTasks: Array<() => Promise<void>> = [];
 	private isCleaningUp = false;
 
-	/** Register a cleanup task */
 	register(task: () => Promise<void>): void {
 		this.cleanupTasks.push(task);
 	}
 
-	/** Execute all registered cleanup tasks */
 	async cleanup(): Promise<void> {
 		if (this.isCleaningUp) return;
 		this.isCleaningUp = true;
@@ -488,7 +472,6 @@ export async function retry<T>(
 		shouldRetry?: (error: Error) => boolean;
 	} = {}
 ): Promise<T> {
-	// Validate parameters
 	if (maxAttempts <= 0) {
 		throw new Error('maxAttempts must be positive');
 	}
@@ -518,7 +501,6 @@ export async function retry<T>(
 		} catch (e) {
 			last = e as Error;
 
-			// Check if error is retryable
 			if (shouldRetry && !shouldRetry(last)) {
 				throw last; // Don't retry unrecoverable errors
 			}
@@ -527,7 +509,6 @@ export async function retry<T>(
 
 			onRetry?.(i, last);
 
-			// Calculate delay with optional jitter
 			let currentDelay = Math.min(initialDelay * Math.pow(factor, i - 1), maxDelay);
 			if (jitter) {
 				currentDelay = currentDelay * (0.5 + Math.random() * 0.5); // 50-100% of calculated delay
@@ -661,7 +642,6 @@ export function deepMerge<T extends Record<string, unknown>, U extends Record<st
 	return out as T & U;
 }
 
-/** Get nested property safely */
 export function getNested(obj: Record<string, unknown>, path: string, def?: unknown): unknown {
 	return path.split('.').reduce<unknown>((o, k) => {
 		if (o && typeof o === 'object' && k in o) {
@@ -671,7 +651,6 @@ export function getNested(obj: Record<string, unknown>, path: string, def?: unkn
 	}, obj);
 }
 
-/** Set nested property safely */
 export function setNested(obj: Record<string, unknown>, path: string, value: unknown): void {
 	const keys = path.split('.');
 	// Reject prototype-pollution keys up front so a bad path mutates nothing.
@@ -870,7 +849,6 @@ export default {
 	safeWriteFile,
 	pathExists,
 
-	// Cleanup
 	CleanupManager,
 
 	// String
@@ -916,7 +894,6 @@ export default {
 	formatBytes,
 };
 
-// Logging Utilities
 export type Primitive = string | number | boolean | null | undefined;
 export type JSONValue = Primitive | JSONObject | JSONArray;
 export interface JSONObject {

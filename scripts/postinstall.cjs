@@ -14,7 +14,6 @@ function main() {
 		return;
 	}
 
-	// Find Claude Desktop config
 	const configPaths = [
 		path.join(
 			os.homedir(),
@@ -40,7 +39,6 @@ function main() {
 	}
 
 	if (configPath === undefined) {
-		// Create config in platform-appropriate location
 		if (process.platform === 'darwin') configPath = configPaths[0];
 		else if (process.platform === 'win32') configPath = configPaths[1];
 		else configPath = configPaths[2];
@@ -48,7 +46,6 @@ function main() {
 		fs.mkdirSync(path.dirname(configPath), { recursive: true });
 	}
 
-	// Read existing config or start fresh
 	let config = {};
 	if (raw !== null) {
 		try {

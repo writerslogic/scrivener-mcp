@@ -1,11 +1,3 @@
-/**
- * Proves the writing-personalization schema (migration v9) applies to a real
- * SQLite database and that the exact statements used by DatabaseService execute:
- * the single-row preferences upsert (CHECK id = 1, ON CONFLICT) and the feedback
- * insert/select. This is the guard the fake-DB unit tests cannot give -- it
- * catches SQL typos and schema mistakes.
- */
-
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';

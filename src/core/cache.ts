@@ -38,7 +38,6 @@ export class LRUCache<T = unknown> {
 			return undefined;
 		}
 
-		// Check TTL
 		if (Date.now() - entry.timestamp > entry.ttl) {
 			this.delete(key);
 			return undefined;
@@ -53,7 +52,6 @@ export class LRUCache<T = unknown> {
 	set(key: string, value: T, ttl?: number): void {
 		const size = this.estimateSize(value);
 
-		// Check if single item exceeds max size
 		if (size > this.maxSize) {
 			return; // Don't cache items that are too large
 		}
@@ -68,7 +66,6 @@ export class LRUCache<T = unknown> {
 			this.delete(lru);
 		}
 
-		// Add new entry
 		const entry: CacheEntry<T> = {
 			data: value,
 			timestamp: Date.now(),
@@ -84,7 +81,6 @@ export class LRUCache<T = unknown> {
 		const entry = this.cache.get(key);
 		if (!entry) return false;
 
-		// Check TTL
 		if (Date.now() - entry.timestamp > entry.ttl) {
 			this.delete(key);
 			return false;
@@ -241,13 +237,11 @@ export function cached<TArgs extends readonly unknown[], TReturn>(
 		descriptor.value = async function (...args: TArgs): Promise<TReturn> {
 			const key = keyBuilder(...args);
 
-			// Check cache
 			const cached = cache.get(key);
 			if (cached !== undefined) {
 				return cached;
 			}
 
-			// Execute and cache
 			const result = await originalMethod.apply(this, args);
 			cache.set(key, result, ttl);
 
@@ -258,9 +252,6 @@ export function cached<TArgs extends readonly unknown[], TReturn>(
 	};
 }
 
-/**
- * Periodic cache cleanup
- */
 export function startCacheCleanup(intervalMs: number = 60_000): NodeJS.Timer {
 	return setInterval(() => {
 		for (const cache of Object.values(caches)) {

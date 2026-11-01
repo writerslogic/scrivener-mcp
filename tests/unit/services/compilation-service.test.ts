@@ -387,7 +387,7 @@ describe('CompilationService', () => {
 			});
 
 			expect(results).toHaveLength(2); // Both docs have 'search' (doc1 in keyword string, doc2 in content)
-			// Find the doc1 result
+
 			const doc1Result = results.find((r) => r.documentId === 'doc1');
 			expect(doc1Result?.matches).toContainEqual('Keyword: search');
 		});

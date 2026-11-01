@@ -4,25 +4,29 @@
  */
 
 import nlp from 'compromise';
-// Note: compromise-sentiment doesn't exist as a separate package
-// Using compromise's built-in features instead
-import { getLogger } from '../../core/logger.js';
 
-const _logger = getLogger('nlp-sentiment-analyzer');
-
-/** Local interface covering the compromise document methods we use */
-interface CompromiseDoc {
-	terms: () => { out: (format: string) => string[] };
-	words: () => { text: () => string; has: (tag: string) => boolean }[];
-	match: (pattern: string) => {
-		out: (format: string) => Array<{ text: string; offset: { start: number } }>;
-	};
-	sentences: () => { out: (format: string) => string[] };
-	has: (pattern: string) => boolean;
+interface SentimentTerm {
+	normal: string;
+	post: string;
+	tags: string[];
 }
 
+const NEGATION_WINDOW = 3;
+const POS_TAGS = [
+	['Adjective', 'JJ'],
+	['Adverb', 'RB'],
+	['Verb', 'VB'],
+	['Pronoun', 'PRP'],
+	['Noun', 'NN'],
+	['Preposition', 'IN'],
+	['Conjunction', 'CC'],
+	['Determiner', 'DT'],
+] as const;
+const clauseBoundary = (term: SentimentTerm): boolean =>
+	/[,;.!?]/.test(term.post) || /^(but|however|although)$/.test(term.normal);
+
 export interface SentimentResult {
-	score: number; // -1 to 1
+	score: number; // sum of local lexicon contributions, not a probability
 	comparative: number; // normalized score
 	emotion: string;
 	confidence: number;
@@ -417,17 +421,17 @@ export class NLPSentimentAnalyzer {
 			anticipation: 0,
 		};
 
-		// Process each sentence for context
 		sentences.forEach((sentence: string) => {
-			const sentenceDoc = nlp(sentence) as unknown as CompromiseDoc;
-			const sentenceTokens = this.analyzeSentenceWithContext(sentenceDoc);
+			const terms = (nlp(sentence).json() as Array<{ terms: SentimentTerm[] }>).flatMap(
+				(entry) => entry.terms
+			);
+			const sentenceTokens = this.analyzeSentenceWithContext(terms);
 
 			sentenceTokens.forEach((token) => {
 				tokens.push(token);
 				totalScore += token.sentiment;
 				tokenCount++;
 
-				// Update emotion vectors
 				const emotionVec = this.getEmotionVector(token.word, token.negated);
 				Object.keys(emotionTotals).forEach((emotion) => {
 					emotionTotals[emotion as keyof EmotionVector] +=
@@ -435,8 +439,7 @@ export class NLPSentimentAnalyzer {
 				});
 			});
 
-			// Detect negation contexts
-			const negationContexts = this.detectNegationContexts(sentenceDoc);
+			const negationContexts = this.detectNegationContexts(terms);
 			negations.push(...negationContexts);
 		});
 
@@ -458,26 +461,17 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Analyzes a sentence with full grammatical context
 	 */
-	private analyzeSentenceWithContext(doc: CompromiseDoc): TokenAnalysis[] {
+	private analyzeSentenceWithContext(terms: SentimentTerm[]): TokenAnalysis[] {
 		const tokens: TokenAnalysis[] = [];
-		const terms = doc.terms().out('array');
-		const posTags = doc.terms().out('tags');
 
 		for (let i = 0; i < terms.length; i++) {
-			const word = terms[i].toLowerCase();
-			const tagData = posTags[i];
-			const pos =
-				typeof tagData === 'string'
-					? tagData
-					: this.extractPOSTag(Array.isArray(tagData) ? tagData : []);
+			const word = terms[i].normal;
+			const pos = this.extractPOSTag(terms[i].tags);
 
-			// Check for negation scope
-			const negated = this.isInNegationScope(doc, i);
+			const negated = this.isInNegationScope(terms, i);
 
-			// Check for intensifiers
-			const intensifierType = this.getIntensifier(doc, i);
+			const intensifierType = this.getIntensifier(terms, i);
 
-			// Calculate sentiment
 			let sentiment = this.getWordSentiment(word, pos, negated);
 
 			// Apply intensifier
@@ -500,18 +494,13 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Detects if a word is within negation scope
 	 */
-	private isInNegationScope(doc: CompromiseDoc, wordIndex: number): boolean {
-		const terms = doc.terms().out('array');
-		const windowSize = 3; // Look back 3 words for negation
-
-		for (let i = Math.max(0, wordIndex - windowSize); i < wordIndex; i++) {
-			if (this.negationWords.has(terms[i].toLowerCase())) {
-				// Check if there's a clause boundary between negation and target
-				const between = terms.slice(i + 1, wordIndex).join(' ');
-				if (!between.match(/[,;.!?]|but|however|although/)) {
-					return true;
-				}
-			}
+	private isInNegationScope(terms: SentimentTerm[], wordIndex: number): boolean {
+		for (let i = Math.max(0, wordIndex - NEGATION_WINDOW); i < wordIndex; i++) {
+			if (
+				this.negationWords.has(terms[i].normal) &&
+				!terms.slice(i, wordIndex).some(clauseBoundary)
+			)
+				return true;
 		}
 
 		return false;
@@ -520,11 +509,9 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Gets intensifier for a word
 	 */
-	private getIntensifier(doc: CompromiseDoc, wordIndex: number): string | undefined {
-		const terms = doc.terms().out('array');
-
-		if (wordIndex > 0) {
-			const prevWord = terms[wordIndex - 1].toLowerCase();
+	private getIntensifier(terms: SentimentTerm[], wordIndex: number): string | undefined {
+		if (wordIndex > 0 && !clauseBoundary(terms[wordIndex - 1])) {
+			const prevWord = terms[wordIndex - 1].normal;
 			if (this.intensifiers.amplifiers.has(prevWord)) {
 				return 'amplifier';
 			}
@@ -565,7 +552,6 @@ export class NLPSentimentAnalyzer {
 			posMultiplier = 0.9; // Verbs are less emotionally direct
 		else if (pos.startsWith('NN')) posMultiplier = 0.8; // Nouns are typically neutral
 
-		// Calculate valence from emotion vector
 		const positiveEmotions = emotionVec.joy + emotionVec.trust + emotionVec.anticipation;
 		const negativeEmotions =
 			emotionVec.sadness + emotionVec.anger + emotionVec.fear + emotionVec.disgust;
@@ -615,12 +601,11 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Detects negation contexts in a sentence
 	 */
-	private detectNegationContexts(doc: CompromiseDoc): NegationContext[] {
+	private detectNegationContexts(terms: SentimentTerm[]): NegationContext[] {
 		const contexts: NegationContext[] = [];
-		const terms = doc.terms().out('array');
 
 		for (let i = 0; i < terms.length; i++) {
-			const word = terms[i].toLowerCase();
+			const word = terms[i].normal;
 			if (this.negationWords.has(word)) {
 				const scope = this.getNegationScope(terms, i);
 				const originalSentiment = this.getScopeEmotion(scope, false);
@@ -641,21 +626,17 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Gets the scope of a negation word
 	 */
-	private getNegationScope(terms: string[], negationIndex: number): string[] {
+	private getNegationScope(terms: SentimentTerm[], negationIndex: number): string[] {
 		const scope: string[] = [];
-		const maxScope = 4; // Maximum words affected by negation
 
 		for (
 			let i = negationIndex + 1;
-			i < Math.min(terms.length, negationIndex + maxScope + 1);
+			i < Math.min(terms.length, negationIndex + NEGATION_WINDOW + 1);
 			i++
 		) {
-			const word = terms[i];
-			// Stop at clause boundaries
-			if (word.match(/[,;.!?]|but|however|although/)) {
+			if (clauseBoundary(terms[i - 1]) || /^(but|however|although)$/.test(terms[i].normal))
 				break;
-			}
-			scope.push(word);
+			scope.push(terms[i].normal);
 		}
 
 		return scope;
@@ -739,12 +720,10 @@ export class NLPSentimentAnalyzer {
 	private determineContext(text: string, emotions: EmotionVector): string {
 		const doc = nlp(text);
 
-		// Check for specific contexts
 		if (doc.has('#Question')) return 'interrogative';
 		if (doc.has('#Imperative')) return 'imperative';
 		if (doc.has('#Conditional')) return 'conditional';
 
-		// Check emotional context
 		const dominantEmotion = this.getDominantEmotion(emotions);
 		const totalEmotionStrength = Object.values(emotions).reduce(
 			(a, b) => Math.abs(a) + Math.abs(b),
@@ -762,21 +741,8 @@ export class NLPSentimentAnalyzer {
 	/**
 	 * Extracts POS tag from Compromise tags
 	 */
-	private extractPOSTag(tags: string[] | Record<string, boolean>): string {
-		if (!tags) return 'Unknown';
-
-		// Convert Compromise tags to standard POS tags
-		if (!Array.isArray(tags)) {
-			if (tags.Noun) return 'Noun';
-			if (tags.Verb) return 'Verb';
-			if (tags.Adjective) return 'Adjective';
-			if (tags.Adverb) return 'Adverb';
-			if (tags.Pronoun) return 'Pronoun';
-			if (tags.Preposition) return 'Preposition';
-			if (tags.Conjunction) return 'Conjunction';
-			if (tags.Determiner) return 'Determiner';
-		}
-
+	private extractPOSTag(tags: string[]): string {
+		for (const [tag, pos] of POS_TAGS) if (tags.includes(tag)) return pos;
 		return 'Other';
 	}
 
@@ -827,7 +793,6 @@ export class NLPSentimentAnalyzer {
 	} {
 		const doc = nlp(text);
 
-		// Analyze sentence complexity
 		const sentences = doc.sentences();
 		const avgWords =
 			sentences
@@ -835,7 +800,6 @@ export class NLPSentimentAnalyzer {
 				.reduce((acc: number, s: string) => acc + s.split(/\s+/).length, 0) /
 			sentences.length;
 
-		// Count action verbs vs state verbs
 		const actionVerbs = doc
 			.match('#Verb')
 			.filter(
@@ -845,13 +809,11 @@ export class NLPSentimentAnalyzer {
 		const totalVerbs = doc.verbs().length;
 		const actionDensity = totalVerbs > 0 ? actionVerbs / totalVerbs : 0;
 
-		// Detect dialogue
 		const dialogueMatches = text.match(/["'].*?["']/g) || [];
 		const dialogueWords = dialogueMatches.join(' ').split(/\s+/).length;
 		const totalWords = text.split(/\s+/).length;
 		const dialogueRatio = dialogueWords / totalWords;
 
-		// Determine overall pacing
 		let overall: 'slow' | 'moderate' | 'fast' | 'variable';
 		const sentenceComplexity = avgWords / 20; // Normalize to 0-1 scale
 

@@ -8,9 +8,6 @@ import { ERROR_MESSAGES } from '../core/constants.js';
 import type { QueryResult, Record as Neo4jRecord } from 'neo4j-driver';
 import type Database from 'better-sqlite3';
 
-/**
- * Database error types
- */
 export enum DatabaseErrorType {
 	CONNECTION = 'CONNECTION',
 	TRANSACTION = 'TRANSACTION',
@@ -31,7 +28,6 @@ export function classifyDatabaseError(error: unknown): DatabaseErrorType {
 	const message = err.message?.toLowerCase() || '';
 	const code = err.code?.toLowerCase() || '';
 
-	// Connection errors
 	if (code.includes('econnrefused') || message.includes('connection refused')) {
 		return DatabaseErrorType.CONNECTION;
 	}
@@ -39,7 +35,6 @@ export function classifyDatabaseError(error: unknown): DatabaseErrorType {
 		return DatabaseErrorType.CONNECTION;
 	}
 
-	// Transaction errors
 	if (code.includes('deadlock') || message.includes('deadlock')) {
 		return DatabaseErrorType.TRANSACTION;
 	}
@@ -47,7 +42,6 @@ export function classifyDatabaseError(error: unknown): DatabaseErrorType {
 		return DatabaseErrorType.TRANSACTION;
 	}
 
-	// Constraint errors
 	if (code.includes('constraint') || message.includes('constraint')) {
 		return DatabaseErrorType.CONSTRAINT;
 	}
@@ -65,7 +59,6 @@ export function classifyDatabaseError(error: unknown): DatabaseErrorType {
 		return DatabaseErrorType.LOCK;
 	}
 
-	// Syntax errors
 	if (code.includes('syntax') || message.includes('syntax error')) {
 		return DatabaseErrorType.SYNTAX;
 	}
@@ -116,31 +109,19 @@ export function toDatabaseError(error: unknown, context?: string): AppError {
 
 // Neo4j Utilities
 
-/**
- * Extract single value from Neo4j result
- */
 export function extractSingleValue<T = unknown>(result: QueryResult, key: string): T | null {
 	if (!result.records.length) return null;
 	return result.records[0].get(key) as T;
 }
 
-/**
- * Extract values from Neo4j result
- */
 export function extractValues<T = unknown>(result: QueryResult, key: string): T[] {
 	return result.records.map((record) => record.get(key) as T);
 }
 
-/**
- * Map Neo4j records to objects
- */
 export function mapNeo4jRecords<T>(result: QueryResult, mapper: (record: Neo4jRecord) => T): T[] {
 	return result.records.map(mapper);
 }
 
-/**
- * Convert Neo4j node to plain object
- */
 export function nodeToObject(node: unknown): Record<string, unknown> {
 	if (!node) return {};
 
@@ -152,7 +133,6 @@ export function nodeToObject(node: unknown): Record<string, unknown> {
 			? nodeWithProps.properties
 			: (nodeWithProps as Record<string, unknown>);
 
-	// Convert Neo4j integers to JavaScript numbers
 	const converted: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(props as Record<string, unknown>)) {
 		if (value && typeof value === 'object' && 'toNumber' in value) {
@@ -172,7 +152,6 @@ export function buildCypherParams(params: Record<string, unknown>): Record<strin
 		// Skip undefined values
 		if (value === undefined) continue;
 
-		// Convert dates to ISO strings
 		if (value instanceof Date) {
 			cleaned[key] = value.toISOString();
 		} else if (Array.isArray(value)) {
@@ -307,7 +286,7 @@ export async function withSqliteTransaction<T>(
 	db: Database.Database,
 	fn: () => Promise<T>
 ): Promise<T> {
-	const _transaction = db.prepare('BEGIN').run();
+	db.prepare('BEGIN').run();
 	try {
 		const result = await fn();
 		db.prepare('COMMIT').run();
@@ -329,7 +308,6 @@ export function batchInsert(
 ): void {
 	if (!items.length) return;
 
-	// Get columns from first item
 	const columns = Object.keys(items[0]);
 	const placeholders = columns.map(() => '?').join(', ');
 	const stmt = db.prepare(
@@ -342,7 +320,6 @@ export function batchInsert(
 		}
 	});
 
-	// Process in batches
 	for (let i = 0; i < items.length; i += batchSize) {
 		const batch = items.slice(i, i + batchSize);
 		insertMany(batch);
@@ -492,7 +469,6 @@ export default {
 	nodeToObject,
 	buildCypherParams,
 
-	// SQLite utilities
 	buildInsertQuery,
 	buildUpdateQuery,
 	buildSelectQuery,
@@ -500,11 +476,9 @@ export default {
 	withSqliteTransaction,
 	batchInsert,
 
-	// Connection utilities
 	parseConnectionString,
 	buildConnectionString,
 
-	// Query result utilities
 	paginate,
 	rowsToNested,
 };

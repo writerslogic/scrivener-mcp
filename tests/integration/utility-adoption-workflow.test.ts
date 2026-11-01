@@ -121,7 +121,6 @@ describe('Utility Adoption Workflow Integration', () => {
 			const documents = await mockProject.getAllDocuments();
 			expect(documents).toHaveLength(2);
 
-			// Verify UUIDs are properly formatted
 			documents.forEach((doc: any) => {
 				expect(doc.id).toMatch(
 					/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -227,11 +226,9 @@ describe('Utility Adoption Workflow Integration', () => {
 		it('should demonstrate caching workflow with utilities', async () => {
 			const projectPath = path.join(tmpRoot, 'cache-project.scriv');
 
-			// Setup cache directory using project utilities
 			const cacheDir = getCacheDirectory(projectPath);
 			expect(cacheDir).toBe(path.join(projectPath, '.scrivener-mcp', 'cache'));
 
-			// Generate cache keys using UUID utility
 			const cacheKey1 = generateScrivenerUUID();
 			const cacheKey2 = generateScrivenerUUID();
 
@@ -321,7 +318,7 @@ describe('Utility Adoption Workflow Integration', () => {
 			}));
 
 			// Step 4: Parse metadata using the utility's documented "Key: Value" string
-			// format (parseMetadata treats a plain object as a single MetaDataItem and
+
 			// looks for an ID/Value pair, not arbitrary keys).
 			const chaptersWithParsedMeta = chapters.map((chapter) => ({
 				...chapter,
@@ -332,7 +329,6 @@ describe('Utility Adoption Workflow Integration', () => {
 				),
 			}));
 
-			// Verify metadata parsing worked correctly
 			chaptersWithParsedMeta.forEach((chapter, index) => {
 				expect(chapter.parsedMeta.Title).toBe(`Chapter ${index + 1}`);
 				expect(chapter.parsedMeta.WordCount).toBe(`${500 + index * 100}`);
@@ -412,13 +408,11 @@ describe('Utility Adoption Workflow Integration', () => {
 		it('should handle large-scale utility operations efficiently', async () => {
 			const startTime = Date.now();
 
-			// Generate 1000 UUIDs
 			const uuids = [];
 			for (let i = 0; i < 1000; i++) {
 				uuids.push(generateScrivenerUUID());
 			}
 
-			// Parse 1000 metadata strings
 			const metadataStrings = Array(1000)
 				.fill(0)
 				.map((_, i) => `Title: Document ${i}\nAuthor: Author ${i}\nWordCount: ${i * 100}`);
@@ -430,7 +424,6 @@ describe('Utility Adoption Workflow Integration', () => {
 			// Should complete within reasonable time (adjust as needed)
 			expect(duration).toBeLessThan(5000); // 5 seconds
 
-			// Verify all operations completed correctly
 			expect(new Set(uuids).size).toBe(1000); // All UUIDs unique
 			expect(parsedMeta).toHaveLength(1000);
 			expect(parsedMeta[999].Title).toBe('Document 999');
@@ -443,12 +436,10 @@ describe('Utility Adoption Workflow Integration', () => {
 				projectPath: await createFixtureProjectDir(tmpRoot, 'integrity-check'),
 			};
 
-			// Process through utility chain
 			const parsedMeta = parseMetadata(originalData.metadata as any);
 			const dataDir = await ensureProjectDataDirectory(originalData.projectPath);
 			const cacheDir = getCacheDirectory(originalData.projectPath);
 
-			// Verify data integrity
 			expect(originalData.id).toMatch(
 				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 			);
@@ -458,7 +449,6 @@ describe('Utility Adoption Workflow Integration', () => {
 			expect(dataDir).toBe(path.join(originalData.projectPath, '.scrivener-mcp'));
 			expect(cacheDir).toBe(path.join(originalData.projectPath, '.scrivener-mcp', 'cache'));
 
-			// Create binder and verify navigation
 			const binderItem = {
 				UUID: originalData.id,
 				Title: parsedMeta.Title,

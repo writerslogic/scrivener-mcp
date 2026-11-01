@@ -29,7 +29,6 @@ export class DocumentWriter {
 		projectPath: string,
 		private readonly rtfHandler: RTFHandler,
 		private readonly documentCache: LRUCache<RTFContent>,
-		_dedupedOperation: <T>(key: string, operation: () => Promise<T>) => Promise<T>,
 		private readonly observedRevision?: (documentId: string) => string | undefined,
 		private readonly onCommitted?: (documentId: string, revision: string) => void
 	) {

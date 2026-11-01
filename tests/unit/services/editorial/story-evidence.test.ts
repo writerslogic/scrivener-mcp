@@ -387,13 +387,19 @@ it('imports legacy memory without fabricated quotations or silently declaring it
 	const source = new FixtureSource('project-a', root);
 	const bible = new SeriesBible(source, store('legacy'));
 	const memory = {
-		getAllCharacters: () => [{ id: 'mara', name: 'Mara', description: 'Navigator' }],
-		getCustomContext: () => ({
-			locations: [{ name: 'Moon Harbor', description: 'A tidal port' }],
+		getMemorySnapshot: () => ({
+			characters: [{ id: 'mara', name: 'Mara', description: 'Navigator' }],
+			worldBuilding: [],
+			customContext: {
+				worldBuilding: {
+					locations: [{ name: 'Moon Harbor', description: 'A tidal port' }],
+				},
+			},
+			plotThreads: [
+				{ id: 'voyage', name: 'The voyage', description: 'Find the ship', status: 'setup' },
+			],
 		}),
-		getPlotThreads: () => [
-			{ id: 'voyage', name: 'The voyage', description: 'Find the ship', status: 'setup' },
-		],
+		memoryRevision: () => 'unchanged',
 	};
 	const imported = await bible.importMemory(memory as never);
 	expect(imported.map((fact) => fact.kind).sort()).toEqual([

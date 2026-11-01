@@ -22,7 +22,6 @@ export class ProjectTrash {
 		const allDocs = await this.getProjectStructure(true);
 		const trashDocs: ScrivenerDocument[] = [];
 
-		// Find trash folder
 		for (const doc of allDocs) {
 			if (doc.path && doc.path.startsWith('Trash/')) {
 				trashDocs.push(doc);

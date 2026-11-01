@@ -9,7 +9,6 @@ import * as fs from 'fs/promises';
 import { ScrivenerProject } from '../../src/scrivener-project.js';
 import { MemoryManager } from '../../src/memory-manager.js';
 import { ContentAnalyzer } from '../../src/analysis/base-analyzer.js';
-import { ContentEnhancer } from '../../src/services/enhancements/content-enhancer.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
 import { documentHandlers } from '../../src/handlers/document-handlers.js';
 
@@ -33,25 +32,20 @@ describe('Scrivener Project Integration', () => {
 	let tempDir: string;
 
 	beforeAll(async () => {
-		// Create temporary test directory outside the repo so a crashed run
 		// never leaves disk litter behind for git to notice.
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'scrivener-project-test-'));
 
-		// Create a mock Scrivener project structure
 		testProjectPath = path.join(tempDir, 'TestProject.scriv');
 		await createMockScrivenerProject(testProjectPath);
 
-		// Initialize context
 		context = {
 			project: null,
 			memoryManager: new MemoryManager(testProjectPath),
 			contentAnalyzer: new ContentAnalyzer(),
-			contentEnhancer: new ContentEnhancer(),
 		};
 	}, 45000);
 
 	afterAll(async () => {
-		// Clean up
 		if (context.project) {
 			await context.project.close();
 		}
@@ -59,7 +53,6 @@ describe('Scrivener Project Integration', () => {
 			await context.memoryManager.stopAutoSave();
 		}
 
-		// Remove temp directory
 		await fs.rm(tempDir, { recursive: true, force: true });
 	}, 60000);
 
@@ -84,7 +77,6 @@ describe('Scrivener Project Integration', () => {
 			const project2 = new ScrivenerProject(testProjectPath);
 			await project2.loadProject();
 
-			// Close the first project
 			if (context.project) {
 				await context.project.close();
 			}
@@ -214,7 +206,6 @@ describe('Scrivener Project Integration', () => {
 				return;
 			}
 
-			// Get database service (ScrivenerProject's private field is
 			// `databaseService`, not `database`).
 			const dbService = (project as any).databaseService;
 			if (!dbService) {
@@ -222,7 +213,6 @@ describe('Scrivener Project Integration', () => {
 				return;
 			}
 
-			// Check database status
 			const status = dbService.getStatus();
 			expect(status).toHaveProperty('sqlite');
 			expect(status.sqlite.enabled).toBe(true);
@@ -237,7 +227,6 @@ describe('Scrivener Project Integration', () => {
 				return;
 			}
 
-			// Add a character
 			const character = memoryManager.addCharacter({
 				name: 'Test Character',
 				role: 'protagonist',
@@ -249,7 +238,6 @@ describe('Scrivener Project Integration', () => {
 				notes: '',
 			});
 
-			// Get the character
 			const retrieved = memoryManager.getCharacter(character.id);
 			expect(retrieved).not.toBeNull();
 			expect(retrieved?.name).toBe('Test Character');
@@ -258,14 +246,11 @@ describe('Scrivener Project Integration', () => {
 });
 
 async function createMockScrivenerProject(projectPath: string): Promise<void> {
-	// Create project directory
 	await fs.mkdir(projectPath, { recursive: true });
 
-	// Create Files directory
 	const filesDir = path.join(projectPath, 'Files');
 	await fs.mkdir(filesDir, { recursive: true });
 
-	// Create a simple .scrivx file
 	const scrivxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <ScrivenerProject Version="1.0">
 	<Binder>
@@ -289,11 +274,9 @@ async function createMockScrivenerProject(projectPath: string): Promise<void> {
 	const scrivxPath = path.join(projectPath, 'TestProject.scrivx');
 	await fs.writeFile(scrivxPath, scrivxContent, 'utf-8');
 
-	// Create Docs directory
 	const docsDir = path.join(filesDir, 'Docs');
 	await fs.mkdir(docsDir, { recursive: true });
 
-	// Create a test document
 	const docContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}
 \\f0\\fs24 This is test content for Chapter 1.
 \\par }`;

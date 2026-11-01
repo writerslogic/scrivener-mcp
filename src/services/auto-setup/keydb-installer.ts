@@ -62,7 +62,6 @@ export class KeyDBInstaller {
 		port?: number;
 	}> {
 		try {
-			// Check if KeyDB/Redis is running
 			const connectionInfo = await detectConnection();
 
 			if (connectionInfo.isAvailable) {
@@ -123,7 +122,6 @@ export class KeyDBInstaller {
 		startService?: boolean;
 	}): Promise<InstallationResult> {
 		try {
-			// Check if already available
 			const status = await this.checkAvailability();
 			if (status.running) {
 				return {
@@ -147,7 +145,6 @@ export class KeyDBInstaller {
 				}
 			}
 
-			// Determine installation method
 			const method =
 				options.method === 'auto'
 					? await this.detectBestInstallMethod()
@@ -177,7 +174,6 @@ export class KeyDBInstaller {
 					};
 			}
 
-			// Start service if installation was successful
 			if (result.success && options.startService !== false) {
 				const started = await this.startKeyDB();
 				if (!started) {
@@ -209,7 +205,6 @@ export class KeyDBInstaller {
 
 			for (const cmd of methods) {
 				try {
-					// Check if the command exists before trying to execute it
 					const baseCommand = cmd.split(' ')[0];
 					const commandAvailable = await this.commandExists(baseCommand);
 					if (!commandAvailable) {
@@ -338,7 +333,7 @@ export class KeyDBInstaller {
 				stallTimeout: 60000, // 1 minute without progress
 				progressIndicators: [
 					ProgressIndicators.outputProgress(lastOutput),
-					// Check if KeyDB binary appears
+
 					{
 						type: 'completion_check',
 						description: 'KeyDB binary availability',
@@ -359,7 +354,6 @@ export class KeyDBInstaller {
 
 			await timeout.wait(installProcess);
 
-			// Get version
 			const version = await this.getInstalledVersion();
 
 			return {
@@ -383,7 +377,6 @@ export class KeyDBInstaller {
 		try {
 			logger.info('Setting up KeyDB via Docker...');
 
-			// Check if container already exists
 			try {
 				const { stdout } = await execAsync(
 					'docker ps -a --filter name=scrivener-keydb --format "{{.Names}}"'
@@ -401,7 +394,6 @@ export class KeyDBInstaller {
 				// Container doesn't exist, continue with creation
 			}
 
-			// Create and start new KeyDB container
 			const dockerCmd = [
 				'docker run -d',
 				'--name scrivener-keydb',
@@ -445,7 +437,6 @@ export class KeyDBInstaller {
 		try {
 			logger.info('Installing KeyDB via APT...');
 
-			// Check permissions first
 			const permissions = await PermissionManager.checkSystemPermissions();
 			if (!permissions.hasPermission && permissions.needsSudo) {
 				throw new AppError(
@@ -453,7 +444,6 @@ export class KeyDBInstaller {
 					ErrorCode.PERMISSION_DENIED,
 					{
 						alternatives: PermissionManager.getAlternatives(
-							'KeyDB installation',
 							this.platformInfo || { platform: process.platform }
 						),
 						suggestion: 'Use Docker installation instead',
@@ -538,7 +528,6 @@ export class KeyDBInstaller {
 		try {
 			logger.info('Installing Redis via YUM (KeyDB packages not available)...');
 
-			// Check permissions first
 			const permissions = await PermissionManager.checkSystemPermissions();
 			if (!permissions.hasPermission && permissions.needsSudo) {
 				throw new AppError(
@@ -546,7 +535,6 @@ export class KeyDBInstaller {
 					ErrorCode.PERMISSION_DENIED,
 					{
 						alternatives: PermissionManager.getAlternatives(
-							'Redis installation',
 							this.platformInfo || { platform: process.platform }
 						),
 						suggestion: 'Use Docker installation instead',
@@ -587,7 +575,6 @@ export class KeyDBInstaller {
 	}
 
 	private async isKeyDBInstalled(): Promise<boolean> {
-		// Check for KeyDB first
 		if (await ProcessUtils.commandExists('keydb-server')) {
 			return true;
 		}
@@ -637,9 +624,6 @@ export class KeyDBInstaller {
 		return timeout.wait(commandPromise);
 	}
 
-	/**
-	 * Execute command while capturing output for progress monitoring
-	 */
 	private async executeWithProgressCapture(
 		command: string,
 		outputCapture: { value: string }

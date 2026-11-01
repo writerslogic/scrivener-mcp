@@ -10,8 +10,6 @@ import {
 	safeStringify,
 	safeWriteFile,
 } from '../../utils/common.js';
-import { RelationshipEngine } from '../../services/relationship-engine.js';
-import type { HolographicMemorySystem } from '../../services/memory/hhm/holographic-memory-system.js';
 import { Neo4jAutoInstaller } from './auto-installer.js';
 import type { DatabaseConfig, ProjectDatabasePaths } from './config.js';
 import { DEFAULT_DATABASE_CONFIG, generateDatabasePaths } from './config.js';
@@ -22,16 +20,6 @@ import { Neo4jManager } from './neo4j-manager.js';
 
 import { SearchService } from './search-service.js';
 import { SQLiteManager } from './sqlite-manager.js';
-import type {
-	CharacterArcIssue,
-	PacingIssue,
-	PlotHole,
-	StoryRecommendation,
-	TimelineEvent,
-} from './story-intelligence.js';
-import { StoryIntelligence } from './story-intelligence.js';
-import type { ProductivityTrend, WritingPattern } from './writing-analytics.js';
-import { WritingAnalytics } from './writing-analytics.js';
 import type {
 	FeedbackInput,
 	FeedbackRecord,
@@ -78,14 +66,10 @@ export class DatabaseService {
 	private graphAnalytics: GraphAnalytics | null = null;
 	private migrationManager: MigrationManager | null = null;
 	private searchService: SearchService | null = null;
-	private writingAnalytics: WritingAnalytics | null = null;
-	private storyIntelligence: StoryIntelligence | null = null;
-	private relationshipEngine: RelationshipEngine | null = null;
 
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
 
-		// Merge with defaults
 		this.config = {
 			sqlite: {
 				...DEFAULT_DATABASE_CONFIG.sqlite,
@@ -101,8 +85,7 @@ export class DatabaseService {
 
 		this.sync = new DatabaseSync(
 			() => this.sqliteManager,
-			() => this.neo4jManager,
-			() => this.relationshipEngine
+			() => this.neo4jManager
 		);
 	}
 
@@ -132,7 +115,6 @@ export class DatabaseService {
 		await ensureDir(this.paths.databaseDir);
 
 		if (this.config.neo4j.enabled) {
-			// Get credentials from environment or config
 			const projectPath = path.dirname(this.paths.databaseDir);
 			const credentials = await DatabaseSetup.getCredentials({ projectPath });
 
@@ -144,12 +126,10 @@ export class DatabaseService {
 				};
 			}
 
-			// Check Neo4j availability and offer auto-installation
 			const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
 			if (this.config.neo4j.enabled && !neo4jStatus.running) {
 				logger.warn('Neo4j is not running');
 
-				// Check if we should auto-install
 				const autoInstall =
 					process.env.NEO4J_AUTO_INSTALL === 'true' ||
 					this.config.neo4j.autoInstall === true;
@@ -164,7 +144,6 @@ export class DatabaseService {
 					});
 
 					if (installResult.success && installResult.credentials) {
-						// Update config with new credentials
 						this.config.neo4j = {
 							...this.config.neo4j,
 							...installResult.credentials,
@@ -189,16 +168,14 @@ export class DatabaseService {
 				}
 			}
 		}
-		// Save config
+
 		await this.saveConfig();
 
-		// Initialize SQLite
 		if (this.config.sqlite.enabled) {
 			this.sqliteManager = new SQLiteManager(this.config.sqlite.path);
 			await this.sqliteManager.initialize();
 		}
 
-		// Initialize Neo4j
 		if (this.config.neo4j.enabled) {
 			this.neo4jManager = new Neo4jManager(
 				this.config.neo4j.uri,
@@ -208,24 +185,13 @@ export class DatabaseService {
 			);
 			await this.neo4jManager.initialize();
 
-			// Initialize graph analytics
 			this.graphAnalytics = new GraphAnalytics(this.neo4jManager);
 		}
 
-		// Initialize migration manager and run migrations
 		this.migrationManager = new MigrationManager(this.sqliteManager, this.neo4jManager);
 		await this.migrationManager.migrate();
 
-		// Initialize search service
 		this.searchService = new SearchService(this.sqliteManager, this.neo4jManager);
-
-		// Initialize analytics services
-		this.writingAnalytics = new WritingAnalytics(this.sqliteManager, this.neo4jManager);
-		this.storyIntelligence = new StoryIntelligence(
-			this.sqliteManager,
-			this.neo4jManager,
-			this.graphAnalytics
-		);
 
 		this.initialized = true;
 	}
@@ -263,7 +229,6 @@ export class DatabaseService {
 				return null;
 			}
 
-			// Convert relative path back to absolute
 			const config = configData as DatabaseConfig;
 			if (config.sqlite?.path && !path.isAbsolute(config.sqlite.path)) {
 				config.sqlite.path = buildPath(paths.databaseDir, config.sqlite.path);
@@ -286,9 +251,6 @@ export class DatabaseService {
 		return this.sqliteManager;
 	}
 
-	/**
-	 * Get Neo4j manager
-	 */
 	getNeo4j(): Neo4jManager | null {
 		return this.neo4jManager;
 	}
@@ -456,8 +418,6 @@ export class DatabaseService {
 		this.migrationManager = null;
 		this.searchService = null;
 		this.graphAnalytics = null;
-		this.writingAnalytics = null;
-		this.storyIntelligence = null;
 		const failures = results.filter(
 			(result): result is PromiseRejectedResult => result.status === 'rejected'
 		);
@@ -508,9 +468,6 @@ export class DatabaseService {
 		return this.migrationManager;
 	}
 
-	/**
-	 * Run relationship auto-discovery
-	 */
 	async discoverRelationships(): Promise<unknown> {
 		if (!this.graphAnalytics) {
 			throw new AppError('Graph analytics not available', ErrorCode.DATABASE_ERROR);
@@ -550,79 +507,6 @@ export class DatabaseService {
 		return this.searchService.search(query, options);
 	}
 
-	getWritingAnalytics(): WritingAnalytics | null {
-		return this.writingAnalytics;
-	}
-
-	getStoryIntelligence(): StoryIntelligence | null {
-		return this.storyIntelligence;
-	}
-
-	setHMS(hms: HolographicMemorySystem): void {
-		this.relationshipEngine = new RelationshipEngine(hms, this.neo4jManager);
-	}
-
-	getRelationshipEngine(): RelationshipEngine | null {
-		return this.relationshipEngine;
-	}
-
-	async getWritingInsights(): Promise<{
-		patterns: WritingPattern;
-		productivity: ProductivityTrend[];
-		recommendations: {
-			immediate: string[];
-			shortTerm: string[];
-			longTerm: string[];
-			exercises: Array<{ title: string; description: string; benefit: string }>;
-		};
-		completion: {
-			currentWords: number;
-			targetWords: number;
-			percentComplete: number;
-			estimatedCompletionDate: string;
-			recommendedDailyWords: number;
-			onTrack: boolean;
-		};
-	}> {
-		if (!this.writingAnalytics) {
-			throw new AppError('Writing analytics not available', ErrorCode.DATABASE_ERROR);
-		}
-
-		const [patterns, productivity, recommendations, completion] = await Promise.all([
-			this.writingAnalytics.analyzeWritingPatterns(),
-			this.writingAnalytics.getProductivityTrends(),
-			this.writingAnalytics.getWritingRecommendations(),
-			this.writingAnalytics.predictProjectCompletion(80000), // Default novel length
-		]);
-
-		return { patterns, productivity, recommendations, completion };
-	}
-
-	async getStoryAnalysis(): Promise<{
-		plotHoles: PlotHole[];
-		characterArcs: CharacterArcIssue[];
-		pacing: PacingIssue[];
-		recommendations: StoryRecommendation[];
-		timeline: TimelineEvent[];
-	}> {
-		if (!this.storyIntelligence) {
-			throw new AppError('Story intelligence not available', ErrorCode.DATABASE_ERROR);
-		}
-
-		const [plotHoles, characterArcs, pacing, recommendations, timeline] = await Promise.all([
-			this.storyIntelligence.detectPlotHoles(),
-			this.storyIntelligence.analyzeCharacterArcs(),
-			this.storyIntelligence.analyzePacing(),
-			this.storyIntelligence.generateRecommendations(),
-			this.storyIntelligence.buildTimeline(),
-		]);
-
-		return { plotHoles, characterArcs, pacing, recommendations, timeline };
-	}
-
-	/**
-	 * Track writing session
-	 */
 	async trackWritingSession(wordsWritten: number, duration: number): Promise<void> {
 		trackWritingSession(this.sqliteManager, wordsWritten, duration);
 	}
@@ -675,7 +559,6 @@ export class DatabaseService {
 		return recordFeedback(this.sqliteManager, input);
 	}
 
-	/** Return recorded feedback, most recent first. */
 	async getFeedbackRecords(limit = 500): Promise<FeedbackRecord[]> {
 		return getFeedbackRecords(this.sqliteManager, limit);
 	}

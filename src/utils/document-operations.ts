@@ -6,7 +6,7 @@ import { exposeXmlAttributes } from './scrivener-xml.js';
 import type { BinderItem, BinderContainer, ProjectStructure } from '../types/internal.js';
 import {
 	addBinderItem,
-	appendBinderChild,
+	addBinderChild,
 	findBinderItemById,
 	iterateBinderItems,
 	removeBinderItem,
@@ -165,7 +165,7 @@ function applyCreation(
 		}
 	}
 	if (parent) {
-		appendBinderChild(parent, item);
+		addBinderChild(parent, item);
 		if (options.parentId) (parent as TimedBinderItem).Modified = item.Modified;
 	} else {
 		addBinderItem(binder, item);
@@ -247,7 +247,7 @@ function moveBinderItem(binder: BinderContainer, documentId: string, targetParen
 		);
 	const removed = removeBinderItem(binder, documentId);
 	if (!removed) throw new Error('Document disappeared before it could be moved');
-	appendBinderChild(parent, removed);
+	addBinderChild(parent, removed);
 	const now = new Date().toISOString();
 	(item as TimedBinderItem).Modified = now;
 	(parent as TimedBinderItem).Modified = now;

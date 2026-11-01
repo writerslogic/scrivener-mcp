@@ -1,14 +1,3 @@
-/**
- * Regression tests for DocumentManager.getProjectStructure.
- *
- * A prior bug only descended into binderItems[0].Children, assuming the first
- * top-level binder item was the container holding everything. Real Scrivener
- * binders lead with a template/front-matter doc (a leaf) and spread content
- * across several top-level folders, so the whole tree collapsed to []. These
- * lock the corrected traversal: every top-level item is walked, folders recurse,
- * and a top-level trash folder is surfaced only when includeTrash is set.
- */
-
 import { DocumentManager } from '../../../src/services/document-manager.js';
 import type { ProjectStructure } from '../../../src/types/internal.js';
 

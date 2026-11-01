@@ -19,8 +19,7 @@ export class ProjectContent {
 		private readonly readDocument: (documentId: string) => Promise<string>,
 		private readonly getAllDocuments: (includeTrash?: boolean) => Promise<ScrivenerDocument[]>,
 		private readonly getDocumentInfo: ScrivenerProject['getDocumentInfo'],
-		private readonly getCompileMetadata: () => Promise<CompileMetadata>,
-		_isIndexInitialized?: () => boolean
+		private readonly getCompileMetadata: () => Promise<CompileMetadata>
 	) {}
 
 	// Compilation operations

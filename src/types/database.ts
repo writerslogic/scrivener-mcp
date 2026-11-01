@@ -35,7 +35,6 @@ export interface Neo4jQueryResult {
 	};
 }
 
-// Document node properties
 export interface DocumentNode {
 	id: string;
 	title: string;
@@ -46,7 +45,6 @@ export interface DocumentNode {
 	updatedAt: string;
 }
 
-// Character node properties
 export interface CharacterNode {
 	id: string;
 	name: string;
@@ -56,7 +54,6 @@ export interface CharacterNode {
 	updatedAt: string;
 }
 
-// Theme node properties
 export interface ThemeNode {
 	id: string;
 	name: string;
@@ -65,7 +62,6 @@ export interface ThemeNode {
 	updatedAt: string;
 }
 
-// Relationship properties
 export interface AppearsInRelation {
 	context?: string;
 	mentions?: number;
@@ -82,7 +78,6 @@ export interface RelatesToRelation {
 	strength?: number;
 }
 
-// SQLite types
 export interface SQLiteRow {
 	[column: string]: string | number | boolean | null | Buffer;
 }
@@ -128,7 +123,6 @@ export interface PlotThreadRow extends SQLiteRow {
 	modified_at: string;
 }
 
-// Query parameter types
 export interface QueryParameters {
 	[key: string]: string | number | boolean | null | string[] | number[];
 }
@@ -147,7 +141,6 @@ export interface SearchParams extends PaginationParams {
 	regex?: boolean;
 }
 
-// Result types
 export interface PaginatedResult<T> {
 	items: T[];
 	page: number;
@@ -167,7 +160,6 @@ export interface BatchResult {
 	}>;
 }
 
-// Connection types
 export interface ConnectionConfig {
 	host?: string;
 	port?: number;

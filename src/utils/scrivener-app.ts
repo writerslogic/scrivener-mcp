@@ -1,16 +1,5 @@
-/**
- * Detect the Scrivener project(s) currently open in the desktop Scrivener app.
- *
- * The MCP server has no link to the running Scrivener application, so "which
- * project is open" cannot be read from our own state. On macOS we can ask the
- * app via AppleScript: the accessibility layer (System Events) exposes the
- * titles of Scrivener's open windows, and a main project window is titled with
- * the project name. We resolve those names to .scriv paths on disk.
- *
- * macOS only for now. Windows/Linux window enumeration is a different mechanism;
- * callers receive `supported: false` elsewhere and should fall back to
- * discover_projects / an explicit path.
- */
+// macOS window titles are resolved to project paths through accessibility APIs.
+// Other platforms return supported: false; callers need discovery or an explicit path.
 
 import { execFile } from 'child_process';
 import * as path from 'path';
@@ -24,7 +13,7 @@ export interface OpenProjectDetection {
 	supported: boolean;
 	/** True when a Scrivener process with at least one window was found. */
 	running: boolean;
-	/** Open project window names, with the `.scriv` extension stripped. */
+
 	names: string[];
 	/** True when macOS blocked the Apple event (Automation permission not granted). */
 	permissionDenied: boolean;

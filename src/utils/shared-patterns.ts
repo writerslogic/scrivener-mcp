@@ -8,19 +8,13 @@ import * as path from 'path';
 import { getLogger } from '../core/logger.js';
 import { promisify } from 'util';
 import { exec, execFile } from 'child_process';
+import { pathExists as fileExists, formatBytes } from './common.js';
+
+export { fileExists, formatBytes };
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const logger = getLogger('shared-patterns');
-
-export async function fileExists(filePath: string): Promise<boolean> {
-	try {
-		await fs.access(filePath);
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 export async function fileExistsWithContent(
 	filePath: string,
@@ -38,44 +32,10 @@ export async function fileExistsWithContent(
 	}
 }
 
-/**
- * Safe file write with lock protection (used in project-utils)
- */
-export async function safeFileWrite(
-	filePath: string,
-	content: string,
-	options: { atomic?: boolean; mode?: number } = {}
-): Promise<void> {
-	const { atomic = true, mode = 0o644 } = options;
-
-	if (atomic) {
-		const tempPath = `${filePath}.tmp.${Date.now()}`;
-		const lockPath = `${filePath}.lock`;
-
-		try {
-			// Acquire lock
-			await fs.writeFile(lockPath, '', { flag: 'wx' });
-
-			// Write to temp file
-			await fs.writeFile(tempPath, content, { mode });
-
-			// Atomic rename
-			await fs.rename(tempPath, filePath);
-		} finally {
-			// Release lock
-			await fs.unlink(lockPath).catch(() => {});
-			await fs.unlink(tempPath).catch(() => {});
-		}
-	} else {
-		await fs.writeFile(filePath, content, { mode });
-	}
-}
-
 export async function ensureDirectory(dirPath: string, mode: number = 0o755): Promise<void> {
 	try {
 		await fs.mkdir(dirPath, { recursive: true, mode });
 	} catch (error) {
-		// Check if directory already exists
 		try {
 			const stats = await fs.stat(dirPath);
 			if (!stats.isDirectory()) {
@@ -133,7 +93,6 @@ export function validatePath(inputPath: string): string {
 	const resolved = path.resolve(inputPath);
 	const normalized = path.normalize(resolved);
 
-	// Check for path traversal attempts
 	if (resolved !== normalized || resolved.includes('..')) {
 		throw new Error(`Invalid path: potential path traversal attack in ${inputPath}`);
 	}
@@ -146,9 +105,6 @@ export function validatePath(inputPath: string): string {
 	return resolved;
 }
 
-/**
- * Build safe paths (consolidates buildPath from common.ts)
- */
 export function buildPath(...segments: string[]): string {
 	const joined = path.join(...segments);
 	return validatePath(joined);
@@ -217,7 +173,6 @@ export async function retryWithBackoff<T>(
 				throw lastError;
 			}
 
-			// Add jitter if enabled
 			const actualDelay = jitter ? delay * (0.5 + Math.random() * 0.5) : delay;
 			await sleep(actualDelay);
 
@@ -263,18 +218,6 @@ export function validateUrl(
 	} catch {
 		return false;
 	}
-}
-
-export function formatBytes(bytes: number, decimals: number = 2): string {
-	if (bytes === 0) return '0 Bytes';
-
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
@@ -327,7 +270,6 @@ export class MemoryCache<T> {
 export const FileUtils = {
 	exists: fileExists,
 	existsWithContent: fileExistsWithContent,
-	safeWrite: safeFileWrite,
 	ensureDir: ensureDirectory,
 };
 

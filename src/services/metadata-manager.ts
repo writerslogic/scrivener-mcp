@@ -69,12 +69,10 @@ export class MetadataManager {
 			throw new AppError('Item must have UUID or ID', ErrorCode.INVALID_INPUT);
 		}
 
-		// Validate UUID format if present
 		if (item.UUID && !ValidationUtils.isValidUUID(item.UUID, { allowNumeric: true })) {
 			throw new AppError(`Invalid UUID format: ${item.UUID}`, ErrorCode.INVALID_INPUT);
 		}
 
-		// Validate metadata before processing
 		this.validateMetadataInput(metadata);
 
 		// Initialize metadata if not present
@@ -89,42 +87,34 @@ export class MetadataManager {
 			item.Title = metadata.title;
 		}
 
-		// Update synopsis
 		if (metadata.synopsis !== undefined) {
 			metaData.Synopsis = metadata.synopsis;
 		}
 
-		// Update notes
 		if (metadata.notes !== undefined) {
 			metaData.Notes = metadata.notes;
 		}
 
-		// Update label
 		if (metadata.label !== undefined) {
 			metaData.Label = metadata.label;
 		}
 
-		// Update status
 		if (metadata.status !== undefined) {
 			metaData.Status = metadata.status;
 		}
 
-		// Update keywords
 		if (metadata.keywords) {
 			metaData.Keywords = metadata.keywords.join(';');
 		}
 
-		// Update include in compile
 		if (metadata.includeInCompile !== undefined) {
 			metaData.IncludeInCompile = metadata.includeInCompile ? 'Yes' : 'No';
 		}
 
-		// Update custom metadata
 		if (metadata.customMetadata) {
 			this.updateCustomMetadata(metaData, metadata.customMetadata);
 		}
 
-		// Update modified date
 		metaData.Modified = new Date().toISOString();
 
 		logger.debug(`Updated metadata for item ${item.UUID}`);
@@ -173,7 +163,6 @@ export class MetadataManager {
 				metadata.modified = metaData.Modified;
 			}
 
-			// Extract custom metadata
 			if (metaData.CustomMetaData?.MetaDataItem) {
 				metadata.customMetadata = this.extractCustomMetadata(
 					metaData.CustomMetaData.MetaDataItem
@@ -240,7 +229,6 @@ export class MetadataManager {
 			throw new AppError('Invalid project structure', ErrorCode.INVALID_STATE);
 		}
 
-		// Validate project metadata before processing
 		this.validateProjectMetadataInput(metadata);
 
 		const project = projectStructure.ScrivenerProject;
@@ -252,18 +240,15 @@ export class MetadataManager {
 
 		const settings = project.ProjectSettings;
 
-		// Update project title
 		if (metadata.title !== undefined) {
 			settings.ProjectTitle = metadata.title;
 		}
 
-		// Update author
 		if (metadata.author !== undefined) {
 			settings.FullName = metadata.author;
 			settings.Author = metadata.author;
 		}
 
-		// Update project targets
 		if (metadata.projectTargets) {
 			if (!project.ProjectTargets) {
 				project.ProjectTargets = {};
@@ -284,7 +269,6 @@ export class MetadataManager {
 			}
 		}
 
-		// Update custom fields
 		if (metadata.customFields) {
 			const settingsAny = settings as Record<string, unknown>;
 			if (!settingsAny.CustomFields) {
@@ -478,7 +462,6 @@ export class MetadataManager {
 				}
 			}
 
-			// Process children
 			if (item.Children?.BinderItem) {
 				const children = Array.isArray(item.Children.BinderItem)
 					? item.Children.BinderItem
@@ -509,7 +492,6 @@ export class MetadataManager {
 		};
 	}
 
-	// Private helper methods
 	private updateCustomMetadata(
 		metaData: BinderItem['MetaData'],
 		customFields: Record<string, string>
@@ -554,7 +536,6 @@ export class MetadataManager {
 		item: BinderItem,
 		requiredFields: string[] = []
 	): { valid: boolean; missing: string[] } {
-		// Check cache first
 		const cacheKey = `${item.UUID || item.ID}-${requiredFields.join(',')}`;
 		const cached = this.validationCache.get(cacheKey);
 		if (cached) {
@@ -564,7 +545,6 @@ export class MetadataManager {
 		const missing: string[] = [];
 		const metadata = this.getDocumentMetadata(item);
 
-		// Validate UUID if present
 		if (item.UUID && !ValidationUtils.isValidUUID(item.UUID, { allowNumeric: true })) {
 			missing.push('valid-uuid');
 		}
@@ -733,7 +713,6 @@ export class MetadataManager {
 		} = options;
 		const results: Array<{ item: BinderItem; result?: T; error?: string }> = [];
 
-		// Process in batches for memory efficiency
 		for (let i = 0; i < items.length; i += concurrency) {
 			const batch = items.slice(i, i + concurrency);
 			const batchPromises = batch.map(async (item) => {
@@ -824,7 +803,6 @@ export class MetadataManager {
 				const changes: string[] = [];
 				let repaired = false;
 
-				// Validate the item first
 				const validation = this.validateMetadata(item, ['title', 'status']);
 
 				if (!validation.valid) {
@@ -840,7 +818,6 @@ export class MetadataManager {
 						}
 					}
 
-					// Set default status
 					if (validation.missing.includes('status') && setDefaultStatus) {
 						this.updateDocumentMetadata(item, { status: defaultStatus });
 						changes.push('status');
@@ -877,7 +854,6 @@ export class MetadataManager {
 		const { cacheResults = true, timeout = 15000 } = options;
 		const cacheKey = `search-${query}-${fields.join(',')}-${items.length}`;
 
-		// Check cache first
 		if (cacheResults) {
 			const cached = this.metadataCache.get(cacheKey);
 			if (cached) {

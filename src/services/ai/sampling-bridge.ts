@@ -1,10 +1,4 @@
-/**
- * Bridge between the MCP server instance and AIClient for client-side
- * sampling (sampling/createMessage). When the connected MCP client advertises
- * the sampling capability, the server can run chat completions through the
- * client's own model -- no API key required. The bridge exists because
- * handlers construct AIClient ad hoc and have no reference to the server.
- */
+// Handlers construct AIClient without a server reference; this bridge supplies client sampling.
 
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 

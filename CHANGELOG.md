@@ -26,10 +26,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
-- Record verified audit remediation and compatibility limits
 - Point Draftbridge buyers to live checkout
-- Align C2PA intake answers with the questionnaire
-- Describe Content Credentials workflow and intake targets
 - Align installation requirements and historical runtime evidence
 - Introduce Content Credentials and patched runtime support
 - Update the security changelog (#205)
@@ -37,6 +34,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Yield before indexing large narrative reports
+- Honor binder positions and remove unused infrastructure
+- Preserve the cause of rejected memory symlinks
+- Close file access races and use static native test loaders
+- Regenerate native assets in the reference build environment
+- Enforce URI safety and reproducible native builds
+- Ship patched EPUB and development dependencies
+- Fit bounded native requests within the child heap
+- Document structured tool contracts and validate nested schemas
+- Complete audited analysis and release contracts
 - Preserve isolated Windows process requirements
 - Accommodate Windows permission-check startup
 - Preserve recovery diagnostics and reject lint warnings

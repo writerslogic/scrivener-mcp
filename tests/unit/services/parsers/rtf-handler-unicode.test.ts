@@ -1,9 +1,3 @@
-/**
- * Regression tests for RTF Unicode handling (\uc fallback tracking).
- * Covers the data-loss bug where the reader assumed \uc1 and dropped the real
- * character following a \u escape in Scrivener files (which use \uc0).
- */
-
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -83,5 +77,30 @@ describe('RTF text control and Unicode scope round trips', () => {
 	it('preserves quotes, tabs, dashes, combining marks and astral text through the existing serializer', async () => {
 		const text = 'Mara\'s "promise"\tcafé — 東京 🌙 Żółć.\nA second paragraph.';
 		expect((await handler.parseRTF(handler.convertToRTF(text))).plainText).toBe(text);
+	});
+});
+
+describe('RTFHandler plain text objects', () => {
+	it('saves the plainText used by DocumentManager when there are no formatted segments', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'rtf-plain-object-'));
+		const file = path.join(dir, 'content.rtf');
+		const handler = new RTFHandler();
+		const text = '한글 본문과 {중괄호} 및 \\ 기호\n\n두 번째 문단';
+		try {
+			await handler.writeRTF(file, { plainText: text, formattedText: [], metadata: {} });
+			expect((await handler.readRTF(file)).plainText.trim()).toBe(text);
+			await handler.writeRTF(file, {
+				plainText: 'fallback',
+				formattedText: [{ text: 'bold', style: { bold: true } }],
+			});
+			expect(await fs.promises.readFile(file, 'utf8')).toContain('\\b ');
+			expect((await handler.readRTF(file)).plainText.trim()).toBe('bold');
+			await handler.writeRTF(file, { plainText: '', formattedText: [] });
+			expect((await handler.readRTF(file)).plainText.trim()).toBe('');
+		} finally {
+			expect(path.dirname(dir)).toBe(path.resolve(os.tmpdir()));
+			expect(path.basename(dir)).toMatch(/^rtf-plain-object-/);
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
 	});
 });

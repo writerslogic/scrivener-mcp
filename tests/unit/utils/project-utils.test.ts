@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	writeFileSync,
+} from 'fs';
 import { basename, join, sep } from 'path';
 import { tmpdir } from 'os';
 import {
@@ -39,6 +47,34 @@ describe('Project Utils', () => {
 	});
 
 	describe('ensureProjectDataDirectory', () => {
+		it('updates an existing gitignore and preserves unrelated files during concurrent initialization', async () => {
+			const gitignore = join(testProjectPath, '.gitignore');
+			writeFileSync(gitignore, 'private-notes/\n');
+			mkdirSync(mcpDir, { recursive: true });
+			const unrelatedLock = join(mcpDir, 'README.md.lock');
+			writeFileSync(unrelatedLock, 'another owner');
+			await Promise.all([
+				ensureProjectDataDirectory(testProjectPath),
+				ensureProjectDataDirectory(testProjectPath),
+				ensureProjectDataDirectory(testProjectPath),
+			]);
+			const contents = readFileSync(gitignore, 'utf8');
+			expect(contents).toContain('private-notes/');
+			expect(contents.split('\n').filter((line) => line === '.scrivener-mcp/')).toHaveLength(
+				1
+			);
+			expect(readFileSync(join(mcpDir, 'README.md'), 'utf8')).toContain(
+				'persistent editorial history'
+			);
+			expect(readFileSync(unrelatedLock, 'utf8')).toBe('another owner');
+			expect(existsSync(`${gitignore}.lock`)).toBe(false);
+			for (const directory of [testProjectPath, mcpDir]) {
+				expect(
+					readdirSync(directory).some((name) => name.startsWith('.scrivener-mcp-write-'))
+				).toBe(false);
+			}
+		});
+
 		it('should create data directory if it does not exist', async () => {
 			expect(existsSync(mcpDir)).toBe(false);
 

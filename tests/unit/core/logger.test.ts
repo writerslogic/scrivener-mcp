@@ -64,6 +64,31 @@ describe('logger error serialization', () => {
 		expect(out).toContain('3');
 	});
 
+	it.each([
+		'openaiApiKey',
+		'anthropicApiKey',
+		'OPENAI_API_KEY',
+		'refresh_token',
+		'clientSecret',
+		'cookie',
+		'dbPassword',
+	])('redacts opaque %s credentials in options and error causes', (key) => {
+		getLogger('opaque-credential-test').error('Setup failed', {
+			documentId: 'safe-identity',
+			options: { [key]: 'opaque-option-credential', interactive: false },
+			error: new Error('Configuration failed', {
+				cause: { [key]: 'opaque-cause-credential', stage: 'configure' },
+			}),
+		});
+		const out = writes.join('');
+		expect(out).not.toContain('opaque-option-credential');
+		expect(out).not.toContain('opaque-cause-credential');
+		expect(out).toContain('safe-identity');
+		expect(out).toContain('"interactive":false');
+		expect(out).toContain('Configuration failed');
+		expect(out).toContain('"stage":"configure"');
+	});
+
 	it('redacts manuscript payload fields and credentials without losing operational context', () => {
 		getLogger('test-private-logger').error(
 			'operation failed for sk-ant-private-fixture-token',

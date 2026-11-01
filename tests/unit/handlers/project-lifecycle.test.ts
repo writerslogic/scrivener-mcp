@@ -7,11 +7,23 @@ import {
 	closeProjectHandler,
 } from '../../../src/handlers/project-handlers/lifecycle.js';
 import type { HandlerContext } from '../../../src/handlers/types.js';
-import { ErrorCode } from '../../../src/utils/common.js';
+import { ErrorCode, safeWriteFile } from '../../../src/utils/common.js';
+import { CachedSQLiteManager } from '../../../src/handlers/database/keydb-cache.js';
+
+jest.mock('../../../src/utils/common.js', () => {
+	const actual = jest.requireActual('../../../src/utils/common.js');
+	return { ...actual, safeWriteFile: jest.fn(actual.safeWriteFile) };
+});
 
 jest.mock('../../../src/scrivener-project.js', () => {
 	const fs = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
 	const path = jest.requireActual<typeof import('node:path')>('node:path');
+	const { SQLiteManager } = jest.requireActual<
+		typeof import('../../../src/handlers/database/sqlite-manager.js')
+	>('../../../src/handlers/database/sqlite-manager.js');
+	const { MigrationManager } = jest.requireActual<
+		typeof import('../../../src/handlers/database/migrations.js')
+	>('../../../src/handlers/database/migrations.js');
 	const state = {
 		projects: [] as ProjectResource[],
 		failLoad: new Map<string, Error>(),
@@ -20,6 +32,7 @@ jest.mock('../../../src/scrivener-project.js', () => {
 	};
 	class Project {
 		closed = false;
+		private readonly sqlite: InstanceType<typeof SQLiteManager>;
 		memoryAtClose?: { customContext: Record<string, unknown> };
 		readonly database = {
 			closed: false,
@@ -29,16 +42,20 @@ jest.mock('../../../src/scrivener-project.js', () => {
 				if (this.database.failure) throw this.database.failure;
 				if (this.database.closed)
 					throw new Error('Memory accessed a closed project database');
-				return undefined;
+				return this.sqlite;
 			},
+			getNeo4j: () => null,
 		};
 		private readonly timer = setInterval(() => undefined, 60000);
 		constructor(readonly projectPath: string) {
+			this.sqlite = new SQLiteManager(path.join(projectPath, '.test-database.sqlite'));
 			this.timer.unref();
 			state.projects.push(this);
 		}
 		async loadProject(): Promise<void> {
 			if (state.failLoad.has(this.projectPath)) throw state.failLoad.get(this.projectPath);
+			await this.sqlite.initialize();
+			await new MigrationManager(this.sqlite, null).migrate();
 		}
 		getDatabaseService() {
 			return this.database;
@@ -61,6 +78,7 @@ jest.mock('../../../src/scrivener-project.js', () => {
 				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 			}
 			this.database.closed = true;
+			await this.sqlite.close();
 			this.closed = true;
 			if (state.failClose.has(this.projectPath)) throw state.failClose.get(this.projectPath);
 		}
@@ -97,12 +115,17 @@ describe('project scope resource lifecycle', () => {
 		join(projectPath, '.ai-memory', 'project-memory.json');
 
 	beforeEach(async () => {
+		jest.spyOn(CachedSQLiteManager.prototype, 'initialize').mockResolvedValue(undefined);
+		jest.mocked(safeWriteFile).mockImplementation(
+			jest.requireActual<typeof import('../../../src/utils/common.js')>(
+				'../../../src/utils/common.js'
+			).safeWriteFile
+		);
 		root = await mkdtemp(join(tmpdir(), 'scrivener-project-lifecycle-'));
 		context = {
 			project: null,
 			memoryManager: null,
 			contentAnalyzer: {} as HandlerContext['contentAnalyzer'],
-			contentEnhancer: {} as HandlerContext['contentEnhancer'],
 		};
 	});
 
@@ -157,17 +180,31 @@ describe('project scope resource lifecycle', () => {
 		await openProjectHandler.handler({ path: first }, context);
 		context.memoryManager!.setCustomContext('pending', 'must-persist');
 		const project = state.projects[0];
-		project.database.failure = new Error('Synthetic storage failure');
+		jest.mocked(safeWriteFile).mockRejectedValueOnce(
+			new Error('Synthetic primary storage failure')
+		);
 		await expect(closeProjectHandler.handler({}, context)).rejects.toThrow(
 			'current project remains available'
 		);
 		expect(context.project).not.toBeNull();
 		expect(project.database.closed).toBe(false);
-		project.database.failure = undefined;
 		await closeProjectHandler.handler({}, context);
 		expect(JSON.parse(await readFile(memoryFile(first), 'utf8')).customContext.pending).toBe(
 			'must-persist'
 		);
+	});
+
+	it('permits retirement after durable primary persistence even if a secondary mirror fails', async () => {
+		const first = await sample('MirrorFailure');
+		await openProjectHandler.handler({ path: first }, context);
+		context.memoryManager!.setCustomContext('pending', 'persisted');
+		state.projects[0].database.failure = new Error('Synthetic secondary failure');
+		await closeProjectHandler.handler({}, context);
+		expect(JSON.parse(await readFile(memoryFile(first), 'utf8')).customContext.pending).toBe(
+			'persisted'
+		);
+		expect(state.projects[0].database.closed).toBe(true);
+		expect(context.project).toBeNull();
 	});
 
 	it('releases a failed load and preserves its primary cause alongside cleanup failure details', async () => {

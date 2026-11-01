@@ -12,23 +12,23 @@
   "artifacts": [
     {
       "file": "binding_bg.wasm",
-      "bytes": 8815939,
-      "sha256": "5382ea009984c2641c4bbd4cb9df4cf29cd919d44704e954f7f3ad89c965655c"
+      "bytes": 8816178,
+      "sha256": "84f7bb85c031172f90b4139061f036b9ac5476383f79f6fe09f5741760cd7ca6"
     },
     {
       "file": "binding_bg.wasm.d.ts",
       "bytes": 1382,
-      "sha256": "38eba6e3c59e6114d25dfe2d939f139d55b2595eb4ab9aa625a86f964a539b51"
+      "sha256": "7a826f539d4c2a180b7bf9cbb22c403c2da1d10dc84c6b65672acdf7ba09c2b1"
     },
     {
       "file": "binding.d.ts",
       "bytes": 2886,
-      "sha256": "fc172d420c729ce2eb3db00b3d3d63b80d8265d2b5b51f5b074eeef09a885f44"
+      "sha256": "ef5f33420759a2b9a03e57864549f5d8f71474af65acb98df8f31942db4beae2"
     },
     {
       "file": "binding.js",
       "bytes": 17726,
-      "sha256": "b4fa16102cfbaf1c37f2788a7566cf802dbcb527c80f230645ea085abf0fa201"
+      "sha256": "108e32edb8a7ba4ca3e372bccfd201058d193ee1919a6f1161ab54eb9195e4b2"
     },
     {
       "file": "package.json",

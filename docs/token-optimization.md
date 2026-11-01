@@ -21,10 +21,10 @@ The AI client only pays the token cost for tool definitions it actually uses in 
 
 Every tool response is optimized to minimize token consumption:
 
-- **Minified JSON:** Responses strip null fields and omit empty arrays/objects. No pretty-printing.
+- **Minified JSON:** Responses omit indentation while preserving nulls, empty arrays/objects and array positions. Explicit unavailable values retain their meaning.
 - **Search snippets:** `search` returns short context snippets around each match, not full document text. Follow up with `read_document` for the complete content.
 - **Analysis summaries:** `analyze_document` returns a summary with the top 3 issues rather than a full metrics blob. This keeps analysis results actionable without overwhelming the context.
-- **Large payload spill:** Compiled manuscripts and other results exceeding 4,000 characters are written to a temp directory on disk. The tool returns a tracker ID and a short preview instead of the full payload. The AI client can read the file if needed.
+- **Large payload spill:** Compiled manuscripts, completed background-job results and other payloads exceeding 4,000 characters are written to a private temporary directory. Use `read_result` with the returned `_ref`, then follow `nextOffset` until null to reconstruct the original JSON; filesystem access is not required. Results expire after one hour, a server restart, or eviction from the 64 MiB/256-result cache. The read limit applies to UTF-8 chunk text; MCP serialization adds overhead.
 
 ## Sliding Window Reads
 

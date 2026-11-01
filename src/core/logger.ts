@@ -3,7 +3,7 @@
  */
 
 import { getEnv, isDevelopment, toLogContext, type LogContext } from '../utils/common.js';
-import { redactDiagnostics } from '../utils/redaction.js';
+import { isSensitiveDiagnosticKey, redactDiagnostics } from '../utils/redaction.js';
 
 export type { LogContext } from '../utils/common.js';
 
@@ -23,9 +23,8 @@ export enum LogLevel {
  */
 function serializeErrors(key: string, value: unknown): unknown {
 	if (
-		/^(?:content|text|prompt|query|quote|manuscript|before|after|beforeRaw|afterRaw|password|secret|authorization|apiKey|api_key|accessToken|access_token)$/i.test(
-			key
-		)
+		isSensitiveDiagnosticKey(key) ||
+		/^(?:text|prompt|query|quote|before|after|beforeRaw|afterRaw)$/i.test(key)
 	)
 		return '[redacted]';
 	if (typeof value === 'string') return redactDiagnostics(value);
@@ -143,7 +142,6 @@ class LoggerFactory {
 	private defaultLevel = LogLevel.INFO;
 
 	constructor() {
-		// Set level from environment using utility
 		const envLevel = getEnv('LOG_LEVEL')?.toUpperCase();
 		if (envLevel && envLevel in LogLevel) {
 			this.defaultLevel = LogLevel[envLevel as keyof typeof LogLevel] as unknown as LogLevel;

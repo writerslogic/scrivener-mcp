@@ -47,7 +47,6 @@ function createContext(project: HandlerContext['project']): HandlerContext {
 		project,
 		memoryManager: null,
 		contentAnalyzer: {} as HandlerContext['contentAnalyzer'],
-		contentEnhancer: {} as HandlerContext['contentEnhancer'],
 	};
 }
 

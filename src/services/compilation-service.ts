@@ -90,7 +90,6 @@ export class CompilationService {
 			includeNotes = false,
 		} = options;
 
-		// Convert all content to RTFContent format
 		const rtfContents = documents.map((doc) => {
 			if (typeof doc.content === 'string') {
 				return {
@@ -433,7 +432,6 @@ export class CompilationService {
 		return stats;
 	}
 
-	// Private helper methods
 	private compileToText(contents: RTFContent[], separator: string): string {
 		return contents
 			.map((c) => c.plainText)
@@ -453,10 +451,8 @@ export class CompilationService {
 			const doc = documents[i];
 
 			if (content.plainText?.trim()) {
-				// Add document title as heading
-				parts.push(`# ${doc.title}\n`);
+				if (doc.title) parts.push(`# ${doc.title}\n`);
 
-				// Process formatted text
 				if (content.formattedText) {
 					let mdContent = '';
 					for (const part of content.formattedText) {
@@ -495,7 +491,7 @@ export class CompilationService {
 				continue;
 			}
 
-			parts.push(`<h1>${this.escapeHtml(doc.title)}</h1>`);
+			if (doc.title) parts.push(`<h1>${this.escapeHtml(doc.title)}</h1>`);
 
 			if (content.formattedText) {
 				let html = '';
@@ -509,7 +505,7 @@ export class CompilationService {
 					}
 					html += text;
 				}
-				// Map blank lines to paragraph breaks and single newlines to <br/>.
+
 				const body = html.replace(/\n{2,}/g, '</p>\n<p>').replace(/\n/g, '<br/>');
 				parts.push(`<p>${body}</p>`);
 			} else {

@@ -1,42 +1,25 @@
-import { AIDocumentAnalyzer } from '../../analysis/ai-document-analyzer.js';
-import { createError, ErrorCode } from '../../core/errors.js';
-import type { EnhancementType } from '../../services/enhancements/content-enhancer.js';
-import { AIContentEnhancer } from '../../services/enhancements/ai-content-enhancer.js';
-import { AIClient } from '../../services/ai/ai-client.js';
-import { validateInput } from '../../utils/common.js';
-import { getAccurateWordCount } from '../../utils/text-metrics.js';
-import { compact, formatError } from '../../core/response-formatter.js';
-import type { HandlerResult, ToolDefinition } from '../types.js';
+import { analysisEnvelope } from '../../services/editorial/analysis-envelope.js';
+import { checkGrammar } from 'narrative-lens';
+import type { DocumentAnalysis } from '../../analysis/ai-document-analyzer.js';
 import {
-	getOptionalNumberArg,
-	getOptionalObjectArg,
-	getPersonalization,
-	getStringArg,
-	requireProject,
-} from '../types.js';
-import { SHARED_DEFS } from '../shared-schemas.js';
-import { analysisSchema, enhancementSchema, promptSchema } from '../validation-schemas.js';
-
-// Cached singleton instances to avoid re-instantiation per request
-let cachedContentEnhancer: AIContentEnhancer | null = null;
-
-async function getContentEnhancer(): Promise<AIContentEnhancer> {
-	if (!cachedContentEnhancer) {
-		cachedContentEnhancer = new AIContentEnhancer();
-	}
-	return cachedContentEnhancer;
-}
+	AIDocumentAnalyzer,
+	DOCUMENT_ANALYSIS_TYPES,
+	documentAnalysisTypes,
+	MAX_DOCUMENT_ANALYSIS_SOURCE,
+} from '../../analysis/ai-document-analyzer.js';
+import { storyText } from '../../services/editorial/provenance.js';
+import { formatPayload } from '../../core/response-formatter.js';
+import type { HandlerResult, ToolDefinition } from '../types.js';
+import { requireProject } from '../types.js';
+import { ANALYSIS_ENVELOPE_SCHEMA, RESULT_REFERENCE_SCHEMA } from '../shared-schemas.js';
+export { enhanceContentHandler } from './content-enhancement.js';
+export { generateContentHandler } from './content-generation.js';
 
 export const analyzeDocumentHandler: ToolDefinition = {
 	name: 'analyze_document',
 	title: 'Analyze Document',
 	description:
-		'Analyze the writing quality of a single document and return a summary of readability, pacing, ' +
-		'and the top issues found. This is the general-purpose prose analyzer: narrow it with ' +
-		'analysisTypes to focus on style, structure, themes, characters, sentiment, or pacing. Use ' +
-		'check_consistency for project-wide continuity instead, or enhance_content to get rewritten ' +
-		'prose rather than a critique. Calls an external AI model. Requires an open project and a ' +
-		'valid document id.',
+		'Analyze complete saved document text with revision checks. Readability and pacing are always assessed; analysisTypes steers provider craft issues. Provider input is limited to 12000 UTF-16 characters. Empty or longer text, unavailable providers and malformed responses use broad local analysis with explicit availability and focus scope. Raw local results do not apply saved manuscript intentions or suppressions. Independent grammar findings survive local analyzer failure. Large results use read_result. Requires an open project; no document is changed.',
 	annotations: {
 		readOnlyHint: true,
 		destructiveHint: false,
@@ -45,393 +28,279 @@ export const analyzeDocumentHandler: ToolDefinition = {
 	},
 	inputSchema: {
 		type: 'object',
+		additionalProperties: false,
 		properties: {
-			documentId: SHARED_DEFS.docId,
+			documentId: {
+				type: 'string',
+				description:
+					'Saved document UUID from get_structure; its complete decoded text is analyzed.',
+				minLength: 1,
+				maxLength: 128,
+				pattern: '^[^\\u0000]*[^\\s\\u0000][^\\u0000]*$',
+			},
 			analysisTypes: {
 				type: 'array',
+				minItems: 1,
+				maxItems: DOCUMENT_ANALYSIS_TYPES.length,
+				uniqueItems: true,
 				items: {
 					type: 'string',
-					enum: [
-						'readability',
-						'sentiment',
-						'themes',
-						'characters',
-						'pacing',
-						'style',
-						'structure',
-						'all',
-					],
+					enum: [...DOCUMENT_ANALYSIS_TYPES],
 				},
 				description:
-					'Aspects to focus the analysis on. Omit or use ["all"] for a broad analysis; ' +
-					'otherwise pick any of readability, sentiment, themes, characters, pacing, style, ' +
-					'structure.',
+					'Provider issue focus. Omit or include all for a broad critique. Local fallback preserves its broad findings and explicitly reports that scope.',
 			},
 		},
 		required: ['documentId'],
 	},
 	outputSchema: {
 		type: 'object',
-		properties: {
-			readability: {
-				type: 'string',
-				description:
-					'Readability assessment of the passage (e.g. easy/moderate/complex with a brief reason).',
-			},
-			pacing: {
-				type: 'string',
-				description:
-					'Pacing assessment of the passage (e.g. slow/steady/fast with a brief reason).',
-			},
-			issues: {
-				type: 'array',
-				description: 'Craft issues found in the document.',
-				items: {
-					type: 'object',
-					properties: {
-						description: { type: 'string', description: 'What the issue is.' },
-						severity: {
-							type: 'string',
-							description: 'Issue severity when known (low/medium/high).',
-						},
-					},
-					required: ['description'],
-				},
-			},
-		},
-		required: ['readability', 'pacing', 'issues'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, analysisSchema);
-
-		const documentId = getStringArg(args, 'documentId');
-
-		const document = await project.getDocument(documentId);
-		if (!document) {
-			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
-		}
-
-		try {
-			// Perform qualitative analysis with Claude (direct SDK)
-			const analyzer = new AIDocumentAnalyzer();
-			const analysis = await analyzer.analyzeDocument(document.content || '');
-
-			const { readability, pacing, issues } = analysis;
-			const topIssues = issues.slice(0, 3).map((i) => i.description);
-
-			const summary = `Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n${
-				topIssues.length > 0
-					? `Top issues:\n${topIssues.map((t) => `- ${t}`).join('\n')}\n`
-					: ''
-			}[Full analysis available via deep_analyze_content]`;
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: summary,
-					},
-				],
-				structuredContent: { readability, pacing, issues },
-			};
-		} catch {
-			// Fallback to basic analysis if AI enhancement fails
-			const fallbackAnalysis = await context.contentAnalyzer.analyzeContent(
-				document.content || '',
-				documentId
-			);
-			const fb = fallbackAnalysis as unknown as Record<string, unknown>;
-			const readability = fb.readability ?? fb.readabilityScore ?? '?';
-			const pacing = fb.pacing ?? '?';
-			const issues = Array.isArray(fb.issues) ? fb.issues : [];
-			const topIssues = issues
-				.slice(0, 3)
-				.map((i: unknown) =>
-					typeof i === 'string'
-						? i
-						: ((i as Record<string, unknown>).description ?? JSON.stringify(i))
-				);
-
-			const summary = `Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n${
-				topIssues.length > 0
-					? `Top issues:\n${topIssues.map((t: unknown) => `- ${t}`).join('\n')}\n`
-					: ''
-			}[Full analysis available via deep_analyze_content]`;
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: summary,
-					},
-				],
-				structuredContent: {
-					readability: String(readability),
-					pacing: String(pacing),
-					issues: issues.map((i: unknown) =>
-						typeof i === 'string'
-							? { description: i }
-							: {
-									description: String(
-										(i as Record<string, unknown>).description ??
-											JSON.stringify(i)
-									),
-								}
-					),
-				},
-			};
-		}
-	},
-};
-
-export const enhanceContentHandler: ToolDefinition = {
-	name: 'enhance_content',
-	title: 'Enhance Content',
-	description:
-		"Produce an AI-improved version of a document's text for a chosen goal (fix grammar, refine " +
-		'style, improve clarity, expand, summarize, or rework creatively) and return the suggested ' +
-		'rewrite. This does NOT modify the document; review the result and call write_document to ' +
-		'save it. Use analyze_document for a critique instead of a rewrite, or generate_content to ' +
-		'create new text from a prompt. Calls an external AI model. Requires an open project.',
-	annotations: {
-		readOnlyHint: true,
-		destructiveHint: false,
-		idempotentHint: false,
-		openWorldHint: true,
-	},
-	inputSchema: {
-		type: 'object',
-		properties: {
-			documentId: SHARED_DEFS.docId,
-			enhancementType: {
-				type: 'string',
-				enum: ['grammar', 'style', 'clarity', 'expand', 'summarize', 'creative'],
-				description:
-					'The improvement goal: "grammar" fixes errors, "style" refines voice, "clarity" ' +
-					'simplifies, "expand" lengthens, "summarize" condenses, "creative" reworks freely.',
-			},
-			options: {
+		oneOf: [
+			{
 				type: 'object',
-				description: 'Optional enhancement parameters passed through to the enhancer.',
-			},
-		},
-		required: ['documentId', 'enhancementType'],
-	},
-	handler: async (args, context): Promise<HandlerResult> => {
-		const project = requireProject(context);
-		validateInput(args, enhancementSchema);
-
-		const documentId = getStringArg(args, 'documentId');
-		const enhancementType = getStringArg(args, 'enhancementType') as EnhancementType;
-		const options = getOptionalObjectArg(args, 'options');
-
-		const document = await project.getDocument(documentId);
-		if (!document) {
-			throw createError(ErrorCode.NOT_FOUND, 'Document not found');
-		}
-
-		try {
-			// Initialize AI content enhancer
-			const enhancer = await getContentEnhancer();
-
-			// Apply author writing preferences to the AI prompt
-			const personalization = getPersonalization(context);
-			const preferenceDirective = await personalization.buildDirective();
-
-			// Perform enhanced content improvement
-			const enhanced = await enhancer.enhance({
-				content: document.content || '',
-				type: enhancementType,
-				preferenceDirective,
-				options: {
-					...(options || {}),
-					documentId,
-					context: `Document: ${document.title} (Type: ${document.type})`,
-				},
-			});
-
-			const originalContent = document.content || '';
-			if (enhanced.enhanced === originalContent) {
-				return {
-					content: [{ type: 'text', text: 'No changes suggested.' }],
-				};
-			}
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: compact({
-							...enhanced,
-							enhanced: true,
-							qualityScore: enhanced.qualityValidation?.overallScore,
-						}),
-					},
-				],
-			};
-		} catch (error) {
-			// Fallback to basic enhancement if AI enhancement fails
-			const enhanced = await context.contentEnhancer.enhance({
-				content: document.content || '',
-				type: enhancementType,
-				options: options || {},
-			});
-
-			const originalContent = document.content || '';
-			if (enhanced.enhanced === originalContent) {
-				return {
-					content: [{ type: 'text', text: 'No changes suggested.' }],
-				};
-			}
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: compact({
-							...enhanced,
-							enhanced: false,
-							fallbackReason: formatError(error),
-						}),
-					},
-				],
-			};
-		}
-	},
-};
-
-export const generateContentHandler: ToolDefinition = {
-	name: 'generate_content',
-	title: 'Generate Content',
-	description:
-		'Generate new prose from a natural-language prompt and return the generated text, optionally ' +
-		'steered by project context (a document, characters, or a target style) and a desired length. ' +
-		'This creates fresh text and does not modify any document. Use enhance_content to improve ' +
-		'existing text instead, or analyze_document to critique it. Uses a configured AI provider ' +
-		'or client-side MCP sampling when available. Unavailable or failed generation returns ' +
-		'an error; local-only privacy settings remain enforced.',
-	annotations: {
-		readOnlyHint: true,
-		destructiveHint: false,
-		idempotentHint: false,
-		openWorldHint: true,
-	},
-	inputSchema: {
-		type: 'object',
-		properties: {
-			prompt: {
-				type: 'string',
-				description: 'Natural-language instruction describing the content to generate.',
-			},
-			context: {
-				type: 'object',
-				description: 'Optional project context to steer generation.',
 				properties: {
-					documentId: {
-						type: 'string',
-						description: 'Id of a document to use as surrounding context.',
-					},
-					characterIds: {
-						type: 'array',
-						items: { type: 'string' },
+					envelope: ANALYSIS_ENVELOPE_SCHEMA,
+					focus: {
+						type: 'object',
 						description:
-							'Ids of characters the generated content should be consistent with.',
+							'Requested critique topics and whether they guided a provider or broad local analysis.',
+						additionalProperties: false,
+						properties: {
+							requested: {
+								type: 'array',
+								description:
+									'Normalized requested topics; all subsumes other topics and is the default.',
+								minItems: 1,
+								maxItems: DOCUMENT_ANALYSIS_TYPES.length,
+								uniqueItems: true,
+								items: { enum: [...DOCUMENT_ANALYSIS_TYPES] },
+							},
+							scope: {
+								enum: ['provider-instructions', 'broad-local'],
+								description:
+									'Provider instructions apply the requested focus; broad-local preserves all available fallback findings.',
+							},
+						},
+						required: ['requested', 'scope'],
 					},
-					style: { type: 'string', description: 'Target writing style or voice.' },
+					coverage: {
+						type: 'object',
+						description:
+							'Complete saved-text range analyzed; source text is never silently truncated.',
+						additionalProperties: false,
+						properties: {
+							start: {
+								const: 0,
+								description: 'Inclusive UTF-16 start offset of the analyzed text.',
+							},
+							end: {
+								type: 'integer',
+								minimum: 0,
+								description: 'Exclusive UTF-16 end offset of the analyzed text.',
+							},
+							sourceCharacters: {
+								type: 'integer',
+								minimum: 0,
+								description: 'UTF-16 length of the complete saved document text.',
+							},
+							truncated: {
+								const: false,
+								description:
+									'Always false because provider and fallback paths assess the complete source.',
+							},
+						},
+						required: ['start', 'end', 'sourceCharacters', 'truncated'],
+					},
+					availability: {
+						type: 'object',
+						description:
+							'Independent provider, local analysis and grammar availability, including missing metrics.',
+						additionalProperties: false,
+						properties: {
+							provider: {
+								enum: ['available', 'unavailable'],
+								description:
+									'Whether a complete, validated provider critique was returned.',
+							},
+							providerReason: {
+								enum: [null, 'empty_source', 'source_limit', 'provider_failed'],
+								description:
+									'Null on provider success; otherwise identifies empty input, input over the provider limit, or provider failure.',
+							},
+							local: {
+								enum: ['available', 'unavailable', 'not_requested'],
+								description:
+									'Whether broad local fallback completed; not_requested when the provider succeeded.',
+							},
+							grammar: {
+								enum: ['available', 'unavailable', 'not_requested'],
+								description:
+									'Whether the independent native grammar fallback completed; not_requested when the provider succeeded.',
+							},
+							unavailable: {
+								type: 'array',
+								description:
+									'Unavailable analysis components or metrics, with local metric paths prefixed by local.',
+								uniqueItems: true,
+								items: { type: 'string' },
+							},
+						},
+						required: ['provider', 'providerReason', 'local', 'grammar', 'unavailable'],
+					},
+					readability: {
+						type: 'string',
+						description:
+							'Readability assessment of the passage (e.g. easy/moderate/complex with a brief reason).',
+					},
+					pacing: {
+						type: 'string',
+						description:
+							'Pacing assessment of the passage (e.g. slow/steady/fast with a brief reason).',
+					},
+					issues: {
+						type: 'array',
+						description: 'Craft issues found in the document.',
+						items: {
+							type: 'object',
+							properties: {
+								description: { type: 'string', description: 'What the issue is.' },
+								severity: {
+									enum: ['low', 'medium', 'high'],
+									description: 'Issue severity when known (low/medium/high).',
+								},
+							},
+							required: ['description'],
+						},
+					},
 				},
+				required: [
+					'readability',
+					'pacing',
+					'issues',
+					'envelope',
+					'focus',
+					'coverage',
+					'availability',
+				],
 			},
-			length: {
-				type: 'number',
-				description: 'Approximate target length in words. Default 500.',
-			},
-		},
-		required: ['prompt'],
+			RESULT_REFERENCE_SCHEMA,
+		],
 	},
 	handler: async (args, context): Promise<HandlerResult> => {
-		validateInput(args, promptSchema);
+		if (Object.keys(args).some((key) => !['documentId', 'analysisTypes'].includes(key)))
+			throw new Error('Unsupported analysis argument');
+		const documentId = storyText(args.documentId, 'Document identifier', 128);
+		const analysisTypes = documentAnalysisTypes(args.analysisTypes);
+		const project = requireProject(context);
 
+		const source = project.getEditorialServices().source;
+		const document = await source.read(documentId);
+		if (context.project !== project)
+			throw new Error('Selected project changed during document analysis');
+		let analysis: DocumentAnalysis;
+		let mode: 'provider' | 'raw' = 'provider';
+		let local: Awaited<ReturnType<typeof context.contentAnalyzer.analyzeContent>> | undefined;
+		let nativeFindings: ReturnType<typeof checkGrammar> | undefined;
+		const unavailable: string[] = [];
+		let localStatus: 'available' | 'unavailable' | 'not_requested' = 'not_requested';
+		let grammarStatus: 'available' | 'unavailable' | 'not_requested' = 'not_requested';
 		try {
-			const prompt = getStringArg(args, 'prompt');
-
-			const ai = new AIClient();
-
-			if (!ai.isAvailable) {
-				return {
-					isError: true,
-					content: [
-						{
-							type: 'text',
-							text:
-								process.env.SCRIVENER_LOCAL_ONLY === 'true'
-									? 'Content generation is disabled in local-only mode. Local analysis and review remain available. To enable generation, explicitly change your privacy and provider settings.'
-									: 'Content generation is unavailable. Configure ANTHROPIC_API_KEY, OPENAI_API_KEY or OPENROUTER_API_KEY in the server environment, or connect an MCP client with sampling enabled. No prose was generated.',
-						},
-					],
-				};
-			}
-
-			const length = getOptionalNumberArg(args, 'length') || 500;
-			const contextData = (getOptionalObjectArg(args, 'context') || {}) as {
-				style?: string;
-				documentId?: string;
-				characterIds?: string[];
-			};
-			const style = contextData.style || 'creative';
-			const contextInfo = contextData.documentId
-				? `\n\nMaintain consistency with document ${contextData.documentId}${
-						contextData.characterIds?.length
-							? ` and characters: ${contextData.characterIds.join(', ')}`
-							: ''
-					}`
-				: '';
-
-			const directive = await getPersonalization(context).buildDirective();
-			const directiveSuffix = directive ? `\n\n${directive}` : '';
-			const system =
-				`You are a creative writing assistant. Write ${style} prose of approximately ` +
-				`${length} words in response to the request. Return only the prose, no preamble.${contextInfo}${directiveSuffix}`;
-			const content = await ai.chat(prompt, {
-				system,
-				temperature: 0.8,
-				maxTokens: Math.min(4096, Math.max(256, Math.round(length * 2))),
-			});
-			if (!content.trim())
-				return {
-					isError: true,
-					content: [
-						{
-							type: 'text',
-							text: 'The selected AI provider or MCP client returned no prose. Check its model settings and the generation request before trying again. No manuscript changes were made.',
-						},
-					],
-				};
-			const generated = {
-				content,
-				wordCount: getAccurateWordCount(content),
-				type: 'creative',
-				suggestions: [],
-				alternativeVersions: [],
-			};
-
-			return {
-				content: [
-					{
-						type: 'text',
-						text: compact(generated),
-					},
-				],
-			};
+			analysis = await new AIDocumentAnalyzer().analyzeDocument(document.text, analysisTypes);
 		} catch {
-			return {
-				isError: true,
-				content: [
-					{
-						type: 'text',
-						text: 'Content generation failed. Check the selected provider or MCP client, model access, account quota and connection. No prose was returned and no manuscript changes were made.',
-					},
-				],
-			};
+			mode = 'raw';
+			unavailable.push('provider');
+			analysis = { readability: 'unavailable', pacing: 'unavailable', issues: [] };
+			try {
+				local = await context.contentAnalyzer.analyzeContent(document.text, documentId);
+				localStatus = 'available';
+				unavailable.push(...(local.unavailable ?? []).map((field) => `local.${field}`));
+				const { fleschReadingEase: ease, fleschKincaidGrade: grade } = local.metrics;
+				const measured = (value: number | null): value is number =>
+					typeof value === 'number' && Number.isFinite(value);
+				const readability =
+					[
+						measured(ease) ? `Flesch ${ease.toFixed(1)}` : '',
+						measured(grade) ? `grade ${grade.toFixed(1)}` : '',
+					]
+						.filter(Boolean)
+						.join(', ') || 'unavailable';
+				const issues: DocumentAnalysis['issues'] = local.suggestions.map((item) => ({
+					description: [item.issue, item.suggestion].filter(Boolean).join(': '),
+					severity:
+						item.severity === 'major'
+							? 'high'
+							: item.severity === 'moderate'
+								? 'medium'
+								: 'low',
+				}));
+				analysis = { readability, pacing: local.pacing.overall, issues };
+			} catch {
+				localStatus = 'unavailable';
+				unavailable.push('local');
+			}
+			try {
+				nativeFindings = checkGrammar(document.text);
+				grammarStatus = 'available';
+				analysis.issues = analysis.issues.concat(
+					nativeFindings.map((finding) => ({ description: finding.message }))
+				);
+			} catch {
+				grammarStatus = 'unavailable';
+				unavailable.push('grammar');
+			}
+			if (analysis.readability === 'unavailable') unavailable.push('readability');
+			if (analysis.pacing === 'unavailable') unavailable.push('pacing');
 		}
+		if ((await source.read(documentId)).revision !== document.revision)
+			throw new Error('Saved source changed during document analysis');
+		if (context.project !== project)
+			throw new Error('Selected project changed during document analysis');
+		const envelope = analysisEnvelope(source.projectId, 'document', [document], {}, mode, {
+			analysisTypes,
+		});
+		envelope.policy.revisionChecked = true;
+		envelope.policy.providerAccess =
+			Boolean(document.text.trim()) && document.text.length <= MAX_DOCUMENT_ANALYSIS_SOURCE;
+		const { readability, pacing, issues } = analysis;
+		const text = `Summary: readability=${readability}, pacing=${pacing}, issues=${issues.length}\n${issues
+			.slice(0, 3)
+			.map((issue) => `- ${issue.description}`)
+			.join('\n')}`;
+		const data = {
+			...analysis,
+			envelope,
+			focus: {
+				requested: analysisTypes,
+				scope: mode === 'provider' ? 'provider-instructions' : 'broad-local',
+			},
+			coverage: {
+				start: 0,
+				end: document.text.length,
+				sourceCharacters: document.text.length,
+				truncated: false,
+			},
+			availability: {
+				provider: mode === 'provider' ? 'available' : 'unavailable',
+				providerReason:
+					mode === 'provider'
+						? null
+						: !document.text.trim()
+							? 'empty_source'
+							: document.text.length > MAX_DOCUMENT_ANALYSIS_SOURCE
+								? 'source_limit'
+								: 'provider_failed',
+				local: localStatus,
+				grammar: grammarStatus,
+				unavailable,
+			},
+			...(local ? { local } : {}),
+			...(nativeFindings ? { nativeFindings } : {}),
+		};
+		const formatted = formatPayload(data, 'analysis');
+		const structuredContent = JSON.parse(formatted) as Record<string, unknown>;
+		return {
+			content: [{ type: 'text', text: structuredContent._ref ? formatted : text }],
+			structuredContent,
+		};
 	},
 };

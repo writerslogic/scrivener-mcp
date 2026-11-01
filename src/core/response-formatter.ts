@@ -1,11 +1,4 @@
-/**
- * Token-optimized response formatting for MCP tool outputs.
- *
- * - Strips null/undefined fields
- * - Minifies JSON (no indentation)
- * - Large payloads spill to disk, returning a tracker ID
- * - Error outputs masked to short actionable messages
- */
+// Large responses spill to retrievable storage; JSON values and array positions stay intact.
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,6 +8,9 @@ import * as crypto from 'crypto';
 const PAYLOAD_THRESHOLD = 4000; // chars before spilling to disk
 let spoolDir: string | undefined;
 const MAX_SPOOL_BYTES = 64 * 1024 * 1024;
+const MAX_SPOOL_RESULTS = 256;
+export const RESULT_RETENTION = `Results expire after one hour, on server restart, or when the ${MAX_SPOOL_BYTES / 1024 / 1024} MiB/${MAX_SPOOL_RESULTS}-result cache fills.`;
+const RESULT_HINT = `Use read_result with resultId equal to _ref to retrieve bounded chunks. ${RESULT_RETENTION}`;
 const spoolEntries = new Map<string, { filepath: string; bytes: number; createdAt: number }>();
 
 function getSpoolDir(): string {
@@ -26,27 +22,10 @@ function getSpoolDir(): string {
 }
 
 /**
- * Recursively strip null, undefined, and empty-string values from an object.
- */
-function stripEmpty(obj: unknown): unknown {
-	if (obj === null || obj === undefined) return undefined;
-	if (Array.isArray(obj)) return obj.map(stripEmpty).filter((v) => v !== undefined);
-	if (typeof obj === 'object') {
-		const cleaned: Record<string, unknown> = Object.create(null);
-		for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-			const stripped = stripEmpty(v);
-			if (stripped !== undefined) cleaned[k] = stripped;
-		}
-		return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-	}
-	return obj;
-}
-
-/**
- * Compact JSON serialization: no indentation, nulls stripped.
+ * Compact JSON serialization preserving explicit absence and positional data.
  */
 export function compact(data: unknown): string {
-	return JSON.stringify(stripEmpty(data)) ?? 'null';
+	return JSON.stringify(data) ?? 'null';
 }
 
 function spool(json: string, label: string): { id: string; filepath: string } {
@@ -57,7 +36,7 @@ function spool(json: string, label: string): { id: string; filepath: string } {
 	if (bytes > MAX_SPOOL_BYTES) throw new Error('Result exceeds the 64 MiB retrieval limit');
 	let totalBytes = [...spoolEntries.values()].reduce((total, entry) => total + entry.bytes, 0);
 	for (const [oldId, entry] of spoolEntries) {
-		if (totalBytes + bytes <= MAX_SPOOL_BYTES && spoolEntries.size < 256) break;
+		if (totalBytes + bytes <= MAX_SPOOL_BYTES && spoolEntries.size < MAX_SPOOL_RESULTS) break;
 		fs.rmSync(entry.filepath, { force: true });
 		spoolEntries.delete(oldId);
 		totalBytes -= entry.bytes;
@@ -84,24 +63,12 @@ export function formatPayload(data: unknown, label?: string): string {
 		_file: filepath,
 		_size: json.length,
 		_preview: json.slice(0, 200),
-		_hint: 'Use read_result with resultId equal to _ref to retrieve bounded chunks. Results expire after one hour or when the server restarts.',
+		_hint: RESULT_HINT,
 	});
 }
 
 export function formatList(items: unknown[], label?: string): string {
-	const json = compact(items);
-	if (json.length <= PAYLOAD_THRESHOLD) return json;
-
-	const { id, filepath } = spool(json, label ?? 'list');
-
-	return compact({
-		_ref: id,
-		_file: filepath,
-		_size: json.length,
-		_count: items.length,
-		_preview: items.slice(0, 3),
-		_hint: 'Use read_result with resultId equal to _ref to retrieve bounded chunks. Results expire after one hour or when the server restarts.',
-	});
+	return formatPayload(items, label ?? 'list');
 }
 
 export function readResult(
@@ -217,9 +184,6 @@ export function formatError(error: unknown, operation?: string): string {
 	return `${prefix}${message.trim()}`;
 }
 
-/**
- * Clean up old spool files (older than 1 hour).
- */
 export function cleanupSpool(): void {
 	const cutoff = Date.now() - 3600000;
 	for (const [id, entry] of spoolEntries) {

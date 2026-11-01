@@ -49,13 +49,11 @@ function openServices(): void {
 		root,
 		documents,
 		undefined,
-		async () => {},
 		() => {},
-		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
-		(id, title) => createSnapshot(root, id, title ?? 'Snapshot', new Date())
+		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' })
 	);
 	store = new PersistentStore(database());
-	reviews = new ReviewService(root, documents, writer, store);
+	reviews = new ReviewService(documents, writer, store);
 }
 
 async function restartServices(): Promise<void> {
@@ -500,7 +498,7 @@ test('project scope validation rejects removed targets without persisting or app
 		documentId: DOCUMENT,
 		edits: [{ start: 0, end: 0, text: 'New ' }],
 	});
-	const scoped = new ReviewService(root, documents, writer, store, async () => {
+	const scoped = new ReviewService(documents, writer, store, async () => {
 		throw new Error('Target is outside the active binder');
 	});
 	await expect(

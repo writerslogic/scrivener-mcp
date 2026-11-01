@@ -1,3 +1,4 @@
+import { detectThemesSmart } from 'narrative-lens';
 import { getLogger } from '../core/logger.js';
 import { escapeRegExp } from '../utils/regex.js';
 import type { DatabaseService } from '../handlers/database/database-service.js';
@@ -13,7 +14,7 @@ import {
 	validateInput,
 	withErrorHandling,
 } from '../utils/common.js';
-import type { ContentAnalysis, ContentAnalyzer } from './base-analyzer.js';
+import type { ContentAnalyzer } from './base-analyzer.js';
 
 const logger = getLogger('context-analyzer');
 
@@ -159,35 +160,26 @@ export class ContextAnalyzer {
 		});
 
 		const measureResult = await measureExecution(async () => {
-			// Get basic analysis
 			const basicAnalysis = await this.contentAnalyzer.analyzeContent(content, document.id);
 
-			// Find previous and next chapters
 			const chapterIndex = allDocuments.findIndex((d) => d.id === document.id);
 			const previousChapter = chapterIndex > 0 ? allDocuments[chapterIndex - 1] : undefined;
 			const nextChapter =
 				chapterIndex < allDocuments.length - 1 ? allDocuments[chapterIndex + 1] : undefined;
 
-			// Process character mentions with batch processing for large content
 			const characters = await this.extractCharacterMentions(document.id, content);
 
-			// Extract themes using truncated content for efficiency
-			const truncatedContent = truncate(content, 3000);
-			const themes = await this.extractThemes(truncatedContent, basicAnalysis);
+			const themes = await this.extractThemes(content);
 
-			// Get plot threads for this chapter
 			const plotThreads = await this.getChapterPlotThreads(document.id);
 
-			// Analyze emotional arc
-			const emotionalArc = this.analyzeEmotionalArc(content, basicAnalysis);
+			const emotionalArc = this.analyzeEmotionalArc(content);
 
-			// Extract key narrative elements using batch processing
 			const keyEvents = this.extractKeyEvents(content);
 			const cliffhangers = this.extractCliffhangers(content);
 			const foreshadowing = this.extractForeshadowing(content);
-			const callbacks = this.extractCallbacks(content, allDocuments);
+			const callbacks = this.extractCallbacks(content);
 
-			// Build chapter context
 			const context: ChapterContext = {
 				documentId: document.id,
 				title: document.title,
@@ -256,10 +248,7 @@ export class ContextAnalyzer {
 		return result as unknown as ChapterContext;
 	}
 
-	async buildStoryContext(
-		_documents: ScrivenerDocument[],
-		chapterContexts: ChapterContext[]
-	): Promise<StoryContext> {
+	async buildStoryContext(chapterContexts: ChapterContext[]): Promise<StoryContext> {
 		const characterArcs = await this.buildCharacterArcs(chapterContexts);
 		const themeProgression = await this.buildThemeProgression(chapterContexts);
 		const plotThreads = await this.buildPlotThreadMap(chapterContexts);
@@ -296,7 +285,6 @@ export class ContextAnalyzer {
 				contentSize: formatBytes(content.length),
 			});
 
-			// Get known characters from database
 			if (this.databaseService.getSQLite()) {
 				const knownCharacters = this.databaseService
 					.getSQLite()
@@ -306,7 +294,6 @@ export class ContextAnalyzer {
 					role: string;
 				}>;
 
-				// Process characters with optimized batch processing
 				const processCharacterBatch = async (
 					batch: typeof knownCharacters
 				): Promise<(ChapterContext['characters'][0] | null)[]> => {
@@ -349,7 +336,6 @@ export class ContextAnalyzer {
 		const matches = content.match(regex);
 
 		if (matches && matches.length > 0) {
-			// Find last mention position
 			const lastIndex = content.lastIndexOf(char.name);
 			const contextStart = Math.max(0, lastIndex - 50);
 			const contextEnd = Math.min(content.length, lastIndex + 50);
@@ -367,58 +353,12 @@ export class ContextAnalyzer {
 		return null;
 	}
 
-	private async extractThemes(
-		content: string,
-		_analysis: ContentAnalysis
-	): Promise<ChapterContext['themes']> {
-		const themes: ChapterContext['themes'] = [];
-
-		// Common theme keywords
-		const themeKeywords = {
-			love: ['love', 'romance', 'heart', 'passion', 'affection'],
-			death: ['death', 'dying', 'mortality', 'grave', 'funeral'],
-			power: ['power', 'control', 'authority', 'dominance', 'strength'],
-			identity: ['identity', 'self', 'who am I', 'belonging', 'purpose'],
-			family: ['family', 'mother', 'father', 'sibling', 'parent', 'child'],
-			betrayal: ['betrayal', 'betray', 'deceive', 'lie', 'trust'],
-			redemption: ['redemption', 'forgive', 'atone', 'second chance', 'salvation'],
-			freedom: ['freedom', 'liberty', 'escape', 'prison', 'chains'],
-		};
-
-		for (const [theme, keywords] of Object.entries(themeKeywords)) {
-			const examples: string[] = [];
-			let totalMatches = 0;
-
-			for (const keyword of keywords) {
-				const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
-				const matches = content.match(regex);
-
-				if (matches) {
-					totalMatches += matches.length;
-
-					// Get example context
-					const firstMatch = content.search(regex);
-					if (firstMatch !== -1) {
-						const start = Math.max(0, firstMatch - 30);
-						const end = Math.min(content.length, firstMatch + keyword.length + 30);
-						examples.push(content.substring(start, end).trim());
-					}
-				}
-			}
-
-			if (totalMatches > 0) {
-				themes.push({
-					name: theme,
-					prominence: Math.min(1, totalMatches / 10), // Normalize to 0-1
-					examples: examples.slice(0, 3), // Keep top 3 examples
-				});
-			}
-		}
-
-		// Sort by prominence
-		themes.sort((a, b) => b.prominence - a.prominence);
-
-		return themes;
+	private async extractThemes(content: string): Promise<ChapterContext['themes']> {
+		const tokens = content.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+		const scores = detectThemesSmart([content], [tokens])[0] ?? {};
+		return Object.entries(scores)
+			.map(([name, prominence]) => ({ name, prominence, examples: [] as string[] }))
+			.sort((a, b) => b.prominence - a.prominence);
 	}
 
 	private async getChapterPlotThreads(
@@ -447,22 +387,16 @@ export class ContextAnalyzer {
 		return threads;
 	}
 
-	private analyzeEmotionalArc(
-		content: string,
-		_analysis: ContentAnalysis
-	): ChapterContext['emotionalArc'] {
-		// Split content into thirds
+	private analyzeEmotionalArc(content: string): ChapterContext['emotionalArc'] {
 		const third = Math.floor(content.length / 3);
 		const start = content.substring(0, third);
 		const middle = content.substring(third, third * 2);
 		const end = content.substring(third * 2);
 
-		// Analyze each section
 		const startEmotion = this.detectDominantEmotion(start);
 		const peakEmotion = this.detectDominantEmotion(middle);
 		const endEmotion = this.detectDominantEmotion(end);
 
-		// Determine overall arc
 		let overall = 'steady';
 		if (startEmotion === 'positive' && endEmotion === 'negative') {
 			overall = 'falling';
@@ -519,7 +453,6 @@ export class ContextAnalyzer {
 			}
 		}
 
-		// Find dominant emotion
 		let maxScore = 0;
 		let dominantEmotion = 'neutral';
 
@@ -561,7 +494,6 @@ export class ContextAnalyzer {
 		const lastSentences = sentences.slice(-3);
 
 		for (const sentence of lastSentences) {
-			// Check for cliffhanger patterns
 			if (
 				sentence.includes('?') ||
 				sentence.match(/but|however|suddenly|then/i) ||
@@ -593,7 +525,7 @@ export class ContextAnalyzer {
 		return foreshadowing;
 	}
 
-	private extractCallbacks(content: string, _allDocuments: ScrivenerDocument[]): string[] {
+	private extractCallbacks(content: string): string[] {
 		const callbacks: string[] = [];
 
 		const patterns = [
@@ -637,7 +569,6 @@ export class ContextAnalyzer {
 			}
 		>();
 
-		// Track each character's journey
 		const characterMap = new Map<
 			string,
 			Array<{
@@ -660,7 +591,6 @@ export class ContextAnalyzer {
 			}
 		}
 
-		// Build arcs
 		for (const [charId, appearances] of characterMap) {
 			const firstAppearance = appearances[0];
 			const lastAppearance = appearances[appearances.length - 1];
@@ -690,7 +620,6 @@ export class ContextAnalyzer {
 			}
 		>();
 
-		// Track themes across chapters
 		const themeMap = new Map<
 			string,
 			Array<{
@@ -713,7 +642,6 @@ export class ContextAnalyzer {
 			}
 		}
 
-		// Build progression
 		for (const [themeName, occurrences] of themeMap) {
 			const firstOccurrence = occurrences[0];
 			const avgProminence =
@@ -776,7 +704,6 @@ export class ContextAnalyzer {
 			}
 		}
 
-		// Build thread map
 		for (const [threadId, data] of threadMap) {
 			threads.set(threadId, {
 				thread: data.name,
@@ -806,7 +733,6 @@ export class ContextAnalyzer {
 			intensity: ctx.pacing.score,
 		}));
 
-		// Determine trend
 		const firstHalf = intensityPoints.slice(0, Math.floor(intensityPoints.length / 2));
 		const secondHalf = intensityPoints.slice(Math.floor(intensityPoints.length / 2));
 
@@ -822,7 +748,6 @@ export class ContextAnalyzer {
 						? 'steady'
 						: 'variable';
 
-		// Generate suggestions
 		const suggestions: string[] = [];
 		if (trend === 'decelerating') {
 			suggestions.push('Consider adding more tension or conflict in later chapters');
@@ -847,7 +772,6 @@ export class ContextAnalyzer {
 			context
 		);
 
-		// Update document with enhanced metadata
 		if (this.databaseService.getSQLite()) {
 			const stmt = this.databaseService.getSQLite().getDatabase().prepare(`
 				UPDATE documents
@@ -862,7 +786,6 @@ export class ContextAnalyzer {
 
 	private async storeStoryContext(context: StoryContext): Promise<void> {
 		if (this.databaseService.getSQLite()) {
-			// Convert Maps to objects for JSON storage
 			const contextData = {
 				...context,
 				characterArcs: Object.fromEntries(context.characterArcs),
@@ -914,7 +837,7 @@ export class ContextAnalyzer {
 					themeProgression: {},
 					plotThreads: {},
 				});
-				// Convert objects back to Maps
+
 				return {
 					...data,
 					characterArcs: new Map(Object.entries(data.characterArcs)),

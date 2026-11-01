@@ -1,16 +1,18 @@
 import { homedir } from 'node:os';
 
+export function isSensitiveDiagnosticKey(key: string): boolean {
+	return /api.?key|token|password|secret|^authorization$|^cookie$|^content$|^manuscript$|^stderr$/i.test(
+		key
+	);
+}
+
 export function redactDiagnostics(value: unknown): unknown {
 	if (Array.isArray(value)) return value.map(redactDiagnostics);
 	if (value && typeof value === 'object') {
 		return Object.fromEntries(
 			Object.entries(value).map(([key, item]) => [
 				key,
-				/api.?key|token|password|secret|^authorization$|^cookie$|^content$|^manuscript$|^stderr$/i.test(
-					key
-				)
-					? '[redacted]'
-					: redactDiagnostics(item),
+				isSensitiveDiagnosticKey(key) ? '[redacted]' : redactDiagnostics(item),
 			])
 		);
 	}

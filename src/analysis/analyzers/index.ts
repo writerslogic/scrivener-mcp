@@ -1,4 +1,3 @@
-// Export all analyzer classes and interfaces
 export { MetricsAnalyzer, type WritingMetrics } from './metrics-analyzer.js';
 export { StyleAnalyzer, type StyleAnalysis } from './style-analyzer.js';
 export { StructureAnalyzer, type StructureAnalysis } from './structure-analyzer.js';

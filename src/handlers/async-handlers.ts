@@ -8,17 +8,16 @@ import type { Job } from 'bullmq';
 import { createHmac, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { getLogger } from '../core/logger.js';
-import { AIClient } from '../services/ai/ai-client.js';
-import { AIWritingService } from '../services/ai/ai-writing-service.js';
+import type { AIWritingService } from '../services/ai/ai-writing-service.js';
+import type { SuggestionResult } from '../services/ai/writing-suggestions.js';
 import { ContentAnalyzer } from '../analysis/base-analyzer.js';
-import { JobQueueService, JobType } from '../services/queue/job-queue.js';
+import { JobQueueService, JobType, type AnalyzeProjectJob } from '../services/queue/job-queue.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import {
 	ErrorCode,
 	createError,
 	formatDuration,
 	getEnv,
-	handleError,
 	measureExecution,
 	retry,
 	validateInput,
@@ -29,14 +28,26 @@ let aiWritingService: AIWritingService | null = null;
 const logger = getLogger('async-handlers');
 let localAnalyzer: ContentAnalyzer | undefined;
 let lifecycle: Promise<void> = Promise.resolve();
+let lifecycleFailure: Error | undefined;
 let configuration: string | undefined;
+let configuredSource: (() => ManuscriptSource) | undefined;
 const configurationKey = randomBytes(32);
 let activeOperations = 0;
 const drainCallbacks: Array<() => void> = [];
 
 function transition(operation: () => Promise<void>): Promise<void> {
 	const pending = lifecycle.then(operation);
-	lifecycle = pending.catch(() => undefined);
+	lifecycle = pending.then(
+		() => {
+			lifecycleFailure = undefined;
+		},
+		(error: unknown) => {
+			lifecycleFailure =
+				error instanceof Error
+					? error
+					: new Error('Async lifecycle transition failed', { cause: error });
+		}
+	);
 	return pending;
 }
 
@@ -47,6 +58,10 @@ async function withAsyncServices<T>(
 		const pending = lifecycle;
 		await pending;
 		if (pending !== lifecycle) continue;
+		if (lifecycleFailure)
+			throw new Error('Async services are unavailable after a failed lifecycle transition', {
+				cause: lifecycleFailure,
+			});
 		activeOperations++;
 		try {
 			return await operation(jobQueueService, aiWritingService);
@@ -59,19 +74,14 @@ async function withAsyncServices<T>(
 
 async function closeCurrentServices(): Promise<void> {
 	if (activeOperations) await new Promise<void>((notify) => drainCallbacks.push(notify));
+	configuration = undefined;
+	configuredSource = undefined;
 	localAnalyzer?.dispose();
 	localAnalyzer = undefined;
-	const queue = jobQueueService;
-	const writing = aiWritingService;
+	if (jobQueueService) await jobQueueService.shutdown();
+	else await aiWritingService?.clearMemory();
 	jobQueueService = null;
 	aiWritingService = null;
-	configuration = undefined;
-	const results = await Promise.allSettled([queue?.shutdown(), writing?.clearMemory()]);
-	const failures = results.flatMap((result) =>
-		result.status === 'rejected' ? [result.reason] : []
-	);
-	if (failures.length === 1) throw failures[0];
-	if (failures.length > 1) throw new AggregateError(failures, 'Async services failed to close');
 }
 
 export async function analyzeWorkflowDocument(params: {
@@ -102,6 +112,7 @@ export async function initializeAsyncServices(
 		projectPath?: string;
 		sqliteOnly?: boolean;
 		continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
+		source?: () => ManuscriptSource;
 	} = {}
 ): Promise<void> {
 	return transition(async () => {
@@ -120,18 +131,18 @@ export async function initializeAsyncServices(
 				})
 			)
 			.digest('hex');
-		if (configuration === key && jobQueueService) return;
-		let queue: JobQueueService | undefined;
+		if (configuration === key && configuredSource === options.source && jobQueueService) return;
+		await closeCurrentServices();
+		const candidate = new JobQueueService(projectPath);
+		jobQueueService = candidate;
 		try {
-			await closeCurrentServices();
-			const candidate = new JobQueueService(projectPath);
-			queue = candidate;
 			const initResult = await measureExecution(async () => {
 				await retry(
 					() =>
 						candidate.initialize({
 							sqliteOnly: options.sqliteOnly,
 							continuity: options.continuity,
+							source: options.source,
 							redisUrl: options.redisUrl || getEnv('REDIS_URL'),
 							openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
 							databasePath: options.databasePath,
@@ -139,13 +150,9 @@ export async function initializeAsyncServices(
 						}),
 					{ maxAttempts: 3 }
 				);
-				const aiClient = new AIClient({
-					openaiApiKey: options.openaiApiKey || getEnv('OPENAI_API_KEY'),
-				});
-				const writing = aiClient.isAvailable ? new AIWritingService(aiClient) : null;
-				jobQueueService = candidate;
-				aiWritingService = writing;
+				aiWritingService = candidate.getWritingService();
 				configuration = key;
+				configuredSource = options.source;
 				logger.info(
 					`Job queue service initialized with ${candidate.getConnectionInfo().type} connection`
 				);
@@ -154,15 +161,16 @@ export async function initializeAsyncServices(
 				`Async services initialization completed in ${formatDuration(initResult.ms)}`
 			);
 		} catch (error) {
-			if (jobQueueService === queue) {
-				jobQueueService = null;
-				await aiWritingService?.clearMemory();
-				aiWritingService = null;
-				configuration = undefined;
+			try {
+				await closeCurrentServices();
+			} catch (cleanupError) {
+				throw new AggregateError(
+					[error, cleanupError],
+					'Async service initialization and cleanup failed',
+					{ cause: cleanupError }
+				);
 			}
-			await queue?.shutdown();
-			const appError = handleError(error, 'initializeAsyncServices');
-			logger.warn('Failed to initialize async services', { error: appError.message });
+			throw error;
 		}
 	});
 }
@@ -181,25 +189,29 @@ export async function queueDocumentAnalysis(params: {
 	};
 }): Promise<{ jobId: string; message: string }> {
 	return withAsyncServices(async (jobQueueService) => {
-		validateInput(params, { documentId: { required: true }, content: { required: true } });
-
 		if (!jobQueueService) {
 			throw createError(
 				ErrorCode.AI_SERVICE_ERROR,
 				null,
-				'Job queue service not available. Please configure Redis.'
+				'Job queue service is unavailable; open a project to initialize it.'
 			);
 		}
 
+		if (
+			params.options !== undefined &&
+			(!params.options || typeof params.options !== 'object' || Array.isArray(params.options))
+		)
+			throw new Error('Queue options must be an object');
+		const { priority, ...options } = params.options ?? {};
 		const jobId = await jobQueueService.addJob(
 			JobType.ANALYZE_DOCUMENT,
 			{
 				documentId: params.documentId,
 				content: params.content,
-				options: params.options,
+				options,
 			},
 			{
-				priority: params.options?.priority,
+				priority,
 			}
 		);
 
@@ -215,13 +227,13 @@ export async function queueDocumentAnalysis(params: {
  */
 export async function queueProjectAnalysis(params: {
 	projectId: string;
-	documents: ScrivenerDocument[];
+	documents: AnalyzeProjectJob['documents'];
 	options?: {
 		parallel?: boolean;
 		batchSize?: number;
 		priority?: number;
 	};
-}): Promise<{ jobId: string; message: string; estimatedTime?: number }> {
+}): Promise<{ jobId: string; message: string }> {
 	return withAsyncServices(async (jobQueueService) => {
 		validateInput(params, { projectId: { required: true }, documents: { required: true } });
 
@@ -229,25 +241,27 @@ export async function queueProjectAnalysis(params: {
 			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'Job queue service not available');
 		}
 
+		if (
+			params.options !== undefined &&
+			(!params.options || typeof params.options !== 'object' || Array.isArray(params.options))
+		)
+			throw new Error('Queue options must be an object');
+		const { priority, ...options } = params.options ?? {};
 		const jobId = await jobQueueService.addJob(
 			JobType.ANALYZE_PROJECT,
 			{
 				projectId: params.projectId,
 				documents: params.documents,
-				options: params.options,
+				options,
 			},
 			{
-				priority: params.options?.priority,
+				priority,
 			}
 		);
-
-		// Estimate processing time (rough estimate: 2 seconds per document)
-		const estimatedTime = params.documents.length * 2;
 
 		return {
 			jobId,
 			message: `Project analysis queued with ${params.documents.length} documents`,
-			estimatedTime,
 		};
 	});
 }
@@ -258,12 +272,24 @@ export async function buildVectorStore(params: {
 }): Promise<{ jobId?: string; message: string }> {
 	return withAsyncServices(async (jobQueueService, aiWritingService) => {
 		validateInput(params, { documents: { required: true } });
+		if (
+			!Array.isArray(params.documents) ||
+			(params.rebuild !== undefined && typeof params.rebuild !== 'boolean')
+		)
+			throw new Error(
+				'Passage indexing requires a document array and a boolean rebuild flag'
+			);
+		const documents = params.documents.map((doc) => ({
+			id: doc.id,
+			content: doc.content,
+			metadata: { ...doc.metadata, title: doc.title, path: doc.path },
+		}));
 
 		// If job queue is available, use it
 		if (jobQueueService) {
 			const jobId = await jobQueueService.addJob(
 				JobType.BUILD_VECTOR_STORE,
-				{ documents: params.documents },
+				{ documents, rebuild: params.rebuild },
 				{ priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 1 }
 			);
 
@@ -278,11 +304,7 @@ export async function buildVectorStore(params: {
 			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 		}
 
-		if (params.rebuild) {
-			await aiWritingService.clearMemory();
-		}
-
-		await aiWritingService.buildVectorStore(params.documents);
+		await aiWritingService.buildVectorStore(params.documents, { rebuild: params.rebuild });
 
 		return {
 			message: `Vector store built with ${params.documents.length} documents`,
@@ -304,7 +326,7 @@ export async function semanticSearch(params: { query: string; topK?: number }): 
 			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
 		}
 
-		const results = await aiWritingService.semanticSearch(params.query, params.topK || 5);
+		const results = await aiWritingService.semanticSearch(params.query, params.topK ?? 5);
 
 		return {
 			results: results.map((doc) => ({
@@ -320,53 +342,32 @@ export async function generateSuggestions(params: {
 	documentId?: string;
 	useContext?: boolean;
 	async?: boolean;
-}): Promise<{ jobId?: string; suggestions?: string; message?: string }> {
-	return withAsyncServices(async (jobQueueService, aiWritingService) => {
-		validateInput(params, { prompt: { required: true } });
-
-		// If async is requested and job queue is available
-		if (params.async && jobQueueService) {
-			const jobId = await jobQueueService.addJob(
-				JobType.GENERATE_SUGGESTIONS,
-				{
-					documentId: params.documentId,
-					prompt: params.prompt,
-				},
-				{ priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 2 }
-			);
+}): Promise<SuggestionResult | { jobId: string; message: string }> {
+	return withAsyncServices(async (jobQueueService) => {
+		if (!jobQueueService) throw new Error('Writing suggestions are unavailable');
+		if (params.async !== undefined && typeof params.async !== 'boolean')
+			throw new Error('async must be a boolean');
+		const { async: background, ...request } = params;
+		if (background) {
+			const jobId = await jobQueueService.addJob(JobType.GENERATE_SUGGESTIONS, request, {
+				priority: jobQueueService.getConnectionInfo().type === 'embedded' ? 0 : 2,
+			});
 
 			return {
 				jobId,
 				message: 'Suggestion generation queued',
 			};
 		}
-
-		// Otherwise, process synchronously
-		if (!aiWritingService) {
-			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
-		}
-
-		const suggestions = await aiWritingService.generateWithContext(params.prompt, {
-			topK: params.useContext ? 3 : 0,
-		});
-
-		return { suggestions };
+		return jobQueueService.generateSuggestions(request);
 	});
 }
 
 export async function analyzeWritingStyle(params: {
 	samples: string[];
-}): Promise<{ analysis: Record<string, unknown> }> {
-	return withAsyncServices(async (jobQueueService, aiWritingService) => {
-		validateInput(params, { samples: { required: true } });
-
-		if (!aiWritingService) {
-			throw createError(ErrorCode.AI_SERVICE_ERROR, null, 'AI writing service not available');
-		}
-
-		const analysis = await aiWritingService.analyzeWritingStyle(params.samples);
-
-		return { analysis };
+}): ReturnType<JobQueueService['analyzeWritingStyle']> {
+	return withAsyncServices(async (jobQueueService) => {
+		if (!jobQueueService) throw new Error('Writing style analysis is unavailable');
+		return jobQueueService.analyzeWritingStyle(params.samples);
 	});
 }
 
@@ -454,7 +455,6 @@ export async function getJobStatus(params: { jobType: JobType; jobId: string }):
 			};
 		}
 
-		// Handle Job object from v2 API
 		if ('attemptsMade' in jobStatus) {
 			// This is a Job object from BullMQ
 			const job = jobStatus as Job<unknown, unknown, string>;
@@ -501,7 +501,6 @@ function normalizeQueueStats(rawStats: Record<string, unknown>): {
 	failed: number;
 	delayed: number;
 } {
-	// Handle both v1 (direct object) and v2 (Record<string, unknown>) formats
 	return {
 		waiting: Number(rawStats.waiting || 0),
 		active: Number(rawStats.active || 0),
@@ -541,12 +540,10 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 		}> = [];
 
 		if (params.jobType) {
-			// Get stats for specific queue
 			const rawStats = await jobQueueService.getQueueStats(params.jobType);
 			const stats = normalizeQueueStats(rawStats);
 			queues.push({ type: params.jobType, stats });
 		} else {
-			// Get stats for all queues
 			for (const jobType of Object.values(JobType)) {
 				const rawStats = await jobQueueService.getQueueStats(jobType);
 				const stats = normalizeQueueStats(rawStats);

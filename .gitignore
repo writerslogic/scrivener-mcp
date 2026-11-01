@@ -179,3 +179,13 @@ dist-mcpb/
 
 # Draftbridge for Scrivener (paid Mac app): private repo cloned here, not tracked
 apps/mac/
+
+# Private audit evidence and planning notes.
+docs/implementation-status.md
+docs/repository-audit-*.md
+docs/github-security-followup-*.md
+docs/conformance/
+docs/compatibility/
+docs/video/
+AGENTS.md
+CLAUDE.md

@@ -6,7 +6,7 @@ import { handleError, isValidUUID, truncate, validateInput } from '../utils/comm
 import { generateScrivenerUUID } from '../utils/scrivener-utils.js';
 import {
 	addBinderItem,
-	appendBinderChild,
+	addBinderChild,
 	findBinderItemById,
 	findParentFolder,
 	removeBinderItem,
@@ -43,7 +43,6 @@ export class BinderEditor {
 				}
 			);
 
-			// Validate project structure
 			validateProjectStructure(this.projectStructure);
 
 			const binder = this.projectStructure!.ScrivenerProject.Binder;
@@ -62,12 +61,10 @@ export class BinderEditor {
 			const id = generateScrivenerUUID();
 			const sanitizedTitle = truncate(title, 255);
 
-			// Create the document file if it's a text document
 			if (type === DOCUMENT_TYPES.TEXT) {
 				await this.writeDocument(id, content);
 			}
 
-			// Create the binder item
 			const newItem: BinderItem = {
 				UUID: id,
 				Type: type,
@@ -77,7 +74,7 @@ export class BinderEditor {
 
 			// Use utility function to add binder item
 			if (parentFolder) {
-				appendBinderChild(parentFolder, newItem);
+				addBinderChild(parentFolder, newItem);
 			} else {
 				addBinderItem(binder, newItem);
 			}
@@ -200,7 +197,11 @@ export class BinderEditor {
 	/**
 	 * Move a document to a different parent
 	 */
-	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
+	async moveDocument(
+		documentId: string,
+		newParentId: string | null,
+		position?: number
+	): Promise<void> {
 		try {
 			validateInput(
 				{ documentId, newParentId },
@@ -267,6 +268,26 @@ export class BinderEditor {
 				}
 			}
 
+			const targetItems = newParent ? newParent.Children?.BinderItem : binder.BinderItem;
+			const siblings = Array.isArray(targetItems)
+				? targetItems
+				: targetItems
+					? [targetItems]
+					: [];
+			const maximumPosition = siblings.filter(
+				(item) => item.UUID !== documentId && item.ID !== documentId
+			).length;
+			if (
+				position !== undefined &&
+				(!Number.isSafeInteger(position) || position < 0 || position > maximumPosition)
+			) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ position, maximumPosition },
+					'Document position is outside the target folder bounds'
+				);
+			}
+
 			const extractedItem = removeBinderItem(binder, documentId);
 			if (!extractedItem) {
 				throw createError(
@@ -278,9 +299,9 @@ export class BinderEditor {
 
 			// Use utility function to add to new location
 			if (newParent) {
-				appendBinderChild(newParent, extractedItem);
+				addBinderChild(newParent, extractedItem, position);
 			} else {
-				addBinderItem(binder, extractedItem);
+				addBinderItem(binder, extractedItem, position);
 			}
 
 			logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
@@ -299,7 +320,6 @@ export class BinderEditor {
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 
-		// Find and remove from trash
 		const searchResults = Array.isArray(binder.SearchResults)
 			? binder.SearchResults
 			: binder.SearchResults
@@ -314,7 +334,6 @@ export class BinderEditor {
 		// Ensure trashItems is an array
 		const trashArray = Array.isArray(trashItems) ? trashItems : [trashItems];
 
-		// Check if trash is empty
 		if (trashArray.length === 0) {
 			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
 		}
@@ -345,12 +364,12 @@ export class BinderEditor {
 		}
 
 		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
-		// Update the trash with the modified array
+
 		searchResults[0].Children!.BinderItem = trashArray;
 
 		// Place in target location or root
 		if (targetParent) {
-			appendBinderChild(targetParent, recoveredItem as BinderItem);
+			addBinderChild(targetParent, recoveredItem as BinderItem);
 		} else {
 			// Restore into the Draft/Manuscript folder, or at the binder top level if
 			// there is none. (This previously assumed binderItems[0] was the container

@@ -126,6 +126,12 @@ extends the existing character, world and plot memory into current-project candi
 imported entries remain inferred. To include shared canon in an audit, pass its explicit `seriesId`
 to `check_consistency`.
 
+Memory import stages one complete snapshot and commits its candidates atomically. It includes named
+world-building records and both earlier custom location-list shapes, deduplicating equivalent
+locations. Subjects must fit 200 UTF-16 characters and values 2000; larger profiles need explicitly
+curated facts. Legacy location lists are bounded at 1000 entries. Invalid or changed memory fails
+before any candidate is stored; descriptions are never silently clipped.
+
 ## Run a guided workflow
 
 ```js

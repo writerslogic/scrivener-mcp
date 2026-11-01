@@ -59,16 +59,66 @@ function result(text: string): Record<string, unknown> | unknown[] | string {
 }
 
 test('empty and hostile-shaped payloads remain valid JSON without modifying prototypes', () => {
-	for (const value of [undefined, null, {}]) expect(compact(value)).toBe('null');
+	for (const value of [undefined, null]) expect(compact(value)).toBe('null');
+	expect(compact({})).toBe('{}');
 	const data = JSON.parse(
 		'{"__proto__":{"admin":true},"zero":0,"empty":"","false":false,"nil":null}'
 	);
 	const parsed = JSON.parse(compact(data));
-	expect(parsed).toEqual(
-		JSON.parse('{"__proto__":{"admin":true},"zero":0,"empty":"","false":false}')
-	);
+	expect(parsed).toEqual(data);
 	expect(Object.prototype.hasOwnProperty.call(parsed, '__proto__')).toBe(true);
 	expect(parsed.admin).toBeUndefined();
+});
+
+test('preserves unavailable metrics, tuple positions, empty metadata and standard date serialization', () => {
+	const data = {
+		readability: null,
+		metadata: {},
+		missing: undefined,
+		series: [null, {}, [], 'scene', undefined, 0, false],
+		createdAt: new Date('2026-10-31T00:00:00.000Z'),
+	};
+	expect(JSON.parse(compact(data))).toEqual({
+		readability: null,
+		metadata: {},
+		series: [null, {}, [], 'scene', null, 0, false],
+		createdAt: '2026-10-31T00:00:00.000Z',
+	});
+	expect(data.series).toHaveLength(7);
+});
+
+test.each(['payload', 'list'])(
+	'retains the same semantics after %s spooling and reconstruction',
+	(kind) => {
+		const entries = [null, {}, { score: null, quote: '🌙'.repeat(2200) }, [], false];
+		const value = kind === 'list' ? entries : { entries, unavailable: null, metadata: {} };
+		const reference = result(kind === 'list' ? formatList(entries) : formatPayload(value)) as {
+			_ref: string;
+		};
+		let offset: number | null = 0;
+		let text = '';
+		do {
+			const page = readResult(reference._ref, offset, 4096);
+			text += page.text;
+			offset = page.nextOffset;
+		} while (offset !== null);
+		expect(JSON.parse(text)).toEqual(value);
+	}
+);
+
+test('keeps list references bounded even when their first entries contain large Unicode findings', () => {
+	const entries = ['🌙'.repeat(20000), { evidence: '東京'.repeat(10000) }, null];
+	const text = formatList(entries);
+	expect(Buffer.byteLength(text)).toBeLessThan(2048);
+	const reference = result(text) as { _ref: string };
+	let offset: number | null = 0,
+		recovered = '';
+	do {
+		const page = readResult(reference._ref, offset);
+		recovered += page.text;
+		offset = page.nextOffset;
+	} while (offset !== null);
+	expect(JSON.parse(recovered)).toEqual(entries);
 });
 
 describe.each([

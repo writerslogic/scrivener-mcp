@@ -39,8 +39,8 @@ Generated DOCX files are checked for ZIP integrity, OOXML document/content-type/
 checks cover ZIP CRC, the first stored mimetype entry, container/package XML, metadata, manifest
 resources, spine references and XHTML syntax. These are structural checks, not a complete EPUB
 accessibility or reading-system certification. Release verification additionally runs
-[W3C EPUBCheck](https://www.w3.org/publishing/epubcheck/); exact results belong in
-[the implementation ledger](implementation-status.md).
+[W3C EPUBCheck](https://www.w3.org/publishing/epubcheck/); exact results belong in the matching
+[CI run](https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml).
 
 These presets do not promise equivalence to Scrivener's undocumented native compile engine. Use
 native compile when precise custom layouts, image placement or anchored notes are essential. The

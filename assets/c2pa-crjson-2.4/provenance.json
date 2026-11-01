@@ -1,0 +1,31 @@
+{
+	"specificationVersion": "2.4",
+	"upstreamRepository": "https://github.com/c2pa-org/specifications",
+	"sourceCommit": "c7e55d5a3c1e758eeabad058e501fadbb8cfe777",
+	"officialPage": "https://spec.c2pa.org/specifications/specifications/2.4/crJSON/crjson-format.html#_full_schema",
+	"archive": {
+		"file": "C2PA_Schemas.zip",
+		"immutableURL": "https://raw.githubusercontent.com/c2pa-org/specifications/c7e55d5a3c1e758eeabad058e501fadbb8cfe777/build/site/specifications/2.4/specs/_attachments/C2PA_Schemas.zip",
+		"publishedURL": "https://spec.c2pa.org/specifications/specifications/2.4/specs/_attachments/C2PA_Schemas.zip",
+		"bytes": 57677,
+		"sha256": "e3168d82cc995dc3eac5c3f2cebb88cd670f582544633d47df75aca16e9acfb4",
+		"publishedMatchesImmutable": true
+	},
+	"schema": {
+		"file": "crJSON.schema.json",
+		"archiveEntry": "crJSON/partials/crJSON.schema.json",
+		"bytes": 75699,
+		"sha256": "22c824f17353515c089667306fd7e49e2753201d37a9e73631bd36c2ffc848d9",
+		"id": "https://c2pa.org/crjson/crJSON.schema.json",
+		"dialect": "https://json-schema.org/draft/2020-12/schema"
+	},
+	"modifications": "None; schema bytes are identical to the pinned official archive entry.",
+	"license": {
+		"spdx": "CC-BY-4.0",
+		"attribution": "Coalition for Content Provenance and Authenticity (C2PA), Content Credentials JSON (crJSON) File Format Specification 2.4",
+		"declarationURL": "https://spec.c2pa.org/specifications/specifications/2.4/crJSON/crjson-format.html",
+		"legalcodeURL": "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+		"file": "LICENSE",
+		"sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+	}
+}

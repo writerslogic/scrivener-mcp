@@ -191,6 +191,11 @@ it('keeps research and excluded draft text out of manuscript analysis while allo
 		async () => active
 	);
 	expect((await source.list()).map((item) => item.documentId)).toEqual([FIRST]);
+	expect((await source.list({ scope: 'all' })).map((item) => item.documentId)).toEqual([
+		FIRST,
+		EXCLUDED,
+		RESEARCH,
+	]);
 	const reference = await source.read(RESEARCH);
 	expect(reference.text).toBe('Confirmed world-rule reference');
 	expect(reference.documentId).toBe(RESEARCH);
@@ -200,6 +205,45 @@ it('keeps research and excluded draft text out of manuscript analysis while allo
 		/selected project scope/
 	);
 });
+
+it.each([1, 2, 3])(
+	'checks a requested two-document source budget before reading %i documents',
+	async (count) => {
+		let reads = 0;
+		const source = new ProjectSource(
+			root,
+			openStore(join(root, 'budget.sqlite')),
+			async () =>
+				Array.from({ length: count }, (_, index) => document(`scene-${index}`, 'Scene')),
+			async () => {
+				reads++;
+				return '';
+			}
+		);
+		if (count > 2) {
+			await expect(source.list({ maxDocuments: 2 })).rejects.toThrow('document budget');
+			expect(reads).toBe(0);
+		} else expect(await source.list({ maxDocuments: 2 })).toHaveLength(count);
+	}
+);
+
+it.each([2, 3, 4])(
+	'checks a requested three-character source budget against %i decoded characters',
+	async (count) => {
+		const raw = new RTFHandler().convertToRTF('x'.repeat(count));
+		const source = new ProjectSource(
+			root,
+			openStore(join(root, 'budget.sqlite')),
+			async () => [document(FIRST, 'Scene')],
+			async () => raw
+		);
+		if (count > 3)
+			await expect(source.list({ maxCharacters: 3 })).rejects.toThrow(
+				'character analysis budget'
+			);
+		else expect((await source.list({ maxCharacters: 3 }))[0].text).toHaveLength(count);
+	}
+);
 
 it.each([9999, 10000, 10001])(
 	'enforces the manuscript document budget at %i documents',

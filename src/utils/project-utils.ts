@@ -7,22 +7,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getLogger } from '../core/logger.js';
 import { FileUtils, PathUtils, AsyncUtils } from './shared-patterns.js';
-import { AppError, ErrorCode } from './common.js';
+import { AppError, ErrorCode, safeWriteFile } from './common.js';
 import { findScrivxPath } from './scrivener-utils.js';
 
 const logger = getLogger('project-utils');
-
-interface CacheConfig {
-	maxSizeMB: number;
-	maxFiles: number;
-	maxAgeMs: number;
-}
-
-const _DEFAULT_CACHE_CONFIG: CacheConfig = {
-	maxSizeMB: 100,
-	maxFiles: 1000,
-	maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
 
 async function isScrivenerProject(projectPath: string): Promise<boolean> {
 	try {
@@ -39,7 +27,6 @@ async function isScrivenerProject(projectPath: string): Promise<boolean> {
 export async function ensureProjectDataDirectory(projectPath: string): Promise<string> {
 	const validPath = PathUtils.validate(projectPath);
 
-	// Verify it's actually a Scrivener project
 	if (!(await isScrivenerProject(validPath))) {
 		throw new AppError(`Not a valid Scrivener project: ${validPath}`, ErrorCode.INVALID_INPUT);
 	}
@@ -49,7 +36,6 @@ export async function ensureProjectDataDirectory(projectPath: string): Promise<s
 	const backupDir = PathUtils.build(mcpDir, 'backups');
 	const contextDir = PathUtils.build(mcpDir, 'context');
 
-	// Create directories with proper permissions
 	await FileUtils.ensureDir(mcpDir, 0o755);
 	await FileUtils.ensureDir(cacheDir, 0o755);
 	await FileUtils.ensureDir(backupDir, 0o755);
@@ -77,7 +63,7 @@ Generated: ${new Date().toISOString()}
 `;
 
 	if (!(await FileUtils.exists(readmePath))) {
-		await FileUtils.safeWrite(readmePath, readmeContent);
+		await safeWriteFile(readmePath, readmeContent);
 		logger.debug('Created README.md in .scrivener-mcp directory');
 	} else {
 		const current = await fs.readFile(readmePath, 'utf8');
@@ -91,7 +77,7 @@ Generated: ${new Date().toISOString()}
 					'- This directory is safe to delete if you want to reset the integration',
 					'- Back up this directory with the project. Deleting it loses proposals, application and undo journals, facts, findings and workflow checkpoints stored in editorial.sqlite.'
 				);
-			if (updated !== current) await FileUtils.safeWrite(readmePath, updated);
+			if (updated !== current) await safeWriteFile(readmePath, updated);
 		}
 	}
 
@@ -156,7 +142,7 @@ async function addToGitignoreSafely(projectPath: string): Promise<void> {
 		if (!lines.some((line) => line.trim() === '.scrivener-mcp/')) {
 			lines.push('', '# Scrivener MCP cache', '.scrivener-mcp/');
 			const newContent = lines.join('\n');
-			await FileUtils.safeWrite(gitignorePath, newContent);
+			await safeWriteFile(gitignorePath, newContent);
 			logger.debug('Added .scrivener-mcp/ to .gitignore');
 		}
 	} finally {
@@ -176,9 +162,6 @@ export function getVectorsDirectory(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'vectors');
 }
 
-/**
- * Clean up old cache files
- */
 export async function cleanupCache(
 	projectPath: string,
 	maxAgeMs: number = 7 * 24 * 60 * 60 * 1000

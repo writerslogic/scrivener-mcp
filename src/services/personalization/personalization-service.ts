@@ -1,18 +1,4 @@
-/**
- * PersonalizationService -- the single entry point for writing personalization.
- *
- * Consolidates what were three overlapping services (feedback collection,
- * continuous-learning, personalization-engine) into one:
- *   - explicit author preferences, persisted per project;
- *   - a directive derived from those preferences and injected into AI system
- *     prompts (real, model-driven adaptation -- no output string-munging);
- *   - a persisted feedback log aggregated into honest insights and
- *     non-binding suggestions.
- *
- * All state lives in the project's SQLite database. With no database (no project
- * open) the service degrades cleanly: buildDirective() returns '' and writes
- * throw an actionable error.
- */
+// State is per-project SQLite. Without a database, directives are empty and writes fail.
 
 import { AppError, ErrorCode } from '../../utils/common.js';
 import { getLogger } from '../../core/logger.js';

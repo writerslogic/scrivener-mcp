@@ -4,6 +4,7 @@
  */
 
 import nlp from 'compromise';
+import { computeReadability, collectProseExamples } from 'narrative-lens';
 import { nlpAnalyzer } from '../services/analysis/nlp-sentiment-analyzer.js';
 import {
 	withErrorHandling,
@@ -20,7 +21,6 @@ import { getLogger } from '../core/logger.js';
 
 const logger = getLogger('ml-word-classifier');
 
-// Initialize advanced NLP tools
 const tokenizer = {
 	tokenize: (text: string): string[] => {
 		// Better tokenization using compromise
@@ -285,7 +285,6 @@ const CLICHE_WORDS: ReadonlySet<string> = new Set([
 // Two- and three-word clichés, matched against the bigram/trigram window.
 const CLICHE_PHRASES: ReadonlySet<string> = new Set([
 	'time flies',
-	'crystal clear',
 	'stark contrast',
 	'perfect storm',
 	'low hanging',
@@ -362,7 +361,6 @@ export class MLWordClassifierPro {
 	private readonly maxWorkers = 4;
 
 	constructor() {
-		// Initialize the classifier
 		this.initializeWorkerPool();
 	}
 
@@ -372,7 +370,6 @@ export class MLWordClassifierPro {
 		});
 	}
 
-	// Advanced caching and optimization methods
 	private getCachedClassification(
 		word: string,
 		contextHash: string
@@ -451,7 +448,6 @@ export class MLWordClassifierPro {
 
 			this.setCachedClassification(word, contextHash, result);
 
-			// Track performance
 			this.trackClassificationPerformance(
 				'classification-compute',
 				performance.now() - startTime
@@ -472,7 +468,6 @@ export class MLWordClassifierPro {
 	}
 
 	private extractAdvancedFeatures(word: string, context: string, position: number): WordFeatures {
-		// Check feature cache first
 		const cacheKey = generateHash(JSON.stringify([word, position, context]));
 		const cachedFeatures = this.featureCache.get(cacheKey);
 		if (cachedFeatures) {
@@ -487,7 +482,6 @@ export class MLWordClassifierPro {
 		}>;
 		const wordIndex = this.findWordIndex(
 			terms.map((term) => term.text),
-			word,
 			position
 		);
 
@@ -504,25 +498,20 @@ export class MLWordClassifierPro {
 			['ProperNoun', 'Person', 'Place', 'Organization'].includes(t)
 		);
 
-		// Get sentiment score using our advanced nlpAnalyzer
 		const wordSentiment = this.sentimentAnalyzer.analyzeSentiment(word);
 
-		// Analyze with compromise
 		const wordDoc = nlp(word);
 		const isVerb = wordDoc.verbs().length > 0;
 		const isNoun = wordDoc.nouns().length > 0;
 		const isAdjective = wordDoc.adjectives().length > 0;
 		const isAdverb = wordDoc.adverbs().length > 0;
 
-		// Calculate syllables manually
-		const syllables = this.countSyllables(word);
+		const syllables = Math.max(1, computeReadability(word).syllableCount);
 
-		// Get morphological analysis
 		const conjugations = nlp(word).verbs().conjugate() as Array<{ Infinitive?: string }>;
 		const stem = conjugations[0]?.Infinitive || word.toLowerCase();
 		const phonemes = this.generatePhonemes(word);
 
-		// Calculate term frequency
 		const frequency = this.calculateTermFrequency(word, context);
 
 		const features: WordFeatures = {
@@ -593,7 +582,6 @@ export class MLWordClassifierPro {
 		const weakVerbScore = this.detectWeakVerb(features);
 		const clicheScore = this.detectCliche(features);
 
-		// Calculate confidence - use max score for categories
 		const confidence = Math.max(filterWordScore, commonWordScore, weakVerbScore, clicheScore);
 
 		const result: ClassificationResult = {
@@ -606,7 +594,6 @@ export class MLWordClassifierPro {
 			complexity: this.calculateComplexity(features),
 		};
 
-		// Generate alternatives using advanced techniques
 		if (result.isWeakVerb) {
 			result.suggestedAlternative = this.generateSmartAlternative(features);
 		}
@@ -628,7 +615,6 @@ export class MLWordClassifierPro {
 			score += 0.2;
 		}
 
-		// Check POS tag for common filter word patterns
 		if (features.partOfSpeech === 'RB' || features.partOfSpeech === 'MD') {
 			score += 0.2;
 		}
@@ -691,7 +677,6 @@ export class MLWordClassifierPro {
 			score += 0.3;
 		}
 
-		// Check if followed by adverb (weak verb + adverb pattern)
 		if (features.followingWord && nlp(features.followingWord).has('#Adverb')) {
 			score += 0.2;
 		}
@@ -705,10 +690,12 @@ export class MLWordClassifierPro {
 	}
 
 	private detectCliche(features: WordFeatures): number {
-		let score = 0;
 		const { word, precedingWord, followingWord } = features;
+		const window = [precedingWord, word, followingWord].filter(Boolean).join(' ');
+		let score = collectProseExamples([window]).some((finding) => finding.issueType === 'cliche')
+			? 1
+			: 0;
 
-		// Create bigrams and trigrams
 		const bigram = precedingWord ? `${precedingWord} ${word}` : '';
 		const trigram =
 			precedingWord && followingWord ? `${precedingWord} ${word} ${followingWord}` : '';
@@ -732,7 +719,6 @@ export class MLWordClassifierPro {
 	private generateSmartAlternative(features: WordFeatures): string {
 		const word = features.word.toLowerCase();
 
-		// Check for adverb modifiers to determine intensity
 		const followingWord = features.followingWord ? features.followingWord.toLowerCase() : '';
 
 		// Enhanced verb alternatives based on adverb context
@@ -810,7 +796,6 @@ export class MLWordClassifierPro {
 	private generateFromStem(features: WordFeatures): string {
 		const stem = features.stem || features.word;
 
-		// Add intensity based on context
 		if (features.precedingWord && nlp(features.precedingWord).has('#Adverb')) {
 			// Already has an adverb, suggest stronger verb
 			return `${stem}ed forcefully`;
@@ -839,11 +824,7 @@ export class MLWordClassifierPro {
 		return Math.min(1, complexity);
 	}
 
-	/**
-	 * Helper methods
-	 */
-	private findWordIndex(words: string[], _targetWord: string, position: number): number {
-		// Find the word index based on position in original text
+	private findWordIndex(words: string[], position: number): number {
 		let currentPos = 0;
 		for (let i = 0; i < words.length; i++) {
 			if (currentPos <= position && position < currentPos + words[i].length) {
@@ -871,29 +852,6 @@ export class MLWordClassifierPro {
 		const suffixes =
 			/(ing|ed|er|est|ly|ness|ment|ful|less|ish|ous|able|ible|al|ial|ian|ive|tion|sion)$/;
 		return suffixes.test(word.toLowerCase());
-	}
-
-	private countSyllables(word: string): number {
-		// Simple syllable counting algorithm
-		word = word.toLowerCase();
-		let count = 0;
-		let previousWasVowel = false;
-
-		for (let i = 0; i < word.length; i++) {
-			const isVowel = /[aeiou]/.test(word[i]);
-			if (isVowel && !previousWasVowel) {
-				count++;
-			}
-			previousWasVowel = isVowel;
-		}
-
-		// Adjust for silent e
-		if (word.endsWith('e') && count > 1) {
-			count--;
-		}
-
-		// Ensure at least one syllable
-		return Math.max(1, count);
 	}
 
 	private generatePhonemes(word: string): string {
@@ -1011,7 +969,6 @@ export class MLWordClassifierPro {
 			const cliches: string[] = [];
 			const suggestions = new Map<string, string>();
 
-			// Process words directly
 			for (let index = 0; index < words.length; index++) {
 				const word = words[index];
 				const wordPos = text.indexOf(
@@ -1126,7 +1083,6 @@ export class MLWordClassifierPro {
 			});
 		}
 
-		// Clear underperforming cache entries
 		if (analytics.cacheEfficiency.size > this.maxCacheSize * 0.8) {
 			const keys = Array.from(this.classificationCache.keys());
 			const toDelete = keys.slice(0, Math.floor(keys.length * 0.2));

@@ -1,9 +1,17 @@
+import { splitIntoSentences } from '../../utils/text-metrics.js';
+import {
+	aggregatePacing,
+	analyzePacing,
+	computeReadability,
+	explainPacing,
+	extractDialogue,
+} from 'narrative-lens';
 import { getLogger } from '../../core/logger.js';
 
 export interface PacingAnalysis {
-	overall: 'slow' | 'moderate' | 'fast' | 'variable';
+	overall: 'slow' | 'moderate' | 'fast' | 'variable' | 'unavailable';
 	sections: { start: number; end: number; pace: 'slow' | 'moderate' | 'fast' }[];
-	actionVsReflection: number; // ratio
+	actionVsReflection: number | null; // ratio
 	recommendedAdjustments: string[];
 }
 
@@ -17,60 +25,43 @@ export class PacingAnalyzer {
 			}
 
 			// Optimized sentence parsing
-			const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+			const sentences = splitIntoSentences(content);
 
 			// Early exit for very small content
 			if (sentences.length < 3) {
 				return this.getDefaultPacingAnalysis();
 			}
 
-			// Analyze sentence lengths for pacing with optimized calculation
-			const sentenceLengths = sentences.map((s) => {
-				const wordCount = s.trim().split(/\s+/).length;
-				return Math.max(wordCount, 1); // Ensure minimum length of 1
-			});
-
-			const totalWords = sentenceLengths.reduce((a, b) => a + b, 0);
-			const avgLength = totalWords / sentenceLengths.length;
-
-			// Determine overall pacing with safer bounds
-			const overall =
-				avgLength < 10
-					? 'fast'
-					: avgLength < 15
-						? 'moderate'
-						: avgLength < 20
-							? 'moderate'
-							: 'slow';
-
-			// Analyze sections with dynamic segment count
 			const segmentCount = Math.min(3, Math.max(1, Math.floor(sentences.length / 5)));
-			const sections = this.splitIntoSegments(content, segmentCount).map((segment, index) => {
-				const segmentSentences = segment.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-
-				if (segmentSentences.length === 0) {
-					return {
-						start: index * (100 / segmentCount),
-						end: (index + 1) * (100 / segmentCount),
-						pace: 'moderate' as const,
-					};
-				}
-
-				const segmentLengths = segmentSentences.map((s) => s.trim().split(/\s+/).length);
-				const segmentAvg =
-					segmentLengths.reduce((a, b) => a + b, 0) / segmentLengths.length;
-
-				return {
-					start: index * (100 / segmentCount),
-					end: (index + 1) * (100 / segmentCount),
-					pace:
-						segmentAvg < 10
-							? ('fast' as const)
-							: segmentAvg < 20
-								? ('moderate' as const)
-								: ('slow' as const),
-				};
+			const segmentSize = Math.ceil(sentences.length / segmentCount);
+			const metrics = Array.from({ length: segmentCount }, (_, index) => {
+				const segment = sentences
+					.slice(index * segmentSize, (index + 1) * segmentSize)
+					.join(' ');
+				const readability = computeReadability(segment);
+				const dialogueWords = extractDialogue(segment, index, []).reduce(
+					(sum, line) => sum + computeReadability(line.quote).wordCount,
+					0
+				);
+				return analyzePacing(
+					index,
+					dialogueWords,
+					readability.wordCount,
+					readability.sentenceCount
+				);
 			});
+			const aggregate = aggregatePacing(metrics);
+			if (!aggregate) return this.getDefaultPacingAnalysis();
+			const sections = aggregate.perSceneLabel.map((label, index) => ({
+				start: ((index * segmentSize) / sentences.length) * 100,
+				end:
+					(Math.min((index + 1) * segmentSize, sentences.length) / sentences.length) *
+					100,
+				pace: this.adaptLabel(label),
+			}));
+			const overall = sections.every((section) => section.pace === sections[0].pace)
+				? sections[0].pace
+				: 'variable';
 
 			// Optimized action vs reflection analysis with regex patterns
 			const lowerContent = content.toLowerCase();
@@ -81,16 +72,23 @@ export class PacingAnalyzer {
 
 			const actionMatches = (lowerContent.match(actionPattern) || []).length;
 			const reflectionMatches = (lowerContent.match(reflectionPattern) || []).length;
-			const actionVsReflection = actionMatches / Math.max(reflectionMatches, 1);
+			const actionVsReflection = reflectionMatches ? actionMatches / reflectionMatches : null;
 
 			// Smart recommendations based on analysis
-			const recommendedAdjustments: string[] = [];
-			if (overall === 'slow' && avgLength > 25) {
-				recommendedAdjustments.push(
-					'Consider shortening sentences and paragraphs to increase pace'
+			const recommendedAdjustments = metrics.flatMap((metric) => {
+				const finding = explainPacing(
+					metric.velocity,
+					metric.sceneId,
+					metric.isTalkingHead,
+					metric.dialogueRatio
 				);
-			}
-			if (actionVsReflection < 0.3 && reflectionMatches > actionMatches * 2) {
+				return finding?.suggestion ? [finding.suggestion] : [];
+			});
+			if (
+				actionVsReflection !== null &&
+				actionVsReflection < 0.3 &&
+				reflectionMatches > actionMatches * 2
+			) {
 				recommendedAdjustments.push('Add more action sequences to balance reflection');
 			}
 			if (sections.length > 1 && sections.every((s) => s.pace === sections[0].pace)) {
@@ -100,7 +98,7 @@ export class PacingAnalyzer {
 			return {
 				overall: overall as 'slow' | 'moderate' | 'fast' | 'variable',
 				sections: sections.slice(0, 5), // Limit for memory
-				actionVsReflection: Math.min(Math.max(actionVsReflection, 0), 10),
+				actionVsReflection,
 				recommendedAdjustments: recommendedAdjustments.slice(0, 5), // Limit for memory
 			};
 		} catch (error) {
@@ -109,22 +107,18 @@ export class PacingAnalyzer {
 		}
 	}
 
-	private splitIntoSegments(content: string, count: number): string[] {
-		const segmentLength = Math.ceil(content.length / count);
-		const segments: string[] = [];
-
-		for (let i = 0; i < count; i++) {
-			segments.push(content.slice(i * segmentLength, (i + 1) * segmentLength));
-		}
-
-		return segments;
+	private adaptLabel(label: string): 'slow' | 'moderate' | 'fast' {
+		if (label === 'slow' || label === 'very_slow') return 'slow';
+		if (label === 'fast') return 'fast';
+		if (label === 'good') return 'moderate';
+		throw new Error('Unknown native pacing label');
 	}
 
-	private getDefaultPacingAnalysis(): PacingAnalysis {
+	getDefaultPacingAnalysis(): PacingAnalysis {
 		return {
-			overall: 'moderate',
+			overall: 'unavailable',
 			sections: [],
-			actionVsReflection: 1.0,
+			actionVsReflection: null,
 			recommendedAdjustments: [],
 		};
 	}

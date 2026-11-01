@@ -39,9 +39,6 @@ export class SetupWizard {
 		});
 	}
 
-	/**
-	 * Run the setup wizard
-	 */
 	async run(): Promise<void> {
 		const wrappedFunction = withErrorHandling(async () => {
 			console.clear();
@@ -94,9 +91,6 @@ export class SetupWizard {
 		await wrappedFunction();
 	}
 
-	/**
-	 * Run quick setup with all features
-	 */
 	private async runQuickSetup(): Promise<void> {
 		const wrappedFunction = withErrorHandling(async () => {
 			return measureAndTrackOperation(
@@ -177,9 +171,6 @@ export class SetupWizard {
 		}
 	}
 
-	/**
-	 * Run KeyDB-specific setup
-	 */
 	private async runKeyDBSetup(): Promise<void> {
 		console.log(chalk.bold.cyan('\n🚀 KeyDB Setup - High-Performance Queues\n'));
 
@@ -191,7 +182,6 @@ export class SetupWizard {
 
 		const keydbInstaller = await KeyDBInstaller.getInstance();
 
-		// Check current status
 		const status = await keydbInstaller.checkAvailability();
 
 		if (status.running) {
@@ -298,11 +288,7 @@ export class SetupWizard {
 		}
 	}
 
-	/**
-	 * Run basic Neo4j setup
-	 */
 	private async runBasicSetup(): Promise<void> {
-		// Check current status
 		const status = await DatabaseSetup.checkNeo4jAvailability();
 
 		if (status.running) {
@@ -332,7 +318,6 @@ export class SetupWizard {
 		// Choose installation method
 		const method = await this.chooseInstallMethod(status);
 
-		// Get project path with validation
 		const measureResult = await measureExecution(async () => {
 			const inputPath = await this.askQuestion(
 				'Enter your Scrivener project path (or press Enter for current directory): ',
@@ -350,7 +335,6 @@ export class SetupWizard {
 				'Path does not exist. Please enter a valid directory path.'
 			);
 
-			// Validate the final path exists and is accessible
 			const fullPath = buildPath(sanitizePath(inputPath));
 			const resolvedPath = path.resolve(fullPath);
 			if (resolvedPath.includes('\0') || resolvedPath.includes('..')) {
@@ -477,9 +461,6 @@ export class SetupWizard {
 		return 'auto';
 	}
 
-	/**
-	 * Run advanced setup with AI services
-	 */
 	private async runAdvancedSetup(): Promise<void> {
 		console.log(chalk.bold.cyan('\n🚀 Advanced Setup - AI Integration\n'));
 
@@ -495,7 +476,6 @@ export class SetupWizard {
 			return;
 		}
 
-		// Run the auto-setup
 		const autoSetup = new AutoSetup();
 		const result = await autoSetup.run({
 			interactive: true,
@@ -522,7 +502,6 @@ export class SetupWizard {
 	private async checkHealth(): Promise<void> {
 		console.log(chalk.bold.cyan('\n🔍 System Health Check\n'));
 
-		// Check Neo4j
 		const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
 		if (neo4jStatus.running) {
 			console.log(chalk.green('✅ Neo4j: Running'));
@@ -530,7 +509,6 @@ export class SetupWizard {
 			console.log(chalk.red('❌ Neo4j: Not running'));
 		}
 
-		// Check queue and AI services
 		const autoSetup = new AutoSetup();
 		const health = await autoSetup.runHealthChecks();
 
@@ -569,7 +547,6 @@ export class SetupWizard {
 		password: string;
 	}): Promise<void> {
 		const wrappedFunction = withErrorHandling(async () => {
-			// Validate credentials
 			validateInput(credentials, {
 				uri: { type: 'string', required: true, minLength: 1 },
 				user: { type: 'string', required: true, minLength: 1 },
@@ -636,7 +613,6 @@ export class SetupWizard {
 	}
 }
 
-// Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
 	const wizard = new SetupWizard();
 	wizard.run().catch(console.error);

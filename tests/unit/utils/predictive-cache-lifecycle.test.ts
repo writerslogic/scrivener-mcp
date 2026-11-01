@@ -13,19 +13,12 @@ describe('predictive cache resource ownership', () => {
 		jest.useRealTimers();
 	});
 
-	it('imports all singleton exports and constructs caches without creating timers', () => {
+	it('imports the module and constructs caches without creating timers', () => {
 		const intervals = jest.spyOn(global, 'setInterval');
 		jest.isolateModules(() => {
 			const module = jest.requireActual<
 				typeof import('../../../src/utils/predictive-cache.js')
 			>('../../../src/utils/predictive-cache.js');
-			for (const cache of [
-				module.analysisCache,
-				module.documentCache,
-				module.metadataCache,
-			]) {
-				expect(cache.getStats().entryCount).toBe(0);
-			}
 			new module.PredictiveCache();
 		});
 		expect(intervals).not.toHaveBeenCalled();
@@ -127,11 +120,10 @@ describe('predictive cache resource ownership', () => {
 		expect(jest.getTimerCount()).toBe(0);
 	});
 
-	it('finishes in-flight analysis after disposal without retaining memoized results, pooled resources or timers', async () => {
+	it('finishes in-flight analysis after disposal without retaining memoized results or timers', async () => {
 		const analyzer = new ContentAnalyzer();
 		const resources = analyzer as unknown as {
 			memoizedCalculations: ReadonlyMap<string, unknown>;
-			resourcePool: ReadonlyMap<string, unknown[]>;
 		};
 		const pending = analyzer.analyzeContentDirect(
 			'The cat sat on the mat. The dog ran fast. We all had a lot of fun today.',
@@ -143,7 +135,6 @@ describe('predictive cache resource ownership', () => {
 		expect(result.documentId).toBe('in-flight-document');
 		expect(result.metrics.wordCount).toBeGreaterThan(0);
 		expect(resources.memoizedCalculations.size).toBe(0);
-		expect(resources.resourcePool.size).toBe(0);
 		expect(jest.getTimerCount()).toBe(0);
 	});
 });
