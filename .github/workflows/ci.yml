@@ -178,7 +178,7 @@ jobs:
 
   c2pa-rebuild:
     name: C2PA reproducible build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       RUSTUP_TOOLCHAIN: 1.96.0

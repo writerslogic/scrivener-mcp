@@ -2417,3 +2417,14 @@ files; all six source hashes matched. The WASM grew by 239 bytes. The gate corre
 the manifest/archive evidence is retained. Build-host or Cargo metadata differences are hypotheses,
 not an established cause. The next run retains complete rebuilt files, toolchain metadata and a
 second clean-build comparison to diagnose the discrepancy without weakening byte equality.
+
+Diagnostic run 41263877217 at b4cf414 reproduced the same Linux output as the first run, then
+produced byte-identical files after `cargo clean`. All six source inputs match the candidate. The
+retained producer sections establish one concrete provenance difference: the former engine records
+wasm-bindgen `0.2.129`; Linux records `0.2.129 (165586f85)`. Generated JS/declarations differ only
+in two compiler-generated closure names; WASM code/data sections also differ, so semantic
+equivalence is not inferred from those names. The exact compiler contribution to those differences
+remains unproven. The reference build is now explicitly Ubuntu 24.04 x64, and its repeatedly
+reproduced assets replace the previous host-unspecified generation. Source, dependency graph, 1 GiB
+memory cap and byte-equality gate are unchanged. Functional and clean-checkout verification of these
+regenerated assets is required before this follow-up is complete.
