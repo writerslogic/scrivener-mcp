@@ -92,7 +92,7 @@ function boundedJson(value: unknown, maximum: number): void {
 		else if (item === null || typeof item === 'boolean') bytes += String(item).length;
 		else if (typeof item === 'number' && Number.isFinite(item))
 			bytes += JSON.stringify(item).length;
-		else if (typeof item === 'object' && item !== null) {
+		else if (typeof item === 'object') {
 			const array = Array.isArray(item);
 			const prototype = Object.getPrototypeOf(item);
 			if (

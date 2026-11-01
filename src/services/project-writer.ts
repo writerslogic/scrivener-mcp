@@ -43,10 +43,8 @@ export class ProjectWriter {
 		private readonly projectPath: string,
 		private readonly documentManager: DocumentManager,
 		private readonly hhmSystem: HolographicMemorySystem | undefined,
-		_saveProject: () => Promise<void>,
 		private readonly markDocumentChanged: (documentId: string) => void,
 		private readonly getDocumentInfo: ScrivenerProject['getDocumentInfo'],
-		_takeSnapshot: ScrivenerProject['takeSnapshot'],
 		private readonly commitCreation?: (
 			structure: ProjectStructure,
 			documents: readonly CreationDocument[]

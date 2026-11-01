@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { ScrivenerProject } from '../../../src/scrivener-project.js';
 import { ProjectLoader } from '../../../src/services/project-loader.js';
 import { DocumentManager } from '../../../src/services/document-manager.js';
-import { updateDocumentHandler } from '../../../src/handlers/document-handlers.js';
+import {
+	moveDocumentHandler,
+	updateDocumentHandler,
+} from '../../../src/handlers/document-handlers.js';
 import type { HandlerContext } from '../../../src/handlers/types.js';
 import { isProjectOpenInScrivener } from '../../../src/utils/scrivener-app.js';
 
@@ -106,6 +109,23 @@ afterEach(async () => {
 		jest.restoreAllMocks();
 		await fs.rm(directory, { recursive: true, force: true });
 	}
+});
+
+test('move_document persists the requested sibling position and rejects fractional positions without writes', async () => {
+	const earlier = await project.createDocument('Earlier', '', TARGET, 'Text');
+	await moveDocumentHandler.handler(
+		{ documentId: DOCUMENT, targetFolderId: TARGET, position: 0 },
+		context()
+	);
+	const saved = await fs.readFile(file, 'utf8');
+	expect(saved.indexOf(`UUID="${DOCUMENT}"`)).toBeLessThan(saved.indexOf(`UUID="${earlier}"`));
+	await expect(
+		moveDocumentHandler.handler(
+			{ documentId: DOCUMENT, targetFolderId: TARGET, position: 0.5 },
+			context()
+		)
+	).rejects.toThrow();
+	expect(await fs.readFile(file, 'utf8')).toBe(saved);
 });
 
 test.each(['open', 'unknown'] as const)(

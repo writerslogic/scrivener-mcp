@@ -286,7 +286,7 @@ export async function withSqliteTransaction<T>(
 	db: Database.Database,
 	fn: () => Promise<T>
 ): Promise<T> {
-	const _transaction = db.prepare('BEGIN').run();
+	db.prepare('BEGIN').run();
 	try {
 		const result = await fn();
 		db.prepare('COMMIT').run();

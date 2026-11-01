@@ -8,19 +8,13 @@ import * as path from 'path';
 import { getLogger } from '../core/logger.js';
 import { promisify } from 'util';
 import { exec, execFile } from 'child_process';
+import { pathExists as fileExists, formatBytes } from './common.js';
+
+export { fileExists, formatBytes };
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const logger = getLogger('shared-patterns');
-
-export async function fileExists(filePath: string): Promise<boolean> {
-	try {
-		await fs.access(filePath);
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 export async function fileExistsWithContent(
 	filePath: string,
@@ -35,38 +29,6 @@ export async function fileExistsWithContent(
 		return content.includes(searchContent);
 	} catch {
 		return false;
-	}
-}
-
-/**
- * Safe file write with lock protection (used in project-utils)
- */
-export async function safeFileWrite(
-	filePath: string,
-	content: string,
-	options: { atomic?: boolean; mode?: number } = {}
-): Promise<void> {
-	const { atomic = true, mode = 0o644 } = options;
-
-	if (atomic) {
-		const tempPath = `${filePath}.tmp.${Date.now()}`;
-		const lockPath = `${filePath}.lock`;
-
-		try {
-			// Acquire lock
-			await fs.writeFile(lockPath, '', { flag: 'wx' });
-
-			await fs.writeFile(tempPath, content, { mode });
-
-			// Atomic rename
-			await fs.rename(tempPath, filePath);
-		} finally {
-			// Release lock
-			await fs.unlink(lockPath).catch(() => {});
-			await fs.unlink(tempPath).catch(() => {});
-		}
-	} else {
-		await fs.writeFile(filePath, content, { mode });
 	}
 }
 
@@ -258,18 +220,6 @@ export function validateUrl(
 	}
 }
 
-export function formatBytes(bytes: number, decimals: number = 2): string {
-	if (bytes === 0) return '0 Bytes';
-
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
 /**
  * Safe string truncation with ellipsis
  */
@@ -320,7 +270,6 @@ export class MemoryCache<T> {
 export const FileUtils = {
 	exists: fileExists,
 	existsWithContent: fileExistsWithContent,
-	safeWrite: safeFileWrite,
 	ensureDir: ensureDirectory,
 };
 

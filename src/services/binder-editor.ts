@@ -6,7 +6,7 @@ import { handleError, isValidUUID, truncate, validateInput } from '../utils/comm
 import { generateScrivenerUUID } from '../utils/scrivener-utils.js';
 import {
 	addBinderItem,
-	appendBinderChild,
+	addBinderChild,
 	findBinderItemById,
 	findParentFolder,
 	removeBinderItem,
@@ -74,7 +74,7 @@ export class BinderEditor {
 
 			// Use utility function to add binder item
 			if (parentFolder) {
-				appendBinderChild(parentFolder, newItem);
+				addBinderChild(parentFolder, newItem);
 			} else {
 				addBinderItem(binder, newItem);
 			}
@@ -197,7 +197,11 @@ export class BinderEditor {
 	/**
 	 * Move a document to a different parent
 	 */
-	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
+	async moveDocument(
+		documentId: string,
+		newParentId: string | null,
+		position?: number
+	): Promise<void> {
 		try {
 			validateInput(
 				{ documentId, newParentId },
@@ -264,6 +268,26 @@ export class BinderEditor {
 				}
 			}
 
+			const targetItems = newParent ? newParent.Children?.BinderItem : binder.BinderItem;
+			const siblings = Array.isArray(targetItems)
+				? targetItems
+				: targetItems
+					? [targetItems]
+					: [];
+			const maximumPosition = siblings.filter(
+				(item) => item.UUID !== documentId && item.ID !== documentId
+			).length;
+			if (
+				position !== undefined &&
+				(!Number.isSafeInteger(position) || position < 0 || position > maximumPosition)
+			) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ position, maximumPosition },
+					'Document position is outside the target folder bounds'
+				);
+			}
+
 			const extractedItem = removeBinderItem(binder, documentId);
 			if (!extractedItem) {
 				throw createError(
@@ -275,9 +299,9 @@ export class BinderEditor {
 
 			// Use utility function to add to new location
 			if (newParent) {
-				appendBinderChild(newParent, extractedItem);
+				addBinderChild(newParent, extractedItem, position);
 			} else {
-				addBinderItem(binder, extractedItem);
+				addBinderItem(binder, extractedItem, position);
 			}
 
 			logger.info(`Document ${documentId} moved to parent ${newParentId || 'root'}`);
@@ -345,7 +369,7 @@ export class BinderEditor {
 
 		// Place in target location or root
 		if (targetParent) {
-			appendBinderChild(targetParent, recoveredItem as BinderItem);
+			addBinderChild(targetParent, recoveredItem as BinderItem);
 		} else {
 			// Restore into the Draft/Manuscript folder, or at the binder top level if
 			// there is none. (This previously assumed binderItems[0] was the container

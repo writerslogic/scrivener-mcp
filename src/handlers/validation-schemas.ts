@@ -39,7 +39,12 @@ export const documentTitleSchema: ValidationSchema = {
 export const documentMoveSchema: ValidationSchema = {
 	documentId: { type: 'string', required: true },
 	targetFolderId: { type: 'string', required: true },
-	position: { type: 'number', required: false },
+	position: {
+		type: 'number',
+		required: false,
+		min: 0,
+		custom: (value) => Number.isSafeInteger(value),
+	},
 };
 
 export const searchSchema: ValidationSchema = {

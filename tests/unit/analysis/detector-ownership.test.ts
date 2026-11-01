@@ -26,7 +26,7 @@ it('retains prose cue excerpts that are not native setup/payoff pairs', () => {
 	expect(analyzer['extractForeshadowing'](text)).toEqual([
 		'Little did she know the door would close.',
 	]);
-	expect(analyzer['extractCallbacks'](text, [])).toContain('remembered the old wooden door.');
+	expect(analyzer['extractCallbacks'](text)).toContain('remembered the old wooden door.');
 	expect(analyzeForeshadowing([text.toLowerCase().split(/\s+/)], 1)).toEqual([]);
 });
 

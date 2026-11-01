@@ -3,14 +3,12 @@ import { escapeIdentifier } from '../../utils/database.js';
 import { SQLQueryBuilder } from './query-builder.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 import type { Neo4jManager } from './neo4j-manager.js';
-import type { TransactionCoordinator } from './transaction-coordinator.js';
 
 /** Document sync, character sync and relationship writes across the stores. */
 export class DatabaseSync {
 	constructor(
 		private readonly getSqlite: () => SQLiteManager | null,
-		private readonly getNeo4j: () => Neo4jManager | null,
-		_transactions?: TransactionCoordinator
+		private readonly getNeo4j: () => Neo4jManager | null
 	) {}
 
 	private get sqliteManager(): SQLiteManager | null {

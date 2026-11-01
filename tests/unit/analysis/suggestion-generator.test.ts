@@ -1,20 +1,9 @@
 import { collectProseExamples } from 'narrative-lens';
 import { SuggestionGenerator } from '../../../src/analysis/analyzers/suggestion-generator.js';
-import type { WritingMetrics } from '../../../src/analysis/analyzers/metrics-analyzer.js';
 import type { StyleAnalysis } from '../../../src/analysis/analyzers/style-analyzer.js';
 import type { QualityIndicators } from '../../../src/analysis/analyzers/quality-analyzer.js';
 
 const generator = new SuggestionGenerator();
-const metrics: WritingMetrics = {
-	wordCount: 100,
-	sentenceCount: 1,
-	paragraphCount: 1,
-	averageSentenceLength: 100,
-	averageParagraphLength: 100,
-	readingTime: 1,
-	fleschReadingEase: 20,
-	fleschKincaidGrade: 15,
-};
 const style: StyleAnalysis = {
 	sentenceVariety: 'low',
 	vocabularyComplexity: 'simple',
@@ -40,7 +29,6 @@ it('preserves native prose advice and excerpts without fabricating source locati
 	expect(findings.length).toBeGreaterThan(0);
 	const suggestions = await generator.generateSuggestions(
 		text,
-		metrics,
 		{ ...style, proseFindings: findings },
 		quality
 	);
@@ -63,22 +51,18 @@ it('deduplicates shared findings and suppresses obsolete generic advice', async 
 		snippet: 'The door was opened.',
 		suggestion: 'Consider naming the actor.',
 	};
-	const suggestions = await generator.generateSuggestions(
-		finding.snippet,
-		metrics,
-		style,
-		quality,
-		[finding, finding]
-	);
+	const suggestions = await generator.generateSuggestions(finding.snippet, style, quality, [
+		finding,
+		finding,
+	]);
 	expect(suggestions).toHaveLength(1);
 	expect(suggestions[0].suggestion).toBe(finding.suggestion);
-	expect(await generator.generateSuggestions('', metrics, style, quality, [])).toEqual([]);
+	expect(await generator.generateSuggestions('', style, quality, [])).toEqual([]);
 });
 
 it('retains application-specific sensory and telling assessments', async () => {
 	const suggestions = await generator.generateSuggestions(
 		'The room was quiet.',
-		metrics,
 		style,
 		{ ...quality, sensoryDetails: 'lacking', tellingVsShowing: 0.7 },
 		[]

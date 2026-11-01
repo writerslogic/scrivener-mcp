@@ -321,7 +321,6 @@ export class ContentAnalyzer {
 					() =>
 						this.suggestionGenerator.generateSuggestions(
 							content,
-							metrics,
 							style,
 							quality,
 							proseFindings

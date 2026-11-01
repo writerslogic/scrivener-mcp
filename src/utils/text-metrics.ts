@@ -4,6 +4,7 @@
  */
 
 import nlp from 'compromise';
+import { escapeRegExp } from './regex.js';
 
 /**
  * Normalize text for consistent processing
@@ -35,7 +36,7 @@ function protectAbbreviations(text: string): string {
 	// Replace abbreviation periods with placeholders
 	let protectedText = text;
 	allAbbreviations.forEach((abbr) => {
-		const pattern = new RegExp(`\\b${abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
+		const pattern = new RegExp(`\\b${escapeRegExp(abbr)}`, 'gi');
 		protectedText = protectedText.replace(pattern, abbr.replace(/\./g, '@@@'));
 	});
 

@@ -634,7 +634,7 @@ export class Neo4jAutoInstaller {
 		});
 
 		await timeout.wait(
-			new Promise<void>((resolve, _reject) => {
+			new Promise<void>((resolve) => {
 				const checkDocker = async () => {
 					try {
 						await execAsync('docker ps', { timeout: 5000 });
@@ -688,7 +688,7 @@ export class Neo4jAutoInstaller {
 		});
 
 		await timeout.wait(
-			new Promise<void>((resolve, _reject) => {
+			new Promise<void>((resolve) => {
 				const checkNeo4j = async () => {
 					try {
 						const driver = neo4j.default.driver(

@@ -204,10 +204,10 @@ export class PermissionManager {
 		}
 	}
 
-	static getAlternatives(
-		_operation: string,
-		platformInfo: { platform?: string; packageManagers?: string[] }
-	): string[] {
+	static getAlternatives(platformInfo: {
+		platform?: string;
+		packageManagers?: string[];
+	}): string[] {
 		const alternatives: string[] = [];
 
 		// Always suggest Docker as a permission-free alternative
@@ -255,7 +255,7 @@ export function withPermissionHandling<T extends unknown[], R>(
 				message.includes('access denied')
 			) {
 				const permissions = await PermissionManager.checkSystemPermissions();
-				const alternatives = PermissionManager.getAlternatives(operation, {
+				const alternatives = PermissionManager.getAlternatives({
 					platform: process.platform,
 				});
 

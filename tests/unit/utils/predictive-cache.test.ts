@@ -6,9 +6,32 @@ describe('PredictiveCache behavior', () => {
 	});
 
 	afterEach(() => {
+		jest.restoreAllMocks();
 		jest.clearAllTimers();
 		jest.useRealTimers();
 	});
+
+	it.each([99, 100, 101])(
+		'trains from %i real cache accesses only after the minimum sample count',
+		async (count) => {
+			jest.spyOn(Math, 'random').mockReturnValue(0.5);
+			const cache = new PredictiveCache<string>();
+			try {
+				await cache.set('chapter', 'saved text');
+				for (let index = 0; index < count; index++) {
+					expect(await cache.get('chapter')).toBe('saved text');
+				}
+				await cache.retrainModel();
+				expect(cache.getStats()).toMatchObject({
+					predictions: count < 100 ? 0 : count - 1,
+					modelAccuracy: count < 100 ? 0.5 : 1,
+					entryCount: 1,
+				});
+			} finally {
+				cache.dispose();
+			}
+		}
+	);
 
 	it('returns undefined on a miss when no dataLoader is configured', async () => {
 		const cache = new PredictiveCache<string>();

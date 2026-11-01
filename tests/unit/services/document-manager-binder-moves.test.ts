@@ -15,7 +15,12 @@ function makeStructure() {
 			Binder: {
 				BinderItem: [
 					{ UUID: DOC, Type: 'Text', Title: 'Scene' } as Item,
-					{ UUID: FOLDER, Type: 'Folder', Title: 'Part', Children: { BinderItem: [] } } as Item,
+					{
+						UUID: FOLDER,
+						Type: 'Folder',
+						Title: 'Part',
+						Children: { BinderItem: [] },
+					} as Item,
 					{ UUID: OTHER_DOC, Type: 'Text', Title: 'Other' } as Item,
 				],
 				SearchResults: [
@@ -53,6 +58,56 @@ describe('DocumentManager binder moves', () => {
 
 		expect(folderChildren().map((i) => i.UUID)).toEqual([DOC]);
 		expect(root().map((i) => i.UUID)).toEqual([FOLDER, OTHER_DOC]);
+	});
+
+	it.each([0, 1, 2])('inserts at target position %i', async (position) => {
+		await manager.moveDocument(OTHER_DOC, FOLDER);
+		folderChildren().push({ UUID: MISSING, Type: 'Text', Title: 'Last' });
+		await manager.moveDocument(DOC, FOLDER, position);
+		const expected = [OTHER_DOC, MISSING];
+		expected.splice(position, 0, DOC);
+		expect(folderChildren().map((item) => item.UUID)).toEqual(expected);
+		expect(root().map((item) => item.UUID)).toEqual([FOLDER]);
+	});
+
+	it.each([-1, 0.5, 3, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
+		'rejects position %s before changing the binder',
+		async (position) => {
+			await manager.moveDocument(OTHER_DOC, FOLDER);
+			folderChildren().push({ UUID: MISSING, Type: 'Text', Title: 'Last' });
+			const before = structuredClone(structure);
+			await expect(manager.moveDocument(DOC, FOLDER, position)).rejects.toThrow('position');
+			expect(structure).toEqual(before);
+		}
+	);
+
+	it('reorders within the same parent without shifting or duplicating the requested position', async () => {
+		await manager.moveDocument(DOC, null, 2);
+		expect(root().map((item) => item.UUID)).toEqual([FOLDER, OTHER_DOC, DOC]);
+		await manager.moveDocument(DOC, null, 2);
+		expect(root().map((item) => item.UUID)).toEqual([FOLDER, OTHER_DOC, DOC]);
+		await manager.moveDocument(DOC, null, 0);
+		expect(root().map((item) => item.UUID)).toEqual([DOC, FOLDER, OTHER_DOC]);
+	});
+
+	it('inserts before a singleton root while emptying its singleton child', async () => {
+		const singleton = {
+			ScrivenerProject: {
+				Binder: {
+					BinderItem: {
+						UUID: FOLDER,
+						Type: 'Folder',
+						Children: { BinderItem: { UUID: DOC, Type: 'Text' } },
+					},
+				},
+			},
+		};
+		manager.setProjectStructure(singleton);
+		await manager.moveDocument(DOC, null, 0);
+		expect(singleton.ScrivenerProject.Binder.BinderItem).toEqual([
+			{ UUID: DOC, Type: 'Text' },
+			{ UUID: FOLDER, Type: 'Folder', Children: { BinderItem: null } },
+		]);
 	});
 
 	it('leaves the document in place when the target parent is unknown or not a folder', async () => {

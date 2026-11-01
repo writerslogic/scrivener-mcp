@@ -193,26 +193,18 @@ export function addBinderItem(
 			container.BinderItem.push(item);
 		}
 	} else {
-		container.BinderItem = [container.BinderItem, item];
+		container.BinderItem =
+			position === 0 ? [item, container.BinderItem] : [container.BinderItem, item];
 	}
 }
 
-/**
- * Append an item to a folder's children, normalizing a missing or single-item
- * Children.BinderItem to an array.
- */
-export function appendBinderChild(parent: BinderItem, item: BinderItem): void {
+export function addBinderChild(parent: BinderItem, item: BinderItem, position?: number): void {
 	if (!parent.Children) {
 		parent.Children = { BinderItem: [] };
 	}
 	const existing = parent.Children.BinderItem;
-	if (!existing) {
-		parent.Children.BinderItem = [item];
-	} else if (Array.isArray(existing)) {
-		existing.push(item);
-	} else {
-		parent.Children.BinderItem = [existing, item];
-	}
+	parent.Children.BinderItem = Array.isArray(existing) ? existing : existing ? [existing] : [];
+	addBinderItem(parent.Children, item, position);
 }
 
 /**

@@ -43,13 +43,7 @@ describe('DocumentWriter', () => {
 	const text = async (id = DOC) =>
 		(await rtf.parseRTF(await fs.readFile(file(id), 'utf8'))).plainText;
 	const createWriter = (observed?: (id: string) => string | undefined) =>
-		new DocumentWriter(
-			root,
-			rtf,
-			new LRUCache<RTFContent>(),
-			async (_key, operation) => operation(),
-			observed
-		);
+		new DocumentWriter(root, rtf, new LRUCache<RTFContent>(), observed);
 
 	beforeEach(async () => {
 		root = await fs.mkdtemp(path.join(tmpdir(), 'scrivener-buffered-writes-'));

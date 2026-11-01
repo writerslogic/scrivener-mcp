@@ -568,7 +568,9 @@ export const moveDocumentHandler: ToolDefinition = {
 			targetFolderId: SHARED_DEFS.folderId,
 			force: SHARED_DEFS.force,
 			position: {
-				type: 'number',
+				type: 'integer',
+				minimum: 0,
+				maximum: Number.MAX_SAFE_INTEGER,
 				description:
 					"Zero-based index at which to insert the item among the target folder's children. " +
 					'Omit to append at the end.',

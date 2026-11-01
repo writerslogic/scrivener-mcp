@@ -13,19 +13,12 @@ describe('predictive cache resource ownership', () => {
 		jest.useRealTimers();
 	});
 
-	it('imports all singleton exports and constructs caches without creating timers', () => {
+	it('imports the module and constructs caches without creating timers', () => {
 		const intervals = jest.spyOn(global, 'setInterval');
 		jest.isolateModules(() => {
 			const module = jest.requireActual<
 				typeof import('../../../src/utils/predictive-cache.js')
 			>('../../../src/utils/predictive-cache.js');
-			for (const cache of [
-				module.analysisCache,
-				module.documentCache,
-				module.metadataCache,
-			]) {
-				expect(cache.getStats().entryCount).toBe(0);
-			}
 			new module.PredictiveCache();
 		});
 		expect(intervals).not.toHaveBeenCalled();

@@ -214,10 +214,8 @@ export class ScrivenerProject {
 			this.projectPath,
 			this.documentManager,
 			this.hhmSystem,
-			() => this.persistProject(),
 			(documentId) => this.markDocumentChanged(documentId),
 			(documentId) => this.getDocumentInfo(documentId),
-			(documentId, title) => this.takeSnapshot(documentId, title),
 			(structure, documents) =>
 				this.projectLoader.saveProjectWithDocuments(structure, documents)
 		);
@@ -378,7 +376,6 @@ export class ScrivenerProject {
 			);
 			registerProject(seriesStore, source);
 			const review = new ReviewService(
-				this.projectPath,
 				this.documentManager,
 				this.writer,
 				store,
@@ -470,11 +467,11 @@ export class ScrivenerProject {
 	async moveDocument(
 		documentId: string,
 		newParentId: string | null,
-		_position?: number,
+		position?: number,
 		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
 		await this.ensureWritable(options.force);
-		await this.documentManager.moveDocument(documentId, newParentId);
+		await this.documentManager.moveDocument(documentId, newParentId, position);
 		await this.persistProject();
 	}
 

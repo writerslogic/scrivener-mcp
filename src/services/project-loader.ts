@@ -275,7 +275,7 @@ export class ProjectLoader {
 			await safeWriteFile(backupPath, saved.raw);
 			logger.info(`Backup created at ${backupPath}`);
 
-			await this.cleanupOldBackups(backupDir);
+			await this.cleanupOldBackups();
 
 			return backupPath;
 		} catch (error) {
@@ -400,7 +400,7 @@ export class ProjectLoader {
 		return clean;
 	}
 
-	private async cleanupOldBackups(_backupDir: string): Promise<void> {
+	private async cleanupOldBackups(): Promise<void> {
 		if (!this.options.maxBackups || this.options.maxBackups <= 0) {
 			return;
 		}

@@ -374,8 +374,7 @@ export class ContextSyncService {
 			return;
 		}
 
-		const documents = await this.getAllDocuments();
-		const storyContext = await this.contextAnalyzer.buildStoryContext(documents, chapters);
+		const storyContext = await this.contextAnalyzer.buildStoryContext(chapters);
 
 		const storyPath = buildPath(this.contextDir, 'story-context');
 

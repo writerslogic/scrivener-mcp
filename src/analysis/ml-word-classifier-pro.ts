@@ -482,7 +482,6 @@ export class MLWordClassifierPro {
 		}>;
 		const wordIndex = this.findWordIndex(
 			terms.map((term) => term.text),
-			word,
 			position
 		);
 
@@ -825,7 +824,7 @@ export class MLWordClassifierPro {
 		return Math.min(1, complexity);
 	}
 
-	private findWordIndex(words: string[], _targetWord: string, position: number): number {
+	private findWordIndex(words: string[], position: number): number {
 		let currentPos = 0;
 		for (let i = 0; i < words.length; i++) {
 			if (currentPos <= position && position < currentPos + words[i].length) {

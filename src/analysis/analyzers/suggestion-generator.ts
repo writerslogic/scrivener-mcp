@@ -1,5 +1,4 @@
 import { collectProseExamples } from 'narrative-lens';
-import type { WritingMetrics } from './metrics-analyzer.js';
 import type { StyleAnalysis } from './style-analyzer.js';
 import type { QualityIndicators } from './quality-analyzer.js';
 
@@ -15,7 +14,6 @@ export interface Suggestion {
 export class SuggestionGenerator {
 	async generateSuggestions(
 		content: string,
-		_metrics: WritingMetrics,
 		style: StyleAnalysis,
 		quality: QualityIndicators,
 		proseFindings: ReturnType<typeof collectProseExamples> = style.proseFindings ??

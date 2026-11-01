@@ -90,18 +90,7 @@ export class ProjectContextBridge {
 			}
 		}
 
-		const addCharCount = (doc: ScrivenerDocument): AnalyzerDocument => ({
-			id: doc.id,
-			title: doc.title,
-			type: doc.type,
-			synopsis: doc.synopsis,
-			notes: doc.notes,
-			characterCount: doc.content?.length || 0,
-			wordCount: doc.wordCount || 0,
-			children: doc.children?.map(addCharCount),
-		});
-		const documentsWithCharCount = documents.map(addCharCount);
-		return await this.contextAnalyzer.buildStoryContext(documentsWithCharCount, contexts);
+		return await this.contextAnalyzer.buildStoryContext(contexts);
 	}
 
 	getSyncStatus(): SyncStatus | { enabled: false; message: string } {

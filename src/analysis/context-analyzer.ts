@@ -14,7 +14,7 @@ import {
 	validateInput,
 	withErrorHandling,
 } from '../utils/common.js';
-import type { ContentAnalysis, ContentAnalyzer } from './base-analyzer.js';
+import type { ContentAnalyzer } from './base-analyzer.js';
 
 const logger = getLogger('context-analyzer');
 
@@ -169,16 +169,16 @@ export class ContextAnalyzer {
 
 			const characters = await this.extractCharacterMentions(document.id, content);
 
-			const themes = await this.extractThemes(content, basicAnalysis);
+			const themes = await this.extractThemes(content);
 
 			const plotThreads = await this.getChapterPlotThreads(document.id);
 
-			const emotionalArc = this.analyzeEmotionalArc(content, basicAnalysis);
+			const emotionalArc = this.analyzeEmotionalArc(content);
 
 			const keyEvents = this.extractKeyEvents(content);
 			const cliffhangers = this.extractCliffhangers(content);
 			const foreshadowing = this.extractForeshadowing(content);
-			const callbacks = this.extractCallbacks(content, allDocuments);
+			const callbacks = this.extractCallbacks(content);
 
 			const context: ChapterContext = {
 				documentId: document.id,
@@ -248,10 +248,7 @@ export class ContextAnalyzer {
 		return result as unknown as ChapterContext;
 	}
 
-	async buildStoryContext(
-		_documents: ScrivenerDocument[],
-		chapterContexts: ChapterContext[]
-	): Promise<StoryContext> {
+	async buildStoryContext(chapterContexts: ChapterContext[]): Promise<StoryContext> {
 		const characterArcs = await this.buildCharacterArcs(chapterContexts);
 		const themeProgression = await this.buildThemeProgression(chapterContexts);
 		const plotThreads = await this.buildPlotThreadMap(chapterContexts);
@@ -356,10 +353,7 @@ export class ContextAnalyzer {
 		return null;
 	}
 
-	private async extractThemes(
-		content: string,
-		_analysis: ContentAnalysis
-	): Promise<ChapterContext['themes']> {
+	private async extractThemes(content: string): Promise<ChapterContext['themes']> {
 		const tokens = content.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 		const scores = detectThemesSmart([content], [tokens])[0] ?? {};
 		return Object.entries(scores)
@@ -393,10 +387,7 @@ export class ContextAnalyzer {
 		return threads;
 	}
 
-	private analyzeEmotionalArc(
-		content: string,
-		_analysis: ContentAnalysis
-	): ChapterContext['emotionalArc'] {
+	private analyzeEmotionalArc(content: string): ChapterContext['emotionalArc'] {
 		const third = Math.floor(content.length / 3);
 		const start = content.substring(0, third);
 		const middle = content.substring(third, third * 2);
@@ -534,7 +525,7 @@ export class ContextAnalyzer {
 		return foreshadowing;
 	}
 
-	private extractCallbacks(content: string, _allDocuments: ScrivenerDocument[]): string[] {
+	private extractCallbacks(content: string): string[] {
 		const callbacks: string[] = [];
 
 		const patterns = [

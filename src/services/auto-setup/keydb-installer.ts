@@ -444,7 +444,6 @@ export class KeyDBInstaller {
 					ErrorCode.PERMISSION_DENIED,
 					{
 						alternatives: PermissionManager.getAlternatives(
-							'KeyDB installation',
 							this.platformInfo || { platform: process.platform }
 						),
 						suggestion: 'Use Docker installation instead',
@@ -536,7 +535,6 @@ export class KeyDBInstaller {
 					ErrorCode.PERMISSION_DENIED,
 					{
 						alternatives: PermissionManager.getAlternatives(
-							'Redis installation',
 							this.platformInfo || { platform: process.platform }
 						),
 						suggestion: 'Use Docker installation instead',

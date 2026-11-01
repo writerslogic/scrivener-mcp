@@ -221,7 +221,7 @@ export class GraphAnalytics {
 			tensionCurve.length;
 		const pacingScore = Math.min(100, Math.sqrt(variance) * 5);
 
-		const suggestions = this.generateFlowSuggestions(chapters, tensionCurve);
+		const suggestions = this.generateFlowSuggestions(tensionCurve);
 
 		return {
 			chapters,
@@ -337,15 +337,7 @@ export class GraphAnalytics {
 		return 'occasional interaction';
 	}
 
-	private generateFlowSuggestions(
-		_chapters: Array<{
-			id: string;
-			intensity: number;
-			charactersPresent: number;
-			plotThreadsActive: number;
-		}>,
-		tensionCurve: number[]
-	): string[] {
+	private generateFlowSuggestions(tensionCurve: number[]): string[] {
 		const suggestions: string[] = [];
 
 		const flatSections = this.findFlatSections(tensionCurve);

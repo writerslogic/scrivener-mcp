@@ -4,11 +4,6 @@
  */
 
 import nlp from 'compromise';
-// Note: compromise-sentiment doesn't exist as a separate package
-// Using compromise's built-in features instead
-import { getLogger } from '../../core/logger.js';
-
-const _logger = getLogger('nlp-sentiment-analyzer');
 
 interface SentimentTerm {
 	normal: string;

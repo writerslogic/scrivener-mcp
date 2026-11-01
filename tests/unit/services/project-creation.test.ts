@@ -41,12 +41,8 @@ beforeEach(async () => {
 		root,
 		documents,
 		undefined,
-		() => loader.saveProject(),
 		() => undefined,
 		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
-		async () => {
-			throw new Error('New documents do not require snapshots');
-		},
 		(structure, created) => loader.saveProjectWithDocuments(structure, created)
 	);
 });

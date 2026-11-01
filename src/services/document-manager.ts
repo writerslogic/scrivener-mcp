@@ -74,7 +74,6 @@ export class DocumentManager {
 			this.projectPath,
 			this.rtfHandler,
 			this.documentCache,
-			(key, operation) => this.dedupedOperation(key, operation),
 			(documentId) => this.observedRevisions.get(documentId),
 			(documentId, revision) => this.observedRevisions.set(documentId, revision)
 		);
@@ -274,9 +273,13 @@ export class DocumentManager {
 	/**
 	 * Move a document to a different parent
 	 */
-	async moveDocument(documentId: string, newParentId: string | null): Promise<void> {
+	async moveDocument(
+		documentId: string,
+		newParentId: string | null,
+		position?: number
+	): Promise<void> {
 		this.assertOpen();
-		return this.binder.moveDocument(documentId, newParentId);
+		return this.binder.moveDocument(documentId, newParentId, position);
 	}
 
 	/**

@@ -50,8 +50,7 @@ describe('database synchronization with real SQLite', () => {
 		graph = null;
 		sync = new DatabaseSync(
 			() => sqlite,
-			() => graph as Neo4jManager | null,
-			transactions
+			() => graph as Neo4jManager | null
 		);
 	});
 

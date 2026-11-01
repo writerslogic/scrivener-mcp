@@ -47,8 +47,7 @@ describe('ProjectContent search with an initialized binder index', () => {
 			},
 			async () => {
 				throw new Error('Unused compile metadata');
-			},
-			() => true
+			}
 		);
 	});
 
