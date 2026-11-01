@@ -60,7 +60,6 @@ export const FILE_EXTENSIONS = {
 	XML: '.xml',
 } as const;
 
-// Database Constants
 export const DATABASE = {
 	SQLITE_DEFAULT_PATH: 'scrivener.db',
 	NEO4J_DEFAULT_URI: 'bolt://localhost:7687',
@@ -74,7 +73,6 @@ export const DATABASE = {
 	BATCH_SIZE: 100,
 } as const;
 
-// Document Types
 export const DOCUMENT_TYPES = {
 	TEXT: 'Text',
 	FOLDER: 'Folder',
@@ -92,7 +90,6 @@ export const COMPILATION_FORMATS = {
 	DOCX: 'docx',
 } as const;
 
-// Analysis Types
 export const ANALYSIS_TYPES = {
 	SCENE: 'scene',
 	CHARACTER: 'character',
@@ -104,7 +101,6 @@ export const ANALYSIS_TYPES = {
 	CONSISTENCY: 'consistency',
 } as const;
 
-// Content hashing configuration
 export const CONTENT_HASH_SEED = 0x6a09e667; // Initial vector for content fingerprinting
 
 // Size and Performance Limits
@@ -160,7 +156,6 @@ export const CACHE_KEYS = {
 	COMPILATION_PREFIX: 'compile:',
 } as const;
 
-// MIME Types
 export const MIME_TYPES = {
 	RTF: 'application/rtf',
 	TEXT: 'text/plain',

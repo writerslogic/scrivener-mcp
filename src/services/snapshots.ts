@@ -1,11 +1,5 @@
-/**
- * Reads Scrivener 3 document snapshots from a `.scriv` package. Snapshots live
- * under `Snapshots/<DOC-UUID>.snapshots/`, each containing an `index.xml`
- * (per-snapshot `<Title>`/`<Date>` metadata) and one RTF file per snapshot whose
- * name encodes the snapshot timestamp (`YYYY-MM-DD-HH-MM-SS-ZZZZ.rtf`). Scrivener
- * publishes no schema for these files. Missing snapshots are ordinary absence;
- * unsafe paths and I/O failures are reported explicitly.
- */
+// Scrivener snapshots use undocumented UUID directories and timestamped RTF files.
+// Missing snapshots are ordinary absence; unsafe paths and I/O failures are errors.
 
 import * as fs from 'node:fs/promises';
 import * as path from 'path';

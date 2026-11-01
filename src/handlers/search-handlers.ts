@@ -423,7 +423,6 @@ export const findMentionsHandler: ToolDefinition = {
 		const contextLength = getOptionalNumberArg(args, 'contextLength') || 100;
 
 		try {
-			// Get all documents
 			const documents = await project.getAllDocuments();
 			const mentions: Array<{
 				documentId: string;
@@ -444,7 +443,6 @@ export const findMentionsHandler: ToolDefinition = {
 
 				let position = 0;
 				while ((position = contentLower.indexOf(entityLower, position)) !== -1) {
-					// Extract context around the mention
 					const contextStart = Math.max(0, position - contextLength);
 					const contextEnd = Math.min(
 						content.length,

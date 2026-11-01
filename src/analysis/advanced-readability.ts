@@ -178,9 +178,6 @@ export class AdvancedReadabilityService {
 		);
 	}
 
-	/**
-	 * Compare readability between two texts
-	 */
 	compareReadability(text1: string, text2: string): ComparativeAnalysis {
 		const metrics1 = this.calculateMetrics(text1);
 		const metrics2 = this.calculateMetrics(text2);
@@ -250,7 +247,6 @@ export class AdvancedReadabilityService {
 		const targetGradeLevel = this.getTargetGradeLevel(targetAudience);
 		const recommendations: ReadabilityRecommendation[] = [];
 
-		// Check if current level matches target
 		if (metrics.fleschKincaidGrade > targetGradeLevel + 2) {
 			recommendations.push({
 				category: 'overall_structure',
@@ -261,7 +257,6 @@ export class AdvancedReadabilityService {
 			});
 		}
 
-		// Add audience-specific recommendations
 		recommendations.push(...this.getAudienceSpecificSuggestions(metrics, targetAudience));
 
 		return recommendations;
@@ -313,7 +308,6 @@ export class AdvancedReadabilityService {
 			suggestions.push(`Adjust vocabulary complexity for ${context} audience`);
 		}
 
-		// Determine appropriateness
 		const appropriateness =
 			score >= 90
 				? 'excellent'

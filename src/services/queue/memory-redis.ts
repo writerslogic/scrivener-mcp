@@ -97,7 +97,6 @@ export class MemoryRedis extends EventEmitter {
 	private async connectStore(): Promise<void> {
 		if (this.connected) return;
 
-		// Load persisted data
 		if (this.persistPath) {
 			let parsed: unknown;
 			try {
@@ -205,7 +204,6 @@ export class MemoryRedis extends EventEmitter {
 	private async disconnectStore(): Promise<void> {
 		if (!this.connected) return;
 
-		// Stop timers first
 		if (this.persistInterval) {
 			clearInterval(this.persistInterval);
 			this.persistInterval = null;
@@ -242,7 +240,6 @@ export class MemoryRedis extends EventEmitter {
 	async set(key: string, value: string, ...args: (string | number)[]): Promise<'OK'> {
 		this.data.set(key, value);
 
-		// Handle expiry
 		if (args[0] === 'EX' && typeof args[1] === 'number') {
 			this.expiry.set(key, Date.now() + args[1] * 1000);
 		} else if (args[0] === 'PX' && typeof args[1] === 'number') {
@@ -326,7 +323,6 @@ export class MemoryRedis extends EventEmitter {
 		const list = this.data.get(key);
 		if (!Array.isArray(list)) return [];
 
-		// Handle negative indices
 		if (start < 0) start = list.length + start;
 		if (stop < 0) stop = list.length + stop;
 
@@ -349,7 +345,6 @@ export class MemoryRedis extends EventEmitter {
 		const newList: unknown[] = [];
 
 		if (count > 0) {
-			// Remove from head
 			for (const item of list) {
 				if (item === value && removed < count) {
 					removed++;
@@ -358,7 +353,6 @@ export class MemoryRedis extends EventEmitter {
 				}
 			}
 		} else if (count < 0) {
-			// Remove from tail
 			for (let i = list.length - 1; i >= 0; i--) {
 				if (list[i] === value && removed < Math.abs(count)) {
 					removed++;
@@ -367,7 +361,6 @@ export class MemoryRedis extends EventEmitter {
 				}
 			}
 		} else {
-			// Remove all
 			for (const item of list) {
 				if (item === value) {
 					removed++;
@@ -517,7 +510,6 @@ export class MemoryRedis extends EventEmitter {
 			const score = parseFloat(String(args[i]));
 			const member = args[i + 1];
 
-			// Validate score and member
 			if (isNaN(score) || !isFinite(score)) {
 				continue; // Skip invalid scores
 			}
@@ -554,13 +546,11 @@ export class MemoryRedis extends EventEmitter {
 		const entries = Array.from(scores.entries()) as [string, number][];
 		const sorted = entries.sort((a, b) => a[1] - b[1]).map(([member]) => member);
 
-		// Handle negative indices
 		if (start < 0) start = sorted.length + start;
 		if (stop < 0) stop = sorted.length + stop;
 
 		const result = sorted.slice(start, stop + 1);
 
-		// Handle WITHSCORES
 		if (args.includes('WITHSCORES')) {
 			const withScores: string[] = [];
 			for (const member of result) {
@@ -598,7 +588,6 @@ export class MemoryRedis extends EventEmitter {
 		return removed;
 	}
 
-	// Utility methods
 	private checkExpiry(key: string): void {
 		const expiry = this.expiry.get(key);
 		if (expiry && expiry < Date.now()) {
@@ -607,7 +596,6 @@ export class MemoryRedis extends EventEmitter {
 		}
 	}
 
-	// Clean up all expired keys in batch
 	private cleanupExpired(): void {
 		if (this.isCleaningExpiry) return;
 		this.isCleaningExpiry = true;

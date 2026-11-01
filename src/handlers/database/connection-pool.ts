@@ -38,7 +38,6 @@ export class SQLitePool {
 			connectionRetryDelay: config.connectionRetryDelay || 100,
 		};
 
-		// Initialize minimum connections
 		this.initialize();
 	}
 
@@ -69,12 +68,10 @@ export class SQLitePool {
 		// Use condition-based waiting instead of polling with fixed delays
 		await waitForCondition({
 			condition: async () => {
-				// Return available connection
 				if (this.available.length > 0) {
 					return true;
 				}
 
-				// Create new connection if under limit
 				if (this.connections.length < this.config.maxConnections) {
 					return true;
 				}
@@ -91,7 +88,6 @@ export class SQLitePool {
 			return this.available.pop()!;
 		}
 
-		// Create new connection if under limit
 		if (this.connections.length < this.config.maxConnections) {
 			const conn = this.createConnection();
 			this.connections.push(conn);
@@ -106,7 +102,6 @@ export class SQLitePool {
 			return; // Connection not from this pool
 		}
 
-		// Return to available pool
 		if (!this.available.includes(conn)) {
 			this.available.push(conn);
 		}
@@ -192,7 +187,6 @@ export class Neo4jSessionPool {
 					}
 				);
 
-				// Verify connectivity
 				await this.driver.verifyConnectivity();
 			},
 			{
@@ -239,13 +233,11 @@ export class Neo4jSessionPool {
 	}
 
 	async close(): Promise<void> {
-		// Close all sessions
 		for (const session of this.sessions) {
 			await session.close();
 		}
 		this.sessions.clear();
 
-		// Close driver
 		if (this.driver) {
 			await this.driver.close();
 			this.driver = null;
@@ -292,7 +284,6 @@ export class QueryOptimizer {
 			}
 		});
 
-		// Process in batches
 		for (let i = 0; i < records.length; i += batchSize) {
 			const batch = records.slice(i, i + batchSize);
 			insertMany(batch);
@@ -307,19 +298,16 @@ export class QueryOptimizer {
 		query: string,
 		params: unknown[] = []
 	): unknown[] {
-		// Analyze query plan
 		const plan = db.prepare(`EXPLAIN QUERY PLAN ${query}`).all(...params) as Array<{
 			detail?: string;
 		}>;
 
-		// Check if indexes are being used
 		const usesIndex = plan.some((step) => step.detail?.includes('USING INDEX'));
 
 		if (!usesIndex && process.env.NODE_ENV === 'development') {
 			console.error('Query may benefit from indexing:', query);
 		}
 
-		// Execute with prepared statement
 		const stmt = db.prepare(query);
 		return stmt.all(...params);
 	}

@@ -120,7 +120,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 			fs.mkdirSync(dir, { recursive: true });
 		}
 
-		// Create minimum connections
 		const promises: Promise<void>[] = [];
 		for (let i = 0; i < this.config.min; i++) {
 			promises.push(this.createConnection().then(() => {}));
@@ -153,7 +152,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 				return connection;
 			}
 
-			// Create new connection if under max limit
 			if (this.connections.size < this.config.max) {
 				try {
 					connection = await this.createConnection();
@@ -199,7 +197,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 			return;
 		}
 
-		// Validate connection if configured
 		if (this.config.validateOnReturn && !this.validateConnection(connection)) {
 			await this.destroyConnection(connection);
 			this.borrowedConnections.delete(connection.id);
@@ -207,7 +204,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 			return;
 		}
 
-		// Check if connection should be refreshed due to high usage
 		if (connection.useCount >= this.config.maxUses) {
 			logger.debug('Refreshing high-usage connection', {
 				connectionId: connection.id,
@@ -219,20 +215,15 @@ export class SQLiteConnectionPool extends EventEmitter {
 			return;
 		}
 
-		// Return to available pool
 		this.borrowedConnections.delete(connection.id);
 		connection.lastUsedAt = new Date();
 		this.availableConnections.push(connection);
 
-		// Process pending requests
 		this.processPendingRequests();
 
 		this.emit('release', connection);
 	}
 
-	/**
-	 * Execute query with automatic connection management
-	 */
 	async query<T = unknown[]>(sql: string, params: unknown[] = []): Promise<T> {
 		const connection = await this.acquire();
 		try {
@@ -252,9 +243,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Execute single row query
-	 */
 	async queryOne<T = unknown>(sql: string, params: unknown[] = []): Promise<T> {
 		const connection = await this.acquire();
 		try {
@@ -265,9 +253,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Execute write operation
-	 */
 	async execute(sql: string, params: unknown[] = []): Promise<Database.RunResult> {
 		const connection = await this.acquire();
 		try {
@@ -278,9 +263,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Execute transaction
-	 */
 	async transaction<T>(fn: (db: Database.Database) => T): Promise<T> {
 		const connection = await this.acquire();
 		try {
@@ -356,7 +338,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 
 		this.isDestroyed = true;
 
-		// Clear reaper
 		if (this.reaper) {
 			clearInterval(this.reaper);
 			this.reaper = undefined;
@@ -371,7 +352,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		}
 		this.pendingRequests.length = 0;
 
-		// Close all connections
 		const destroyPromises: Promise<void>[] = [];
 		for (const connection of this.connections.values()) {
 			destroyPromises.push(this.destroyConnection(connection));
@@ -385,8 +365,6 @@ export class SQLiteConnectionPool extends EventEmitter {
 		this.emit('destroy');
 		logger.info('Connection pool destroyed');
 	}
-
-	// Private methods
 
 	private async createConnection(): Promise<PooledConnection> {
 		try {

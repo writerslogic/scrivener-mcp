@@ -1,10 +1,3 @@
-/**
- * Locks the compile-settings reader for issue #14 against the real sample
- * project fixture: parses Settings/compile.xml and the .scrivx taxonomy
- * (labels/statuses/collections/section types), and verifies the defensive
- * accessors degrade to empty rather than throwing on missing/garbage input.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseStringPromise } from 'xml2js';

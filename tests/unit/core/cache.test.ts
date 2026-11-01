@@ -43,6 +43,14 @@ describe('LRUCache', () => {
 		});
 	});
 
+	it('preserves empty values under Unicode and punctuation keys', () => {
+		for (const key of ['🔑', 'key with spaces', 'key/with.dots']) {
+			cache.set(key, '');
+			expect(cache.has(key)).toBe(true);
+			expect(cache.get(key)).toBe('');
+		}
+	});
+
 	describe('TTL expiration', () => {
 		it('should expire entries after TTL', async () => {
 			const shortCache = new LRUCache({ ttl: 50 });
@@ -88,7 +96,6 @@ describe('LRUCache', () => {
 			// Access key1 to make it more recent
 			cache.get('key1');
 
-			// Add new item, should evict key2
 			cache.set('key4', 'value4');
 
 			expect(cache.get('key1')).toBe('value1');
@@ -107,7 +114,6 @@ describe('LRUCache', () => {
 			cache.get('key1');
 			cache.get('key3');
 
-			// Add new item, should evict key2 (least recent)
 			cache.set('key4', 'value4');
 
 			expect(cache.get('key2')).toBeUndefined();

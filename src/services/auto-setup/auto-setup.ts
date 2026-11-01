@@ -59,9 +59,6 @@ export class AutoSetup {
 		await writeJSON(this.setupPath, status);
 	}
 
-	/**
-	 * Run health checks
-	 */
 	async runHealthChecks(): Promise<{
 		queue: boolean;
 		ai: boolean;
@@ -75,7 +72,6 @@ export class AutoSetup {
 		// Queue is always healthy with embedded system
 		details.push('✅ Embedded queue system is ready');
 
-		// Check AI configuration
 		try {
 			const aiConfig = await this.aiWizard.getActiveConfig();
 			aiHealthy = !!(
@@ -104,9 +100,6 @@ export class AutoSetup {
 		};
 	}
 
-	/**
-	 * Run the auto-setup process
-	 */
 	async run(options: SetupOptions = {}): Promise<SetupResult> {
 		const result: SetupResult = {
 			success: true,
@@ -144,7 +137,6 @@ export class AutoSetup {
 						logger.info(chalk.green('✅ AI services configured'));
 					}
 				} else {
-					// Check for existing configuration
 					const existingConfig = await this.aiWizard.getActiveConfig();
 					if (existingConfig.openaiApiKey || existingConfig.anthropicApiKey) {
 						result.aiConfigured = true;
@@ -165,7 +157,6 @@ export class AutoSetup {
 			});
 			logger.info(chalk.green('✅ Services initialized'));
 
-			// Save setup status
 			await this.saveSetupStatus({
 				completed: true,
 				timestamp: new Date().toISOString(),
@@ -196,7 +187,6 @@ export class AutoSetup {
 	static async cli(args: string[] = []): Promise<void> {
 		const setup = new AutoSetup();
 
-		// Parse basic CLI arguments
 		const options: SetupOptions = {
 			interactive: args.includes('--interactive') || args.includes('-i'),
 			skipAI: args.includes('--skip-ai'),
@@ -210,7 +200,6 @@ export class AutoSetup {
 			options.openaiApiKey = args[apiKeyIndex].split('=')[1];
 		}
 
-		// Run setup
 		const result = await setup.run(options);
 
 		// Exit with appropriate code

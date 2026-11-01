@@ -64,13 +64,10 @@ export class SQLiteOptimizer {
 	}> {
 		const db = this.sqliteManager.getDatabase();
 
-		// Generate query hash for caching
 		const hash = this.hashQuery(sql, params);
 
-		// Check analysis cache first
 		let plan = this.analysisCache.get(hash);
 		if (!plan) {
-			// Get query execution plan
 			const explainSql = `EXPLAIN QUERY PLAN ${sql}`;
 			plan = db.prepare(explainSql).all(params) as QueryPlan[];
 			this.analysisCache.set(hash, plan);
@@ -81,7 +78,6 @@ export class SQLiteOptimizer {
 			return db.prepare(sql).all(params);
 		});
 
-		// Analyze performance characteristics
 		const scanCount = plan.filter((p) => p.detail.toLowerCase().includes('scan')).length;
 		const indexUsage = plan
 			.filter((p) => p.detail.toLowerCase().includes('index'))
@@ -89,10 +85,8 @@ export class SQLiteOptimizer {
 
 		const isOptimal = scanCount === 0 || result.ms < this.slowQueryThreshold;
 
-		// Generate index recommendations
 		const recommendations = await this.generateIndexRecommendations(sql, plan);
 
-		// Update query statistics
 		this.updateQueryStats(sql, hash, result.ms, plan, isOptimal);
 
 		return {
@@ -117,7 +111,6 @@ export class SQLiteOptimizer {
 		const failed: string[] = [];
 		const performance: Record<string, number> = {};
 
-		// Analyze all stored queries for index opportunities
 		const recommendations = new Map<string, IndexRecommendation>();
 
 		for (const [, stats] of this.queryStats) {
@@ -135,7 +128,6 @@ export class SQLiteOptimizer {
 			}
 		}
 
-		// Create high-priority indexes first
 		const sortedRecs = Array.from(recommendations.values()).sort((a, b) => {
 			const priority = { high: 3, medium: 2, low: 1 };
 			return priority[b.priority] - priority[a.priority];
@@ -197,7 +189,6 @@ export class SQLiteOptimizer {
 			}
 		}
 
-		// Run ANALYZE to update statistics
 		try {
 			db.exec('ANALYZE');
 			logger.info('Database statistics updated');
@@ -212,7 +203,6 @@ export class SQLiteOptimizer {
 	): Promise<IndexRecommendation[]> {
 		const recommendations: IndexRecommendation[] = [];
 
-		// Analyze query for potential index opportunities
 		const whereColumns = this.extractWhereColumns(sql);
 		const joinColumns = this.extractJoinColumns(sql);
 		const orderColumns = this.extractOrderColumns(sql);
@@ -220,7 +210,6 @@ export class SQLiteOptimizer {
 
 		if (!tableName) return recommendations;
 
-		// Check for table scans in query plan
 		const hasTableScan = plan.some(
 			(p) => p.detail.toLowerCase().includes('scan table') && p.detail.includes(tableName)
 		);
@@ -350,7 +339,6 @@ export class SQLiteOptimizer {
 		return report;
 	}
 
-	// Query parsing utilities
 	private extractWhereColumns(sql: string): string[] {
 		const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+GROUP\s+BY|\s+LIMIT|$)/i);
 		if (!whereMatch) return [];

@@ -103,7 +103,6 @@ export class DocumentIndexer {
 	private dirtyDocuments = new Set<string>();
 	private lastSyncTime = new Map<string, number>();
 
-	// Event listeners for cleanup
 	private eventListeners = new Map<string, ((...args: unknown[]) => unknown)[]>();
 
 	// Metrics collection
@@ -132,15 +131,12 @@ export class DocumentIndexer {
 			const startTime = Date.now();
 			logger.info(`Building index for ${documents.length} documents...`);
 
-			// Clear existing index for this location
 			if (location === 'active') {
 				this.clearIndex();
 			}
 
-			// Build document index with paths
 			await this.buildDocumentIndex(documents, location);
 
-			// Build search index
 			await this.buildSearchIndex();
 
 			const duration = Date.now() - startTime;
@@ -159,9 +155,6 @@ export class DocumentIndexer {
 		}
 	}
 
-	/**
-	 * Build document index with O(1) lookup
-	 */
 	private async buildDocumentIndex(
 		documents: ScrivenerDocument[],
 		location: 'active' | 'trash',
@@ -195,7 +188,6 @@ export class DocumentIndexer {
 	async updateDocumentInIndex(documentId: string, content: string): Promise<void> {
 		const startTime = Date.now();
 
-		// Check if content has changed
 		const newHash = generateHash(content);
 		const oldHash = this.contentHashes.get(documentId);
 
@@ -204,7 +196,6 @@ export class DocumentIndexer {
 			return;
 		}
 
-		// Remove old words from index
 		const oldWords = this.documentWords.get(documentId);
 		if (oldWords) {
 			for (const word of oldWords) {
@@ -229,7 +220,6 @@ export class DocumentIndexer {
 			this.searchIndex.get(word)!.add(documentId);
 		}
 
-		// Update document words and hash
 		this.documentWords.set(documentId, uniqueWords);
 		this.contentHashes.set(documentId, newHash);
 
@@ -241,9 +231,6 @@ export class DocumentIndexer {
 		logger.debug(`Updated index for document ${documentId} in ${duration}ms`);
 	}
 
-	/**
-	 * Get document info with O(1) complexity
-	 */
 	getDocumentInfo(documentId: string): DocumentInfo | undefined {
 		return this.documentIndex.get(documentId);
 	}
@@ -281,7 +268,6 @@ export class DocumentIndexer {
 		// Tokenize query
 		const queryWords = this.tokenize(options.caseSensitive ? query : query.toLowerCase());
 
-		// Find documents containing all query words (AND search)
 		const documentScores = new Map<string, number>();
 		const documentMatches = new Map<string, Set<string>>();
 
@@ -305,7 +291,6 @@ export class DocumentIndexer {
 			}
 		}
 
-		// Filter documents that contain all query words
 		const minScore = queryWords.length;
 		const scoreThreshold = options.scoreThreshold || 0.5;
 
@@ -323,7 +308,6 @@ export class DocumentIndexer {
 			}
 		}
 
-		// Sort by score and apply limit
 		results.sort((a, b) => b.score - a.score);
 		if (options.limit) {
 			results.splice(options.limit);
@@ -423,7 +407,6 @@ export class DocumentIndexer {
 	}
 
 	clearIndex(): void {
-		// Clear all data structures
 		this.documentIndex.clear();
 		this.searchIndex.clear();
 		this.documentWords.clear();
@@ -431,7 +414,6 @@ export class DocumentIndexer {
 		this.dirtyDocuments.clear();
 		this.lastSyncTime.clear();
 
-		// Clear event listeners
 		for (const listeners of this.eventListeners.values()) {
 			listeners.length = 0;
 		}
@@ -493,7 +475,7 @@ export class DocumentIndexer {
 	private tokenize(text: string): string[] {
 		// Use NLP-based tokenization from utils
 		const words = splitIntoWords(text.toLowerCase());
-		// Filter out very short words for indexing
+
 		return words.filter((word) => word.length > 2);
 	}
 

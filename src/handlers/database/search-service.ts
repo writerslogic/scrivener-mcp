@@ -74,7 +74,6 @@ export class SearchService {
 			results.push(...locResults);
 		}
 
-		// Sort results
 		const sorted = this.sortResults(results, sortBy);
 
 		// Apply pagination
@@ -324,18 +323,13 @@ export class SearchService {
 		}));
 	}
 
-	/**
-	 * Helper methods
-	 */
 	private prepareSearchQuery(query: string, options: SearchOptions): string {
 		let prepared = query;
 
-		// Handle whole word search
 		if (options.wholeWord) {
 			prepared = `\\b${prepared}\\b`;
 		}
 
-		// Handle case sensitivity
 		if (!options.caseSensitive) {
 			prepared = prepared.toLowerCase();
 		}
@@ -381,13 +375,11 @@ export class SearchService {
 		// Title/name match gets high score
 		if (lowerText.startsWith(lowerQuery)) return 80;
 
-		// Count occurrences
 		const escapedQuery = lowerQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		const regex = new RegExp(escapedQuery, 'gi');
 		const matches = text.match(regex);
 		const occurrences = matches ? matches.length : 0;
 
-		// Calculate score based on occurrences and position
 		const index = lowerText.indexOf(lowerQuery);
 		const positionScore = index === -1 ? 0 : (1 - index / lowerText.length) * 20;
 		const occurrenceScore = Math.min(occurrences * 10, 50);
@@ -416,21 +408,18 @@ export class SearchService {
 		const suggestions: Set<string> = new Set();
 
 		if (this.sqliteManager) {
-			// Get character names
 			const chars = this.sqliteManager.query(
 				'SELECT DISTINCT name FROM characters WHERE name LIKE ? LIMIT ?',
 				[`${partial}%`, limit]
 			) as Array<{ name: string }>;
 			chars.forEach((c) => suggestions.add(c.name));
 
-			// Get document titles
 			const docs = this.sqliteManager.query(
 				'SELECT DISTINCT title FROM documents WHERE title LIKE ? LIMIT ?',
 				[`${partial}%`, limit]
 			) as Array<{ title: string }>;
 			docs.forEach((d) => suggestions.add(d.title));
 
-			// Get plot thread names
 			const plots = this.sqliteManager.query(
 				'SELECT DISTINCT name FROM plot_threads WHERE name LIKE ? LIMIT ?',
 				[`${partial}%`, limit]

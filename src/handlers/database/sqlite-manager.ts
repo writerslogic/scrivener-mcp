@@ -42,7 +42,6 @@ export class SQLiteManager {
 				const dir = path.dirname(this.dbPath);
 				await ensureDir(dir);
 
-				// Open database connection with retry for robustness
 				await retry(
 					async () => {
 						this.db = new Database(this.dbPath);
@@ -65,13 +64,11 @@ export class SQLiteManager {
 				this.db!.exec('PRAGMA mmap_size = 268435456;'); // 256MB mmap
 				this.db!.exec('PRAGMA application_id = 0x574C4D43;'); // Schema provider tag
 
-				// Get database size for monitoring
 				const stats = fs.statSync(this.dbPath);
 				logger.info(`Database file size: ${formatBytes(stats.size)}`);
 
 				await this.createTables();
 
-				// Initialize cached manager if KeyDB is available
 				this.cachedManager = new CachedSQLiteManager(this);
 				await this.cachedManager.initialize();
 			});
@@ -98,7 +95,6 @@ export class SQLiteManager {
 		}
 
 		const createResult = await measureExecution(async () => {
-			// Execute all table creation in a transaction for atomicity and performance
 			this.db!.transaction(() => {
 				// Documents table
 				this.db!.exec(`
@@ -204,7 +200,6 @@ export class SQLiteManager {
 			);
 		`);
 
-				// Create indexes for better performance
 				this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type);`);
 				this.db!.exec(
 					`CREATE INDEX IF NOT EXISTS idx_documents_modified ON documents (modified_at);`
@@ -250,30 +245,18 @@ export class SQLiteManager {
 		return this.cachedManager?.getCacheStats().size !== undefined;
 	}
 
-	/**
-	 * Execute a query
-	 */
 	query(sql: string, params: unknown[] = []): unknown[] {
 		return this.getDatabase().prepare(sql).all(params);
 	}
 
-	/**
-	 * Execute a single row query
-	 */
 	queryOne(sql: string, params: unknown[] = []): unknown {
 		return this.getDatabase().prepare(sql).get(params);
 	}
 
-	/**
-	 * Execute an insert/update/delete statement
-	 */
 	execute(sql: string, params: unknown[] = []): RunResult {
 		return this.getDatabase().prepare(sql).run(params);
 	}
 
-	/**
-	 * Execute multiple statements in a transaction with retry logic
-	 */
 	async transaction<T>(fn: () => T, retries: number = 3): Promise<T> {
 		const db = this.getDatabase();
 		if (!Number.isSafeInteger(retries) || retries < 1)
@@ -394,11 +377,9 @@ export class SQLiteManager {
 				return { healthy: false, details: { error: 'Database not initialized' } };
 			}
 
-			// Run integrity check
 			const integrity = this.db.pragma('integrity_check');
 			const isHealthy = Array.isArray(integrity) && integrity[0]?.integrity_check === 'ok';
 
-			// Get statistics
 			const stats = this.getDatabaseStats();
 
 			return {

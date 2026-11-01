@@ -282,7 +282,7 @@ describe('Scrivener Utils', () => {
 		it('should visit every item regardless of callback return value', () => {
 			traverseBinder(mockBinder, (item) => {
 				visitedItems.push(item);
-				return item.UUID === 'chapter-1'; // return value is ignored
+				return item.UUID === 'chapter-1';
 			});
 
 			expect(visitedItems).toHaveLength(4);

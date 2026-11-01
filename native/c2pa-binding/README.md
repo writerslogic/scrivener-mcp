@@ -40,4 +40,4 @@ supply-chain inventory scans the full conservative lock graph as well as npm and
 runtime; it does not infer a linked dependency list from opaque binary bytes.
 
 Conformance and assurance remain unassessed. See
-[application readiness](../../docs/conformance/readiness.md) for evidence and external gates.
+[Content Credentials](../../docs/content-credentials.md) for capabilities and verification limits.

@@ -134,12 +134,8 @@ export class ObjectPool<T> extends EventEmitter {
 		});
 	}
 
-	/**
-	 * Return an object to the pool
-	 */
 	async return(obj: T): Promise<void> {
 		return globalProfiler.profileOperation(`pool_${this.config.name}_return`, async () => {
-			// Find the pooled object wrapper
 			const pooledObj = Array.from(this.borrowed).find((p) => p.object === obj);
 
 			if (!pooledObj) {
@@ -150,7 +146,6 @@ export class ObjectPool<T> extends EventEmitter {
 			this.borrowed.delete(pooledObj);
 			this.stats.totalReturned++;
 
-			// Validate the object if validator is provided
 			if (this.config.validate && !this.config.validate(obj)) {
 				logger.debug(`Object failed validation in pool ${this.config.name}, destroying`);
 				await this.destroyObject(pooledObj);
@@ -176,7 +171,6 @@ export class ObjectPool<T> extends EventEmitter {
 				}
 			}
 
-			// Check if object is too old
 			const maxAge = this.config.maxAge || Infinity;
 			if (Date.now() - pooledObj.createdAt > maxAge) {
 				logger.debug(`Object expired in pool ${this.config.name}, destroying`);
@@ -185,7 +179,6 @@ export class ObjectPool<T> extends EventEmitter {
 				return;
 			}
 
-			// Return to pool
 			pooledObj.isValid = true;
 			this.pool.push(pooledObj);
 
@@ -204,7 +197,6 @@ export class ObjectPool<T> extends EventEmitter {
 			const now = Date.now();
 			const idleTimeout = this.config.idleTimeout || 300000; // 5 minutes default
 
-			// Remove idle objects
 			const toRemove: PooledObject<T>[] = [];
 			for (const pooledObj of this.pool) {
 				if (now - pooledObj.lastUsed > idleTimeout) {
@@ -221,7 +213,6 @@ export class ObjectPool<T> extends EventEmitter {
 				await this.createObject();
 			}
 
-			// Handle memory pressure
 			if (this.config.shrinkOnMemoryPressure) {
 				const memoryPressure = globalProfiler.getMemoryPressure();
 				if (memoryPressure.level === 'high' || memoryPressure.level === 'critical') {
@@ -329,7 +320,6 @@ export class ObjectPool<T> extends EventEmitter {
 	}
 
 	private getAvailableObject(): PooledObject<T> | null {
-		// Get the most recently used object (stack behavior for better cache locality)
 		return this.pool.pop() || null;
 	}
 
@@ -379,13 +369,11 @@ export class ObjectPool<T> extends EventEmitter {
 
 	private async destroyObject(pooledObj: PooledObject<T>): Promise<void> {
 		try {
-			// Remove from pool if present
 			const index = this.pool.indexOf(pooledObj);
 			if (index !== -1) {
 				this.pool.splice(index, 1);
 			}
 
-			// Remove from borrowed if present
 			this.borrowed.delete(pooledObj);
 
 			// Call destroy function if provided
@@ -471,7 +459,6 @@ export class PoolManager extends EventEmitter {
 		const pool = new ObjectPool<T>(config);
 		this.pools.set(config.name, pool as ObjectPool<unknown>);
 
-		// Set up event forwarding and monitoring
 		pool.on('objectBorrowed', (event) => this.emit('objectBorrowed', event));
 		pool.on('objectReturned', (event) => this.emit('objectReturned', event));
 		pool.on('objectCreated', (event) => this.emit('objectCreated', event));
@@ -583,8 +570,6 @@ export class PoolManager extends EventEmitter {
 		logger.info('Pool manager shutdown completed');
 	}
 
-	// Private methods
-
 	private startMaintenance(): void {
 		this.maintenanceInterval = setInterval(async () => {
 			await this.performMaintenance();
@@ -635,7 +620,6 @@ export class PoolManager extends EventEmitter {
 			const stats = pool.getStatistics();
 			const history = this.performanceHistory.get(name) || [];
 
-			// Track hit rate over time
 			history.push(stats.hitRate);
 			if (history.length > 20) {
 				history.splice(0, history.length - 20);
@@ -689,7 +673,6 @@ export class PoolManager extends EventEmitter {
 // Global pool manager instance
 export const globalPoolManager = new PoolManager();
 
-// Convenience functions for common object types
 export function createStringPool(
 	name: string,
 	initialSize = 10,
@@ -714,7 +697,7 @@ export function createArrayPool<T>(name: string, initialSize = 10, maxSize = 100
 		factory: () => [],
 		reset: (obj) => {
 			const arr = obj as T[];
-			arr.length = 0; // Clear array
+			arr.length = 0;
 		},
 	});
 }

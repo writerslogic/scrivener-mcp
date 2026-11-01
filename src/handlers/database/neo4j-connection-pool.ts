@@ -130,7 +130,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 				}
 			);
 
-			// Verify connectivity
 			await this.driver.verifyConnectivity({ database: this.database });
 
 			this.isInitialized = true;
@@ -152,9 +151,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Execute a query with automatic retry and circuit breaker protection
-	 */
 	async query(
 		cypher: string,
 		parameters: QueryParameters = {},
@@ -180,7 +176,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 					return await session.run(cypher, parameters);
 				});
 
-				// Update statistics
 				this.updateStats(true, result.ms);
 				this.resetCircuitBreaker();
 
@@ -216,9 +211,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 		throw lastError || new AppError('Query failed after retries', ErrorCode.DATABASE_ERROR);
 	}
 
-	/**
-	 * Execute a read transaction with retry logic
-	 */
 	async readTransaction<T>(
 		work: (tx: ManagedTransaction) => Promise<T>,
 		retryOptions?: { maxRetries?: number; retryDelayMs?: number }
@@ -226,9 +218,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 		return this.executeTransaction('READ', work, retryOptions);
 	}
 
-	/**
-	 * Execute a write transaction with retry logic
-	 */
 	async writeTransaction<T>(
 		work: (tx: ManagedTransaction) => Promise<T>,
 		retryOptions?: { maxRetries?: number; retryDelayMs?: number }
@@ -295,8 +284,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 
 		logger.info('Neo4j connection pool closed');
 	}
-
-	// Private methods
 
 	private createSession(mode: SessionMode = 'READ'): Session {
 		if (!this.driver) {
@@ -404,7 +391,6 @@ export class Neo4jConnectionPool extends EventEmitter {
 			this.stats.errors.splice(0, this.stats.errors.length - 100);
 		}
 
-		// Check if circuit breaker should open
 		if (this.circuitBreaker.failureCount >= this.config.circuitBreakerThreshold) {
 			this.openCircuitBreaker();
 		}
@@ -465,7 +451,7 @@ export class Neo4jConnectionPool extends EventEmitter {
 
 	private getConnectionCount(): number {
 		// This would require access to driver internals
-		// Return estimated value based on pool configuration
+
 		return Math.min(this.config.maxConnectionPoolSize, 10);
 	}
 

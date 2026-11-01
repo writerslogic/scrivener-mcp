@@ -31,17 +31,14 @@ export function formatStyleGuideContext(
 - Target Audience: ${styleGuide.audience || 'Not specified'}
 - Tone: ${styleGuide.tone || 'Not specified'}`;
 
-	// Add voice if available
 	if (styleGuide.voice) {
 		context += `\n- Voice: ${styleGuide.voice}`;
 	}
 
-	// Add style notes if available
 	if (styleGuide.styleNotes) {
 		context += `\n- Style Notes: ${styleGuide.styleNotes}`;
 	}
 
-	// Add custom fields if specified
 	for (const field of customFields) {
 		const value = (styleGuide as unknown as Record<string, unknown>)[field];
 		if (value) {
@@ -50,7 +47,6 @@ export function formatStyleGuideContext(
 		}
 	}
 
-	// Add guidelines based on context type
 	if (includeGuidelines && styleGuide.customGuidelines?.length) {
 		const guidelines = styleGuide.customGuidelines.slice(0, maxGuidelines).join(', ');
 
@@ -72,7 +68,6 @@ export function formatStyleGuideContext(
 		}
 	}
 
-	// Add context-specific instructions
 	switch (contextType) {
 		case 'critique':
 			context += `\n\nPlease evaluate how well the content aligns with these style guide requirements.`;

@@ -121,5 +121,5 @@ Bundling uses the npm file manifest so dashboard/sample assets and required vend
 the server. Third-party license notices are retained. No real client configuration or manuscript is
 needed by these checks.
 
-See [the implementation ledger](implementation-status.md) for measured results and
-[the compatibility matrix](SCRIVENER_COMPATIBILITY.md) for native-application and host limits.
+See the [compatibility matrix](SCRIVENER_COMPATIBILITY.md) for CI evidence and native-application
+and host limits.

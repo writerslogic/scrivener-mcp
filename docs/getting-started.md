@@ -369,7 +369,7 @@ flushes all pending changes.
 
 - [Writing with AI](./writing-with-ai.md) -- analysis, enhancement, memory, and semantic search
 - [Architecture](./architecture.md) -- how the server works internally
-- [Contributing](./contributing.md) -- development setup and how to add features
+- [Contributing](../CONTRIBUTING.md) -- development setup and how to add features
 
 ## More Resources
 

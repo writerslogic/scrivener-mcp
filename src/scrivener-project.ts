@@ -133,7 +133,6 @@ export class ScrivenerProject {
 		};
 		this.hhmSystem = options.hhmSystem;
 
-		// Initialize services
 		this.documentManager = new DocumentManager(this.projectPath);
 		this.projectLoader = new ProjectLoader(this.projectPath, {
 			autoBackup: this.options.autoBackup,
@@ -145,7 +144,6 @@ export class ScrivenerProject {
 		this.contentAnalyzer = new ContentAnalyzer();
 		this.cleanupManager = new CleanupManager();
 
-		// Register cleanup
 		this.cleanupManager.register(async () => {
 			await this.close();
 		});
@@ -232,32 +230,24 @@ export class ScrivenerProject {
 		);
 	}
 
-	/**
-	 * Load the project
-	 */
 	async loadProject(): Promise<void> {
 		logger.info('Loading Scrivener project');
 		this.documentManager
 			.getMutationCoordinator()
 			.assertProjectPath(path.join(this.projectPath, '.scrivener-mcp'));
 
-		// Create .scrivener-mcp directory for project-specific data
 		await ensureProjectDataDirectory(this.projectPath);
 
-		// Load project structure
 		const structure = await this.projectLoader.loadProject();
 		this.documentManager.setProjectStructure(structure);
 
-		// Initialize document indexer
 		const documents = await this.getAllDocuments();
 		await documentIndexer.buildIndex(documents);
 		this.indexInitialized = true;
 		logger.info('Document index built');
 
-		// Initialize database
 		await this.databaseService.initialize();
 
-		// Initialize async services (job queue, AI services)
 		await initializeAsyncServices({
 			projectPath: this.projectPath,
 			continuity: (options) => this.getEditorialServices().continuity.analyze(options),
@@ -266,7 +256,6 @@ export class ScrivenerProject {
 			openaiApiKey: process.env.OPENAI_API_KEY,
 		});
 
-		// Initialize enhanced services
 		this.contextAnalyzer = new ContextAnalyzer(this.databaseService, this.contentAnalyzer);
 
 		this.contextSync = new ContextSyncService(
@@ -287,9 +276,6 @@ export class ScrivenerProject {
 		logger.info('Project loaded successfully');
 	}
 
-	/**
-	 * Save the project
-	 */
 	async saveProject(options: Pick<WriteOptions, 'force'> = {}): Promise<void> {
 		await this.ensureWritable(options.force);
 		await this.persistProject();
@@ -300,17 +286,11 @@ export class ScrivenerProject {
 		await this.projectLoader.saveProject(structure);
 	}
 
-	/**
-	 * Get project structure
-	 */
 	async getProjectStructure(includeTrash = false): Promise<ScrivenerDocument[]> {
 		await this.refreshSavedStructure();
 		return await this.documentManager.getProjectStructure(includeTrash);
 	}
 
-	/**
-	 * Get all documents
-	 */
 	async getAllDocuments(includeTrash = false): Promise<ScrivenerDocument[]> {
 		await this.refreshSavedStructure();
 		return await this.documentManager.getAllDocuments(includeTrash);
@@ -766,7 +746,6 @@ export class ScrivenerProject {
 		return this.contextBridge.exportContextFiles(exportPath);
 	}
 
-	// Additional methods
 	async getDocumentInfo(documentId: string): Promise<{
 		document: ScrivenerDocument | null;
 		path: Array<{ id: string; title: string; type: string }>;
@@ -847,12 +826,10 @@ export class ScrivenerProject {
 		return this.getStructure();
 	}
 
-	// Private helpers
 	private async performInitialSync(): Promise<void> {
 		return this.contextBridge.performInitialSync();
 	}
 
-	// Cleanup
 	async close(): Promise<void> {
 		logger.info('Closing Scrivener project');
 		await this.editorial?.workflows.close();

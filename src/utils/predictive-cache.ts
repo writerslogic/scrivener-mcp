@@ -56,7 +56,7 @@ export class PredictiveCache<T> {
 	private readonly maxCacheSize: number;
 	private readonly maxHistorySize = 10000;
 	private readonly prefetchThreshold = 0.7;
-	private readonly modelUpdateInterval = 1000; // Update model every 1000 accesses
+	private readonly modelUpdateInterval = 1000;
 
 	private currentCacheSize = 0;
 	private totalAccesses = 0;
@@ -121,7 +121,6 @@ export class PredictiveCache<T> {
 				accessDuration: performance.now() - startTime,
 			});
 
-			// Update prediction confidence
 			if (cacheEntry.predictedAccess > 0) {
 				this.prefetchHits++;
 				cacheEntry.confidence = Math.min(cacheEntry.confidence * 1.1, 1.0);
@@ -290,11 +289,8 @@ export class PredictiveCache<T> {
 			candidates.push(candidate);
 		}
 
-		// Sort by priority
 		return candidates.sort((a, b) => b.priority - a.priority);
 	}
-
-	// Private methods
 
 	private startBackgroundProcesses(): void {
 		if (this.started) return;
@@ -328,7 +324,6 @@ export class PredictiveCache<T> {
 	}
 
 	private predictNextAccess(key: string, context: string[], userSession: string): number {
-		// Extract features for prediction
 		const features = [
 			this.featureExtractors.timeOfDay(),
 			this.featureExtractors.dayOfWeek(),
@@ -355,7 +350,6 @@ export class PredictiveCache<T> {
 		const trainingData: Array<{ features: number[]; label: number }> = [];
 		const patterns: AccessPattern[] = [];
 
-		// Collect training patterns
 		let pattern = this.accessHistory.shift();
 		while (pattern && patterns.length < 1000) {
 			patterns.push(pattern);
@@ -365,12 +359,10 @@ export class PredictiveCache<T> {
 		// Re-queue patterns
 		patterns.forEach((p) => this.accessHistory.push(p));
 
-		// Generate training examples
 		for (let i = 0; i < patterns.length - 1; i++) {
 			const current = patterns[i];
 			const next = patterns[i + 1];
 
-			// Check if next access was within reasonable time window
 			const timeDiff = next.timestamp - current.timestamp;
 			const wasAccessed = timeDiff < 60000 * 60 * 24; // Within 24 hours
 
@@ -411,7 +403,6 @@ export class PredictiveCache<T> {
 				}
 				prediction = 1 / (1 + Math.exp(-prediction)); // Sigmoid
 
-				// Calculate loss (binary cross-entropy)
 				const _loss = -(
 					example.label * Math.log(prediction + 1e-15) +
 					(1 - example.label) * Math.log(1 - prediction + 1e-15)
@@ -432,7 +423,6 @@ export class PredictiveCache<T> {
 				}
 			}
 
-			// Update accuracy
 			if (epoch === epochs - 1) {
 				let correct = 0;
 				for (const example of trainingData) {
@@ -475,7 +465,6 @@ export class PredictiveCache<T> {
 		// Simple pattern-based prefetch candidate generation
 		const basePriority = this.predictNextAccess(accessedKey, context, userSession);
 
-		// Generate related keys based on patterns
 		const candidates = [
 			`${accessedKey}_next`,
 			`${accessedKey}_related`,
@@ -505,13 +494,11 @@ export class PredictiveCache<T> {
 
 	private ensureSpace(requiredSize: number, replacedKey: string): void {
 		while (this.currentCacheSize + requiredSize > this.maxCacheSize) {
-			// Find least valuable item to evict
 			let leastValuable: { key: string; score: number } | null = null;
 
 			for (const [key, entry] of this.cache) {
 				if (key === replacedKey) continue;
 
-				// Calculate eviction score (lower is worse)
 				const timeSinceAccess = Date.now() - entry.lastAccess;
 				const ageHours = timeSinceAccess / (1000 * 60 * 60);
 				const frequencyScore = Math.log(entry.accessCount + 1);
@@ -583,7 +570,6 @@ export class PredictiveCache<T> {
 		const maintenanceInterval = 300000; // 5 minutes
 
 		return setInterval(() => {
-			// Clean up expired entries
 			const now = Date.now();
 			const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 

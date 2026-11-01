@@ -75,7 +75,6 @@ export class DatabaseSync {
 		traits?: string[];
 		notes?: string;
 	}): Promise<void> {
-		// Update SQLite
 		const sqlite = this.sqliteManager;
 		if (sqlite) {
 			this.upsert(sqlite, 'characters', {
@@ -89,7 +88,6 @@ export class DatabaseSync {
 			});
 		}
 
-		// Update Neo4j if available
 		if (this.neo4jManager) {
 			await this.neo4jManager.upsertCharacter(characterData);
 		}

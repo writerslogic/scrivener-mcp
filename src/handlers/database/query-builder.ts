@@ -136,7 +136,6 @@ export class SQLQueryBuilder {
 		return { sql, params: this.params };
 	}
 
-	// Convenience methods
 	static insert(
 		table: string,
 		data: Record<string, unknown>
@@ -299,7 +298,6 @@ export class CypherQueryBuilder {
 		return { cypher, params: this.queryParams };
 	}
 
-	// Convenience methods
 	static findNode(
 		label: string,
 		props: QueryParameters

@@ -357,9 +357,6 @@ export function getToolCatalogRevision(): number {
 	return catalogRevision;
 }
 
-/**
- * Execute a tool handler by name.
- */
 export async function executeRegisteredHandler(
 	toolName: string,
 	args: Record<string, unknown>,

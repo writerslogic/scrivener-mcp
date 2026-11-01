@@ -6,7 +6,6 @@ import type { ExportPreset } from '../services/export/export-presets.js';
 // Re-export ScrivenerProject as Project for compatibility
 export { ScrivenerProject as Project } from '../scrivener-project.js';
 
-// Database types
 export interface DatabaseRecord {
 	[key: string]: string | number | boolean | null | undefined;
 }
@@ -23,7 +22,6 @@ export interface QueryResult<T = DatabaseRecord> {
 	};
 }
 
-// Document types
 export interface ScrivenerDocument {
 	id: string;
 	title: string;
@@ -96,7 +94,6 @@ export interface DocumentSearchResult {
 	score?: number;
 }
 
-// Style and formatting types
 export interface TextStyle {
 	bold?: boolean;
 	italic?: boolean;
@@ -118,7 +115,6 @@ export interface FormattedContent {
 	metadata?: DocumentMetadata;
 }
 
-// Analysis types
 export interface AnalysisResult {
 	readability?: {
 		score: number;
@@ -153,7 +149,6 @@ export interface AnalysisResult {
 	suggestions?: string[];
 }
 
-// Enhancement types
 export interface EnhancementOptions {
 	style?: 'formal' | 'casual' | 'creative' | 'academic';
 	tone?: 'friendly' | 'professional' | 'neutral' | 'assertive';
@@ -204,7 +199,6 @@ export interface EnhancementResult {
 	};
 }
 
-// Memory types
 export interface CharacterData {
 	id: string;
 	name: string;
@@ -247,7 +241,6 @@ export interface WorldElementData {
 	}>;
 }
 
-// Compilation types
 export interface CompilationOptions {
 	format: 'text' | 'markdown' | 'html';
 	rootFolderId?: string;
@@ -272,7 +265,6 @@ export interface ExportOptions {
 	template?: string;
 }
 
-// Project types
 export interface ProjectMetadata {
 	title?: string;
 	author?: string;
@@ -313,7 +305,6 @@ export interface ProjectStatistics extends ProjectSummary {
 	recentlyModified: DocumentInfo[];
 }
 
-// Consistency check types
 export interface ConsistencyIssue {
 	type: 'character' | 'timeline' | 'location' | 'plot';
 	severity: 'error' | 'warning' | 'info';
@@ -322,7 +313,6 @@ export interface ConsistencyIssue {
 	suggestion?: string;
 }
 
-// Cache types
 export interface CacheEntry<T> {
 	data: T;
 	timestamp: number;
@@ -436,7 +426,6 @@ export interface ValidationRule {
 	custom?: (value: unknown) => boolean | string;
 }
 
-// Handler types
 export interface HandlerRequest<T = JSONObject> {
 	method: string;
 	params: T;
@@ -464,7 +453,6 @@ export interface ResponseMetadata {
 	deprecation?: string;
 }
 
-// Service types
 export interface ServiceConfig {
 	enabled: boolean;
 	priority?: number;
@@ -486,7 +474,6 @@ export interface ServiceHealth {
 	metrics?: Record<string, number>;
 }
 
-// Database operation types
 export interface DatabaseOperation {
 	type: 'read' | 'write' | 'transaction';
 	query: string;
@@ -517,7 +504,6 @@ export interface ExecutionPlan {
 	children: ExecutionPlan[];
 }
 
-// Memory and analysis types
 export interface MemoryFragment {
 	id: string;
 	content: string;
@@ -553,7 +539,6 @@ export interface AnalysisOptions {
 	};
 }
 
-// Compilation and export types
 export interface CompilationResult {
 	success: boolean;
 	output?: string;
@@ -587,7 +572,6 @@ export interface ExportResult {
 	};
 }
 
-// Queue and job types
 export interface JobDefinition {
 	id: string;
 	type: string;
@@ -617,7 +601,6 @@ export interface JobResult {
 	};
 }
 
-// Search and indexing types
 export interface SearchQuery {
 	query: string;
 	filters?: {

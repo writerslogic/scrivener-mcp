@@ -121,7 +121,6 @@ describe('JobQueueService v2', () => {
 		(Worker as any).mockImplementation(() => mockWorker);
 		(QueueEvents as any).mockImplementation(() => mockQueueEvents);
 
-		// Create service instance
 		jobQueueService = new JobQueueService(projectPath);
 	});
 
@@ -200,7 +199,6 @@ describe('JobQueueService v2', () => {
 
 			await jobQueueService.initialize();
 
-			// Check that Queue was created for each job type
 			const jobTypeCount = Object.values(JobType).length;
 			expect(Queue).toHaveBeenCalledTimes(jobTypeCount);
 			expect(Worker).toHaveBeenCalledTimes(jobTypeCount - 2);
@@ -224,7 +222,6 @@ describe('JobQueueService v2', () => {
 				openaiApiKey: 'test-api-key',
 			});
 
-			// Check services were initialized
 			const { AIWritingService } = require('../../../src/services/ai/ai-writing-service');
 			const { DatabaseService } = require('../../../src/handlers/database/database-service');
 

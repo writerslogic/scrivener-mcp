@@ -44,7 +44,6 @@ export class KeyDBCache {
 
 	async initialize(): Promise<boolean> {
 		return withErrorHandling(async () => {
-			// Detect connection with retry
 			const connectionInfo = await retry(() => detectConnection(), {
 				maxAttempts: 3,
 				initialDelay: 500,
@@ -146,7 +145,6 @@ export class KeyDBCache {
 			const keys = await this.scanKeys(searchPattern);
 
 			if (keys.length > 0) {
-				// Delete in batches for better performance
 				const batchSize = 100;
 				let totalDeleted = 0;
 
@@ -264,7 +262,6 @@ export class CachedSQLiteManager {
 			return this.sqliteManager.query(sql, params);
 		}
 
-		// Create cache key from SQL and params
 		const cacheKey = `query:${this.hashQuery(sql, params)}`;
 
 		return this.cache.getOrSet(
@@ -291,9 +288,6 @@ export class CachedSQLiteManager {
 		);
 	}
 
-	/**
-	 * Execute write operation and invalidate related cache
-	 */
 	async execute(sql: string, params: unknown[] = []): Promise<unknown> {
 		const result = this.sqliteManager.execute(sql, params);
 
@@ -335,7 +329,7 @@ export class CachedSQLiteManager {
 		for (let i = 0; i < combined.length; i++) {
 			const char = combined.charCodeAt(i);
 			hash = (hash << 5) - hash + char;
-			hash = hash & hash; // Convert to 32bit integer
+			hash = hash & hash;
 		}
 		return Math.abs(hash).toString(36);
 	}

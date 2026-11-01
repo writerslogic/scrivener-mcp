@@ -45,14 +45,11 @@ const logger = getLogger('main');
 // macOS Keychain before any AIClient is constructed; explicit env vars always win.
 applyDiscoveredAIKeys();
 
-// Initialize HHM system
 let hhmInitialized = false;
 
-// Initialize context
 async function initializeContext(): Promise<HandlerContext> {
 	let hhmSystem;
 
-	// Initialize HHM system
 	try {
 		hhmSystem = await initializeHHM({
 			dimensions: 10000,
@@ -78,11 +75,9 @@ async function initializeContext(): Promise<HandlerContext> {
 	};
 }
 
-// Initialize context
 const contextPromise = initializeContext();
 let context: HandlerContext;
 
-// Initialize server
 const server = new Server(
 	{
 		name: 'scrivener-mcp',
@@ -97,11 +92,9 @@ const server = new Server(
 // the connected MCP client supports it (checked per call, post-handshake).
 registerSamplingServer(server);
 
-// Initialize skill registry
 initializeSkillRegistry();
 let advertisedToolRevision = getToolCatalogRevision();
 
-// Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
 	tools: getRegisteredTools(supportsApps(server.getClientCapabilities())),
 }));
@@ -148,7 +141,6 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 	};
 });
 
-// Handle tool execution
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 	const { name, arguments: args } = request.params;
 
@@ -159,7 +151,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 		}
 		context.uiSupported = supportsApps(server.getClientCapabilities());
 
-		// Execute handler
 		const result = await executeRegisteredHandler(name, args ?? {}, context, {
 			signal: extra.signal,
 		});
@@ -206,14 +197,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 	}
 });
 
-// Start server
 async function main() {
-	// Check for first run
 	try {
 		const { FirstRunManager } = await import('./services/auto-setup/first-run.js');
 		const firstRunManager = new FirstRunManager();
 
-		// Initialize on first run (will prompt for setup if interactive)
 		await firstRunManager.initialize({
 			quietMode: process.env.SCRIVENER_QUIET === 'true',
 			skipSetup: process.env.SCRIVENER_SKIP_SETUP === 'true',
@@ -223,7 +211,6 @@ async function main() {
 		// Continue anyway
 	}
 
-	// Initialize async services
 	try {
 		await initializeAsyncServices({
 			redisUrl: process.env.REDIS_URL,
@@ -307,7 +294,6 @@ process.on('unhandledRejection', (reason, promise) => {
 	process.exit(1);
 });
 
-// Start the server
 main().catch((error) => {
 	logger.fatal('Failed to start server', { error });
 	process.exit(1);

@@ -70,7 +70,6 @@ export class FirstRunManager {
 			return;
 		}
 
-		// Check if this is first run
 		if (!this.isFirstRun()) {
 			// Not first run, but check if features are missing
 			const status = await this.getFeatureStatus();
@@ -96,14 +95,12 @@ export class FirstRunManager {
 			return;
 		}
 
-		// Check if we're in an interactive terminal
 		if (!process.stdin.isTTY) {
 			logger.info('Non-interactive environment, skipping setup prompt');
 			await this.minimalSetup();
 			return;
 		}
 
-		// Prompt for setup
 		logger.info('\n🎉 Welcome to Scrivener MCP!');
 		logger.info('─'.repeat(40));
 		logger.info('\nThis appears to be your first time running the application.');
@@ -125,7 +122,6 @@ export class FirstRunManager {
 			rl.close();
 
 			if (answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y') {
-				// Run auto-setup
 				const autoSetup = new AutoSetup();
 				await autoSetup.run({
 					interactive: true,

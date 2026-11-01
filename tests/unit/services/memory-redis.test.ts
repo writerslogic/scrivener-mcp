@@ -150,7 +150,6 @@ describe('MemoryRedis', () => {
     it('should persist and restore data', async () => {
       const persistPath = './test-persist-unique.json';
       
-      // Clean up any existing file first
       try {
         await fs.unlink(persistPath);
       } catch {
@@ -166,7 +165,6 @@ describe('MemoryRedis', () => {
       await redis1.sadd('set', 'member');
       await redis1.disconnect();
 
-      // Check file was created
       const fileExists = await fs.access(persistPath).then(() => true).catch(() => false);
       expect(fileExists).toBe(true);
 

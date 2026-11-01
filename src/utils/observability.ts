@@ -267,7 +267,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 				series.aggregated = { interval, values: [] };
 			}
 
-			// Update or add aggregation
 			const existing = series.aggregated.values.findIndex((v) => v.timestamp === windowStart);
 			if (existing >= 0) {
 				series.aggregated.values[existing] = aggregation;
@@ -335,10 +334,8 @@ export class ObservabilityInfrastructure extends EventEmitter {
 		if (trace) {
 			trace.spans.set(spanId, span);
 
-			// Update trace status
 			if (status === 'error') trace.status = 'error';
 
-			// Calculate total duration if this was the root span
 			if (trace.rootSpan?.spanId === spanId) {
 				trace.duration = span.duration;
 			}
@@ -433,7 +430,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 		for (const rule of this.alertRules.values()) {
 			if (!rule.enabled) continue;
 
-			// Check cooldown
 			if (rule.lastTriggered && Date.now() - rule.lastTriggered < rule.cooldownPeriod) {
 				continue;
 			}
@@ -495,7 +491,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 		this.activeAlerts.set(alert.id, alert);
 		rule.lastTriggered = Date.now();
 
-		// Execute alert actions
 		for (const action of rule.actions) {
 			this.executeAlertAction(action, alert);
 		}
@@ -625,14 +620,12 @@ export class ObservabilityInfrastructure extends EventEmitter {
 		return lines.join('\n');
 	}
 
-	// Maintenance and Cleanup
 	private setupPeriodicTasks(): void {
 		// Flush buffers periodically
 		this.flushTimer = setInterval(() => {
 			this.flushBuffers();
 		}, this.config.logging.flushInterval);
 
-		// Clean up old data
 		this.cleanupTimer = setInterval(() => {
 			this.performCleanup();
 		}, 300000); // 5 minutes
@@ -646,14 +639,12 @@ export class ObservabilityInfrastructure extends EventEmitter {
 	}
 
 	private flushBuffers(): void {
-		// Process buffered metrics
 		for (const _metric of this.metricsBuffer) {
 			// Find the metric name from the buffer context (simplified)
 			// In real implementation, you'd store the name with the metric
 		}
 		this.metricsBuffer.length = 0;
 
-		// Process buffered logs
 		for (const log of this.logsBuffer) {
 			this.processLog(log);
 		}
@@ -663,7 +654,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 	private performCleanup(): void {
 		const now = Date.now();
 
-		// Clean up old metrics
 		for (const [name, series] of this.metrics) {
 			const cutoff = now - this.config.metrics.retentionDays * 24 * 60 * 60 * 1000;
 			series.points = series.points.filter((p) => p.timestamp > cutoff);
@@ -673,7 +663,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 			}
 		}
 
-		// Clean up old traces
 		const traceCutoff = now - this.config.tracing.retentionDays * 24 * 60 * 60 * 1000;
 		for (const [id, trace] of this.traces) {
 			if ((trace.rootSpan?.startTime || 0) < traceCutoff) {
@@ -681,7 +670,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 			}
 		}
 
-		// Clean up old logs
 		this.enforceLogRetention();
 	}
 
@@ -710,7 +698,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 
 		this.log('info', 'Shutting down observability infrastructure');
 
-		// Clear timers
 		if (this.flushTimer) clearInterval(this.flushTimer);
 		if (this.cleanupTimer) clearInterval(this.cleanupTimer);
 		if (this.alertEvaluationTimer) clearInterval(this.alertEvaluationTimer);
@@ -766,7 +753,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 	} {
 		const checks: Record<string, { status: 'ok' | 'warn' | 'error'; message: string }> = {};
 
-		// Check memory usage
 		const memUsage = process.memoryUsage();
 		const memUsageMB = memUsage.heapUsed / 1024 / 1024;
 		checks.memory =
@@ -774,7 +760,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 				? { status: 'warn', message: `High memory usage: ${memUsageMB.toFixed(1)}MB` }
 				: { status: 'ok', message: `Memory usage: ${memUsageMB.toFixed(1)}MB` };
 
-		// Check active alerts
 		const criticalAlerts = Array.from(this.activeAlerts.values()).filter(
 			(a) => a.severity === 'critical'
 		).length;
@@ -783,7 +768,6 @@ export class ObservabilityInfrastructure extends EventEmitter {
 				? { status: 'error', message: `${criticalAlerts} critical alerts active` }
 				: { status: 'ok', message: 'No critical alerts' };
 
-		// Check data sizes
 		const totalMetrics = Array.from(this.metrics.values()).reduce(
 			(sum, s) => sum + s.points.length,
 			0

@@ -69,10 +69,8 @@ export class StructureAnalyzer {
 		return paragraphs.filter((p) => {
 			if (!p.trim()) return false;
 
-			// Check if paragraph ends with a question
 			if (p.trim().endsWith('?')) return true;
 
-			// Check for cliffhanger keywords at the end
 			const lastSentence = p.split(/[.!?]/).pop()?.trim() || '';
 			return /\b(but|however|suddenly|then)\b/i.test(lastSentence);
 		}).length;

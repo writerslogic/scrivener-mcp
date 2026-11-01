@@ -1,18 +1,5 @@
-/**
- * Provider-agnostic AI client built on the official SDKs (no LangChain).
- *
- * Chat/completion defaults to Anthropic Claude when ANTHROPIC_API_KEY is set,
- * falling back to OpenAI, then OpenRouter (an OpenAI-compatible aggregator,
- * driven through the OpenAI SDK with a base-URL override). AI_PROVIDER selects
- * explicitly. When the selected provider fails with an account-level error
- * (invalid key, exhausted credit, quota, outage), chat() automatically retries
- * on the next configured provider, ending with the MCP client's own model via
- * sampling/createMessage when the client supports it -- which also makes chat
- * work with no API key at all. Provider embeddings use OpenAI or OpenRouter's
- * proxy of the OpenAI embeddings API (Anthropic has none). Local retrieval
- * does not require provider credentials. SDK requests are never automatically
- * replayed; fallback follows only explicit provider-unavailable responses.
- */
+// Provider fallback follows explicit unavailability responses; SDK requests are never replayed.
+// Client sampling can supply chat without a provider key; embeddings require a configured provider.
 
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
@@ -191,7 +178,6 @@ export class AIClient {
 			requested = undefined;
 		}
 
-		// Build a client for every configured provider (constructors do no I/O)
 		// so chat() can fall back when the primary fails at the account level.
 		if (keys.anthropic) {
 			this.anthropic = new Anthropic({

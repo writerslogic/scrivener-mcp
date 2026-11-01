@@ -82,9 +82,6 @@ export class Neo4jOptimizer {
 		this.database = database;
 	}
 
-	/**
-	 * Execute and profile a Cypher query
-	 */
 	async profileQuery(
 		cypher: string,
 		parameters: QueryParameters = {}
@@ -128,9 +125,6 @@ export class Neo4jOptimizer {
 		}
 	}
 
-	/**
-	 * Execute batch operations with optimized parallelism
-	 */
 	async executeBatch(operation: BatchOperation): Promise<BatchResult> {
 		const { query, parameters, maxBatchSize = 100, parallelism = 4 } = operation;
 
@@ -144,13 +138,11 @@ export class Neo4jOptimizer {
 		const startTime = Date.now();
 
 		try {
-			// Split parameters into batches
 			const batches: QueryParameters[][] = [];
 			for (let i = 0; i < parameters.length; i += maxBatchSize) {
 				batches.push(parameters.slice(i, i + maxBatchSize));
 			}
 
-			// Process batches with controlled parallelism
 			const processBatch = async (batch: QueryParameters[]): Promise<void> => {
 				const session = this.driver.session({ database: this.database });
 
@@ -176,7 +168,6 @@ export class Neo4jOptimizer {
 				}
 			};
 
-			// Execute batches in parallel with controlled concurrency
 			const concurrencyLimit = Math.min(parallelism, batches.length);
 			const executing = new Set<Promise<void>>();
 
@@ -229,7 +220,6 @@ export class Neo4jOptimizer {
 		};
 
 		try {
-			// Analyze query patterns to recommend indexes
 			const recommendations = await this.analyzeIndexNeeds();
 
 			for (const rec of recommendations) {
@@ -243,7 +233,6 @@ export class Neo4jOptimizer {
 				}
 			}
 
-			// Create essential constraints
 			const constraints = [
 				{
 					cypher: 'CREATE CONSTRAINT document_id IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE',
@@ -287,7 +276,6 @@ export class Neo4jOptimizer {
 		const totalDbTime = allProfiles.reduce((sum, p) => sum + p.dbTime, 0);
 		const totalRows = allProfiles.reduce((sum, p) => sum + p.rows, 0);
 
-		// Calculate cache hit ratio from query plans
 		let totalCacheHits = 0;
 		let totalCacheMisses = 0;
 
@@ -387,8 +375,6 @@ export class Neo4jOptimizer {
 		};
 	}
 
-	// Private helper methods
-
 	private storeProfile(query: string, profile: QueryProfile): void {
 		const queryKey = this.normalizeQuery(query);
 		if (!this.queryProfiles.has(queryKey)) {
@@ -410,7 +396,6 @@ export class Neo4jOptimizer {
 	}
 
 	private extractDbTime(result: QueryResult): number {
-		// Extract database time from result summary if available
 		try {
 			return result.summary?.resultAvailableAfter?.toNumber() || 0;
 		} catch {
@@ -433,7 +418,6 @@ export class Neo4jOptimizer {
 	}
 
 	private convertPlan(planNode: unknown): QueryPlan {
-		// Convert Neo4j plan node to our QueryPlan interface
 		const node = planNode as Record<string, unknown>;
 		const children = node.children as unknown[] | undefined;
 		const toNum = (v: unknown): number | undefined => {
@@ -525,7 +509,6 @@ export class Neo4jOptimizer {
 	> {
 		const recommendations: Array<{ createStatement: string; description: string }> = [];
 
-		// Analyze common query patterns from profiles
 		const patterns = this.analyzeQueryPatterns();
 
 		for (const pattern of patterns) {

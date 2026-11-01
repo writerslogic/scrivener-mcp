@@ -13,13 +13,12 @@ async function loadModules() {
 
 async function main() {
 	const { AutoSetup, chalk } = await loadModules();
-	
+
 	console.log(chalk.bold.cyan('\n🚀 Scrivener MCP - Advanced Features Auto-Setup\n'));
-	
-	// Parse command line arguments
+
 	const args = process.argv.slice(2);
 	const showHelp = args.includes('--help') || args.includes('-h');
-	
+
 	if (showHelp) {
 		console.log('Usage: npm run setup:advanced [options]\n');
 		console.log('Options:');
@@ -34,7 +33,6 @@ async function main() {
 	}
 
 	try {
-		// Run auto-setup
 		await AutoSetup.cli(args);
 	} catch (error) {
 		console.error(chalk.red('\n❌ Setup failed:'), error);

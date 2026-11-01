@@ -150,19 +150,14 @@ export class ConfigManager extends EventEmitter {
 		if (this.isInitialized) return;
 
 		try {
-			// Load encryption key for sensitive data
 			await this.loadEncryptionKey();
 
-			// Load configuration schema
 			await this.loadSchema();
 
-			// Load environment-specific configuration
 			await this.loadConfiguration();
 
-			// Load feature flags
 			await this.loadFeatureFlags();
 
-			// Validate loaded configuration
 			const validation = this.validateConfiguration();
 			if (!validation.valid) {
 				throw new AppError(
@@ -178,7 +173,6 @@ export class ConfigManager extends EventEmitter {
 				}
 			}
 
-			// Start configuration file watchers
 			this.startConfigWatchers();
 
 			this.isInitialized = true;
@@ -207,7 +201,6 @@ export class ConfigManager extends EventEmitter {
 		if (value === undefined) {
 			if (defaultValue !== undefined) return defaultValue;
 
-			// Check if there's a default in schema
 			const schemaDefault = this.getSchemaDefault(path);
 			if (schemaDefault !== undefined) return schemaDefault as T;
 
@@ -245,7 +238,6 @@ export class ConfigManager extends EventEmitter {
 
 		if (!flag.enabled) return false;
 
-		// Check environment conditions
 		if (
 			flag.conditions.environments &&
 			!flag.conditions.environments.includes(this.environment)
@@ -253,14 +245,12 @@ export class ConfigManager extends EventEmitter {
 			return false;
 		}
 
-		// Check user group conditions
 		if (context?.userGroup && flag.conditions.userGroups) {
 			if (!flag.conditions.userGroups.includes(context.userGroup)) {
 				return false;
 			}
 		}
 
-		// Check date range conditions
 		if (flag.conditions.dateRange) {
 			const now = new Date();
 			if (now < flag.conditions.dateRange.start || now > flag.conditions.dateRange.end) {
@@ -268,7 +258,6 @@ export class ConfigManager extends EventEmitter {
 			}
 		}
 
-		// Check rollout percentage
 		if (flag.rolloutPercentage < 100) {
 			// Use deterministic non-cryptographic hashing for rollout bucketing.
 			const hashInput = context?.userId || flagName;
@@ -308,9 +297,6 @@ export class ConfigManager extends EventEmitter {
 		return this.environment;
 	}
 
-	/**
-	 * Get full configuration (excluding sensitive values)
-	 */
 	getConfig(includeSensitive = false): EnvironmentConfig | null {
 		if (!this.config) return null;
 
@@ -318,7 +304,6 @@ export class ConfigManager extends EventEmitter {
 			return JSON.parse(JSON.stringify(this.config));
 		}
 
-		// Return config with sensitive values masked
 		return this.maskSensitiveValues(this.config);
 	}
 
@@ -387,7 +372,6 @@ export class ConfigManager extends EventEmitter {
 	}
 
 	async close(): Promise<void> {
-		// Clear all watchers
 		for (const interval of this.watcherIntervals) {
 			clearInterval(interval);
 		}
@@ -398,8 +382,6 @@ export class ConfigManager extends EventEmitter {
 
 		logger.info('Configuration manager closed');
 	}
-
-	// Private methods
 
 	private setupConfigPaths(): void {
 		const baseDir = process.cwd();
@@ -467,7 +449,6 @@ export class ConfigManager extends EventEmitter {
 	private async loadConfiguration(): Promise<void> {
 		let loadedConfig: Partial<EnvironmentConfig> = {};
 
-		// Load from JSON files
 		for (const configPath of this.configPaths) {
 			try {
 				const content = await fs.promises.readFile(configPath, 'utf-8');
@@ -525,7 +506,6 @@ export class ConfigManager extends EventEmitter {
 			if (key && valueParts.length > 0) {
 				const value = valueParts.join('=').replace(/^["']|["']$/g, '');
 
-				// Convert to nested object structure
 				const keys = key.split('_');
 				let current = config;
 
@@ -547,7 +527,6 @@ export class ConfigManager extends EventEmitter {
 	private loadFromEnvironment(): Record<string, unknown> {
 		const config: Record<string, unknown> = {};
 
-		// Map specific environment variables to config paths
 		const envMappings: Record<string, string> = {
 			NODE_ENV: 'name',
 			DATABASE_URL: 'database.sqlite.path',
@@ -574,7 +553,6 @@ export class ConfigManager extends EventEmitter {
 		try {
 			return JSON.parse(value);
 		} catch {
-			// Return as string if JSON parsing fails
 			return value;
 		}
 	}

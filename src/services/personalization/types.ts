@@ -1,12 +1,4 @@
-/**
- * Types for the writing-personalization subsystem.
- *
- * Personalization is a single per-project author profile plus a persisted
- * feedback log. Preferences are set explicitly by the author and turned into a
- * directive that is injected into the AI system prompt (real, model-driven
- * adaptation). Feedback is aggregated into honest insights and conservative
- * suggestions -- it never silently mutates the profile.
- */
+// Feedback never changes the author profile automatically.
 
 export type Tone = 'neutral' | 'formal' | 'casual' | 'creative';
 export type Complexity = 'balanced' | 'simple' | 'advanced';

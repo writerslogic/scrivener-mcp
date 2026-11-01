@@ -114,14 +114,12 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		this.isProfilingActive = true;
 		this.memoryBaseline = process.memoryUsage();
 
-		// Start memory pressure monitoring
 		this.monitoringInterval = setInterval(() => {
 			this.checkMemoryPressure();
 			this.updateOperationProfiles();
 			this.performPredictiveAnalysis();
 		}, 5000);
 
-		// Start periodic cleanup
 		this.cleanupInterval = setInterval(() => {
 			this.performMaintenance();
 		}, this.config.aggregationWindow);
@@ -391,8 +389,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		};
 	}
 
-	// Private methods
-
 	private recordMetric(metric: PerformanceMetrics): void {
 		this.metrics.push(metric);
 
@@ -401,7 +397,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 			this.metrics = this.metrics.slice(-Math.floor(this.config.metricsRetention * 0.8));
 		}
 
-		// Track by correlation ID
 		if (metric.correlationId) {
 			if (!this.correlationTracker.has(metric.correlationId)) {
 				this.correlationTracker.set(metric.correlationId, []);
@@ -449,7 +444,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 			profile.errorRate = errorCount / profile.totalCalls;
 		}
 
-		// Calculate percentiles from recent calls
 		const recentDurations = this.metrics
 			.filter((m) => m.operation === operationName)
 			.slice(-100)
@@ -462,7 +456,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 			profile.p99Duration = this.getPercentile(recentDurations, 0.99);
 		}
 
-		// Calculate throughput (ops per second in last minute)
 		const oneMinuteAgo = Date.now() - 60000;
 		const recentOps = this.metrics.filter(
 			(m) => m.operation === operationName && m.timestamp > oneMinuteAgo
@@ -473,7 +466,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 	}
 
 	private updateOperationProfiles(): void {
-		// Update trending analysis for all operations
 		for (const [operationName, profile] of this.operationProfiles.entries()) {
 			const recentMetrics = this.metrics
 				.filter((m) => m.operation === operationName)
@@ -530,15 +522,12 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 		const retentionCutoff = Date.now() - this.config.aggregationWindow * 10;
 		this.metrics = this.metrics.filter((m) => m.timestamp > retentionCutoff);
 
-		// Update operation profiles
 		this.updateOperationProfiles();
 	}
 
 	private performEmergencyCleanup(): void {
-		// Clear old metrics aggressively
 		this.metrics = this.metrics.slice(-100);
 
-		// Clear correlation tracking
 		this.correlationTracker.clear();
 
 		// Force GC
@@ -720,7 +709,6 @@ export class AdvancedPerformanceProfiler extends EventEmitter {
 			const nextGcTime = this.predictNextGc();
 			const timeToGc = nextGcTime - Date.now();
 
-			// Analyze trends and predict issues
 			const degradingOps = Array.from(this.operationProfiles.values()).filter(
 				(profile) => profile.trending === 'degrading'
 			);

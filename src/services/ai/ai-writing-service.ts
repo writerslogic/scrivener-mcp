@@ -1,11 +1,3 @@
-/**
- * RAG-style writing assistance backed by the direct-SDK AIClient (Claude
- * default) and the text-native HMS vector store. Replaces the LangChain-based
- * LangChainService consumed by the async job queue and the async handlers:
- * vector-store build, semantic search, context-grounded generation, style
- * analysis -- without any LangChain dependency.
- */
-
 import { AIClient } from './ai-client.js';
 import type { HMSVectorStore, HMSDocument } from './hms-vector-store.js';
 import { getLogger } from '../../core/logger.js';

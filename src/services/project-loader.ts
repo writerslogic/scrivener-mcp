@@ -83,7 +83,6 @@ export class ProjectLoader {
 				);
 			}
 
-			// Handle empty Binder element
 			if ((this.projectStructure.ScrivenerProject.Binder as unknown) === '') {
 				this.projectStructure.ScrivenerProject.Binder = {};
 			}
@@ -92,7 +91,6 @@ export class ProjectLoader {
 				this.projectStructure.ScrivenerProject.Binder = {};
 			}
 
-			// Initialize internal tracking
 			this.loadedRevision = saved.revision;
 			this.lastLoadTime = Date.now();
 			this.projectStructure._loadTime = this.lastLoadTime;
@@ -161,7 +159,6 @@ export class ProjectLoader {
 		const creationDocuments = documents;
 		logger.info(`Saving project to ${this.scrivxPath}`);
 
-		// Create backup if enabled
 		if (this.options.autoBackup) {
 			await this.createBackup();
 		}
@@ -278,7 +275,6 @@ export class ProjectLoader {
 			await safeWriteFile(backupPath, saved.raw);
 			logger.info(`Backup created at ${backupPath}`);
 
-			// Clean up old backups
 			await this.cleanupOldBackups(backupDir);
 
 			return backupPath;
@@ -355,7 +351,6 @@ export class ProjectLoader {
 				}
 			}
 
-			// Sort by date, newest first
 			backups.sort((a, b) => b.date.getTime() - a.date.getTime());
 			return backups;
 		} catch (error) {
@@ -381,7 +376,6 @@ export class ProjectLoader {
 			logger.warn('Project has no content (no Binder, Collections, or Research)');
 		}
 
-		// Validate Binder structure if present
 		if (project.Binder) {
 			if (!this.validateBinder(project.Binder)) {
 				return false;
@@ -391,11 +385,9 @@ export class ProjectLoader {
 		return true;
 	}
 
-	// Private helper methods
 	private cleanForSaving(structure: ProjectStructure): Record<string, unknown> {
 		const clean = safeParse(safeStringify(structure), {}) as Record<string, unknown>;
 
-		// Remove internal tracking properties
 		delete clean._loadTime;
 		delete clean._modified;
 		encodeNewBinderAttributes(clean);
@@ -417,7 +409,6 @@ export class ProjectLoader {
 			const backups = await this.listBackups();
 
 			if (backups.length > this.options.maxBackups) {
-				// Delete oldest backups
 				const toDelete = backups.slice(this.options.maxBackups);
 
 				for (const backup of toDelete) {
@@ -434,7 +425,7 @@ export class ProjectLoader {
 		if (!binder) return true;
 
 		const binderObj = binder as { BinderItem?: unknown };
-		// Handle both object and array forms
+
 		const items = Array.isArray(binderObj.BinderItem)
 			? binderObj.BinderItem
 			: binderObj.BinderItem
@@ -464,7 +455,6 @@ export class ProjectLoader {
 			return false;
 		}
 
-		// Validate children recursively
 		if (item.Children?.BinderItem) {
 			const children = Array.isArray(item.Children.BinderItem)
 				? item.Children.BinderItem

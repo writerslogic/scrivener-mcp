@@ -1,12 +1,4 @@
-/**
- * Read-only project integrity verification.
- *
- * Walks the open project's binder and document set and reports structural
- * problems (missing/duplicate/malformed ids, missing type metadata, and text
- * documents whose backing content is missing or unreadable). Detection only:
- * this tool never repairs. Automated repair is intentionally out of scope and
- * tracked as a separate follow-up because it carries data-loss risk.
- */
+// Report structural problems without repairing project data.
 
 import { compact } from '../core/response-formatter.js';
 import { handleError, isValidUUID } from '../utils/common.js';
@@ -34,7 +26,6 @@ interface IntegrityReport {
 	summary: string;
 }
 
-/** Read content for at most this many documents concurrently. */
 const CONTENT_PROBE_BATCH = 25;
 
 function describe(doc: ScrivenerDocument): string {

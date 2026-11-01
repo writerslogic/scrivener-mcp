@@ -43,7 +43,6 @@ export class BinderEditor {
 				}
 			);
 
-			// Validate project structure
 			validateProjectStructure(this.projectStructure);
 
 			const binder = this.projectStructure!.ScrivenerProject.Binder;
@@ -62,12 +61,10 @@ export class BinderEditor {
 			const id = generateScrivenerUUID();
 			const sanitizedTitle = truncate(title, 255);
 
-			// Create the document file if it's a text document
 			if (type === DOCUMENT_TYPES.TEXT) {
 				await this.writeDocument(id, content);
 			}
 
-			// Create the binder item
 			const newItem: BinderItem = {
 				UUID: id,
 				Type: type,
@@ -299,7 +296,6 @@ export class BinderEditor {
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
 
-		// Find and remove from trash
 		const searchResults = Array.isArray(binder.SearchResults)
 			? binder.SearchResults
 			: binder.SearchResults
@@ -314,7 +310,6 @@ export class BinderEditor {
 		// Ensure trashItems is an array
 		const trashArray = Array.isArray(trashItems) ? trashItems : [trashItems];
 
-		// Check if trash is empty
 		if (trashArray.length === 0) {
 			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
 		}
@@ -345,7 +340,7 @@ export class BinderEditor {
 		}
 
 		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
-		// Update the trash with the modified array
+
 		searchResults[0].Children!.BinderItem = trashArray;
 
 		// Place in target location or root

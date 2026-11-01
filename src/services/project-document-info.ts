@@ -21,7 +21,6 @@ export class ProjectDocumentInfo {
 		return this.isIndexInitialized();
 	}
 
-	// Additional methods
 	async getDocumentInfo(documentId: string): Promise<{
 		document: ScrivenerDocument | null;
 		path: Array<{ id: string; title: string; type: string }>;
@@ -110,7 +109,6 @@ export class ProjectDocumentInfo {
 	}): Promise<ProjectStructure> {
 		const structure = await this.getProjectStructure(options?.includeTrash);
 
-		// Convert ScrivenerDocument[] to ProjectStructure format. Root is a synthetic
 		// wrapper over every top-level item, not just structure[0] — otherwise the
 		// binder collapses to its first entry.
 		const root = {
@@ -144,10 +142,8 @@ export class ProjectDocumentInfo {
 
 	async getDocumentAnnotations(documentId: string): Promise<Map<string, string>> {
 		try {
-			// Get the raw RTF content for the document
 			const rtfContent = await this.documentManager.readDocumentRaw(documentId);
 
-			// Extract annotations using the RTF handler
 			return this.compilationService.extractAnnotations(rtfContent);
 		} catch (error) {
 			logger.warn(`Failed to extract annotations for document ${documentId}`, { error });

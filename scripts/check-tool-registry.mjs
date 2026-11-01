@@ -1,16 +1,6 @@
-/**
- * Tool-registry gate. tsc and eslint cannot see these problems: duplicate tool
- * names, a hidden tool leaking into the public surface, or a tool missing its
- * 5/5 metadata (title, annotations with all four behavior hints, a substantive
- * description, and a description on every input parameter).
- *
- * Runs against the built output, or directly against source with the tsx loader:
- *
- *   npm run build && node scripts/check-tool-registry.mjs
- *   node --import tsx scripts/check-tool-registry.mjs --source
- *
- * Exits 0 when the surface is clean, 1 (with a report) when it is not.
- */
+// Check unique public tools, behavior hints and substantive input/output schemas.
+// Run against dist, or use `node --import tsx scripts/check-tool-registry.mjs --source`.
+
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

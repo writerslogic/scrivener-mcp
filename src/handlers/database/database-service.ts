@@ -70,7 +70,6 @@ export class DatabaseService {
 	constructor(projectPath: string, config?: Partial<DatabaseConfig>) {
 		this.paths = generateDatabasePaths(projectPath);
 
-		// Merge with defaults
 		this.config = {
 			sqlite: {
 				...DEFAULT_DATABASE_CONFIG.sqlite,
@@ -116,7 +115,6 @@ export class DatabaseService {
 		await ensureDir(this.paths.databaseDir);
 
 		if (this.config.neo4j.enabled) {
-			// Get credentials from environment or config
 			const projectPath = path.dirname(this.paths.databaseDir);
 			const credentials = await DatabaseSetup.getCredentials({ projectPath });
 
@@ -128,12 +126,10 @@ export class DatabaseService {
 				};
 			}
 
-			// Check Neo4j availability and offer auto-installation
 			const neo4jStatus = await DatabaseSetup.checkNeo4jAvailability();
 			if (this.config.neo4j.enabled && !neo4jStatus.running) {
 				logger.warn('Neo4j is not running');
 
-				// Check if we should auto-install
 				const autoInstall =
 					process.env.NEO4J_AUTO_INSTALL === 'true' ||
 					this.config.neo4j.autoInstall === true;
@@ -148,7 +144,6 @@ export class DatabaseService {
 					});
 
 					if (installResult.success && installResult.credentials) {
-						// Update config with new credentials
 						this.config.neo4j = {
 							...this.config.neo4j,
 							...installResult.credentials,
@@ -173,16 +168,14 @@ export class DatabaseService {
 				}
 			}
 		}
-		// Save config
+
 		await this.saveConfig();
 
-		// Initialize SQLite
 		if (this.config.sqlite.enabled) {
 			this.sqliteManager = new SQLiteManager(this.config.sqlite.path);
 			await this.sqliteManager.initialize();
 		}
 
-		// Initialize Neo4j
 		if (this.config.neo4j.enabled) {
 			this.neo4jManager = new Neo4jManager(
 				this.config.neo4j.uri,
@@ -192,15 +185,12 @@ export class DatabaseService {
 			);
 			await this.neo4jManager.initialize();
 
-			// Initialize graph analytics
 			this.graphAnalytics = new GraphAnalytics(this.neo4jManager);
 		}
 
-		// Initialize migration manager and run migrations
 		this.migrationManager = new MigrationManager(this.sqliteManager, this.neo4jManager);
 		await this.migrationManager.migrate();
 
-		// Initialize search service
 		this.searchService = new SearchService(this.sqliteManager, this.neo4jManager);
 
 		this.initialized = true;
@@ -239,7 +229,6 @@ export class DatabaseService {
 				return null;
 			}
 
-			// Convert relative path back to absolute
 			const config = configData as DatabaseConfig;
 			if (config.sqlite?.path && !path.isAbsolute(config.sqlite.path)) {
 				config.sqlite.path = buildPath(paths.databaseDir, config.sqlite.path);
@@ -262,9 +251,6 @@ export class DatabaseService {
 		return this.sqliteManager;
 	}
 
-	/**
-	 * Get Neo4j manager
-	 */
 	getNeo4j(): Neo4jManager | null {
 		return this.neo4jManager;
 	}
@@ -482,9 +468,6 @@ export class DatabaseService {
 		return this.migrationManager;
 	}
 
-	/**
-	 * Run relationship auto-discovery
-	 */
 	async discoverRelationships(): Promise<unknown> {
 		if (!this.graphAnalytics) {
 			throw new AppError('Graph analytics not available', ErrorCode.DATABASE_ERROR);
@@ -524,9 +507,6 @@ export class DatabaseService {
 		return this.searchService.search(query, options);
 	}
 
-	/**
-	 * Track writing session
-	 */
 	async trackWritingSession(wordsWritten: number, duration: number): Promise<void> {
 		trackWritingSession(this.sqliteManager, wordsWritten, duration);
 	}
@@ -579,7 +559,6 @@ export class DatabaseService {
 		return recordFeedback(this.sqliteManager, input);
 	}
 
-	/** Return recorded feedback, most recent first. */
 	async getFeedbackRecords(limit = 500): Promise<FeedbackRecord[]> {
 		return getFeedbackRecords(this.sqliteManager, limit);
 	}

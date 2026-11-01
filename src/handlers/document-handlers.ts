@@ -319,7 +319,6 @@ export const writeDocumentHandler: ToolDefinition = {
 			const documentId = getStringArg(args, 'documentId');
 			const content = getStringArg(args, 'content');
 
-			// Validate UUID format
 			if (!isValidUUID(documentId)) {
 				throw createError(
 					ErrorCode.INVALID_INPUT,
@@ -337,7 +336,6 @@ export const writeDocumentHandler: ToolDefinition = {
 				})
 			);
 
-			// Update HHM memory with new content
 			try {
 				const hhmSystem = getHHMSystem();
 				const docInfo = await project.getDocumentInfo(documentId);
@@ -447,7 +445,6 @@ export const createDocumentHandler: ToolDefinition = {
 			const documentType = (getOptionalStringArg(args, 'documentType') || 'Text') as
 				'Text' | 'Folder';
 
-			// Validate parent ID if provided
 			if (parentId && !isValidUUID(parentId)) {
 				throw createError(
 					ErrorCode.INVALID_INPUT,

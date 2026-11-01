@@ -1,13 +1,4 @@
-/**
- * Document-level cross-reference detection (issue #27). Given the project's
- * entity registry (characters, locations) and the plain text of its documents,
- * this computes which documents mention which entities, with per-document counts
- * and character offsets. It is pure and deterministic — no Neo4j, no AI — so the
- * query handlers work for every user; Neo4j is an optional persistence layer
- * layered on top (see document-graph-handlers). Matching is exact, whole-word,
- * and case-insensitive; implicit references ("the old house" → a named place)
- * are intentionally out of scope here and belong to the AI-assisted path.
- */
+// Exact, whole-word, case-insensitive mentions; implicit references require separate analysis.
 
 import type { SourceScopeOptions } from './editorial/types.js';
 

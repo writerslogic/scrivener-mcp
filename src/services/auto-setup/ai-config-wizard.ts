@@ -69,7 +69,6 @@ export class AIConfigWizard {
 			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 		}
 
-		// Update or add environment variables
 		const updateEnvVar = (key: string, value: string | undefined) => {
 			if (!value) return;
 
@@ -175,7 +174,6 @@ export class AIConfigWizard {
 				await this.prompt('Press Enter after installation is complete...');
 			}
 
-			// Start Ollama service in background
 			const { spawn } = await import('child_process');
 			const ollama = spawn('ollama', ['serve'], {
 				detached: true,
@@ -203,7 +201,6 @@ export class AIConfigWizard {
 
 		const config = await this.loadConfig();
 
-		// OpenAI Configuration
 		logger.info('━━━ OpenAI Configuration ━━━');
 		const useOpenAI = await this.prompt('Do you want to use OpenAI? (y/n): ');
 
@@ -239,7 +236,6 @@ export class AIConfigWizard {
 			}
 		}
 
-		// Anthropic Configuration
 		logger.info('\n━━━ Anthropic Configuration ━━━');
 		const useAnthropic = await this.prompt('Do you want to use Anthropic Claude? (y/n): ');
 
@@ -264,7 +260,6 @@ export class AIConfigWizard {
 			}
 		}
 
-		// Local Models Configuration
 		logger.info('\n━━━ Local Models Configuration ━━━');
 		const useLocal = await this.prompt('Do you want to use local models (Ollama)? (y/n): ');
 
@@ -324,7 +319,6 @@ export class AIConfigWizard {
 			}
 		}
 
-		// Save configuration
 		await this.saveConfig(config);
 		this.rl.close();
 

@@ -142,7 +142,6 @@ class LoggerFactory {
 	private defaultLevel = LogLevel.INFO;
 
 	constructor() {
-		// Set level from environment using utility
 		const envLevel = getEnv('LOG_LEVEL')?.toUpperCase();
 		if (envLevel && envLevel in LogLevel) {
 			this.defaultLevel = LogLevel[envLevel as keyof typeof LogLevel] as unknown as LogLevel;

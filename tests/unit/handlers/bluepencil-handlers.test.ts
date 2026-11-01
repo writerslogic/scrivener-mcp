@@ -1,11 +1,3 @@
-/**
- * Verifies the bluepencil-backed line-editing handlers against a fake project:
- * each tool returns every section its outputSchema promises, findings carry
- * document locations, caps and option pass-through work, a missing document is
- * rejected, and the manuscript report weights totals by words and only calls
- * out outliers when there are enough documents to have a distribution.
- */
-
 import {
 	analyzeDialogueTagsLocalHandler,
 	analyzeRhythmLocalHandler,
@@ -189,8 +181,7 @@ describe('manuscript_style_report_local', () => {
 		expect(out.documents.map((d) => d.documentId)).toEqual(docs.map((d) => d.id));
 		const words = out.documents.reduce((n, d) => n + d.words, 0);
 		expect(out.totals.words).toBe(words);
-		const weighted =
-			out.documents.reduce((n, d) => n + d.adverbsPer1k * d.words, 0) / words;
+		const weighted = out.documents.reduce((n, d) => n + d.adverbsPer1k * d.words, 0) / words;
 		expect(out.totals.adverbsPer1k).toBeCloseTo(weighted);
 		// d1 is dialogue-heavy and passive-heavy; the three quiet documents are the baseline.
 		expect(out.outliers.some((o) => o.documentId === 'd1')).toBe(true);

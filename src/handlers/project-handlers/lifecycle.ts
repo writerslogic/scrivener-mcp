@@ -90,7 +90,6 @@ export const openProjectHandler: ToolDefinition = {
 
 			await retireProject(context);
 
-			// Initialize new project
 			const project = new ScrivenerProject(projectPath, {
 				hhmSystem: context.hhmSystem,
 				scrivxPath,

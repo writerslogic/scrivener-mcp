@@ -8,18 +8,9 @@ stays in Node's standard signing APIs. The source archive, lockfile and a small,
 trust-purpose compatibility patch are shipped with the [binding](../native/c2pa-binding/README.md).
 These operations work without an open Scrivener project.
 
-Version **0.14.0 is a local, unreleased feature version**. At preparation time the published npm
-release remains 0.12.0; installing that release does not provide these new tools. No C2PA
-application, legal agreement, certificate purchase or publication has been submitted for this work.
 Conformance is **not assessed**, no assurance level has been awarded, and no attestation methods are
 implemented. A credential signature does not establish human authorship, originality or the truth of
 an asset's contents.
-
-The [application readiness assessment](conformance/readiness.md) records implemented controls,
-passing local evidence and external assessment gates. The prepared
-[security architecture](conformance/GPSA-scrivener-mcp.md) describes the current implementation.
-Passing the format roundtrips below does not constitute program approval; **hold the application**
-until the readiness acceptance conditions are satisfied.
 
 ## Tools and workflow
 
@@ -136,17 +127,17 @@ callers cannot override the administrator's trust lists or assessment clock.
 Default validation output preserves native SDK crJSON. The explicit `--crjson-version 2.4` export
 validates against the pinned, unmodified [official 2.4 schema](../assets/c2pa-crjson-2.4/README.md)
 and requires both output paths. SDK 0.91.7 includes `isUpdateManifest` and `isCompressedManifest`,
-which that schema forbids. The assessment projection omits those two fields and identifies
-Scrivener MCP as its JSON generator. The native evidence file retains the complete inspection,
-including the flags, original SDK generator, validation failures, source revision and assessment
-time, and records the exact assessment bytes' SHA-256 and length. Schema validity does not change
-the asset's cryptographic status or establish formal conformance.
+which that schema forbids. The assessment projection omits those two fields and identifies Scrivener
+MCP as its JSON generator. The native evidence file retains the complete inspection, including the
+flags, original SDK generator, validation failures, source revision and assessment time, and records
+the exact assessment bytes' SHA-256 and length. Schema validity does not change the asset's
+cryptographic status or establish formal conformance.
 
 The assessment is capped at 8 MiB; the complete native evidence file at 16 MiB + 256 KiB, including
 its trailing newline. Unsupported versions, incompatible structures and excess size fail explicitly.
-The native evidence file is published first. If the assessment write fails, the error identifies
-the retained evidence; inspect both destinations and retry with two new paths. Existing files are
-never overwritten, and a successful command requires both writes.
+The native evidence file is published first. If the assessment write fails, the error identifies the
+retained evidence; inspect both destinations and retry with two new paths. Existing files are never
+overwritten, and a successful command requires both writes.
 
 To preserve detached source provenance, pass `sourceManifestPath` when signing the original asset.
 Its revision is checked alongside the asset. Conflicting embedded history is rejected. Invalid
@@ -171,15 +162,15 @@ program claims; local test-root validation does not establish either process.
 
 The format catalog is a declared envelope of 86 MIME types, **not a list of passed native tests**.
 Embedded and detached coverage are separate. Experimental entries, untested formats and unsupported
-embedded modes must not become intake claims. Aliases/extensions are not additional independently
+embedded modes are not verified capabilities. Aliases/extensions are not additional independently
 tested formats. A generic whole-file detached hash binds bytes; it does not validate the internal
 structure of DOCX, EPUB, a 3D model or another file format.
 
-The macOS arm64 / Node 24.22.1 run passes **48 original synthetic fixtures covering 48 MIME types**:
-25 embedded and 37 detached roundtrips. The reproducible
-[native evidence snapshot](compatibility/c2pa-0.14.0-macos-arm64.json) records exact mode coverage
-and the fixture-index digest. CI retains the same report for every Linux, macOS and Windows runtime
-job. Untested formats remain outside the demonstrated subset.
+The compatibility suite covers **48 original synthetic fixtures across 48 MIME types**, with
+embedded and detached cases tested separately. The matching
+[CI run](https://github.com/writerslogic/scrivener-mcp/actions/workflows/ci.yml) retains a report
+for every Linux, macOS and Windows runtime job. Check its commit, overall result, fixture-index
+digest and per-format results; the catalog alone does not establish passing coverage.
 
 Unsigned DOCX, XLSX, PPTX, EPUB, ODT, ODS, ODP and ODG inputs are copied to bounded STORE ZIPs
 before embedding. Every original document part remains byte-identical, except container metadata
@@ -203,10 +194,10 @@ node scripts/check-c2pa-compatibility.mjs --output artifacts/c2pa-compatibility.
 ```
 
 Retain the report's SDK version, Node version, OS/architecture, fixture-index digest, per-format
-results and failures. An intake selection needs a successful overall gate and evidence for that
+results and failures. A coverage claim needs a successful overall gate and evidence for that
 specific format, operation and storage mode, including validation/tamper checks. One platform's
 report does not establish coverage on every platform. Use the retained CI artifacts to assess each
-platform; the table below limits selections to the demonstrated format/mode subset.
+platform.
 
 Compatibility fixtures use disposable, randomly generated development certificates and encrypted
 keys. Never commit private fixture keys, use a test CA for production, or treat its trust result as
@@ -219,53 +210,3 @@ substitute for platform compatibility evidence. Service limits are **128 MiB sou
 MiB detached manifests/reports**, a **30-second native-operation timeout**, and **two concurrent
 operations**. Busy operations are rejected for a later explicit retry. Native parsing/signing runs
 in isolated child processes; failures do not authorize overwriting an existing output.
-
-## Intake preparation: the 30 questions
-
-The rows follow the supplied questionnaire order. This is preparation, not a submitted application
-or a grant of status. Reconcile final answers with the current program form and passing evidence.
-Request **both Generator Product and Validator Product** roles for the implemented functions; the
-program handles a separate legal agreement process for each requested role. See the
-[C2PA Conformance Program](https://github.com/c2pa-org/conformance-public/blob/main/docs/v0.2/C2PA%20Conformance%20Program.md).
-
-| #   | Intake question                                   | Requested target or intended answer                                                                                                          | Evidence, limitations or granted status                                                                                                                                                |
-| --- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Compressed manifests                              | Validation: supported by the demonstrated fixture. Generation: not implemented.                                                              | Real `c2cm`/`brob` PNG validation passed with trusted status and unchanged source; no generation claim.                                                                                |
-| 2   | Product type                                      | Request both Generator Product and Validator Product.                                                                                        | Functions are implemented locally; neither role has been approved. Each role has its own agreement process.                                                                            |
-| 3   | Web address                                       | https://writerslogic.com/scrivener-mcp/                                                                                                      | Source: https://github.com/writerslogic/scrivener-mcp.                                                                                                                                 |
-| 4   | Implementation class                              | Edge Class.                                                                                                                                  | Assets, claims and signatures are processed on the local endpoint; no formal classification granted.                                                                                   |
-| 5   | Category                                          | None of the above, as selected for this public server integration; confirm classification with the administrator.                            | Ask the program to confirm any non-generative classification.                                                                                                                          |
-| 6   | Common name (CN)                                  | `scrivener-mcp`                                                                                                                              | Confirmed product identity; certificate issuance is separate.                                                                                                                          |
-| 7   | Organization (O)                                  | WritersLogic, Inc.                                                                                                                           | Confirmed legal organization.                                                                                                                                                          |
-| 8   | Country (C)                                       | US                                                                                                                                           | Confirmed legal country.                                                                                                                                                               |
-| 9   | Organizational unit (OU)                          | Leave blank.                                                                                                                                 | No OU supplied.                                                                                                                                                                        |
-| 10  | Minimum software version                          | 0.14.0, intended first feature version.                                                                                                      | Full feature version is local prerelease work, not assessed or published; npm remains 0.12.0. Node runtime floors are documented separately above.                                     |
-| 11  | Max Assurance Level                               | Target AL1 evaluation.                                                                                                                       | No AL awarded: current `maxAssuranceLevel` is null and conformance is `not-assessed`.                                                                                                  |
-| 12  | Attestation methods                               | None implemented.                                                                                                                            | Empty methods list; no borrowed WritersProof/App Attest evidence.                                                                                                                      |
-| 13  | Generate images                                   | Yes, attach credentials to existing images.                                                                                                  | Nine of the supplied image MIME options pass embedded and detached roundtrips.                                                                                                         |
-| 14  | Image generation MIME types                       | `image/jpeg`, `image/png`, `image/svg+xml`, `image/gif`, `image/tiff`, `image/webp`, `image/heic`, `image/heif`, `image/avif`.               | Embedded and detached. Leave JXL, DNG, sequences and generic TIFF/RIFF categories unselected without further evidence.                                                                 |
-| 15  | Video generation MIME types                       | `video/x-msvideo`, `video/mp4`, `video/quicktime`.                                                                                           | Embedded and detached completed files. Generic BMFF/RIFF and streaming profiles are not demonstrated.                                                                                  |
-| 16  | Audio generation MIME types                       | `audio/flac`, `audio/mpeg`, `audio/wav`, `audio/mp4`, `audio/aac`.                                                                           | FLAC/MP3: embedded only; WAV/MP4: both; AAC: detached only. No MPA or generic RIFF claim.                                                                                              |
-| 17  | Document generation MIME types                    | PDF, EPUB, DOCX, XLSX, PPTX, PPSX, ODT, ODS, ODP, ODG.                                                                                       | All embedded except PPSX, which uses a detached sidecar. Office/ODF/EPUB preparation is disclosed above. Full MIME values appear in the evidence report. No OXPS or generic ZIP claim. |
-| 18  | Text generation MIME types                        | `text/html`, `text/csv`, `text/tab-separated-values`, `text/plain`, `text/markdown`, `application/xml`, `text/xml`, `application/xhtml+xml`. | Detached only; `text/xml` is a tested input alias normalized to `application/xml`. Whole-file binding does not validate text meaning or schema.                                        |
-| 19  | Generate OTF fonts                                | Leave `font/otf` unselected.                                                                                                                 | OTF has no redistributable passing fixture. Separate TTF/WOFF detached tests pass but are not the supplied OTF checkbox.                                                               |
-| 20  | ML-model generation types                         | None of the named ML-model types are claimed.                                                                                                | The tested GLTF/GLB/OBJ/STL assets are 3D models, not machine-learning models. Explicit generic-file sidecars do not establish named ML coverage.                                      |
-| 21  | Validate images                                   | Select the same nine MIME types in row 14.                                                                                                   | Each has actual embedded/detached validation evidence; compressed-manifest PNG validation also passes.                                                                                 |
-| 22  | Validate videos                                   | `video/x-msvideo`, `video/mp4`, `video/quicktime`.                                                                                           | Embedded/detached completed-file validation; no generic BMFF/RIFF, live or per-segment claim.                                                                                          |
-| 23  | Validate audio                                    | `audio/flac`, `audio/mpeg`, `audio/wav`, `audio/mp4`, `audio/aac`.                                                                           | Same mode restrictions as row 16, verified independently after signing.                                                                                                                |
-| 24  | Validate documents                                | PDF, EPUB, DOCX, XLSX, PPTX, PPSX, ODT, ODS, ODP, ODG.                                                                                       | Same modes as row 17; prepared archive parts remain intact. Unreadable pre-existing DEFLATE credentials fail closed rather than becoming valid through repackaging.                    |
-| 25  | Validate text                                     | Select the types in row 18.                                                                                                                  | Detached binding/signature verification and altered-asset rejection pass; this does not check a text schema or factual correctness.                                                    |
-| 26  | Validate fonts                                    | Leave `font/otf` unselected.                                                                                                                 | Only `font/ttf` and `font/woff` detached credentials have passing fixture evidence.                                                                                                    |
-| 27  | Validate ML models                                | None of the named ML-model types are claimed.                                                                                                | No ML-specific fixture or native model interpretation is implemented.                                                                                                                  |
-| 28  | Live streams                                      | Not implemented/exposed by these tools.                                                                                                      | No live-stream generation or validation claim.                                                                                                                                         |
-| 29  | fMP4 per segment / verifiable segment information | Not implemented/exposed by these tools.                                                                                                      | Ordinary MP4 file results do not establish per-segment generation, validation or verifiable-segment-information support.                                                               |
-| 30  | CMAF per segment / verifiable segment information | Not implemented/exposed by these tools.                                                                                                      | No CMAF segment-generation, validation or verifiable-segment-information claim.                                                                                                        |
-
-The [program overview](https://c2pa.org/conformance/),
-[Generator Product Security Requirements](https://github.com/c2pa-org/conformance-public/blob/main/docs/v0.2/C2PA%20Generator%20Product%20Security%20Requirements.md)
-and
-[Certificate Policy](https://github.com/c2pa-org/conformance-public/blob/main/docs/v0.2/C2PA%20Certificate%20Policy.md)
-govern assessment and certificate eligibility. AL1 and Edge targets do not bypass that review.
-Before submission, resolve the [readiness findings](conformance/readiness.md), regenerate the
-source-matched evidence, confirm contacts and product-category interpretation, and have the
-applicant review the applicable role agreements.

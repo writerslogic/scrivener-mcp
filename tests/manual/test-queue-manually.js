@@ -13,7 +13,6 @@ async function testQueue() {
 
 	const testDir = './test-queue-manual';
 
-	// Create test directory
 	mkdirSync(testDir, { recursive: true });
 	mkdirSync(join(testDir, '.scrivener-mcp'), { recursive: true });
 

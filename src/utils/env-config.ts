@@ -277,17 +277,14 @@ export async function detectPlatform(): Promise<PlatformInfo> {
 	const platform = process.platform;
 	const arch = process.arch;
 
-	// Detect container environment
 	const isContainer = await detectContainer();
 
-	// Detect WSL
 	const isWsl =
 		platform === 'linux' &&
 		(process.env.WSL_DISTRO_NAME !== undefined ||
 			(await checkFileExists('/proc/version', 'Microsoft')) ||
 			(await checkFileExists('/proc/version', 'microsoft')));
 
-	// Detect available package managers
 	const packageManagers = await detectPackageManagers();
 
 	// Determine if sudo is required
@@ -308,7 +305,6 @@ export async function detectPlatform(): Promise<PlatformInfo> {
 
 async function detectContainer(): Promise<boolean> {
 	try {
-		// Check for container indicators
 		const indicators = [
 			'/.dockerenv',
 			'/run/.containerenv', // Podman
@@ -320,7 +316,6 @@ async function detectContainer(): Promise<boolean> {
 			}
 		}
 
-		// Check cgroups
 		if (
 			(await checkFileExists('/proc/1/cgroup', 'docker')) ||
 			(await checkFileExists('/proc/1/cgroup', 'lxc')) ||
@@ -329,7 +324,6 @@ async function detectContainer(): Promise<boolean> {
 			return true;
 		}
 
-		// Check environment variables
 		if (process.env.KUBERNETES_SERVICE_HOST || process.env.container) {
 			return true;
 		}
@@ -359,7 +353,6 @@ async function detectPackageManagers(): Promise<string[]> {
 		})
 	);
 
-	// Collect successful results
 	for (const result of results) {
 		if (result.status === 'fulfilled' && result.value) {
 			available.push(result.value);
@@ -371,12 +364,10 @@ async function detectPackageManagers(): Promise<string[]> {
 
 async function checkSudoRequired(): Promise<boolean> {
 	try {
-		// Check if we're root
 		if (process.getuid && process.getuid() === 0) {
 			return false;
 		}
 
-		// Check if sudo is available
 		if (!(await ProcessUtils.commandExists('sudo'))) {
 			return false;
 		}

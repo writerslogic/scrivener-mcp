@@ -1,10 +1,4 @@
-/**
- * Token-optimized response formatting for MCP tool outputs.
- *
- * - Minifies JSON without changing values or array positions
- * - Large payloads spill to disk, returning a tracker ID
- * - Error outputs masked to short actionable messages
- */
+// Large responses spill to retrievable storage; JSON values and array positions stay intact.
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -190,9 +184,6 @@ export function formatError(error: unknown, operation?: string): string {
 	return `${prefix}${message.trim()}`;
 }
 
-/**
- * Clean up old spool files (older than 1 hour).
- */
 export function cleanupSpool(): void {
 	const cutoff = Date.now() - 3600000;
 	for (const [id, entry] of spoolEntries) {

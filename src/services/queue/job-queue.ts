@@ -43,7 +43,6 @@ import {
 	type ScopedJob,
 } from './project-scope.js';
 
-// Job types
 export enum JobType {
 	ANALYZE_DOCUMENT = 'analyze_document',
 	ANALYZE_PROJECT = 'analyze_project',
@@ -55,7 +54,6 @@ export enum JobType {
 	BATCH_ANALYSIS = 'batch_analysis',
 }
 
-// Job interfaces
 export interface AnalyzeDocumentJob {
 	documentId: string;
 	content: string;
@@ -381,13 +379,10 @@ export class JobQueueService {
 		this.events.set(jobType, queueEvents);
 	}
 
-	/**
-	 * Get concurrency for job type
-	 */
 	private getConcurrency(jobType: JobType): number {
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
-				return 5; // Process up to 5 documents simultaneously
+				return 5;
 			case JobType.GENERATE_SUGGESTIONS:
 				return 3; // Limit AI requests
 			case JobType.BUILD_VECTOR_STORE:
@@ -671,9 +666,7 @@ export class JobQueueService {
 			throw createError(ErrorCode.INVALID_STATE, null, 'AI writing service not initialized');
 		}
 
-		// Build or rebuild the vector store with the provided documents
 		try {
-			// Convert documents to the format expected by the AI writing service
 			const scrivenerDocs = data.documents.map((doc) => {
 				const metadata = doc.metadata ?? {};
 				for (const key of ['title', 'path', 'revision'])
@@ -694,7 +687,6 @@ export class JobQueueService {
 				};
 			});
 
-			// Build the vector store
 			await this.aiWritingService.buildVectorStore(scrivenerDocs, { rebuild: data.rebuild });
 
 			this.logger.info('Vector store built successfully', {
@@ -1004,7 +996,6 @@ export class JobQueueService {
 		}
 		readScopedJob(this.requireScope(), jobType, job.id, job.data);
 
-		// Return the actual Job object
 		return job;
 	}
 
@@ -1181,7 +1172,7 @@ export class JobQueueService {
 				failures.push(error);
 			}
 		}
-		// Close workers first
+
 		for (const [type, worker] of this.workers.entries()) {
 			if (await close(() => worker.close())) this.workers.delete(type);
 		}
@@ -1194,21 +1185,17 @@ export class JobQueueService {
 		if (await close(() => this.embeddedStore?.close())) this.embeddedStore = undefined;
 		this.pendingEmbeddedResults.clear();
 
-		// Close event listeners
 		for (const [type, events] of this.events.entries()) {
 			if (await close(() => events.close())) this.events.delete(type);
 		}
 
-		// Close queues
 		for (const [type, queue] of this.queues.entries()) {
 			if (await close(() => queue.close())) this.queues.delete(type);
 		}
 
-		// Close connection
 		if (!this.queues.size && !this.events.size && (await close(() => this.connection?.quit())))
 			this.connection = undefined;
 
-		// Clear maps
 		this.embeddedJobs.clear();
 		this.writingSuggestions = undefined;
 		if (await close(() => this.contentAnalyzer?.dispose())) this.contentAnalyzer = null;

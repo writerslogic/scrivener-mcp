@@ -269,7 +269,7 @@ describe('Common Utilities - New Functions', () => {
 
 			it('should handle circular references safely', async () => {
 				const data: any = { test: 'value' };
-				data.circular = data; // Create circular reference
+				data.circular = data;
 
 				// Should not throw
 				await writeJSON(testFile, data);

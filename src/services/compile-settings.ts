@@ -1,11 +1,4 @@
-/**
- * Reads Scrivener's compile-format definitions (Settings/compile.xml) and the
- * project taxonomy (labels, statuses, collections, section types) from the
- * parsed .scrivx. Scrivener does not publish a schema for these files, so every
- * accessor is defensive: missing, renamed, single-vs-array, and attribute-only
- * shapes all degrade to empty rather than throwing. This surfaces the settings
- * as read-only metadata; it does not attempt to reproduce Scrivener's compile.
- */
+// Scrivener settings have no public schema. Missing shapes yield empty read-only metadata.
 
 import { parseStringPromise } from 'xml2js';
 
@@ -52,17 +45,7 @@ export interface CompileFormat {
 	hasFrontMatter: boolean;
 }
 
-/**
- * How a layout affects compiled output. Scrivener's project files only ever
- * store a layout *ID* (see CompileFormat.sectionLayouts); the layout's actual
- * rules (title format, separators, page breaks) live in Scrivener's own
- * format-preset files, outside the .scriv package, so they can't be read from
- * project data at all. This recognizes the handful of standard layout IDs
- * that Scrivener's built-in format presets use consistently (visible by name,
- * not a GUID) and gives them a reasonable, documented interpretation. Any
- * other ID - a custom layout, or one from a preset not covered here - is
- * unclassifiable and returns the same neutral defaults as "no layout".
- */
+// Layout rules live outside the project. Only recognized built-in IDs can be interpreted.
 export interface LayoutBehavior {
 	titleVisible: boolean;
 	/** Render the title as "Chapter <n>" with an auto-incrementing counter. */
@@ -85,14 +68,7 @@ const STANDARD_LAYOUTS: Record<string, LayoutBehavior> = {
 	'NEW-PAGE-HEADER': { titleVisible: true, numbered: false, pageBreakBefore: true },
 };
 
-/**
- * Classify a layout ID into its formatting behavior. Returns undefined for an
- * unrecognized ID (a custom layout, or one from a preset not covered above) -
- * distinct from AS-IS/TEXT-SECTION, which are recognized and genuinely
- * neutral. Callers should treat undefined as "unknown" and fall back to
- * their own default, not silently apply neutral (e.g. hiding a title the
- * user's own generic settings would have shown).
- */
+// Unknown IDs return undefined, distinct from recognized neutral layouts; callers choose defaults.
 export function classifyLayout(layoutId: string | undefined): LayoutBehavior | undefined {
 	if (!layoutId) return undefined;
 	return STANDARD_LAYOUTS[layoutId.toUpperCase()];
@@ -165,12 +141,7 @@ export function scrivColorToHex(color: string | undefined): string | undefined {
 	return `#${channels.join('')}`;
 }
 
-/**
- * Parse Settings/compile.xml. Returns just the compile-format portion of the
- * metadata; taxonomy comes from the .scrivx (see extractProjectTaxonomy).
- * Never throws on malformed XML shape — only a genuinely unparseable document
- * rejects, which the caller treats as "no compile settings".
- */
+// Malformed XML rejects; missing metadata shapes yield empty compile settings.
 export async function parseCompileXml(xml: string): Promise<{
 	currentFileType?: string;
 	options: { removeComments: boolean; removeAnnotations: boolean };

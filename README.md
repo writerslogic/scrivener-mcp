@@ -479,7 +479,7 @@ hash the original supplied UTF-8 text. Large profiles also use `read_result` ref
 - **[Scrivener File Format](./docs/scrivener-format.md)** -- The reverse-engineered `.scriv` format,
   what we read vs. infer, and safe-modification guidance
 - **[Fuzzing](./docs/fuzzing.md)** -- Jazzer.js target and OSS-Fuzz integration details
-- **[Contributing](./docs/contributing.md)** -- Development setup, code conventions, adding new
+- **[Contributing](./CONTRIBUTING.md)** -- Development setup, code conventions, adding new
   tools
 
 ## Requirements
@@ -563,7 +563,7 @@ you want the structure to survive the round trip.
 
 We welcome contributions of all sizes. Check the
 [issue tracker](https://github.com/writerslogic/scrivener-mcp/issues) for `good first issue` labels,
-or see the [contributing guide](./docs/contributing.md) for development setup.
+or see the [contributing guide](./CONTRIBUTING.md) for development setup.
 
 **Areas where help is especially welcome:**
 

@@ -26,7 +26,6 @@ function normalizeText(content: string): string {
 function protectAbbreviations(text: string): string {
 	const doc = nlp(text);
 
-	// Get all abbreviations from the text
 	const abbreviations = doc.abbreviations().out('array');
 
 	// Also protect common titles and honorifics that NLP might miss
@@ -36,7 +35,6 @@ function protectAbbreviations(text: string): string {
 	// Replace abbreviation periods with placeholders
 	let protectedText = text;
 	allAbbreviations.forEach((abbr) => {
-		// Remove the period for the placeholder
 		const pattern = new RegExp(`\\b${abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
 		protectedText = protectedText.replace(pattern, abbr.replace(/\./g, '@@@'));
 	});
@@ -91,7 +89,6 @@ export function getAccurateSentenceCount(content: string): number {
 export function getAccurateParagraphCount(content: string): number {
 	if (!content) return 0;
 
-	// Split on multiple newlines or tab-indented lines
 	const paragraphs = content.split(/\n\s*\n|\n\t+/).filter((p) => {
 		// A valid paragraph has at least one word
 		const trimmed = p.trim();
@@ -164,7 +161,6 @@ export function getWordFrequency(
 
 	const frequency = new Map<string, number>();
 
-	// Get all terms from the document
 	const terms = doc.terms().json();
 
 	terms.forEach((term: { text: string; [key: string]: unknown }) => {
@@ -180,7 +176,6 @@ export function getWordFrequency(
 				termDoc.has('#Conjunction') ||
 				termDoc.has('#Pronoun') ||
 				termDoc.has('#Auxiliary') ||
-				// Check if it's a very common word based on frequency
 				['the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'it'].includes(word)
 			) {
 				return;
@@ -190,7 +185,6 @@ export function getWordFrequency(
 		frequency.set(word, (frequency.get(word) || 0) + 1);
 	});
 
-	// Sort by frequency
 	return new Map([...frequency.entries()].sort((a, b) => b[1] - a[1]));
 }
 
@@ -200,7 +194,6 @@ export function splitIntoWords(text: string): string[] {
 	const normalized = normalizeText(text);
 	const doc = nlp(normalized);
 
-	// Get words as array from NLP
 	return doc.terms().out('array');
 }
 

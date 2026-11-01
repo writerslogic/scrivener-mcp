@@ -30,7 +30,6 @@ export interface PermissionManagerOptions {
 export class PermissionManager {
 	static async checkSystemPermissions(): Promise<PermissionCheckResult> {
 		try {
-			// Check if running as root
 			if (process.getuid && process.getuid() === 0) {
 				return {
 					hasPermission: true,
@@ -39,13 +38,11 @@ export class PermissionManager {
 				};
 			}
 
-			// Check if sudo is available and accessible
 			const sudoResult = await PermissionManager.checkSudo();
 			if (sudoResult.hasPermission) {
 				return sudoResult;
 			}
 
-			// Check if user has direct permissions for common operations
 			const userResult = await PermissionManager.checkUserPermissions();
 			return userResult;
 		} catch (error) {
@@ -62,7 +59,6 @@ export class PermissionManager {
 
 	private static async checkSudo(): Promise<PermissionCheckResult> {
 		try {
-			// Check if sudo is configured (non-interactive check)
 			try {
 				await execFileAsync('/usr/bin/sudo', ['-n', 'true'], { timeout: 2000 });
 				// If we get here, sudo worked without password
@@ -92,7 +88,6 @@ export class PermissionManager {
 
 	private static async checkUserPermissions(): Promise<PermissionCheckResult> {
 		try {
-			// Check if user can write to common installation directories
 			const testPaths = ['/usr/local/bin', '/opt', join(homedir(), '.local', 'bin')];
 
 			for (const testPath of testPaths) {
@@ -125,9 +120,6 @@ export class PermissionManager {
 		}
 	}
 
-	/**
-	 * Execute command with appropriate permissions
-	 */
 	static async executeWithPermissions(
 		command: string,
 		options: PermissionManagerOptions
@@ -176,7 +168,6 @@ export class PermissionManager {
 		const finalArgs = command.trim().split(/\s+/);
 		const finalCmd = finalArgs.shift()!;
 
-		// Add sudo if needed and available
 		if (permissions.needsSudo && permissions.method === 'sudo') {
 			finalArgs.unshift(finalCmd, '-n');
 			finalArgs.unshift('sudo');
@@ -256,7 +247,6 @@ export function withPermissionHandling<T extends unknown[], R>(
 		try {
 			return await fn(...args);
 		} catch (error) {
-			// Check if it's a permission error
 			const message = (error as Error).message.toLowerCase();
 			if (
 				message.includes('permission denied') ||

@@ -163,12 +163,10 @@ export class MemoryManager {
 	}
 
 	private async openMemory(): Promise<void> {
-		// Initialize database if provided
 		if (this.databaseService && !this.databaseService.isInitialized()) {
 			await this.databaseService.initialize();
 		}
 
-		// Create memory directory if it doesn't exist
 		await ensureDir(this.memoryPath);
 		await this.checkMemoryDirectory();
 		this.memoryPath = await fs.realpath(this.memoryPath);
@@ -189,7 +187,6 @@ export class MemoryManager {
 		}
 		this.initialized = true;
 
-		// Set up auto-save every 5 minutes
 		this.autoSaveInterval = setInterval(
 			() => {
 				this.saveMemory().catch((err) => logger.error('Auto-save failed', { error: err }));
@@ -318,7 +315,6 @@ export class MemoryManager {
 			throw new Error('Invalid project memory field: documentContexts');
 		}
 
-		// Initialize with proper ProjectMemory structure
 		const memory: ProjectMemory = {
 			...loaded,
 			version: loaded.version || '1.0.0',
@@ -332,7 +328,6 @@ export class MemoryManager {
 			customContext: loaded.customContext || {},
 		};
 
-		// Convert documentContexts back to Map
 		if (Array.isArray(contextEntries)) {
 			memory.documentContexts = new Map(contextEntries);
 		}
@@ -557,7 +552,6 @@ export class MemoryManager {
 			snapshot.lastUpdated = new Date().toISOString();
 			const memoryFile = buildPath(this.memoryPath, 'project-memory.json');
 
-			// Convert Map to array for JSON serialization
 			const toSave = {
 				...snapshot,
 				documentContexts: Array.from(snapshot.documentContexts.entries()),
@@ -594,7 +588,6 @@ export class MemoryManager {
 				// Don't throw - backup failure shouldn't break the main save
 			}
 
-			// Clean up old backups (keep last 7)
 			await this.cleanupOldBackups();
 		} catch (error) {
 			logger.error('Failed to save memory', { error });
@@ -730,7 +723,6 @@ export class MemoryManager {
 			: undefined;
 	}
 
-	// Get full memory for export or analysis
 	getFullMemory(): ProjectMemory {
 		return this.memory;
 	}
@@ -753,7 +745,6 @@ export class MemoryManager {
 		}
 	}
 
-	// Stop auto-save interval
 	stopAutoSave(): Promise<void> {
 		if (this.closePromise) return this.closePromise;
 		this.closing = true;
@@ -779,7 +770,6 @@ export class MemoryManager {
 		return this.closePromise;
 	}
 
-	// Cleanup when done
 	cleanup(): void {
 		this.stopAutoSave().catch((err) => logger.error('Cleanup save failed', { error: err }));
 	}
@@ -835,7 +825,6 @@ export class MemoryManager {
 				}
 			);
 
-			// Create character relationships
 			for (const rel of char.relationships ?? []) {
 				await neo4j.query(
 					`

@@ -1,10 +1,4 @@
-/**
- * Dependency-free paragraph-level diff. Splits two plain-text bodies into
- * paragraphs and reports which paragraphs were added or removed, using a
- * longest-common-subsequence (LCS) alignment so that unchanged paragraphs
- * between edits are not reported as churn. Intended for comparing a Scrivener
- * snapshot against the current document (or another snapshot).
- */
+// Paragraph LCS alignment keeps unchanged text out of snapshot diffs.
 
 export interface ParagraphDiff {
 	/** Paragraphs present in the new text but not aligned to the old text. */

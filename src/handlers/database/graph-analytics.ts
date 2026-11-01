@@ -53,7 +53,6 @@ export class GraphAnalytics {
 			throw toDatabaseError(new Error('Neo4j not available'), 'character network analysis');
 		}
 
-		// Calculate character centrality using PageRank
 		const centralityResult = await this.neo4j.query(`
 			CALL gds.graph.project.cypher(
 				'character-network',
@@ -71,7 +70,6 @@ export class GraphAnalytics {
 			LIMIT 10
 		`);
 
-		// Find character clusters using Louvain community detection
 		const clusterResult = await this.neo4j.query(`
 			CALL gds.louvain.stream('character-network')
 			YIELD nodeId, communityId
@@ -79,14 +77,12 @@ export class GraphAnalytics {
 			RETURN communityId, collect(c.name) AS members
 		`);
 
-		// Find isolated characters
 		const isolatedResult = await this.neo4j.query(`
 			MATCH (c:Character)
 			WHERE NOT exists((c)-[:RELATES_TO]-())
 			RETURN c.name AS name
 		`);
 
-		// Clean up graph projection
 		await this.neo4j.query(`
 			CALL gds.graph.drop('character-network', false) YIELD graphName
 			RETURN graphName
@@ -99,7 +95,6 @@ export class GraphAnalytics {
 			connections: 0, // Will be calculated separately
 		}));
 
-		// Get connection counts in a single batched query
 		if (central.length > 0) {
 			const ids = central.map((c) => c.id);
 			const connResult = await this.neo4j.query(
@@ -139,13 +134,11 @@ export class GraphAnalytics {
 			throw toDatabaseError(new Error('Neo4j not available'), 'plot complexity analysis');
 		}
 
-		// Count plot threads
 		const threadCountResult = await this.neo4j.query(`
 			MATCH (p:PlotThread)
 			RETURN count(p) AS count
 		`);
 
-		// Find intersection points (documents with multiple plot threads)
 		const intersectionResult = await this.neo4j.query(`
 			MATCH (d:Document)<-[:OCCURS_IN]-(p:PlotThread)
 			WITH d, count(p) AS threadCount
@@ -153,14 +146,12 @@ export class GraphAnalytics {
 			RETURN count(d) AS intersections
 		`);
 
-		// Calculate average thread length
 		const threadLengthResult = await this.neo4j.query(`
 			MATCH (p:PlotThread)-[:OCCURS_IN]->(d:Document)
 			WITH p, count(d) AS length
 			RETURN avg(length) AS avgLength
 		`);
 
-		// Find critical paths (most connected plot threads)
 		const criticalPathsResult = await this.neo4j.query(`
 			MATCH (p1:PlotThread)-[:OCCURS_IN]->(d:Document)<-[:OCCURS_IN]-(p2:PlotThread)
 			WHERE p1.id < p2.id
@@ -180,7 +171,6 @@ export class GraphAnalytics {
 			weight: r.get('weight'),
 		}));
 
-		// Calculate complexity score (0-100)
 		const complexityScore = Math.min(
 			100,
 			threadCount * 10 + intersections * 15 + avgLength * 5 + criticalPaths.length * 10
@@ -200,7 +190,6 @@ export class GraphAnalytics {
 			throw toDatabaseError(new Error('Neo4j not available'), 'story flow analysis');
 		}
 
-		// Get chapter-by-chapter analysis
 		const chapterResult = await this.neo4j.query(`
 			MATCH (d:Document {type: 'chapter'})
 			OPTIONAL MATCH (d)<-[:APPEARS_IN]-(c:Character)
@@ -213,7 +202,7 @@ export class GraphAnalytics {
 		const chapters = chapterResult.records.map((r) => {
 			const chars = r.get('chars');
 			const plots = r.get('plots');
-			// Calculate intensity based on character and plot density
+
 			const intensity = (chars * 0.3 + plots * 0.7) * 10;
 
 			return {
@@ -224,17 +213,14 @@ export class GraphAnalytics {
 			};
 		});
 
-		// Calculate tension curve
 		const tensionCurve = chapters.map((ch) => ch.intensity);
 
-		// Calculate pacing score based on variation
 		const avgIntensity = tensionCurve.reduce((a, b) => a + b, 0) / tensionCurve.length;
 		const variance =
 			tensionCurve.reduce((sum, val) => sum + Math.pow(val - avgIntensity, 2), 0) /
 			tensionCurve.length;
 		const pacingScore = Math.min(100, Math.sqrt(variance) * 5);
 
-		// Generate suggestions
 		const suggestions = this.generateFlowSuggestions(chapters, tensionCurve);
 
 		return {
@@ -294,14 +280,12 @@ export class GraphAnalytics {
 			);
 		}
 
-		// Analyze plot thread patterns
 		const patternResult = await this.neo4j.query(`
 			MATCH path = (start:PlotThread)-[:OCCURS_IN*]->(end:Document)
 			WITH length(path) AS pathLength, count(*) AS frequency
 			RETURN avg(pathLength) AS avgPath, max(pathLength) AS maxPath
 		`);
 
-		// Find key milestone chapters
 		const milestoneResult = await this.neo4j.query(`
 			MATCH (d:Document)
 			OPTIONAL MATCH (d)<-[:OCCURS_IN]-(p:PlotThread)
@@ -316,7 +300,6 @@ export class GraphAnalytics {
 		const avgPath = patternResult.records[0]?.get('avgPath') || 0;
 		const maxPath = patternResult.records[0]?.get('maxPath') || 0;
 
-		// Determine structure type
 		let structure: 'linear' | 'branching' | 'circular' | 'episodic';
 		if (maxPath > avgPath * 2) {
 			structure = 'branching';
@@ -341,9 +324,6 @@ export class GraphAnalytics {
 		};
 	}
 
-	/**
-	 * Helper methods
-	 */
 	private inferClusterTheme(members: string[]): string {
 		// Simple theme inference based on character names
 		if (members.length <= 2) return 'partnership';
@@ -368,13 +348,11 @@ export class GraphAnalytics {
 	): string[] {
 		const suggestions: string[] = [];
 
-		// Check for flat sections
 		const flatSections = this.findFlatSections(tensionCurve);
 		if (flatSections.length > 0) {
 			suggestions.push(`Consider adding variation in chapters ${flatSections.join(', ')}`);
 		}
 
-		// Check for sudden drops
 		for (let i = 1; i < tensionCurve.length; i++) {
 			if (tensionCurve[i] < tensionCurve[i - 1] * 0.5) {
 				suggestions.push(
@@ -383,7 +361,6 @@ export class GraphAnalytics {
 			}
 		}
 
-		// Check for missing climax
 		const maxIntensity = Math.max(...tensionCurve);
 		if (maxIntensity < 70) {
 			suggestions.push('Story may benefit from a more intense climactic moment');

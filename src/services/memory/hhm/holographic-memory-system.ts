@@ -385,7 +385,6 @@ class JSVectorEngine {
 		return clusters
 			.filter((c) => c.length >= 2)
 			.map((members) => {
-				// Compute average intra-cluster similarity as coherence
 				let coherence = 0;
 				let pairs = 0;
 				for (let i = 0; i < Math.min(members.length, 10); i++) {

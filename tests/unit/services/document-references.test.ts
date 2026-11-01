@@ -1,10 +1,3 @@
-/**
- * Locks the deterministic cross-reference engine (issue #27): whole-word,
- * case-insensitive mention detection with counts/positions, and the queries
- * built on it (per-document references, referencing documents, orphans, and
- * co-occurrence-based connection suggestions).
- */
-
 import {
 	findEntityMentions,
 	buildReferenceIndex,

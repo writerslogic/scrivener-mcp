@@ -25,7 +25,6 @@ export const SCRIVENER_EXTENSIONS = {
 	XML: '.scrivx',
 } as const;
 
-/** Scrivener special folder types */
 export const SCRIVENER_FOLDERS = {
 	DRAFT: 'DraftFolder',
 	RESEARCH: 'ResearchFolder',
@@ -234,9 +233,6 @@ export function getSynopsisPath(projectPath: string, documentId: string): string
 	return buildPath(projectPath, 'Files', 'Data', documentId, 'synopsis.txt');
 }
 
-/**
- * Generate notes path from ID
- */
 export function getNotesPath(projectPath: string, documentId: string): string {
 	return buildPath(projectPath, 'Files', 'Data', documentId, 'notes.rtf');
 }
@@ -268,9 +264,6 @@ export function getDocumentPaths(
 	};
 }
 
-/**
- * Generate a Scrivener-compatible UUID (uppercase)
- */
 export function generateScrivenerUUID(): string {
 	return crypto.randomUUID().toUpperCase();
 }
@@ -296,7 +289,6 @@ export function findBinderItem(
 	documentId: string,
 	useCache = true
 ): BinderItem | null {
-	// Check cache first
 	if (useCache && binderCache.has(documentId)) {
 		return binderCache.get(documentId)!;
 	}
@@ -400,7 +392,6 @@ export function getBinderPath(
 ): BinderItem[] {
 	if (!container) return [];
 
-	// Build a parent map in a single traversal: childUUID -> parentItem
 	const parentMap = new Map<string, BinderItem>();
 	traverseBinder(container, (item, _depth, parent) => {
 		if (item.UUID && parent) {
@@ -451,7 +442,6 @@ export function parseMetadata(
 	}
 
 	if (typeof metadataItems === 'string') {
-		// Parse string format "Key: Value\nKey2: Value2"
 		const lines = metadataItems.split('\n');
 		for (const line of lines) {
 			const colonIndex = line.indexOf(':');
@@ -514,12 +504,11 @@ export function isFolderType(type?: string): boolean {
 
 export function isInTrash(item: BinderItem): boolean {
 	if (!item) return false;
-	// Check if item or any of its parents is trash
+
 	return item.Type === SCRIVENER_FOLDERS.TRASH || item.Title === 'Trash' || item.UUID === 'Trash';
 }
 
 export function shouldIncludeInCompile(item: BinderItem): boolean {
-	// Check IncludeInCompile flag
 	if (item.MetaData?.IncludeInCompile === 'No') {
 		return false;
 	}
@@ -632,7 +621,6 @@ export function getBinderStatistics(container: BinderContainer | undefined): {
 			inTrash++;
 		}
 
-		// Add word count if available from custom metadata
 		const metadata = parseMetadata(item.MetaData?.CustomMetaData?.MetaDataItem);
 		const wordCount = parseInt(metadata.WordCount || '0');
 		if (!isNaN(wordCount)) {
@@ -659,7 +647,7 @@ export function getTextStatistics(item: BinderItem): {
 
 export function generateSeededUUID(seed: string): string {
 	const hash = crypto.createHash('md5').update(seed).digest('hex');
-	// Format as UUID v4
+
 	return [
 		hash.substring(0, 8),
 		hash.substring(8, 12),
@@ -677,27 +665,23 @@ export default {
 	SCRIVENER_FOLDERS,
 	SCRIVENER_LIMITS,
 
-	// Project path utilities
 	normalizeScrivenerPath,
 	getScrivenerProjectName,
 	getDefaultScrivxPath,
 	findScrivxPath,
 	resolveScrivenerProjectPath,
 
-	// Path utilities
 	getDocumentPath,
 	getSynopsisPath,
 	getNotesPath,
 	getDocumentPaths,
 
-	// UUID utilities
 	generateScrivenerUUID,
 	generateSeededUUID,
 	isScrivenerUUID,
 	isScrivenerNumericId,
 	isValidScrivenerDocumentId,
 
-	// Binder utilities
 	findBinderItem,
 	clearBinderCache,
 	traverseBinder,
@@ -706,20 +690,17 @@ export default {
 	getBinderPath,
 	getBinderStatistics,
 
-	// Metadata utilities
 	findMetadataField,
 	getMetadataValue,
 	parseMetadata,
 	buildMetadataItems,
 	getTextStatistics,
 
-	// Document type utilities
 	getDocumentType,
 	isFolderType,
 	isInTrash,
 	shouldIncludeInCompile,
 
-	// Search utilities
 	searchBinder,
 	findDocumentsByType,
 	findDocumentsByTitle,

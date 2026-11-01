@@ -209,12 +209,10 @@ export class ContentAnalyzer {
 			});
 		}
 
-		// Process smaller content immediately with caching
 		return this.analyzeContentDirect(content, documentId);
 	}
 
 	async analyzeContentDirect(content: string, documentId: string): Promise<ContentAnalysis> {
-		// Create intelligent cache key with content fingerprint
 		const contentHash = generateHash(content);
 		const cacheKey = `analysis:availability-v2:${documentId}:${contentHash}`;
 		const context = [documentId, 'content-analysis', contentHash.substring(0, 8)];
@@ -260,7 +258,6 @@ export class ContentAnalyzer {
 				readingTime: formatDuration(textMetrics.readingTimeMinutes * 60 * 1000),
 			});
 
-			// Execute analysis steps with optimized error handling
 			const unavailable: string[] = [];
 			const executionResult = await measureExecution(async () => {
 				const fallback = this.getMinimalAnalysis(documentId, textMetrics);
@@ -371,9 +368,6 @@ export class ContentAnalyzer {
 		return advancedReadabilityService.calculateMetrics(content);
 	}
 
-	/**
-	 * Compare readability between two texts
-	 */
 	async compareReadability(text1: string, text2: string): Promise<ReadabilityComparison> {
 		return advancedReadabilityService.compareReadability(text1, text2);
 	}

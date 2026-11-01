@@ -36,9 +36,6 @@ export interface DatabaseCredentials {
 }
 
 export class DatabaseSetup {
-	/**
-	 * Check if Neo4j is installed and running
-	 */
 	static async checkNeo4jAvailability(): Promise<{
 		installed: boolean;
 		running: boolean;
@@ -52,7 +49,6 @@ export class DatabaseSetup {
 			dockerAvailable: false,
 		};
 
-		// Check if Neo4j is installed via command line
 		try {
 			const { stdout } = await execAsync('neo4j version 2>/dev/null');
 			result.installed = true;
@@ -61,12 +57,10 @@ export class DatabaseSetup {
 			// Neo4j CLI not found
 		}
 
-		// Check if Docker is available
 		try {
 			await execAsync('docker --version 2>/dev/null');
 			result.dockerAvailable = true;
 
-			// Check if Neo4j container is running
 			const { stdout } = await execAsync('docker ps --format "table {{.Names}}" 2>/dev/null');
 			if (stdout.includes('neo4j')) {
 				result.installed = true;
@@ -76,7 +70,6 @@ export class DatabaseSetup {
 			// Docker not available
 		}
 
-		// Check if Neo4j server is responding
 		try {
 			const neo4j = await import('neo4j-driver');
 			const driver = neo4j.default.driver(
@@ -93,9 +86,6 @@ export class DatabaseSetup {
 		return result;
 	}
 
-	/**
-	 * Get database credentials from environment or config
-	 */
 	static async getCredentials(options: DatabaseSetupOptions): Promise<DatabaseCredentials> {
 		const credentials: DatabaseCredentials = {
 			neo4j: {
@@ -106,7 +96,6 @@ export class DatabaseSetup {
 			},
 		};
 
-		// Check for .env file in project
 		const envPath = path.join(options.projectPath, '.env');
 		try {
 			const envContent = await safeReadFile(envPath);
@@ -120,7 +109,6 @@ export class DatabaseSetup {
 			// .env file not found or not readable
 		}
 
-		// Check for user config file
 		const configPath = path.join(
 			options.projectPath,
 			'.scrivener-databases',
@@ -149,7 +137,6 @@ export class DatabaseSetup {
 			// Pull Neo4j image
 			await execAsync('docker pull neo4j:latest');
 
-			// Run Neo4j container
 			const runCommand = `
 				docker run -d \
 				--name scrivener-neo4j \
@@ -266,7 +253,7 @@ but you'll miss out on advanced features like:
 			const [key, ...valueParts] = trimmed.split('=');
 			if (key && valueParts.length > 0) {
 				let value = valueParts.join('=').trim();
-				// Remove quotes if present
+
 				if (
 					(value.startsWith('"') && value.endsWith('"')) ||
 					(value.startsWith("'") && value.endsWith("'"))
@@ -280,9 +267,6 @@ but you'll miss out on advanced features like:
 		return vars;
 	}
 
-	/**
-	 * Save credentials securely
-	 */
 	static async saveCredentials(
 		projectPath: string,
 		credentials: Partial<DatabaseCredentials>
@@ -292,7 +276,6 @@ but you'll miss out on advanced features like:
 
 		await ensureDir(configDir);
 
-		// Load existing config
 		let existing: Record<string, unknown> = {};
 		try {
 			const content = await safeReadFile(configPath);
@@ -301,16 +284,14 @@ but you'll miss out on advanced features like:
 			// File doesn't exist yet
 		}
 
-		// Merge credentials
 		const updated = {
 			...existing,
 			...credentials,
 			updatedAt: new Date().toISOString(),
 		};
 
-		// Save with restricted permissions
 		await writeJSON(configPath, updated);
-		// Set restricted permissions after writing
+
 		await fs.chmod(configPath, 0o600); // Read/write for owner only
 	}
 }

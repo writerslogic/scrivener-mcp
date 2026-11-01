@@ -1,11 +1,3 @@
-/**
- * Binary manuscript exporters — produce DOCX, EPUB, and PDF Buffers from an
- * ordered list of manuscript sections. Pure functions (no filesystem); the
- * caller writes the returned Buffer to disk. All three libraries are pure-JS
- * (docx, epub-gen-memory, pdf-lib), so this works cross-platform under npx and
- * in minimal containers without an external binary (e.g. Pandoc).
- */
-
 import {
 	Document,
 	Packer,

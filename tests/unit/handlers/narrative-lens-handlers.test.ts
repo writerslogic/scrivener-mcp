@@ -1,10 +1,3 @@
-/**
- * Verifies the local (narrative-lens backed) analysis handlers against a fake
- * project: the craft analyzer returns every section it promises and rejects a
- * missing document, and voice drift clamps splitFraction and reports the
- * insufficient-dialogue case instead of calling the drift model.
- */
-
 import {
 	analyzeCraftLocalHandler,
 	analyzeForeshadowingLocalHandler,

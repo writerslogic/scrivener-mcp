@@ -75,7 +75,6 @@ describe('MigrationManager', () => {
 			expect(migrationManager['migrations']).toBeDefined();
 			expect(migrationManager['migrations'].length).toBeGreaterThan(0);
 
-			// Check specific migrations exist
 			const migrationNames = migrationManager['migrations'].map((m) => m.name);
 			expect(migrationNames).toContain('initial_schema');
 			expect(migrationNames).toContain('add_locations_table');

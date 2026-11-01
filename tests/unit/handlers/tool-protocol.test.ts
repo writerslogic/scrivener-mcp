@@ -82,6 +82,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 			recursive: true,
 		});
 		await client.connect(transport, { timeout: 30000 });
+		expect(client.getServerCapabilities()?.tools?.listChanged).toBe(true);
 		expect(stderr).not.toContain('First-run check failed');
 		const initial = await names();
 		expect(initial).toContain('read_result');

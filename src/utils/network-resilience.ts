@@ -56,7 +56,6 @@ export class NetworkResilience {
 		const opts = { ...NetworkResilience.DEFAULT_OPTIONS, ...options };
 		const circuitBreakerId = `${host}:${port}`;
 
-		// Check circuit breaker
 		if (opts.circuitBreaker) {
 			const circuitBreaker = NetworkResilience.getCircuitBreaker(
 				circuitBreakerId,
@@ -174,7 +173,6 @@ export class NetworkResilience {
 		connections: Array<{ host: string; port: number; priority?: number }>,
 		options: Partial<NetworkOptions> = {}
 	): Promise<{ host: string; port: number; latency: number } | null> {
-		// Sort by priority (higher first)
 		const sortedConnections = connections.sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
 		// Test connections in parallel
@@ -189,7 +187,6 @@ export class NetworkResilience {
 			})
 		);
 
-		// Find the best successful connection
 		type ConnectionWithResult = {
 			result: ConnectionResult;
 			host: string;
@@ -204,7 +201,6 @@ export class NetworkResilience {
 			.map((result) => result.value)
 			.filter((conn) => conn.result.success)
 			.sort((a, b) => {
-				// Sort by priority first, then by latency
 				const priorityDiff = (b.priority || 0) - (a.priority || 0);
 				if (priorityDiff !== 0) return priorityDiff;
 				return (a.result.latency || Infinity) - (b.result.latency || Infinity);
@@ -227,7 +223,6 @@ export class NetworkResilience {
 		recentLatencies: number[],
 		percentile: number = 95
 	): number {
-		// Validate inputs
 		if (baseTimeout <= 0) {
 			logger.warn('Invalid baseTimeout, using default 5000ms', { baseTimeout });
 			baseTimeout = 5000;
@@ -237,7 +232,6 @@ export class NetworkResilience {
 			return baseTimeout;
 		}
 
-		// Filter out invalid latencies
 		const validLatencies = recentLatencies.filter(
 			(lat) => typeof lat === 'number' && !isNaN(lat) && lat >= 0
 		);
@@ -246,7 +240,6 @@ export class NetworkResilience {
 			return baseTimeout;
 		}
 
-		// Calculate percentile latency
 		const sorted = validLatencies.sort((a, b) => a - b);
 		const index = Math.floor((percentile / 100) * (sorted.length - 1));
 		const percentileLatency = sorted[Math.max(0, Math.min(index, sorted.length - 1))];
@@ -319,7 +312,6 @@ export class NetworkHealthMonitor {
 	private readonly maxHistory = 50;
 
 	recordLatency(latency: number): void {
-		// Validate latency value
 		if (typeof latency !== 'number' || isNaN(latency) || latency < 0) {
 			logger.warn('Invalid latency value ignored', { latency });
 			return;

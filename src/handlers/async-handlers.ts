@@ -455,7 +455,6 @@ export async function getJobStatus(params: { jobType: JobType; jobId: string }):
 			};
 		}
 
-		// Handle Job object from v2 API
 		if ('attemptsMade' in jobStatus) {
 			// This is a Job object from BullMQ
 			const job = jobStatus as Job<unknown, unknown, string>;
@@ -502,7 +501,6 @@ function normalizeQueueStats(rawStats: Record<string, unknown>): {
 	failed: number;
 	delayed: number;
 } {
-	// Handle both v1 (direct object) and v2 (Record<string, unknown>) formats
 	return {
 		waiting: Number(rawStats.waiting || 0),
 		active: Number(rawStats.active || 0),
@@ -542,12 +540,10 @@ export async function getQueueStats(params: { jobType?: JobType }): Promise<{
 		}> = [];
 
 		if (params.jobType) {
-			// Get stats for specific queue
 			const rawStats = await jobQueueService.getQueueStats(params.jobType);
 			const stats = normalizeQueueStats(rawStats);
 			queues.push({ type: params.jobType, stats });
 		} else {
-			// Get stats for all queues
 			for (const jobType of Object.values(JobType)) {
 				const rawStats = await jobQueueService.getQueueStats(jobType);
 				const stats = normalizeQueueStats(rawStats);

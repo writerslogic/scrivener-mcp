@@ -426,7 +426,6 @@ export class NLPSentimentAnalyzer {
 			anticipation: 0,
 		};
 
-		// Process each sentence for context
 		sentences.forEach((sentence: string) => {
 			const terms = (nlp(sentence).json() as Array<{ terms: SentimentTerm[] }>).flatMap(
 				(entry) => entry.terms
@@ -438,7 +437,6 @@ export class NLPSentimentAnalyzer {
 				totalScore += token.sentiment;
 				tokenCount++;
 
-				// Update emotion vectors
 				const emotionVec = this.getEmotionVector(token.word, token.negated);
 				Object.keys(emotionTotals).forEach((emotion) => {
 					emotionTotals[emotion as keyof EmotionVector] +=
@@ -446,7 +444,6 @@ export class NLPSentimentAnalyzer {
 				});
 			});
 
-			// Detect negation contexts
 			const negationContexts = this.detectNegationContexts(terms);
 			negations.push(...negationContexts);
 		});
@@ -476,13 +473,10 @@ export class NLPSentimentAnalyzer {
 			const word = terms[i].normal;
 			const pos = this.extractPOSTag(terms[i].tags);
 
-			// Check for negation scope
 			const negated = this.isInNegationScope(terms, i);
 
-			// Check for intensifiers
 			const intensifierType = this.getIntensifier(terms, i);
 
-			// Calculate sentiment
 			let sentiment = this.getWordSentiment(word, pos, negated);
 
 			// Apply intensifier
@@ -563,7 +557,6 @@ export class NLPSentimentAnalyzer {
 			posMultiplier = 0.9; // Verbs are less emotionally direct
 		else if (pos.startsWith('NN')) posMultiplier = 0.8; // Nouns are typically neutral
 
-		// Calculate valence from emotion vector
 		const positiveEmotions = emotionVec.joy + emotionVec.trust + emotionVec.anticipation;
 		const negativeEmotions =
 			emotionVec.sadness + emotionVec.anger + emotionVec.fear + emotionVec.disgust;
@@ -732,12 +725,10 @@ export class NLPSentimentAnalyzer {
 	private determineContext(text: string, emotions: EmotionVector): string {
 		const doc = nlp(text);
 
-		// Check for specific contexts
 		if (doc.has('#Question')) return 'interrogative';
 		if (doc.has('#Imperative')) return 'imperative';
 		if (doc.has('#Conditional')) return 'conditional';
 
-		// Check emotional context
 		const dominantEmotion = this.getDominantEmotion(emotions);
 		const totalEmotionStrength = Object.values(emotions).reduce(
 			(a, b) => Math.abs(a) + Math.abs(b),
@@ -807,7 +798,6 @@ export class NLPSentimentAnalyzer {
 	} {
 		const doc = nlp(text);
 
-		// Analyze sentence complexity
 		const sentences = doc.sentences();
 		const avgWords =
 			sentences
@@ -815,7 +805,6 @@ export class NLPSentimentAnalyzer {
 				.reduce((acc: number, s: string) => acc + s.split(/\s+/).length, 0) /
 			sentences.length;
 
-		// Count action verbs vs state verbs
 		const actionVerbs = doc
 			.match('#Verb')
 			.filter(
@@ -825,13 +814,11 @@ export class NLPSentimentAnalyzer {
 		const totalVerbs = doc.verbs().length;
 		const actionDensity = totalVerbs > 0 ? actionVerbs / totalVerbs : 0;
 
-		// Detect dialogue
 		const dialogueMatches = text.match(/["'].*?["']/g) || [];
 		const dialogueWords = dialogueMatches.join(' ').split(/\s+/).length;
 		const totalWords = text.split(/\s+/).length;
 		const dialogueRatio = dialogueWords / totalWords;
 
-		// Determine overall pacing
 		let overall: 'slow' | 'moderate' | 'fast' | 'variable';
 		const sentenceComplexity = avgWords / 20; // Normalize to 0-1 scale
 

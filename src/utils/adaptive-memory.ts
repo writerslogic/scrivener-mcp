@@ -182,7 +182,6 @@ export class AdaptiveMemoryManager {
 		for (let i = 0; i < pool.objects.length; i++) {
 			const obj = pool.objects[i];
 			if (pool.validator(obj.data as T)) {
-				// Remove from pool and update metrics
 				pool.objects.splice(i, 1);
 				obj.lastUsed = Date.now();
 				obj.useCount++;
@@ -192,7 +191,6 @@ export class AdaptiveMemoryManager {
 			}
 		}
 
-		// Create new object if pool allows
 		if (pool.totalAllocated < pool.maxSize) {
 			const newObj = pool.factory() as T;
 			const objSize = this.estimateObjectSize(newObj);
@@ -207,9 +205,6 @@ export class AdaptiveMemoryManager {
 		return null;
 	}
 
-	/**
-	 * Return object to pool with intelligent lifecycle management
-	 */
 	release<T>(poolName: string, obj: T): void {
 		const pool = this.memoryPools.get(poolName) as MemoryPool<T>;
 		if (!pool) {
@@ -255,7 +250,7 @@ export class AdaptiveMemoryManager {
 				});
 
 				logger.debug(`Compressed string ${key}: ${(ratio * 100).toFixed(1)}% of original`);
-				return key; // Return key as placeholder
+				return key;
 			}
 		} catch (error) {
 			logger.warn('String compression failed', { error, key });
@@ -294,7 +289,6 @@ export class AdaptiveMemoryManager {
 			pattern.timestamps.push(alloc.timestamp);
 		}
 
-		// Update allocation patterns for prediction
 		for (const [type, data] of patterns) {
 			const avgSize = data.sizes.reduce((a, b) => a + b, 0) / data.sizes.length;
 			const frequency = data.timestamps.length;
@@ -371,7 +365,6 @@ export class AdaptiveMemoryManager {
 	 * Setup adaptive GC with machine learning optimization
 	 */
 	private setupAdaptiveGC(): void {
-		// Analyze GC patterns and optimize timing
 		setInterval(() => {
 			if (this.gcMetrics.length < 5) return;
 
@@ -395,9 +388,6 @@ export class AdaptiveMemoryManager {
 		}, 60000); // Every minute
 	}
 
-	/**
-	 * Clean up stale objects and optimize memory usage
-	 */
 	private cleanupStaleObjects(): void {
 		const now = Date.now();
 		let totalCleaned = 0;
@@ -405,7 +395,6 @@ export class AdaptiveMemoryManager {
 		for (const [poolName, pool] of this.memoryPools) {
 			const before = pool.objects.length;
 
-			// Remove objects older than maxAge
 			pool.objects = pool.objects.filter((obj) => {
 				const age = now - obj.lastUsed;
 				if (age > this.poolMaxAge) {
@@ -422,7 +411,6 @@ export class AdaptiveMemoryManager {
 			}
 		}
 
-		// Clean up weak references
 		const validRefs = new Set<WeakRef<object>>();
 		for (const ref of this.weakRefs) {
 			if (ref.deref()) {
@@ -443,7 +431,6 @@ export class AdaptiveMemoryManager {
 		// Compress any large uncompressed strings
 		const compressionCandidates: string[] = [];
 
-		// Find large objects in pools
 		for (const pool of this.memoryPools.values()) {
 			for (const obj of pool.objects) {
 				if (typeof obj.data === 'string' && (obj.data as string).length > 500) {
@@ -468,7 +455,6 @@ export class AdaptiveMemoryManager {
 			const targetSize = Math.floor(pool.objects.length * 0.7); // Reduce by 30%
 
 			if (pool.objects.length > targetSize) {
-				// Remove least recently used objects
 				pool.objects.sort((a, b) => a.lastUsed - b.lastUsed);
 				const removed = pool.objects.splice(0, pool.objects.length - targetSize);
 
@@ -483,9 +469,6 @@ export class AdaptiveMemoryManager {
 		}
 	}
 
-	/**
-	 * Register callback for memory pressure events
-	 */
 	onMemoryPressure(callback: () => void): void {
 		this.memoryPressureCallbacks.add(callback);
 	}
@@ -569,7 +552,6 @@ export class AdaptiveMemoryManager {
 		};
 	}
 
-	// Utility methods
 	private estimateHeapUsage(): number {
 		if (typeof process !== 'undefined' && process.memoryUsage) {
 			return process.memoryUsage().heapUsed;

@@ -40,13 +40,9 @@ export class Neo4jManager {
 		this.database = database;
 	}
 
-	/**
-	 * Initialize the Neo4j connection with retry logic
-	 */
 	async initialize(): Promise<void> {
 		for (let attempt = 1; attempt <= this.connectionRetries; attempt++) {
 			try {
-				// Create driver with connection pool settings
 				this.driver = neo4j.driver(this.uri, neo4j.auth.basic(this.user, this.password), {
 					maxConnectionPoolSize: 50,
 					connectionAcquisitionTimeout: 10000,
@@ -54,12 +50,10 @@ export class Neo4jManager {
 					maxTransactionRetryTime: 30000,
 				});
 
-				// Verify connectivity
 				await this.driver.verifyConnectivity();
 				this.isConnected = true;
 				this.lastHealthCheck = new Date();
 
-				// Initialize schema
 				await this.createConstraints();
 				await this.createIndexes();
 
@@ -105,9 +99,6 @@ export class Neo4jManager {
 		}
 	}
 
-	/**
-	 * Create database constraints
-	 */
 	private async createConstraints(): Promise<void> {
 		if (!this.driver) return;
 
@@ -180,9 +171,6 @@ export class Neo4jManager {
 		}
 	}
 
-	/**
-	 * Execute a Cypher query
-	 */
 	async query(cypher: string, parameters: Record<string, unknown> = {}): Promise<QueryResult> {
 		if (!this.driver) {
 			throw toDatabaseError(
@@ -202,9 +190,6 @@ export class Neo4jManager {
 		}
 	}
 
-	/**
-	 * Execute a read transaction
-	 */
 	async readTransaction<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		if (!this.driver) {
 			throw toDatabaseError(new Error('Neo4j not connected'), 'read transaction');
@@ -218,9 +203,6 @@ export class Neo4jManager {
 		}
 	}
 
-	/**
-	 * Execute a write transaction
-	 */
 	async writeTransaction<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
 		if (!this.driver) {
 			throw toDatabaseError(new Error('Neo4j not connected'), 'write transaction');
@@ -439,16 +421,12 @@ export class Neo4jManager {
 		return { documentFlow, characterArcs, themeProgression };
 	}
 
-	/**
-	 * Check if Neo4j is available
-	 */
 	isAvailable(): boolean {
 		return this.driver !== null && this.isConnected;
 	}
 
 	async checkHealth(): Promise<{ healthy: boolean; details: Record<string, unknown> }> {
 		try {
-			// Check if we need a health check
 			const now = new Date();
 			if (
 				this.lastHealthCheck &&
@@ -477,7 +455,6 @@ export class Neo4jManager {
 				this.isConnected = true;
 				this.lastHealthCheck = now;
 
-				// Get database statistics
 				const stats = await session.run(
 					'CALL dbms.queryJmx("org.neo4j:*") YIELD attributes'
 				);
@@ -505,9 +482,6 @@ export class Neo4jManager {
 		}
 	}
 
-	/**
-	 * Execute query with retry logic
-	 */
 	async queryWithRetry(
 		cypher: string,
 		params: QueryParameters = {},
@@ -551,7 +525,6 @@ export class Neo4jManager {
 					continue;
 				}
 
-				// Check if connection is lost and try to reconnect
 				const errorCode = (error as Error & { code?: string }).code;
 				if (errorCode && this.isConnectionError(errorCode) && attempt < retries) {
 					this.isConnected = false;

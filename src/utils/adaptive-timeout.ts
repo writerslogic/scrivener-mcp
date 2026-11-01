@@ -86,7 +86,6 @@ export class MetricsCollector {
 			averageProgressInterval: 0,
 		};
 
-		// Update rolling averages
 		existing.totalCount++;
 		if (success) existing.successCount++;
 		existing.totalDuration += duration;
@@ -107,7 +106,6 @@ export class MetricsCollector {
 			return { base: 30000, max: 300000, stall: 30000 }; // Defaults
 		}
 
-		// Calculate suggested timeouts based on historical data
 		const base = Math.max(metrics.averageProgressInterval * 2, 5000);
 		const max = Math.max(metrics.averageDuration * 1.5, base * 10);
 		const stall = Math.max(metrics.averageProgressInterval * 3, 10000);
@@ -175,7 +173,6 @@ export class AdaptiveTimeout extends EventEmitter {
 	 */
 	async wait<T>(operationPromise: Promise<T>): Promise<T> {
 		return new Promise((resolve, reject) => {
-			// Set up progress monitoring first
 			this.startProgressMonitoring();
 
 			// Set up base timeout
@@ -185,7 +182,6 @@ export class AdaptiveTimeout extends EventEmitter {
 				}
 			}, this.options.baseTimeout);
 
-			// Handle operation completion
 			operationPromise
 				.then((result) => {
 					if (!this.isCompleted && !this.isCancelled) {
@@ -202,7 +198,6 @@ export class AdaptiveTimeout extends EventEmitter {
 					}
 				});
 
-			// Handle cancellation
 			this.once('cancelled', () => {
 				if (!this.isCompleted) {
 					this.isCancelled = true;
@@ -232,7 +227,7 @@ export class AdaptiveTimeout extends EventEmitter {
 					error: (error as Error).message,
 				});
 			}
-		}, 2000); // Check every 2 seconds
+		}, 2000);
 	}
 
 	private async checkProgress(): Promise<void> {
@@ -264,7 +259,6 @@ export class AdaptiveTimeout extends EventEmitter {
 			}
 		}
 
-		// Check for completion
 		if (this.options.completionCheck && !this.isCompleted) {
 			try {
 				const isComplete = await this.options.completionCheck();
@@ -280,12 +274,10 @@ export class AdaptiveTimeout extends EventEmitter {
 			}
 		}
 
-		// Update progress tracking
 		if (hasProgress) {
 			this.lastProgressTime = now;
 			this.extendTimeout();
 		} else {
-			// Check for stall
 			const timeSinceProgress = now - this.lastProgressTime;
 			const stallTimeout = this.options.stallTimeout || 30000; // Default 30 seconds
 
@@ -430,9 +422,6 @@ export class AdaptiveTimeout extends EventEmitter {
 	}
 }
 
-/**
- * Common progress indicators for different operation types
- */
 export class ProgressIndicators {
 	/**
 	 * Monitor command output for activity

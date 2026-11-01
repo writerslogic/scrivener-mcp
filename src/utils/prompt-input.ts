@@ -1,10 +1,4 @@
-/**
- * Helpers for embedding untrusted manuscript text into LLM prompts safely.
- *
- * `clip` bounds input length transparently (logging when it actually truncates)
- * so huge documents can't blow the model context window or cost. `untrustedBlock`
- * fences the text so the model treats it strictly as data, not as instructions.
- */
+// Bound untrusted manuscript text and fence it as prompt data.
 
 /** Minimal logger shape so callers can pass any project logger without coupling. */
 export interface ClipLogger {

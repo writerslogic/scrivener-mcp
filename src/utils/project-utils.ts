@@ -39,7 +39,6 @@ async function isScrivenerProject(projectPath: string): Promise<boolean> {
 export async function ensureProjectDataDirectory(projectPath: string): Promise<string> {
 	const validPath = PathUtils.validate(projectPath);
 
-	// Verify it's actually a Scrivener project
 	if (!(await isScrivenerProject(validPath))) {
 		throw new AppError(`Not a valid Scrivener project: ${validPath}`, ErrorCode.INVALID_INPUT);
 	}
@@ -49,7 +48,6 @@ export async function ensureProjectDataDirectory(projectPath: string): Promise<s
 	const backupDir = PathUtils.build(mcpDir, 'backups');
 	const contextDir = PathUtils.build(mcpDir, 'context');
 
-	// Create directories with proper permissions
 	await FileUtils.ensureDir(mcpDir, 0o755);
 	await FileUtils.ensureDir(cacheDir, 0o755);
 	await FileUtils.ensureDir(backupDir, 0o755);
@@ -176,9 +174,6 @@ export function getVectorsDirectory(projectPath: string): string {
 	return path.join(projectPath, '.scrivener-mcp', 'vectors');
 }
 
-/**
- * Clean up old cache files
- */
 export async function cleanupCache(
 	projectPath: string,
 	maxAgeMs: number = 7 * 24 * 60 * 60 * 1000
