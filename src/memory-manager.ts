@@ -461,15 +461,17 @@ export class MemoryManager {
 	private async readMemoryFile(file: string): Promise<string> {
 		await this.checkMemoryDirectory();
 		try {
-			const entry = await fs.lstat(file);
-			if (!entry.isFile() || entry.isSymbolicLink())
-				throw new Error('Project memory requires a regular JSON file without symlinks');
 			const handle = await fs.open(
 				file,
 				constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
 			);
 			try {
 				const before = await handle.stat();
+				const entry = await fs.lstat(file);
+				if (!entry.isFile() || entry.isSymbolicLink())
+					throw new Error('Project memory requires a regular JSON file without symlinks');
+				if (entry.dev !== before.dev || entry.ino !== before.ino)
+					throw new Error('Project memory changed while opening; retry');
 				if (
 					!before.isFile() ||
 					!Number.isSafeInteger(before.size) ||
@@ -511,6 +513,8 @@ export class MemoryManager {
 				await handle.close();
 			}
 		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ELOOP')
+				throw new Error('Project memory requires a regular JSON file without symlinks');
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT')
 				throw new AppError('Project memory file was not found', ErrorCode.NOT_FOUND);
 			throw error;

@@ -1,4 +1,13 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	readdir,
+	rename,
+	rm,
+	symlink,
+	writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MemoryManager } from '../../../src/memory-manager.js';
@@ -270,6 +279,37 @@ describe('project memory loading', () => {
 			} else await symlink(target, file);
 			await expect(memory.initialize()).rejects.toThrow(/symbolic link|symlinks/);
 			await memory.stopAutoSave();
+			expect(await readFile(target, 'utf8')).toBe(saved);
+			expect(write).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each(['regular file', 'symlink'])(
+		'rejects replacement with a %s after opening',
+		async (kind) => {
+			const saved = '{"customContext":{"retained":true}}';
+			const target = join(root, 'outside.json');
+			await writeFile(file, saved);
+			await writeFile(target, saved);
+			const nativeFs =
+				jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+			const originalOpen = nativeFs.open;
+			let opened: Awaited<ReturnType<typeof originalOpen>> | undefined;
+			jest.spyOn(nativeFs, 'open').mockImplementationOnce(async (...args) => {
+				opened = await originalOpen(...args);
+				try {
+					await rename(file, join(root, 'original.json'));
+					if (kind === 'symlink') await symlink(target, file);
+					else await writeFile(file, saved);
+					return opened;
+				} catch (error) {
+					await opened.close();
+					throw error;
+				}
+			});
+			await expect(memory.initialize()).rejects.toThrow(/changed while opening|symlinks/);
+			await memory.stopAutoSave();
+			await expect(opened!.stat()).rejects.toMatchObject({ code: 'EBADF' });
 			expect(await readFile(target, 'utf8')).toBe(saved);
 			expect(write).not.toHaveBeenCalled();
 		}

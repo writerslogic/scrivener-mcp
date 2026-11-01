@@ -293,7 +293,7 @@ exports.ManuscriptContext = class {
 		);
 		await writeFile(
 			join(directory, 'lens-native.cjs'),
-			`exports.narrativeModulePath = () => ${JSON.stringify(join(directory, 'fixture.cjs'))};`
+			"exports.narrativeModulePath = () => require('node:path').join(__dirname, 'fixture.cjs');"
 		);
 		await writeFile(
 			join(directory, 'narrative-worker.js'),

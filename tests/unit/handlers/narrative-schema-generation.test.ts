@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, open, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,6 +9,18 @@ const execute = promisify(execFile);
 const root = resolve(__dirname, '../../..');
 const generator = join(root, 'scripts/generate-narrative-annotation-schema.mjs');
 const generated = join(root, 'src/handlers/narrative-annotation-schema.ts');
+
+async function snapshot(file: string) {
+	const handle = await open(file, 'r');
+	try {
+		return {
+			bytes: await handle.readFile(),
+			mtimeNs: (await handle.stat({ bigint: true })).mtimeNs,
+		};
+	} finally {
+		await handle.close();
+	}
+}
 
 describe('pinned Narrative Lens schema generation', () => {
 	let directory: string;
@@ -25,11 +37,9 @@ describe('pinned Narrative Lens schema generation', () => {
 		await rm(directory, { recursive: true, force: true });
 	});
 	it('checks the current generated contract from an unrelated working directory without writing', async () => {
-		const before = await readFile(generated);
-		const timestamp = (await stat(generated, { bigint: true })).mtimeNs;
+		const before = await snapshot(generated);
 		await run('--check');
-		expect(await readFile(generated)).toEqual(before);
-		expect((await stat(generated, { bigint: true })).mtimeNs).toBe(timestamp);
+		expect(await snapshot(generated)).toEqual(before);
 	});
 	it('regenerates the complete formatted contract deterministically from the vendored subset', async () => {
 		const output = join(directory, 'schema.ts');
@@ -43,13 +53,12 @@ describe('pinned Narrative Lens schema generation', () => {
 		const changed = original.replace('4294967295', '4294967294');
 		expect(changed).not.toBe(original);
 		await writeFile(output, changed);
-		const timestamp = (await stat(output, { bigint: true })).mtimeNs;
+		const before = await snapshot(output);
 		await expect(run('--output', output, '--check')).rejects.toMatchObject({
 			code: 1,
 			stderr: expect.stringContaining('schema is stale'),
 		});
-		expect(await readFile(output, 'utf8')).toBe(changed);
-		expect((await stat(output, { bigint: true })).mtimeNs).toBe(timestamp);
+		expect(await snapshot(output)).toEqual(before);
 	});
 	it.each(['{', '{}'])(
 		'rejects malformed or unpinned source %j before writing',

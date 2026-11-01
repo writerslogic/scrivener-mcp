@@ -209,7 +209,7 @@ describe('native process deadlines and cleanup', () => {
 		);
 		await writeFile(
 			join(directory, 'lens-native.cjs'),
-			`exports.narrativeModulePath = () => ${JSON.stringify(join(directory, 'fixture.cjs'))};`
+			"exports.narrativeModulePath = () => require('node:path').join(__dirname, 'fixture.cjs');"
 		);
 		const pidPath = join(directory, 'orphan.pid');
 		await writeFile(

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { readStableCredentialFile } from '../../src/services/content-credentials/local-files.js';
 import { RTFHandler } from '../../src/services/parsers/rtf-handler.js';
 
 export type NovelCorpus = { id: number; title: string; file: string; sha256: string; url: string };
@@ -10,8 +11,7 @@ const hash = (value: string | Buffer) => createHash('sha256').update(value).dige
 
 export async function createNovelProject(entry: NovelCorpus, directory: string) {
 	const path = join(resolve(directory), entry.file);
-	assert((await stat(path)).size <= 4 * 1024 * 1024);
-	const raw = await readFile(path);
+	const { bytes: raw } = await readStableCredentialFile(path, 4 * 1024 * 1024, 'Novel corpus');
 	assert.equal(hash(raw), entry.sha256);
 	const decoded = new TextDecoder('utf-8', { fatal: true }).decode(raw).replace(/\r\n?/g, '\n');
 	const body = decoded.match(
