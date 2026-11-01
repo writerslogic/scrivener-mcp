@@ -2428,3 +2428,27 @@ remains unproven. The reference build is now explicitly Ubuntu 24.04 x64, and it
 reproduced assets replace the previous host-unspecified generation. Source, dependency graph, 1 GiB
 memory cap and byte-equality gate are unchanged. Functional and clean-checkout verification of these
 regenerated assets is required before this follow-up is complete.
+
+### Verified GitHub security and quality closure (2026-10-31)
+
+Candidate `ac8e3d4d156abd3ead29021dd870a71a2d446560` passed
+[CI 41264607021, attempt 1](https://github.com/writerslogic/scrivener-mcp/actions/runs/41264607021):
+all eight platform rows, native/runtime security, the new byte-identical C2PA rebuild and aggregate
+release verification. All seventeen PR checks passed, including CodeQL, dependency review and
+extension packaging. Full tests passed with 2,560 tests per Linux/macOS row and 2,536 per Windows
+row; existing skips remain explicit. Installed-package smoke, Docker, Redis, dashboard and all
+four EPUBCheck cases passed. All eleven artifact archives and 26 security source identities were
+verified against the exact candidate/attempt; five regenerated files and their manifest match Git.
+
+Fresh scans have zero applicable findings across five inventories with nine reviewed VEX exclusions.
+CodeQL reported zero results across 103 rules without errors/warnings; its synthetic PR checkout
+has the candidate's exact tree. Dependabot and PR security queries are clear. Code Quality #568 is
+fixed on the branch; its repository finding still refers to unmodified main. Scorecard's accurate
+binary-presence finding and three upstream maintenance advisories remain documented and undismissed.
+No merge, publication or paid development calls occurred. The original dirty main checkout/index
+and unpublished ledger checkpoint remain preserved.
+
+The [security follow-up report](github-security-followup-20261031.md) records the corrections,
+failed rebuild observations, reference environment, exact artifact digests and remaining limits.
+Durable proof is under `logs/github-security-followup-20261031/`. This ledger entry and report are
+documentation added after the tested SHA; they do not relabel earlier failed runs as successes.
