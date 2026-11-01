@@ -514,7 +514,9 @@ export class MemoryManager {
 			}
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === 'ELOOP')
-				throw new Error('Project memory requires a regular JSON file without symlinks');
+				throw new Error('Project memory requires a regular JSON file without symlinks', {
+					cause: error,
+				});
 			if ((error as NodeJS.ErrnoException).code === 'ENOENT')
 				throw new AppError('Project memory file was not found', ErrorCode.NOT_FOUND);
 			throw error;
