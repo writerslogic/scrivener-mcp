@@ -12,6 +12,34 @@ function payload(page: HandlerResult) {
 }
 
 describe('bounded immutable report transport', () => {
+	it('delivers pending cancellation before indexing a new analysis report', async () => {
+		const transport = new ReportTransport();
+		const page = jest.spyOn(transport, 'pageSerialized');
+		const controller = new AbortController();
+		const value = { findings: [{ quote: '🌙'.repeat(12000) }] };
+		const context = {
+			project: {
+				getEditorialServices: () => ({
+					narrative: {
+						transport,
+						serializedAnalysis: async () => {
+							setTimeout(() => controller.abort(), 0);
+							return JSON.stringify(value);
+						},
+					},
+				}),
+			},
+		} as unknown as HandlerContext;
+		await expect(
+			manuscriptAnalysisHandlers[0].handler({}, context, { signal: controller.signal })
+		).rejects.toThrow(/aborted/i);
+		expect(page).not.toHaveBeenCalled();
+		const result = await manuscriptAnalysisHandlers[0].handler({}, context);
+		expect(result.structuredContent!.result).toEqual({
+			...value,
+			reportId: expect.any(String),
+		});
+	});
 	it('yields continuation requests and preserves the cached report after cancellation', async () => {
 		const transport = new ReportTransport();
 		const initial = transport.page(

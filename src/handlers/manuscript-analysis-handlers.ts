@@ -1,4 +1,4 @@
-import { setImmediate } from 'node:timers/promises';
+import { setImmediate, setTimeout } from 'node:timers/promises';
 import type { ToolDefinition } from './types.js';
 import { getStringArg, getOptionalStringArg, requireProject } from './types.js';
 import type { NarrativeControls } from '../services/editorial/narrative-analysis.js';
@@ -137,16 +137,16 @@ export const manuscriptAnalysisHandlers: ToolDefinition[] = [
 					// Back-to-back continuation requests must allow cancellation and I/O to run.
 					await setImmediate(undefined, { signal: options?.signal });
 					return service.transport.page(action, args);
-				case 'analyze':
-					return service.transport.pageSerialized(
-						action,
-						args,
-						await service.serializedAnalysis({
-							baseline: getOptionalStringArg(args, 'baseline'),
-							saveAs: getOptionalStringArg(args, 'saveAs'),
-							signal: options?.signal,
-						})
-					);
+				case 'analyze': {
+					const serialized = await service.serializedAnalysis({
+						baseline: getOptionalStringArg(args, 'baseline'),
+						saveAs: getOptionalStringArg(args, 'saveAs'),
+						signal: options?.signal,
+					});
+					// Separate report serialization and page indexing into distinct event-loop turns.
+					await setTimeout(0, undefined, { signal: options?.signal });
+					return service.transport.pageSerialized(action, args, serialized);
+				}
 				case 'read_baseline':
 					result = service.baseline(getStringArg(args, 'baseline'));
 					break;
