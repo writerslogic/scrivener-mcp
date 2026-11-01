@@ -2409,3 +2409,11 @@ All 24 supply-chain policy regressions pass, including vulnerable unpatched high
 scanner failures, stale databases and evidence bounds. The high/critical rejection policy remains
 unchanged. Full remote checks and rebuilt-engine/scanner artifacts will bind the follow-up to its
 published candidate.
+
+Follow-up run 41263291711 at c66c4d2 passed the native/runtime scanner with zero applicable
+findings across all five inventories and nine explicit VEX exclusions. Its new clean rebuild
+compiled successfully with the pinned tools, but four generated assets differed from the committed
+files; all six source hashes matched. The WASM grew by 239 bytes. The gate correctly failed, and
+the manifest/archive evidence is retained. Build-host or Cargo metadata differences are hypotheses,
+not an established cause. The next run retains complete rebuilt files, toolchain metadata and a
+second clean-build comparison to diagnose the discrepancy without weakening byte equality.
