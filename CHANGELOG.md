@@ -34,6 +34,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Yield before indexing large narrative reports
 - Honor binder positions and remove unused infrastructure
 - Preserve the cause of rejected memory symlinks
 - Close file access races and use static native test loaders
