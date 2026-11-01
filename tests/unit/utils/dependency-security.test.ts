@@ -8,6 +8,8 @@ import { setTimeout } from 'node:timers/promises';
 
 const configRequire = createRequire(require.resolve('jest-config'));
 const merge = configRequire('deepmerge') as typeof import('../../../vendor/deepmerge/index.js');
+const eslintRequire = createRequire(require.resolve('eslint'));
+const schemaRequire = createRequire(eslintRequire.resolve('ajv'));
 
 test.each([
 	['null prototype', Object.create(null)],
@@ -101,6 +103,66 @@ new Minimatch('**/../'.repeat(24) + 'story.txt', { optimizationLevel: 2 });
 assert(minimatch('draft/東京.txt', '**/*.txt'));
 assert(!minimatch('draft/東京.rtf', '**/*.txt'));`,
 			configRequire.resolve('minimatch'),
+		],
+		{ timeout: 2000, encoding: 'utf8', maxBuffer: 8192 }
+	);
+	expect(result.error).toBeUndefined();
+	expect(result.signal).toBeNull();
+	expect(result.status).toBe(0);
+});
+
+test('ESLint schema resolver preserves malformed UTF-8 escapes as data', () => {
+	const uri = schemaRequire('uri-js') as typeof import('fast-uri');
+	for (const path of ['%E0%40%2E', '%C0%AE', '%E0%40%0D%E0%40%0A']) {
+		const value = `https://example.test/${path}`;
+		expect(uri.parse(value).path).toBe(`/${path}`);
+		expect(uri.normalize(value)).toBe(value);
+	}
+	expect(uri.resolve('https://example.test/dir/schema', '../value')).toBe(
+		'https://example.test/value'
+	);
+});
+
+test('ESLint schemas retain relative references and validation boundaries', () => {
+	const Ajv = eslintRequire('ajv') as typeof import('ajv').default;
+	const validator = new Ajv({ allErrors: true });
+	validator.addSchema({
+		$id: 'https://example.test/schemas/value',
+		type: 'object',
+		properties: { count: { type: 'integer', minimum: 1, maximum: 3 } },
+		required: ['count'],
+		additionalProperties: false,
+	});
+	const validate = validator.compile({
+		$id: 'https://example.test/schemas/entry',
+		$ref: 'value',
+	});
+	for (const [count, valid] of [
+		[0, false],
+		[1, true],
+		[2, true],
+		[3, true],
+		[4, false],
+	])
+		expect(validate({ count })).toBe(valid);
+	expect(validate({})).toBe(false);
+	expect(validate({ count: 2, unexpected: true })).toBe(false);
+});
+
+test('ESLint URI normalization terminates for Unicode line separators', () => {
+	const result = spawnSync(
+		process.execPath,
+		[
+			'-e',
+			`const assert = require('node:assert/strict');
+const uri = require(process.argv[1]);
+for (const separator of ['\\u2028', '\\u2029']) {
+  const value = 'https://example.test/a' + separator + '/b';
+  const normalized = uri.normalize(value, { unicodeSupport: true });
+  assert.equal(decodeURIComponent(normalized), value);
+  assert.equal(uri.resolve('https://example.test/root/', normalized), normalized);
+}`,
+			schemaRequire.resolve('uri-js'),
 		],
 		{ timeout: 2000, encoding: 'utf8', maxBuffer: 8192 }
 	);

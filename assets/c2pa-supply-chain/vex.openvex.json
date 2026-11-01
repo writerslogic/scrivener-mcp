@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-10-30/ejs",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-10-31T22:09:59.662Z",
-  "version": 2,
+  "timestamp": "2026-11-01T01:53:24.996Z",
+  "version": 3,
   "statements": [
     {
       "vulnerability": {
@@ -49,20 +49,6 @@
     },
     {
       "vulnerability": {
-        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-93690",
-        "name": "CVE-2026-93690"
-      },
-      "products": [
-        {
-          "@id": "pkg:npm/uri-js@4.4.1"
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path",
-      "impact_statement": "uri-js is used only by ESLint/Ajv6 development tooling, not the shipped generator or MCP runtime. npm lock dev-only status is enforced by the inventory producer. Schemas and lint configuration are repository-controlled, not supplied through manuscript/MCP inputs. Evidence: npm ls uri-js --all; src/services/export/manuscript-exporters.ts and package-lock.json. Reassess any runtime dependency introduction."
-    },
-    {
-      "vulnerability": {
         "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-112366",
         "name": "CVE-2026-112366"
       },
@@ -80,6 +66,48 @@
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "All affected copies are development-only Jest, TypeScript-ESLint and watcher dependencies. Patterns come from checked-in test/lint configuration and developer-selected paths; manuscript/MCP inputs cannot provide extglob expressions. npm lock dev-only status is enforced by the inventory producer. Evidence: npm ls picomatch --all and package-lock.json. Reassess any production use or untrusted pattern input."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2023-49092",
+        "name": "CVE-2023-49092"
+      },
+      "products": [
+        {
+          "@id": "pkg:cargo/rsa@0.9.10"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The Marvin advisory concerns RustCrypto RSA private-key operations observable through timing. This binding exports asset inspection and signing through ClaimSigner (native/c2pa-binding/src/lib.rs), whose AsyncSigner implementation calls a JavaScript callback with bounded message bytes and receives only signature bytes. It never receives a private key. src/services/content-credentials/sdk-worker.ts decrypts encrypted PKCS8 into a Node KeyObject and createRawCredentialSigner performs RSA-PSS using node:crypto/OpenSSL with explicit PSS padding and digest-sized salt. Public verification remains in the SDK; no Rust RSA private-key decryption/signing operation is exposed. tests/unit/services/content-credentials-sdk.test.ts independently verifies real PSS callback signatures. Exact binding architecture and rsa 0.9.10 only; reassess if private keys or native signing are introduced. The dependency itself remains unpatched: https://rustsec.org/advisories/RUSTSEC-2023-0071.html ."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2011-5037",
+        "name": "CVE-2011-5037"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/v8@13.6.233.17-node.63"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The CNA describes predictable V8 string hash collisions in 2011-era engines. The measured Node 24.22.2 runtime uses V8 13.6.233.17-node.63. Its pinned source initializes the default hash seed from isolate.random_number_generator()->NextInt64() and supplies that seed to string hashing, rather than the historical predictable hash implementation: https://github.com/nodejs/node/blob/v24.22.2/deps/v8/src/numbers/hash-seed.cc and https://github.com/nodejs/node/blob/v24.22.2/deps/v8/src/strings/string-hasher-inl.h . The raw CNA record and source snapshots are retained in the security follow-up evidence. Exact V8 product version in the supported default Node runtime only; not a general denial-of-service immunity claim."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2011-3886",
+        "name": "CVE-2011-3886"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/v8@13.6.233.17-node.63"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The CNA record identifies V8 as used in Chrome before 15.0.874.102; the Chrome 15.0.874.102 release explicitly includes the fix. The measured product is modern V8 13.6.233.17-node.63 in Node 24.22.2, not that 2011 engine. This match results from the broad historical V8 CPE record. References: https://chromereleases.googleblog.com/2011/10/chrome-stable-release.html and https://cveawg.mitre.org/api/cve/CVE-2011-3886 . Exact V8 product version only; reassess other versions and advisories."
     }
   ]
 }

@@ -2375,3 +2375,37 @@ The [final audit report](repository-audit-20261031.md) records exact platform to
 fixtures, workload p50/p95, artifact digests and evidence limits. This closing entry and report are
 documentation published after the tested SHA; they do not claim another CI execution. The original
 dirty main checkout and index remain preserved. No merge or package publication was performed.
+
+### GitHub security and quality follow-up (2026-10-31)
+
+PR #214 at dc1754e passed every PR workflow, including extension packaging, CodeQL, dependency
+review and the complete compatibility matrix. Initial GitHub triage found no Dependabot alerts,
+no PR security alerts or review threads, and no other open PRs. The separate code-quality API
+reported finding #568: an unused readFile import left after descriptor-safe file reads replaced it;
+that import is removed. Raw snapshots are in logs/github-security-followup-20261031/.
+
+ESLint's Ajv6 dependency used uri-js 4.4.1, whose UTF-8 decoder has no patched release. Its scoped
+npm alias now reuses the existing patched fast-uri 3.1.9 implementation; three regressions cover
+malformed encoded metacharacters, Unicode line-separator termination and actual Ajv6 relative
+references/validation boundaries. The complete dependency-security suite passes 11/11. No production
+dependency version or benchmark threshold changed.
+
+The RSA timing advisory was reassessed against the native callback boundary: Rust receives message
+and signature bytes, while Node/OpenSSL retains private keys and performs RSA-PSS. All 13 credential
+SDK tests pass, including independently verified RSA-PSS, ECDSA and Ed25519 signatures. Two V8
+CPE matches refer to 2011 engine behavior; pinned Node 24.22.2 source and the original CNA/Chrome
+records substantiate exact-version VEX dispositions. The removed uri-js dependency no longer needs
+its previous VEX exception. Fresh scanner execution remains pending.
+
+Scorecard alert #76 accurately identifies the bundled WASM. CI now requires a clean rebuild with
+Rust 1.96.0 / wasm-pack 0.14.0 and comparison of every generated artifact against the committed files;
+its first execution is pending. Alert #22 includes unmaintained bincode 2.0.1 (HMS SBOMs),
+paste 1.0.15 (Narrative Lens tokenizers) and proc-macro-error 1.0.4 (C2PA build dependency). Their
+current upstream releases offer no patched replacements; supplied SBOMs/lockfiles and alerts remain
+intact. These maintenance warnings are distinct from the RSA execution-path assessment, and this
+follow-up does not merge changes or dismiss genuine dependency/binary-presence findings.
+
+All 24 supply-chain policy regressions pass, including vulnerable unpatched high/critical findings,
+scanner failures, stale databases and evidence bounds. The high/critical rejection policy remains
+unchanged. Full remote checks and rebuilt-engine/scanner artifacts will bind the follow-up to its
+published candidate.
