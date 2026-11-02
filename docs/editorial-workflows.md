@@ -64,11 +64,48 @@ search_passages({ query: 'betrayal', mode: 'semantic', limit: 5 });
 search_passages({ query: 'Mara', mode: 'keyword', contextChars: 400 });
 ```
 
-`search_passages` needs no provider key. Hybrid mode combines BM25 keyword ranking, a bounded
-encoder covering 30 English story concepts and existing HMS text vectors. Semantic mode compares
-those concept vectors and can retrieve supported paraphrases with no shared query words. This is not
-a general multilingual embedding model: use keyword mode for names, specialist terms and unsupported
-concepts. Each response discloses its method and limitations.
+`search_passages` needs no provider key. Warm 0.6.4 combines document BM25 with supplied local
+vectors. Without model configuration, those vectors cover 30 English story concepts; semantic mode
+can retrieve supported paraphrases with no shared query words. Keyword mode works for names and
+terms outside that vocabulary. Each response discloses its method and limitations.
+
+For general semantic retrieval, configure a locally stored Transformers.js-compatible ONNX
+embedding model. The optional `@huggingface/transformers` dependency supplies CPU inference. Model
+files must already exist; the server never downloads models or contacts an embedding provider.
+For CPU-only installation on Linux x64, set `ONNXRUNTIME_NODE_INSTALL=skip` when running `npm ci`
+or `npm install` to omit ONNX Runtime's optional CUDA downloads.
+Choose a model suited to your manuscript language, retain its immutable revision and follow its
+license. For example, a local copy of
+[Xenova/all-MiniLM-L6-v2](https://huggingface.co/Xenova/all-MiniLM-L6-v2) supports this configuration:
+
+```sh
+SCRIVENER_WARM_EMBED_MODEL_PATH=/absolute/path/to/all-MiniLM-L6-v2
+SCRIVENER_WARM_EMBED_MODEL_ID=Xenova/all-MiniLM-L6-v2
+SCRIVENER_WARM_EMBED_REVISION=751bff37182d3f1213fa05d7196b954e230abad9
+SCRIVENER_WARM_MODEL_DTYPE=q8
+```
+
+Supply the model's config, tokenizer files and `onnx/model_quantized.onnx` for `q8`; use `fp32`
+(the default) with its full-precision weights. Set `SCRIVENER_WARM_QUERY_PREFIX` and
+`SCRIVENER_WARM_DOCUMENT_PREFIX` if the selected model requires task prefixes. The model revision
+must identify the files actually installed; changing the files requires changing the revision.
+Invalid or incomplete model configuration fails explicitly.
+
+Optionally set `SCRIVENER_WARM_RERANK_MODEL_PATH` to a local sequence-classification cross-encoder,
+such as [Xenova/ms-marco-MiniLM-L-6-v2](https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2).
+It reranks verified semantic/hybrid candidates using the same dtype. Keyword searches bypass it.
+The final `score` then contains the cross-encoder logit (which can be negative); `keywordScore`,
+`semanticScore` and `hmsScore` retain their retrieval scores. Reranking cannot recover passages
+outside the candidate set and does not establish factual correctness. `semantic_search` applies its
+threshold to cosine similarity and returns cosine scores while retaining reranked order. Model
+scores are not calibrated confidence: an unrelated query may still return weak matches.
+
+Warm's official factories handle batching, normalization and preprocessing identity. Embedding
+model identity selects a separate project cache, so incompatible vectors are never mixed. Warm's
+document inventory repairs missing index entries after reopening, and index maintenance runs after
+changes. Existing concept caches and legacy memory stores remain readable. SQLite retains the
+authoritative document catalog and curated writer facts; automatic forgetting and self-generated
+knowledge are not applied to manuscript state.
 
 Results contain exact quotations, surrounding context, document identity, binder path, line, UTF-16
 offsets and the saved RTF revision. Changed documents update incrementally. Optional provider-backed
@@ -76,6 +113,10 @@ interpretation or prose explanations are separate capabilities; they are unneces
 search. `search` uses literal matching across the full active binder, including research and
 excluded drafts; `search_passages` and `semantic_search` use the compilable manuscript. Manuscript
 passages returned to an AI client are subject to that client's privacy and billing policies.
+
+To verify configured models locally after building, run `node scripts/check-warm-models.mjs`.
+This checks synthetic passage retrieval, scope, replacement and reopening on both engines; it does
+not download models or measure general manuscript relevance.
 
 ## Audit continuity with evidence
 

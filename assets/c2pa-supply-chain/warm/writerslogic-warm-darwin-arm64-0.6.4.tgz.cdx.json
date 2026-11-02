@@ -2,9 +2,9 @@
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
   "version": 1,
-  "serialNumber": "urn:uuid:9760edc6-7b52-44b9-9165-4e547b5ef4e8",
+  "serialNumber": "urn:uuid:47fc64c0-93bc-4702-b639-cf4b28b34acb",
   "metadata": {
-    "timestamp": "2026-10-28T18:15:24.359528000Z",
+    "timestamp": "2026-10-31T03:19:07.153518000Z",
     "tools": [
       {
         "vendor": "CycloneDX",
@@ -20,9 +20,9 @@
     ],
     "component": {
       "type": "application",
-      "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4",
+      "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4",
       "author": "WritersLogic, Inc. <david@writerslogic.com>",
-      "name": "holographic-memory",
+      "name": "writerslogic-warm",
       "version": "0.6.4",
       "description": "Local-first search engine and agent memory: fast approximate nearest-neighbor and BM25 full-text search, encrypted stores, provable deletion, built on vector-symbolic architectures.",
       "scope": "required",
@@ -31,385 +31,385 @@
           "expression": "Apache-2.0"
         }
       ],
-      "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.",
+      "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.",
       "externalReferences": [
         {
           "type": "documentation",
-          "url": "https://docs.rs/holographic-memory"
+          "url": "https://docs.rs/writerslogic-warm"
         },
         {
           "type": "website",
-          "url": "https://holographic-memory.com"
+          "url": "https://writerslogic.com/warm"
         },
         {
           "type": "vcs",
-          "url": "https://github.com/writerslogic/holographic-memory"
+          "url": "https://github.com/writerslogic/warm"
         }
       ],
       "components": [
         {
           "type": "library",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-0",
-          "name": "holographic_memory",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-0",
+          "name": "writerslogic_warm",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/lib.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/lib.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-1",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-1",
           "name": "algebraic-codebook-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/algebraic-codebook-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/algebraic-codebook-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-2",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-2",
           "name": "amp-decode",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/amp-decode.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/amp-decode.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-3",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-3",
           "name": "ann-failure-map",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/ann-failure-map.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/ann-failure-map.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-4",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-4",
           "name": "base-residual",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/base-residual.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/base-residual.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-5",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-5",
           "name": "bilinear-readout",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/bilinear-readout.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/bilinear-readout.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-6",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-6",
           "name": "binding-baselines",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/binding-baselines.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/binding-baselines.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-7",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-7",
           "name": "binding-discriminator",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/binding-discriminator.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/binding-discriminator.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-8",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-8",
           "name": "block-recovery-test",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/block-recovery-test.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/block-recovery-test.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-9",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-9",
           "name": "bloom-wall",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/bloom-wall.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/bloom-wall.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-10",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-10",
           "name": "bundle-subset-sweep",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/bundle-subset-sweep.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/bundle-subset-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-11",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-11",
           "name": "capacity-campaign",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/capacity-campaign.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/capacity-campaign.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-12",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-12",
           "name": "conversation-eval",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/conversation-eval.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/conversation-eval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-13",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-13",
           "name": "document-search-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/document-search-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/document-search-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-14",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-14",
           "name": "durability-driver",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/durability-driver.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/durability-driver.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-15",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-15",
           "name": "embed-store-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#benchmarks/embedding/embed_store_bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#benchmarks/embedding/embed_store_bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-16",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-16",
           "name": "encoder-eval",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/encoder-eval.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/encoder-eval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-17",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-17",
           "name": "fixed-point-holographic",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/fixed-point-holographic.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/fixed-point-holographic.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-18",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-18",
           "name": "forget-experiment",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/forget-experiment.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/forget-experiment.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-19",
-          "name": "hms-admin",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/hms-admin.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-20",
-          "name": "hms-benchmark-suite",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/hms-benchmark-suite.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-21",
-          "name": "hms-embed",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/hms-embed.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-22",
-          "name": "hms-eval",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/hms-eval.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-23",
-          "name": "hms-format",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/hms-format.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-24",
-          "name": "hms-mcp",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/hms-mcp.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-25",
-          "name": "hms-research-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/hms-research-bench.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-26",
-          "name": "hms-scaling",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/hms-scaling.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-27",
-          "name": "hms-server",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/hms-server/main.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-28",
-          "name": "hms-stress",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/hms-stress.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-29",
-          "name": "hms-workload",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/hms-workload.rs"
-        },
-        {
-          "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-30",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-19",
           "name": "kernel-capacity-sweep",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/kernel-capacity-sweep.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/kernel-capacity-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-31",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-20",
           "name": "kernel-load-curve",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/kernel-load-curve.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/kernel-load-curve.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-32",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-21",
           "name": "memory-api-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/memory-api-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/memory-api-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-33",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-22",
           "name": "memory-api-lme",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/memory-api-lme.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/memory-api-lme.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-34",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-23",
           "name": "noisy-retrieval",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/noisy-retrieval.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/noisy-retrieval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-35",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-24",
           "name": "operand-retriever",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/operand-retriever.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/operand-retriever.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-36",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-25",
           "name": "pinv-memory",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/pinv-memory.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/pinv-memory.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-37",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-26",
           "name": "private-query-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/private-query-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/private-query-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-38",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-27",
           "name": "private-rank-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/private-rank-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/private-rank-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-39",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-28",
           "name": "public-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/public-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/public-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-40",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-29",
           "name": "qag-diagnose",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/qag-diagnose.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/qag-diagnose.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-41",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-30",
           "name": "resonator-bundle",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/resonator-bundle.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-bundle.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-42",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-31",
           "name": "resonator-cleanup",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/resonator-cleanup.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-cleanup.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-43",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-32",
           "name": "resonator-factorize",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/resonator-factorize.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-factorize.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-44",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-33",
           "name": "resonator-sweep",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/resonator-sweep.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-45",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-34",
           "name": "ridge-memory",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/ridge-memory.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/ridge-memory.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-46",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-35",
           "name": "route-sweep",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/route-sweep.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/route-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-47",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-36",
           "name": "security-probe",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/security-probe.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/security-probe.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-48",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-37",
           "name": "sparse-bench",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/sparse-bench.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/sparse-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-49",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-38",
           "name": "vector-glove-development",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#benchmarks/public/vector_glove_development.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#benchmarks/public/vector_glove_development.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-50",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-39",
           "name": "vector-glove-diagnosis",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#benchmarks/public/vector_glove_diagnosis.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#benchmarks/public/vector_glove_diagnosis.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4 bin-target-51",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-40",
           "name": "vibe-rotation",
           "version": "0.6.4",
-          "purl": "pkg:cargo/holographic-memory@0.6.4?download_url=file://.#src/bin/research/vibe-rotation.rs"
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/vibe-rotation.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-41",
+          "name": "warm-admin",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-admin.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-42",
+          "name": "warm-benchmark-suite",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-benchmark-suite.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-43",
+          "name": "warm-embed",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-embed.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-44",
+          "name": "warm-eval",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-eval.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-45",
+          "name": "warm-format",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-format.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-46",
+          "name": "warm-mcp",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-mcp.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-47",
+          "name": "warm-research-bench",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-research-bench.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-48",
+          "name": "warm-scaling",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-scaling.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-49",
+          "name": "warm-server",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-server/main.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-50",
+          "name": "warm-stress",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-stress.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-51",
+          "name": "warm-workload",
+          "version": "0.6.4",
+          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-workload.rs"
         }
       ]
     },
@@ -4249,7 +4249,7 @@
   ],
   "dependencies": [
     {
-      "ref": "path+file:///Users/runner/work/holographic-memory/holographic-memory#0.6.4",
+      "ref": "path+file:///Users/runner/work/warm/warm#writerslogic-warm@0.6.4",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#aes-gcm@0.11.1",
         "registry+https://github.com/rust-lang/crates.io-index#anyhow@1.0.104",
@@ -4259,6 +4259,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.3",
         "registry+https://github.com/rust-lang/crates.io-index#ed25519-dalek@3.0.0",
         "registry+https://github.com/rust-lang/crates.io-index#foldhash@0.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.191",
         "registry+https://github.com/rust-lang/crates.io-index#lz4_flex@0.14.0",
         "registry+https://github.com/rust-lang/crates.io-index#memmap2@0.9.12",
         "registry+https://github.com/rust-lang/crates.io-index#nalgebra@0.35.0",

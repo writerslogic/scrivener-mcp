@@ -336,6 +336,27 @@ async function nativeFiles(root, sqlite, lock) {
 		'NATIVE_DIRECTORY_LIMIT',
 		'Installed package directory exceeds its entry limit.'
 	);
+	const imageScope = entries.find((entry) => entry.name === '@img');
+	if (imageScope) {
+		requireCondition(
+			imageScope.isDirectory() && !imageScope.isSymbolicLink(),
+			'NATIVE_SYMLINK',
+			'Native package scopes must be ordinary directories.'
+		);
+		const scoped = await fs.readdir(join(directory, '@img'), { withFileTypes: true });
+		requireCondition(
+			scoped.length <= 128,
+			'NATIVE_DIRECTORY_LIMIT',
+			'Native scope exceeds its entry limit.'
+		);
+		entries.push(
+			...scoped.map((entry) => ({
+				name: `@img/${entry.name}`,
+				isDirectory: () => entry.isDirectory(),
+				isSymbolicLink: () => entry.isSymbolicLink(),
+			}))
+		);
+	}
 	const files = [];
 	const packages = [];
 	const excludedDirectories = [];
@@ -343,7 +364,7 @@ async function nativeFiles(root, sqlite, lock) {
 	let totalBytes = 0;
 	for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
 		if (
-			!/^(?:bluepencil-node|narrative-lens|holographic-memory)(?:-|$)|^better-sqlite3$/u.test(
+			!/^(?:bluepencil-node|narrative-lens|writerslogic-warm)(?:-|$)|^(?:better-sqlite3|onnxruntime-node|onnxruntime-web|sharp)$|^@img\/sharp-/u.test(
 				entry.name
 			)
 		)
@@ -399,12 +420,12 @@ async function nativeFiles(root, sqlite, lock) {
 				const file = join(current.path, child.name);
 				if (child.isDirectory()) {
 					requireCondition(
-						current.depth < 5,
+						current.depth < 6,
 						'NATIVE_DIRECTORY_LIMIT',
 						'Native package traversal exceeds its depth limit.'
 					);
 					pending.push({ path: file, depth: current.depth + 1 });
-				} else if (child.name.endsWith('.node')) {
+				} else if (/\.(?:node|dll|dylib|wasm|so(?:\.[0-9]+)*)$/u.test(child.name)) {
 					const bytes = await readReleaseFile(file, 128 * MIB);
 					totalBytes += bytes.length;
 					requireCondition(
@@ -423,7 +444,7 @@ async function nativeFiles(root, sqlite, lock) {
 							`${entry.name}/${relative(base, file)}`
 						),
 						selection:
-							'All installed package .node files are retained. Platform/architecture selection uses filename hints and is not proof of loading.',
+							'All installed native package executable files are retained. Platform/architecture selection uses filename hints and is not proof of loading.',
 					});
 				}
 			}
@@ -439,23 +460,60 @@ async function nativeFiles(root, sqlite, lock) {
 	};
 }
 
+export function validateWarmProvenance(evidence, association, lock) {
+	const expected = Object.entries(lock.packages).filter(([path]) =>
+		/^node_modules\/writerslogic-warm(?:-[a-z0-9-]+)?$/u.test(path)
+	);
+	requireCondition(
+		evidence?.schemaVersion === 1 &&
+			Array.isArray(evidence.packages) &&
+			expected.length === 9 &&
+			evidence.packages.length === expected.length,
+		'INVALID_UPSTREAM_METADATA',
+		'Warm provenance must cover the wrapper and all eight platforms.'
+	);
+	const seen = new Set();
+	for (const item of evidence.packages) {
+		const entry = expected.find(([path]) => path === `node_modules/${item?.package}`)?.[1];
+		requireCondition(
+			object(item) &&
+				entry &&
+				!seen.has(item.package) &&
+				item.version === association.version &&
+				entry.version === item.version &&
+				item.commit === association.commit &&
+				item.integrity === entry.integrity &&
+				/^sha512-[A-Za-z0-9+/]{86}==$/u.test(item.integrity) &&
+				item.subject?.name === `pkg:npm/${item.package}@${item.version}` &&
+				item.subject?.digest?.sha512 ===
+					Buffer.from(item.integrity.slice(7), 'base64').toString('hex') &&
+				item.attestationUrl ===
+					`https://registry.npmjs.org/-/npm/v1/attestations/${item.package}@${item.version}` &&
+				SHA256.test(item.attestationSHA256) &&
+				item.workflow?.repository === 'https://github.com/writerslogic/warm' &&
+				item.workflow?.path === '.github/workflows/npm-packages.yml' &&
+				/^https:\/\/github\.com\/writerslogic\/warm\/actions\/runs\/[0-9]+\/attempts\/[0-9]+$/u.test(
+					item.run
+				),
+			'UPSTREAM_VERSION_MISMATCH',
+			'Warm provenance must bind unique package integrities to the pinned source.'
+		);
+		seen.add(item.package);
+	}
+}
+
 async function supplementalInventories(root, stage, output, pkg, lock, provenance, scan) {
 	const base = join(root, 'assets', 'c2pa-supply-chain');
 	const metadataBytes = await readReleaseFile(join(base, 'upstream.json'), 128 * 1024);
 	const upstream = parseJSON(metadataBytes, 'Pinned upstream metadata');
 	requireCondition(
-		upstream.schemaVersion === 1 &&
-			object(upstream.sourceAssociation) &&
-			Array.isArray(upstream.holographicMemory) &&
-			upstream.holographicMemory.length >= 2 &&
-			upstream.holographicMemory.length <= 16,
+		upstream.schemaVersion === 2 && object(upstream.sourceAssociation),
 		'INVALID_UPSTREAM_METADATA',
-		'Pinned upstream source associations and HMS inventories are required.'
+		'Pinned upstream source associations are required.'
 	);
 	provenance.upstream = {
 		metadataSHA256: digest(metadataBytes),
 		sourceAssociation: [],
-		holographicMemory: [],
 	};
 	await writePrivate(join(stage, 'upstream.json'), metadataBytes);
 	const editorialStage = join(stage, 'editorial-native');
@@ -494,74 +552,96 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 		editorialExpected.push({ name: packageName, version: association.version });
 	}
 	await scan('editorial-native', editorialStage, 'rust-cargo-lock-cataloger', editorialExpected);
+	const association = upstream.sourceAssociation.warm;
+	requireCondition(
+		object(association) &&
+			association.provenanceFile === 'warm/npm-provenance.json' &&
+			SHA256.test(association.provenanceSHA256) &&
+			/^[a-f0-9]{40}$/u.test(association.commit) &&
+			boundedText(association.basis, 512) &&
+			validVersion(association.version) &&
+			lock.packages['node_modules/writerslogic-warm']?.version === association.version &&
+			Array.isArray(upstream.warmInventories) &&
+			upstream.warmInventories.length === 9,
+		'UPSTREAM_VERSION_MISMATCH',
+		'Pinned Warm release evidence must match the npm lock.'
+	);
+	const evidenceBytes = await readReleaseFile(join(base, association.provenanceFile), 128 * 1024);
+	requireCondition(
+		digest(evidenceBytes) === association.provenanceSHA256,
+		'UPSTREAM_HASH_MISMATCH',
+		'Pinned Warm provenance digest does not match.'
+	);
+	const npmEvidence = parseJSON(evidenceBytes, 'Warm npm provenance');
+	validateWarmProvenance(npmEvidence, association, lock);
+	provenance.upstream.sourceAssociation.push({ package: 'writerslogic-warm', ...association });
+	provenance.upstream.warmInventories = [];
 	const union = new Map();
-	const sources = join(stage, 'hms-upstream');
+	const sources = join(stage, 'warm-native');
 	await fs.mkdir(sources, { mode: 0o700 });
+	await writePrivate(join(sources, 'npm-provenance.json'), evidenceBytes);
 	const seenFiles = new Set();
-	const hmsVersion = lock.packages['node_modules/holographic-memory']?.version;
-	for (const evidence of upstream.holographicMemory) {
+	const warmVersion = lock.packages['node_modules/writerslogic-warm']?.version;
+	for (const evidence of upstream.warmInventories) {
 		requireCondition(
 			object(evidence) &&
 				boundedText(evidence.file, 128) &&
-				/^holographic-memory(?:-[A-Za-z0-9-]+)?-[0-9]+\.[0-9]+\.[0-9]+\.tgz\.cdx\.json$/u.test(
+				/^writerslogic-warm(?:-[A-Za-z0-9-]+)?-[0-9]+\.[0-9]+\.[0-9]+\.tgz\.cdx\.json$/u.test(
 					evidence.file
 				) &&
 				!seenFiles.has(evidence.file) &&
 				SHA256.test(evidence.sha256) &&
 				boundedText(evidence.url, 2048),
 			'INVALID_UPSTREAM_METADATA',
-			'HMS evidence requires unique safe filenames, URLs and digests.'
+			'Warm evidence requires unique safe filenames, URLs and digests.'
 		);
 		seenFiles.add(evidence.file);
-		const url = new URL(evidence.url);
+		const packageName = evidence.file.replace(/-[0-9]+\.[0-9]+\.[0-9]+\.tgz\.cdx\.json$/u, '');
+		const packageEvidence = npmEvidence.packages.find((entry) => entry.package === packageName);
 		requireCondition(
-			url.protocol === 'https:' &&
-				url.hostname === 'github.com' &&
-				!url.port &&
-				!url.username &&
-				!url.password &&
-				!url.search &&
-				!url.hash &&
-				url.pathname ===
-					`/writerslogic/holographic-memory/releases/download/v${hmsVersion}/${evidence.file}`,
+			packageEvidence &&
+				evidence.file === `${packageName}-${association.version}.tgz.cdx.json` &&
+				evidence.artifact === 'npm-release-assets' &&
+				evidence.url === packageEvidence.run.replace(/\/attempts\/[0-9]+$/u, ''),
 			'INVALID_UPSTREAM_METADATA',
-			'HMS evidence must identify the pinned official release asset.'
+			'Warm inventories must come from the locked tarball publishing run.'
 		);
-		const bytes = await readReleaseFile(join(base, evidence.file), 8 * MIB);
+		const bytes = await readReleaseFile(join(base, 'warm', evidence.file), 8 * MIB);
 		requireCondition(
 			digest(bytes) === evidence.sha256,
 			'UPSTREAM_HASH_MISMATCH',
-			'Pinned HMS inventory digest does not match.'
+			'Pinned Warm inventory digest does not match.'
 		);
-		const document = parseJSON(bytes, 'Upstream HMS CycloneDX');
+		const document = parseJSON(bytes, 'Upstream Warm CycloneDX');
 		requireCondition(
 			document.bomFormat === 'CycloneDX' &&
 				Array.isArray(document.components) &&
-				document.metadata?.component?.name === 'holographic-memory' &&
-				document.metadata.component.version === hmsVersion,
+				document.metadata?.component?.name ===
+					(packageName === 'writerslogic-warm' ? 'warm' : 'writerslogic-warm') &&
+				document.metadata.component.version === warmVersion,
 			'UPSTREAM_VERSION_MISMATCH',
-			'HMS inventory metadata must match the pinned npm version.'
+			'Warm inventory metadata must match the pinned npm version.'
 		);
 		await writePrivate(join(sources, evidence.file), bytes);
-		provenance.upstream.holographicMemory.push(evidence);
+		provenance.upstream.warmInventories.push(evidence);
 		const pending = [document.metadata.component, ...document.components];
 		for (let index = 0; index < pending.length; index++) {
 			requireCondition(
 				pending.length <= 100_000,
 				'UPSTREAM_COMPONENT_LIMIT',
-				'HMS component union exceeds its allocation limit.'
+				'Warm component union exceeds its allocation limit.'
 			);
 			const component = pending[index];
 			requireCondition(
 				object(component) && boundedText(component.name) && boundedText(component.version),
 				'INVALID_UPSTREAM_COMPONENT',
-				'HMS inventory has invalid component metadata.'
+				'Warm inventory has invalid component metadata.'
 			);
 			if (component.components !== undefined) {
 				requireCondition(
 					Array.isArray(component.components),
 					'INVALID_UPSTREAM_COMPONENT',
-					'Nested HMS components must be arrays.'
+					'Nested Warm components must be arrays.'
 				);
 				for (const child of component.components) pending.push(child);
 			}
@@ -578,9 +658,9 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 				requireCondition(
 					union.size < 100_000,
 					'UPSTREAM_COMPONENT_LIMIT',
-					'HMS component union exceeds its allocation limit.'
+					'Warm component union exceeds its allocation limit.'
 				);
-				const copy = { ...component, 'bom-ref': `hms:${digest(identity)}` };
+				const copy = { ...component, 'bom-ref': `warm:${digest(identity)}` };
 				delete copy.components;
 				union.set(identity, copy);
 			}
@@ -590,21 +670,21 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 	const representative = components.find(
 		(component) =>
 			component.purl?.startsWith('pkg:cargo/') &&
-			!component.purl.startsWith('pkg:cargo/holographic-memory@')
+			!component.purl.startsWith('pkg:cargo/writerslogic-warm@')
 	);
 	requireCondition(
 		representative && components.length <= 100_000,
 		'MISSING_EXPECTED_PACKAGE',
-		'HMS inventories must include native Rust dependencies.'
+		'Warm inventories must include native Rust dependencies.'
 	);
 	const combined = cyclonedx(
 		pkg,
 		components,
 		'Component union of the pinned wrapper and all supplied native platform SBOMs. Conservative all-platform scope; original dependency relationships remain in the preserved source SBOMs.'
 	);
-	await writeJSON(join(output, 'hms-upstream.cdx.json'), combined);
+	await writeJSON(join(output, 'warm-native.cdx.json'), combined);
 	return [
-		{ name: 'holographic-memory', version: hmsVersion },
+		{ name: 'writerslogic-warm', version: warmVersion },
 		{ name: representative.name, version: representative.version },
 	];
 }
@@ -811,7 +891,7 @@ export async function createC2paInventory(options) {
 			'better-sqlite3',
 			'bluepencil-node',
 			'narrative-lens',
-			'holographic-memory',
+			'writerslogic-warm',
 		].map((name) => ({ name, version: lock.packages[`node_modules/${name}`]?.version }));
 		requireCondition(
 			npmExpected.every((item) => validVersion(item.version)),
@@ -822,7 +902,7 @@ export async function createC2paInventory(options) {
 		await scan('c2pa-rust', rustStage, 'rust-cargo-lock-cataloger', [
 			{ name: 'c2pa', version: '0.91.7' },
 		]);
-		const hmsExpected = await supplementalInventories(
+		const warmExpected = await supplementalInventories(
 			root,
 			stage,
 			output,
@@ -831,14 +911,14 @@ export async function createC2paInventory(options) {
 			provenance,
 			scan
 		);
-		const hmsBytes = await readReleaseFile(join(output, 'hms-upstream.cdx.json'), 64 * MIB);
+		const warmBytes = await readReleaseFile(join(output, 'warm-native.cdx.json'), 64 * MIB);
 		inventories.push(
 			addInventory(
-				'hms-upstream',
-				'hms-upstream.cdx.json',
-				hmsBytes,
-				hmsExpected,
-				'Verified upstream wrapper/native SBOM component union across all supplied platforms; not proof of exact installed linkage.'
+				'warm-native',
+				'warm-native.cdx.json',
+				warmBytes,
+				warmExpected,
+				'Published wrapper and all eight native Node platform SBOMs, built with node-api,security. Rust-only optional model stacks are outside this npm distribution; original dependency relationships are preserved in staging.'
 			)
 		);
 		const { isSupportedRuntime } = await import(

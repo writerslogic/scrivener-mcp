@@ -220,22 +220,26 @@ text and declares a null project identity. Input limits follow JSON Schema Unico
 is bounded at 64000 UTF-16 characters and uses `read_result` when large. Token-limited or unavailable
 provider output remains an error; unavailable local word counting does not discard generated prose.
 
-### Holographic Memory System (`src/services/memory/hhm/`)
+### Warm memory integration (`src/services/memory/hhm/`)
 
-The declared `holographic-memory` 0.6.4 dependency supplies platform binaries and its own types. A
+The pinned `writerslogic-warm` 0.6.4 dependency supplies platform binaries and its own types. A
 small CommonJS bridge resolves it relative to the installed server, independently of the client's
 working directory. It does not load an arbitrary module from the manuscript directory.
 
 Passage retrieval uses native document batches, replacement/deletion and BM25 fused with supplied
-story-concept embeddings. The model/revision/dimension identity is explicit; no model is downloaded.
+local ONNX model embeddings or the default story-concept vectors. Warm's official local embedding
+and reranking factories load configured files only. The model/revision/dimension identity is explicit;
+no model is downloaded.
 The existing SQLite passage catalog remains authoritative. A durable pending-ID catalog covers
-interrupted native updates; unchanged passages are reused. Native UTF-8 byte ranges are verified
+interrupted native updates; unchanged passages are reused. On reopening, paged native document
+inventory repairs missing entries and removes stale owned passages. Index maintenance follows changes. Native UTF-8 byte ranges are verified
 against exact quotations before returning canonical UTF-16 manuscript locations and saved revisions.
 The full-project keyword path preserves native postings optimizations; document scopes use explicit
 allowlists and every returned passage is checked against current source provenance.
 
-The cache lives under `.scrivener-mcp/cache/passage-hms-v2`. Compatible wrappers share a native
-owner; release drains work and flushes before dropping the reference. HMS 0.6.4 exposes no close
+The concept cache lives under `.scrivener-mcp/cache/passage-hms-v2`; configured models use
+`passage-warm-<configuration SHA-256>` alongside it. Compatible wrappers share a native
+owner; release drains work and flushes before dropping the reference. Warm 0.6.4 exposes no close
 method: native OS locks can remain until garbage collection or process exit. Weak idle references
 allow same-process reuse without retaining every closed store indefinitely. Another server's native
 lock selects a process-local fallback; corruption and incompatible configurations fail explicitly.
@@ -255,7 +259,7 @@ avoiding a corpus scan for every item in a batch. See the
 ### Relationship Engine (`src/services/relationship-engine.ts`)
 
 Legacy text/triplet storage retains an existing `.scrivener-hms.db` in the launch directory when
-present; otherwise its default is `~/.scrivener-mcp/hms-v0.6.4`. Set `SCRIVENER_HMS_STORAGE_DIR` to
+present; otherwise its default is `~/.scrivener-mcp/hms-v0.6.4`. Set `SCRIVENER_WARM_STORAGE_DIR` (or the legacy `SCRIVENER_HMS_STORAGE_DIR`) to
 override that location. This legacy store is separate from the project-scoped passage cache and the
 curated facts/series database.
 

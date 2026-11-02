@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { open } from 'fs/promises';
-import type { HolographicMemorySystem as NativeEngine } from 'holographic-memory';
+import type { WarmMemorySystem as NativeEngine, ListedDocument } from 'writerslogic-warm';
 import { loadNativeBinding } from './native-loader.cjs';
 import {
 	FallbackDocumentIndex,
@@ -439,6 +439,7 @@ function getNativeBinding(): ReturnType<typeof loadNativeBinding> | undefined {
 }
 
 function defaultStoragePath(): string {
+	if (process.env.SCRIVENER_WARM_STORAGE_DIR) return process.env.SCRIVENER_WARM_STORAGE_DIR;
 	if (process.env.SCRIVENER_HMS_STORAGE_DIR) return process.env.SCRIVENER_HMS_STORAGE_DIR;
 	const legacy = path.join(process.cwd(), '.scrivener-hms.db');
 	return existsSync(legacy) ? legacy : path.join(homedir(), '.scrivener-mcp', 'hms-v0.6.4');
@@ -481,7 +482,11 @@ export class HolographicMemorySystem {
 			validateEmbeddingSpace(config.embeddingSpace);
 			this.embeddingSpace = { ...config.embeddingSpace };
 		}
-		const selection = config.engine ?? process.env.SCRIVENER_HMS_ENGINE ?? 'auto';
+		const selection =
+			config.engine ??
+			process.env.SCRIVENER_WARM_ENGINE ??
+			process.env.SCRIVENER_HMS_ENGINE ??
+			'auto';
 		if (!['auto', 'native', 'fallback'].includes(selection))
 			throw new TypeError('HMS engine must be auto, native or fallback');
 		const loaded = selection === 'fallback' ? undefined : getNativeBinding();
@@ -507,7 +512,7 @@ export class HolographicMemorySystem {
 			try {
 				const engine =
 					cachedEngine ??
-					new loaded.module.HolographicMemorySystem(this.dimensions, storagePath, {
+					new loaded.module.WarmMemorySystem(this.dimensions, storagePath, {
 						embeddingModel: this.embeddingSpace?.model,
 						embeddingRevision: this.embeddingSpace?.revision,
 						embeddingDimensions: this.embeddingSpace?.dimensions,
@@ -592,6 +597,41 @@ export class HolographicMemorySystem {
 		return this.operation(() => {
 			validateHMSId(id);
 			return this.native ? this.native.deleteDocument(id) : this.documentIndex.delete(id);
+		});
+	}
+
+	listDocuments(after?: string, limit = 100): Promise<ListedDocument[]> {
+		return this.operation(async () => {
+			if (after !== undefined) validateHMSId(after);
+			if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
+				throw new RangeError('Warm document page size must be an integer from 1 to 1000');
+			const documents = this.native
+				? await this.native.listDocuments(after, limit)
+				: this.documentIndex.list(after, limit);
+			if (documents.length > limit) throw new Error('Warm exceeded its document page limit');
+			let previous = after;
+			return documents.map((document) => {
+				validateHMSId(document.id);
+				if (
+					(previous !== undefined &&
+						Buffer.compare(Buffer.from(document.id), Buffer.from(previous)) <= 0) ||
+					typeof document.version !== 'string' ||
+					!Number.isSafeInteger(document.chunkCount) ||
+					document.chunkCount < 0
+				)
+					throw new Error('Warm returned an invalid document inventory');
+				previous = document.id;
+				return { ...document, metadata: cloneHMSMetadata(document.metadata ?? {}) };
+			});
+		});
+	}
+
+	maintainDocumentIndex(): Promise<void> {
+		return this.operation(async () => {
+			await this.native?.trainDocumentIndex();
+			const status = this.native?.indexStatus();
+			if (status?.nsgTrainingRecommended || status?.ivfTrainingRecommended)
+				await this.native?.maintainIndices();
 		});
 	}
 
@@ -830,12 +870,16 @@ export class HolographicMemorySystem {
 
 	getStats(): Record<string, unknown> {
 		return {
+			package: 'writerslogic-warm',
 			dimensions: this.native ? this.dimensions : Math.min(this.dimensions, 512),
 			engine: this.nativeVersion ? `Rust Native ${this.nativeVersion}` : 'JS Fallback',
 			version: this.nativeVersion,
 			totalMemories: this.native?.vectorCount ?? this.memoryIndex.size,
 			totalTriplets: this.triplets.size,
 			persistentDocuments: !!this.nativeVersion,
+			embeddingSpace: this.embeddingSpace ? { ...this.embeddingSpace } : undefined,
+			index: this.native?.indexStatus(),
+			storage: this.native?.storageHealth(),
 			fallbackReason: this.fallbackReason,
 			closed: this.released || !!this.closing,
 		};
@@ -845,19 +889,19 @@ export class HolographicMemorySystem {
 		if (this.closing) return this.closing;
 		this.closing = (async () => {
 			await Promise.allSettled(this.inFlight);
-			try {
-				await this.native?.flush();
-			} finally {
-				if (this.owner) this.owner.users--;
-				this.owner = undefined;
-				this.native = null;
-				this.jsEngine?.clear();
-				this.documentIndex.clear();
-				this.memoryIndex.clear();
-				this.triplets.clear();
-				this.released = true;
-			}
-		})();
+			await this.native?.flush();
+			if (this.owner) this.owner.users--;
+			this.owner = undefined;
+			this.native = null;
+			this.jsEngine?.clear();
+			this.documentIndex.clear();
+			this.memoryIndex.clear();
+			this.triplets.clear();
+			this.released = true;
+		})().catch((error: unknown) => {
+			this.closing = undefined;
+			throw error;
+		});
 		return this.closing;
 	}
 }

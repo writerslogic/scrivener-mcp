@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:4f798f93-be59-40f9-a5bd-1284f0d7ea16",
+  "serialNumber": "urn:uuid:9b189536-b388-4a4b-a5eb-6dbb79acf7cb",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-28T18:22:29.802Z",
+    "timestamp": "2026-10-31T03:22:33.284Z",
     "lifecycles": [
       {
         "phase": "pre-build"
@@ -19,14 +19,14 @@
       }
     ],
     "component": {
-      "bom-ref": "holographic-memory@0.6.4",
+      "bom-ref": "writerslogic-warm@0.6.4",
       "type": "library",
-      "name": "holographic-memory",
+      "name": "warm",
       "version": "0.6.4",
       "scope": "required",
       "author": "WritersLogic, Inc.",
-      "description": "Holographic Memory System (HMS): local document search (BM25 + embedding cosine) and vector-symbolic associative memory.",
-      "purl": "pkg:npm/holographic-memory@0.6.4",
+      "description": "WritersLogic Adaptive Retention & Memory (WARM): local document search (BM25 + embedding cosine) and vector-symbolic associative memory.",
+      "purl": "pkg:npm/writerslogic-warm@0.6.4",
       "properties": [
         {
           "name": "cdx:npm:package:path",
@@ -36,15 +36,15 @@
       "externalReferences": [
         {
           "type": "vcs",
-          "url": "git+https://github.com/writerslogic/holographic-memory.git"
+          "url": "git+https://github.com/writerslogic/warm.git"
         },
         {
           "type": "website",
-          "url": "https://holographic-memory.com"
+          "url": "https://writerslogic.com/warm"
         },
         {
           "type": "issue-tracker",
-          "url": "https://github.com/writerslogic/holographic-memory/issues"
+          "url": "https://github.com/writerslogic/warm/issues"
         }
       ],
       "licenses": [
@@ -59,7 +59,7 @@
   "components": [],
   "dependencies": [
     {
-      "ref": "holographic-memory@0.6.4",
+      "ref": "writerslogic-warm@0.6.4",
       "dependsOn": []
     }
   ]

@@ -5,10 +5,10 @@ const logger = getLogger('hhm-benchmark');
 export async function quickBenchmark(dimensions: number = 10000): Promise<void> {
 	let NativeHMS;
 	try {
-		const mod = await import('holographic-memory');
-		NativeHMS = mod.HolographicMemorySystem;
+		const mod = await import('writerslogic-warm');
+		NativeHMS = mod.WarmMemorySystem;
 	} catch {
-		logger.warn('holographic-memory not installed, skipping benchmark');
+		logger.warn('Warm not installed, skipping benchmark');
 		return;
 	}
 

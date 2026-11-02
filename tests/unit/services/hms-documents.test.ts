@@ -261,3 +261,29 @@ it('drains accepted operations before release and rejects use of a closed owner'
 	expect(engine.destroy()).toBe(closed);
 	await expect(engine.searchDocuments('lighthouse')).rejects.toThrow('closed');
 });
+
+it('paginates Unicode document IDs without loss and returns isolated metadata', async () => {
+	const engine = memory();
+	const ids = ['a', 'é', '東京', '😀'];
+	await engine.memorizeDocuments(
+		ids.map((id) => ({ id, text: 'harbor', metadata: { tag: 'saved' } }))
+	);
+	const seen: string[] = [];
+	let after: string | undefined;
+	while (true) {
+		const page = await engine.listDocuments(after, 1);
+		if (!page.length) break;
+		seen.push(page[0].id);
+		after = page[0].id;
+		page[0].metadata.tag = 'changed';
+	}
+	expect(seen).toEqual(ids.sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))));
+	expect((await engine.listDocuments())[0].metadata.tag).toBe('saved');
+});
+
+it.each([0, 1, 999, 1000, 1001])('bounds document inventory pages at %d', async (limit) => {
+	const engine = memory();
+	const pending = engine.listDocuments(undefined, limit);
+	if (limit < 1 || limit > 1000) await expect(pending).rejects.toThrow('page size');
+	else await expect(pending).resolves.toEqual([]);
+});

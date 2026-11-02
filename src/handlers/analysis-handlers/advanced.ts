@@ -275,11 +275,11 @@ export const semanticSearchHandler: ToolDefinition = {
 	name: 'semantic_search',
 	title: 'Semantic Search',
 	description:
-		'Find passages with local story-concept vectors and source context without an API key, and ' +
+		'Find passages with configured local model embeddings or default story-concept vectors without an API key, and ' +
 		'return the most relevant passages with similarity scores and surrounding text. Use this ' +
 		'for conceptual "find passages about X" queries; use search for keyword/full-text matching ' +
 		'and find_mentions to locate every occurrence of a specific name or term. Indexing and similarity ' +
-		'scoring are local; conceptual coverage is bounded to the documented English story vocabulary. ' +
+		'scoring and optional reranking are local; each response discloses the configured model or bounded concept vocabulary. ' +
 		'Requires an open project with semantic indexing available.',
 	annotations: {
 		readOnlyHint: true,
@@ -295,7 +295,7 @@ export const semanticSearchHandler: ToolDefinition = {
 			threshold: {
 				...SHARED_DEFS.threshold,
 				description:
-					'Minimum similarity score (0-1) a result must meet to be returned. Default 0.3; ' +
+					'Minimum cosine similarity (0-1), independent of reranker logits. Default 0.3; ' +
 					'raise for stricter matches, lower for broader recall.',
 			},
 		},
@@ -306,7 +306,7 @@ export const semanticSearchHandler: ToolDefinition = {
 		properties: {
 			results: {
 				type: 'array',
-				description: 'Documents most relevant to the query, ordered by similarity.',
+				description: 'Passages ordered by relevance, with cosine similarity scores.',
 				items: {
 					type: 'object',
 					properties: {
@@ -341,8 +341,13 @@ export const semanticSearchHandler: ToolDefinition = {
 			.getEditorialServices()
 			.search.search(query, { limit: maxResults, mode: 'semantic' });
 		const results = matches.results
-			.filter((match) => match.score >= threshold)
-			.map((match) => ({ ...match, id: match.documentId, snippet: match.context }));
+			.filter((match) => match.semanticScore >= threshold)
+			.map((match) => ({
+				...match,
+				score: match.semanticScore,
+				id: match.documentId,
+				snippet: match.context,
+			}));
 		const result = { ...matches, results, searchType: 'semantic' };
 		return {
 			content: [{ type: 'text', text: JSON.stringify(result) }],

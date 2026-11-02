@@ -193,6 +193,28 @@ if (option === '--worker') {
 			);
 			assert.equal((await documents.searchDocuments('harbor'))[0].version, 'saved-2');
 			assert.equal(await documents.deleteDocument('weather'), true);
+			const page = await documents.listDocuments(undefined, 1);
+			assert.deepEqual(
+				page.map((document) => document.id),
+				['grief']
+			);
+			assert.equal(page[0].version, 'saved-2');
+			assert.deepEqual(await documents.listDocuments(page[0].id, 1), []);
+			await documents.maintainDocumentIndex();
+			assert.equal((await documents.searchDocuments('harbor'))[0].version, 'saved-2');
+			if (argument === 'native') {
+				const native = Reflect.get(documents, 'native');
+				const flush = native.flush;
+				native.flush = async () => {
+					throw new Error('fixture flush interruption');
+				};
+				try {
+					await assert.rejects(documents.destroy(), /fixture flush interruption/);
+				} finally {
+					native.flush = flush;
+				}
+				assert.equal((await documents.searchDocuments('harbor'))[0].version, 'saved-2');
+			}
 		} finally {
 			await documents.destroy();
 		}

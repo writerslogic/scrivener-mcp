@@ -1,4 +1,9 @@
-import type { DocumentInput, DocumentResult, SearchOptions } from 'holographic-memory';
+import type {
+	DocumentInput,
+	DocumentResult,
+	ListedDocument,
+	SearchOptions,
+} from 'writerslogic-warm';
 
 export type HMSDocumentInput = Omit<DocumentInput, 'metadata'> & {
 	metadata?: Record<string, unknown>;
@@ -344,6 +349,24 @@ export class FallbackDocumentIndex {
 
 	delete(id: string): boolean {
 		return this.documents.delete(id);
+	}
+
+	list(after: string | undefined, limit: number): ListedDocument[] {
+		return [...this.documents.values()]
+			.filter(
+				({ input }) =>
+					after === undefined ||
+					Buffer.compare(Buffer.from(input.id), Buffer.from(after)) > 0
+			)
+			.sort((a, b) => Buffer.compare(Buffer.from(a.input.id), Buffer.from(b.input.id)))
+			.slice(0, limit)
+			.map(({ input, chunks }) => ({
+				id: input.id,
+				version: input.version ?? '',
+				sourceUri: input.sourceUri,
+				metadata: cloneHMSMetadata(input.metadata ?? {}),
+				chunkCount: chunks.length,
+			}));
 	}
 
 	search(text: string, options: HMSSearchOptions): HMSDocumentResult[] {

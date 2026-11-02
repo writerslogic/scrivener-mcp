@@ -216,7 +216,7 @@ Conceptual matching covers a bounded English story vocabulary, not a downloaded 
 keyword mode for unfamiliar names or concepts. No model is downloaded and no external embedding
 service receives manuscript text. A JavaScript BM25/concept-vector fallback remains available when
 the native binding is unavailable or another server owns the native cache. Set
-`SCRIVENER_HMS_ENGINE=fallback` to select it explicitly.
+`SCRIVENER_WARM_ENGINE=fallback` (legacy `SCRIVENER_HMS_ENGINE` also works) to select it explicitly.
 
 ## Project Memory
 
