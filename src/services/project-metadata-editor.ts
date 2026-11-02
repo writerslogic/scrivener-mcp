@@ -4,11 +4,12 @@ import {
 	assertValidProjectDocumentId,
 	getNotesPath,
 	getSynopsisPath,
+	parseMetadata,
 } from '../utils/scrivener-utils.js';
 import { documentIndexer } from './document-indexer.js';
 import type { MetadataManager } from './metadata-manager.js';
 import type { ProjectLoader } from './project-loader.js';
-import type { BinderContainer, ProjectStructure } from '../types/internal.js';
+import type { BinderContainer, BinderItem, ProjectStructure } from '../types/internal.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
 import type { ScrivenerDocument } from '../types/index.js';
 import { findBinderItemById } from './document-manager-helpers.js';
@@ -51,6 +52,27 @@ export class ProjectMetadataEditor {
 		}
 
 		this.metadataManager.updateDocumentMetadata(item, metadata);
+		if (metadata.customMetadata) {
+			const project = nextStructure.ScrivenerProject;
+			if (!project) throw createError(ErrorCode.INVALID_STATE, 'Project root is missing');
+			const settings = (project.CustomMetaDataSettings ||= {});
+			const fields =
+				settings.MetaDataField === undefined
+					? []
+					: Array.isArray(settings.MetaDataField)
+						? settings.MetaDataField
+						: [settings.MetaDataField];
+			for (const key of Object.keys(
+				parseMetadata(item.MetaData?.CustomMetaData?.MetaDataItem)
+			)) {
+				if (!fields.some((field) => (field.$?.ID ?? field.ID) === key))
+					fields.push({
+						$: { ID: key, Type: 'Text', Wraps: 'No', Align: 'Left' },
+						Title: key,
+					});
+			}
+			settings.MetaDataField = fields;
+		}
 		const files: MetadataFileUpdate[] = [];
 		if (typeof metadata.synopsis === 'string')
 			files.push({ documentId, kind: 'synopsis', raw: metadata.synopsis });
@@ -99,6 +121,12 @@ export class ProjectMetadataEditor {
 		if (Array.isArray(metadata.keywords)) patch.keywords = metadata.keywords as string[];
 		if (typeof metadata.includeInCompile === 'boolean') {
 			patch.includeInCompile = metadata.includeInCompile;
+		}
+		if (metadata.customMetadata) {
+			patch.customMetadata = {
+				...documentIndexer.getDocumentInfo(documentId)?.document.customMetadata,
+				...(metadata.customMetadata as Record<string, string>),
+			};
 		}
 
 		if (Object.keys(patch).length > 0) {
@@ -153,11 +181,11 @@ export class ProjectMetadataEditor {
 	private findBinderItem(
 		structure: Record<string, unknown>,
 		documentId: string
-	): Record<string, unknown> | null {
+	): BinderItem | null {
 		const scrivenerProject = structure.ScrivenerProject as Record<string, unknown> | undefined;
 		if (!scrivenerProject?.Binder) return null;
 
 		const found = findBinderItemById(scrivenerProject.Binder as BinderContainer, documentId);
-		return found as Record<string, unknown> | null;
+		return found ?? null;
 	}
 }

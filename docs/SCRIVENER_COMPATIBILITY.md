@@ -65,6 +65,16 @@ license is adjacent. The packaged first-session project under `assets/sample-pro
 CC0. These synthetic fixtures demonstrate documented file behavior; they are not a certification of
 every native Scrivener point release.
 
+A local macOS check on 2026-11-02 used Scrivener 3.5.2 to open, save, close and reopen a fresh copy
+of the packaged sample twice after server edits. Binder order/hierarchy/titles, decoded manuscript
+text, snapshot bytes/titles, notes, synopsis, custom field values and definitions, section types and
+compile XML remained unchanged. The server writes native `MetaDataItem/FieldID` elements and
+registers new custom fields in `CustomMetaDataSettings`; legacy `ID`/`id` fields remain readable and
+acquire `FieldID` when custom metadata is edited. This check covers saved data in one native app
+version; it does not validate native compile output, unsaved buffers, concurrent native writes or
+the Windows GUI. Automated persistence, rollback and boundary regressions are in
+`tests/integration/native-metadata.test.ts`.
+
 ## Persistence and recovery
 
 Per-project `.scrivener-mcp/editorial.sqlite` stores schema-versioned proposals, review receipts,

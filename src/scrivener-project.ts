@@ -633,6 +633,7 @@ export class ScrivenerProject {
 		metadata: Record<string, unknown>,
 		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
+		metadata = structuredClone(metadata);
 		await this.ensureWritable(options.force);
 		return this.metadataEditor.updateMetadata(documentId, metadata);
 	}
@@ -648,6 +649,7 @@ export class ScrivenerProject {
 		},
 		options: Pick<WriteOptions, 'force'> = {}
 	): Promise<void> {
+		metadata = structuredClone(metadata);
 		await this.ensureWritable(options.force);
 		return this.metadataEditor.updateDocumentMetadata(documentId, metadata);
 	}

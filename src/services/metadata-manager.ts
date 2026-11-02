@@ -5,8 +5,8 @@
 import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
 import { getLogger } from '../core/logger.js';
 import type { BinderItem, MetaDataItem, ProjectStructure } from '../types/internal.js';
-import { parseMetadata } from '../utils/scrivener-utils.js';
-import { AsyncUtils, MemoryCache, StringUtils, ValidationUtils } from '../utils/shared-patterns.js';
+import { findMetadataField, parseMetadata } from '../utils/scrivener-utils.js';
+import { AsyncUtils, MemoryCache, ValidationUtils } from '../utils/shared-patterns.js';
 
 const logger = getLogger('metadata-manager');
 
@@ -511,18 +511,19 @@ export class MetadataManager {
 				: [];
 
 		for (const [key, value] of Object.entries(customFields)) {
-			const existing = customMetaItems.find((item: MetaDataItem) => item?.ID === key);
+			const existing = findMetadataField(customMetaItems, key);
 
 			if (existing) {
 				existing.Value = value;
 			} else {
 				customMetaItems.push({
-					ID: key,
+					FieldID: key,
 					Value: value,
 				});
 			}
 		}
 
+		for (const item of customMetaItems) item.FieldID ??= item.ID ?? item.id;
 		metaData.CustomMetaData.MetaDataItem = customMetaItems;
 	}
 
@@ -621,7 +622,16 @@ export class MetadataManager {
 			throw new AppError('Too many keywords (max 100)', ErrorCode.INVALID_INPUT);
 		}
 
-		if (metadata.customMetadata) {
+		if (metadata.customMetadata !== undefined) {
+			if (
+				!metadata.customMetadata ||
+				typeof metadata.customMetadata !== 'object' ||
+				Array.isArray(metadata.customMetadata)
+			)
+				throw new AppError(
+					'Custom metadata must be a record of string values',
+					ErrorCode.INVALID_INPUT
+				);
 			const customCount = Object.keys(metadata.customMetadata).length;
 			if (customCount > 50) {
 				throw new AppError(
@@ -631,15 +641,15 @@ export class MetadataManager {
 			}
 
 			for (const [key, value] of Object.entries(metadata.customMetadata)) {
-				if (key.length > 100) {
+				if (!key || key.length > 100) {
 					throw new AppError(
-						`Custom field key too long: ${StringUtils.truncate(key, 50)}`,
+						'Custom field keys must contain 1 to 100 characters',
 						ErrorCode.INVALID_INPUT
 					);
 				}
-				if (value && value.length > this.maxStringLength) {
+				if (typeof value !== 'string' || value.length > this.maxStringLength) {
 					throw new AppError(
-						`Custom field value too long for key: ${key}`,
+						`Custom field values must be strings of at most ${this.maxStringLength} characters`,
 						ErrorCode.INVALID_INPUT
 					);
 				}
