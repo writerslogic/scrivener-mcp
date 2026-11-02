@@ -98,6 +98,7 @@
 		"@types/xml2js": "^0.4.14",
 		"@typescript-eslint/eslint-plugin": "^8.62.0",
 		"@typescript-eslint/parser": "^8.62.0",
+		"@typescript/native": "npm:typescript@^7.0.2",
 		"@webgpu/types": "^0.1.70",
 		"deepmerge": "file:vendor/deepmerge",
 		"domhandler": "^6.0.1",
@@ -109,7 +110,7 @@
 		"reflect-metadata": "0.2.2",
 		"ts-jest": "^29.4.14",
 		"tsx": "^4.22.4",
-		"typescript": "^5.9.3",
+		"typescript": "npm:@typescript/typescript6@^6.0.2",
 		"typescript-eslint": "^8.62.0"
 	},
 	"overrides": {

@@ -12,7 +12,12 @@ if (!process.env.CI) {
 	}
 	require('node:child_process').execFileSync(
 		process.execPath,
-		[require.resolve('typescript/bin/tsc')],
+		[
+			require('node:path').join(
+				require.resolve('@typescript/native/package.json'),
+				'../bin/tsc'
+			),
+		],
 		{
 			stdio: 'inherit',
 		}
