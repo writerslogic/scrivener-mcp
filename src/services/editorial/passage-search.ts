@@ -9,6 +9,7 @@ import {
 import type { ManuscriptSource, SourceDocument, SourcePassage } from './types.js';
 import type { PersistentStore } from './persistent-store.js';
 import { loadWarmModels, type WarmModels } from '../memory/warm-models.js';
+import { MAX_DOCUMENT_EMBEDDING_VALUES } from '../memory/hhm/document-index.js';
 
 const CONCEPTS: Array<{ name: string; pattern: RegExp }> = [
 	{
@@ -690,8 +691,13 @@ export class PassageSearch {
 		if (missing.length) {
 			for (const entry of missing) pending.add(entry.id);
 			save({ ...catalog, pending: [...pending] });
-			for (let offset = 0; offset < missing.length; offset += BATCH_SIZE) {
-				const batch = missing.slice(offset, offset + BATCH_SIZE);
+			const dimensions = this.models?.embedder?.space.dimensions ?? CONCEPTS.length;
+			const batchSize = Math.min(
+				BATCH_SIZE,
+				Math.floor(MAX_DOCUMENT_EMBEDDING_VALUES / dimensions)
+			);
+			for (let offset = 0; offset < missing.length; offset += batchSize) {
+				const batch = missing.slice(offset, offset + batchSize);
 				const vectors = this.models?.embedder
 					? await this.models.embedder.encodeDocuments(batch.map((entry) => entry.quote))
 					: undefined;

@@ -5,6 +5,8 @@ import type {
 	SearchOptions,
 } from 'writerslogic-warm';
 
+export const MAX_DOCUMENT_EMBEDDING_VALUES = 1048576;
+
 export type HMSDocumentInput = Omit<DocumentInput, 'metadata'> & {
 	metadata?: Record<string, unknown>;
 };
@@ -181,7 +183,7 @@ export function validateHMSDocumentBatch(
 				throw new RangeError('HMS requires one embedding for each document chunk');
 			embeddings = input.embeddings.map((row) => {
 				embeddingValues += row?.length ?? 0;
-				if (embeddingValues > 1048576)
+				if (embeddingValues > MAX_DOCUMENT_EMBEDDING_VALUES)
 					throw new RangeError('HMS batch exceeds 1048576 embedding values');
 				return normalize(row, space);
 			});

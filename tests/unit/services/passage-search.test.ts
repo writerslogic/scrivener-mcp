@@ -85,13 +85,13 @@ describe('local passage retrieval', () => {
 		openSearch();
 	});
 
-	async function modelSearch(rerank?: WarmModels['rerank']): Promise<WarmModels> {
+	async function modelSearch(rerank?: WarmModels['rerank'], dimensions = 2): Promise<WarmModels> {
 		await search.close();
 		store.close();
 		const space = {
 			model: 'fixture-local-model',
 			revision: '1',
-			dimensions: 2,
+			dimensions,
 			normalization: 'l2' as const,
 			metric: 'cosine' as const,
 		};
@@ -106,8 +106,11 @@ describe('local passage retrieval', () => {
 			embedder: {
 				space,
 				encodeDocuments: async (texts) =>
-					texts.map((text) => (text.includes('orchid') ? [1, 0] : [0.8, 0.6])),
-				encodeQuery: async () => [1, 0],
+					texts.map((text) => [
+						...(text.includes('orchid') ? [1, 0] : [0.8, 0.6]),
+						...new Array<number>(dimensions - 2).fill(0),
+					]),
+				encodeQuery: async () => [1, ...new Array<number>(dimensions - 1).fill(0)],
 			},
 			rerank,
 			close: jest.fn(async () => undefined),
@@ -258,6 +261,21 @@ describe('local passage retrieval', () => {
 			expect(results).toHaveLength(threshold > 0.8 ? 1 : 2);
 			expect(results.every((result) => result.score >= threshold)).toBe(true);
 			if (threshold <= 0.8) expect(results[0].id).toBe(documents[1].documentId);
+		}
+	);
+
+	it.each([255, 256, 257])(
+		'indexes %d high-dimensional passages within the native vector allocation limit',
+		async (count) => {
+			const template = documents[0];
+			documents = Array.from({ length: count }, (_, index) => ({
+				...template,
+				documentId: 'scene-' + index,
+				order: index,
+			}));
+			await modelSearch(undefined, 4096);
+			await search.refresh();
+			expect(await engine.listDocuments(undefined, 1000)).toHaveLength(count);
 		}
 	);
 
