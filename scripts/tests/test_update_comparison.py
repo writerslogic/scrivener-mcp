@@ -58,6 +58,15 @@ class ComparisonRefreshTest(unittest.TestCase):
         with patch('urllib.request.urlopen', side_effect=urllib.error.HTTPError('https://example.com', 404, 'missing', {}, None)):
             self.assertIsNone(comparison.fetch_json('https://example.com'))
 
+    def test_invalid_npm_metadata_is_not_reported_as_unpublished(self):
+        repos = {'scrivener-mcp': {'github': 'owner/repo', 'npm': 'pkg'}}
+        for payload in ({}, [], {'version': None}, {'version': 14}, {'version': '0.14.0 | fake'}):
+            with self.subTest(payload=payload):
+                def fetch(url, headers=None):
+                    return payload if 'registry.npmjs.org' in url else None
+                with self.assertRaises(ValueError):
+                    comparison.collect_stats(repos, NOW, fetch)
+
     def test_refresh_preserves_human_review_date_and_is_idempotent(self):
         readme = 'Verified 2026-10-22\n<!-- comparison-refreshed -->old<!-- /comparison-refreshed -->\n<!-- comparison-start -->old<!-- comparison-end -->'
         updated = comparison.update_readme(readme, '| new |', NOW)

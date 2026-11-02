@@ -62,9 +62,11 @@ def collect_stats(repos, now, fetch=fetch_json):
         }
     package = urllib.parse.quote(repos['scrivener-mcp']['npm'], safe='')
     published = fetch(f'https://registry.npmjs.org/{package}/latest')
-    version = published.get('version') if published else None
-    if version is not None and not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?', version):
-        raise ValueError('Invalid published npm version')
+    version = None
+    if published is not None:
+        version = published.get('version') if isinstance(published, dict) else None
+        if not isinstance(version, str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?', version):
+            raise ValueError('Invalid published npm version')
     return stats, version
 
 
