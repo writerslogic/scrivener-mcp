@@ -83,6 +83,8 @@ jobs:
         run: node scripts/check-output-conformance.mjs
 
       - name: HMS fallback compatibility
+        env:
+          SCRIVENER_WARM_ENGINE: fallback
         run: node scripts/check-hms-compatibility.mjs
 
       - name: C2PA asset and signature compatibility
