@@ -8,7 +8,7 @@ export const passageSearchOutputSchema: ToolSchema = {
 		query: { type: 'string', description: 'The original query searched locally.' },
 		mode: {
 			type: 'string',
-			description: 'Hybrid, keyword, or bounded concept-semantic retrieval mode.',
+			description: 'Hybrid, keyword, or semantic retrieval mode.',
 		},
 		method: {
 			type: 'string',
@@ -16,7 +16,8 @@ export const passageSearchOutputSchema: ToolSchema = {
 		},
 		limitations: {
 			type: 'string',
-			description: 'Coverage and privacy limitations of the local concept encoder.',
+			description:
+				'Coverage and privacy limitations of the configured local retrieval models.',
 		},
 		index: {
 			type: 'object',
@@ -90,7 +91,8 @@ export const passageSearchOutputSchema: ToolSchema = {
 					},
 					score: {
 						type: 'number',
-						description: 'Combined relevance score in the selected retrieval mode.',
+						description:
+							'Relevance score in the selected mode, or a local cross-encoder logit when configured.',
 					},
 					keywordScore: {
 						type: 'number',
@@ -99,12 +101,12 @@ export const passageSearchOutputSchema: ToolSchema = {
 					semanticScore: {
 						type: 'number',
 						description:
-							'Cosine similarity between bounded story-concept feature vectors.',
+							'Cosine similarity from the configured local model or story-concept vectors.',
 					},
 					hmsScore: {
 						type: 'number',
 						description:
-							'HMS document relevance score from BM25 and the supplied local concept vectors.',
+							'Warm document relevance score from BM25 and supplied local vectors.',
 					},
 					matchedConcepts: {
 						type: 'array',
@@ -143,7 +145,7 @@ export const localSearchHandlers: ToolDefinition[] = [
 		name: 'search_passages',
 		title: 'Search Local Manuscript Passages',
 		description:
-			'Search saved manuscript passages without a provider key. HMS document search combines BM25 keywords with supplied bounded English story-concept vectors; return exact quotations, surrounding context, binder locations and saved revisions. Use semantic mode for supported story concepts and keyword mode for names or concepts outside the disclosed vocabulary.',
+			'Search saved manuscript passages without a provider key. Warm combines BM25 with configured local model embeddings, or default bounded English story-concept vectors, and optional local reranking. Return exact quotations, context, binder locations and saved revisions. Each response discloses the active method and its limits.',
 		annotations: {
 			readOnlyHint: false,
 			destructiveHint: false,
@@ -163,7 +165,7 @@ export const localSearchHandlers: ToolDefinition[] = [
 					type: 'string',
 					enum: ['hybrid', 'keyword', 'semantic'],
 					description:
-						'Hybrid (default), exact token ranking, or bounded concept-vector similarity.',
+						'Hybrid (default), exact token ranking, or local vector similarity.',
 				},
 				limit: {
 					type: 'integer',
@@ -204,7 +206,7 @@ export const localSearchHandlers: ToolDefinition[] = [
 								`${hit.title} (${hit.path}, line ${hit.line}, ${hit.documentId}, revision ${hit.revision})\n${hit.context}\nRelevance ${hit.score.toFixed(3)}; concepts: ${hit.matchedConcepts.join(', ') || 'none'}`
 						)
 						.join('\n\n')
-				: 'No matching passages. Try keywords for names or concepts outside the local vocabulary.';
+				: 'No matching passages. Try different keywords or broaden the document scope.';
 			return {
 				content: [{ type: 'text', text: `${text}\n\n${result.limitations}` }],
 				structuredContent: { ...result },

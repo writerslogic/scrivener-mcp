@@ -8,6 +8,8 @@ import {
 } from '../memory/hhm/holographic-memory-system.js';
 import type { ManuscriptSource, SourceDocument, SourcePassage } from './types.js';
 import type { PersistentStore } from './persistent-store.js';
+import { loadWarmModels, type WarmModels } from '../memory/warm-models.js';
+import { MAX_DOCUMENT_EMBEDDING_VALUES } from '../memory/hhm/document-index.js';
 
 const CONCEPTS: Array<{ name: string; pattern: RegExp }> = [
 	{
@@ -324,8 +326,8 @@ function embedding(names: string[]): number[] | undefined {
 	return CONCEPTS.map((concept) => (present.has(concept.name) ? 1 / magnitude : 0));
 }
 
-function documentInput(passage: IndexedPassage): HMSDocumentInput {
-	const vector = embedding(passage.concepts);
+function documentInput(passage: IndexedPassage, supplied?: number[]): HMSDocumentInput {
+	const vector = supplied ?? embedding(passage.concepts);
 	return {
 		id: passage.id,
 		text: passage.quote,
@@ -376,11 +378,14 @@ function checkedHit(hit: HMSDocumentResult, passage: IndexedPassage | undefined)
 
 export class PassageSearch {
 	private readonly namespace: string;
-	private readonly syncNamespace: string;
+	private syncNamespace: string;
 	private readonly cachePath: string;
 	private engine?: HolographicMemorySystem;
 	private readonly externalEngine: boolean;
 	private bootstrapNative = true;
+	private inspectStoredDocuments = true;
+	private models?: WarmModels;
+	private modelsReady = false;
 	private refreshing?: Promise<IndexSummary>;
 	private enginePromise?: Promise<HolographicMemorySystem>;
 	private readonly activeSearches = new Set<Promise<PassageSearchResult>>();
@@ -390,7 +395,8 @@ export class PassageSearch {
 	constructor(
 		private readonly source: ManuscriptSource,
 		private readonly store: PersistentStore,
-		hms?: HolographicMemorySystem
+		hms?: HolographicMemorySystem,
+		private readonly suppliedModels?: WarmModels
 	) {
 		this.namespace = `passage-documents:${source.projectId}`;
 		this.syncNamespace = `passage-hms:${source.projectId}`;
@@ -402,6 +408,29 @@ export class PassageSearch {
 		);
 		this.engine = hms;
 		this.externalEngine = !!hms;
+		this.models = suppliedModels;
+		this.modelsReady = !!hms || !!suppliedModels;
+		if (suppliedModels) this.useModels(suppliedModels);
+	}
+
+	private useModels(models: WarmModels): void {
+		if (!/^[a-f0-9]{64}$/.test(models.fingerprint))
+			throw new Error('Warm model configuration requires a SHA-256 identity');
+		this.models = models;
+		this.syncNamespace += `:${models.fingerprint}`;
+		if (this.engine && models.embedder) {
+			const actual = this.engine.getStats().embeddingSpace as
+				Record<string, unknown> | undefined;
+			if (
+				!actual ||
+				['model', 'revision', 'dimensions'].some(
+					(key) =>
+						actual[key] !==
+						models.embedder!.space[key as 'model' | 'revision' | 'dimensions']
+				)
+			)
+				throw new Error('Passage embedding model does not match its Warm store');
+		}
 	}
 
 	async refresh(): Promise<IndexSummary> {
@@ -476,15 +505,23 @@ export class PassageSearch {
 		if (this.engine) return this.engine;
 		if (this.enginePromise) return this.enginePromise;
 		this.enginePromise = (async () => {
+			if (!this.modelsReady) {
+				const models = await loadWarmModels();
+				if (models) this.useModels(models);
+				this.modelsReady = true;
+			}
+			const cacheName = this.models
+				? `passage-warm-${this.models.fingerprint}`
+				: 'passage-hms-v2';
 			let directory = resolve(this.source.projectPath);
-			for (const part of ['.scrivener-mcp', 'cache', 'passage-hms-v2']) {
+			for (const part of ['.scrivener-mcp', 'cache', cacheName]) {
 				directory = join(directory, part);
 				await mkdir(directory, { recursive: true, mode: 0o700 });
 				const info = await lstat(directory);
 				if (info.isSymbolicLink() || !info.isDirectory())
 					throw new Error('Local passage cache must use ordinary project directories');
 			}
-			const storagePath = join(this.cachePath, 'index.db');
+			const storagePath = join(directory, 'index.db');
 			try {
 				const info = await lstat(storagePath);
 				if (info.isSymbolicLink())
@@ -502,7 +539,7 @@ export class PassageSearch {
 			this.engine = new HolographicMemorySystem({
 				storagePath,
 				dimensions: CONCEPTS.length,
-				embeddingSpace: EMBEDDING_SPACE,
+				embeddingSpace: this.models?.embedder?.space ?? EMBEDDING_SPACE,
 			});
 			return this.engine;
 		})();
@@ -582,9 +619,49 @@ export class PassageSearch {
 			catalog = next;
 		};
 		const wanted = new Set(entries.map((entry) => entry.id));
-		const obsolete = [...new Set([...catalog.applied, ...catalog.pending])].filter(
-			(id) => !wanted.has(id)
-		);
+		const recoveredIds = new Set<string>();
+		let verifiedApplied: string[] | undefined;
+		if (persistent && this.inspectStoredDocuments) {
+			const valid = new Set<string>();
+			const desired = new Map(entries.map((entry) => [entry.id, entry]));
+			let after: string | undefined;
+			let scanned = 0;
+			while (true) {
+				const page = await engine.listDocuments(after, BATCH_SIZE);
+				scanned += page.length;
+				if (scanned > MAX_PASSAGES * 2)
+					throw new Error('Warm passage inventory exceeds its reconciliation limit');
+				for (const document of page) {
+					if (
+						document.metadata.projectId !== this.source.projectId ||
+						document.metadata.indexVersion !== INDEX_VERSION ||
+						document.metadata.passageId !== document.id ||
+						!/^[a-f0-9]{64}$/.test(document.id)
+					)
+						continue;
+					recoveredIds.add(document.id);
+					const entry = desired.get(document.id);
+					if (
+						entry &&
+						document.version === entry.revision &&
+						document.sourceUri === sourceUri(entry) &&
+						document.chunkCount === 1 &&
+						document.metadata.sourceDocumentId === entry.documentId &&
+						document.metadata.revision === entry.revision &&
+						document.metadata.start === entry.start &&
+						document.metadata.end === entry.end
+					)
+						valid.add(document.id);
+				}
+				if (page.length < BATCH_SIZE) break;
+				after = page[page.length - 1].id;
+			}
+			verifiedApplied = [...valid];
+			this.bootstrapNative = false;
+		}
+		const obsolete = [
+			...new Set([...catalog.applied, ...catalog.pending, ...recoveredIds]),
+		].filter((id) => !wanted.has(id));
 		if (obsolete.length) {
 			for (const id of obsolete) await engine.deleteDocument(id);
 			await engine.flush();
@@ -594,6 +671,15 @@ export class PassageSearch {
 				pending: catalog.pending.filter((id) => wanted.has(id)),
 			});
 		}
+		if (verifiedApplied) {
+			const verified = new Set(verifiedApplied);
+			save({
+				...catalog,
+				applied: verifiedApplied,
+				pending: catalog.pending.filter((id) => !verified.has(id)),
+			});
+		}
+
 		const applied = new Set(catalog.applied);
 		const pending = new Set(catalog.pending);
 		const missing = entries.filter(
@@ -605,9 +691,23 @@ export class PassageSearch {
 		if (missing.length) {
 			for (const entry of missing) pending.add(entry.id);
 			save({ ...catalog, pending: [...pending] });
-			for (let offset = 0; offset < missing.length; offset += BATCH_SIZE) {
-				const batch = missing.slice(offset, offset + BATCH_SIZE);
-				const ids = await engine.memorizeDocuments(batch.map(documentInput));
+			const dimensions = this.models?.embedder?.space.dimensions ?? CONCEPTS.length;
+			const batchSize = Math.min(
+				BATCH_SIZE,
+				Math.floor(MAX_DOCUMENT_EMBEDDING_VALUES / dimensions)
+			);
+			for (let offset = 0; offset < missing.length; offset += batchSize) {
+				const batch = missing.slice(offset, offset + batchSize);
+				const vectors = this.models?.embedder
+					? await this.models.embedder.encodeDocuments(batch.map((entry) => entry.quote))
+					: undefined;
+				if (vectors && vectors.length !== batch.length)
+					throw new Error('Warm embedder must return one vector per passage');
+				const ids = await engine.memorizeDocuments(
+					batch.map((entry, index) =>
+						documentInput(entry, vectors ? Array.from(vectors[index]) : undefined)
+					)
+				);
 				if (
 					ids.length !== batch.length ||
 					ids.some((id) => !Number.isSafeInteger(id) || id < 0)
@@ -617,6 +717,12 @@ export class PassageSearch {
 			await engine.flush();
 			save({ ...catalog, applied: [...wanted], pending: [] });
 		}
+		if (missing.length || obsolete.length || this.inspectStoredDocuments) {
+			this.inspectStoredDocuments = true;
+			await engine.maintainDocumentIndex();
+			await engine.flush();
+		}
+		this.inspectStoredDocuments = false;
 		this.bootstrapNative = false;
 	}
 
@@ -658,8 +764,13 @@ export class PassageSearch {
 			const { index, entries, engine } = await this.updateIndex();
 			const scopedIds = options.documentIds ? new Set(options.documentIds) : undefined;
 			const scoped = entries.filter((entry) => !scopedIds || scopedIds.has(entry.documentId));
-			if (!scoped.length || (mode === 'semantic' && !queryConcepts.length))
+			const useEmbeddings = !!this.models?.embedder && mode !== 'keyword';
+			if (!scoped.length || (mode === 'semantic' && !useEmbeddings && !queryConcepts.length))
 				return { index, ranked: [] };
+			const queryEmbedding = useEmbeddings
+				? Array.from(await this.models!.embedder!.encodeQuery(query))
+				: embedding(queryConcepts);
+			const hasSemantic = useEmbeddings || queryConcepts.length > 0;
 			const byId = new Map(scoped.map((entry) => [entry.id, entry]));
 			const k = Math.min(scoped.length, Math.max(100, limit * 4), 1000);
 			const hits = await engine.searchDocuments(query, {
@@ -674,11 +785,10 @@ export class PassageSearch {
 							},
 						}
 					: {}),
-				embedding: embedding(queryConcepts),
-				lexicalWeight:
-					mode === 'semantic' ? 0 : mode === 'hybrid' && queryConcepts.length ? 0.5 : 1,
+				embedding: mode === 'keyword' ? undefined : queryEmbedding,
+				lexicalWeight: mode === 'semantic' ? 0 : mode === 'hybrid' && hasSemantic ? 0.5 : 1,
 				semanticWeight:
-					mode === 'keyword' || !queryConcepts.length ? 0 : mode === 'semantic' ? 1 : 0.5,
+					mode === 'keyword' || !hasSemantic ? 0 : mode === 'semantic' ? 1 : 0.5,
 				fusion: 'blend',
 			});
 			if (hits.length > k)
@@ -695,9 +805,10 @@ export class PassageSearch {
 				);
 				const keywordScore =
 					Math.max(0, hit.lexicalScore) / (Math.max(0, hit.lexicalScore) + 1);
-				const semanticScore =
-					matchedConcepts.length /
-					Math.sqrt(Math.max(1, queryConcepts.length * entry.concepts.length));
+				const semanticScore = useEmbeddings
+					? (hit.semanticScore ?? 0)
+					: matchedConcepts.length /
+						Math.sqrt(Math.max(1, queryConcepts.length * entry.concepts.length));
 				if (
 					mode === 'semantic'
 						? semanticScore <= 0
@@ -728,6 +839,17 @@ export class PassageSearch {
 					a.entry.documentId.localeCompare(b.entry.documentId) ||
 					a.entry.start - b.entry.start
 			);
+			if (this.models?.rerank && mode !== 'keyword' && ranked.length) {
+				const scores = await this.models.rerank(
+					query,
+					ranked.map((hit) => hit.entry.quote)
+				);
+				if (scores.length !== ranked.length || !scores.every(Number.isFinite))
+					throw new Error('Warm reranker must return one finite score per passage');
+				for (let index = 0; index < ranked.length; index++)
+					ranked[index].score = scores[index];
+				ranked.sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id));
+			}
 			return { index, ranked: ranked.slice(0, limit) };
 		});
 		const results: PassageMatch[] = [];
@@ -775,9 +897,16 @@ export class PassageSearch {
 			results,
 			query,
 			mode,
-			method: 'HMS document BM25 + supplied local story-concept vectors (v2)',
-			limitations:
-				'Conceptual retrieval uses a bounded English story-concept vocabulary, not a general language embedding model. HMS fuses BM25 with these supplied concept vectors; unknown concepts need keyword search. No provider is contacted.',
+			method: `Warm document BM25 + ${
+				this.models?.embedder
+					? 'local model embeddings'
+					: 'supplied local story-concept vectors (v2)'
+			}${
+				this.models?.rerank && mode !== 'keyword' ? ' + local cross-encoder reranking' : ''
+			}`,
+			limitations: this.models?.embedder
+				? 'Local model relevance depends on the configured model and manuscript language. Results retain saved-source revisions and exact quotations. No provider is contacted.'
+				: 'Conceptual retrieval uses a bounded English story-concept vocabulary. Warm fuses BM25 with these supplied concept vectors; unknown concepts need keyword search. No provider is contacted.',
 			index,
 		};
 	}
@@ -799,6 +928,14 @@ export class PassageSearch {
 				try {
 					await engine?.destroy();
 					this.engine = undefined;
+				} catch (error) {
+					failures.push(error);
+				}
+			}
+			if (!this.suppliedModels) {
+				try {
+					await this.models?.close();
+					this.models = undefined;
 				} catch (error) {
 					failures.push(error);
 				}

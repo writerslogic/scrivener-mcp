@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "package": "writerslogic-warm",
+      "version": "0.6.4",
+      "integrity": "sha512-fc5SAMyBTBsHyDYZR+CEggtPxeYG6RyP8kJBYF6jXgNAoevo5Lo+QBUOBP2zfCg/ZNDWNFuXl8Ob7FRN0ZPSVQ==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm@0.6.4",
+        "digest": {
+          "sha512": "7dce5200cc814c1b07c8361947e084820b4fc5e606e91c8ff24241605ea35e0340a1ebe8e4ba3e40150e04fdb37c283f64d0d6345b9797c39bec544dd193d255"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm@0.6.4",
+      "attestationSHA256": "7720aed502c561485e49ec448e4c840fc890d7865305cd4cc4520612003488ce",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-darwin-arm64",
+      "version": "0.6.4",
+      "integrity": "sha512-vGdPbzStLwjNmLWVTyF+4nd+12xznDpwAMDUDDBAW/ixcvI/wi0pQI/QBBCdN0zbsp3MQxA/KKrBwTdA6GiwFg==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-darwin-arm64@0.6.4",
+        "digest": {
+          "sha512": "bc674f6f34ad2f08cd98b5954f217ee2777ed76c739c3a7000c0d40c30405bf8b172f23fc22d29408fd004109d374cdbb29dcc43103f28aac1c13740e868b016"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-darwin-arm64@0.6.4",
+      "attestationSHA256": "980bf7abef7d80211e1973fd64e26b698693044cdf06cec16f662ab354e0cb98",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-darwin-x64",
+      "version": "0.6.4",
+      "integrity": "sha512-J7xRBWrIiQpkTVFuepabToN2JMDJjFn4frIbweNw1tqvziMbY7xXZC3JM1tH3CMDQAC0eQ5IM+S6i23H6rnDnw==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-darwin-x64@0.6.4",
+        "digest": {
+          "sha512": "27bc51056ac8890a644d516e7a969b4e837624c0c98c59f87eb21bc1e370d6daafce231b63bc57642dc9335b47dc23034000b4790e4833e4ba8b6dc7eab9c39f"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-darwin-x64@0.6.4",
+      "attestationSHA256": "1de322503745000b17459925c38f4420f508ebcbb616be21588667ebadcf96db",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-linux-arm64-gnu",
+      "version": "0.6.4",
+      "integrity": "sha512-5oh/YeGr8HI80egPF8cbDOujaOcW+geZS0lYzL/G6S4ESJJTyFh2vsp6aftSV4OkI0euB7I0A6vNCSmxHtIQTw==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-linux-arm64-gnu@0.6.4",
+        "digest": {
+          "sha512": "e6887f61e1abf0723cd1e80f17c71b0ceba368e716fa07994b4958ccbfc6e92e04489253c85876beca7a69fb525783a42347ae07b23403abcd0929b11ed2104f"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-linux-arm64-gnu@0.6.4",
+      "attestationSHA256": "957fa541303e710c7276aa0989ca1c81ceb8272a236f250dddbe3a61984c2353",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-linux-arm64-musl",
+      "version": "0.6.4",
+      "integrity": "sha512-ZgnMDML9NGm28gvhLH5W2PAonJysWK8pNCtLDdpBJoyAMMHsQNStQp1xNdKlDK8E5hVq8nKIKE0IX29XU0kz7g==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-linux-arm64-musl@0.6.4",
+        "digest": {
+          "sha512": "6609cc0cc2fd3469b6f20be12c7e56d8f0289c9cac58af29342b4b0dda41268c8030c1ec40d4ad429d7135d2a50caf04e6156af27288284d085f6f57534933ee"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-linux-arm64-musl@0.6.4",
+      "attestationSHA256": "4c412edf405b7c5b0290d165db719648bef152fee21c6e46f78cc3cd1238495f",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-linux-x64-gnu",
+      "version": "0.6.4",
+      "integrity": "sha512-SyxSSyTKZk9vVvTtTxHWXQ/w5eMUd+GJ9FDps3gJEp20G7goy7UqDAvzVdH/Pghk168jNdaLEnQ1E+VcdtXUbg==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-linux-x64-gnu@0.6.4",
+        "digest": {
+          "sha512": "4b2c524b24ca664f6f56f4ed4f11d65d0ff0e5e31477e189f450e9b37809129db41bb828cbb52a0c0bf355d1ff3e0864d7af2335d68b12743513e55c76d5d46e"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-linux-x64-gnu@0.6.4",
+      "attestationSHA256": "0477a9ab4aa78e25a6f3918922a864d0fad17c2a388b884334c292612d42c968",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-linux-x64-musl",
+      "version": "0.6.4",
+      "integrity": "sha512-WKmou83Q/a74ShF/vkvz7O+50k+ICQGLbnQnfpcBUg2UPub+97LrR167Ec8c0P61aBSaUtY2/oEknTQcSR+BfA==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-linux-x64-musl@0.6.4",
+        "digest": {
+          "sha512": "58a9a8bbcdd0fdaef84a117fbe4bf3ecefb9d24f8809018b6e74277e9701520d943ee6fef7b2eb475ebb11cf1cd0feb568149a52d636fe81249d341c491f817c"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-linux-x64-musl@0.6.4",
+      "attestationSHA256": "89c2029c0b98f11044dbdad5d6cecb636734e8c78479e064a4b93431f0d6f5bc",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-win32-arm64-msvc",
+      "version": "0.6.4",
+      "integrity": "sha512-mFRtJBZ4RLsua64y4buL66ffINk0DuwT3aAFWpun6HvlbFu/OvYB2i3mtBXT7qJOIpD0UX1smA13qp8M9SG1Tw==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-win32-arm64-msvc@0.6.4",
+        "digest": {
+          "sha512": "98546d24167844bb2e6bae32e1bb8beba7df20d9340eec13dda0055a9ba7e87be56c5bbf3af601da2de6b415d3eea24e2290f4517d6c980d77aa9f0cf521b54f"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-win32-arm64-msvc@0.6.4",
+      "attestationSHA256": "6ca74a3fc6d5ef92baf741d462caeff5f5d712224f8ddf13feea7f1cd884407c",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    },
+    {
+      "package": "writerslogic-warm-win32-x64-msvc",
+      "version": "0.6.4",
+      "integrity": "sha512-TZDx154ua2PQ16Hf/2oSaeWbXDqDVmfPWaBHQXX9T5dvWRRyoW01e56Qn/kj0qi+4cA+QslyAp8RapRR9VnINQ==",
+      "subject": {
+        "name": "pkg:npm/writerslogic-warm-win32-x64-msvc@0.6.4",
+        "digest": {
+          "sha512": "4d90f1d79e2e6b63d0d7a1dfff6a1269e59b5c3a835667cf59a0474175fd4f976f591472a16d357b9e909ff923d2a8bee1c03e42c972029f116a9451f559c835"
+        }
+      },
+      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "attestationUrl": "https://registry.npmjs.org/-/npm/v1/attestations/writerslogic-warm-win32-x64-msvc@0.6.4",
+      "attestationSHA256": "848311564221ed526e0ca8033c7fa5fc19db285fbacb93e1bbf532f232578c8d",
+      "workflow": {
+        "ref": "refs/heads/main",
+        "repository": "https://github.com/writerslogic/warm",
+        "path": ".github/workflows/npm-packages.yml"
+      },
+      "run": "https://github.com/writerslogic/warm/actions/runs/41163657706/attempts/1"
+    }
+  ]
+}

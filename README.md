@@ -202,11 +202,11 @@ project across sessions. Save a profile for a character once; a consistency chec
 catches contradictions — dialogue that doesn't sound like them, a limp that disappears for a
 chapter.
 
-**Search by meaning.** "Find scenes where the protagonist feels isolated" works even if that word
-never appears, within the disclosed English story-concept vocabulary. The installed
-[Holographic Memory System](https://www.npmjs.com/package/holographic-memory) combines native BM25
-with supplied local concept vectors. Results include exact passages, locations and saved revisions;
-changed passages are replaced incrementally. Provider interpretation and explanations are optional.
+**Search by meaning.** [Warm 0.6.4](https://www.npmjs.com/package/writerslogic-warm) combines native
+BM25 with local embeddings and optional cross-encoder reranking. Configure local ONNX models for
+general semantic search; the default encoder covers a disclosed English story-concept vocabulary.
+Results include exact passages, locations and saved revisions; changed passages update incrementally.
+No embedding provider is required. See [local search configuration](docs/editorial-workflows.md#find-passages-locally).
 
 **Track relationships.** Record and query how characters, locations, themes, and plot threads
 connect. Relationships persist in the project's local SQLite state. Discovery proposes unrecorded

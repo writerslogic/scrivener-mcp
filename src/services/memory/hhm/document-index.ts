@@ -1,4 +1,11 @@
-import type { DocumentInput, DocumentResult, SearchOptions } from 'holographic-memory';
+import type {
+	DocumentInput,
+	DocumentResult,
+	ListedDocument,
+	SearchOptions,
+} from 'writerslogic-warm';
+
+export const MAX_DOCUMENT_EMBEDDING_VALUES = 1048576;
 
 export type HMSDocumentInput = Omit<DocumentInput, 'metadata'> & {
 	metadata?: Record<string, unknown>;
@@ -176,7 +183,7 @@ export function validateHMSDocumentBatch(
 				throw new RangeError('HMS requires one embedding for each document chunk');
 			embeddings = input.embeddings.map((row) => {
 				embeddingValues += row?.length ?? 0;
-				if (embeddingValues > 1048576)
+				if (embeddingValues > MAX_DOCUMENT_EMBEDDING_VALUES)
 					throw new RangeError('HMS batch exceeds 1048576 embedding values');
 				return normalize(row, space);
 			});
@@ -344,6 +351,24 @@ export class FallbackDocumentIndex {
 
 	delete(id: string): boolean {
 		return this.documents.delete(id);
+	}
+
+	list(after: string | undefined, limit: number): ListedDocument[] {
+		return [...this.documents.values()]
+			.filter(
+				({ input }) =>
+					after === undefined ||
+					Buffer.compare(Buffer.from(input.id), Buffer.from(after)) > 0
+			)
+			.sort((a, b) => Buffer.compare(Buffer.from(a.input.id), Buffer.from(b.input.id)))
+			.slice(0, limit)
+			.map(({ input, chunks }) => ({
+				id: input.id,
+				version: input.version ?? '',
+				sourceUri: input.sourceUri,
+				metadata: cloneHMSMetadata(input.metadata ?? {}),
+				chunkCount: chunks.length,
+			}));
 	}
 
 	search(text: string, options: HMSSearchOptions): HMSDocumentResult[] {

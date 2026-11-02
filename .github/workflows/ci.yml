@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 jobs:
   build:
     needs: c2pa-rebuild

@@ -1,7 +1,10 @@
+import { semanticSearchHandler } from '../../../src/handlers/analysis-handlers/advanced.js';
+import type { HandlerContext } from '../../../src/handlers/types.js';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { WarmModels } from '../../../src/services/memory/warm-models.js';
 import { PassageSearch } from '../../../src/services/editorial/passage-search.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 import { HolographicMemorySystem } from '../../../src/services/memory/hhm/holographic-memory-system.js';
@@ -82,6 +85,200 @@ describe('local passage retrieval', () => {
 		openSearch();
 	});
 
+	async function modelSearch(rerank?: WarmModels['rerank'], dimensions = 2): Promise<WarmModels> {
+		await search.close();
+		store.close();
+		const space = {
+			model: 'fixture-local-model',
+			revision: '1',
+			dimensions,
+			normalization: 'l2' as const,
+			metric: 'cosine' as const,
+		};
+		engine = new HolographicMemorySystem({
+			engine: 'fallback',
+			dimensions: 30,
+			embeddingSpace: space,
+		});
+		engines.add(engine);
+		const models: WarmModels = {
+			fingerprint: 'a'.repeat(64),
+			embedder: {
+				space,
+				encodeDocuments: async (texts) =>
+					texts.map((text) => [
+						...(text.includes('orchid') ? [1, 0] : [0.8, 0.6]),
+						...new Array<number>(dimensions - 2).fill(0),
+					]),
+				encodeQuery: async () => [1, ...new Array<number>(dimensions - 1).fill(0)],
+			},
+			rerank,
+			close: jest.fn(async () => undefined),
+		};
+		store = new PersistentStore(join(dir, 'editorial.sqlite'));
+		search = new PassageSearch(source, store, engine, models);
+		return models;
+	}
+
+	it('retrieves model semantics outside the concept vocabulary with exact source scope', async () => {
+		documents.splice(2);
+		reviseDocument(0, 'An orchid bloomed beneath the window.');
+		reviseDocument(1, 'A steam locomotive crossed the viaduct.');
+		const models = await modelSearch();
+		const result = await search.search('botanical specimen', { mode: 'semantic' });
+		expect(result.results[0]).toMatchObject({
+			documentId: documents[0].documentId,
+			quote: documents[0].text,
+			revision: documents[0].revision,
+			semanticScore: 1,
+			matchedConcepts: [],
+		});
+		expect(result.method).toContain('local model embeddings');
+		const scoped = await search.search('botanical specimen', {
+			mode: 'semantic',
+			documentIds: [documents[1].documentId],
+		});
+		expect(scoped.results.map((hit) => hit.documentId)).toEqual([documents[1].documentId]);
+		await search.close();
+		expect(models.close).not.toHaveBeenCalled();
+	});
+
+	it('reranks verified candidates and preserves keyword ordering and component scores', async () => {
+		documents.splice(2);
+		reviseDocument(0, 'An orchid bloomed beneath the window.');
+		reviseDocument(1, 'A steam locomotive crossed the viaduct.');
+		const rerank = jest.fn(async (_query: string, texts: string[]) =>
+			texts.map((text) => (text.includes('locomotive') ? 4 : -2))
+		);
+		await modelSearch(rerank);
+		const result = await search.search('botanical specimen', { mode: 'semantic' });
+		expect(result.results.map((hit) => hit.documentId)).toEqual([
+			documents[1].documentId,
+			documents[0].documentId,
+		]);
+		expect(result.results[1]).toMatchObject({ score: -2, semanticScore: 1 });
+		expect((await search.search('orchid', { mode: 'keyword' })).results[0].documentId).toBe(
+			documents[0].documentId
+		);
+		expect(rerank).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([{ scores: [] }, { scores: [NaN] }, { scores: [Infinity] }])(
+		'rejects invalid reranker outputs %j',
+		async ({ scores }) => {
+			documents.splice(1);
+			await modelSearch(async () => scores);
+			await expect(search.search('botanical specimen', { mode: 'semantic' })).rejects.toThrow(
+				'one finite score'
+			);
+		}
+	);
+
+	it('keeps failed embedding batches pending and retries without partial documents', async () => {
+		documents.splice(2);
+		const models = await modelSearch();
+		jest.spyOn(engine, 'getStats').mockReturnValue({
+			...engine.getStats(),
+			persistentDocuments: true,
+		});
+		jest.spyOn(models.embedder!, 'encodeDocuments').mockResolvedValueOnce([
+			[1, 0],
+			[NaN, 0],
+		]);
+		await expect(search.refresh()).rejects.toThrow();
+		expect(await engine.listDocuments()).toEqual([]);
+		expect(
+			store.get<SyncCatalog>('passage-hms:fixture-project:' + models.fingerprint, 'v2')
+				?.pending
+		).toHaveLength(2);
+		await search.refresh();
+		expect(await engine.listDocuments()).toHaveLength(2);
+	});
+
+	it('repairs lost native documents and removes orphaned owned passages on reopening', async () => {
+		jest.spyOn(engine, 'getStats').mockReturnValue({
+			...engine.getStats(),
+			persistentDocuments: true,
+		});
+		await search.refresh();
+		const original = (await engine.searchDocuments('plan'))[0];
+		await engine.deleteDocument(original.documentId);
+		await engine.memorizeDocuments([
+			{
+				id: 'f'.repeat(64),
+				text: 'obsolete',
+				metadata: {
+					projectId: source.projectId,
+					indexVersion: 2,
+					passageId: 'f'.repeat(64),
+				},
+			},
+		]);
+		const retained = engine;
+		await search.close();
+		store.close();
+		openSearch(retained);
+		await search.refresh();
+		expect((await engine.searchDocuments('plan'))[0].documentId).toBe(original.documentId);
+		expect(await engine.searchDocuments('obsolete')).toEqual([]);
+		expect(await engine.listDocuments()).toHaveLength(documents.length);
+	});
+
+	it('retries failed native index maintenance after a completed document update', async () => {
+		await search.refresh();
+		reviseDocument(0, 'An orchid bloomed.');
+		const maintain = jest
+			.spyOn(engine, 'maintainDocumentIndex')
+			.mockRejectedValueOnce(new Error('index unavailable'));
+		await expect(search.refresh()).rejects.toThrow('index unavailable');
+		await search.refresh();
+		expect(maintain).toHaveBeenCalledTimes(2);
+		expect((await search.search('orchid', { mode: 'keyword' })).results[0].quote).toBe(
+			documents[0].text
+		);
+	});
+
+	it.each([0.799, 0.8, 0.801])(
+		'applies public semantic threshold %d to cosine, independently of reranker logits',
+		async (threshold) => {
+			documents.splice(2);
+			reviseDocument(0, 'An orchid bloomed.');
+			reviseDocument(1, 'A locomotive crossed the viaduct.');
+			await modelSearch(async (_query, texts) =>
+				texts.map((text) => (text.includes('locomotive') ? -1 : -2))
+			);
+			const context = {
+				project: { getEditorialServices: () => ({ search }) },
+			} as unknown as HandlerContext;
+			const response = await semanticSearchHandler.handler(
+				{ query: 'botanical specimen', threshold },
+				context
+			);
+			const results = response.structuredContent!.results as Array<{
+				score: number;
+				id: string;
+			}>;
+			expect(results).toHaveLength(threshold > 0.8 ? 1 : 2);
+			expect(results.every((result) => result.score >= threshold)).toBe(true);
+			if (threshold <= 0.8) expect(results[0].id).toBe(documents[1].documentId);
+		}
+	);
+
+	it.each([255, 256, 257])(
+		'indexes %d high-dimensional passages within the native vector allocation limit',
+		async (count) => {
+			const template = documents[0];
+			documents = Array.from({ length: count }, (_, index) => ({
+				...template,
+				documentId: 'scene-' + index,
+				order: index,
+			}));
+			await modelSearch(undefined, 4096);
+			await search.refresh();
+			expect(await engine.listDocuments(undefined, 1000)).toHaveLength(count);
+		}
+	);
+
 	it('retains absolute cosine relevance when every indexed passage matches the concept', async () => {
 		documents.splice(2);
 		reviseDocument(0, 'Her hands shook.');
@@ -135,7 +332,7 @@ describe('local passage retrieval', () => {
 		});
 		expect(unknown.results).toEqual([]);
 		expect(unknown.limitations).toContain('bounded English');
-		expect(unknown.method).toContain('HMS document');
+		expect(unknown.method).toContain('Warm document');
 		expect(store.get('passage-hms:fixture-project', 'v2')).toBeUndefined();
 	});
 

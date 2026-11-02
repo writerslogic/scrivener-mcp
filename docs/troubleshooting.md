@@ -216,7 +216,7 @@ next configured provider automatically.
 
 The Holographic Memory System includes a JavaScript fallback and does not require the optional Rust
 binary. Open a project first so its memory/index layer can initialize, then activate the memory
-skill. Installing `holographic-memory` enables the faster Rust implementation automatically.
+skill. Installing `writerslogic-warm` enables the faster Rust implementation automatically.
 
 ## Neo4j connection errors
 
