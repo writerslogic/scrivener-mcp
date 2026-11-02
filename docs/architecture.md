@@ -305,6 +305,14 @@ offset arrays.
 SQLite for structured data (writing sessions, content analysis history, entity relationships).
 Optional Neo4j for graph queries (character relationships, story structure, theme progression).
 
+Content analysis history preserves existing JSON records. New payloads of at least 4096 bytes use
+versioned gzip/base64 storage when it is smaller; compressed records require a reader that supports
+version 1. Writes and decoded history pages are limited to 64 MiB. Reads stream bounded rows and
+reject corrupt encodings or excessive decompression. Up to 1000 history entries can be returned;
+larger histories require explicit `limit`/`offset` pages, without deleting earlier records. Entries
+with equal timestamps are ordered by descending insertion ID. Chapter context requests only the
+latest entry.
+
 Document synchronization finishes optional graph I/O before an atomic SQLite upsert, keeping local
 transactions out of remote waits. Queue synchronization commits each document independently and
 reports individual failures, so a failed document cannot roll back a sibling already counted as

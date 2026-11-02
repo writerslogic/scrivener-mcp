@@ -806,7 +806,8 @@ export class ContextAnalyzer {
 	async getChapterContext(documentId: string): Promise<ChapterContext | null> {
 		const history = await this.databaseService.getContentAnalysisHistory(
 			documentId,
-			'chapter_context'
+			'chapter_context',
+			{ limit: 1 }
 		);
 
 		if (history.length > 0) {
