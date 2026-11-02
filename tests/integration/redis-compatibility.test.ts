@@ -1,5 +1,8 @@
 import { expect, it } from '@jest/globals';
 import { createServer, type Socket } from 'node:net';
+import { Redis } from 'ioredis';
+import * as detector from '../../src/services/queue/keydb-detector.js';
+import { KeyDBCache } from '../../src/handlers/database/keydb-cache.js';
 import {
 	createBullMQConnection,
 	detectConnection,
@@ -182,3 +185,108 @@ it.each([
 ])('rejects invalid explicit Redis candidates before discovery: %j', async (value) => {
 	await expect(detectConnection(value as readonly string[])).rejects.toThrow(/explicit|Explicit/);
 });
+
+it.each(['discovery', 'ping', 'read', 'write', 'quit', 'disconnect'])(
+	'releases a real socket when Redis stops replying during %s',
+	async (phase) => {
+		const sockets = new Set<Socket>();
+		const closed: Promise<void>[] = [];
+		let fixtureError: unknown;
+		const server = createServer((socket) => {
+			sockets.add(socket);
+			closed.push(
+				new Promise<void>((resolve) =>
+					socket.once('close', () => {
+						sockets.delete(socket);
+						resolve();
+					})
+				)
+			);
+			socket.on('error', () => undefined);
+			let buffered = Buffer.alloc(0);
+			socket.on('data', (chunk: Buffer) => {
+				try {
+					buffered = Buffer.concat([buffered, chunk]);
+					if (buffered.length > 65536) throw new Error('Fixture request too large');
+					for (;;) {
+						const request = readRequest(buffered);
+						if (!request) break;
+						buffered = buffered.subarray(request.bytes);
+						const command = request.args[0].toUpperCase();
+						if (
+							phase === 'discovery' ||
+							(phase === 'ping' && command === 'PING') ||
+							(phase === 'read' && ['GET', 'GETRANGE'].includes(command)) ||
+							(phase === 'write' && command === 'SETEX') ||
+							(phase === 'quit' && command === 'QUIT')
+						)
+							continue;
+						if (command === 'PING') socket.write('+PONG\r\n');
+						else if (command === 'GET' || command === 'GETRANGE')
+							socket.write('$-1\r\n');
+						else if (command === 'QUIT') socket.end('+OK\r\n');
+						else if (['CLIENT', 'SETEX'].includes(command)) socket.write('+OK\r\n');
+						else throw new Error(`Unexpected fixture command: ${command}`);
+					}
+				} catch (error) {
+					fixtureError = error;
+					socket.destroy();
+				}
+			});
+		});
+		const cache = new KeyDBCache();
+		try {
+			await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+			const address = server.address();
+			if (!address || typeof address === 'string') throw new Error('Fixture did not bind');
+			const url = `redis://127.0.0.1:${address.port}`;
+			if (phase === 'discovery') {
+				expect((await within(detectConnection([url]), 4000)).isAvailable).toBe(false);
+			} else {
+				let connectionEnded: Promise<void> | undefined;
+				if (phase === 'disconnect') {
+					const connect = Redis.prototype.connect;
+					jest.spyOn(Redis.prototype, 'connect').mockImplementation(function (
+						this: Redis
+					) {
+						connectionEnded = new Promise<void>((resolve) => this.once('end', resolve));
+						return connect.call(this);
+					});
+				}
+				jest.spyOn(detector, 'detectConnection').mockResolvedValue({
+					type: 'redis',
+					url,
+					isAvailable: true,
+				});
+				expect(await within(cache.initialize(), 4000)).toBe(phase !== 'ping');
+				if (phase === 'disconnect') {
+					expect(connectionEnded).toBeDefined();
+					for (const socket of sockets) socket.end();
+					await within(connectionEnded!);
+					expect(await within(cache.getOrSet('after-disconnect', async () => 42))).toBe(
+						42
+					);
+				}
+				if (phase === 'read' || phase === 'write') {
+					expect(
+						await within(
+							cache.getOrSet('fixture', async () => 42),
+							4000
+						)
+					).toBe(42);
+				}
+				await within(cache.close(), 4000);
+			}
+			await within(Promise.all(closed));
+			expect(sockets.size).toBe(0);
+			expect(fixtureError).toBeUndefined();
+		} finally {
+			for (const socket of sockets) socket.destroy();
+			await within(cache.close());
+			await new Promise<void>((resolve, reject) =>
+				server.close((error) => (error ? reject(error) : resolve()))
+			);
+			jest.restoreAllMocks();
+		}
+	}
+);
