@@ -1,8 +1,6 @@
-import { dirname } from 'node:path';
-import { rmSync } from 'node:fs';
 import { asyncHandlerDefinitions } from '../../../src/handlers/async-handler-definitions.js';
 import { getJobStatus } from '../../../src/handlers/async-handlers.js';
-import { readResult } from '../../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../../src/core/response-formatter.js';
 import type { HandlerContext } from '../../../src/handlers/types.js';
 
 jest.mock('../../../src/handlers/async-handlers.js', () => ({ getJobStatus: jest.fn() }));
@@ -32,7 +30,7 @@ test.each([false, true])(
 			{} as HandlerContext
 		);
 		const output = response.structuredContent as typeof original & {
-			result: { _ref?: string; _file?: string };
+			result: { _ref?: string };
 		};
 		expect(response.content[0].type).toBe('text');
 		const text = response.content[0].text;
@@ -53,7 +51,7 @@ test.each([false, true])(
 				} while (offset !== null);
 				expect(JSON.parse(text)).toEqual(original.result);
 			} finally {
-				rmSync(dirname(output.result._file!), { recursive: true, force: true });
+				disposeSpool();
 			}
 		}
 	}

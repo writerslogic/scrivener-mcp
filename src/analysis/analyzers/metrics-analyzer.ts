@@ -1,4 +1,7 @@
-import { getWritingTextMetrics as getTextMetrics } from '../../utils/text-metrics.js';
+import {
+	getWritingTextMetrics as getTextMetrics,
+	hasEnglishReadabilityEvidence,
+} from '../../utils/text-metrics.js';
 import { getLogger } from '../../core/logger.js';
 import { computeReadability } from 'narrative-lens';
 import { generateHash } from '../../utils/common.js';
@@ -28,7 +31,7 @@ export class MetricsAnalyzer {
 		textMetrics?: ReturnType<typeof getTextMetrics>
 	): Promise<WritingMetrics> {
 		const contentHash = generateHash(content);
-		const cacheKey = `metrics:${contentHash}`;
+		const cacheKey = `metrics:language-v1:${contentHash}`;
 		const context = ['metrics', 'text-analysis', contentHash.substring(0, 8)];
 
 		// Try predictive cache first
@@ -46,11 +49,15 @@ export class MetricsAnalyzer {
 			// Use pre-calculated metrics if available, otherwise calculate
 			const metrics = textMetrics || getTextMetrics(content);
 
-			const readability = computeReadability(content);
-			const fleschReadingEase = readability.wordCount
+			const readability = hasEnglishReadabilityEvidence(content)
+				? computeReadability(content)
+				: undefined;
+			const fleschReadingEase = readability?.wordCount
 				? Math.max(0, Math.min(100, readability.fleschEase))
 				: null;
-			const fleschKincaidGrade = readability.wordCount ? Math.max(0, readability.fkgl) : null;
+			const fleschKincaidGrade = readability?.wordCount
+				? Math.max(0, readability.fkgl)
+				: null;
 
 			return {
 				wordCount: metrics.wordCount,

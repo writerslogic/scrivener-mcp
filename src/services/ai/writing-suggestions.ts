@@ -76,7 +76,8 @@ export class WritingSuggestions {
 		return { ...snapshot, expectedRevision: document.revision };
 	}
 
-	async generate(request: PreparedSuggestions): Promise<SuggestionResult> {
+	async generate(request: PreparedSuggestions, signal?: AbortSignal): Promise<SuggestionResult> {
+		signal?.throwIfAborted();
 		validateRequest(request, true);
 		const { prompt, documentId, useContext, expectedRevision } = request;
 		if (
@@ -106,9 +107,11 @@ export class WritingSuggestions {
 			};
 		}
 		const suggestions = await this.writing.generateWithContext(prompt, {
+			signal,
 			topK: 0,
 			context: excerpt,
 		});
+		signal?.throwIfAborted();
 		if (typeof suggestions !== 'string' || !suggestions.trim())
 			throw new Error('Suggestion generation unavailable: the provider returned no text');
 		if (source && (await this.read(source, documentId!)).revision !== expectedRevision)

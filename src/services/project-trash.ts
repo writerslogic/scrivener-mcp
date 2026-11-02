@@ -1,7 +1,6 @@
 import { getLogger } from '../core/logger.js';
 import { DOCUMENT_TYPES } from '../core/constants.js';
 import type { CompilationService } from './compilation-service.js';
-import type { DocumentManager } from './document-manager.js';
 import type { ScrivenerDocument } from '../types/index.js';
 
 const logger = getLogger('scrivener-project');
@@ -9,9 +8,7 @@ const logger = getLogger('scrivener-project');
 /** Trash listing, search and recovery. */
 export class ProjectTrash {
 	constructor(
-		private readonly documentManager: DocumentManager,
 		private readonly compilationService: CompilationService,
-		private readonly saveProject: () => Promise<void>,
 		private readonly readDocument: (documentId: string) => Promise<string>,
 		private readonly getProjectStructure: (
 			includeTrash?: boolean
@@ -21,13 +18,23 @@ export class ProjectTrash {
 	async getTrashDocuments(): Promise<ScrivenerDocument[]> {
 		const allDocs = await this.getProjectStructure(true);
 		const trashDocs: ScrivenerDocument[] = [];
-
-		for (const doc of allDocs) {
-			if (doc.path && doc.path.startsWith('Trash/')) {
+		const visit = (doc: ScrivenerDocument): void => {
+			if (doc.type !== DOCUMENT_TYPES.FOLDER) {
 				trashDocs.push(doc);
 			}
+			for (const child of doc.children ?? []) visit(child);
+		};
+		const nativeTrash = allDocs.find((doc) => (doc.type as string) === 'TrashFolder');
+		if (nativeTrash) for (const doc of nativeTrash.children ?? []) visit(doc);
+		else {
+			const active = new Set<string>();
+			const collect = (doc: ScrivenerDocument): void => {
+				active.add(doc.id);
+				for (const child of doc.children ?? []) collect(child);
+			};
+			for (const doc of await this.getProjectStructure(false)) collect(doc);
+			for (const doc of allDocs) if (!active.has(doc.id)) visit(doc);
 		}
-
 		return trashDocs;
 	}
 
@@ -49,16 +56,13 @@ export class ProjectTrash {
 						metadata: {},
 					});
 				} catch (err) {
+					if (!['ENOENT', 'NOT_FOUND'].includes((err as { code?: string }).code ?? ''))
+						throw err;
 					logger.debug('Skipped trash document during scan', { id: doc.id, error: err });
 				}
 			}
 		}
 
 		return this.compilationService.searchInDocuments(docsWithContent, query, options);
-	}
-
-	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
-		await this.documentManager.recoverFromTrash(documentId, targetParentId);
-		await this.saveProject();
 	}
 }

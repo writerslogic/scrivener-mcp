@@ -19,6 +19,9 @@ type Metrics = {
 	rssPeakBytes: number;
 	rssGrowthBytes: number;
 	lifetimeHighWaterBytes: number;
+	processTreeRssPeakBytes: number;
+	processTreeSamples: number;
+	processTreeError?: string;
 };
 const corpus = JSON.parse(
 	readFileSync(join(__dirname, '../fixtures/narrative-novels.json'), 'utf8')
@@ -27,7 +30,12 @@ const directory = process.env.SCRIVENER_NOVEL_CORPUS;
 const samples = Number(process.env.SCRIVENER_NOVEL_SAMPLES ?? 1);
 if (!Number.isSafeInteger(samples) || samples < 1 || samples > 5)
 	throw new Error('Novel sample count must be between one and five');
-const budgets = { elapsedMs: 5000, eventLoopLagMs: 100, rssGrowthBytes: 128 * 1024 * 1024 };
+const budgets = {
+	elapsedMs: 5000,
+	eventLoopLagMs: 100,
+	rssGrowthBytes: 128 * 1024 * 1024,
+	processTreeRssPeakBytes: 2 * 1024 * 1024 * 1024,
+};
 const measurements: Record<string, unknown>[] = [];
 const sourceRoot = resolve(__dirname, '../..');
 const loader = pathToFileURL(createRequire(join(sourceRoot, 'package.json')).resolve('tsx')).href;
@@ -44,7 +52,7 @@ afterAll(async () => {
 				platform: `${process.platform}-${process.arch}`,
 				samplesPerPhase: samples,
 				budgets,
-				scope: 'Real src/index.ts server in a separate process, public MCP tools over stdio, complete pinned novel fixtures and 32768-byte result pages. Server RSS and event-loop lag sampled every 5 ms exclude client/Jest and all native children. Native children report lifetime high-water RSS after native execution and after serialization: on the next event-loop turn for the persistent context, and at process exit for comparisons. The sum of observed process peaks is not simultaneous RSS or a containment bound. Elapsed time includes client reconstruction, child instrumentation and local IPC. Setup, project opening and OS cold disk cache are excluded. Cold means a reopened project with fresh native/source caches. Sampling can miss peaks. This is workload evidence, not RSS containment or editorial accuracy.',
+				scope: 'Real src/index.ts server in a separate process, public MCP tools over stdio, complete pinned novel fixtures and 32768-byte result pages. Server RSS and event-loop lag sampled every 5 ms exclude client/Jest and all native children. Native children report lifetime high-water RSS after native execution and after serialization: on the next event-loop turn for the persistent context, and at process exit for comparisons. The sum of observed process peaks is not simultaneous RSS or a containment bound. Elapsed time includes client reconstruction, child instrumentation and local IPC. Setup, project opening and OS cold disk cache are excluded. Cold means a reopened project with fresh native/source caches. Simultaneous server/descendant RSS is sampled using ps every 100 ms plus operation boundaries, including measurement overhead but excluding client/Jest; sample peaks are not hard containment. Sampling can miss peaks. This is workload evidence, not RSS containment or editorial accuracy.',
 				measurements,
 			},
 			null,
@@ -217,6 +225,11 @@ module.exports = { ...native,
 						phase === 'cold' ? { saveAs: 'baseline' } : { baseline: 'baseline' }
 					);
 					const metrics = (await control('end'))!;
+					expect(metrics.processTreeError).toBeUndefined();
+					expect(metrics.processTreeSamples).toBeGreaterThan(0);
+					expect(metrics.processTreeRssPeakBytes).toBeLessThanOrEqual(
+						budgets.processTreeRssPeakBytes
+					);
 					const nativeResources = (await readFile(childResources, 'utf8'))
 						.trim()
 						.split('\n')

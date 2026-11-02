@@ -51,7 +51,7 @@ export class SQLQueryBuilder {
 	}
 
 	whereIn(column: string, values: unknown[]): this {
-		if (values.length === 0) return this;
+		if (values.length === 0) return this.where('1 = 0');
 		const placeholders = values.map(() => '?').join(', ');
 		this.whereConditions.push(`${column} IN (${placeholders})`);
 		this.params.push(...values);
@@ -114,7 +114,7 @@ export class SQLQueryBuilder {
 		}
 
 		if (this.whereConditions.length > 0) {
-			sql += ` WHERE ${this.whereConditions.join(' AND ')}`;
+			sql += ` WHERE ${this.whereConditions.map((condition) => `(${condition})`).join(' AND ')}`;
 		}
 
 		if (this.groupByClause) {

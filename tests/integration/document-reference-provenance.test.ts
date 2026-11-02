@@ -10,7 +10,7 @@ import { ProjectSource } from '../../src/services/editorial/project-source.js';
 import { RTFHandler } from '../../src/services/parsers/rtf-handler.js';
 import { documentGraphHandlers } from '../../src/handlers/document-graph-handlers.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 import type { ScrivenerDocument } from '../../src/types/index.js';
 
 const tools = new Map(documentGraphHandlers.map((tool) => [tool.name, tool]));
@@ -28,7 +28,6 @@ const inputs = new Map(
 	])
 );
 const rtf = new RTFHandler();
-const spools = new Set<string>();
 let root: string;
 let store: PersistentStore;
 let sqlite: SQLiteManager;
@@ -48,7 +47,7 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 	let data = response.structuredContent!;
 	if (typeof data._ref === 'string') {
 		expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThan(4000);
-		spools.add(dirname(data._file as string));
+
 		let offset: number | null = 0,
 			json = '';
 		do {
@@ -106,7 +105,7 @@ afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 afterAll(async () => {
-	for (const directory of spools) await rm(directory, { recursive: true, force: true });
+	disposeSpool();
 });
 
 test('reads actual saved RTF across active source scope and returns source/registry provenance', async () => {

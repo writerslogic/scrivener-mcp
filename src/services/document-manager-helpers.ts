@@ -5,6 +5,7 @@
 import { createError, ErrorCode } from '../core/errors.js';
 import { validateInput, type ValidationSchema } from '../utils/common.js';
 import type { BinderItem, BinderContainer, ProjectStructure } from '../types/internal.js';
+import { getDocumentType } from '../utils/scrivener-utils.js';
 
 export function validateProjectStructure(
 	projectStructure?: ProjectStructure
@@ -212,7 +213,7 @@ export function addBinderChild(parent: BinderItem, item: BinderItem, position?: 
  */
 export function findParentFolder(container: BinderContainer, id: string): BinderItem | undefined {
 	const parent = findBinderItemById(container, id);
-	return parent && parent.Type === 'Folder' ? parent : undefined;
+	return parent && getDocumentType(parent.Type) === 'Folder' ? parent : undefined;
 }
 
 export function countBinderItems(container: BinderContainer): number {

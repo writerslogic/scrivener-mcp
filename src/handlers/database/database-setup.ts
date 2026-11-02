@@ -1,3 +1,4 @@
+import { readProjectTextFile, assertProjectArtifactPath } from '../../utils/scrivener-utils.js';
 /**
  * Database Setup and Configuration Helper
  * Handles database installation detection and configuration
@@ -7,16 +8,7 @@ import { exec } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
-import {
-	AppError,
-	ensureDir,
-	ErrorCode,
-	getEnv,
-	safeParse,
-	safeReadFile,
-	writeJSON,
-} from '../../utils/common.js';
-import { waitForServiceReady } from '../../utils/condition-waiter.js';
+import { ensureDir, getEnv, writeJSON } from '../../utils/common.js';
 
 const execAsync = promisify(exec);
 
@@ -24,6 +16,7 @@ export interface DatabaseSetupOptions {
 	projectPath: string;
 	interactive?: boolean;
 	useEnvironmentVars?: boolean;
+	bindAddress?: string;
 }
 
 export interface DatabaseCredentials {
@@ -76,8 +69,11 @@ export class DatabaseSetup {
 				'bolt://localhost:7687',
 				neo4j.default.auth.basic('neo4j', 'neo4j')
 			);
-			await driver.verifyConnectivity();
-			await driver.close();
+			try {
+				await driver.verifyConnectivity();
+			} finally {
+				await driver.close();
+			}
 			result.running = true;
 		} catch {
 			// Server not responding
@@ -97,31 +93,29 @@ export class DatabaseSetup {
 		};
 
 		const envPath = path.join(options.projectPath, '.env');
-		try {
-			const envContent = await safeReadFile(envPath);
+		const envContent = await readProjectTextFile(options.projectPath, envPath, {
+			maxBytes: 64 * 1024,
+			optional: true,
+		});
+		if (envContent !== undefined) {
 			const envVars = this.parseEnvFile(envContent);
-
 			if (envVars.NEO4J_URI) credentials.neo4j.uri = envVars.NEO4J_URI;
 			if (envVars.NEO4J_USER) credentials.neo4j.user = envVars.NEO4J_USER;
 			if (envVars.NEO4J_PASSWORD) credentials.neo4j.password = envVars.NEO4J_PASSWORD;
 			if (envVars.NEO4J_DATABASE) credentials.neo4j.database = envVars.NEO4J_DATABASE;
-		} catch {
-			// .env file not found or not readable
 		}
-
-		const configPath = path.join(
-			options.projectPath,
-			'.scrivener-databases',
-			'credentials.json'
-		);
-		try {
-			const configContent = await safeReadFile(configPath);
-			const config = safeParse(configContent, {}) as Record<string, unknown>;
-			if (config.neo4j) {
-				Object.assign(credentials.neo4j, config.neo4j);
+		const config = await this.readCredentialConfig(options.projectPath);
+		if (config.neo4j !== undefined) {
+			if (!config.neo4j || typeof config.neo4j !== 'object' || Array.isArray(config.neo4j))
+				throw new Error('Invalid Neo4j credential configuration');
+			const values = config.neo4j as Record<string, unknown>;
+			for (const key of ['uri', 'user', 'password', 'database'] as const) {
+				const value = values[key];
+				if (value === undefined) continue;
+				if (typeof value !== 'string' || value.length > 4096 || /[\r\n\0]/.test(value))
+					throw new Error('Invalid Neo4j credential field');
+				credentials.neo4j[key] = value;
 			}
-		} catch {
-			// Config file not found
 		}
 
 		return credentials;
@@ -130,62 +124,16 @@ export class DatabaseSetup {
 	/**
 	 * Setup Neo4j using Docker if not installed
 	 */
-	static async setupNeo4jWithDocker(): Promise<boolean> {
-		try {
-			console.error('Setting up Neo4j with Docker...');
-
-			// Pull Neo4j image
-			await execAsync('docker pull neo4j:latest');
-
-			const runCommand = `
-				docker run -d \
-				--name scrivener-neo4j \
-				-p 7474:7474 -p 7687:7687 \
-				-e NEO4J_AUTH=neo4j/scrivener-mcp \
-				-e NEO4J_PLUGINS='["apoc"]' \
-				-v scrivener-neo4j-data:/data \
-				neo4j:latest
-			`
-				.replace(/\s+/g, ' ')
-				.trim();
-
-			await execAsync(runCommand);
-
-			// Wait for Neo4j to start
-			await this.waitForNeo4j();
-
-			console.error('Neo4j container started successfully');
-			return true;
-		} catch (error) {
-			console.error('Failed to setup Neo4j with Docker:', error);
-			return false;
-		}
-	}
-
-	/**
-	 * Wait for Neo4j to become available
-	 */
-	private static async waitForNeo4j(maxAttempts = 30): Promise<void> {
-		const neo4j = await import('neo4j-driver');
-
-		// Use condition-based waiting instead of loop with fixed delays
-		await waitForServiceReady('localhost', 7687, maxAttempts * 1000);
-
-		// Final connectivity verification
-		try {
-			const driver = neo4j.default.driver(
-				'bolt://localhost:7687',
-				neo4j.default.auth.basic('neo4j', 'scrivener-mcp')
-			);
-			await driver.verifyConnectivity();
-			await driver.close();
-		} catch (error) {
-			throw new AppError(
-				'Neo4j service is running but authentication failed',
-				ErrorCode.INITIALIZATION_ERROR,
-				{ originalError: (error as Error).message }
-			);
-		}
+	static async setupNeo4jWithDocker(options: DatabaseSetupOptions): Promise<boolean> {
+		const { Neo4jAutoInstaller } = await import('./auto-installer.js');
+		const result = await Neo4jAutoInstaller.install({
+			method: 'docker',
+			interactive: options.interactive ?? false,
+			projectPath: options.projectPath,
+			autoStart: true,
+			bindAddress: options.bindAddress,
+		});
+		return result.success;
 	}
 
 	static getSetupInstructions(): string {
@@ -206,7 +154,7 @@ Option 1: Docker (Recommended)
 -------------------------------
 1. Install Docker: https://docs.docker.com/get-docker/
 2. Run: docker run -d --name scrivener-neo4j \\
-        -p 7474:7474 -p 7687:7687 \\
+        -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \\
         -e NEO4J_AUTH=neo4j/your-password \\
         neo4j:latest
 
@@ -275,14 +223,13 @@ but you'll miss out on advanced features like:
 		const configDir = path.dirname(configPath);
 
 		await ensureDir(configDir);
+		const directory = await fs.lstat(configDir);
+		if (!directory.isDirectory() || directory.isSymbolicLink())
+			throw new Error('Credential directory must be a real directory');
+		await fs.chmod(configDir, 0o700);
 
-		let existing: Record<string, unknown> = {};
-		try {
-			const content = await safeReadFile(configPath);
-			existing = safeParse(content, {});
-		} catch {
-			// File doesn't exist yet
-		}
+		const existing = await this.readCredentialConfig(projectPath);
+		assertProjectArtifactPath(projectPath, configPath);
 
 		const updated = {
 			...existing,
@@ -293,5 +240,22 @@ but you'll miss out on advanced features like:
 		await writeJSON(configPath, updated);
 
 		await fs.chmod(configPath, 0o600); // Read/write for owner only
+	}
+	private static async readCredentialConfig(
+		projectPath: string
+	): Promise<Record<string, unknown>> {
+		const content = await readProjectTextFile(
+			projectPath,
+			path.join(projectPath, '.scrivener-databases', 'credentials.json'),
+			{ maxBytes: 64 * 1024, optional: true }
+		);
+		if (content === undefined) return {};
+		try {
+			const value: unknown = JSON.parse(content);
+			if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
+			return value as Record<string, unknown>;
+		} catch {
+			throw new Error('Invalid database credential configuration');
+		}
 	}
 }

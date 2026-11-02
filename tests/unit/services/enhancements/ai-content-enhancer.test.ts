@@ -39,8 +39,8 @@ describe('AIContentEnhancer', () => {
 			qualityValidation: null,
 		});
 		expect(result.metrics).toEqual({
-			originalWordCount: lens.computeReadability(original).wordCount,
-			enhancedWordCount: lens.computeReadability(enhanced).wordCount,
+			originalWordCount: 5,
+			enhancedWordCount: 5,
 			readabilityChange:
 				lens.computeReadability(enhanced).fleschEase -
 				lens.computeReadability(original).fleschEase,

@@ -10,10 +10,6 @@ export const RESULT_REFERENCE_SCHEMA = {
 			description:
 				'Opaque resultId for read_result; concatenate its text pages before parsing the complete JSON.',
 		},
-		_file: {
-			type: 'string',
-			description: 'Absolute server-local path of the private spooled JSON file.',
-		},
 		_size: {
 			type: 'integer',
 			minimum: 0,
@@ -31,7 +27,7 @@ export const RESULT_REFERENCE_SCHEMA = {
 				'Retrieval instructions and expiration conditions for this spooled result.',
 		},
 	},
-	required: ['_ref', '_file', '_size', '_preview', '_hint'],
+	required: ['_ref', '_size', '_preview', '_hint'],
 };
 
 /**
@@ -40,6 +36,17 @@ export const RESULT_REFERENCE_SCHEMA = {
  */
 
 export const SHARED_DEFS = {
+	dryRun: {
+		type: 'boolean' as const,
+		description:
+			'Validate and preview the structural change without writing. Reuse the returned expectedRevision when applying.',
+	},
+	binderRevision: {
+		type: 'string' as const,
+		pattern: '^[a-f0-9]{64}$',
+		description:
+			'Binder revision returned by a structural preview. A changed binder rejects the operation.',
+	},
 	docId: {
 		type: 'string' as const,
 		description: 'Scrivener document UUID, as returned by get_structure (a binder item "id").',

@@ -1,3 +1,5 @@
+import { formatPayload } from '../core/response-formatter.js';
+import { RESULT_REFERENCE_SCHEMA } from './shared-schemas.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getOptionalStringArg,
@@ -333,11 +335,30 @@ export const storyBibleHandler: ToolDefinition = {
 		properties: {
 			action: {
 				type: 'string',
-				enum: ['list', 'curate', 'correct', 'recheck', 'import_memory'],
+				enum: [
+					'list',
+					'curate',
+					'correct',
+					'recheck',
+					'import_memory',
+					'export_state',
+					'import_state',
+				],
 				description:
 					'Bible operation; memory imports support only current project scope and commit atomically. Imported subjects must fit 200 UTF-16 characters and values 2000; curate longer profiles explicitly. Legacy world context supports up to 1000 locations.',
 			},
 			scope: scopeSchema,
+			snapshot: {
+				type: 'object',
+				description:
+					'Version 1 JSON returned by export_state; at most 1000 facts/4 MiB including history and quoted provenance. import_state merges without deleting existing facts.',
+			},
+			expectedRevision: {
+				type: 'string',
+				pattern: '^[a-f0-9]{64}$',
+				description:
+					'Current target export_state revision required for import_state; a changed target rejects the whole import.',
+			},
 			fact: {
 				type: 'object',
 				description: 'Fact to curate; scope comes from the top-level scope argument.',
@@ -404,6 +425,11 @@ export const storyBibleHandler: ToolDefinition = {
 	outputSchema: {
 		type: 'object',
 		properties: {
+			snapshot: {
+				type: 'object',
+				description:
+					'Versioned human-reviewable story-state snapshot with scope, revision and complete fact history.',
+			},
 			facts: {
 				type: 'array',
 				description:
@@ -423,12 +449,26 @@ export const storyBibleHandler: ToolDefinition = {
 				description: 'Facts with unavailable source documents, when rechecking.',
 			},
 		},
-		required: ['facts'],
+		oneOf: [{ required: ['facts'] }, { required: ['snapshot'] }, RESULT_REFERENCE_SCHEMA],
 	},
 	handler: async (args, context) => {
 		const { bible, source } = requireProject(context).getEditorialServices();
 		const scope = scopeArg(args);
 		const action = getStringArg(args, 'action');
+		if (action === 'export_state') {
+			const snapshot = bible.exportState(scope);
+			const text = formatPayload({ snapshot }, 'story-state');
+			return { content: [{ type: 'text', text }], structuredContent: JSON.parse(text) };
+		}
+		if (action === 'import_state') {
+			const snapshot = await bible.importState(
+				scope,
+				args.snapshot,
+				getStringArg(args, 'expectedRevision')
+			);
+			const text = formatPayload({ snapshot }, 'story-state');
+			return { content: [{ type: 'text', text }], structuredContent: JSON.parse(text) };
+		}
 		if (action === 'list') {
 			if (args.includeSuperseded !== undefined && typeof args.includeSuperseded !== 'boolean')
 				throw new Error('includeSuperseded must be a boolean');

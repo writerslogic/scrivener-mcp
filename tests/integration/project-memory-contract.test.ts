@@ -14,7 +14,7 @@ import { AIClient } from '../../src/services/ai/ai-client.js';
 import { PersistentStore } from '../../src/services/editorial/persistent-store.js';
 import { ProjectSource } from '../../src/services/editorial/project-source.js';
 import { SeriesBible } from '../../src/services/editorial/series-bible.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 import { safeWriteFile } from '../../src/utils/common.js';
 
 jest.mock('../../src/utils/common.js', () => {
@@ -30,7 +30,6 @@ const write = safeWriteFile as jest.MockedFunction<typeof safeWriteFile>;
 const realWrite = jest.requireActual<typeof import('../../src/utils/common.js')>(
 	'../../src/utils/common.js'
 ).safeWriteFile;
-const spools = new Set<string>();
 let root: string;
 let file: string;
 let memory: MemoryManager;
@@ -53,7 +52,6 @@ async function get(memoryType?: string) {
 	expect(recalled(result.structuredContent).valid).toBe(true);
 	let data = result.structuredContent!;
 	if (typeof data._ref === 'string') {
-		spools.add(dirname(data._file as string));
 		let offset: number | null = 0,
 			json = '';
 		do {
@@ -116,7 +114,7 @@ afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 afterAll(async () => {
-	for (const path of spools) await rm(path, { recursive: true, force: true });
+	disposeSpool();
 });
 
 test.each([
@@ -292,7 +290,7 @@ test('large Unicode recalls spool and reconstruct all stored data at one revisio
 	const response = await recall.handler({}, context);
 	expect(typeof response.structuredContent?._ref).toBe('string');
 	expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThan(4000);
-	spools.add(dirname(response.structuredContent!._file as string));
+
 	const result = await get();
 	expect(result.memory.customContext).toEqual(data);
 	expect(result.revision).toBe(saved.revision);

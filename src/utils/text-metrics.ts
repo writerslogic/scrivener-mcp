@@ -6,6 +6,22 @@
 import nlp from 'compromise';
 import { escapeRegExp } from './regex.js';
 
+const wordSegmenter = new Intl.Segmenter('en', { granularity: 'word' });
+const sentenceSegmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+
+function hasNonLatinLetters(text: string): boolean {
+	return /[^\p{Script=Latin}\P{Letter}]/u.test(text);
+}
+
+export function hasEnglishReadabilityEvidence(text: string): boolean {
+	return (
+		!hasNonLatinLetters(text) &&
+		/\b(?:the|and|is|are|was|were|with|this|that|these|those|she|he|they|we|you|his|her|their|our|your|but|from|have|has|had|it|its|my|would|could|should|will|there)\b/iu.test(
+			text
+		)
+	);
+}
+
 /**
  * Normalize text for consistent processing
  */
@@ -64,14 +80,23 @@ function restoreProtectedPeriods(text: string): string {
  */
 export function getAccurateWordCount(content: string): number {
 	if (!content) return 0;
-	return nlp(normalizeText(content)).wordCount();
+	const normalized = normalizeText(content);
+	if (hasNonLatinLetters(normalized)) {
+		let count = 0;
+		for (const segment of wordSegmenter.segment(normalized)) if (segment.isWordLike) count++;
+		return count;
+	}
+	return nlp(normalized).wordCount();
 }
 
 export function getAccurateSentenceCount(content: string): number {
 	if (!content) return 0;
 
-	// Use NLP for sentence detection
 	const text = normalizeText(content);
+	if (hasNonLatinLetters(text))
+		return [...sentenceSegmenter.segment(text)].filter(
+			({ segment }) => getAccurateWordCount(segment) > 0
+		).length;
 	const protectedText = protectAbbreviations(text);
 
 	// Use Compromise's sentence detection

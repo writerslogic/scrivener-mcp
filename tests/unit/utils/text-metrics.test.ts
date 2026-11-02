@@ -32,3 +32,13 @@ test('counts acronym-only paragraphs instead of discarding them as empty', () =>
 		averageWordsPerParagraph: 1,
 	});
 });
+
+test.each([
+	['猫です。', 2],
+	['中国人民。', 2],
+	['مرحبا بالعالم.', 2],
+	['The harbor 与海。', 4],
+])('counts Unicode word segments in %j', (text, expected) => {
+	expect(getAccurateWordCount(text as string)).toBe(expected);
+	expect(getWritingTextMetrics(text as string).sentenceCount).toBe(1);
+});

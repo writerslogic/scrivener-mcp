@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+ignoreUntil = 2027-02-01
+reason = "Not affected in this binding: rsa 0.9.10 only verifies public signatures. ClaimSigner in src/lib.rs passes bounded message bytes to a JavaScript callback and never receives private keys; sdk-worker.ts performs RSA-PSS with node:crypto/OpenSSL. Real callback signatures are independently verified in tests/unit/services/content-credentials-sdk.test.ts. Matches assets/c2pa-supply-chain/vex.openvex.json CVE-2023-49092. Reassess before expiry or any binding/private-key-path change; upstream rsa remains unpatched."

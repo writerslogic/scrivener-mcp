@@ -14,6 +14,7 @@ import {
 	type ExportMeta,
 } from '../../../src/services/export/manuscript-exporters.js';
 import JSZip from 'jszip';
+import { parseStringPromise } from 'xml2js';
 
 const META: ExportMeta = { title: 'The Test Manuscript', author: 'A. Writer' };
 
@@ -70,10 +71,15 @@ describe('manuscript binary exporters', () => {
 		expect(pages.some((page) => page.includes('&lt;%='))).toBe(true);
 	});
 
-	it('toPdf emits a %PDF- buffer and sanitizes non-WinAnsi text', async () => {
-		const buf = await toPdf(SECTIONS, META);
+	it('toPdf emits a %PDF- buffer for supported text and rejects unsupported Unicode before publication', async () => {
+		const supported = SECTIONS.map((section) => ({
+			...section,
+			text: section.text.replace('❤', 'heart'),
+		}));
+		const buf = await toPdf(supported, META);
 		expect(buf.length).toBeGreaterThan(0);
 		expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+		await expect(toPdf(SECTIONS, META)).rejects.toThrow(/unsupported characters.*❤/i);
 	});
 
 	it('excludes injected template bodies and engine options from the EPUB generator', async () => {
@@ -97,9 +103,13 @@ describe('manuscript binary exporters', () => {
 	});
 
 	it('exportBinary dispatches each format to a valid buffer', async () => {
+		const pdfSections = SECTIONS.map((section) => ({
+			...section,
+			text: section.text.replace('❤', 'heart'),
+		}));
 		const docx = await exportBinary('docx', SECTIONS, META);
 		const epub = await exportBinary('epub', SECTIONS, META);
-		const pdf = await exportBinary('pdf', SECTIONS, META);
+		const pdf = await exportBinary('pdf', pdfSections, META);
 		expect(docx.subarray(0, 4)).toEqual(ZIP_MAGIC);
 		expect(epub.subarray(0, 4)).toEqual(ZIP_MAGIC);
 		expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
@@ -117,3 +127,24 @@ describe('manuscript binary exporters', () => {
 		expect(buf.subarray(0, 4)).toEqual(ZIP_MAGIC);
 	});
 });
+
+test.each(['漢字', 'e\u0301', '😀'])(
+	'preserves %s in DOCX and EPUB, and refuses PDF without silently deleting it',
+	async (text) => {
+		const sections = [{ title: 'Unicode scene', text, depth: 0, isFolder: false }];
+		for (const format of ['docx', 'epub'] as const) {
+			const archive = await JSZip.loadAsync(await exportBinary(format, sections, META));
+			const content = (
+				await Promise.all(
+					Object.values(archive.files)
+						.filter((file) => /(?:document\.xml|\.xhtml)$/.test(file.name))
+						.map(async (file) =>
+							JSON.stringify(await parseStringPromise(await file.async('string')))
+						)
+				)
+			).join('');
+			expect(content).toContain(text);
+		}
+		await expect(toPdf(sections, META)).rejects.toThrow(/unsupported characters/);
+	}
+);

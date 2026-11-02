@@ -280,3 +280,33 @@ describe('Common Utilities - New Functions', () => {
 		});
 	});
 });
+
+test.each(['EIO', 'EINVAL'] as const)(
+	'directory sync %s has explicit durability semantics',
+	async (code) => {
+		const { promises: nativeFs } = await import('node:fs');
+		const { safeWriteFile } = await import('../../../src/utils/common.js');
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sync-durability-'));
+		const file = path.join(root, 'artifact.txt');
+		const open = nativeFs.open.bind(nativeFs);
+		const opening = jest
+			.spyOn(nativeFs, 'open')
+			.mockImplementation(async (location, ...args) => {
+				const handle = await open(location, ...args);
+				if (location === root)
+					jest.spyOn(handle, 'sync').mockRejectedValue(
+						Object.assign(new Error('Injected directory sync failure'), { code })
+					);
+				return handle;
+			});
+		try {
+			const writing = safeWriteFile(file, 'Published bytes');
+			if (code === 'EIO') await expect(writing).rejects.toThrow(/directory sync failure/);
+			else await writing;
+			expect(await fs.readFile(file, 'utf8')).toBe('Published bytes');
+		} finally {
+			opening.mockRestore();
+			await fs.rm(root, { recursive: true, force: true });
+		}
+	}
+);

@@ -1441,9 +1441,48 @@ process.once('exit', code => writeFileSync(new URL('./stdio-exit-status', import
 				);
 				await tool(credentials, 'open_project', { path: projectPath });
 				const pdfPath = join(root, 'credential-export.pdf');
+				const rejected = await tool(
+					credentials,
+					'export_project',
+					{
+						format: 'pdf',
+						outputPath: pdfPath,
+						options: { allowWarnings: true },
+					},
+					true
+				);
+				verify(
+					rejected.content.some(
+						(item) =>
+							typeof item.text === 'string' &&
+							item.text.includes('cannot faithfully encode unsupported characters')
+					),
+					'PDF must report unsupported Unicode instead of silently losing text'
+				);
+				verify(
+					!(await stat(pdfPath).then(
+						() => true,
+						(error) => {
+							if (error.code === 'ENOENT') return false;
+							throw error;
+						}
+					)),
+					'Rejected Unicode PDF published an artifact'
+				);
+				await tool(credentials, 'close_project', {});
+				const pdfProject = join(root, 'PDF-fixture.scriv');
+				await cp(join(installed, 'assets/sample-project/Welcome.scriv'), pdfProject, {
+					recursive: true,
+				});
+				await writeFile(
+					join(pdfProject, 'Files/Data/10000000-0000-4000-8000-000000000004/content.rtf'),
+					'{\\rtf1\\ansi PDF credential validation fixture.}'
+				);
+				await tool(credentials, 'open_project', { path: pdfProject });
 				const pdf = await tool(credentials, 'export_project', {
 					format: 'pdf',
 					outputPath: pdfPath,
+					options: { allowWarnings: true },
 				});
 				verify(
 					pdf.path === pdfPath && pdf.bytes > 0,

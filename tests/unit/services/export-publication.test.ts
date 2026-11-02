@@ -1,3 +1,9 @@
+import { DocumentManager } from '../../../src/services/document-manager.js';
+import { ProjectWriter } from '../../../src/services/project-writer.js';
+import { ReviewService } from '../../../src/services/editorial/review-service.js';
+import { WorkflowService } from '../../../src/services/editorial/workflow-service.js';
+import { PassageSearch } from '../../../src/services/editorial/passage-search.js';
+import * as credentials from '../../../src/services/content-credentials/service.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { hostname, tmpdir } from 'node:os';
@@ -14,6 +20,10 @@ import {
 } from '../../../src/services/editorial/mutation-coordinator.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
 import type { ScrivenerDocument } from '../../../src/types/index.js';
+
+jest.mock('../../../src/utils/scrivener-app.js', () => ({
+	isProjectOpenInScrivener: jest.fn(async () => 'unknown'),
+}));
 
 const FIRST = '11111111-1111-4111-8111-111111111111';
 const SECOND = '22222222-2222-4222-8222-222222222222';
@@ -111,6 +121,25 @@ afterEach(async () => {
 		store?.close();
 		await fs.rm(directory, { recursive: true, force: true });
 	}
+});
+
+test('publishes a canonical destination when the project was opened through a root alias', async () => {
+	const originalRoot = root;
+	const alias = path.join(directory, 'Alias.scriv');
+	await fs.symlink(originalRoot, alias, 'junction');
+	await coordinator.close();
+	root = alias;
+	coordinator = new MutationCoordinator(root, store);
+	request.outputPath = path.join(
+		await fs.realpath(originalRoot),
+		'.scrivener-mcp',
+		'exports',
+		'canonical.docx'
+	);
+	const result = await exporter().exportWorkflowPreset(request);
+	if (typeof result.path !== 'string') throw new Error('Missing publication path');
+	expect(await fs.readFile(request.outputPath)).toEqual(await fs.readFile(result.path));
+	expect(prepared().state).toBe('committed');
 });
 
 test('prepared bytes survive an interruption before publication without regenerating or rereading changed sources', async () => {
@@ -306,5 +335,146 @@ test('another server can inspect ownership while source preparation awaits witho
 		release();
 		await writing;
 		await other.close();
+	}
+});
+
+test('reviewed publication binds committed revisions, survives interruption and rejects stale or tampered outputs', async () => {
+	const documents = new DocumentManager(root);
+	const writer = new ProjectWriter(
+		root,
+		documents,
+		undefined,
+		() => {},
+		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
+		false
+	);
+	const reviews = new ReviewService(documents, writer, store);
+	const rtfParser = new RTFHandler();
+	for (const [id, value] of raw) {
+		await fs.mkdir(path.join(root, 'Files', 'Data', id), { recursive: true });
+		await fs.writeFile(path.join(root, 'Files', 'Data', id, 'content.rtf'), value);
+	}
+	const source = {
+		projectId: 'publication-fixture',
+		projectPath: root,
+		read: async (id: string) => {
+			const value = await documents.readDocumentRaw(id);
+			return {
+				projectId: 'publication-fixture',
+				documentId: id,
+				revision: documentRevision(value),
+				title: 'Private title',
+				path: 'Draft',
+				order: 0,
+				metadata: {},
+				text: (await rtfParser.parseRTF(value)).plainText,
+			};
+		},
+		list: async () => Promise.all([FIRST, SECOND].map((id) => source.read(id))),
+	};
+	const search = new PassageSearch(source, store);
+	const exp = exporter((id) => documents.readDocumentRaw(id), documents.getMutationCoordinator());
+	const workflows = new WorkflowService(source, store, search, {
+		analyzeDocument: async () => ({ available: true }),
+		propose: (input) => reviews.propose(input),
+		auditContinuity: async () => ({}),
+		exportBeta: (input) => exp.exportWorkflowPreset(input),
+	});
+	try {
+		const ids: string[] = [];
+		for (const id of [FIRST, SECOND]) {
+			const proposal = await reviews.propose({
+				documentId: id,
+				edits: [{ start: 0, end: 8, text: 'Approved' }],
+			});
+			ids.push((await reviews.apply(proposal.id, { force: true })).id);
+		}
+		const workflow = await workflows.start({
+			kind: 'beta-reader-draft',
+			documentIds: [FIRST, SECOND],
+		});
+		expect((await workflows.wait(workflow.id)).state).toBe('completed');
+		const publication = await workflows.publication(workflow.id);
+		const input = {
+			assetPath: publication.path,
+			outputPath: path.join(root, '.scrivener-mcp', 'exports', 'reviewed.docx'),
+		};
+		const selected = {
+			workflowId: workflow.id,
+			reviewApplicationIds: ids,
+			machineAssistance: 'unknown' as const,
+		};
+		const signing = jest
+			.spyOn(credentials, 'signCredentialAsset')
+			.mockImplementation(async (request) => {
+				expect(request.publicationLineage).toMatchObject({
+					exportSha256: publication.sha256,
+					sourceRevisions: publication.sourceRevisions,
+					reviews: ids.map((applicationId) => expect.objectContaining({ applicationId })),
+					machineAssistance: { localAnalysis: true, manuscript: 'unknown' },
+				});
+				expect(JSON.stringify(request.publicationLineage)).not.toMatch(
+					/Private title|Original|Approved|Files/
+				);
+				await fs.writeFile(request.outputPath, 'signed fixture');
+				return {
+					...request,
+					mimeType:
+						'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+					mode: 'embedded',
+					bytes: 14,
+					sourceRevision: publication.sha256,
+					sdkVersion: 'fixture',
+					validation: {
+						state: 'untrusted',
+						integrity: 'valid',
+						trust: 'untrusted',
+						trustPolicy: 'none',
+						validationCodes: [],
+						report: null,
+					},
+				} as import('../../../src/services/content-credentials/types.js').SignCredentialResult;
+			});
+		const interrupted = jest
+			.spyOn(
+				documents.getMutationCoordinator() as unknown as {
+					writeExportArtifact(record: unknown): Promise<void>;
+				},
+				'writeExportArtifact'
+			)
+			.mockRejectedValueOnce(new Error('Interrupted signed publication'));
+		await expect(
+			exp.signReviewedPublication(input, selected, workflows, reviews)
+		).rejects.toThrow('Interrupted');
+		interrupted.mockRestore();
+		const result = await exp.signReviewedPublication(input, selected, workflows, reviews);
+		expect(result.outputPath).toBe(input.outputPath);
+		expect(await fs.readFile(input.outputPath, 'utf8')).toBe('signed fixture');
+		await exp.signReviewedPublication(input, selected, workflows, reviews);
+		expect(signing).toHaveBeenCalledTimes(1);
+		await fs.writeFile(input.outputPath, 'tampered');
+		await expect(
+			exp.signReviewedPublication(input, selected, workflows, reviews)
+		).rejects.toThrow(/changed|conflict/);
+		const other = {
+			...input,
+			outputPath: path.join(root, '.scrivener-mcp', 'exports', 'second.docx'),
+		};
+		await fs.writeFile(publication.path, 'altered export');
+		await expect(
+			exp.signReviewedPublication(other, selected, workflows, reviews)
+		).rejects.toThrow(/digest/);
+		await fs.writeFile(
+			path.join(root, 'Files', 'Data', FIRST, 'content.rtf'),
+			rtf('External change')
+		);
+		await expect(
+			exp.signReviewedPublication(other, selected, workflows, reviews)
+		).rejects.toThrow(/source changed/);
+		expect(signing).toHaveBeenCalledTimes(1);
+	} finally {
+		await workflows.close();
+		await search.close();
+		await documents.close();
 	}
 });

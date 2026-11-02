@@ -343,3 +343,26 @@ it('rejects damaged ZIP data even when the EPUB resource names remain intact', a
 	buffer[offset] ^= 1;
 	await expect(validateExport(buffer, 'epub')).rejects.toThrow(/CRC/i);
 });
+
+test('ordinary binary exports require explicit acknowledgment of the same source losses as presets', async () => {
+	raw.set(FIRST, rtf('Scene with {\\pict omitted image}.'));
+	for (const format of ['docx', 'epub', 'pdf']) {
+		const destination = join(root, `ordinary.${format}`);
+		await expect(exporter.exportProject(format, destination)).rejects.toThrow(
+			/embedded|images/i
+		);
+		await expect(readFile(destination)).rejects.toMatchObject({ code: 'ENOENT' });
+	}
+	const destination = join(root, 'acknowledged.docx');
+	const result = (await exporter.exportProject('docx', destination, { allowWarnings: true })) as {
+		findings: unknown[];
+		metadata: { sourceRevisions: unknown[] };
+	};
+	expect(result.findings).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({ code: 'embedded-media', documentId: FIRST }),
+		])
+	);
+	expect(result.metadata.sourceRevisions).toHaveLength(2);
+	expect(await readFile(destination)).not.toHaveLength(0);
+});

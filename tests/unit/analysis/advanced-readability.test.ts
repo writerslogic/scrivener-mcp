@@ -194,7 +194,7 @@ describe('AdvancedReadabilityService.analyzeReadabilityTrends', () => {
 	});
 	it('returns exactly the requested number of segments', () => {
 		const trends = svc.analyzeReadabilityTrends(
-			'One. Two. Three. Four. Five. Six. Seven. Eight.',
+			'The cat slept. The dog ran. The birds sang. The rain fell. The wind rose. The door shut. The sun set. The moon shone.',
 			4
 		);
 		expect(trends.segments).toHaveLength(4);
@@ -232,5 +232,22 @@ describe('AdvancedReadabilityService.calculateMetricsBatch', () => {
 		if (out[0].availability !== 'available' || out[1].availability !== 'available')
 			throw new Error('Expected readability measurements for both batch entries');
 		expect(out[0].fleschReadingEase).toBeGreaterThan(out[1].fleschReadingEase);
+	});
+});
+
+test.each([
+	'海边的猫正在睡觉。',
+	'猫は寝ています。',
+	'مرحبا بالعالم.',
+	'Le chat dort sur le tapis.',
+	'The cat 睡觉。',
+	'Bonjour.',
+])('abstains from English readability scoring without language evidence: %j', (text) => {
+	expect(svc.calculateMetrics(text)).toMatchObject({
+		availability: 'unavailable',
+		reason: 'unsupported_language',
+		fleschReadingEase: null,
+		readingLevel: null,
+		recommendations: [],
 	});
 });

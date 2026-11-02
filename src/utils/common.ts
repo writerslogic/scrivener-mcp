@@ -296,6 +296,14 @@ export async function ensureDir(dirPath: string): Promise<void> {
 	}
 }
 
+export function isUnsupportedDirectorySyncError(error: unknown): boolean {
+	const code = (error as NodeJS.ErrnoException).code ?? '';
+	return (
+		['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS'].includes(code) ||
+		(process.platform === 'win32' && ['EPERM', 'EISDIR', 'EBADF'].includes(code))
+	);
+}
+
 export async function safeReadFile(
 	filePath: string,
 	encoding: BufferEncoding = 'utf-8'
@@ -342,8 +350,8 @@ export async function safeWriteFile(
 			} finally {
 				await dirHandle.close();
 			}
-		} catch {
-			/* directory fsync unsupported on this platform — best-effort */
+		} catch (error) {
+			if (!isUnsupportedDirectorySyncError(error)) throw error;
 		}
 	} catch (e) {
 		if (tmpDir) await fs.promises.rm(tmpDir, { recursive: true, force: true });

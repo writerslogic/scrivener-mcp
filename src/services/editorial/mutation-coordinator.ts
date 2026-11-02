@@ -3,8 +3,13 @@ import * as fs from 'node:fs/promises';
 import { constants, lstatSync, realpathSync } from 'node:fs';
 import { hostname } from 'node:os';
 import * as path from 'node:path';
-import { safeWriteFile } from '../../utils/common.js';
-import { getDocumentPath, isValidScrivenerDocumentId } from '../../utils/scrivener-utils.js';
+import { isUnsupportedDirectorySyncError, safeWriteFile } from '../../utils/common.js';
+import {
+	getDocumentPath,
+	getNotesPath,
+	getSynopsisPath,
+	isValidScrivenerDocumentId,
+} from '../../utils/scrivener-utils.js';
 import { planSnapshot, writePlannedSnapshot, type SnapshotEntry } from '../snapshots.js';
 import { PersistentStore, type StorePage, type StorePageOptions } from './persistent-store.js';
 
@@ -45,6 +50,45 @@ export interface MutationRecord {
 	creationDocuments?: CreationDocument[];
 	creationSummary?: Array<{ documentId: string; revision: string }>;
 	creationOutcome?: CreationOutcome;
+	metadataFiles?: MetadataFileMutation[];
+}
+
+export interface MetadataFileUpdate {
+	documentId: string;
+	kind: 'synopsis' | 'notes';
+	raw: string;
+}
+
+interface MetadataFileMutation {
+	documentId: string;
+	kind: MetadataFileUpdate['kind'];
+	beforeRaw: string;
+	afterRaw: string;
+	beforeExists: boolean;
+	beforeRevision: string;
+	afterRevision: string;
+}
+
+export function validateMetadataUpdates(value: unknown): MetadataFileUpdate[] {
+	if (!Array.isArray(value) || value.length > 2)
+		throw new Error('Metadata requires at most two sidecars');
+	const kinds = new Set<string>();
+	return value.map((entry: unknown) => {
+		const update = entry as Partial<MetadataFileUpdate> | null;
+		if (
+			!update ||
+			typeof update.documentId !== 'string' ||
+			!isValidScrivenerDocumentId(update.documentId) ||
+			(update.kind !== 'synopsis' && update.kind !== 'notes') ||
+			typeof update.raw !== 'string' ||
+			Buffer.byteLength(update.raw) > MAX_RAW_BYTES ||
+			kinds.has(update.kind) ||
+			update.documentId !== value[0].documentId
+		)
+			throw new Error('Invalid metadata sidecar update');
+		kinds.add(update.kind);
+		return { documentId: update.documentId, kind: update.kind, raw: update.raw };
+	});
 }
 
 export interface CreationDocument {
@@ -180,10 +224,18 @@ export class MutationCoordinator {
 	private closePromise?: Promise<void>;
 	readonly projectPath: string;
 
-	constructor(projectPath: string, store?: PersistentStore) {
+	constructor(
+		projectPath: string,
+		store?: PersistentStore,
+		private readonly readOnly = false
+	) {
 		this.projectPath = path.resolve(projectPath);
 		this.store = store;
 		this.ownsStore = !store;
+	}
+
+	assertWritable(): void {
+		if (this.readOnly) throw new Error('Project was opened read-only');
 	}
 
 	private state(): PersistentStore {
@@ -269,6 +321,15 @@ export class MutationCoordinator {
 		return target.targetKind === 'binder'
 			? this.projectFilePath(path.join(this.projectPath, target.projectFile ?? ''))
 			: this.documentPath(target.documentId);
+	}
+
+	private metadataPath(file: Pick<MetadataFileUpdate, 'documentId' | 'kind'>): string {
+		const target =
+			file.kind === 'synopsis'
+				? getSynopsisPath(this.projectPath, file.documentId)
+				: getNotesPath(this.projectPath, file.documentId);
+		this.assertProjectPath(target);
+		return target;
 	}
 
 	private async readSavedBytes(
@@ -438,6 +499,29 @@ export class MutationCoordinator {
 				throw new Error('Malformed compound document creation journal');
 		} else if (record.creationSummary !== undefined || record.creationOutcome !== undefined)
 			throw new Error('Creation metadata is missing its document plan');
+		if (record.metadataFiles !== undefined) {
+			if (
+				record.targetKind !== 'binder' ||
+				!record.beforeExists ||
+				record.creationDocuments ||
+				!Array.isArray(record.metadataFiles)
+			)
+				throw new Error('Malformed compound metadata journal');
+			validateMetadataUpdates(
+				record.metadataFiles.map((file) => ({ ...file, raw: file?.afterRaw }))
+			);
+			for (const file of record.metadataFiles) {
+				if (
+					typeof file.beforeRaw !== 'string' ||
+					Buffer.byteLength(file.beforeRaw) > MAX_RAW_BYTES ||
+					typeof file.beforeExists !== 'boolean' ||
+					(!file.beforeExists && file.beforeRaw !== '') ||
+					file.beforeRevision !== documentRevision(file.beforeRaw) ||
+					file.afterRevision !== documentRevision(file.afterRaw)
+				)
+					throw new Error('Malformed compound metadata revisions');
+			}
+		}
 		return record as MutationRecord;
 	}
 
@@ -481,7 +565,24 @@ export class MutationCoordinator {
 	}
 
 	private async recoverPending(): Promise<MutationRecord[]> {
+		if (!this.store) {
+			const location = path.join(this.projectPath, '.scrivener-mcp', 'editorial.sqlite');
+			this.assertProjectPath(location);
+			try {
+				await fs.lstat(location);
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+				throw error;
+			}
+		}
 		const store = this.state();
+		if (this.readOnly) {
+			if (this.claim() || store.count(PENDING))
+				throw new Error(
+					'Read-only project has pending mutations; reopen writable to recover'
+				);
+			return [];
+		}
 		const recovered: MutationRecord[] = [];
 		const visited = new Set<string>();
 		let pending: string[] = [];
@@ -532,6 +633,11 @@ export class MutationCoordinator {
 				const record = this.get(operationId);
 				if (!record)
 					throw new Error('Mutation journal is missing for an interrupted operation');
+				if (record.state === 'prepared' && record.metadataFiles) {
+					await this.recoverMetadata(record);
+					recovered.push(record);
+					continue;
+				}
 				if (record.state === 'prepared' && record.creationDocuments) {
 					await this.recoverCreation(record);
 					recovered.push(record);
@@ -587,6 +693,53 @@ export class MutationCoordinator {
 			store.put(JOURNAL, record.id, record);
 			if (record.state !== 'prepared') store.delete(PENDING, record.id);
 		});
+	}
+
+	private async recoverMetadata(record: MutationRecord): Promise<void> {
+		if (!record.metadataFiles || !record.projectFile)
+			throw new Error('Metadata recovery plan is missing');
+		const binder = await this.readProjectFile(path.join(this.projectPath, record.projectFile));
+		const files = [];
+		for (const file of record.metadataFiles)
+			files.push({ file, saved: await this.readSaved(this.metadataPath(file)) });
+		if (
+			binder.exists &&
+			binder.revision === record.afterRevision &&
+			files.every(({ file, saved }) => saved.exists && saved.revision === file.afterRevision)
+		) {
+			record.state = 'committed';
+		} else if (binder.exists && binder.revision === record.beforeRevision) {
+			for (const { file } of files) {
+				const target = this.metadataPath(file);
+				const saved = await this.readSaved(target);
+				if (saved.revision === file.beforeRevision && saved.exists === file.beforeExists)
+					continue;
+				if (!saved.exists || saved.revision !== file.afterRevision) continue;
+				this.assertProjectPath(target);
+				if (file.beforeExists) await safeWriteFile(target, file.beforeRaw);
+				else {
+					await fs.unlink(target);
+					await this.syncDirectory(path.dirname(target));
+				}
+			}
+			record.state = 'conflicted';
+		} else record.state = 'conflicted';
+		record.completedAt = new Date().toISOString();
+		this.checkpointCreation(record);
+	}
+
+	private async assertMetadataRevisions(
+		files: MetadataFileMutation[],
+		after = false
+	): Promise<void> {
+		for (const file of files) {
+			const saved = await this.readSaved(this.metadataPath(file));
+			if (
+				saved.exists !== (after || file.beforeExists) ||
+				saved.revision !== (after ? file.afterRevision : file.beforeRevision)
+			)
+				throw new Error('Metadata sidecar revision changed; refresh before retrying');
+		}
 	}
 
 	private async recoverCreation(
@@ -660,10 +813,13 @@ export class MutationCoordinator {
 		)
 			throw new Error('Export publication requires an absolute path');
 		const target = path.resolve(filePath);
-		const relative = path.relative(
-			path.join(this.projectPath, '.scrivener-mcp', 'exports'),
-			target
-		);
+		const directory = path.join(this.projectPath, '.scrivener-mcp', 'exports');
+		let relative = path.relative(directory, target);
+		if (path.dirname(relative) !== '.')
+			relative = path.relative(
+				path.join(realpathSync(this.projectPath), '.scrivener-mcp', 'exports'),
+				target
+			);
 		if (
 			path.dirname(relative) !== '.' ||
 			!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}\.(docx|epub|pdf)$/i.test(relative) ||
@@ -672,7 +828,7 @@ export class MutationCoordinator {
 			throw new Error(
 				'Workflow exports require a safe filename directly inside .scrivener-mcp/exports'
 			);
-		return target;
+		return path.join(directory, relative);
 	}
 
 	private exportPublication(value: unknown): ExportPublicationRecord {
@@ -953,13 +1109,7 @@ export class MutationCoordinator {
 				await handle.close();
 			}
 		} catch (error) {
-			// Windows and some network filesystems do not support directory fsync.
-			const code = (error as NodeJS.ErrnoException).code ?? '';
-			if (
-				!['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS'].includes(code) &&
-				!(process.platform === 'win32' && ['EPERM', 'EISDIR', 'EBADF'].includes(code))
-			)
-				throw error;
+			if (!isUnsupportedDirectorySyncError(error)) throw error;
 		}
 	}
 
@@ -1082,6 +1232,21 @@ export class MutationCoordinator {
 		return this.commitTarget(target, afterRaw, options, new Date(), documents);
 	}
 
+	async commitProjectMetadata(
+		filePath: string,
+		afterRaw: string,
+		options: CommitOptions & { expectedRevision: string; files: readonly MetadataFileUpdate[] }
+	): Promise<MutationRecord> {
+		return this.commitTarget(
+			this.binderTarget(filePath, options.expectedRevision),
+			afterRaw,
+			options,
+			new Date(),
+			undefined,
+			validateMetadataUpdates(options.files)
+		);
+	}
+
 	private binderTarget(filePath: string, expectedRevision: unknown): MutationTarget {
 		if (typeof expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(expectedRevision))
 			throw new Error('A valid expected binder revision is required');
@@ -1098,10 +1263,18 @@ export class MutationCoordinator {
 		afterRaw: string,
 		options: CommitOptions,
 		snapshotDate = new Date(),
-		creationDocuments?: CreationDocument[]
+		creationDocuments?: CreationDocument[],
+		metadataUpdates?: MetadataFileUpdate[]
 	): Promise<MutationRecord> {
 		return this.trackMutation(
-			this.commitToTarget(targetInfo, afterRaw, options, snapshotDate, creationDocuments)
+			this.commitToTarget(
+				targetInfo,
+				afterRaw,
+				options,
+				snapshotDate,
+				creationDocuments,
+				metadataUpdates
+			)
 		);
 	}
 
@@ -1110,8 +1283,10 @@ export class MutationCoordinator {
 		afterRaw: string,
 		options: CommitOptions,
 		snapshotDate = new Date(),
-		creationDocuments?: CreationDocument[]
+		creationDocuments?: CreationDocument[],
+		metadataUpdates?: MetadataFileUpdate[]
 	): Promise<MutationRecord> {
+		this.assertWritable();
 		const documentId = targetInfo.documentId;
 		if (typeof afterRaw !== 'string' || Buffer.byteLength(afterRaw) > MAX_RAW_BYTES)
 			throw new Error('Invalid saved content size');
@@ -1129,6 +1304,21 @@ export class MutationCoordinator {
 		await this.recover();
 		const before = await this.readSaved(target);
 		const afterRevision = documentRevision(afterRaw);
+		if (metadataUpdates && !before.exists)
+			throw new Error('Load an existing binder before updating metadata');
+		const metadataFiles: MetadataFileMutation[] | undefined = metadataUpdates ? [] : undefined;
+		for (const file of metadataUpdates ?? []) {
+			const saved = await this.readSaved(this.metadataPath(file));
+			metadataFiles!.push({
+				documentId: file.documentId,
+				kind: file.kind,
+				beforeRaw: saved.raw,
+				beforeExists: saved.exists,
+				beforeRevision: saved.revision,
+				afterRaw: file.raw,
+				afterRevision: documentRevision(file.raw),
+			});
+		}
 		const creationSummary = creationDocuments?.map((document) => ({
 			documentId: document.documentId,
 			revision: documentRevision(document.raw),
@@ -1158,6 +1348,20 @@ export class MutationCoordinator {
 					(prior.targetKind ?? 'document') !== targetInfo.targetKind ||
 					prior.projectFile !== targetInfo.projectFile ||
 					prior.afterRevision !== afterRevision ||
+					JSON.stringify(
+						prior.metadataFiles?.map(({ documentId, kind, afterRevision }) => ({
+							documentId,
+							kind,
+							afterRevision,
+						}))
+					) !==
+						JSON.stringify(
+							metadataFiles?.map(({ documentId, kind, afterRevision }) => ({
+								documentId,
+								kind,
+								afterRevision,
+							}))
+						) ||
 					JSON.stringify(prior.creationSummary) !== JSON.stringify(creationSummary) ||
 					(options.expectedRevision !== undefined &&
 						prior.beforeRevision !== options.expectedRevision)
@@ -1183,6 +1387,7 @@ export class MutationCoordinator {
 				state: 'prepared',
 				createdAt: new Date().toISOString(),
 				undoes: options.undoes,
+				...(metadataFiles ? { metadataFiles } : {}),
 				...(creationDocuments
 					? { creationDocuments, creationSummary, creationOutcome: 'prepared' as const }
 					: {}),
@@ -1216,6 +1421,14 @@ export class MutationCoordinator {
 			)
 				throw new Error('Saved manuscript changed while preparing the mutation');
 			await this.ensureSnapshot(record);
+			if (record.metadataFiles) {
+				await this.assertMetadataRevisions(record.metadataFiles);
+				for (const file of record.metadataFiles) {
+					await this.assertMetadataRevisions([file]);
+					await safeWriteFile(this.metadataPath(file), file.afterRaw);
+				}
+				await this.assertMetadataRevisions(record.metadataFiles, true);
+			}
 			if (record.creationDocuments) {
 				for (const document of record.creationDocuments) {
 					const location = this.documentPath(document.documentId);
@@ -1254,6 +1467,17 @@ export class MutationCoordinator {
 			});
 			return record;
 		} catch (error) {
+			if (record.metadataFiles) {
+				try {
+					await this.recoverMetadata(record);
+				} catch (recoveryError) {
+					throw new AggregateError(
+						[error, recoveryError],
+						`Metadata operation ${id} requires recovery`,
+						{ cause: recoveryError }
+					);
+				}
+			}
 			if (record.creationDocuments) {
 				try {
 					await this.recoverCreation(record, published);

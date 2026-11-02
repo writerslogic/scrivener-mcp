@@ -255,6 +255,8 @@ export const recoverDocumentHandler: ToolDefinition = {
 					'Optional id of the folder to restore into. Omit to restore to a default location.',
 			},
 			force: SHARED_DEFS.force,
+			dryRun: SHARED_DEFS.dryRun,
+			expectedRevision: SHARED_DEFS.binderRevision,
 		},
 		required: ['documentId'],
 	},
@@ -264,15 +266,19 @@ export const recoverDocumentHandler: ToolDefinition = {
 
 		const documentId = getStringArg(args, 'documentId');
 		const targetFolderId = getOptionalStringArg(args, 'targetFolderId');
-		await project.recoverFromTrash(documentId, targetFolderId, {
+		const result = await project.recoverFromTrash(documentId, targetFolderId, {
 			force: getOptionalBooleanArg(args, 'force') ?? false,
+			dryRun: getOptionalBooleanArg(args, 'dryRun'),
+			expectedRevision: getOptionalStringArg(args, 'expectedRevision'),
 		});
 
 		return {
 			content: [
 				{
 					type: 'text',
-					text: 'Document recovered from trash',
+					text: result?.dryRun
+						? `Validated restore preview: ${JSON.stringify(result)}`
+						: 'Document recovered from trash',
 				},
 			],
 		};

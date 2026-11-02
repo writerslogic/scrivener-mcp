@@ -342,15 +342,15 @@ export function initializeSkillRegistry(): void {
 	}
 }
 
-export function getRegisteredTools(uiSupported = false) {
+export function getRegisteredTools(uiSupported = false, includeAll = false) {
 	const seen = new Set<string>();
 	return [...metaTools, ...skills.flatMap(visibleTools)]
 		.filter((tool) => {
-			if (!handlerMap.has(tool.name) || seen.has(tool.name)) return false;
+			if ((!includeAll && !handlerMap.has(tool.name)) || seen.has(tool.name)) return false;
 			seen.add(tool.name);
 			return true;
 		})
-		.map((tool) => callableTool(handlerMap.get(tool.name)!, uiSupported));
+		.map((tool) => callableTool(handlerMap.get(tool.name) ?? tool, uiSupported));
 }
 
 export function getToolCatalogRevision(): number {

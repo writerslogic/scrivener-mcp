@@ -15,13 +15,19 @@ on:
       - 'tsconfig.json'
       - 'src/**'
       - '.github/workflows/mcpb.yml'
+      - '.github/workflows/c2pa-build.yml'
+      - 'native/c2pa-binding/**'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  c2pa-build:
+    uses: ./.github/workflows/c2pa-build.yml
+
   mcpb:
+    needs: c2pa-build
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -31,6 +37,12 @@ jobs:
           node-version: 24
           check-latest: true
           cache: 'npm'
+
+      - name: Restore the verified source-built C2PA engine
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: c2pa-binding
+          path: assets/c2pa-binding
 
       - name: Install dependencies
         run: npm ci

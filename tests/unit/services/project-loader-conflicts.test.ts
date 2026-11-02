@@ -268,3 +268,160 @@ test('binder journal recovery recognizes an already renamed file and never overw
 		store.close();
 	}
 });
+
+test.each(['partial', 'published', 'external'] as const)(
+	'reopening reconciles %s metadata sidecars without replacing an external revision',
+	async (phase) => {
+		const documentId = '11111111-1111-4111-8111-111111111111';
+		const synopsis = path.join(root, 'Files', 'Data', documentId, 'synopsis.txt');
+		const notes = path.join(root, 'Files', 'Data', documentId, 'notes.rtf');
+		await fs.mkdir(path.dirname(synopsis), { recursive: true });
+		const afterRaw = SOURCE.replace('Original', 'Reviewed');
+		const record: MutationRecord = {
+			id: randomUUID(),
+			documentId: path.basename(file),
+			targetKind: 'binder',
+			projectFile: path.basename(file),
+			beforeRaw: SOURCE,
+			afterRaw,
+			beforeRevision: documentRevision(SOURCE),
+			afterRevision: documentRevision(afterRaw),
+			beforeExists: true,
+			state: 'prepared',
+			createdAt: new Date().toISOString(),
+			metadataFiles: [
+				{
+					documentId,
+					kind: 'synopsis',
+					beforeRaw: 'Before',
+					afterRaw: 'After',
+					beforeExists: true,
+					beforeRevision: documentRevision('Before'),
+					afterRevision: documentRevision('After'),
+				},
+				{
+					documentId,
+					kind: 'notes',
+					beforeRaw: '',
+					afterRaw: 'New notes',
+					beforeExists: false,
+					beforeRevision: documentRevision(''),
+					afterRevision: documentRevision('New notes'),
+				},
+			],
+		};
+		const store = new PersistentStore(path.join(root, '.scrivener-mcp', 'editorial.sqlite'));
+		store.put('mutations', record.id, record);
+		store.put('mutation-pending', record.id, { id: record.id });
+		store.close();
+		await fs.writeFile(synopsis, phase === 'external' ? 'External' : 'After');
+		if (phase === 'published') {
+			await fs.writeFile(file, afterRaw);
+			await fs.writeFile(notes, 'New notes');
+		}
+		const instance = loader();
+		const structure = await instance.loadProject();
+		expect(firstItem(structure).Title).toBe(phase === 'published' ? 'Reviewed' : 'Original');
+		expect(await fs.readFile(synopsis, 'utf8')).toBe(
+			phase === 'partial' ? 'Before' : phase === 'external' ? 'External' : 'After'
+		);
+		if (phase !== 'published')
+			await expect(fs.stat(notes)).rejects.toMatchObject({ code: 'ENOENT' });
+		const coordinator = new MutationCoordinator(root);
+		try {
+			expect(coordinator.get(record.id)?.state).toBe(
+				phase === 'published' ? 'committed' : 'conflicted'
+			);
+			expect(await coordinator.recover()).toEqual([]);
+		} finally {
+			await coordinator.close();
+		}
+	}
+);
+
+test('metadata replay returns the same receipt and refuses competing ownership or changed inputs', async () => {
+	const instance = loader();
+	await instance.loadProject();
+	const coordinator = new MutationCoordinator(root);
+	const peer = new MutationCoordinator(root);
+	const documentId = '11111111-1111-4111-8111-111111111111';
+	const synopsis = path.join(root, 'Files', 'Data', documentId, 'synopsis.txt');
+	const options = {
+		operationId: randomUUID(),
+		expectedRevision: documentRevision(SOURCE),
+		files: [{ documentId, kind: 'synopsis' as const, raw: 'After' }],
+	};
+	const afterRaw = SOURCE.replace('Original', 'Reviewed');
+	let entered!: () => void;
+	let release!: () => void;
+	const started = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const { promises: nativeFs } = await import('node:fs');
+	const rename = nativeFs.rename.bind(nativeFs);
+	const publication = jest
+		.spyOn(nativeFs, 'rename')
+		.mockImplementationOnce(async (source, target) => {
+			entered();
+			await gate;
+			await rename(source, target);
+		});
+	const writing = coordinator.commitProjectMetadata(file, afterRaw, options);
+	await started;
+	try {
+		await expect(
+			peer.commitProjectFile(file, SOURCE.replace('Original', 'Competing'), {
+				expectedRevision: documentRevision(SOURCE),
+			})
+		).rejects.toThrow(/active|acquired/);
+	} finally {
+		release();
+	}
+	try {
+		const receipt = await writing;
+		publication.mockRestore();
+		await fs.writeFile(synopsis, 'Later external edit');
+		expect(await coordinator.commitProjectMetadata(file, afterRaw, options)).toEqual(receipt);
+		expect(await fs.readFile(synopsis, 'utf8')).toBe('Later external edit');
+		await expect(
+			coordinator.commitProjectMetadata(file, afterRaw, {
+				...options,
+				files: [{ ...options.files[0], raw: 'Different' }],
+			})
+		).rejects.toThrow(/different content/);
+	} finally {
+		await coordinator.close();
+		await peer.close();
+	}
+});
+
+test('a sidecar change after admission fails before any authoritative publication', async () => {
+	const instance = loader();
+	const structure = await instance.loadProject();
+	firstItem(structure).Title = 'Uncommitted';
+	const documentId = '11111111-1111-4111-8111-111111111111';
+	const synopsis = path.join(root, 'Files', 'Data', documentId, 'synopsis.txt');
+	await fs.mkdir(path.dirname(synopsis), { recursive: true });
+	await fs.writeFile(synopsis, 'Before');
+	const coordinator = (instance as unknown as { coordinator: MutationCoordinator }).coordinator;
+	const internals = coordinator as unknown as {
+		assertMetadataRevisions(files: unknown[], after?: boolean): Promise<void>;
+	};
+	const assertRevisions = internals.assertMetadataRevisions.bind(coordinator);
+	jest.spyOn(internals, 'assertMetadataRevisions').mockImplementationOnce(
+		async (files, after) => {
+			await fs.writeFile(synopsis, 'External');
+			return assertRevisions(files, after);
+		}
+	);
+	await expect(
+		instance.saveProjectWithMetadata(structure, [
+			{ documentId, kind: 'synopsis', raw: 'After' },
+		])
+	).rejects.toThrow(/sidecar revision changed/);
+	expect(await fs.readFile(file, 'utf8')).toBe(SOURCE);
+	expect(await fs.readFile(synopsis, 'utf8')).toBe('External');
+});

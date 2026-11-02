@@ -37,7 +37,7 @@ describe('tool registry schema metadata gate', () => {
 				{ properties: { result: { type: 'string', description: 'Generated text.' } } },
 				{
 					properties: {
-						_file: { type: 'string', description: 'Stored result identity.' },
+						_ref: { type: 'string', description: 'Stored result identity.' },
 					},
 				},
 			],

@@ -1,3 +1,4 @@
+import { RESULT_METADATA_BYTE_RESERVE } from '../../../src/core/response-formatter.js';
 import { ReportTransport } from '../../../src/services/editorial/report-transport.js';
 import { manuscriptAnalysisHandlers } from '../../../src/handlers/manuscript-analysis-handlers.js';
 import type { HandlerContext, HandlerResult } from '../../../src/handlers/types.js';
@@ -75,7 +76,7 @@ describe('bounded immutable report transport', () => {
 	it('accounts for text, structured content, escaping and multibyte Unicode at exact limits', () => {
 		const value = { findings: [{ quote: 'x'.repeat(9000) }] };
 		const full = new ReportTransport().page('analyze', { pageByteLimit: 65536 }, value);
-		const bytes = Buffer.byteLength(JSON.stringify(full));
+		const bytes = Buffer.byteLength(JSON.stringify(full)) + RESULT_METADATA_BYTE_RESERVE;
 		for (const limit of [bytes - 1, bytes, bytes + 1]) {
 			const page = new ReportTransport().page('analyze', { pageByteLimit: limit }, value);
 			expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThanOrEqual(limit);
@@ -133,7 +134,7 @@ describe('bounded immutable report transport', () => {
 	);
 
 	it.each([16384, 32768, 4194304])(
-		'fills %i-byte pages exactly across JSON escapes and Unicode',
+		'fills %i-byte pages within reserved dispatch metadata across escapes and Unicode',
 		(limit) => {
 			const transport = new ReportTransport();
 			const alphabet = '\\"\b\f\n\r\t\u0000\u001f é漢🌙\ud800 \udfff';
@@ -144,6 +145,20 @@ describe('bounded immutable report transport', () => {
 			for (;;) {
 				const part = payload(page);
 				expect(part.encoding).toBe('json-fragment');
+				expect(
+					Buffer.byteLength(
+						JSON.stringify({
+							...page,
+							_meta: {
+								'com.writerslogic/project': '10000000-0000-4000-8000-000000000001',
+								'com.writerslogic/operation': {
+									id: '20000000-0000-4000-8000-000000000001',
+									durationMs: Number.MAX_SAFE_INTEGER,
+								},
+							},
+						})
+					)
+				).toBeLessThanOrEqual(limit);
 				expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThanOrEqual(limit);
 				expect(JSON.parse(page.content[0].text!)).toEqual(page.structuredContent);
 				text += part.data;
@@ -170,7 +185,7 @@ describe('bounded immutable report transport', () => {
 							structuredContent: enlarged,
 						})
 					)
-				).toBeGreaterThan(limit);
+				).toBeGreaterThan(limit - RESULT_METADATA_BYTE_RESERVE);
 				page = transport.page('read_report', {
 					reportId: part.reportId,
 					pageCursor: part.pagination!.nextCursor,

@@ -9,6 +9,9 @@ import type { PassageSearch } from './passage-search.js';
 
 export type WorkflowKind = 'review-chapter' | 'audit-continuity' | 'beta-reader-draft';
 type WorkflowState = 'ready' | 'running' | 'cancelled' | 'failed' | 'completed' | 'interrupted';
+export const MAX_ACTIVE_WORKFLOWS = 5;
+export const MAX_WORKFLOW_BYTES = 64 * 1024 * 1024;
+export const MAX_RETAINED_WORKFLOWS = 100;
 type StepState = 'pending' | 'running' | 'completed' | 'failed';
 
 interface WorkflowStep {
@@ -32,6 +35,8 @@ export interface EditorialWorkflow {
 	kind: WorkflowKind;
 	state: WorkflowState;
 	stateVersion?: number;
+	sourceBytes?: number;
+	cancellation?: 'requested' | 'stopped';
 	createdAt: string;
 	updatedAt: string;
 	scope: Array<{ documentId: string; revision: string; title: string; characters: number }>;
@@ -95,6 +100,7 @@ export class WorkflowService {
 	private readonly instance = randomUUID();
 	private readonly running = new Map<string, Promise<void>>();
 	private closed = false;
+	private admitting = 0;
 
 	constructor(
 		private readonly source: ManuscriptSource,
@@ -105,7 +111,20 @@ export class WorkflowService {
 		this.namespace = `editorial-workflows:${source.projectId}`;
 	}
 
-	async start(input: {
+	async start(
+		input: Parameters<WorkflowService['startAdmitted']>[0]
+	): Promise<EditorialWorkflow> {
+		if (this.admitting >= MAX_ACTIVE_WORKFLOWS)
+			throw new Error('Workflow admission is saturated; retry later');
+		this.admitting++;
+		try {
+			return await this.startAdmitted(input);
+		} finally {
+			this.admitting--;
+		}
+	}
+
+	private async startAdmitted(input: {
 		kind: WorkflowKind;
 		documentIds?: string[];
 		idempotencyKey?: string;
@@ -182,6 +201,10 @@ export class WorkflowService {
 			projectId: this.source.projectId,
 			kind: input.kind,
 			state: 'ready',
+			sourceBytes: documents.reduce(
+				(sum, document) => sum + Buffer.byteLength(document.text),
+				0
+			),
 			createdAt: now,
 			updatedAt: now,
 			scope: documents.map((doc) => ({
@@ -213,11 +236,44 @@ export class WorkflowService {
 				this.requireSameRequest(existing, input, documents);
 				return false;
 			}
+			this.assertAdmission(workflow);
 			this.persist(workflow);
 			return true;
 		});
 		if (created) this.schedule(id);
 		return created ? workflow : this.get(id);
+	}
+
+	private assertAdmission(workflow: EditorialWorkflow): void {
+		const usage = this.store.usage(this.namespace);
+		const existing = this.store.get(this.namespace, workflow.id);
+		if (
+			(!existing && usage.count >= MAX_RETAINED_WORKFLOWS) ||
+			usage.bytes >= MAX_WORKFLOW_BYTES
+		)
+			throw new Error(
+				'Workflow history budget reached; retain or archive the project state before starting more work. Replay and undo history are never automatically deleted.'
+			);
+		const active = this.store
+			.page<EditorialWorkflow>(
+				this.namespace,
+				{ limit: 100 },
+				['id', 'state', 'sourceBytes', 'owner'],
+				{ field: 'state', values: ['ready', 'running', 'cancelled'] }
+			)
+			.items.filter(
+				(item) => item.id !== workflow.id && (item.state !== 'cancelled' || item.owner)
+			);
+		if (
+			active.length >= MAX_ACTIVE_WORKFLOWS ||
+			active.reduce(
+				(sum, item) => sum + (item.sourceBytes ?? MAX_WORKFLOW_BYTES),
+				workflow.sourceBytes ?? MAX_WORKFLOW_BYTES
+			) > MAX_WORKFLOW_BYTES
+		)
+			throw new Error(
+				'Workflow admission is saturated: active count or 64 MiB source budget reached; retry after existing work stops'
+			);
 	}
 
 	private requireSameRequest(
@@ -254,6 +310,15 @@ export class WorkflowService {
 	private persist(workflow: EditorialWorkflow): void {
 		workflow.stateVersion = (workflow.stateVersion ?? 0) + 1;
 		workflow.updatedAt = new Date().toISOString();
+		const bytes = Buffer.byteLength(JSON.stringify(workflow));
+		const prior = this.store.get(this.namespace, workflow.id);
+		if (
+			this.store.usage(this.namespace).bytes -
+				(prior ? Buffer.byteLength(JSON.stringify(prior)) : 0) +
+				bytes >
+			MAX_WORKFLOW_BYTES
+		)
+			throw new Error('Workflow result exceeds the retained 64 MiB budget');
 		this.store.put(this.namespace, workflow.id, workflow);
 	}
 
@@ -294,6 +359,7 @@ export class WorkflowService {
 			const workflow = this.get(id);
 			if (workflow.state === 'completed') return workflow;
 			workflow.state = 'cancelled';
+			workflow.cancellation = workflow.owner ? 'requested' : 'stopped';
 			this.persist(workflow);
 			return workflow;
 		});
@@ -336,6 +402,8 @@ export class WorkflowService {
 				throw new Error('Workflow is owned by another active or ambiguous server');
 			if (options.allowExportWarnings !== undefined)
 				current.allowExportWarnings = options.allowExportWarnings;
+			this.assertAdmission(current);
+			current.cancellation = undefined;
 			current.state = 'ready';
 			current.error = undefined;
 			current.owner = undefined;
@@ -383,6 +451,33 @@ export class WorkflowService {
 			documents.set(current.documentId, current);
 		}
 		return documents;
+	}
+
+	async publication(id: string): Promise<{
+		path: string;
+		sha256: string;
+		sourceRevisions: Array<{ documentId: string; revision: string }>;
+	}> {
+		const workflow = this.get(id);
+		if (workflow.kind !== 'beta-reader-draft' || workflow.state !== 'completed')
+			throw new Error('Publication requires a completed beta-reader-draft workflow');
+		await this.validateScope(workflow);
+		const result = workflow.steps.find(
+			(step) => step.kind === 'export' && step.state === 'completed'
+		)?.result as { path?: unknown; receipt?: { sha256?: unknown } } | undefined;
+		if (
+			typeof result?.path !== 'string' ||
+			typeof result.receipt?.sha256 !== 'string' ||
+			!/^[a-f0-9]{64}$/.test(result.receipt.sha256)
+		)
+			throw new Error('Workflow has no committed export digest');
+		return {
+			path: result.path,
+			sha256: result.receipt.sha256,
+			sourceRevisions: workflow.scope
+				.map(({ documentId, revision }) => ({ documentId, revision }))
+				.sort((left, right) => left.documentId.localeCompare(right.documentId)),
+		};
 	}
 
 	private onlyExportRemains(workflow: EditorialWorkflow): boolean {
@@ -477,6 +572,7 @@ export class WorkflowService {
 										end: finding.utf16End,
 										text: finding.replacements[0],
 									}));
+						if (this.closed || this.get(id).state === 'cancelled') break;
 						result = edits.length
 							? await this.dependencies.propose({
 									documentId: document.documentId,
@@ -541,6 +637,7 @@ export class WorkflowService {
 					workflow.state = workflow.steps.every((step) => step.state === 'completed')
 						? 'completed'
 						: 'interrupted';
+				if (workflow.state === 'cancelled') workflow.cancellation = 'stopped';
 				workflow.owner = undefined;
 			});
 		} catch (error) {
@@ -555,6 +652,7 @@ export class WorkflowService {
 						active.state = 'failed';
 						active.error = record.error;
 					}
+					if (record.state === 'cancelled') record.cancellation = 'stopped';
 					record.owner = undefined;
 				});
 			}
@@ -563,6 +661,14 @@ export class WorkflowService {
 
 	async close(): Promise<void> {
 		this.closed = true;
-		await Promise.all(this.running.values());
+		const results = await Promise.allSettled(this.running.values());
+		const failures = results.filter(
+			(result): result is PromiseRejectedResult => result.status === 'rejected'
+		);
+		if (failures.length)
+			throw new AggregateError(
+				failures.map((failure) => failure.reason),
+				'Workflows failed while closing'
+			);
 	}
 }

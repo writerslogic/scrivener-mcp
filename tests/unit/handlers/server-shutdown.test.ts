@@ -210,6 +210,7 @@ if (require('node:worker_threads').isMainThread) {
 				expect(alive(child.pid!)).toBe(false);
 				expect(alive(nativePid!)).toBe(false);
 				if (analysis) await analysis;
+				if (cancellation) expect(stderr).toMatch(/\"outcome\":\"cancelled\"/);
 			} catch (error) {
 				throw new Error(`Server ${mode} regression failed: ${String(error)}\n${stderr}`);
 			} finally {

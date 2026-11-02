@@ -337,12 +337,16 @@ export async function semanticSearch(params: { query: string; topK?: number }): 
 	});
 }
 
-export async function generateSuggestions(params: {
-	prompt: string;
-	documentId?: string;
-	useContext?: boolean;
-	async?: boolean;
-}): Promise<SuggestionResult | { jobId: string; message: string }> {
+export async function generateSuggestions(
+	params: {
+		prompt: string;
+		documentId?: string;
+		useContext?: boolean;
+		async?: boolean;
+	},
+	options: { signal?: AbortSignal } = {}
+): Promise<SuggestionResult | { jobId: string; message: string }> {
+	options.signal?.throwIfAborted();
 	return withAsyncServices(async (jobQueueService) => {
 		if (!jobQueueService) throw new Error('Writing suggestions are unavailable');
 		if (params.async !== undefined && typeof params.async !== 'boolean')
@@ -358,7 +362,7 @@ export async function generateSuggestions(params: {
 				message: 'Suggestion generation queued',
 			};
 		}
-		return jobQueueService.generateSuggestions(request);
+		return jobQueueService.generateSuggestions(request, options.signal);
 	});
 }
 
@@ -436,6 +440,7 @@ export async function getJobStatus(params: { jobType: JobType; jobId: string }):
 	progress: number;
 	result?: unknown;
 	error?: string;
+	cancellation?: 'requested' | 'stopped' | 'result-discarded';
 }> {
 	return withAsyncServices(async (jobQueueService) => {
 		validateInput(params, { jobType: { required: true }, jobId: { required: true } });
@@ -487,7 +492,9 @@ export async function cancelJob(params: {
 
 		await jobQueueService.cancelJob(params.jobType, params.jobId);
 
-		return { message: `Job ${params.jobId} cancelled` };
+		return {
+			message: `Cancellation requested for job ${params.jobId}; poll status until cancellation is stopped or its result is discarded. Active Redis jobs cannot be interrupted.`,
+		};
 	});
 }
 

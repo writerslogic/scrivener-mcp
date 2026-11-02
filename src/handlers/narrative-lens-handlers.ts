@@ -1,3 +1,4 @@
+import { getWritingTextMetrics, hasEnglishReadabilityEvidence } from '../utils/text-metrics.js';
 /**
  * Local, deterministic prose-craft analysis backed by narrative-lens.
  * No AI model, no network call -- complements analyze_document (AI-based)
@@ -184,15 +185,26 @@ export const analyzeCraftLocalHandler: ToolDefinition = {
 		}
 		const text = document.content || '';
 
-		const readability = computeReadability(text);
+		const readable = hasEnglishReadabilityEvidence(text);
+		const readability = readable
+			? computeReadability(text)
+			: {
+					availability: 'unavailable',
+					reason: 'unsupported_language',
+					fkgl: null,
+					...getWritingTextMetrics(text),
+				};
 		const grammar = checkGrammar(text);
 		const syntaxTension = analyzeSyntaxTension(text);
 		const dialogue = extractDialogue(text, 0, knownCharacters);
 		const topWords = wordFrequencies(text, wordFrequencyLimit);
 
 		const summary =
-			`Readability: FKGL ${readability.fkgl.toFixed(1)} (${readability.gradeLevels.fkgl}), ` +
-			`${readability.wordCount} words, ${readability.sentenceCount} sentences.\n` +
+			`${
+				'gradeLevels' in readability
+					? `Readability: FKGL ${readability.fkgl.toFixed(1)} (${readability.gradeLevels.fkgl}), `
+					: 'Readability: unavailable (English language evidence required), '
+			}${readability.wordCount} words, ${readability.sentenceCount} sentences.\n` +
 			`Grammar: ${grammar.length} finding${grammar.length === 1 ? '' : 's'}.\n` +
 			`Syntax tension: ${syntaxTension.score.toFixed(2)} ` +
 			`(${syntaxTension.burstCount} bursts across ${syntaxTension.sentenceCount} sentences).\n` +

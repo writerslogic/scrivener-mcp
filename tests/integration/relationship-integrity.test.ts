@@ -11,7 +11,7 @@ import type { Neo4jManager } from '../../src/handlers/database/neo4j-manager.js'
 import { relationshipHandlers } from '../../src/handlers/relationship-handlers.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
 import { RTFHandler } from '../../src/services/parsers/rtf-handler.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 
 const tools = new Map(relationshipHandlers.map((tool) => [tool.name, tool]));
 const validator = new AjvJsonSchemaValidator();
@@ -28,7 +28,6 @@ const inputValidators = new Map(
 	])
 );
 const rtf = new RTFHandler();
-const spools = new Set<string>();
 let root: string;
 let store: PersistentStore;
 let source: ProjectSource;
@@ -61,7 +60,7 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 
 function retrieve(value: Record<string, unknown>) {
 	if (typeof value._ref !== 'string') return value;
-	spools.add(dirname(value._file as string));
+
 	let offset: number | null = 0;
 	let json = '';
 	do {
@@ -121,7 +120,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-	for (const directory of spools) await rm(directory, { recursive: true, force: true });
+	disposeSpool();
 });
 
 test('records exact directed edges idempotently and retrieves incoming as well as outgoing relationships', async () => {

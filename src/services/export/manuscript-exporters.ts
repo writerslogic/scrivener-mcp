@@ -270,19 +270,31 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 
 // PDF (pdf-lib is low-level: we wrap and paginate text ourselves)
 
-/** pdf-lib StandardFonts only encode WinAnsi; map common typographic chars and
- * drop anything else so drawText never throws on smart quotes / em-dashes. */
-function sanitizeForPdf(text: string): string {
-	return (
-		text
-			.replace(/[‘’‚′]/g, "'")
-			.replace(/[“”„″]/g, '"')
-			.replace(/[–—]/g, '-')
-			.replace(/…/g, '...')
-			.replace(/\u00A0/g, ' ')
-			// eslint-disable-next-line no-control-regex
-			.replace(/[^\x09\x0A\x0D\x20-\xFF]/g, '')
-	);
+function findUnsupportedPdfCharacters(
+	sections: ExportSection[],
+	meta: ExportMeta,
+	characters: ReadonlySet<number>
+): Array<{ title: string; characters: string[] }> {
+	const inputs = [
+		{ title: 'metadata title', text: meta.title },
+		...(meta.author ? [{ title: 'metadata author', text: meta.author }] : []),
+		...sections.flatMap((section) => [
+			{ title: section.title, text: section.title },
+			{ title: section.id ?? section.title, text: section.text },
+			...(section.notes ?? []).map((text) => ({ title: section.id ?? section.title, text })),
+		]),
+	];
+	const unsupported: Array<{ title: string; characters: string[] }> = [];
+	for (const input of inputs) {
+		const seen = new Set<string>();
+		for (const char of input.text) {
+			const code = char.codePointAt(0) ?? 0;
+			if (!(code === 0x09 || code === 0x0a || code === 0x0d || characters.has(code)))
+				seen.add(char);
+		}
+		if (seen.size) unsupported.push({ title: input.title, characters: [...seen] });
+	}
+	return unsupported;
 }
 
 function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
@@ -306,7 +318,18 @@ export async function toPdf(sections: ExportSection[], meta: ExportMeta): Promis
 	const pdf = await PDFDocument.create();
 	const body = await pdf.embedFont(StandardFonts.TimesRoman);
 	const bold = await pdf.embedFont(StandardFonts.TimesRomanBold);
-
+	const unsupported = findUnsupportedPdfCharacters(
+		sections,
+		meta,
+		new Set(body.getCharacterSet().filter((point) => bold.getCharacterSet().includes(point)))
+	);
+	if (unsupported.length) {
+		throw new Error(
+			`PDF export cannot faithfully encode unsupported characters with built-in StandardFonts: ${unsupported
+				.map((item) => `${item.title}: ${item.characters.join(' ')}`)
+				.join('; ')}. Export DOCX/EPUB to preserve these characters.`
+		);
+	}
 	const pageWidth = 612;
 	const pageHeight = 792;
 	const margin = 72;
@@ -317,7 +340,7 @@ export async function toPdf(sections: ExportSection[], meta: ExportMeta): Promis
 	let y = pageHeight - margin;
 
 	const draw = (text: string, font: PDFFont, size: number): void => {
-		for (const line of wrapLine(sanitizeForPdf(text), font, size, maxWidth)) {
+		for (const line of wrapLine(text, font, size, maxWidth)) {
 			if (y < margin) {
 				page = pdf.addPage([pageWidth, pageHeight]);
 				y = pageHeight - margin;
@@ -334,7 +357,7 @@ export async function toPdf(sections: ExportSection[], meta: ExportMeta): Promis
 	for (const section of sections) {
 		y -= lineHeight;
 		draw(section.title, bold, 14);
-		for (const para of splitParagraphs(section.text)) {
+		for (const para of [...splitParagraphs(section.text), ...(section.notes ?? [])]) {
 			draw(para, body, 12);
 			y -= lineHeight / 2;
 		}

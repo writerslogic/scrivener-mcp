@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { PDFDocument } from 'pdf-lib';
 import { parseStringPromise } from 'xml2js';
 import { posix } from 'node:path';
 import type { ExportSection } from './manuscript-exporters.js';
@@ -78,7 +79,9 @@ export async function validateExport(
 		throw new Error('Export exceeds the validation size limit');
 	if (format === 'pdf') {
 		if (buffer.subarray(0, 5).toString() !== '%PDF-') throw new Error('Invalid generated PDF');
-		return ['PDF signature'];
+		const document = await PDFDocument.load(buffer, { throwOnInvalidObject: true });
+		if (!document.getPageCount()) throw new Error('Generated PDF has no pages');
+		return ['PDF parse', 'nonempty page tree'];
 	}
 	const zip = await JSZip.loadAsync(buffer, { checkCRC32: true });
 	const read = async (name: string): Promise<string> => {

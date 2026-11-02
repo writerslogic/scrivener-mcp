@@ -1,11 +1,19 @@
 import { createError, ErrorCode } from '../core/errors.js';
-import { safeWriteFile } from '../utils/common.js';
-import { findBinderItem, getNotesPath, getSynopsisPath } from '../utils/scrivener-utils.js';
+import {
+	assertProjectArtifactPath,
+	assertValidProjectDocumentId,
+	getNotesPath,
+	getSynopsisPath,
+} from '../utils/scrivener-utils.js';
 import { documentIndexer } from './document-indexer.js';
 import type { MetadataManager } from './metadata-manager.js';
 import type { ProjectLoader } from './project-loader.js';
+import type { BinderContainer, ProjectStructure } from '../types/internal.js';
 import { RTFHandler } from './parsers/rtf-handler.js';
 import type { ScrivenerDocument } from '../types/index.js';
+import { findBinderItemById } from './document-manager-helpers.js';
+import { exposeXmlAttributes } from '../utils/scrivener-xml.js';
+import type { MetadataFileUpdate } from './editorial/mutation-coordinator.js';
 
 /** Document metadata edits: binder metadata, synopsis/notes files and the index snapshot. */
 export class ProjectMetadataEditor {
@@ -13,7 +21,10 @@ export class ProjectMetadataEditor {
 		private readonly projectPath: string,
 		private readonly projectLoader: ProjectLoader,
 		private readonly metadataManager: MetadataManager,
-		private readonly saveProject: () => Promise<void>,
+		private readonly saveProject: (
+			structure: ProjectStructure,
+			files: readonly MetadataFileUpdate[]
+		) => Promise<void>,
 		private readonly isIndexInitialized: () => boolean
 	) {}
 
@@ -28,8 +39,11 @@ export class ProjectMetadataEditor {
 			throw createError(ErrorCode.INVALID_STATE, 'Project not loaded');
 		}
 
+		this.validateSynopsisAndNotesPaths(documentId, metadata);
+		const nextStructure = structuredClone(structure);
+		exposeXmlAttributes(nextStructure);
 		const item = this.findBinderItem(
-			structure as unknown as Record<string, unknown>,
+			nextStructure as unknown as Record<string, unknown>,
 			documentId
 		);
 		if (!item) {
@@ -37,31 +51,32 @@ export class ProjectMetadataEditor {
 		}
 
 		this.metadataManager.updateDocumentMetadata(item, metadata);
-		await this.writeSynopsisAndNotesToDisk(documentId, metadata);
+		const files: MetadataFileUpdate[] = [];
+		if (typeof metadata.synopsis === 'string')
+			files.push({ documentId, kind: 'synopsis', raw: metadata.synopsis });
+		if (typeof metadata.notes === 'string')
+			files.push({
+				documentId,
+				kind: 'notes',
+				raw: new RTFHandler().convertToRTF(metadata.notes),
+			});
+		await this.saveProject(nextStructure, files);
 		this.patchDocumentIndex(documentId, metadata);
-		await this.saveProject();
 	}
 
-	/**
-	 * Scrivener 3 reads a document's synopsis/notes from files under
-	 * Files/Data/<UUID>/ (synopsis.txt, notes.rtf), not from the .scrivx
-	 * MetaData block that updateDocumentMetadata above writes -- so a synopsis
-	 * set here must also land on disk to be visible in Scrivener's own UI (and
-	 * to round-trip back out of get_document_info, which reads from disk too).
-	 */
-	private async writeSynopsisAndNotesToDisk(
+	private validateSynopsisAndNotesPaths(
 		documentId: string,
 		metadata: Record<string, unknown>
-	): Promise<void> {
+	): void {
+		assertValidProjectDocumentId(documentId);
 		if (typeof metadata.synopsis === 'string') {
-			await safeWriteFile(getSynopsisPath(this.projectPath, documentId), metadata.synopsis);
-		}
-
-		if (typeof metadata.notes === 'string') {
-			await new RTFHandler().writeRTF(
-				getNotesPath(this.projectPath, documentId),
-				metadata.notes
+			assertProjectArtifactPath(
+				this.projectPath,
+				getSynopsisPath(this.projectPath, documentId)
 			);
+		}
+		if (typeof metadata.notes === 'string') {
+			assertProjectArtifactPath(this.projectPath, getNotesPath(this.projectPath, documentId));
 		}
 	}
 
@@ -142,8 +157,7 @@ export class ProjectMetadataEditor {
 		const scrivenerProject = structure.ScrivenerProject as Record<string, unknown> | undefined;
 		if (!scrivenerProject?.Binder) return null;
 
-		const binder = scrivenerProject.Binder;
-		const found = findBinderItem(binder, documentId);
+		const found = findBinderItemById(scrivenerProject.Binder as BinderContainer, documentId);
 		return found as Record<string, unknown> | null;
 	}
 }

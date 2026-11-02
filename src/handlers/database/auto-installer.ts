@@ -10,16 +10,11 @@ import * as os from 'os';
 import * as path from 'path';
 import * as readline from 'readline/promises';
 import { promisify } from 'util';
-import { AdaptiveTimeout, ProgressIndicators } from '../../utils/adaptive-timeout.js';
-import { generateScrivenerUUID } from '../../utils/scrivener-utils.js';
-import {
-	AppError,
-	ErrorCode,
-	ensureDir,
-	safeReadFile,
-	safeStringify,
-	safeWriteFile,
-} from '../../utils/common.js';
+import { AdaptiveTimeout } from '../../utils/adaptive-timeout.js';
+import { randomBytes } from 'node:crypto';
+import { isIP } from 'node:net';
+import { waitForServiceReady } from '../../utils/condition-waiter.js';
+import { AppError, ErrorCode, ensureDir, safeReadFile, safeWriteFile } from '../../utils/common.js';
 import { getLogger } from '../../core/logger.js';
 import { PermissionManager } from '../../utils/permission-manager.js';
 
@@ -50,6 +45,7 @@ export interface InstallOptions {
 	projectPath: string;
 	autoStart: boolean;
 	version?: string;
+	bindAddress?: string;
 }
 
 export interface InstallResult {
@@ -60,7 +56,6 @@ export interface InstallResult {
 }
 
 export class Neo4jAutoInstaller {
-	private static readonly DEFAULT_PASSWORD = `scrivener-${generateScrivenerUUID().toLowerCase().slice(0, 8)}`;
 	private static readonly NEO4J_VERSION = '5.15.0';
 
 	/**
@@ -249,69 +244,84 @@ export class Neo4jAutoInstaller {
 	 */
 	private static async installViaDocker(options: InstallOptions): Promise<InstallResult> {
 		try {
-			console.error('\n🐳 Installing Neo4j via Docker...');
-
-			// Pull Neo4j image
-			console.error('📥 Downloading Neo4j Docker image...');
-			await execAsync(`docker pull neo4j:${options.version || this.NEO4J_VERSION}`);
-
-			try {
-				await execAsync('docker rm -f scrivener-neo4j 2>/dev/null');
-			} catch {
-				// Container doesn't exist, that's fine
-			}
-
-			console.error('💾 Creating data volume...');
-			await execAsync('docker volume create scrivener-neo4j-data');
-
-			console.error('🚀 Starting Neo4j container...');
-			const password = this.DEFAULT_PASSWORD;
-			const runCommand = [
-				'docker run -d',
-				'--name scrivener-neo4j',
-				'--restart unless-stopped',
-				'-p 7474:7474',
-				'-p 7687:7687',
-				`-e NEO4J_AUTH=neo4j/${password}`,
-				'-e NEO4J_PLUGINS=\'["apoc-core", "graph-data-science"]\'',
-				'-e NEO4J_dbms_memory_heap_initial__size=512m',
-				'-e NEO4J_dbms_memory_heap_max__size=2G',
-				'-v scrivener-neo4j-data:/data',
-				`neo4j:${options.version || this.NEO4J_VERSION}`,
-			].join(' ');
-
-			await execAsync(runCommand);
-
-			// Wait for Neo4j to start
-			console.error('⏳ Waiting for Neo4j to start...');
-			await this.waitForNeo4j(password);
-
-			console.error('✅ Neo4j installed successfully via Docker!');
-
+			const version = options.version ?? this.NEO4J_VERSION;
+			const address = options.bindAddress ?? '127.0.0.1';
+			if (!/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(version) || !isIP(address))
+				throw new Error('Invalid Docker version or bind address');
+			const existing = await execFileAsync('docker', [
+				'ps',
+				'--all',
+				'--filter',
+				'name=^/scrivener-neo4j$',
+				'--format',
+				'{{.ID}}',
+			]);
+			if (existing.stdout.trim())
+				return {
+					success: false,
+					method: 'docker',
+					message:
+						'The scrivener-neo4j container already exists; its data and credentials were preserved.',
+				};
+			const { DatabaseSetup } = await import('./database-setup.js');
+			const connectionHost =
+				address === '0.0.0.0' ? '127.0.0.1' : address === '::' ? '::1' : address;
+			const connectionUri = `bolt://${isIP(connectionHost) === 6 ? `[${connectionHost}]` : connectionHost}:7687`;
+			const prior = await DatabaseSetup.getCredentials({ projectPath: options.projectPath });
+			if (
+				prior.neo4j.password &&
+				((prior.neo4j.uri !== connectionUri &&
+					prior.neo4j.uri !== 'bolt://localhost:7687') ||
+					prior.neo4j.user !== 'neo4j' ||
+					prior.neo4j.password.length < 32)
+			)
+				throw new Error('Existing credentials require explicit migration');
+			const password = prior.neo4j.password || randomBytes(32).toString('base64url');
+			const credentials = { uri: connectionUri, user: 'neo4j', password, database: 'neo4j' };
+			await this.saveCredentials(options.projectPath, credentials);
+			await execFileAsync('docker', ['pull', `neo4j:${version}`]);
+			await execFileAsync('docker', ['volume', 'create', 'scrivener-neo4j-data']);
+			const host = isIP(address) === 6 ? `[${address}]` : address;
+			await execFileAsync(
+				'docker',
+				[
+					'run',
+					'-d',
+					'--name',
+					'scrivener-neo4j',
+					'--restart',
+					'unless-stopped',
+					'-p',
+					`${host}:7474:7474`,
+					'-p',
+					`${host}:7687:7687`,
+					'--env',
+					'NEO4J_AUTH',
+					'--env',
+					'NEO4J_PLUGINS=["apoc-core", "graph-data-science"]',
+					'--env',
+					'NEO4J_dbms_memory_heap_initial__size=512m',
+					'--env',
+					'NEO4J_dbms_memory_heap_max__size=2G',
+					'-v',
+					'scrivener-neo4j-data:/data',
+					`neo4j:${version}`,
+				],
+				{ env: { ...process.env, NEO4J_AUTH: `neo4j/${password}` } }
+			);
+			await this.waitForNeo4j(password, 30, connectionHost);
 			return {
 				success: true,
 				method: 'docker',
-				credentials: {
-					uri: 'bolt://localhost:7687',
-					user: 'neo4j',
-					password,
-					database: 'neo4j',
-				},
-				message: 'Neo4j installed and running in Docker container "scrivener-neo4j"',
+				credentials,
+				message: 'Neo4j installed; credentials are stored in the project credential file.',
 			};
-		} catch (error) {
-			console.error('❌ Docker installation failed:', error);
-
-			// Try to install Docker if not available
-			if ((error as Error).message?.includes('docker: command not found')) {
-				console.error('\n📦 Docker is not installed. Would you like to install it?');
-				console.error('Visit: https://docs.docker.com/get-docker/');
-			}
-
+		} catch {
 			return {
 				success: false,
 				method: 'docker',
-				message: `Docker installation failed: ${(error as Error).message}`,
+				message:
+					'Neo4j Docker setup failed. Check Docker availability, existing credentials, image version and port availability; any generated credentials were retained privately.',
 			};
 		}
 	}
@@ -337,7 +347,7 @@ export class Neo4jAutoInstaller {
 			});
 
 			// Configure Neo4j
-			const password = this.DEFAULT_PASSWORD;
+			const password = randomBytes(32).toString('base64url');
 
 			console.error('🔐 Setting initial password...');
 			await execFileAsync('neo4j-admin', ['set-initial-password', password], {
@@ -423,7 +433,7 @@ export class Neo4jAutoInstaller {
 			const neo4jHome = path.join(installDir, neo4jDir);
 
 			// Configure Neo4j
-			const password = this.DEFAULT_PASSWORD;
+			const password = randomBytes(32).toString('base64url');
 			console.error('🔐 Configuring Neo4j...');
 			await this.configureNeo4j(neo4jHome, password);
 
@@ -652,89 +662,30 @@ export class Neo4jAutoInstaller {
 	/**
 	 * Wait for Neo4j to be ready with adaptive timeout
 	 */
-	private static async waitForNeo4j(password: string, maxAttempts: number = 30): Promise<void> {
+	private static async waitForNeo4j(
+		password: string,
+		maxAttempts: number = 30,
+		host = 'localhost'
+	): Promise<void> {
+		await waitForServiceReady(host, 7687, maxAttempts * 1000);
 		const neo4j = await import('neo4j-driver');
-
-		const timeout = new AdaptiveTimeout({
-			operation: 'Neo4j startup',
-			baseTimeout: maxAttempts * 1000,
-			maxTimeout: maxAttempts * 1500, // Allow some extra time
-			stallTimeout: 15000, // Neo4j can take longer to start
-			progressIndicators: [
-				ProgressIndicators.networkProgress('localhost', 7687),
-				{
-					type: 'completion_check',
-					description: 'Neo4j connectivity',
-					check: async () => {
-						try {
-							const driver = neo4j.default.driver(
-								'bolt://localhost:7687',
-								neo4j.default.auth.basic('neo4j', password)
-							);
-							await driver.verifyConnectivity();
-							await driver.close();
-							return true;
-						} catch {
-							return false;
-						}
-					},
-				},
-			],
-			onProgress: (progress) => {
-				if (progress.message?.includes('connectivity')) {
-					process.stderr.write('.');
-				}
-			},
-		});
-
-		await timeout.wait(
-			new Promise<void>((resolve) => {
-				const checkNeo4j = async () => {
-					try {
-						const driver = neo4j.default.driver(
-							'bolt://localhost:7687',
-							neo4j.default.auth.basic('neo4j', password)
-						);
-						await driver.verifyConnectivity();
-						await driver.close();
-						resolve();
-					} catch {
-						// Let adaptive timeout handle the completion check
-						setTimeout(checkNeo4j, 200);
-					}
-				};
-				checkNeo4j();
-			})
+		const driver = neo4j.default.driver(
+			`bolt://${isIP(host) === 6 ? `[${host}]` : host}:7687`,
+			neo4j.default.auth.basic('neo4j', password),
+			{ connectionTimeout: 5000 }
 		);
-		// Note: If timeout.wait() rejects due to timeout, it will throw an appropriate error
+		try {
+			await driver.verifyConnectivity();
+		} finally {
+			await driver.close();
+		}
 	}
 
 	private static async saveCredentials(
 		projectPath: string,
 		credentials: Neo4jCredentials
 	): Promise<void> {
-		const configDir = path.join(projectPath, '.scrivener-databases');
-		await ensureDir(configDir);
-
-		const configPath = path.join(configDir, 'credentials.json');
-		await safeWriteFile(
-			configPath,
-			safeStringify({ neo4j: credentials, createdAt: new Date().toISOString() }),
-			{ mode: 0o600 }
-		);
-
-		// Also create .env file if it doesn't exist
-		const envPath = path.join(projectPath, '.env');
-		try {
-			await fs.access(envPath);
-		} catch {
-			const envContent = `# Neo4j Configuration (auto-generated)
-NEO4J_URI=${credentials.uri}
-NEO4J_USER=${credentials.user}
-NEO4J_PASSWORD=${credentials.password}
-NEO4J_DATABASE=${credentials.database}
-`;
-			await safeWriteFile(envPath, envContent);
-		}
+		const { DatabaseSetup } = await import('./database-setup.js');
+		await DatabaseSetup.saveCredentials(projectPath, { neo4j: credentials });
 	}
 }

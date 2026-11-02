@@ -6,7 +6,7 @@ bounded callback; private keys never enter WebAssembly. Trust configuration, err
 permissions and publication remain in the existing credentials service. No network fetch features
 are enabled in the SDK.
 
-The checked-in engine targets `wasm32-unknown-unknown` and runs on every supported Node platform.
+The source-built engine targets `wasm32-unknown-unknown` and runs on every supported Node platform.
 The reference build uses **Ubuntu 24.04 x64**, Rust/Cargo **1.96.0**, wasm-pack **0.14.0** and the
 project's supported Node runtime. `Cargo.lock` selects wasm-bindgen **0.2.129**; the Linux release
 tool records revision `165586f85` in the WASM producers section. Use the reference environment for
@@ -27,10 +27,16 @@ fresh ignored SDK source tree; it does not alter the Cargo registry cache. The b
 `--locked`, remaps local paths, and caps linear memory at 1 GiB. `assets/c2pa-binding/build.json`
 records source and generated artifact digests; ordinary builds and installed-package checks verify
 them. Rebuilding requires the compiler, while using the packaged engine does not. Generated
-JavaScript and WebAssembly must be committed together with the build manifest. Two simultaneous
+JavaScript declarations and the build manifest are tracked; WebAssembly is generated locally or
+passed between CI jobs as a verified artifact and included in published packages. Do not commit it. Two simultaneous
 worker operations remain the service limit.
 
-CI rebuilds from a clean checkout and requires every generated file to match the committed assets.
+The committed byte-for-byte reference is built on Ubuntu 24.04 (x86_64), with Rust toolchain
+`1.96.0` and wasm-pack `0.14.0`. Local source builds on other hosts generate their own manifest
+and may differ in bytes despite matching source inputs and compiler versions. Use the pinned
+Linux environment when comparing against the committed reference.
+
+CI rebuilds from a clean checkout and requires the generated manifest and reviewable files to match their committed references.
 It retains the compiler/Cargo metadata, source and artifact manifests, generated files and diff. A
 mismatch fails release verification and triggers a second clean build for diagnostic comparison.
 

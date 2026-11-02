@@ -139,3 +139,21 @@ describe('DocumentManager binder moves', () => {
 		expect(folderChildren().map((i) => i.UUID)).toEqual([TRASHED]);
 	});
 });
+
+test('deletion migrates legacy trash contents before creating a native trash folder', async () => {
+	const manager = new DocumentManager('/tmp/legacy-trash-fixture.scriv');
+	const structure = makeStructure();
+	manager.setProjectStructure(structure);
+	try {
+		await manager.deleteDocument(DOC);
+		expect(structure.ScrivenerProject.Binder.SearchResults).toBeUndefined();
+		const native = structure.ScrivenerProject.Binder.BinderItem.find(
+			(item) => item.Type === 'TrashFolder'
+		)!;
+		expect(native.Children!.BinderItem.map((item) => item.UUID)).toEqual([TRASHED, DOC]);
+		await manager.recoverFromTrash(TRASHED, FOLDER);
+		expect(native.Children!.BinderItem.map((item) => item.UUID)).toEqual([DOC]);
+	} finally {
+		await manager.close();
+	}
+});

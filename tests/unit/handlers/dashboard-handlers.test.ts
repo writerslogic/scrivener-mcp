@@ -1,3 +1,5 @@
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import { dashboardHandler } from '../../../src/handlers/dashboard-handlers.js';
 import type { HandlerContext } from '../../../src/handlers/types.js';
 import type { EditorialServices } from '../../../src/scrivener-project.js';
@@ -17,7 +19,11 @@ interface Dashboard {
 	scenes: Array<{ documentId: string; revision: string; appearances: Appearance[] }>;
 }
 
-async function appearances(text: string, names: string[]): Promise<Dashboard> {
+async function appearances(
+	text: string,
+	names: string[],
+	args: Record<string, unknown> = {}
+): Promise<Dashboard> {
 	const document: SourceDocument = {
 		projectId: PROJECT,
 		documentId: DOCUMENT,
@@ -62,7 +68,7 @@ async function appearances(text: string, names: string[]): Promise<Dashboard> {
 		},
 		memoryManager: null,
 	} as unknown as HandlerContext;
-	const result = await dashboardHandler.handler({}, context);
+	const result = await dashboardHandler.handler(args, context);
 	return result.structuredContent as unknown as Dashboard;
 }
 
@@ -123,4 +129,29 @@ test('escapes name syntax, honors Unicode word boundaries and retains case-insen
 		{ start: prefix.length, end: prefix.length + name.length },
 		{ start: prefix.length + name.length + 1, end: prefix.length + 2 * name.length + 1 },
 	]);
+});
+
+test.each([
+	[{}, true],
+	[{ offset: -1 }, false],
+	[{ offset: 0 }, true],
+	[{ offset: 1 }, true],
+	[{ limit: 0 }, false],
+	[{ limit: 1 }, true],
+	[{ limit: 199 }, true],
+	[{ limit: 200 }, true],
+	[{ limit: 201 }, false],
+	[{ documentId: DOCUMENT }, true],
+	[{ documentId: 'invalid' }, false],
+	[{ unknown: true }, false],
+	[{ proposalsAfter: 'x'.repeat(159) }, true],
+	[{ proposalsAfter: 'x'.repeat(160) }, true],
+	[{ proposalsAfter: 'x'.repeat(161) }, false],
+])('advertises the same accepted dashboard inputs as the handler: %j', async (args, valid) => {
+	const ajv = new Ajv({ strict: false });
+	addFormats(ajv);
+	expect(ajv.compile(dashboardHandler.inputSchema)(args)).toBe(valid);
+	const result = appearances('Mira waited.', ['Mira'], args as Record<string, unknown>);
+	if (valid) await expect(result).resolves.toBeDefined();
+	else await expect(result).rejects.toThrow();
 });

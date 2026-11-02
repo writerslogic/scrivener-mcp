@@ -123,7 +123,7 @@ or add it to Claude Desktop's config directly:
 **From GitHub**
 
 ```bash
-npm install -g writerslogic/scrivener-mcp              # latest main
+npm install -g writerslogic/scrivener-mcp              # latest main; requires pinned Rust/wasm-pack
 npm install -g writerslogic/scrivener-mcp#v0.12.0       # a specific release
 ```
 
@@ -159,7 +159,7 @@ or `AI_PROVIDER=openrouter` (OpenRouter defaults to `anthropic/claude-sonnet-4.6
 `OPENROUTER_MODEL`). If the active provider fails on an account-level error — bad key, no credit, an
 outage — the server retries on the next one you've configured. If your MCP client supports
 [sampling](https://modelcontextprotocol.io/docs/concepts/sampling), chat-based features can run
-through the client's own model instead, no separate key needed. Passage retrieval runs locally
+through the client's own model on legacy MCP connections, no separate key needed. MCP 2026-07-28 connections currently use configured providers for AI features; modern multi-round sampling is not implemented. Passage retrieval runs locally
 through Holographic Memory 0.6.4; interpretation and explanations are optional provider features.
 
 Keys are picked up automatically from:
@@ -504,7 +504,9 @@ protocol contracts, dependency upgrades and the stable release gate.
 ```bash
 git clone https://github.com/writerslogic/scrivener-mcp.git
 cd scrivener-mcp
-npm install
+npm install --ignore-scripts
+# Install the pinned Rust/wasm-pack tools listed in native/c2pa-binding/README.md
+npm run build:c2pa   # Generate the engine from source
 npm run dev          # Development mode with hot reload
 npm run build        # Compile TypeScript
 npm test             # Run tests
@@ -604,3 +606,5 @@ verifiable proof you wrote it yourself — AI accusations, settled with evidence
   <a href="https://github.com/writerslogic/scrivener-mcp/issues">Issues</a> &middot;
   <a href="./CHANGELOG.md">Changelog</a>
 </p>
+
+MCP 2026-07-28 uses `server/discover` and a stable full tool catalog. Each request supplies the protocol version and client capabilities in MCP `_meta`. `open_project` returns a `com.writerslogic/project` token in result `_meta`; include that token in subsequent project tool requests. Opening another project invalidates the previous token. Calls are serialized per stdio connection. Legacy MCP initialization and progressive skill discovery remain available.

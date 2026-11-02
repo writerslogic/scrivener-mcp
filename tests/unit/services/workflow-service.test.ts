@@ -91,6 +91,35 @@ describe('durable editorial workflows', () => {
 		await rm(dir, { recursive: true, force: true });
 	});
 
+	it('admits at most five independent workflows and retains cancellation capacity until in-flight work stops', async () => {
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		dependencies.analyzeDocument = async () => {
+			await gate;
+			return { checked: true };
+		};
+		const ids: string[] = [];
+		try {
+			for (let index = 0; index < 5; index++)
+				ids.push(
+					(await service.start({ kind: 'review-chapter', documentIds: [doc.documentId] }))
+						.id
+				);
+			await expect(
+				service.start({ kind: 'review-chapter', documentIds: [doc.documentId] })
+			).rejects.toThrow(/saturated/);
+			expect(store.count(`editorial-workflows:${doc.projectId}`)).toBe(5);
+		} finally {
+			release();
+			await Promise.all(ids.map((id) => service.wait(id)));
+		}
+		await expect(
+			service.start({ kind: 'review-chapter', documentIds: [doc.documentId] })
+		).resolves.toBeDefined();
+	});
+
 	it('reviews the requested chapter through analysis and proposals without altering the source', async () => {
 		const before = doc.text;
 		const workflow = await service.start({
@@ -141,10 +170,13 @@ describe('durable editorial workflows', () => {
 			documentIds: [doc.documentId],
 		});
 		await analysisStarted;
-		expect(service.cancel(workflow.id).state).toBe('cancelled');
+		expect(service.cancel(workflow.id)).toMatchObject({
+			state: 'cancelled',
+			cancellation: 'requested',
+		});
 		finish();
 		const cancelled = await service.wait(workflow.id);
-		expect(cancelled.state).toBe('cancelled');
+		expect(cancelled).toMatchObject({ state: 'cancelled', cancellation: 'stopped' });
 		expect(cancelled.steps.find((step) => step.kind === 'analyze')?.state).toBe('completed');
 		expect(proposals.size).toBe(0);
 		await reopenServices();

@@ -107,6 +107,14 @@ export class PersistentStore {
 		return rows.map((row) => JSON.parse(row.value) as T);
 	}
 
+	usage(namespace: string): { count: number; bytes: number } {
+		return this.db
+			.prepare(
+				'SELECT COUNT(*) AS count, COALESCE(SUM(length(CAST(value AS BLOB))), 0) AS bytes FROM editorial_state WHERE namespace = ?'
+			)
+			.get(namespace) as { count: number; bytes: number };
+	}
+
 	count(namespace: string): number {
 		const row = this.db
 			.prepare('SELECT COUNT(*) AS count FROM editorial_state WHERE namespace = ?')

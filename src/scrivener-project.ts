@@ -1,3 +1,5 @@
+import type { SignCredentialRequest } from './services/content-credentials/types.js';
+import type { ReviewedPublication } from './services/content-credentials/publication-lineage.js';
 /**
  * Scrivener Project class using modular services
  */
@@ -12,7 +14,8 @@ import { createError, ErrorCode } from './core/errors.js';
 import { initializeAsyncServices, shutdownAsyncServices } from './handlers/async-handlers.js';
 import { DatabaseService } from './handlers/database/index.js';
 import { ContextSyncService, type SyncStatus } from './sync/context-sync.js';
-import { CleanupManager, safeReadFile } from './utils/common.js';
+import { CleanupManager } from './utils/common.js';
+import { readProjectTextFile, SCRIVENER_LIMITS } from './utils/scrivener-utils.js';
 import type {
 	ScrivenerProjectOptions,
 	DocumentSnapshots,
@@ -51,6 +54,8 @@ import { ProjectSnapshots } from './services/project-snapshots.js';
 import { ProjectReports } from './services/project-reports.js';
 import { ProjectExporter } from './services/project-exporter.js';
 import { ProjectMetadataEditor } from './services/project-metadata-editor.js';
+import { BinderEditor } from './services/binder-editor.js';
+import { exposeXmlAttributes } from './utils/scrivener-xml.js';
 import { ProjectContent } from './services/project-content.js';
 import { ProjectContextBridge } from './services/project-context-bridge.js';
 import { ProjectTrash } from './services/project-trash.js';
@@ -86,6 +91,17 @@ export interface EditorialServices {
 	relationships: RelationshipEngine;
 }
 
+export interface StructuralWriteOptions {
+	force?: boolean;
+	dryRun?: boolean;
+	expectedRevision?: string;
+}
+
+export interface StructuralWriteResult {
+	dryRun: boolean;
+	expectedRevision: string;
+}
+
 const logger = getLogger('scrivener-project');
 
 export type {
@@ -99,6 +115,8 @@ export type {
 
 export class ScrivenerProject {
 	private editorial?: EditorialServices;
+	private closePromise?: Promise<void>;
+	private readonly releasedResources = new Set<string>();
 	private savedRefresh?: Promise<void>;
 	private documentInfo: ProjectDocumentInfo;
 	private writer: ProjectWriter;
@@ -133,8 +151,9 @@ export class ScrivenerProject {
 		};
 		this.hhmSystem = options.hhmSystem;
 
-		this.documentManager = new DocumentManager(this.projectPath);
+		this.documentManager = new DocumentManager(this.projectPath, this.options.readOnly);
 		this.projectLoader = new ProjectLoader(this.projectPath, {
+			readOnly: this.options.readOnly,
 			autoBackup: this.options.autoBackup,
 			scrivxPath: this.options.scrivxPath,
 		});
@@ -178,7 +197,10 @@ export class ScrivenerProject {
 			this.projectPath,
 			this.projectLoader,
 			this.metadataManager,
-			() => this.persistProject(),
+			async (structure, files) => {
+				await this.projectLoader.saveProjectWithMetadata(structure, files);
+				this.documentManager.setProjectStructure(structure);
+			},
 			() => this.indexInitialized
 		);
 
@@ -203,9 +225,7 @@ export class ScrivenerProject {
 		);
 
 		this.trash = new ProjectTrash(
-			this.documentManager,
 			this.compilationService,
-			() => this.persistProject(),
 			(documentId) => this.readDocument(documentId),
 			(includeTrash) => this.getProjectStructure(includeTrash)
 		);
@@ -216,6 +236,7 @@ export class ScrivenerProject {
 			this.hhmSystem,
 			(documentId) => this.markDocumentChanged(documentId),
 			(documentId) => this.getDocumentInfo(documentId),
+			this.options.readOnly ?? false,
 			(structure, documents) =>
 				this.projectLoader.saveProjectWithDocuments(structure, documents)
 		);
@@ -279,8 +300,9 @@ export class ScrivenerProject {
 		await this.persistProject();
 	}
 
-	private async persistProject(): Promise<void> {
-		const structure = this.projectLoader.getProjectStructure();
+	private async persistProject(
+		structure = this.projectLoader.getProjectStructure()
+	): Promise<void> {
 		await this.projectLoader.saveProject(structure);
 	}
 
@@ -427,6 +449,12 @@ export class ScrivenerProject {
 		}
 	}
 
+	async signReviewedPublication(input: SignCredentialRequest, selection: ReviewedPublication) {
+		if (this.options.readOnly) throw new Error('Project was opened read-only');
+		const { workflows, review } = this.getEditorialServices();
+		return this.exporter.signReviewedPublication(input, selection, workflows, review);
+	}
+
 	async preflightExport(options: PresetOptions) {
 		return this.exporter.preflight(options);
 	}
@@ -447,32 +475,70 @@ export class ScrivenerProject {
 
 	async deleteDocument(
 		documentId: string,
-		options: Pick<WriteOptions, 'force'> = {}
-	): Promise<void> {
-		await this.ensureWritable(options.force);
-		await this.documentManager.deleteDocument(documentId);
-		await this.persistProject();
+		options: StructuralWriteOptions = {}
+	): Promise<StructuralWriteResult> {
+		return this.editBinder((editor) => editor.deleteDocument(documentId), options);
 	}
 
 	async renameDocument(
 		documentId: string,
 		newTitle: string,
-		options: Pick<WriteOptions, 'force'> = {}
-	): Promise<void> {
-		await this.ensureWritable(options.force);
-		await this.documentManager.renameDocument(documentId, newTitle);
-		await this.persistProject();
+		options: StructuralWriteOptions = {}
+	): Promise<StructuralWriteResult> {
+		return this.editBinder((editor) => editor.renameDocument(documentId, newTitle), options);
 	}
 
 	async moveDocument(
 		documentId: string,
 		newParentId: string | null,
 		position?: number,
-		options: Pick<WriteOptions, 'force'> = {}
-	): Promise<void> {
-		await this.ensureWritable(options.force);
-		await this.documentManager.moveDocument(documentId, newParentId, position);
-		await this.persistProject();
+		options: StructuralWriteOptions = {}
+	): Promise<StructuralWriteResult> {
+		return this.editBinder(
+			(editor) => editor.moveDocument(documentId, newParentId, position),
+			options
+		);
+	}
+
+	private async editBinder(
+		edit: (editor: BinderEditor) => Promise<void>,
+		options: StructuralWriteOptions
+	): Promise<StructuralWriteResult> {
+		if (options.dryRun !== undefined && typeof options.dryRun !== 'boolean')
+			throw new Error('dryRun must be a boolean');
+		const expectedRevision = options.expectedRevision ?? this.projectLoader.getLoadedRevision();
+		if (
+			!/^[a-f0-9]{64}$/.test(expectedRevision) ||
+			expectedRevision !== this.projectLoader.getLoadedRevision()
+		)
+			throw new Error('Stale binder revision; refresh the structural plan');
+		const structure = this.projectLoader.getProjectStructure();
+		if (!structure) throw new Error('Project is not loaded');
+		const candidate = structuredClone(structure);
+		exposeXmlAttributes(candidate);
+		const editor = new BinderEditor(
+			() => candidate,
+			async () => {
+				throw new Error(
+					'Structural edits cannot create content outside a compound creation'
+				);
+			}
+		);
+		if (!options.dryRun) await this.ensureWritable(options.force);
+		await edit(editor);
+		if (options.dryRun) {
+			if (
+				expectedRevision !== this.projectLoader.getLoadedRevision() ||
+				(await this.projectLoader.isProjectModified())
+			)
+				throw new Error('Stale binder revision; refresh the structural plan');
+		} else {
+			await this.projectLoader.saveProject(candidate, expectedRevision);
+			this.documentManager.setProjectStructure(candidate);
+			if (this.indexInitialized)
+				await documentIndexer.buildIndex(await this.documentManager.getAllDocuments());
+		}
+		return { dryRun: options.dryRun ?? false, expectedRevision };
 	}
 
 	async getWordCount(documentId?: string): Promise<{ words: number; characters: number }> {
@@ -619,24 +685,18 @@ export class ScrivenerProject {
 	/**
 	 * Read Scrivener's compile-format definitions (Settings/compile.xml) and the
 	 * project taxonomy (labels, statuses, collections, section types) as
-	 * read-only metadata. Absent or unreadable compile.xml degrades to
-	 * `hasCompileSettings: false` with taxonomy still populated from the .scrivx.
+	 * read-only metadata. Absent compile.xml leaves taxonomy available; unsafe or
+	 * unreadable files fail without exposing their contents.
 	 */
 	async getCompileMetadata(): Promise<CompileMetadata> {
 		const structure = this.projectLoader.getProjectStructure();
 		const scrivenerProject = structure?.ScrivenerProject;
 
-		let compileXml: string | undefined;
-		try {
-			compileXml = await safeReadFile(
-				path.join(this.projectPath, 'Settings', 'compile.xml'),
-				'utf-8'
-			);
-		} catch (error) {
-			logger.warn('compile.xml not readable; returning taxonomy only', {
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
+		const compileXml = await readProjectTextFile(
+			this.projectPath,
+			path.join(this.projectPath, 'Settings', 'compile.xml'),
+			{ maxBytes: SCRIVENER_LIMITS.MAX_CONTENT_SIZE, optional: true }
+		);
 
 		return buildCompileMetadata(scrivenerProject, compileXml);
 	}
@@ -658,6 +718,7 @@ export class ScrivenerProject {
 	 * the writer a native rollback point. Requires the document to have content.
 	 */
 	async takeSnapshot(documentId: string, title = 'Snapshot'): Promise<SnapshotEntry> {
+		await this.ensureWritable();
 		return this.snapshots.takeSnapshot(documentId, title);
 	}
 
@@ -767,10 +828,12 @@ export class ScrivenerProject {
 	async recoverFromTrash(
 		documentId: string,
 		targetParentId?: string,
-		options: Pick<WriteOptions, 'force'> = {}
-	): Promise<void> {
-		await this.ensureWritable(options.force);
-		return this.trash.recoverFromTrash(documentId, targetParentId);
+		options: StructuralWriteOptions = {}
+	): Promise<StructuralWriteResult> {
+		return this.editBinder(
+			(editor) => editor.recoverFromTrash(documentId, targetParentId),
+			options
+		);
 	}
 
 	async getProjectStructureLimited(options?: {
@@ -827,44 +890,61 @@ export class ScrivenerProject {
 		return this.contextBridge.performInitialSync();
 	}
 
-	async close(): Promise<void> {
-		logger.info('Closing Scrivener project');
-		await this.editorial?.workflows.close();
-		await shutdownAsyncServices();
-		if (this.editorial) {
-			await this.editorial.narrative.close();
-			await this.editorial.search.close();
-			this.editorial.seriesStore.close();
-			this.editorial.store.close();
-			this.editorial = undefined;
-		}
-
-		// Flush any pending changes in the indexer
-		if (this.indexInitialized) {
-			await documentIndexer.flushChanges();
-			documentIndexer.dispose();
-			this.indexInitialized = false;
-		}
-
-		if (this.contextSync) {
-			this.contextSync.close();
-		}
-		this.contentAnalyzer.dispose();
-
-		const resources = await Promise.allSettled([
-			this.databaseService.close(),
-			this.documentManager.close(),
-			Promise.resolve().then(() => this.projectLoader.close()),
-		]);
-		const failures = resources.filter(
-			(result): result is PromiseRejectedResult => result.status === 'rejected'
-		);
-		if (failures.length === 1) throw failures[0].reason;
-		if (failures.length > 1)
-			throw new Error('Multiple project resources failed to close', {
-				cause: failures.map((result) => result.reason),
+	close(): Promise<void> {
+		if (!this.closePromise)
+			this.closePromise = this.closeResources().finally(() => {
+				this.closePromise = undefined;
 			});
+		return this.closePromise;
+	}
 
+	private async closeResources(): Promise<void> {
+		logger.info('Closing Scrivener project');
+		const failures: unknown[] = [];
+		const release = async (
+			name: string,
+			operation: () => unknown | Promise<unknown>
+		): Promise<boolean> => {
+			if (this.releasedResources.has(name)) return true;
+			try {
+				await operation();
+				this.releasedResources.add(name);
+				return true;
+			} catch (error) {
+				failures.push(error);
+				return false;
+			}
+		};
+		const workflowsClosed = await release('workflows', () => this.editorial?.workflows.close());
+		const queueClosed = await release('queue', () => shutdownAsyncServices());
+		if (this.editorial) {
+			const editorial = this.editorial;
+			const narrativeClosed = await release('narrative', () => editorial.narrative.close());
+			const searchClosed = await release('search', () => editorial.search.close());
+			if (workflowsClosed && narrativeClosed && searchClosed) {
+				const seriesClosed = await release('series-store', () =>
+					editorial.seriesStore.close()
+				);
+				const storeClosed = await release('editorial-store', () => editorial.store.close());
+				if (seriesClosed && storeClosed) this.editorial = undefined;
+			}
+		}
+		await release('document-index', async () => {
+			if (this.indexInitialized) {
+				await documentIndexer.flushChanges();
+				documentIndexer.dispose();
+				this.indexInitialized = false;
+			}
+		});
+		const syncClosed = await release('context-sync', () => this.contextSync?.close());
+		await release('content-analyzer', () => this.contentAnalyzer.dispose());
+		await release('documents', () => this.documentManager.close());
+		await release('project-loader', () => this.projectLoader.close());
+		if (queueClosed && syncClosed)
+			await release('database', () => this.databaseService.close());
+		if (failures.length === 1) throw failures[0];
+		if (failures.length > 1)
+			throw new AggregateError(failures, 'Project resources failed to close');
 		logger.info('Project closed');
 	}
 }

@@ -210,3 +210,22 @@ substitute for platform compatibility evidence. Service limits are **128 MiB sou
 MiB detached manifests/reports**, a **30-second native-operation timeout**, and **two concurrent
 operations**. Busy operations are rejected for a later explicit retry. Native parsing/signing runs
 in isolated child processes; failures do not authorize overwriting an existing output.
+
+
+Local validation reports `trustSnapshot`: policy version 1 and the SHA-256 of the exact SDK
+settings, including the separate canonical signer/TSA trust anchors. Freshness is `unknown`;
+revocation uses offline evidence only. These fields do not claim official-list membership.
+
+To adopt an official list, an administrator must obtain the signer and TSA lists from their
+respective [official C2PA sources](https://opensource.contentauthenticity.org/docs/conformance/trust-lists/),
+verify source provenance, and retain the upstream revision, retrieval time and file digest with
+the deployment configuration. Review changed anchors before atomically replacing the configured
+local files; keep the previous version for rollback. The server validates bounded PEM inputs and
+never downloads updates, falls back to public Web PKI roots, or treats list retrieval time as a
+fresh revocation check. Formal conformance remains unassessed. Generator metadata declares
+C2PA 2.4.0; current C2PA 2.5 is not claimed merely because it is published.
+
+
+`sign_content_credentials.reviewedPublication` links a completed `beta-reader-draft` workflow to its exact export SHA-256, saved source revisions and committed review application IDs. Apply reviewed changes first, then start the export workflow; every scoped document needs one application whose committed revision matches the exported revision. Supply `workflowId`, `reviewApplicationIds`, and optionally `machineAssistance: "declared-assistance"` (default `"unknown"`). Local analysis is disclosed separately; absence of recorded AI use never establishes human authorship.
+
+This mode requires the export as `assetPath`, embedded credentials, and a distinct safe `.docx` filename directly in the open project's `.scrivener-mcp/exports` directory. The existing publication journal retains prepared signed bytes for recovery and exact replay; an interrupted prepared artifact describes the approved snapshot at preparation, not a later manuscript revision. Stale revisions, uncommitted reviews and altered exports are rejected. The signed custom assertion `com.writerslogic.publication` contains only identifiers, hashes and assistance declarations. Review text, titles, author identity, file paths and credentials remain private unless separately included in the asset or explicit signing title. Signing uses the existing credential history and trust rules; it establishes neither factual truth, copyright ownership nor human authorship.

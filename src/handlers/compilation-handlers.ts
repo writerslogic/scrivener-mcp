@@ -230,7 +230,6 @@ function formatCompileResult(
 					wordCount,
 					charCount,
 					sections: sectionCount,
-					file: ref._file,
 					resultId: ref._ref,
 					hint: ref._hint,
 				}),
@@ -240,7 +239,6 @@ function formatCompileResult(
 		structuredContent: {
 			...(ai ? { ai } : {}),
 			format,
-			file: ref._file,
 			resultId: ref._ref,
 			hint: ref._hint,
 			wordCount,
@@ -369,11 +367,6 @@ export const compileDocumentsHandler: ToolDefinition = {
 				type: 'string',
 				description:
 					'The compiled manuscript text. Present for small results; large results spool to a file instead.',
-			},
-			file: {
-				type: 'string',
-				description:
-					'File reference the compiled text was spooled to. Present only when the result was too large to inline.',
 			},
 			resultId: {
 				type: 'string',
@@ -624,13 +617,18 @@ export const exportProjectHandler: ToolDefinition = {
 			outputPath: {
 				type: 'string',
 				description:
-					'Absolute or project-relative path to write the exported file. Omit to use a ' +
-					'default location (the working directory, named after the project title). ' +
+					'Absolute or working-directory-relative output path. Existing ordinary exports are replaced. Omit to use ' +
+					'.scrivener-mcp/exports inside the project, named after its title. ' +
 					'Required in effect only if you want a specific location for docx/epub/pdf.',
 			},
 			options: {
 				type: 'object',
-				description: 'Optional format-specific export options (e.g. metadata, styling).',
+				description:
+					'Export options. Binary exports require allowWarnings: true to acknowledge reported unsupported constructs.',
+				properties: {
+					allowWarnings: { type: 'boolean', default: false },
+					includeAnnotations: { type: 'boolean', default: false },
+				},
 			},
 		},
 		required: ['format'],

@@ -12,7 +12,7 @@ import {
 	initializeAsyncServices,
 	shutdownAsyncServices,
 } from '../../src/handlers/async-handlers.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 
 jest.mock('../../src/services/queue/keydb-detector.js', () => ({
 	detectConnection: async () => ({ isAvailable: false, type: 'none' }),
@@ -36,7 +36,6 @@ const profile = {
 	improvements: [],
 };
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-const spools = new Set<string>();
 let chat: jest.SpiedFunction<AIClient['chat']>;
 
 beforeEach(async () => {
@@ -54,7 +53,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-	for (const directory of spools) await rm(directory, { recursive: true, force: true });
+	disposeSpool();
 });
 
 async function analyze(
@@ -66,7 +65,7 @@ async function analyze(
 	let data = response.structuredContent!;
 	if (typeof data._ref === 'string') {
 		expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThan(4000);
-		spools.add(dirname(data._file as string));
+
 		let offset: number | null = 0;
 		let text = '';
 		do {

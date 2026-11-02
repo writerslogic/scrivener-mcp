@@ -39,7 +39,7 @@ export class DocumentManager {
 	private closing = false;
 	private closePromise?: Promise<void>;
 
-	constructor(projectPath: string) {
+	constructor(projectPath: string, readOnly = false) {
 		this.projectPath = projectPath;
 		this.rtfHandler = new RTFHandler();
 		this.documentCache = new LRUCache<RTFContent>({
@@ -75,7 +75,8 @@ export class DocumentManager {
 			this.rtfHandler,
 			this.documentCache,
 			(documentId) => this.observedRevisions.get(documentId),
-			(documentId, revision) => this.observedRevisions.set(documentId, revision)
+			(documentId, revision) => this.observedRevisions.set(documentId, revision),
+			readOnly
 		);
 	}
 
@@ -206,6 +207,11 @@ export class DocumentManager {
 		return this.writer.coordinator;
 	}
 
+	private assertWritable(): void {
+		this.assertOpen();
+		this.writer.coordinator.assertWritable();
+	}
+
 	private assertOpen(): void {
 		if (this.closing) throw new Error('Document manager is closing');
 	}
@@ -253,12 +259,12 @@ export class DocumentManager {
 		parentId?: string,
 		type: 'Text' | 'Folder' = DOCUMENT_TYPES.TEXT
 	): Promise<string> {
-		this.assertOpen();
+		this.assertWritable();
 		return this.binder.createDocument(title, content, parentId, type);
 	}
 
 	async deleteDocument(documentId: string): Promise<void> {
-		this.assertOpen();
+		this.assertWritable();
 		return this.binder.deleteDocument(documentId);
 	}
 
@@ -266,7 +272,7 @@ export class DocumentManager {
 	 * Rename a document
 	 */
 	async renameDocument(documentId: string, newTitle: string): Promise<void> {
-		this.assertOpen();
+		this.assertWritable();
 		return this.binder.renameDocument(documentId, newTitle);
 	}
 
@@ -278,7 +284,7 @@ export class DocumentManager {
 		newParentId: string | null,
 		position?: number
 	): Promise<void> {
-		this.assertOpen();
+		this.assertWritable();
 		return this.binder.moveDocument(documentId, newParentId, position);
 	}
 
@@ -286,7 +292,7 @@ export class DocumentManager {
 	 * Recover a document from trash
 	 */
 	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
-		this.assertOpen();
+		this.assertWritable();
 		return this.binder.recoverFromTrash(documentId, targetParentId);
 	}
 

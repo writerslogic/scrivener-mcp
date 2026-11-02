@@ -107,7 +107,7 @@ describe('DocumentManager', () => {
 	test('missing documents, empty or absent trash, and unloaded structures report expected absence', async () => {
 		await expect(manager.recoverFromTrash(MISSING)).rejects.toThrow(/not found in trash/i);
 		structure.ScrivenerProject.Binder.SearchResults[0].Children.BinderItem = [];
-		await expect(manager.recoverFromTrash(TRASH)).rejects.toThrow(/trash is empty/i);
+		await expect(manager.recoverFromTrash(TRASH)).rejects.toThrow(/not found in trash/i);
 		structure.ScrivenerProject.Binder.SearchResults = [];
 		await expect(manager.recoverFromTrash(TRASH)).rejects.toThrow(/trash is empty/i);
 		manager.setProjectStructure({});
@@ -167,7 +167,12 @@ describe('DocumentManager', () => {
 		structure.ScrivenerProject.Binder.SearchResults = [];
 		await manager.deleteDocument(DOC);
 		expect(draftChildren().map((item) => item.UUID)).toEqual([FOLDER]);
-		expect(trash().map((item) => item.UUID)).toEqual([DOC]);
+		expect(
+			roots()
+				.find((item) => item.Type === 'TrashFolder')
+				?.Children?.BinderItem.map((item) => item.UUID)
+		).toEqual([DOC]);
+		expect(structure.ScrivenerProject.Binder.SearchResults).toBeUndefined();
 		await expect(manager.deleteDocument(MISSING)).rejects.toThrow(/not found/i);
 	});
 

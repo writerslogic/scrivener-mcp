@@ -54,6 +54,20 @@ const context = {
 } as unknown as HandlerContext;
 
 describe('analyze_craft_local', () => {
+	it('does not present English grade levels for an unsupported-language saved document', async () => {
+		const original = docs[0].content;
+		docs[0].content = '海边的猫正在睡觉。';
+		try {
+			const result = await analyzeCraftLocalHandler.handler({ documentId: 'd1' }, context);
+			expect(result.structuredContent?.readability).toMatchObject({
+				availability: 'unavailable',
+				reason: 'unsupported_language',
+				fkgl: null,
+			});
+		} finally {
+			docs[0].content = original;
+		}
+	});
 	it('returns every promised section for a real document', async () => {
 		const res = await analyzeCraftLocalHandler.handler({ documentId: 'd1' }, context);
 		const out = res.structuredContent as Record<string, unknown>;

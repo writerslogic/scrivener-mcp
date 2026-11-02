@@ -50,7 +50,8 @@ function openServices(): void {
 		documents,
 		undefined,
 		() => {},
-		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' })
+		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
+		false
 	);
 	store = new PersistentStore(database());
 	reviews = new ReviewService(documents, writer, store);
@@ -689,4 +690,32 @@ test.each([
 		for (const descriptor of opened)
 			if (descriptor.handle.fd !== -1) await descriptor.handle.close();
 	}
+});
+
+test('publication receipts require committed approval for every exact saved revision', async () => {
+	const proposal = await proposeOpening();
+	const sources = [{ documentId: DOCUMENT, revision: documentRevision(RICH) }];
+	expect(() => reviews.publicationReceipts([proposal.id], sources)).toThrow(/committed/);
+	const applied = await reviews.apply(proposal.id, { force: true });
+	expect(() => reviews.publicationReceipts([applied.id], sources)).toThrow(/stale/);
+	const current = [{ documentId: DOCUMENT, revision: applied.afterRevision! }];
+	expect(reviews.publicationReceipts([applied.id], current)).toEqual([
+		{
+			applicationId: applied.id,
+			documentId: DOCUMENT,
+			beforeRevision: applied.beforeRevision,
+			afterRevision: applied.afterRevision,
+		},
+	]);
+	expect(() => reviews.publicationReceipts([applied.id, applied.id], current)).toThrow(
+		/distinct/
+	);
+	expect(() =>
+		reviews.publicationReceipts(
+			[applied.id],
+			[...current, { documentId: randomUUID(), revision: applied.afterRevision! }]
+		)
+	).toThrow(/Every/);
+	await reviews.undo(applied.id, { force: true });
+	expect(() => reviews.publicationReceipts([applied.id], current)).toThrow(/committed/);
 });

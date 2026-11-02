@@ -9,12 +9,38 @@ export const APP_MIME_TYPE = 'text/html;profile=mcp-app';
 const MAX_MENTIONS = 100;
 const input = z
 	.object({
-		proposalsAfter: z.string().min(1).max(160).optional(),
-		applicationsAfter: z.string().min(1).max(160).optional(),
-		findingsAfter: z.string().min(1).max(160).optional(),
-		documentId: z.string().uuid().optional(),
-		offset: z.number().int().min(0).default(0),
-		limit: z.number().int().min(1).max(200).default(50),
+		proposalsAfter: z
+			.string()
+			.min(1)
+			.max(160)
+			.describe('Opaque next-page history cursor.')
+			.optional(),
+		applicationsAfter: z
+			.string()
+			.min(1)
+			.max(160)
+			.describe('Opaque next-page history cursor.')
+			.optional(),
+		findingsAfter: z
+			.string()
+			.min(1)
+			.max(160)
+			.describe('Opaque next-page history cursor.')
+			.optional(),
+		documentId: z.string().uuid().describe('Optional saved scene UUID to reveal.').optional(),
+		offset: z
+			.number()
+			.int()
+			.min(0)
+			.describe('First manuscript scene index (zero-based).')
+			.default(0),
+		limit: z
+			.number()
+			.int()
+			.min(1)
+			.max(200)
+			.describe('Number of manuscript scenes per page.')
+			.default(50),
 	})
 	.strict();
 
@@ -40,42 +66,10 @@ export const dashboardHandler: ToolDefinition = {
 		idempotentHint: true,
 		openWorldHint: false,
 	},
-	inputSchema: {
-		type: 'object',
-		properties: {
-			proposalsAfter: {
-				type: 'string',
-				minLength: 1,
-				maxLength: 160,
-				description: 'Next proposal history cursor.',
-			},
-			applicationsAfter: {
-				type: 'string',
-				minLength: 1,
-				maxLength: 160,
-				description: 'Next application history cursor.',
-			},
-			findingsAfter: {
-				type: 'string',
-				minLength: 1,
-				maxLength: 160,
-				description: 'Next continuity findings cursor.',
-			},
-			documentId: {
-				type: 'string',
-				description: 'Optional scene UUID whose saved source context to reveal.',
-			},
-			offset: {
-				type: 'integer',
-				description: 'First manuscript scene index for pagination; default zero.',
-			},
-			limit: {
-				type: 'integer',
-				description:
-					'Number of manuscript scenes to return, from 1 through 200; default 50.',
-			},
-		},
-	},
+	inputSchema: z.toJSONSchema(input, {
+		io: 'input',
+		target: 'draft-07',
+	}) as ToolDefinition['inputSchema'],
 	outputSchema: {
 		type: 'object',
 		properties: {

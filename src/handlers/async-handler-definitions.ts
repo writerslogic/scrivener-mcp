@@ -488,14 +488,15 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				{ required: RESULT_REFERENCE_SCHEMA.required },
 			],
 		},
-		handler: async (args) => {
+		handler: async (args, _context, options) => {
 			const result = await asyncHandlers.generateSuggestions(
 				args as {
 					prompt: string;
 					documentId?: string;
 					useContext?: boolean;
 					async?: boolean;
-				}
+				},
+				options
 			);
 			const text = formatPayload(result, 'writing-suggestions');
 			return {
@@ -681,6 +682,12 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 		outputSchema: {
 			type: 'object',
 			properties: {
+				cancellation: {
+					type: 'string',
+					enum: ['requested', 'stopped', 'result-discarded'],
+					description:
+						'Requested retains capacity until the underlying operation stops; result-discarded means the noninterruptible work settled after cancellation.',
+				},
 				state: {
 					type: 'string',
 					description:
@@ -692,7 +699,7 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				},
 				result: {
 					description:
-						'Completed result, or an opaque _ref for large results. Retrieve _ref with read_result, follow nextOffset, concatenate text, then JSON.parse. References expire after one hour or server restart.',
+						'Completed result, or an opaque _ref for large results. Retrieve _ref with read_result, follow nextOffset, concatenate text, then JSON.parse. Embedded results expire after one hour or earlier at the 100-result/64 MiB capacity limit. Spool references also expire on restart.',
 				},
 				error: {
 					type: 'string',

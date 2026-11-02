@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { CreateMessageRequestSchema, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { CreateMessageRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { setImmediate } from 'node:timers/promises';
 import { getLogger } from '../../../../src/core/logger.js';
 import { AIClient, type AIProvider } from '../../../../src/services/ai/ai-client.js';
@@ -434,7 +434,7 @@ it.each([0, 1])(
 			registerSamplingServer(server);
 			const ai = new AIClient({ ...credentials, provider: 'sampling', timeoutMs: 25 });
 			await expect(ai.chat('Fixture passage')).rejects.toMatchObject({
-				code: ErrorCode.RequestTimeout,
+				name: 'TimeoutError',
 			});
 			await setImmediate();
 			const sampling = send.mock.calls.find(

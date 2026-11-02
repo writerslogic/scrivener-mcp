@@ -25,6 +25,50 @@ if (process.env.SCRIVENER_NOVEL_RESOURCE_PRELOAD) {
 
 let measurement;
 let timer;
+let treeTimer;
+let treeSample;
+function sampleTree() {
+	if (treeSample) return treeSample;
+	const current = measurement;
+	treeSample = new Promise((done) =>
+		childProcess.execFile(
+			'ps',
+			['-axo', 'pid=,ppid=,rss='],
+			{ timeout: 2000, maxBuffer: 1024 * 1024 },
+			(error, output) => {
+				if (error) current.processTreeError = 'Process-tree RSS sampling failed';
+				else {
+					const rows = output
+						.trim()
+						.split('\n')
+						.map((line) => line.trim().split(/\s+/).map(Number));
+					const selected = new Set([process.pid]);
+					let added;
+					do {
+						added = false;
+						for (const [pid, parent] of rows)
+							if (selected.has(parent) && !selected.has(pid)) {
+								selected.add(pid);
+								added = true;
+							}
+					} while (added);
+					const rss = rows.reduce(
+						(sum, [pid, , bytes]) => sum + (selected.has(pid) ? bytes * 1024 : 0),
+						0
+					);
+					current.processTreeRssPeakBytes = Math.max(
+						current.processTreeRssPeakBytes,
+						rss
+					);
+					current.processTreeSamples++;
+				}
+				treeSample = undefined;
+				done();
+			}
+		)
+	);
+	return treeSample;
+}
 const profiling = process.env.SCRIVENER_NOVEL_PROFILE === '1';
 function span(stage, start, cpu, longest = false) {
 	if (!profiling || !timer) return;
@@ -129,7 +173,7 @@ function sample() {
 	measurement.lastTick = now;
 	measurement.rssPeakBytes = Math.max(measurement.rssPeakBytes, process.memoryUsage.rss());
 }
-process.on('message', ({ id, action }) => {
+process.on('message', async ({ id, action }) => {
 	if (action === 'start') {
 		if (timer) throw new Error('A resource measurement is already active');
 		const now = performance.now();
@@ -138,6 +182,8 @@ process.on('message', ({ id, action }) => {
 			lastTick: now,
 			rssStartBytes: process.memoryUsage.rss(),
 			rssPeakBytes: 0,
+			processTreeRssPeakBytes: 0,
+			processTreeSamples: 0,
 			eventLoopLagMs: 0,
 			...(profiling
 				? {
@@ -154,11 +200,18 @@ process.on('message', ({ id, action }) => {
 		measurement.rssPeakBytes = measurement.rssStartBytes;
 		timer = setInterval(sample, 5);
 		timer.unref();
+		await sampleTree();
+		treeTimer = setInterval(() => {
+			void sampleTree();
+		}, 100);
+		treeTimer.unref();
 		mark('measurement:start');
 		process.send({ id });
 	} else if (action === 'end') {
 		if (!timer) throw new Error('No resource measurement is active');
 		mark('measurement:end');
+		clearInterval(treeTimer);
+		await sampleTree();
 		clearInterval(timer);
 		timer = undefined;
 		sample();

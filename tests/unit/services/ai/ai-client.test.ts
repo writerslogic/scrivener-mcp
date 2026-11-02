@@ -9,6 +9,20 @@ import { AIClient, isProviderUnavailable } from '../../../../src/services/ai/ai-
 import { registerSamplingServer } from '../../../../src/services/ai/sampling-bridge.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
+const localOnlyBeforeTests = process.env.SCRIVENER_LOCAL_ONLY;
+beforeEach(() => {
+	delete process.env.SCRIVENER_LOCAL_ONLY;
+	if (process.env.SCRIVENER_RUN_LIVE_AI_TESTS !== '1')
+		jest.spyOn(globalThis, 'fetch').mockRejectedValue(
+			new Error('Unit tests prohibit outbound provider requests')
+		);
+});
+afterEach(() => {
+	if (localOnlyBeforeTests === undefined) delete process.env.SCRIVENER_LOCAL_ONLY;
+	else process.env.SCRIVENER_LOCAL_ONLY = localOnlyBeforeTests;
+	jest.restoreAllMocks();
+});
+
 it('enforces local-only privacy for explicit keys and a sampling-capable client', async () => {
 	const original = process.env.SCRIVENER_LOCAL_ONLY;
 	process.env.SCRIVENER_LOCAL_ONLY = 'true';
@@ -283,6 +297,7 @@ describe('AIClient MCP sampling', () => {
 		expect(c.isAvailable).toBe(true);
 		await expect(c.chat('hi')).resolves.toBe('sampled');
 		expect(createMessage).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: 1024 }), {
+			signal: expect.any(AbortSignal),
 			timeout: 60000,
 			maxTotalTimeout: 60000,
 			resetTimeoutOnProgress: false,
@@ -524,4 +539,28 @@ liveAnthropic('AIClient live Claude round-trip', () => {
 		});
 		expect(reply.toUpperCase()).toContain('PONG');
 	}, 30000);
+});
+
+it('propagates cancellation to a pending provider and never starts a fallback', async () => {
+	const controller = new AbortController();
+	const client = new AIClient({
+		openaiApiKey: 'local-fixture',
+		anthropicApiKey: '',
+		openrouterApiKey: 'local-fixture',
+	});
+	const fallback = jest.fn();
+	const pending = jest.fn(async (_input, options) => {
+		expect(options.signal).toBeInstanceOf(AbortSignal);
+		controller.abort(new Error('cancelled fixture'));
+		throw Object.assign(new Error('unavailable'), { status: 503 });
+	});
+	Object.assign(client, {
+		openai: { chat: { completions: { create: pending } } },
+		openrouter: { chat: { completions: { create: fallback } } },
+	});
+	await expect(
+		client.chat('Local cancellation fixture', { signal: controller.signal })
+	).rejects.toThrow('cancelled fixture');
+	expect(pending).toHaveBeenCalledTimes(1);
+	expect(fallback).not.toHaveBeenCalled();
 });

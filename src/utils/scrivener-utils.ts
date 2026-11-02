@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import { constants as fsConstants, lstatSync, realpathSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
@@ -205,6 +206,139 @@ export async function resolveScrivenerProjectPath(
 		projectPath: normalizedPath,
 		scrivxPath: await findScrivxPath(normalizedPath),
 	};
+}
+
+export const PROJECT_ARTIFACT_READ_FLAGS =
+	fsConstants.O_RDONLY |
+	(fsConstants.O_NOFOLLOW ?? 0) |
+	(fsConstants.O_NONBLOCK ?? 0) |
+	(fsConstants.O_NOCTTY ?? 0);
+
+export function assertValidProjectDocumentId(documentId: string): void {
+	if (typeof documentId !== 'string' || !isValidScrivenerDocumentId(documentId)) {
+		throw new AppError('Invalid document ID', ErrorCode.INVALID_INPUT, { documentId });
+	}
+}
+
+export function assertProjectArtifactPath(projectPath: string, filePath: string): string {
+	if (typeof filePath !== 'string' || filePath.includes('\0')) {
+		throw new AppError('Invalid project artifact path', ErrorCode.PATH_INVALID, { filePath });
+	}
+	const root = normalizeScrivenerPath(projectPath);
+	const target = path.resolve(filePath);
+	const relative = path.relative(root, target);
+	if (
+		relative === '' ||
+		relative.startsWith(`..${path.sep}`) ||
+		relative === '..' ||
+		path.isAbsolute(relative)
+	) {
+		throw new AppError('Project artifact path leaves the project', ErrorCode.PATH_INVALID, {
+			projectPath: root,
+			filePath: target,
+		});
+	}
+
+	const realRoot = realpathSync(root);
+	let current = realRoot;
+	for (const component of relative.split(path.sep)) {
+		if (!component) continue;
+		current = path.join(current, component);
+		try {
+			if (lstatSync(current).isSymbolicLink()) {
+				throw new AppError(
+					'Refusing a symlink in a project artifact path',
+					ErrorCode.PATH_INVALID,
+					{
+						filePath: target,
+					}
+				);
+			}
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+		}
+	}
+	return target;
+}
+
+export async function readProjectTextFile(
+	projectPath: string,
+	filePath: string,
+	options: { maxBytes: number; optional?: boolean }
+): Promise<string | undefined> {
+	if (
+		!Number.isSafeInteger(options.maxBytes) ||
+		options.maxBytes < 0 ||
+		options.maxBytes > 64 * 1024 * 1024
+	)
+		throw new AppError('Invalid project artifact byte limit', ErrorCode.INVALID_INPUT);
+	const target = assertProjectArtifactPath(projectPath, filePath);
+	let handle: fs.FileHandle | undefined;
+	try {
+		handle = await fs.open(target, PROJECT_ARTIFACT_READ_FLAGS);
+		const stat = await handle.stat();
+		if (
+			!stat.isFile() ||
+			!Number.isSafeInteger(stat.size) ||
+			stat.size < 0 ||
+			stat.size > options.maxBytes
+		) {
+			throw new AppError(
+				'Project artifact is not a supported regular file',
+				ErrorCode.DOCUMENT_INVALID,
+				{
+					filePath: target,
+					size: stat.size,
+					maxBytes: options.maxBytes,
+				}
+			);
+		}
+		if (process.platform === 'win32' || !fsConstants.O_NOFOLLOW) {
+			const entry = await fs.lstat(target, { bigint: true });
+			const identity = await handle.stat({ bigint: true });
+			if (
+				entry.isSymbolicLink() ||
+				!entry.isFile() ||
+				!identity.isFile() ||
+				entry.ino !== identity.ino
+			) {
+				throw new AppError(
+					'Project artifact changed while opening',
+					ErrorCode.PATH_INVALID,
+					{
+						filePath: target,
+					}
+				);
+			}
+		}
+		const buffer = Buffer.alloc(stat.size + 1);
+		let count = 0;
+		while (count < buffer.length) {
+			const read = await handle.read(buffer, count, buffer.length - count, count);
+			if (!read.bytesRead) break;
+			count += read.bytesRead;
+		}
+		const final = await handle.stat();
+		if (count !== stat.size || final.size !== stat.size || final.mtimeMs !== stat.mtimeMs) {
+			throw new AppError('Project artifact changed during read', ErrorCode.IO_ERROR, {
+				filePath: target,
+			});
+		}
+		const bytes = buffer.subarray(0, count);
+		const text = bytes.toString('utf8');
+		if (!Buffer.from(text, 'utf8').equals(bytes)) {
+			throw new AppError('Project artifact is not valid UTF-8', ErrorCode.INVALID_FORMAT, {
+				filePath: target,
+			});
+		}
+		return text;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT' && options.optional)
+			return undefined;
+		throw error;
+	} finally {
+		await handle?.close();
+	}
 }
 
 export function getDocumentPath(projectPath: string, documentId: string): string {

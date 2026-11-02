@@ -10,7 +10,7 @@ import { PersistentStore } from '../../src/services/editorial/persistent-store.j
 import { RTFHandler } from '../../src/services/parsers/rtf-handler.js';
 import { analyzeDocumentHandler as tool } from '../../src/handlers/analysis-handlers/document-analysis.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 import { checkGrammar } from 'narrative-lens';
 
 jest.mock('narrative-lens', () => {
@@ -23,7 +23,6 @@ const validator = new AjvJsonSchemaValidator();
 const input = validator.getValidator(tool.inputSchema as JsonSchemaType);
 const output = validator.getValidator(tool.outputSchema as JsonSchemaType);
 const rtf = new RTFHandler();
-const spools = new Set<string>();
 const valid = {
 	readability: 'Clear.',
 	pacing: 'Steady.',
@@ -50,7 +49,7 @@ async function call(extra: Record<string, unknown> = {}) {
 	let data = response.structuredContent!;
 	if (typeof data._ref === 'string') {
 		expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThan(4000);
-		spools.add(dirname(data._file as string));
+
 		let offset: number | null = 0,
 			json = '';
 		do {
@@ -93,7 +92,7 @@ afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 afterAll(async () => {
-	for (const path of spools) await rm(path, { recursive: true, force: true });
+	disposeSpool();
 });
 
 test('sends the complete saved source and selected focus, with stable semantic request identity', async () => {

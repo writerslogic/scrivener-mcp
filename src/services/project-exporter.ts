@@ -1,5 +1,16 @@
+import { tmpdir } from 'node:os';
+import { signCredentialAsset } from './content-credentials/service.js';
+import { readStableCredentialFile } from './content-credentials/local-files.js';
+import {
+	reviewedPublicationSchema,
+	publicationLineageSchema,
+	type ReviewedPublication,
+} from './content-credentials/publication-lineage.js';
+import type { SignCredentialRequest, SignCredentialResult } from './content-credentials/types.js';
+import type { ReviewService } from './editorial/review-service.js';
+import type { WorkflowService } from './editorial/workflow-service.js';
 import * as path from 'node:path';
-import { lstat, realpath } from 'node:fs/promises';
+import { lstat, realpath, mkdtemp, rm } from 'node:fs/promises';
 import { createError, ErrorCode } from '../core/errors.js';
 import { safeWriteFile } from '../utils/common.js';
 import { findDraftFolder } from '../utils/binder-tree.js';
@@ -80,7 +91,28 @@ export class ProjectExporter {
 		if (options?.preset)
 			return this.exportPreset({ ...options, preset: options.preset }, outputPath);
 		if (format === 'docx' || format === 'epub' || format === 'pdf') {
-			const sections = await this.gatherManuscriptSections();
+			const { sections, findings, sourceRevisions } = await this.prepare({
+				...options,
+				preset: 'beta-reader',
+			});
+			if (
+				format === 'pdf' &&
+				sections.some((section) =>
+					section.formattedText?.some(
+						(run) =>
+							run.style?.bold ||
+							run.style?.italic ||
+							run.style?.underline ||
+							run.style?.strikethrough
+					)
+				)
+			)
+				findings.push({
+					code: 'pdf-body-style',
+					severity: 'warning',
+					message: 'PDF uses plain body text; inline style runs require DOCX or EPUB.',
+				});
+			this.requireReady(findings, options?.allowWarnings);
 			const meta = await this.getProjectMetadata();
 			const buffer = await exportBinary(format, sections, {
 				title: meta.title || 'Untitled',
@@ -92,7 +124,9 @@ export class ProjectExporter {
 				format,
 				path: filePath,
 				bytes: buffer.length,
+				findings,
 				metadata: {
+					sourceRevisions,
 					exportDate: new Date().toISOString(),
 					format,
 					documentCount: sections.filter((s) => !s.isFolder).length,
@@ -231,6 +265,100 @@ export class ProjectExporter {
 		);
 	}
 
+	async signReviewedPublication(
+		input: SignCredentialRequest,
+		selection: ReviewedPublication,
+		workflows: WorkflowService,
+		reviews: ReviewService
+	): Promise<SignCredentialResult> {
+		if (!this.mutationCoordinator || !this.projectPath)
+			throw new Error('Reviewed publication requires a project coordinator');
+		const selected = reviewedPublicationSchema.parse(selection);
+		if (
+			(input.mode ?? 'embedded') !== 'embedded' ||
+			input.sourceManifestPath ||
+			input.preserveInvalidSource ||
+			input.publicationLineage
+		)
+			throw new Error(
+				'Reviewed publication signs the committed export with embedded credentials'
+			);
+		const publication = await workflows.publication(selected.workflowId);
+		if (path.resolve(input.assetPath) !== path.resolve(publication.path))
+			throw new Error('Publication asset must be the committed workflow export');
+		const lineage = publicationLineageSchema.parse({
+			version: 1,
+			workflowId: selected.workflowId,
+			exportSha256: publication.sha256,
+			sourceRevisions: publication.sourceRevisions,
+			reviews: reviews.publicationReceipts(
+				selected.reviewApplicationIds,
+				publication.sourceRevisions
+			),
+			machineAssistance: { localAnalysis: true, manuscript: selected.machineAssistance },
+		});
+		const verify = async () => {
+			const current = await workflows.publication(selected.workflowId);
+			if (
+				JSON.stringify(current) !== JSON.stringify(publication) ||
+				JSON.stringify(
+					reviews.publicationReceipts(
+						selected.reviewApplicationIds,
+						current.sourceRevisions
+					)
+				) !== JSON.stringify(lineage.reviews)
+			)
+				throw new Error('Publication source or approval changed while signing');
+			const snapshot = await readStableCredentialFile(
+				publication.path,
+				32 * 1024 * 1024,
+				'Workflow export'
+			);
+			if (documentRevision(snapshot.bytes) !== publication.sha256)
+				throw new Error('Published export digest changed');
+		};
+		await verify();
+		const requestHash = documentRevision(
+			JSON.stringify({
+				version: 1,
+				lineage,
+				outputPath: path.resolve(input.outputPath),
+				title: input.title ?? null,
+				mimeType: input.mimeType ?? null,
+			})
+		);
+		const published = await this.mutationCoordinator.publishExport(
+			{ operationId: `signed-${requestHash}`, requestHash, outputPath: input.outputPath },
+			async () => {
+				await verify();
+				const directory = await mkdtemp(path.join(tmpdir(), 'scrivener-publication-'));
+				try {
+					const signed = await signCredentialAsset({
+						...input,
+						outputPath: path.join(directory, `signed${path.extname(input.outputPath)}`),
+						publicationLineage: lineage,
+					});
+					const { bytes } = await readStableCredentialFile(
+						signed.outputPath,
+						32 * 1024 * 1024,
+						'Signed publication'
+					);
+					await verify();
+					return {
+						buffer: bytes,
+						result: { ...signed, outputPath: path.resolve(input.outputPath) },
+					};
+				} finally {
+					await rm(directory, { recursive: true, force: true });
+				}
+			}
+		);
+		const { path: publishedPath, receipt, ...result } = published;
+		void publishedPath;
+		void receipt;
+		return result as unknown as SignCredentialResult;
+	}
+
 	async preflight(options: PresetOptions): Promise<{
 		preset: string;
 		format: 'docx' | 'epub';
@@ -254,14 +382,8 @@ export class ProjectExporter {
 		options: PresetOptions,
 		outputPath?: string
 	): Promise<Record<string, unknown>> {
-		const { sections, findings } = await this.prepare(options);
-		if (
-			findings.some((finding) => finding.severity === 'error') ||
-			(findings.length && !options.allowWarnings)
-		)
-			throw new Error(
-				'Export preflight requires attention; run preflight and acknowledge supported warnings with allowWarnings'
-			);
+		const { sections, findings, sourceRevisions } = await this.prepare(options);
+		this.requireReady(findings, options.allowWarnings);
 		const format = EXPORT_PRESETS[options.preset].format;
 		const meta = await this.getProjectMetadata();
 		const buffer = await exportBinary(format, sections, {
@@ -283,6 +405,7 @@ export class ProjectExporter {
 			bytes: buffer.length,
 			findings,
 			metadata: {
+				sourceRevisions,
 				exportDate: new Date().toISOString(),
 				documentCount: sections.filter((s) => !s.isFolder).length,
 				validation,
@@ -290,10 +413,24 @@ export class ProjectExporter {
 		};
 	}
 
+	private requireReady(findings: ExportFinding[], allowWarnings?: boolean): void {
+		if (
+			findings.some((finding) => finding.severity === 'error') ||
+			(findings.length && !allowWarnings)
+		)
+			throw new Error(
+				`Export preflight requires attention: ${findings.map((finding) => `${finding.documentId ?? 'export'}: ${finding.message}`).join(' ')} Acknowledge supported warnings with allowWarnings: true.`
+			);
+	}
+
 	private async prepare(
 		options: PresetOptions,
 		expectedRevisions?: ReadonlyMap<string, string>
-	): Promise<{ sections: ExportSection[]; findings: ExportFinding[] }> {
+	): Promise<{
+		sections: ExportSection[];
+		findings: ExportFinding[];
+		sourceRevisions: Array<{ documentId: string; revision: string }>;
+	}> {
 		validatePresetOptions(options);
 		const captured = new Map<string, string>();
 		const sections = await this.gatherManuscriptSections(options, captured, expectedRevisions);
@@ -354,7 +491,14 @@ export class ProjectExporter {
 				}
 			}
 		}
-		return { sections, findings };
+		return {
+			sections,
+			findings,
+			sourceRevisions: [...captured].map(([documentId, raw]) => ({
+				documentId,
+				revision: documentRevision(raw),
+			})),
+		};
 	}
 
 	private async gatherManuscriptSections(
@@ -387,11 +531,11 @@ export class ProjectExporter {
 					throw new Error(
 						'Workflow export source revision changed; review the saved manuscript before starting a new workflow'
 					);
+			}
+			if (raw !== undefined) {
 				capturedBytes += Buffer.byteLength(raw);
 				if (capturedBytes > 64 * 1024 * 1024)
-					throw new Error(
-						'Workflow source snapshot exceeds its 64 MiB raw-content limit'
-					);
+					throw new Error('Export source snapshot exceeds its 64 MiB raw-content limit');
 			}
 			if (raw !== undefined) captured?.set(doc.id, raw);
 			const formatted =

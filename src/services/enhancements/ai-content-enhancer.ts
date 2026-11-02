@@ -1,3 +1,4 @@
+import { getAccurateWordCount, hasEnglishReadabilityEvidence } from '../../utils/text-metrics.js';
 import { createHash } from 'node:crypto';
 import { AIClient } from '../ai/ai-client.js';
 import { untrustedBlock } from '../../utils/prompt-input.js';
@@ -80,11 +81,9 @@ function measuredMetrics(text: string) {
 	try {
 		const result = computeReadability(text);
 		return {
-			wordCount:
-				Number.isSafeInteger(result.wordCount) && result.wordCount >= 0
-					? result.wordCount
-					: null,
+			wordCount: getAccurateWordCount(text),
 			readability:
+				hasEnglishReadabilityEvidence(text) &&
 				result.wordCount > 0 &&
 				result.sentenceCount > 0 &&
 				Number.isFinite(result.fleschEase)
