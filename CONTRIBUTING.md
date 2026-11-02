@@ -21,6 +21,12 @@ expected to uphold it.
 Requires **Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`** and Node-API 10, matching `package.json`; a
 current Node 24 patch is recommended.
 
+Builds and type checks use TypeScript 7 through the `@typescript/native` npm alias. Jest and ESLint
+use the TypeScript 6 compatibility API installed as `typescript`, following the
+[ts-jest migration guide](https://kulshekhar.github.io/ts-jest/docs/next/guides/typescript-7). Keep
+both aliases when updating the compiler; replacing the API package with TypeScript 7 breaks these
+tools.
+
 ```sh
 git clone https://github.com/writerslogic/scrivener-mcp
 cd scrivener-mcp

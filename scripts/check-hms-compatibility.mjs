@@ -366,7 +366,9 @@ if (option === '--worker') {
 			mkdirSync(cwd);
 			const env = {
 				...baseEnv,
-				SCRIVENER_HMS_ENGINE: mode === 'native' ? 'native' : 'fallback',
+				SCRIVENER_WARM_ENGINE: mode,
+				SCRIVENER_HMS_ENGINE: mode,
+				SCRIVENER_WARM_STORAGE_DIR: join(cwd, 'hms'),
 				SCRIVENER_HMS_STORAGE_DIR: join(cwd, 'hms'),
 				HOME: join(cwd, 'home'),
 				USERPROFILE: join(cwd, 'home'),

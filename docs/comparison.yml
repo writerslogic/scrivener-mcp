@@ -1,7 +1,7 @@
 # Source data for the "Why This One?" table in README.md.
 #
 # This file is the single source of truth for the table. The renderer lives in
-# .github/workflows/update-comparison.yml and reads it directly: edit feature
+# scripts/update-comparison.py and reads it directly: edit feature
 # claims here, never in the README or the workflow.
 #
 # Feature claims come from each project's public README and, for TwelveTake,
@@ -42,7 +42,7 @@ repos:
 
 features:
     - label: Public MCP tools
-      scrivener-mcp: '75'
+      scrivener-mcp: '82'
       jiayun: '30'
       twelvetake: '22'
       scrivener-assistant: '38'

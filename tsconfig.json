@@ -28,7 +28,6 @@
 		"noFallthroughCasesInSwitch": true,
 		"experimentalDecorators": true,
 		"emitDecoratorMetadata": true,
-		"downlevelIteration": true,
 		"allowSyntheticDefaultImports": true,
 		"types": ["node", "jest", "@webgpu/types"]
 	},
