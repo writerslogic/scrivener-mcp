@@ -163,9 +163,10 @@ export class DocumentIndexer {
 	): Promise<void> {
 		for (const doc of documents) {
 			const path = [...parentPath, { id: doc.id, title: doc.title, type: doc.type }];
+			const { children, ...document } = doc;
 
 			this.documentIndex.set(doc.id, {
-				document: doc,
+				document,
 				path,
 				location,
 				parentId,
@@ -173,8 +174,8 @@ export class DocumentIndexer {
 			});
 
 			// Recursively index children
-			if (doc.children && doc.children.length > 0) {
-				await this.buildDocumentIndex(doc.children, location, path, doc.id);
+			if (children && children.length > 0) {
+				await this.buildDocumentIndex(children, location, path, doc.id);
 			}
 		}
 	}

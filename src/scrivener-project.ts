@@ -262,7 +262,7 @@ export class ScrivenerProject {
 		const structure = await this.projectLoader.loadProject();
 		this.documentManager.setProjectStructure(structure);
 
-		const documents = await this.getAllDocuments();
+		const documents = await this.getProjectStructure();
 		await documentIndexer.buildIndex(documents);
 		this.indexInitialized = true;
 		logger.info('Document index built');
@@ -538,7 +538,7 @@ export class ScrivenerProject {
 			await this.projectLoader.saveProject(candidate, expectedRevision);
 			this.documentManager.setProjectStructure(candidate);
 			if (this.indexInitialized)
-				await documentIndexer.buildIndex(await this.documentManager.getAllDocuments());
+				await documentIndexer.buildIndex(await this.documentManager.getProjectStructure());
 		}
 		return { dryRun: options.dryRun ?? false, expectedRevision };
 	}
@@ -756,7 +756,7 @@ export class ScrivenerProject {
 		const structure = await this.projectLoader.reloadProject();
 		this.documentManager.setProjectStructure(structure);
 		if (this.indexInitialized)
-			await documentIndexer.buildIndex(await this.documentManager.getAllDocuments());
+			await documentIndexer.buildIndex(await this.documentManager.getProjectStructure());
 	}
 
 	private async refreshSavedStructure(): Promise<void> {

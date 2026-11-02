@@ -90,6 +90,21 @@ describe('ScrivenerProject — fixture round-trip', () => {
 		await expect(project.getDocument('00000000-0000-0000-0000-000000000000')).rejects.toThrow();
 	});
 
+	it('keeps the document ancestry after load, refresh, and binder edits', async () => {
+		const rootId = '4A1D6B18-0952-42EB-A487-D17915DD3BA1';
+		const expected = (title: string) => [
+			{ id: rootId, title, type: 'DraftFolder' },
+			{ id: CHAPTER1_ID, title: 'Chapter-01', type: 'Text' },
+		];
+		expect((await project.getDocumentInfo(CHAPTER1_ID)).path).toEqual(expected('Manuscript'));
+		await project.refreshProject();
+		expect((await project.getDocumentInfo(CHAPTER1_ID)).path).toEqual(expected('Manuscript'));
+		await project.renameDocument(rootId, 'Renamed manuscript', { force: true });
+		expect((await project.getDocumentInfo(CHAPTER1_ID)).path).toEqual(
+			expected('Renamed manuscript')
+		);
+	});
+
 	describe('synopsis and notes', () => {
 		it('reads synopsis.txt and notes.rtf from disk, not the .scrivx MetaData block', async () => {
 			const info = await project.getDocumentInfo(TITLE_PAGE_ID);
