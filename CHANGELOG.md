@@ -35,6 +35,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Preserve native label and status assignments
+- Preserve custom metadata through native Scrivener saves
+- Harden reviewed writes and bound audit hot paths
 - Bound passage batches by embedding dimensions
 - Match native canonical paths for workflow exports
 - Harden manuscript integrity and resolve security findings
@@ -112,6 +115,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Group CodeQL action updates
 
 ### Performance
+- Bound and compress persisted analysis history
+- Avoid reparsing serialized manuscript comparisons
 - Streamline retrieval and guard durable workflow transitions
 
 ### Security
