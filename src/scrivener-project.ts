@@ -158,7 +158,9 @@ export class ScrivenerProject {
 			scrivxPath: this.options.scrivxPath,
 		});
 		this.compilationService = new CompilationService();
-		this.metadataManager = new MetadataManager();
+		this.metadataManager = new MetadataManager(
+			() => this.projectLoader.getProjectStructure()?.ScrivenerProject
+		);
 		this.databaseService = new DatabaseService(this.projectPath);
 		this.contentAnalyzer = new ContentAnalyzer();
 		this.cleanupManager = new CleanupManager();

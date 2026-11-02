@@ -75,6 +75,15 @@ version; it does not validate native compile output, unsaved buffers, concurrent
 the Windows GUI. Automated persistence, rollback and boundary regressions are in
 `tests/integration/native-metadata.test.ts`.
 
+Label and status names resolve through the project's native definitions. Updates write `LabelID` and
+`StatusID`, reuse matching definitions, and create missing names in the same binder transaction; new
+labels use neutral gray. An empty string clears an assignment. Ambiguous names, invalid IDs,
+non-string values and names longer than 10000 characters fail before publication. Legacy `Label` and
+`Status` names remain readable and migrate when edited; native IDs take precedence. Separate
+Scrivener 3.5.2 round trips verify existing assignments and new Unicode names, including a project
+with initially empty settings. Persistence, retry, rollback and boundary checks are in
+`tests/integration/native-classification.test.ts`.
+
 ## Persistence and recovery
 
 Per-project `.scrivener-mcp/editorial.sqlite` stores schema-versioned proposals, review receipts,

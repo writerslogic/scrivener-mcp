@@ -646,11 +646,15 @@ export const updateDocumentHandler: ToolDefinition = {
 			notes: { type: 'string', description: 'Document notes (the inspector Notes pane).' },
 			label: {
 				type: 'string',
-				description: 'Label name (e.g. a POV character or chapter color label).',
+				maxLength: 10000,
+				description:
+					'Label name. A new name creates a gray label; an empty string clears the assignment.',
 			},
 			status: {
 				type: 'string',
-				description: 'Status name (e.g. "To Do", "First Draft", "Done").',
+				maxLength: 10000,
+				description:
+					'Status name (e.g. "First Draft"). A new name creates a status; an empty string clears it.',
 			},
 			customMetadata: {
 				type: 'object',

@@ -464,8 +464,34 @@ describe('ProjectLoader XML round trips', () => {
 			textId,
 			...results.map((result) => result.id),
 		]);
-		expect(children[2].MetaData.StatusID).toBe('Draft');
+		expect(children[2].MetaData.StatusID).toBe('0');
+		expect(saved.ScrivenerProject.StatusSettings.StatusItems.Status).toEqual({
+			$: { ID: '0' },
+			_: 'Draft',
+		});
+		expect(structure.ScrivenerProject!.StatusSettings?.StatusItems?.Status).toEqual([
+			{ $: { ID: '0' }, _: 'Draft' },
+		]);
 		expect(saves).toBe(1);
+	});
+
+	it('rolls back new classification definitions with a failed document creation', async () => {
+		const structure = await loader.loadProject();
+		const before = JSON.stringify(structure);
+		await expect(
+			createDocument(
+				{ title: 'Pending', type: 'Folder', metadata: { label: 'POV', status: 'Draft' } },
+				{
+					projectStructure: structure,
+					projectPath,
+					saveProject: async () => {
+						throw new Error('Injected creation failure');
+					},
+				}
+			)
+		).rejects.toThrow(/Injected creation failure/);
+		expect(JSON.stringify(structure)).toBe(before);
+		expect(await fs.readFile(scrivxPath, 'utf8')).toBe(source);
 	});
 
 	it('keeps default batch placement when its first item creates a folder', async () => {

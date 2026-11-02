@@ -18,6 +18,7 @@ import {
 } from '../utils/scrivener-utils.js';
 import { findBinderItemById } from './document-manager-helpers.js';
 import type { RTFHandler } from './parsers/rtf-handler.js';
+import { readDocumentClassification } from './document-classification.js';
 
 /** Builds document lists and trees from the binder structure. */
 export class DocumentTree {
@@ -303,13 +304,10 @@ export class DocumentTree {
 				doc.notes = metadata.Notes;
 			}
 
-			if (metadata.Label) {
-				doc.label = metadata.Label;
-			}
-
-			if (metadata.Status) {
-				doc.status = metadata.Status;
-			}
+			Object.assign(
+				doc,
+				readDocumentClassification(metadata, this.projectStructure?.ScrivenerProject)
+			);
 
 			// Absent IncludeInCompile means "include" in Scrivener; only an explicit
 			// "No" excludes. Populate the field so compile and stats can honor it.
