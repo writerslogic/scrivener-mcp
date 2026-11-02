@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Added
+- Integrate published Warm with offline model retrieval
 - Integrate C2PA readiness remediation
 - Harden C2PA generation and assessment
 - Synchronize local passages through HMS document retrieval
