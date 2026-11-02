@@ -121,10 +121,25 @@ exports.ManuscriptContext = class {
 		await expect(context.stats()).rejects.toThrow(/closed/);
 	});
 
-	it.each(['timeout', 'abort', 'close'] as const)(
-		'hard-stops blocked native execution on %s before settling',
-		async (action) => {
-			const pidFile = join(directory, `${action}.pid`);
+	it.each([
+		['timeout', 0],
+		['timeout', 900],
+		['abort', 0],
+		['close', 0],
+	] as const)(
+		'hard-stops blocked native execution on %s after %i ms initialization before settling',
+		async (action, startupDelayMs) => {
+			if (startupDelayMs) {
+				const delayedModule = join(directory, 'delayed-start.cjs');
+				await writeFile(
+					delayedModule,
+					`Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${startupDelayMs});
+module.exports = require('./fixture.cjs');`
+				);
+				jest.mocked(narrativeModulePath).mockReturnValueOnce(delayedModule);
+			}
+			await context.stats();
+			const pidFile = join(directory, `${action}-${startupDelayMs}.pid`);
 			const controller = new AbortController();
 			const pending = context.analyzeAsync({ mode: 'block', pid: pidFile } as never, {
 				signal: controller.signal,
@@ -133,9 +148,11 @@ exports.ManuscriptContext = class {
 			const rejected = expect(pending).rejects.toThrow(
 				action === 'timeout' ? /terminated/ : action === 'abort' ? /cancelled/ : /closed/
 			);
+			await Promise.all([
+				expect(context.analyzeAsync({} as never)).rejects.toThrow(/busy/),
+				expect(context.stats()).rejects.toThrow(/busy/),
+			]);
 			const pid = await waitPid(pidFile);
-			await expect(context.analyzeAsync({} as never)).rejects.toThrow(/busy/);
-			await expect(context.stats()).rejects.toThrow(/busy/);
 			if (action === 'abort') controller.abort();
 			if (action === 'close') await context.close();
 			await rejected;
@@ -274,10 +291,22 @@ exports.ManuscriptContext = class {
 	);
 
 	it('preserves the deadline error when termination precedes input delivery and recovers', async () => {
-		await expect(
-			context.analyzeAsync({ mode: 'block' } as never, { timeoutMs: 1 })
-		).rejects.toThrow(/exceeded 1 milliseconds and was terminated/);
-		expect(await context.analyzeAsync({} as never)).toMatchObject({ calls: 1 });
+		const processes =
+			jest.requireActual<typeof import('node:child_process')>('node:child_process');
+		const launched = jest.spyOn(processes, 'spawn');
+		try {
+			await expect(
+				context.analyzeAsync({ mode: 'block' } as never, { timeoutMs: 1 })
+			).rejects.toThrow(/exceeded 1 milliseconds and was terminated/);
+			expect(launched).toHaveBeenCalledTimes(1);
+			const child = launched.mock.results[0].value as ReturnType<typeof processes.spawn>;
+			expect(child.pid).toBeGreaterThan(0);
+			expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
+			expect(alive(child.pid!)).toBe(false);
+			expect(await context.analyzeAsync({} as never)).toMatchObject({ calls: 1 });
+		} finally {
+			launched.mockRestore();
+		}
 	});
 
 	async function launchOwner(script: string) {
