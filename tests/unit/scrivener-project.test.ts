@@ -263,6 +263,7 @@ describe('ScrivenerProject', () => {
 			mockProjectLoader.loadProject = jest.fn().mockResolvedValue(undefined);
 			mockProjectLoader.getProjectStructure = jest.fn().mockResolvedValue({});
 			mockDocumentManager.setProjectStructure = jest.fn();
+			mockDocumentManager.getProjectStructure = jest.fn().mockResolvedValue([]);
 			mockDocumentManager.getAllDocuments = jest.fn().mockResolvedValue([]);
 			mockDatabaseService.initialize = jest.fn().mockResolvedValue(undefined);
 
@@ -276,6 +277,7 @@ describe('ScrivenerProject', () => {
 		it('should handle sync errors gracefully', async () => {
 			mockProjectLoader.loadProject = jest.fn().mockResolvedValue({});
 			mockDocumentManager.setProjectStructure = jest.fn();
+			mockDocumentManager.getProjectStructure = jest.fn().mockResolvedValue([]);
 			mockDocumentManager.getAllDocuments = jest.fn().mockResolvedValue([]);
 			mockDatabaseService.initialize = jest.fn().mockRejectedValue(new Error('Init failed'));
 
