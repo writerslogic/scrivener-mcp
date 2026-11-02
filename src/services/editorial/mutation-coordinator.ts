@@ -817,7 +817,7 @@ export class MutationCoordinator {
 		let relative = path.relative(directory, target);
 		if (path.dirname(relative) !== '.')
 			relative = path.relative(
-				path.join(realpathSync(this.projectPath), '.scrivener-mcp', 'exports'),
+				path.join(realpathSync.native(this.projectPath), '.scrivener-mcp', 'exports'),
 				target
 			);
 		if (
