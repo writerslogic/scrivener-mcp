@@ -3,11 +3,12 @@ FROM node:26.12-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c
 WORKDIR /app
 
 FROM rust:1.99.1-bookworm@sha256:9181b56c2a21ab1d5e73cffe04fc762426d30aa7fac3c91141dd033f49a7fc8b AS c2pa
+ENV RUSTUP_TOOLCHAIN=1.96.0
 WORKDIR /app
 COPY --from=base /usr/local/bin/node /usr/local/bin/node
 COPY native/c2pa-binding ./native/c2pa-binding
 COPY scripts/build-c2pa-binding.mjs ./scripts/
-RUN rustup target add wasm32-unknown-unknown && cargo install wasm-pack --version 0.14.0 --locked
+RUN rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown && cargo install wasm-pack --version 0.14.0 --locked
 RUN node scripts/build-c2pa-binding.mjs
 
 FROM base AS build
