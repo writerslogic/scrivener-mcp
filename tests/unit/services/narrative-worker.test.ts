@@ -51,39 +51,72 @@ describe('native process deadlines and cleanup', () => {
 		);
 		jest.mocked(narrativeModulePath).mockReturnValue(module);
 	});
-	it('enforces the serialized output budget at limit minus one, limit and limit plus one', async () => {
-		const limit = 16 * 1024 * 1024;
-		const overhead = Buffer.byteLength(JSON.stringify({ ok: true, result: { value: '' } }));
-		const samples = [];
-		for (const delta of [-1, 0, 1]) {
-			const stats = join(directory, `size-${delta}.json`);
-			const size = limit + delta - overhead;
-			const started = Date.now();
-			const pending = narrativeWorker('analyzeAuthorCausality', [
-				{ mode: 'bytes', size, stats },
-			]);
-			if (delta <= 0) {
-				const result = (await pending) as { value: string };
-				expect(result.value.length).toBe(size);
-			} else await expect(pending).rejects.toThrow(/exceeds 16 MiB/);
-			const sample = JSON.parse(await readFile(stats, 'utf8'));
-			expect(() => process.kill(sample.pid, 0)).toThrow();
-			samples.push({ bytes: limit + delta, elapsedMs: Date.now() - started, ...sample });
+	it.each(['value', 'json'] as const)(
+		'enforces the %s output budget at limit minus one, limit and limit plus one',
+		async (format) => {
+			const limit = 16 * 1024 * 1024;
+			const overhead = Buffer.byteLength(JSON.stringify({ ok: true, result: { value: '' } }));
+			const samples = [];
+			for (const delta of [-1, 0, 1]) {
+				const stats = join(directory, `size-${delta}.json`);
+				const size = limit + delta - overhead;
+				const started = Date.now();
+				const pending = narrativeWorker(
+					'analyzeAuthorCausality',
+					[{ mode: 'bytes', size, stats }],
+					{ format }
+				);
+				if (delta <= 0) {
+					const response = await pending;
+					const result = (
+						format === 'json' ? JSON.parse(response as string) : response
+					) as { value: string };
+					expect(result.value.length).toBe(size);
+				} else await expect(pending).rejects.toThrow(/exceeds 16 MiB/);
+				const sample = JSON.parse(await readFile(stats, 'utf8'));
+				expect(() => process.kill(sample.pid, 0)).toThrow();
+				samples.push({ bytes: limit + delta, elapsedMs: Date.now() - started, ...sample });
+			}
+			if (process.env.SCRIVENER_WORKER_RESOURCE_REPORT)
+				await writeFile(
+					process.env.SCRIVENER_WORKER_RESOURCE_REPORT,
+					JSON.stringify(
+						{
+							scope: 'Process serialization/output boundary fixture, not native addon RSS containment.',
+							node: process.version,
+							platform: `${process.platform}-${process.arch}`,
+							samples,
+						},
+						null,
+						2
+					) + '\n'
+				);
 		}
-		if (process.env.SCRIVENER_WORKER_RESOURCE_REPORT)
-			await writeFile(
-				process.env.SCRIVENER_WORKER_RESOURCE_REPORT,
-				JSON.stringify(
-					{
-						scope: 'Process serialization/output boundary fixture, not native addon RSS containment.',
-						node: process.version,
-						platform: `${process.platform}-${process.arch}`,
-						samples,
-					},
-					null,
-					2
-				) + '\n'
-			);
+	);
+	it('preserves errors and cancellation when returning serialized comparisons', async () => {
+		await expect(
+			narrativeWorker('compareManuscriptReports', [{ mode: 'fail' }], { format: 'json' })
+		).rejects.toThrow(/invalid evidence/);
+		await expect(
+			narrativeWorker('compareManuscriptReports', [{ mode: 'exit' }], { format: 'json' })
+		).rejects.toThrow(/process failed/);
+		const controller = new AbortController();
+		const path = join(directory, 'serialized-cancel.pid');
+		const pending = narrativeWorker(
+			'compareManuscriptReports',
+			[{ mode: 'block', pid: path }],
+			{ format: 'json', signal: controller.signal }
+		);
+		const rejected = expect(pending).rejects.toThrow(/cancelled/);
+		try {
+			const pid = await waitPid(path);
+			controller.abort();
+			await rejected;
+			expect(() => process.kill(pid, 0)).toThrow();
+		} finally {
+			controller.abort();
+			await rejected;
+		}
 	});
 	it.each(['', '🌙'])(
 		'enforces the serialized input budget with prefix %j at limit minus one, limit and limit plus one',
@@ -134,6 +167,26 @@ describe('native process deadlines and cleanup', () => {
 			expect(ticks).toBeGreaterThan(0);
 		} finally {
 			clearInterval(timer);
+		}
+	});
+	it('returns comparison JSON without parsing a second result graph in the parent', async () => {
+		const options = { format: 'json' as const, timeoutMs: 30000 };
+		const parse = jest.spyOn(JSON, 'parse');
+		try {
+			const serialized = await narrativeWorker(
+				'compareManuscriptReports',
+				[{ size: 250000 }],
+				options
+			);
+			expect(typeof serialized).toBe('string');
+			expect(serialized).toBe(JSON.stringify({ value: '🌙'.repeat(250000) }));
+			expect(
+				parse.mock.calls.some(
+					([value]) => typeof value === 'string' && value.includes('"value":"🌙')
+				)
+			).toBe(false);
+		} finally {
+			parse.mockRestore();
 		}
 	});
 	it.each(['analyzeAuthorCausality', 'compareManuscriptReports'])(

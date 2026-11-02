@@ -6,6 +6,7 @@ export const NARRATIVE_INPUT_BYTES = 64 * 1024 * 1024;
 // Decoding and parsing can overlap two UTF-16 copies of a 64 MiB input; this is not an RSS limit.
 export const NARRATIVE_HEAP_MIB = 384;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+const SUCCESS_PREFIX = '{"ok":true,"result":';
 const OPERATIONS = new Set([
 	'compareManuscriptReports',
 	'analyzeAuthorCausality',
@@ -55,12 +56,30 @@ process.stdin.on('end', async () => {
 });
 `;
 
+interface NarrativeWorkerOptions {
+	signal?: AbortSignal;
+	timeoutMs?: number;
+	format?: 'value' | 'json';
+}
+
+export function narrativeWorker(
+	operation: string,
+	args: unknown[],
+	options: NarrativeWorkerOptions & { format: 'json' }
+): Promise<string>;
+export function narrativeWorker(
+	operation: string,
+	args: unknown[],
+	options?: NarrativeWorkerOptions
+): Promise<unknown>;
 export async function narrativeWorker(
 	operation: string,
 	args: unknown[],
-	{ signal, timeoutMs = WALL_CLOCK_MS }: { signal?: AbortSignal; timeoutMs?: number } = {}
+	{ signal, timeoutMs = WALL_CLOCK_MS, format = 'value' }: NarrativeWorkerOptions = {}
 ): Promise<unknown> {
 	if (!OPERATIONS.has(operation)) throw new Error('Unsupported narrative operation');
+	if (format !== 'value' && format !== 'json')
+		throw new Error('Unsupported narrative result format');
 	const timeout = timeoutMs;
 	if (!Number.isInteger(timeout) || timeout < 1 || timeout > WALL_CLOCK_MS)
 		throw new Error('Narrative timeout must be from 1 to 30000 milliseconds');
@@ -119,9 +138,20 @@ export async function narrativeWorker(
 					return;
 				}
 				try {
-					const message = JSON.parse(stdout.toString('utf8'));
+					const output = stdout.toString('utf8');
+					// PROGRAM serializes this fixed envelope; keep its JSON payload out of the parent object heap.
+					if (
+						format === 'json' &&
+						output.startsWith(SUCCESS_PREFIX) &&
+						output.endsWith('}')
+					) {
+						resolve(output.slice(SUCCESS_PREFIX.length, -1));
+						return;
+					}
+					const message = JSON.parse(output);
 					if (message.ok !== true)
 						throw new Error(message.message ?? 'Narrative operation failed');
+					if (format === 'json') throw new Error('Narrative result is not serializable');
 					resolve(message.result);
 				} catch (failure) {
 					reject(failure);
