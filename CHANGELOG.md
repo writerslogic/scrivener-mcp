@@ -35,6 +35,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Preserve SQLite availability and cached value types
 - Preserve native label and status assignments
 - Preserve custom metadata through native Scrivener saves
 - Harden reviewed writes and bound audit hot paths
