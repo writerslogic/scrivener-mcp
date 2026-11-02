@@ -506,17 +506,19 @@ export class NarrativeAnalysis {
 	}
 
 	analyze(options: AnalysisOptions = {}): Promise<AnalysisResult> {
-		return this.runAnalysis(options).then(({ result }) => result);
+		return this.runAnalysis(options, 'object');
 	}
 
 	serializedAnalysis(options: AnalysisOptions = {}): Promise<string> {
-		return this.runAnalysis(options).then(({ serialized }) => serialized);
+		return this.runAnalysis(options, 'json');
 	}
 
-	private runAnalysis({ baseline, saveAs, signal }: AnalysisOptions): Promise<{
-		result: AnalysisResult;
-		serialized: string;
-	}> {
+	private runAnalysis(options: AnalysisOptions, format: 'object'): Promise<AnalysisResult>;
+	private runAnalysis(options: AnalysisOptions, format: 'json'): Promise<string>;
+	private runAnalysis(
+		{ baseline, saveAs, signal }: AnalysisOptions,
+		format: 'object' | 'json'
+	): Promise<AnalysisResult | string> {
 		return this.run(async () => {
 			signal?.throwIfAborted();
 			if (baseline !== undefined) storyIdentifier(baseline, 'Baseline name');
@@ -536,9 +538,17 @@ export class NarrativeAnalysis {
 				signal,
 			});
 			signal?.throwIfAborted();
-			const comparison = prior
-				? await this.compareReports(prior.report, report, signal)
-				: undefined;
+			const comparison =
+				prior && format === 'object'
+					? await this.compareReports(prior.report, report, signal)
+					: undefined;
+			const comparisonJson =
+				prior && format === 'json'
+					? await narrativeWorker('compareManuscriptReports', [prior.report, report], {
+							signal,
+							format: 'json',
+						})
+					: undefined;
 			const cache = await this.context.stats({ signal });
 			// Deliver pending cancellation before the final revision check and synchronous commit.
 			await setTimeout(0);
@@ -580,7 +590,9 @@ export class NarrativeAnalysis {
 				cache,
 				findingIds: report.findings.map((finding) => this.findingId(finding)),
 			};
-			const serialized = JSON.stringify(result);
+			let serialized = JSON.stringify(result);
+			if (comparisonJson !== undefined)
+				serialized = `${serialized.slice(0, -1)},"comparison":${comparisonJson}}`;
 			if (Buffer.byteLength(serialized) > 16 * 1024 * 1024)
 				throw new Error('Narrative report exceeds 16 MiB; reduce the findings budget');
 			if (saveAs) {
@@ -596,7 +608,7 @@ export class NarrativeAnalysis {
 					this.store.put(`${this.namespace}:baselines`, saveAs!, snapshot);
 				});
 			}
-			return { result, serialized };
+			return format === 'json' ? serialized : result;
 		});
 	}
 

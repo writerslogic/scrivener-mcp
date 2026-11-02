@@ -86,6 +86,27 @@ describe('Narrative Lens project adapter with the native engine', () => {
 			first.envelope.sourceRevisions
 		);
 	});
+	it.each(['unchanged', 'edited'])(
+		'preserves native comparison and report semantics on the serialized path for %s text',
+		async (change) => {
+			await service.analyze({ saveAs: 'original' });
+			if (change === 'edited') replace('🌙 Mira was tired.');
+			const value = await service.analyze({ baseline: 'original' });
+			const serialized = await service.serializedAnalysis({
+				baseline: 'original',
+				saveAs: 'serialized',
+			});
+			const result = JSON.parse(serialized);
+			expect(result.comparison).toEqual(value.comparison);
+			expect(result.comparisonBaseline).toEqual(value.comparisonBaseline);
+			expect(result.snapshot.report).toEqual(value.snapshot.report);
+			expect(result.snapshot.sources).toEqual(value.snapshot.sources);
+			expect(result.findingIds).toEqual(value.findingIds);
+			expect(result.envelope.requestId).toBe(value.envelope.requestId);
+			expect(result.envelope.policy.revisionChecked).toBe(true);
+			expect(service.baseline('serialized').report).toEqual(result.snapshot.report);
+		}
+	);
 	it.each(['shape', 'summary', 'project'])(
 		'rejects a malformed %s baseline before saving a comparison',
 		async (fault) => {
@@ -100,6 +121,37 @@ describe('Narrative Lens project adapter with the native engine', () => {
 			).rejects.toThrow();
 			expect(() => service.baseline('invalid')).toThrow('not found');
 			expect(() => service.baseline('before')).toThrow();
+		}
+	);
+	it.each([-1, 0, 1])(
+		'checks the combined serialized comparison budget at 16 MiB plus %i before committing',
+		async (delta) => {
+			await service.analyze({ saveAs: 'original' });
+			const first = await service.analyze({ baseline: 'original' });
+			const comparison = structuredClone(first.comparison!);
+			comparison.persistent[0].before.message = '';
+			const overhead = Buffer.byteLength(JSON.stringify({ ...first, comparison }));
+			comparison.persistent[0].before.message = 'x'.repeat(
+				16 * 1024 * 1024 - overhead + delta
+			);
+			const compare = jest
+				.spyOn(worker, 'narrativeWorker')
+				.mockResolvedValueOnce(JSON.stringify(comparison));
+			try {
+				const pending = service.serializedAnalysis({
+					baseline: 'original',
+					saveAs: 'boundary',
+				});
+				if (delta <= 0) {
+					expect(Buffer.byteLength(await pending)).toBe(16 * 1024 * 1024 + delta);
+					expect(store.count(`narrative-lens:${source.projectId}:baselines`)).toBe(2);
+				} else {
+					await expect(pending).rejects.toThrow(/exceeds 16 MiB/);
+					expect(store.count(`narrative-lens:${source.projectId}:baselines`)).toBe(1);
+				}
+			} finally {
+				compare.mockRestore();
+			}
 		}
 	);
 

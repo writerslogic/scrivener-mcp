@@ -193,8 +193,11 @@ one-vCPU Linux fixture verifies whole-workload cgroup OOM cleanup at 512 MiB wit
 application does not install that containment policy automatically. Its limits and platform scope
 are recorded in the implementation ledger. Final source and cancellation checks precede synchronous
 baseline persistence, and immutable paginated reports retain their source/configuration envelope.
-The annotation schema is generated from the pinned source bundle in `assets/narrative-lens`; CI
-checks its version, source hash and generated output without rewriting files.
+The paged-report path retains comparison JSON produced by the trusted child serializer, avoiding a
+second parsed comparison graph in the parent. Internal review callers still receive objects. The
+combined report must fit the same 16 MiB limit before a baseline is committed. The annotation schema
+is generated from the pinned source bundle in `assets/narrative-lens`; CI checks its version, source
+hash and generated output without rewriting files.
 
 ### Content Enhancer (`src/services/enhancements/`)
 
