@@ -4,7 +4,12 @@ import type { DocumentManager } from '../document-manager.js';
 import type { ProjectWriter, WriteOptions } from '../project-writer.js';
 import type { WriteFidelityReport } from '../../project-types.js';
 import type { PersistentStore, StorePageOptions } from './persistent-store.js';
-import { operationOwnerState, type MutationRecord } from './mutation-coordinator.js';
+import {
+	documentRevision,
+	operationOwnerState,
+	type MutationRecord,
+} from './mutation-coordinator.js';
+import { RTFHandler } from '../parsers/rtf-handler.js';
 
 const PROPOSALS = 'review-proposals';
 const APPLICATIONS = 'review-applications';
@@ -53,6 +58,7 @@ export interface ReviewApplication {
 	proposalId: string;
 	editIds: string[];
 	beforeRevision: string;
+	expectedAfterRevision?: string;
 	afterRevision?: string;
 	state: 'preparing' | 'committed' | 'interrupted' | 'failed' | 'undone';
 	ownerPid: number;
@@ -441,7 +447,12 @@ export class ReviewService {
 						options.editIds.some((editId) => !priorIds.has(editId))))
 			)
 				throw new Error('Operation ID was already used for a different application');
-			if (prior.state === 'committed') return prior;
+			if (prior.state === 'committed') {
+				const mutation = this.documents.getMutationCoordinator().get(id);
+				if (!mutation || !this.matchesMutation(prior, mutation))
+					throw new Error('Committed application does not match its mutation receipt');
+				return prior;
+			}
 			if (prior.state === 'undone')
 				throw new Error('Application was undone; use a new operation ID to apply it again');
 		}
@@ -466,6 +477,7 @@ export class ReviewService {
 			proposalId,
 			editIds: selection.map((edit) => edit.id),
 			beforeRevision: proposal.currentRevision,
+			expectedAfterRevision: documentRevision(prepared.raw),
 			state: 'preparing',
 			ownerPid: process.pid,
 			host: hostname(),
@@ -473,6 +485,11 @@ export class ReviewService {
 			fidelity: prepared.fidelity,
 		};
 		this.store.transaction(() => {
+			const reserved = this.store.get<ReviewApplication>(APPLICATIONS, id);
+			if (reserved?.token !== prior?.token || reserved?.state !== prior?.state)
+				throw new Error('Application operation ID was concurrently reserved; retry');
+			if (!prior && this.documents.getMutationCoordinator().get(id))
+				throw new Error('Operation ID was already used for a different mutation');
 			proposal = this.get(proposalId);
 			if (proposal.currentRevision !== prepared.beforeRevision || proposal.applyingOperation)
 				throw new Error('Proposal decisions changed while preparing application');
@@ -489,12 +506,15 @@ export class ReviewService {
 			});
 			application.afterRevision = result.mutation.afterRevision;
 			application.fidelity = result.fidelity;
-			return this.finalize(application, result.mutation);
+			return await this.finalize(application, result.mutation);
 		} catch (error) {
 			const mutation = this.documents.getMutationCoordinator().get(id);
-			if (mutation?.state === 'committed') return this.finalize(application, mutation);
-			application.state = mutation ? 'interrupted' : 'failed';
+			if (mutation && this.matchesMutation(application, mutation))
+				return await this.finalize(application, mutation);
+			application.state = mutation?.state === 'prepared' ? 'interrupted' : 'failed';
 			this.store.transaction(() => {
+				if (this.store.get<ReviewApplication>(APPLICATIONS, id)?.token !== token)
+					throw new Error('Application ownership changed while handling a failed write');
 				const current = this.get(proposalId);
 				if (current.applyingOperation === id) delete current.applyingOperation;
 				this.store.put(PROPOSALS, proposalId, current);
@@ -513,12 +533,57 @@ export class ReviewService {
 			);
 	}
 
-	private finalize(application: ReviewApplication, mutation: MutationRecord): ReviewApplication {
+	private matchesMutation(application: ReviewApplication, mutation: MutationRecord): boolean {
+		const expectedAfterRevision =
+			application.expectedAfterRevision ?? application.afterRevision;
+		return (
+			mutation.state === 'committed' &&
+			mutation.id === application.id &&
+			(mutation.targetKind ?? 'document') === 'document' &&
+			!mutation.undoes &&
+			mutation.documentId === this.get(application.proposalId).documentId &&
+			mutation.beforeRevision === application.beforeRevision &&
+			(expectedAfterRevision === undefined ||
+				mutation.afterRevision === expectedAfterRevision)
+		);
+	}
+
+	private async finalize(
+		application: ReviewApplication,
+		mutation: MutationRecord
+	): Promise<ReviewApplication> {
+		if (!this.matchesMutation(application, mutation))
+			throw new Error('Mutation receipt does not match the intended review application');
+		const proposal = this.get(application.proposalId);
+		if (!application.expectedAfterRevision && !application.afterRevision) {
+			const parser = new RTFHandler();
+			const before = await parser.parseRTF(mutation.beforeRaw);
+			const after = await parser.parseRTF(mutation.afterRaw);
+			if (
+				before.plainText !== compose(proposal) ||
+				after.plainText !== compose(proposal, application.editIds)
+			)
+				throw new Error(
+					'Legacy mutation receipt does not contain the intended application text'
+				);
+		}
 		return this.store.transaction(() => {
 			const current = this.store.get<ReviewApplication>(APPLICATIONS, application.id);
+			if (
+				!current ||
+				current.token !== application.token ||
+				current.proposalId !== application.proposalId
+			)
+				throw new Error('Application ownership changed before receipt finalization');
 			if (current?.state === 'committed') return current;
 			if (current?.state === 'undone') throw new Error('Application was already undone');
 			const proposal = this.get(application.proposalId);
+			if (
+				proposal.currentRevision !== application.beforeRevision ||
+				(proposal.applyingOperation && proposal.applyingOperation !== application.id)
+			)
+				throw new Error('Proposal changed before receipt finalization');
+			selectedEdits(proposal, application.editIds);
 			const selectedIds = new Set(application.editIds);
 			for (const edit of proposal.edits)
 				if (selectedIds.has(edit.id)) edit.status = 'accepted';
@@ -526,6 +591,7 @@ export class ReviewService {
 			proposal.sequence++;
 			delete proposal.applyingOperation;
 			application.state = 'committed';
+			application.expectedAfterRevision = mutation.afterRevision;
 			application.afterRevision = mutation.afterRevision;
 			if (application.fidelity) application.fidelity.snapshotId = mutation.snapshotId;
 			this.store.put(PROPOSALS, proposal.id, proposal);
@@ -548,6 +614,8 @@ export class ReviewService {
 			(application.state !== 'committed' && application.state !== 'undone')
 		)
 			throw new Error('Completed review application was not found');
+		if (!this.matchesMutation(application, mutation))
+			throw new Error('Review application does not match the mutation to undo');
 		const undoId = stableUuid(['undo', operationId]);
 		await this.validateDocument?.(mutation.documentId);
 		const prior = this.documents.getMutationCoordinator().get(undoId);
@@ -608,7 +676,7 @@ export class ReviewService {
 			}
 			const mutation = this.documents.getMutationCoordinator().get(application.id);
 			if (mutation?.state === 'committed')
-				recovered.push(this.finalize(application, mutation));
+				recovered.push(await this.finalize(application, mutation));
 			else {
 				application.state = mutation?.state === 'conflicted' ? 'failed' : 'interrupted';
 				this.store.transaction(() => {

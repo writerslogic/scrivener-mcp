@@ -14,6 +14,7 @@ import {
 	getNotesPath,
 	getSynopsisPath,
 	readProjectTextFile,
+	parseMetadata,
 } from '../utils/scrivener-utils.js';
 import { findBinderItemById } from './document-manager-helpers.js';
 import type { RTFHandler } from './parsers/rtf-handler.js';
@@ -322,18 +323,7 @@ export class DocumentTree {
 			}
 
 			if (metadata.CustomMetaData?.MetaDataItem) {
-				doc.customMetadata = {};
-				const items = Array.isArray(metadata.CustomMetaData.MetaDataItem)
-					? metadata.CustomMetaData.MetaDataItem
-					: [metadata.CustomMetaData.MetaDataItem];
-
-				for (const customItem of items) {
-					const itemId = customItem.ID;
-					const itemValue = customItem.Value;
-					if (itemId && itemValue && typeof itemValue === 'string') {
-						doc.customMetadata[itemId] = itemValue;
-					}
-				}
+				doc.customMetadata = parseMetadata(metadata.CustomMetaData.MetaDataItem);
 			}
 		}
 

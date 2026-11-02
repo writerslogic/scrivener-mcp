@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import {
 	generateScrivenerUUID,
 	parseMetadata,
+	findMetadataField,
+	buildMetadataItems,
 	findBinderItem,
 	clearBinderCache,
 	getDocumentPath,
@@ -36,6 +38,35 @@ describe('Scrivener Utils', () => {
 	});
 
 	describe('parseMetadata', () => {
+		it('reads native FieldID elements, preserves empty values and safely retains arbitrary field names', () => {
+			const native = [
+				{ FieldID: 'storyTime', Value: '2040-06-03' },
+				{ FieldID: 'pov', Value: '' },
+				{ FieldID: '__proto__', Value: 'Literal field' },
+				{ ID: 'legacy', Value: 'Retained' },
+			] as Parameters<typeof parseMetadata>[0];
+			const result = parseMetadata(native);
+			expect(result.storyTime).toBe('2040-06-03');
+			expect(result.pov).toBe('');
+			expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(true);
+			expect(result.__proto__).toBe('Literal field');
+			expect(result.legacy).toBe('Retained');
+		});
+
+		it('uses native FieldID for new entries and gives it precedence over legacy aliases', () => {
+			const items = buildMetadataItems({
+				storyTime: '2040-06-03',
+				pov: '',
+				absent: undefined,
+			});
+			expect(items).toEqual([
+				{ FieldID: 'storyTime', Value: '2040-06-03' },
+				{ FieldID: 'pov', Value: '' },
+			]);
+			const mixed = { FieldID: 'native', ID: 'old', Value: 'Author value' };
+			expect(findMetadataField([mixed], 'native')).toBe(mixed);
+			expect(findMetadataField([mixed], 'old')).toBeUndefined();
+		});
 		it('should parse simple metadata items', () => {
 			const metaDataItems = [
 				{ ID: 'author', Value: 'John Doe' },

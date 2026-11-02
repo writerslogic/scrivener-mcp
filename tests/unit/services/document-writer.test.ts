@@ -74,6 +74,90 @@ describe('DocumentWriter', () => {
 		expect(await text()).toBe('Replacement.');
 	});
 
+	it.each(['formatted', 'raw'])(
+		'a newer %s immediate write supersedes the older buffer and allows close',
+		async (kind) => {
+			await writer.writeDocument(DOC, 'Older queued write.');
+			if (kind === 'raw') await writer.writeRawContent(DOC, rtf.convertToRTF('Latest.'));
+			else await writer.writeDocument(DOC, 'Latest.', true);
+			await writer.close();
+			expect(await text()).toBe('Latest.');
+			expect(await listDocumentSnapshots(root, DOC)).toHaveLength(1);
+		}
+	);
+
+	it('snapshots caller-owned formatted content before admitting a buffered write', async () => {
+		const content: RTFContent = {
+			plainText: 'Approved.',
+			formattedText: [{ text: 'Approved.', style: { bold: true } }],
+			metadata: { title: 'Approved title' },
+		};
+		await writer.writeDocument(DOC, content);
+		content.plainText = 'Changed.';
+		content.formattedText[0].text = 'Changed.';
+		content.formattedText[0].style!.bold = false;
+		content.metadata!.title = 'Changed title';
+		await writer.flushPendingWrites();
+		expect(await text()).toBe('Approved.');
+		const raw = await fs.readFile(file(), 'utf8');
+		expect(raw).toContain('\\b ');
+		expect(raw).toContain('Approved title');
+		expect(raw).not.toContain('Changed');
+	});
+
+	it('orders buffered, immediate and later buffered arrivals during an active flush', async () => {
+		await writer.writeDocument(DOC, 'First.');
+		const gate = pauseNextCommit(writer);
+		const flushing = writer.flushPendingWrites();
+		await gate.entered.promise;
+		const immediate = writer.writeRawContent(DOC, rtf.convertToRTF('Immediate.'));
+		const later = writer.writeDocument(DOC, 'Latest.');
+		gate.release.resolve();
+		await Promise.all([flushing, immediate, later]);
+		await writer.close();
+		expect(await text()).toBe('Latest.');
+		expect(gate.spy).toHaveBeenCalledTimes(3);
+		expect((await rtf.parseRTF(gate.spy.mock.calls[1][1])).plainText).toBe('Immediate.');
+	});
+
+	it('serializes immediate requests without dropping either committed receipt', async () => {
+		const gate = pauseNextCommit(writer);
+		const first = writer.writeRawContent(DOC, rtf.convertToRTF('First.'), {
+			operationId: 'direct-first',
+		});
+		await gate.entered.promise;
+		const second = writer.writeRawContent(DOC, rtf.convertToRTF('Second.'), {
+			operationId: 'direct-second',
+		});
+		const closing = writer.close();
+		gate.release.resolve();
+		const [a, b] = await Promise.all([first, second, closing]);
+		expect(a.id).toBe('direct-first');
+		expect(b.id).toBe('direct-second');
+		expect(b.beforeRevision).toBe(a.afterRevision);
+		expect(await text()).toBe('Second.');
+	});
+
+	it('replays an immediate operation without taking another snapshot', async () => {
+		const raw = rtf.convertToRTF('Reviewed.');
+		const first = await writer.writeRawContent(DOC, raw, { operationId: 'replayed-direct' });
+		expect(await writer.writeRawContent(DOC, raw, { operationId: 'replayed-direct' })).toEqual(
+			first
+		);
+		expect(await listDocumentSnapshots(root, DOC)).toHaveLength(1);
+	});
+
+	it('rejects an explicitly stale immediate request without poisoning close', async () => {
+		await writer.writeDocument(DOC, 'First.', true);
+		await expect(
+			writer.writeRawContent(DOC, rtf.convertToRTF('Stale.'), {
+				expectedRevision: documentRevision(rtf.convertToRTF('Original.')),
+			})
+		).rejects.toThrow(/Stale document revision/);
+		await writer.close();
+		expect(await text()).toBe('First.');
+	});
+
 	it('joins overlapping flushes and drains a newer implicit write to the same document', async () => {
 		await writer.writeDocument(DOC, 'First.');
 		const gate = pauseNextCommit(writer);
@@ -407,10 +491,14 @@ describe('DocumentWriter', () => {
 			const entered = deferred();
 			const release = deferred();
 			const open = fs.open;
-			jest.spyOn(fs, 'open').mockImplementationOnce(async (...args) => {
+			let paused = false;
+			jest.spyOn(fs, 'open').mockImplementation(async (...args) => {
 				const handle = await open(...args);
-				entered.resolve();
-				await release.promise;
+				if (!paused && args[0] === (kind === 'binder' ? binderPath : file())) {
+					paused = true;
+					entered.resolve();
+					await release.promise;
+				}
 				return handle;
 			});
 			const writing =

@@ -457,6 +457,7 @@ function validateLimit(k: number): void {
 
 export class HolographicMemorySystem {
 	private readonly dimensions: number;
+	private readonly similarityThreshold: number;
 	private native: NativeEngine | null = null;
 	private owner?: NativeOwner;
 	private jsEngine?: JSVectorEngine;
@@ -471,6 +472,19 @@ export class HolographicMemorySystem {
 	private fallbackReason?: string;
 
 	constructor(config: HHMConfig = {}) {
+		for (const option of ['maxMemories', 'useGPU', 'autoEvolve', 'evolution'] as const) {
+			if (config[option] !== undefined)
+				throw new Error(
+					`Unsupported Warm option: ${option}; this adapter cannot enforce that policy`
+				);
+		}
+		this.similarityThreshold = config.similarityThreshold ?? -1;
+		if (
+			!Number.isFinite(this.similarityThreshold) ||
+			this.similarityThreshold < -1 ||
+			this.similarityThreshold > 1
+		)
+			throw new RangeError('Warm similarityThreshold must be between -1 and 1');
 		this.dimensions = config.dimensions ?? 10000;
 		if (
 			!Number.isSafeInteger(this.dimensions) ||
@@ -736,16 +750,20 @@ export class HolographicMemorySystem {
 	}
 
 	private mapResults(results: Array<{ id: string; similarity: number }>): QueryResult[] {
-		return results.map((result, index) => {
-			const entry = this.memoryIndex.get(result.id);
-			return {
-				...result,
-				entry: { id: result.id, metadata: entry },
-				rank: index + 1,
-				reconstructed: entry?.originalData,
-				explanation: `Similarity: ${result.similarity.toFixed(3)} | Type: ${entry?.modality ?? 'unknown'}`,
-			};
-		});
+		if (results.some((result) => !Number.isFinite(result.similarity)))
+			throw new Error('Warm returned a non-finite similarity score');
+		return results
+			.filter((result) => result.similarity >= this.similarityThreshold)
+			.map((result, index) => {
+				const entry = this.memoryIndex.get(result.id);
+				return {
+					...result,
+					entry: { id: result.id, metadata: entry },
+					rank: index + 1,
+					reconstructed: entry?.originalData,
+					explanation: `Similarity: ${result.similarity.toFixed(3)} | Type: ${entry?.modality ?? 'unknown'}`,
+				};
+			});
 	}
 
 	queryText(text: string, k: number = 10, traceId?: string): Promise<QueryResult[]> {

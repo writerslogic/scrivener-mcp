@@ -555,7 +555,7 @@ export function findMetadataField(
 	}
 
 	const items = Array.isArray(metadataItems) ? metadataItems : [metadataItems];
-	return items.find((item) => item.ID === fieldId || item.id === fieldId);
+	return items.find((item) => (item.FieldID ?? item.ID ?? item.id) === fieldId);
 }
 
 export function getMetadataValue(
@@ -569,10 +569,10 @@ export function getMetadataValue(
 export function parseMetadata(
 	metadataItems: MetaDataItem[] | MetaDataItem | string | undefined
 ): Record<string, string> {
-	const metadata: Record<string, string> = {};
+	const metadata = new Map<string, string>();
 
 	if (!metadataItems) {
-		return metadata;
+		return {};
 	}
 
 	if (typeof metadataItems === 'string') {
@@ -583,23 +583,23 @@ export function parseMetadata(
 				const key = line.substring(0, colonIndex).trim();
 				const value = line.substring(colonIndex + 1).trim();
 				if (key) {
-					metadata[key] = value;
+					metadata.set(key, value);
 				}
 			}
 		}
-		return metadata;
+		return Object.fromEntries(metadata);
 	}
 
 	const items = Array.isArray(metadataItems) ? metadataItems : [metadataItems];
 
 	for (const item of items) {
-		const fieldId = item.ID || item.id;
-		if (fieldId && item.Value) {
-			metadata[fieldId] = item.Value;
+		const fieldId = item.FieldID ?? item.ID ?? item.id;
+		if (typeof fieldId === 'string' && fieldId && typeof item.Value === 'string') {
+			metadata.set(fieldId, item.Value);
 		}
 	}
 
-	return metadata;
+	return Object.fromEntries(metadata);
 }
 
 export function buildMetadataItems(metadata: Record<string, string | undefined>): MetaDataItem[] {
@@ -608,7 +608,7 @@ export function buildMetadataItems(metadata: Record<string, string | undefined>)
 	for (const [fieldId, value] of Object.entries(metadata)) {
 		if (value !== undefined) {
 			items.push({
-				ID: fieldId,
+				FieldID: fieldId,
 				Value: value,
 			});
 		}

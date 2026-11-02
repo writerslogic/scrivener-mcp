@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { constants, renameSync, symlinkSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
@@ -65,6 +65,16 @@ async function restartServices(): Promise<void> {
 
 function proposeOpening(): Promise<ChangeProposal> {
 	return reviews.propose({ documentId: DOCUMENT, edits: [{ start: 0, end: 3, text: 'One' }] });
+}
+
+function failChecksumAfterPublication(raw: string) {
+	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+	const open = fs.open;
+	return jest.spyOn(fs, 'open').mockImplementation(async (...args) => {
+		if (args[0] === checksum && (await fs.readFile(file(), 'utf8')) === raw)
+			throw Object.assign(new Error('Synthetic checksum I/O failure'), { code: 'EIO' });
+		return open(...args);
+	});
 }
 
 beforeEach(async () => {
@@ -233,12 +243,18 @@ test('overlapping edits and Unicode surrogate splits are rejected', async () => 
 test('a commit interrupted after the RTF rename is reconciled after restart', async () => {
 	const proposal = await proposeOpening();
 	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
-	await fs.unlink(checksum);
-	await fs.mkdir(checksum);
-	await expect(reviews.apply(proposal.id, { force: true })).rejects.toThrow();
+	const prepared = await writer.prepareDocument(
+		DOCUMENT,
+		`One${proposal.before.slice(3)}`,
+		proposal.currentRevision
+	);
+	const failure = failChecksumAfterPublication(prepared.raw);
+	try {
+		await expect(reviews.apply(proposal.id, { force: true })).rejects.toThrow(/checksum I\/O/);
+	} finally {
+		failure.mockRestore();
+	}
 	expect(await documents.readDocument(DOCUMENT)).toMatch(/^One /);
-	await fs.rmdir(checksum);
-	await fs.writeFile(checksum, '');
 	await restartServices();
 	const recovered = await reviews.recover();
 	expect(recovered).toHaveLength(1);
@@ -269,6 +285,138 @@ test('independent coordinators cannot both overwrite the same saved revision', a
 		other.close();
 	}
 });
+
+test.each(['same', 'different'])(
+	'rejects a committed operation ID from a %s document write without accepting the proposal',
+	async (target) => {
+		const other = target === 'same' ? DOCUMENT : randomUUID();
+		const operationId = randomUUID();
+		await documents
+			.getMutationCoordinator()
+			.commit(other, handler.convertToRTF('Foreign text'), {
+				operationId,
+			});
+		const before = await fs.readFile(file(), 'utf8');
+		const proposal = await proposeOpening();
+		await expect(reviews.apply(proposal.id, { operationId, force: true })).rejects.toThrow(
+			/operation ID/i
+		);
+		expect(await fs.readFile(file(), 'utf8')).toBe(before);
+		expect(reviews.get(proposal.id).edits[0].status).toBe('pending');
+		expect(reviews.listApplications()).toEqual([]);
+	}
+);
+
+test('concurrent applications cannot overwrite a receipt reserved during preparation', async () => {
+	const other = randomUUID();
+	await fs.mkdir(path.join(root, 'Files', 'Data', other), { recursive: true });
+	await fs.writeFile(path.join(root, 'Files', 'Data', other, 'content.rtf'), RICH);
+	const first = await proposeOpening();
+	const second = await reviews.propose({
+		documentId: other,
+		edits: [{ start: 0, end: 3, text: 'Two' }],
+	});
+	let release!: () => void;
+	let signalPrepared!: () => void;
+	const held = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const entered = new Promise<void>((resolve) => {
+		signalPrepared = resolve;
+	});
+	const prepare = writer.prepareDocument.bind(writer);
+	const preparation = jest
+		.spyOn(writer, 'prepareDocument')
+		.mockImplementation(async (...args) => {
+			const result = await prepare(...args);
+			if (args[0] === other) {
+				signalPrepared();
+				await held;
+			}
+			return result;
+		});
+	const operationId = randomUUID();
+	const secondResult = reviews.apply(second.id, { operationId, force: true });
+	const rejected = expect(secondResult).rejects.toThrow(/application|operation ID/i);
+	try {
+		await entered;
+		const applied = await reviews.apply(first.id, { operationId, force: true });
+		release();
+		await rejected;
+		expect(reviews.listApplications()).toEqual([applied]);
+		expect(reviews.get(second.id).edits[0].status).toBe('pending');
+		expect(
+			await fs.readFile(path.join(root, 'Files', 'Data', other, 'content.rtf'), 'utf8')
+		).toBe(RICH);
+		expect((await reviews.apply(first.id, { operationId, force: true })).id).toBe(applied.id);
+	} finally {
+		release();
+		await secondResult.catch(() => undefined);
+		preparation.mockRestore();
+	}
+});
+
+test('a foreign write acquired after reservation cannot satisfy the prepared content receipt', async () => {
+	const proposal = await proposeOpening();
+	const operationId = randomUUID();
+	const commit = jest.spyOn(writer, 'commitPrepared').mockImplementationOnce(async (prepared) => {
+		await documents
+			.getMutationCoordinator()
+			.commit(DOCUMENT, handler.convertToRTF('Foreign text'), {
+				operationId,
+				expectedRevision: prepared.beforeRevision,
+			});
+		throw new Error('Synthetic operation collision');
+	});
+	try {
+		await expect(reviews.apply(proposal.id, { operationId, force: true })).rejects.toThrow(
+			/collision/
+		);
+		expect(reviews.get(proposal.id)).toMatchObject({ edits: [{ status: 'pending' }] });
+		expect(reviews.get(proposal.id).applyingOperation).toBeUndefined();
+		expect(reviews.listApplications()[0].state).toBe('failed');
+		expect(await documents.readDocument(DOCUMENT)).toBe('Foreign text');
+	} finally {
+		commit.mockRestore();
+	}
+});
+
+test.each([true, false])(
+	'legacy recovery validates intended text before accepting a receipt (matches=%s)',
+	async (matches) => {
+		const proposal = await proposeOpening();
+		const operationId = randomUUID();
+		const prepared = await writer.prepareDocument(
+			DOCUMENT,
+			proposal.before.replace(/^The /, 'One '),
+			proposal.currentRevision
+		);
+		store.put('review-applications', operationId, {
+			id: operationId,
+			proposalId: proposal.id,
+			editIds: [proposal.edits[0].id],
+			beforeRevision: proposal.currentRevision,
+			state: 'interrupted',
+			ownerPid: process.pid,
+			host: hostname(),
+			token: randomUUID(),
+		});
+		await documents
+			.getMutationCoordinator()
+			.commit(DOCUMENT, matches ? prepared.raw : handler.convertToRTF('Foreign text'), {
+				operationId,
+				expectedRevision: proposal.currentRevision,
+			});
+		if (matches) {
+			const recovered = await reviews.recover();
+			expect(recovered[0].state).toBe('committed');
+			expect(reviews.get(proposal.id).edits[0].status).toBe('accepted');
+		} else {
+			await expect(reviews.recover()).rejects.toThrow(/receipt|intended|application/i);
+			expect(reviews.get(proposal.id).edits[0].status).toBe('pending');
+		}
+	}
+);
 
 test('live process ownership blocks recovery, then a dead process reservation recovers without writing the manuscript', async () => {
 	const id = randomUUID();
@@ -535,14 +683,16 @@ test.each(['missing', 'empty'])('proposal source distinguishes %s saved content'
 test('retrying an undo reconciles an interrupted rename before checking the original applied revision', async () => {
 	const proposal = await proposeOpening();
 	const application = await reviews.apply(proposal.id, { force: true });
-	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
-	await fs.unlink(checksum);
-	await fs.mkdir(checksum);
-	await expect(reviews.undo(application.id, { force: true })).rejects.toThrow();
+	const failure = failChecksumAfterPublication(RICH);
+	try {
+		await expect(reviews.undo(application.id, { force: true })).rejects.toThrow(
+			/checksum I\/O/
+		);
+	} finally {
+		failure.mockRestore();
+	}
 	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
 	const snapshots = (await listDocumentSnapshots(root, DOCUMENT)).length;
-	await fs.rmdir(checksum);
-	await fs.writeFile(checksum, '');
 	await restartServices();
 	const undone = await reviews.undo(application.id, { force: true });
 	expect(undone.undoes).toBe(application.id);
@@ -556,6 +706,108 @@ const posixReadTest =
 	process.platform === 'win32' || !constants.O_NOFOLLOW || !constants.O_NONBLOCK
 		? test.skip
 		: test;
+
+posixReadTest(
+	'a native checksum FIFO is rejected before publishing manuscript content',
+	async () => {
+		const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+		await fs.unlink(checksum);
+		expect(spawnSync('mkfifo', [checksum]).status).toBe(0);
+		const script = `
+		import { MutationCoordinator } from './src/services/editorial/mutation-coordinator.ts';
+		import { once } from 'node:events';
+		const coordinator = new MutationCoordinator(process.env.AUDIT_PROJECT);
+		process.send('ready');
+		await once(process, 'message');
+		try {
+			await coordinator.commit(process.env.AUDIT_DOCUMENT, 'replacement');
+			process.exitCode = 2;
+		} catch (error) {
+			if (!error.message.includes('regular file')) throw error;
+		} finally { await coordinator.close(); }
+	`;
+		const child = spawn(
+			process.execPath,
+			['--import', 'tsx', '--input-type=module', '-e', script],
+			{
+				cwd: process.cwd(),
+				env: { ...process.env, AUDIT_PROJECT: root, AUDIT_DOCUMENT: DOCUMENT },
+				stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+			}
+		);
+		const exited = once(child, 'exit');
+		let deadline: ReturnType<typeof setTimeout> | undefined;
+		try {
+			await Promise.race([
+				once(child, 'message'),
+				exited.then(() => {
+					throw new Error('Checksum probe exited before initialization');
+				}),
+			]);
+			deadline = setTimeout(() => child.kill('SIGKILL'), 4000);
+			child.send('run');
+			const [code, signal] = await exited;
+			expect(signal).toBeNull();
+			expect(code).toBe(0);
+		} finally {
+			clearTimeout(deadline);
+			if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+			await exited;
+		}
+		expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+		expect(await listDocumentSnapshots(root, DOCUMENT)).toEqual([]);
+	}
+);
+
+test.each(['directory', 'invalid-utf8'])(
+	'a %s checksum fails before creating a mutation or snapshot',
+	async (kind) => {
+		const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+		await fs.unlink(checksum);
+		if (kind === 'directory') await fs.mkdir(checksum);
+		else await fs.writeFile(checksum, Buffer.from([0xff]));
+		const operationId = randomUUID();
+		await expect(
+			documents
+				.getMutationCoordinator()
+				.commit(DOCUMENT, handler.convertToRTF('Updated'), { operationId })
+		).rejects.toThrow();
+		expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+		expect(documents.getMutationCoordinator().get(operationId)).toBeUndefined();
+		expect(await listDocumentSnapshots(root, DOCUMENT)).toEqual([]);
+	}
+);
+
+test.each([-1, 0, 1])(
+	'native checksum reads and rewrites respect the 4 MiB boundary (%i)',
+	async (delta) => {
+		const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+		const size = 4 * 1024 * 1024 + delta;
+		const entry = `${DOCUMENT}/content.rtf=${'a'.repeat(40)}\n`;
+		await fs.writeFile(checksum, `${entry}${'x'.repeat(size - entry.length - 1)}\n`);
+		const raw = handler.convertToRTF('Updated manuscript.');
+		const writing = documents
+			.getMutationCoordinator()
+			.commit(DOCUMENT, raw, { expectedRevision: documentRevision(RICH) });
+		if (delta > 0) {
+			await expect(writing).rejects.toThrow(/regular file/);
+			expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+		} else {
+			await writing;
+			expect(await fs.readFile(file(), 'utf8')).toBe(raw);
+			expect((await fs.stat(checksum)).size).toBe(size);
+		}
+	}
+);
+
+test('checksum growth from new document entries is rejected before manuscript publication', async () => {
+	const checksum = path.join(root, 'Files', 'Data', 'docs.checksum');
+	await fs.writeFile(checksum, `${'x'.repeat(4 * 1024 * 1024 - 1)}\n`);
+	await expect(
+		documents.getMutationCoordinator().commit(DOCUMENT, handler.convertToRTF('Updated'))
+	).rejects.toThrow(/checksum.*limit/);
+	expect(await fs.readFile(file(), 'utf8')).toBe(RICH);
+});
 
 posixReadTest(
 	'a symlink swapped in after project-path validation is rejected by the descriptor open',

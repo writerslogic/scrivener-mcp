@@ -220,7 +220,7 @@ interface MatchBlock {
  * algorithm, without junk heuristics so preservation is maximized). Returns blocks
  * in order, terminated by a zero-size sentinel at (a.length, b.length).
  */
-function matchingBlocks(a: string[], b: string[]): MatchBlock[] {
+function matchingBlocks(a: string[], b: string[]): MatchBlock[] | null {
 	const b2j = new Map<string, number[]>();
 	for (let j = 0; j < b.length; j++) {
 		const list = b2j.get(b[j]);
@@ -228,7 +228,8 @@ function matchingBlocks(a: string[], b: string[]): MatchBlock[] {
 		else b2j.set(b[j], [j]);
 	}
 
-	const findLongest = (alo: number, ahi: number, blo: number, bhi: number): MatchBlock => {
+	let work = 0;
+	const findLongest = (alo: number, ahi: number, blo: number, bhi: number): MatchBlock | null => {
 		let besti = alo;
 		let bestj = blo;
 		let bestsize = 0;
@@ -238,6 +239,7 @@ function matchingBlocks(a: string[], b: string[]): MatchBlock[] {
 			const js = b2j.get(a[i]);
 			if (js) {
 				for (const j of js) {
+					if (++work > MAX_DIFF_WORK) return null;
 					if (j < blo) continue;
 					if (j >= bhi) break;
 					const k = (j2len.get(j - 1) ?? 0) + 1;
@@ -257,8 +259,30 @@ function matchingBlocks(a: string[], b: string[]): MatchBlock[] {
 	const blocks: MatchBlock[] = [];
 	const queue: Array<[number, number, number, number]> = [[0, a.length, 0, b.length]];
 	while (queue.length) {
-		const [alo, ahi, blo, bhi] = queue.pop() as [number, number, number, number];
+		let [alo, ahi, blo, bhi] = queue.pop() as [number, number, number, number];
+		let prefix = 0;
+		while (alo + prefix < ahi && blo + prefix < bhi && a[alo + prefix] === b[blo + prefix])
+			prefix++;
+		if (prefix) {
+			blocks.push({ a: alo, b: blo, size: prefix });
+			alo += prefix;
+			blo += prefix;
+		}
+		let suffix = 0;
+		while (
+			ahi - suffix > alo &&
+			bhi - suffix > blo &&
+			a[ahi - suffix - 1] === b[bhi - suffix - 1]
+		)
+			suffix++;
+		if (suffix) {
+			ahi -= suffix;
+			bhi -= suffix;
+			blocks.push({ a: ahi, b: bhi, size: suffix });
+		}
+		if (alo === ahi || blo === bhi) continue;
 		const m = findLongest(alo, ahi, blo, bhi);
+		if (!m) return null;
 		if (m.size > 0) {
 			blocks.push(m);
 			if (alo < m.a && blo < m.b) queue.push([alo, m.a, blo, m.b]);
@@ -273,6 +297,7 @@ function matchingBlocks(a: string[], b: string[]): MatchBlock[] {
 
 /** Guard against pathological O(n·m) diffs on very large documents. */
 const MAX_DIFF_TOKENS = 60_000;
+const MAX_DIFF_WORK = 1_000_000;
 
 /**
  * Produce a new RTF equal to `originalRaw` with its text changed to `newText`,
@@ -297,6 +322,7 @@ export function spliceRtfText(
 	// exactly — that equivalence is what makes the offset map trustworthy.
 	const lead = scan.text.length - scan.text.trimStart().length;
 	if (scan.text.trim() !== canonicalPlainText) return null;
+	if (canonicalPlainText === newText) return { rtf: originalRaw, replacedRaw: '' };
 	if (canonicalPlainText.length === 0) return null;
 
 	const rawStartOf = (canonicalIndex: number): number =>
@@ -307,6 +333,8 @@ export function spliceRtfText(
 	const oldTokens = tokenize(canonicalPlainText);
 	const newTokens = tokenize(newText);
 	if (oldTokens.length > MAX_DIFF_TOKENS || newTokens.length > MAX_DIFF_TOKENS) return null;
+	const blocks = matchingBlocks(oldTokens, newTokens);
+	if (!blocks) return null;
 
 	// Cumulative character offsets per token, so token indices map to char ranges.
 	const cum = (tokens: string[]): number[] => {
@@ -325,7 +353,7 @@ export function spliceRtfText(
 	let prevOldChar = 0;
 	let prevNewChar = 0;
 
-	for (const block of matchingBlocks(oldTokens, newTokens)) {
+	for (const block of blocks) {
 		const blockOldChar = oldCum[block.a];
 		const blockNewChar = newCum[block.b];
 

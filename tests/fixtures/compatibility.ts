@@ -76,17 +76,18 @@ export async function createCompatibilityProject(
 <ScrivenerProject Identifier="B0000000-0000-4000-8000-000000000001" Version="2.0" Creator="${mac ? 'SCRMAC-3' : 'SCRWIN-3'}" VendorFlag="keep">
  <Binder>
   <BinderItem UUID="${ids.draft}" Type="DraftFolder" Created="2026-01-01T00:00:00Z" Modified="2026-01-02T00:00:00Z"><Title>Manuscript — 東京</Title><Children>
-   <BinderItem UUID="${ids.chapter}" Type="Folder"><Title>Chapter One 🌙</Title><MetaData><SectionType ChildDefault="scene">chapter</SectionType></MetaData><Children>
-    <BinderItem UUID="${ids.scene}" Type="Text" VendorFlag="unknown"><Title>Café Żółć — arrival 🕯️</Title><MetaData><IncludeInCompile>Yes</IncludeInCompile><SectionType>scene</SectionType><LabelID>7</LabelID><StatusID>4</StatusID><Keywords><Keyword>harbor</Keyword><Keyword>東京</Keyword></Keywords><CustomMetaData><MetaDataItem ID="storyTime"><Value>2040-06-01</Value></MetaDataItem><MetaDataItem ID="pov"><Value>Mira</Value></MetaDataItem></CustomMetaData></MetaData><TextSettings><Selection Start="4" End="8"/></TextSettings></BinderItem>
+   <BinderItem UUID="${ids.chapter}" Type="Folder"><Title>Chapter One 🌙</Title><MetaData><SectionType ChildDefault="C0000000-0000-4000-8000-000000000003">C0000000-0000-4000-8000-000000000002</SectionType></MetaData><Children>
+    <BinderItem UUID="${ids.scene}" Type="Text" VendorFlag="unknown"><Title>Café Żółć — arrival 🕯️</Title><MetaData><IncludeInCompile>Yes</IncludeInCompile><SectionType>C0000000-0000-4000-8000-000000000003</SectionType><LabelID>7</LabelID><StatusID>4</StatusID><Keywords><Keyword>harbor</Keyword><Keyword>東京</Keyword></Keywords><CustomMetaData><MetaDataItem><FieldID>storyTime</FieldID><Value>2040-06-01</Value></MetaDataItem><MetaDataItem><FieldID>pov</FieldID><Value>Mira</Value></MetaDataItem></CustomMetaData></MetaData><TextSettings><Selection Start="4" End="8"/></TextSettings></BinderItem>
    </Children></BinderItem>
   </Children></BinderItem>
   <BinderItem UUID="${ids.research}" Type="ResearchFolder"><Title>Research</Title><Children><BinderItem UUID="${ids.image}" Type="Image"><Title>Original pixel</Title><MetaData><IncludeInCompile>No</IncludeInCompile></MetaData></BinderItem></Children></BinderItem>
   <BinderItem UUID="${ids.trash}" Type="TrashFolder"><Title>Trash</Title></BinderItem>
  </Binder>
  <ProjectSettings><ProjectTitle>Lanterns — 東京 🌙</ProjectTitle><Author>Compatibility fixture contributors</Author></ProjectSettings>
- <SectionTypes><SectionType ID="chapter"><Name>Chapter</Name></SectionType><SectionType ID="scene"><Name>Scene</Name></SectionType></SectionTypes>
+ <SectionTypes><TypeDefinitions><Type ID="C0000000-0000-4000-8000-000000000002">Chapter</Type><Type ID="C0000000-0000-4000-8000-000000000003">Scene</Type></TypeDefinitions></SectionTypes>
+ <CustomMetaDataSettings><MetaDataField ID="storyTime" Type="Text"><Title>Story time</Title></MetaDataField><MetaDataField ID="pov" Type="Text"><Title>Point of view</Title></MetaDataField></CustomMetaDataSettings>
  <LabelSettings><Labels><Label ID="7" Color="0.2 0.3 0.4">Blue</Label></Labels></LabelSettings>
- <StatusSettings><Status ID="4">Draft</Status></StatusSettings>
+ <StatusSettings><StatusItems><Status ID="4">Draft</Status></StatusItems></StatusSettings>
  <VendorData Mode="attribute"><Mode>child</Mode><Entry Key="one">Café 東京 🌙</Entry><Entry Key="two"><Nested Preserve="yes">Żółć</Nested></Entry></VendorData>
 </ScrivenerProject>`;
 	const image = originalPixel();

@@ -853,14 +853,27 @@ export class PassageSearch {
 			return { index, ranked: ranked.slice(0, limit) };
 		});
 		const results: PassageMatch[] = [];
-		const documents = new Map<string, Promise<SourceDocument>>();
-		for (const hit of ranked) {
-			let pending = documents.get(hit.entry.documentId);
-			if (!pending) {
-				pending = this.source.read(hit.entry.documentId);
-				documents.set(hit.entry.documentId, pending);
+		const ids = [...new Set(ranked.map((hit) => hit.entry.documentId))];
+		const documents = new Map<string, SourceDocument>();
+		const saved =
+			ids.length && this.source.readMany ? await this.source.readMany(ids) : undefined;
+		if (saved) {
+			if (
+				saved.length !== ids.length ||
+				new Set(saved.map((doc) => doc.documentId)).size !== ids.length
+			)
+				throw new Error('Source returned an incomplete or duplicate document selection');
+			for (let index = 0; index < ids.length; index++) {
+				const doc = saved[index];
+				if (doc.documentId !== ids[index] || doc.projectId !== this.source.projectId)
+					throw new Error('Source returned a foreign document selection');
+				documents.set(doc.documentId, doc);
 			}
-			const doc = await pending;
+		} else {
+			for (const id of ids) documents.set(id, await this.source.read(id));
+		}
+		for (const hit of ranked) {
+			const doc = documents.get(hit.entry.documentId)!;
 			if (
 				doc.projectId !== this.source.projectId ||
 				doc.documentId !== hit.entry.documentId ||
@@ -883,6 +896,8 @@ export class PassageSearch {
 				contextEnd++;
 			results.push({
 				...passage,
+				title: doc.title,
+				path: doc.path,
 				context: doc.text.slice(contextStart, contextEnd),
 				contextStart,
 				contextEnd,

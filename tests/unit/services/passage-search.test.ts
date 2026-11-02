@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import type { WarmModels } from '../../../src/services/memory/warm-models.js';
 import { PassageSearch } from '../../../src/services/editorial/passage-search.js';
 import { PersistentStore } from '../../../src/services/editorial/persistent-store.js';
+import { ProjectSource } from '../../../src/services/editorial/project-source.js';
 import { HolographicMemorySystem } from '../../../src/services/memory/hhm/holographic-memory-system.js';
 import type { ManuscriptSource, SourceDocument } from '../../../src/services/editorial/types.js';
 
@@ -442,6 +443,75 @@ describe('local passage retrieval', () => {
 		expect(
 			(await search.search('lantern harbor', options)).results.map((hit) => hit.documentId)
 		).toEqual([documents[1].documentId]);
+	});
+
+	it('verifies fifty returned documents using one additional binder enumeration', async () => {
+		await search.close();
+		const binder = Array.from({ length: 1000 }, (_, index) => ({
+			id: `scene-${index}`,
+			type: 'Text' as const,
+			title: `Scene ${index}`,
+			path: `Draft/Scene ${index}`,
+		}));
+		const list = jest.fn(async () => binder);
+		const read = jest.fn(async () => '{\\rtf1\\ansi A familiar orchid blooms.}');
+		source = new ProjectSource(dir, store, list, read);
+		search = new PassageSearch(source, store, engine);
+		await search.search('orchid', { mode: 'keyword', limit: 50 });
+		list.mockClear();
+		read.mockClear();
+		const result = await search.search('orchid', { mode: 'keyword', limit: 50 });
+		expect(result.results).toHaveLength(50);
+		expect(list).toHaveBeenCalledTimes(2);
+		expect(read).toHaveBeenCalledTimes(1050);
+		expect(result.results.every((hit) => hit.quote === 'A familiar orchid blooms.')).toBe(true);
+	});
+
+	it('revalidates source revisions and current labels through batch retrieval', async () => {
+		reviseDocument(0, 'lantern lantern harbor');
+		reviseDocument(1, 'lantern harbor');
+		const ids = documents.slice(0, 2).map((doc) => doc.documentId);
+		const single = jest.spyOn(source, 'read');
+		const batch = jest.fn(async (requested: readonly string[]) => {
+			reviseDocument(0, 'A newly saved scene.');
+			documents[1] = { ...documents[1], title: 'Renamed', path: 'Draft/Renamed' };
+			return requested.map((id) => documents.find((doc) => doc.documentId === id)!);
+		});
+		source.readMany = batch;
+		const result = await search.search('lantern harbor', { mode: 'keyword', documentIds: ids });
+		expect(batch).toHaveBeenCalledTimes(1);
+		expect(single).not.toHaveBeenCalled();
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0]).toMatchObject({
+			documentId: ids[1],
+			title: 'Renamed',
+			path: 'Draft/Renamed',
+		});
+	});
+
+	it('rejects a document moved out of the draft while search is running', async () => {
+		await search.close();
+		let binder = [
+			{ id: 'scene-1', type: 'Text' as const, title: 'Scene', path: 'Draft/Scene' },
+		];
+		const research = [...binder];
+		source = new ProjectSource(
+			dir,
+			store,
+			async () => binder,
+			async () => '{\\rtf1\\ansi Orchid}',
+			async () => research
+		);
+		search = new PassageSearch(source, store, engine);
+		const retrieve = engine.searchDocuments.bind(engine);
+		jest.spyOn(engine, 'searchDocuments').mockImplementationOnce(async (...args) => {
+			const hits = await retrieve(...args);
+			binder = [];
+			return hits;
+		});
+		await expect(search.search('Orchid', { mode: 'keyword' })).rejects.toThrow(
+			'selected project scope'
+		);
 	});
 
 	it('keeps the same real index current when another indexer replaces or deletes a saved document', async () => {

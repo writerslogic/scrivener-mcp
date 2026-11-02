@@ -37,12 +37,12 @@ verify Unicode and WAL recovery, and exercise rollback, reopen and competing-pro
 
 ## Format and fidelity coverage
 
-Holographic Memory 0.6.4 is a declared dependency. The release gate exercises its installed native
-binding and the forced JavaScript fallback on every CI job. Local checks also verified native
-cross-process ownership and restart recovery, exact Unicode passage byte ranges, metadata/version
-retention and vector-store scope isolation. Published native packages cover eight OS/architecture
-tuples; publishing a tuple does not establish live verification on that hardware. Scrivener's saved
-source revisions remain authoritative. HMS `flush()` does not release its native store lock, and the
+Warm 0.6.4 is a declared dependency. The release gate exercises its installed native binding and the
+forced JavaScript fallback on every CI job. Local checks also verified native cross-process
+ownership and restart recovery, exact Unicode passage byte ranges, metadata/version retention and
+vector-store scope isolation. Published native packages cover eight OS/architecture tuples;
+publishing a tuple does not establish live verification on that hardware. Scrivener's saved source
+revisions remain authoritative. HMS `flush()` does not release its native store lock, and the
 upstream Node API has no deterministic close method; compatible owners reuse the store, while
 another server selects a volatile local fallback rehydrated from SQLite. No embedding model is
 downloaded.
@@ -57,13 +57,23 @@ downloaded.
 | Review and undo                            | Persistent selective proposals, batches, snapshots, expected revisions, exact raw undo and restart recovery                                           | Later saved revisions stop stale writes/undo; ambiguous owners require inspection instead of unsafe lock removal                                                         |
 | Search and continuity                      | Exact quoted passages, UUID/revision/offset provenance; local concept relevance fixture; author-curated canon/finding lifecycle                       | Concept search covers a bounded English vocabulary; continuity extraction covers explicit eye/hair colors and birth years, with other dimensions requiring curated facts |
 | DOCX / EPUB presets                        | Scope/order, front matter, supported styles and scene-end notes, structural archive validation and EPUBCheck release fixtures                         | Images, native note anchors, tables, fields and native compile rules have documented preflight limits; see [export coverage](export-presets.md)                          |
-| PDF                                        | Existing standard-font exporter                                                                                                                       | Characters outside WinAnsi may be normalized/omitted; prefer DOCX/EPUB for Unicode fidelity                                                                              |
+| PDF                                        | Existing standard-font exporter                                                                                                                       | Unsupported characters fail preflight explicitly; prefer DOCX/EPUB for Unicode fidelity                                                                                  |
 
 `tests/fixtures/compatibility.ts` generates original, redistributable Mac/Windows-layout projects,
 including a valid generated PNG, Unicode RTF, annotations, footnotes and unknown metadata. Its CC0
 license is adjacent. The packaged first-session project under `assets/sample-project` is separately
 CC0. These synthetic fixtures demonstrate documented file behavior; they are not a certification of
 every native Scrivener point release.
+
+A local macOS check on 2026-11-02 used Scrivener 3.5.2 to open, save, close and reopen a fresh copy
+of the packaged sample twice after server edits. Binder order/hierarchy/titles, decoded manuscript
+text, snapshot bytes/titles, notes, synopsis, custom field values and definitions, section types and
+compile XML remained unchanged. The server writes native `MetaDataItem/FieldID` elements and
+registers new custom fields in `CustomMetaDataSettings`; legacy `ID`/`id` fields remain readable and
+acquire `FieldID` when custom metadata is edited. This check covers saved data in one native app
+version; it does not validate native compile output, unsaved buffers, concurrent native writes or
+the Windows GUI. Automated persistence, rollback and boundary regressions are in
+`tests/integration/native-metadata.test.ts`.
 
 ## Persistence and recovery
 
@@ -74,7 +84,13 @@ filesystem work without holding database transactions across I/O. Binder saves c
 loaded XML revision, including same-size changes with preserved timestamps. Reads refresh saved
 revisions and reject stale applications. Saved reads validate opened file descriptors and bounded
 content. POSIX uses no-follow/nonblocking flags; Windows verifies path/file identity after opening,
-with concurrent external replacements remaining best effort.
+with concurrent external replacements remaining best effort. The native `docs.checksum` sidecar must
+be a regular UTF-8 file of at most 4 MiB, including entries added by the requested mutation. Its
+input and projected output are checked before manuscript publication. Missing checksum files remain
+absent; updates preserve unrelated entries and line endings. RTF text matching has a 60000-token
+bound and a one-million-candidate work budget. A changed document that exceeds either budget
+requires the same explicit formatting-loss acknowledgement as other unsplicable RTF; an unchanged
+document retains its original bytes.
 
 Back up the project together with its editorial state and native `Snapshots` directory. Do not
 delete `.scrivener-mcp` as a cache. Existing version-zero editorial databases acquire the

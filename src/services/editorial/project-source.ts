@@ -33,6 +33,46 @@ export class ProjectSource implements ManuscriptSource {
 	}
 
 	async list(options: SourceScopeOptions = {}): Promise<SourceDocument[]> {
+		const { documents, maxDocuments, maxCharacters } = await this.selectScope(options);
+		if (documents.length > maxDocuments)
+			throw new Error('Source exceeds the requested document budget');
+		return this.materializeSelection(
+			documents.map((document, order) => ({ document, order })),
+			maxCharacters
+		);
+	}
+
+	async readMany(
+		documentIds: readonly string[],
+		options: SourceScopeOptions = {}
+	): Promise<SourceDocument[]> {
+		if (
+			!Array.isArray(documentIds) ||
+			documentIds.length > MAX_SOURCE_DOCUMENTS ||
+			documentIds.some((id) => typeof id !== 'string' || !id || id.length > 128) ||
+			new Set(documentIds).size !== documentIds.length
+		)
+			throw new Error('Invalid source document selection');
+		const { documents, maxDocuments, maxCharacters } = await this.selectScope(options);
+		if (documentIds.length > maxDocuments)
+			throw new Error('Source exceeds the requested document budget');
+		const byId = new Map(
+			documents.map((document, order) => [document.id, { document, order }])
+		);
+		const selected = documentIds.map((id) => {
+			const entry = byId.get(id);
+			if (!entry)
+				throw createError(
+					ErrorCode.DOCUMENT_NOT_FOUND,
+					{},
+					'Document is not in the selected project scope'
+				);
+			return entry;
+		});
+		return this.materializeSelection(selected, maxCharacters);
+	}
+
+	private async selectScope(options: SourceScopeOptions) {
 		if (
 			!options ||
 			typeof options !== 'object' ||
@@ -62,12 +102,17 @@ export class ProjectSource implements ManuscriptSource {
 		const documents = this.selectDocuments(
 			await (scope === 'all' ? this.allDocuments!() : this.documents())
 		);
-		if (documents.length > maxDocuments)
-			throw new Error('Source exceeds the requested document budget');
+		return { documents, maxDocuments, maxCharacters };
+	}
+
+	private async materializeSelection(
+		selected: Array<{ document: ScrivenerDocument; order: number }>,
+		maxCharacters: number
+	): Promise<SourceDocument[]> {
 		const result: SourceDocument[] = [];
 		let characters = 0;
-		for (let order = 0; order < documents.length; order++) {
-			const document = await this.materialize(documents[order], order);
+		for (const entry of selected) {
+			const document = await this.materialize(entry.document, entry.order);
 			characters += document.text.length;
 			if (characters > maxCharacters)
 				throw new Error('Source exceeds the requested UTF-16 character analysis budget');

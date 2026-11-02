@@ -94,9 +94,7 @@ async function initializeContext(): Promise<HandlerContext> {
 	try {
 		hhmSystem = await initializeHHM({
 			dimensions: 10000,
-			maxMemories: 1000000,
 			similarityThreshold: 0.4,
-			autoEvolve: true,
 		});
 		hhmInitialized = true;
 		logger.info('HHM system initialized successfully');

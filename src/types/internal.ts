@@ -7,6 +7,7 @@ export interface ProjectStructure {
 		Binder?: BinderContainer;
 		ProjectSettings?: ProjectSettings;
 		ProjectTargets?: ProjectTargets;
+		CustomMetaDataSettings?: { MetaDataField?: CustomMetaDataField | CustomMetaDataField[] };
 	};
 	_loadTime?: number;
 }
@@ -67,10 +68,17 @@ export interface BinderMetaData {
 }
 
 export interface MetaDataItem {
+	FieldID?: string;
 	ID?: string;
 	id?: string;
 	Value?: string;
 	_?: string;
+}
+
+export interface CustomMetaDataField {
+	$?: Record<string, string>;
+	ID?: string;
+	Title?: string;
 }
 
 export interface RTFParserDocument {

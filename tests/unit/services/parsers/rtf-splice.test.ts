@@ -30,6 +30,41 @@ describe('scanRawText parity', () => {
 });
 
 describe('spliceRtfText', () => {
+	it('preserves a large repeated manuscript when only its final word changes', async () => {
+		const before = `${'word '.repeat(8191)}last`;
+		const raw = `{\\rtf1\\ansi{\\stylesheet{\\s1 Heading;}} ${before}}`;
+		const after = before.slice(0, -4) + 'edited';
+		const result = spliceRtfText(raw, before, after);
+		expect(result).not.toBeNull();
+		expect(result!.replacedRaw).toBe('last');
+		expect(result!.rtf).toContain('{\\stylesheet{\\s1 Heading;}}');
+		expect((await handler.parseRTF(result!.rtf)).plainText).toBe(after);
+	});
+
+	it('returns a safe fallback when ambiguous repeated matches exhaust the work budget', () => {
+		const repeated = 'word '.repeat(8192);
+		const before = `old ${repeated}start`;
+		const after = `new ${repeated}finish`;
+		expect(spliceRtfText(`{\\rtf1\\ansi ${before}}`, before, after)).toBeNull();
+	});
+
+	it.each([59999, 60000, 60001])('bounds changed inputs at %i tokens', async (tokens) => {
+		const before = `${'word '.repeat(29999)}last${tokens === 60000 ? '.' : tokens === 60001 ? ' .' : ''}`;
+		const after = before.replace(/last/, 'edited');
+		const result = spliceRtfText(`{\\rtf1\\ansi ${before}}`, before, after);
+		if (tokens > 60000) expect(result).toBeNull();
+		else {
+			expect(result).not.toBeNull();
+			expect((await handler.parseRTF(result!.rtf)).plainText).toBe(after);
+		}
+	});
+
+	it('returns exact bytes for an unchanged document beyond the changed-input token limit', () => {
+		const before = `${'word '.repeat(30001)}last`;
+		const raw = `{\\rtf1\\ansi ${before}}`;
+		expect(spliceRtfText(raw, before, before)).toEqual({ rtf: raw, replacedRaw: '' });
+	});
+
 	it('is byte-identical for a no-op edit', async () => {
 		const c = await canonical(RICH_RTF);
 		const out = spliceRtfText(RICH_RTF, c, c);
