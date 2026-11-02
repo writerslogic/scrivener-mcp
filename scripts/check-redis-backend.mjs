@@ -267,6 +267,48 @@ async function verify() {
 		assert.ok(detected.url === url, 'Explicit Redis detection selected a different endpoint');
 		assert.equal(detected.isAvailable, true);
 		checks.push('hello-disabled-explicit-detection');
+		const { SQLiteManager } = await import(
+			pathToFileURL(join(ROOT, 'dist/handlers/database/sqlite-manager.js')).href
+		);
+		const sqlite = new SQLiteManager(join(fixture, 'cached.sqlite'));
+		const previousCacheEnv = Object.fromEntries(
+			['SCRIVENER_LOCAL_ONLY', 'KEYDB_URL', 'REDIS_URL'].map((key) => [key, process.env[key]])
+		);
+		try {
+			Object.assign(process.env, {
+				SCRIVENER_LOCAL_ONLY: 'false',
+				KEYDB_URL: url,
+				REDIS_URL: url,
+			});
+			await checked(sqlite.initialize(), 'Cached SQLite initialization');
+			assert.equal(sqlite.isCachingAvailable(), true);
+			const cached = sqlite.getCachedManager();
+			assert.ok(cached);
+			const bytes = Buffer.from([0, 127, 128, 255]);
+			for (let attempt = 0; attempt < 2; attempt++) {
+				const rows = await checked(
+					cached.query('SELECT ? AS payload', [bytes]),
+					'Cached BLOB'
+				);
+				assert.deepEqual(rows, [{ payload: bytes }]);
+				assert.ok(Buffer.isBuffer(rows[0].payload));
+			}
+			sqlite.getDatabase().defaultSafeIntegers(true);
+			const value = 9007199254740993n;
+			for (let attempt = 0; attempt < 2; attempt++)
+				assert.deepEqual(
+					await checked(cached.queryOne('SELECT ? AS value', [value]), 'Cached BigInt'),
+					{ value }
+				);
+			assert.equal(cached.getCacheStats().hits, 2);
+			checks.push('production-sqlite-cache-blob-bigint-hits');
+		} finally {
+			for (const [key, value] of Object.entries(previousCacheEnv)) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+			await checked(sqlite.close(), 'Cached SQLite shutdown');
+		}
 		const connect = () => {
 			const client = createBullMQConnection(url);
 			clients.add(client);

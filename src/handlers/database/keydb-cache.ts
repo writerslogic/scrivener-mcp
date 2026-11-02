@@ -1,19 +1,16 @@
-/**
- * KeyDB caching layer for SQLite queries
- * Provides intelligent caching for frequently accessed database operations
- */
-
 import { createHash, randomUUID } from 'node:crypto';
-import { serialize } from 'node:v8';
-import type { Redis } from 'ioredis';
+import { deserialize, serialize } from 'node:v8';
+import { Redis } from 'ioredis';
 import { getLogger } from '../../core/logger.js';
-import { createBullMQConnection, detectConnection } from '../../services/queue/keydb-detector.js';
-import { retry, withErrorHandling, safeParse, safeStringify } from '../../utils/common.js';
+import { detectConnection } from '../../services/queue/keydb-detector.js';
 import type { SQLiteManager } from './sqlite-manager.js';
 
+export const MAX_CACHE_ENTRY_BYTES = 1024 * 1024;
+const MAX_TTL_SECONDS = 2147483647;
+
 export interface CacheOptions {
-	ttl?: number; // Time to live in seconds
-	prefix?: string; // Cache key prefix
+	ttl?: number;
+	prefix?: string;
 	serialize?: (data: unknown) => string;
 	deserialize?: (data: string) => unknown;
 }
@@ -25,183 +22,175 @@ export interface CacheStats {
 	hitRate: number;
 }
 
-/**
- * KeyDB-based cache for SQLite query results
- */
+function validateTTL(ttl: number): void {
+	if (!Number.isInteger(ttl) || ttl < 1 || ttl > MAX_TTL_SECONDS)
+		throw new RangeError(`Cache TTL must be an integer between 1 and ${MAX_TTL_SECONDS}`);
+}
+
 export class KeyDBCache {
 	private client: Redis | null = null;
-	private isConnected = false;
-	private prefix: string;
-	private defaultTTL: number;
+	private initialized = false;
+	private lifecycleTail: Promise<unknown> = Promise.resolve();
+	private readonly prefix: string;
+	private readonly defaultTTL: number;
+	private readonly encode: (value: unknown) => string;
+	private readonly decode: (value: string) => unknown;
+	private readonly format: string;
 	private stats = { hits: 0, misses: 0 };
-	private logger: ReturnType<typeof getLogger>;
+	private readonly logger = getLogger('keydb-cache');
 
 	constructor(options: CacheOptions = {}) {
-		this.logger = getLogger('keydb-cache');
-		this.prefix = options.prefix || 'sqlite:';
-		this.defaultTTL = options.ttl || 300; // 5 minutes default
+		this.prefix = options.prefix ?? 'sqlite:';
+		this.defaultTTL = options.ttl ?? 300;
+		validateTTL(this.defaultTTL);
+		if (
+			(options.serialize === undefined) !== (options.deserialize === undefined) ||
+			(options.serialize !== undefined && typeof options.serialize !== 'function') ||
+			(options.deserialize !== undefined && typeof options.deserialize !== 'function')
+		)
+			throw new TypeError('Cache serialization requires both encode and decode functions');
+		this.format = options.serialize ? 'custom1:' : 'v8-1:';
+		this.encode = options.serialize ?? ((value) => serialize(value).toString('base64'));
+		this.decode =
+			options.deserialize ??
+			((value) => {
+				if (!value || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value))
+					throw new Error('Invalid cache encoding');
+				return deserialize(Buffer.from(value, 'base64'));
+			});
 	}
 
-	async initialize(): Promise<boolean> {
-		return withErrorHandling(async () => {
-			const connectionInfo = await retry(() => detectConnection(), {
-				maxAttempts: 3,
-				initialDelay: 500,
-			});
-
-			if (!connectionInfo.isAvailable || !connectionInfo.url) {
-				this.logger.info('KeyDB/Redis not available, caching disabled');
+	initialize(): Promise<boolean> {
+		return this.transition(async () => {
+			if (this.isAvailable()) return true;
+			if (this.client) this.disconnect(this.client);
+			let client: Redis | undefined;
+			try {
+				const connection = await detectConnection();
+				if (!connection.isAvailable || !connection.url) return false;
+				client = new Redis(connection.url, {
+					protocol: 2,
+					lazyConnect: true,
+					enableReadyCheck: false,
+					enableOfflineQueue: false,
+					maxRetriesPerRequest: 0,
+					retryStrategy: () => null,
+					connectTimeout: 1000,
+					commandTimeout: 1000,
+					socketTimeout: 1000,
+					disconnectTimeout: 1000,
+					disableClientInfo: true,
+				});
+				this.client = client;
+				// Command rejections handle optional-server failures without logging connection credentials.
+				client.on('error', () => undefined);
+				await client.connect();
+				if ((await client.ping()) !== 'PONG') throw new Error('Unexpected cache response');
+				this.initialized = true;
+				return true;
+			} catch {
+				if (client) this.disconnect(client);
+				this.logger.warn('Query cache unavailable; using SQLite');
 				return false;
 			}
-
-			this.client = createBullMQConnection(connectionInfo.url);
-
-			// Test connection with retry
-			await retry(() => this.client!.ping(), { maxAttempts: 3, initialDelay: 100 });
-			this.isConnected = true;
-
-			this.logger.info(`Cache initialized with ${connectionInfo.type}`, {
-				version: connectionInfo.version,
-				prefix: this.prefix,
-				defaultTTL: this.defaultTTL,
-			});
-
-			return true;
-		}, 'Cache initialization')();
+		});
 	}
 
 	async get<T>(key: string): Promise<T | null> {
-		if (!this.isConnected || !this.client) {
+		const client = this.client;
+		if (!client || !this.isAvailable()) return null;
+		let cached: Buffer;
+		try {
+			// The extra byte detects oversize values without downloading the entire entry.
+			cached = await client.getrangeBuffer(this.prefix + key, 0, MAX_CACHE_ENTRY_BYTES);
+		} catch {
+			this.disconnect(client);
+			this.logger.warn('Query cache read failed; using SQLite');
+			this.stats.misses++;
 			return null;
 		}
-
-		return withErrorHandling(async () => {
-			const cacheKey = this.prefix + key;
-			const cached = await this.client!.get(cacheKey);
-
-			if (cached) {
-				this.stats.hits++;
-				this.logger.debug(`Cache hit for key: ${key}`);
-				return safeParse<T>(cached, null as T);
+		if (cached?.length && cached.length <= MAX_CACHE_ENTRY_BYTES) {
+			try {
+				const encoded = cached.toString('utf8');
+				if (encoded.startsWith(this.format)) {
+					const value = this.decode(encoded.slice(this.format.length)) as T;
+					this.stats.hits++;
+					return value;
+				}
+			} catch {
+				this.logger.debug('Invalid query cache entry; using SQLite');
 			}
-
-			this.stats.misses++;
-			this.logger.debug(`Cache miss for key: ${key}`);
-			return null;
-		}, 'Cache get')();
+		}
+		this.stats.misses++;
+		return null;
 	}
 
-	async set(key: string, value: unknown, ttl?: number): Promise<boolean> {
-		if (!this.isConnected || !this.client) {
+	async set(key: string, value: unknown, ttl = this.defaultTTL): Promise<boolean> {
+		validateTTL(ttl);
+		const client = this.client;
+		if (!client || !this.isAvailable()) return false;
+		let encoded: string;
+		try {
+			const data = this.encode(value);
+			if (typeof data !== 'string') return false;
+			encoded = this.format + data;
+			if (Buffer.byteLength(encoded) > MAX_CACHE_ENTRY_BYTES) return false;
+		} catch {
+			this.logger.debug('Query result cannot be cached');
 			return false;
 		}
-
-		return withErrorHandling(async () => {
-			const cacheKey = this.prefix + key;
-			const serialized = safeStringify(value);
-			const expiry = ttl || this.defaultTTL;
-
-			// Use retry for cache set operation
-			await retry(() => this.client!.setex(cacheKey, expiry, serialized), {
-				maxAttempts: 2,
-				initialDelay: 100,
-			});
-			this.logger.debug(`Cached value for key: ${key} (TTL: ${expiry}s)`);
+		try {
+			await client.setex(this.prefix + key, ttl, encoded);
 			return true;
-		}, 'Cache set')();
+		} catch {
+			this.disconnect(client);
+			this.logger.warn('Query cache write failed; using SQLite');
+			return false;
+		}
 	}
 
 	async del(key: string): Promise<boolean> {
-		if (!this.isConnected || !this.client) {
-			return false;
-		}
-
+		const client = this.client;
+		if (!client || !this.isAvailable()) return false;
 		try {
-			const cacheKey = this.prefix + key;
-			const deleted = await this.client.del(cacheKey);
-
-			if (deleted > 0) {
-				this.logger.debug(`Deleted cached key: ${key}`);
-				return true;
-			}
-			return false;
-		} catch (error) {
-			this.logger.error('Cache delete failed', { key, error: (error as Error).message });
+			return (await client.del(this.prefix + key)) > 0;
+		} catch {
+			this.disconnect(client);
+			this.logger.warn('Query cache delete failed');
 			return false;
 		}
 	}
 
-	/**
-	 * Invalidate cache by pattern
-	 */
 	async invalidate(pattern: string): Promise<number> {
-		if (!this.isConnected || !this.client) {
-			return 0;
-		}
-
-		return withErrorHandling(async () => {
-			const searchPattern = this.prefix + pattern;
-			// Use SCAN instead of KEYS for production
-			const keys = await this.scanKeys(searchPattern);
-
-			if (keys.length > 0) {
-				const batchSize = 100;
-				let totalDeleted = 0;
-
-				for (let i = 0; i < keys.length; i += batchSize) {
-					const batch = keys.slice(i, i + batchSize);
-					const deleted = await retry(() => this.client!.del(...batch), {
-						maxAttempts: 2,
-						initialDelay: 50,
-					});
-					totalDeleted += deleted;
-				}
-
-				this.logger.info(`Invalidated ${totalDeleted} cached entries`, { pattern });
-				return totalDeleted;
-			}
-
-			return 0;
-		}, 'Cache invalidation')();
-	}
-
-	/**
-	 * Scan keys using SCAN command (production-safe)
-	 */
-	private async scanKeys(pattern: string): Promise<string[]> {
-		if (!this.client) return [];
-
-		const keys: string[] = [];
+		const client = this.client;
+		if (!client || !this.isAvailable()) return 0;
+		let deleted = 0;
 		let cursor = '0';
-
-		do {
-			const [newCursor, batch] = await this.client.scan(
-				cursor,
-				'MATCH',
-				pattern,
-				'COUNT',
-				100
-			);
-			cursor = newCursor;
-			keys.push(...batch);
-		} while (cursor !== '0');
-
-		return keys;
+		try {
+			do {
+				const [next, keys] = await client.scan(
+					cursor,
+					'MATCH',
+					this.prefix + pattern,
+					'COUNT',
+					100
+				);
+				cursor = next;
+				for (let start = 0; start < keys.length; start += 100)
+					deleted += await client.del(...keys.slice(start, start + 100));
+			} while (cursor !== '0');
+		} catch {
+			this.disconnect(client);
+			this.logger.warn('Query cache invalidation incomplete');
+		}
+		return deleted;
 	}
 
 	async getOrSet<T>(key: string, fetchFn: () => Promise<T>, ttl?: number): Promise<T> {
-		// Try to get from cache first
 		const cached = await this.get<T>(key);
-		if (cached !== null) {
-			return cached;
-		}
-
-		// Fetch from source
+		if (cached !== null) return cached;
 		const value = await fetchFn();
-
-		// Cache the result
 		await this.set(key, value, ttl);
-
 		return value;
 	}
 
@@ -215,25 +204,42 @@ export class KeyDBCache {
 		};
 	}
 
-	/**
-	 * Reset statistics
-	 */
 	resetStats(): void {
 		this.stats = { hits: 0, misses: 0 };
 	}
 
 	isAvailable(): boolean {
-		return this.isConnected;
+		return this.initialized && this.client?.status === 'ready';
 	}
 
-	async close(): Promise<void> {
-		if (this.client && this.isConnected) {
-			await withErrorHandling(async () => {
-				await this.client!.quit();
-				this.isConnected = false;
-				this.logger.info('Cache connection closed');
-			}, 'Cache close')();
+	close(): Promise<void> {
+		return this.transition(async () => {
+			const client = this.client;
+			if (!client) return;
+			this.client = null;
+			this.initialized = false;
+			try {
+				if (client.status === 'ready') await client.quit();
+			} catch {
+				this.logger.debug('Query cache quit failed; disconnecting');
+			} finally {
+				client.disconnect();
+			}
+		});
+	}
+
+	private disconnect(client: Redis): void {
+		if (this.client === client) {
+			this.client = null;
+			this.initialized = false;
 		}
+		client.disconnect();
+	}
+
+	private transition<T>(operation: () => Promise<T>): Promise<T> {
+		const pending = this.lifecycleTail.then(operation);
+		this.lifecycleTail = pending.catch(() => undefined);
+		return pending;
 	}
 }
 
@@ -306,9 +312,13 @@ export class CachedSQLiteManager {
 			)
 			.get();
 		const digest = createHash('sha256')
-			.update(serialize([sql, params]))
+			.update(serialize([generation, sql, params]))
 			.digest('hex');
-		return `${kind}:${this.cacheIdentity}:${JSON.stringify(generation)}:${digest}`;
+		return `${kind}:${this.cacheIdentity}:${digest}`;
+	}
+
+	isAvailable(): boolean {
+		return this.cache.isAvailable();
 	}
 
 	getCacheStats(): CacheStats {

@@ -93,7 +93,20 @@ jobs:
           if-no-files-found: ignore
 
       - name: Test
+        if: runner.os != 'Linux' || matrix.node-version != '24.x'
         run: npm test -- --testTimeout=30000
+
+      - name: Test with coverage thresholds
+        if: runner.os == 'Linux' && matrix.node-version == '24.x'
+        run: npm run test:coverage -- --testTimeout=30000 --coverageReporters=text-summary --coverageReporters=json-summary --coverageReporters=lcov
+
+      - name: Retain coverage evidence
+        if: always() && runner.os == 'Linux' && matrix.node-version == '24.x'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: coverage-linux-node24
+          path: coverage
+          if-no-files-found: error
 
       - name: Installed package and protocol smoke
         run: node scripts/check-release-smoke.mjs

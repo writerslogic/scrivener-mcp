@@ -94,6 +94,10 @@ export async function detectConnection(candidateUrls?: readonly string[]): Promi
 			client = new Redis(url as string, {
 				protocol: REDIS_PROTOCOL,
 				connectTimeout: adaptiveTimeout,
+				commandTimeout: 1000,
+				socketTimeout: 1000,
+				enableReadyCheck: false,
+				disableClientInfo: true,
 				retryStrategy: () => null,
 				lazyConnect: true,
 			});

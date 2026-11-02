@@ -41,11 +41,21 @@ export default {
 	testPathIgnorePatterns: ['/node_modules/'],
 	coverageThreshold: {
 		global: {
-			branches: 5,
-			functions: 5,
-			lines: 5,
-			statements: 5,
+			branches: 60,
+			functions: 65,
+			lines: 65,
+			statements: 65,
 		},
+		...Object.fromEntries(
+			[
+				'./src/core/response-formatter.ts',
+				'./src/handlers/database/content-analysis-storage.ts',
+				'./src/handlers/database/keydb-cache.ts',
+				'./src/services/editorial/mutation-coordinator.ts',
+				'./src/services/editorial/persistent-store.ts',
+				'./src/services/editorial/project-source.ts',
+			].map((path) => [path, { branches: 80, functions: 85, lines: 85, statements: 85 }])
+		),
 	},
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 	testTimeout: 30000,

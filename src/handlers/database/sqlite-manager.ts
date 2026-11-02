@@ -242,7 +242,7 @@ export class SQLiteManager {
 	}
 
 	isCachingAvailable(): boolean {
-		return this.cachedManager?.getCacheStats().size !== undefined;
+		return this.cachedManager?.isAvailable() ?? false;
 	}
 
 	query(sql: string, params: unknown[] = []): unknown[] {

@@ -70,6 +70,13 @@ Keep regression tests for behavior, security, data integrity and concurrency. Pr
 real boundary over assertions on constants or mocks. Copy fixtures before modifying them, use
 synthetic content, and keep credentials, local reports and workflow notes outside the public tree.
 
+Run `npm run test:coverage -- --runInBand` to check the coverage floors in `jest.config.js`. Linux
+Node 24 CI enforces them and retains the reports: 60% branches and 65% functions, lines and
+statements globally, plus 80% branches and 85% other measures for six persistence and response
+boundary files. Jest evaluates those files separately and subtracts them from the global group.
+Coverage measures exercised code; it does not establish correctness. The existing collection scope
+excludes the entrypoint, declarations, tests and `.cts` files.
+
 ### Code Style
 
 - Match the surrounding idiom and naming. Keep comments only for non-obvious constraints.
