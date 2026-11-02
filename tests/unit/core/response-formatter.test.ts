@@ -162,7 +162,8 @@ describe.each([
 test('restart cleanup reclaims expired dead owners while preserving live, fresh and unidentified directories', () => {
 	const os = require('node:os') as typeof import('node:os');
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spool-ownership-test-'));
-	const now = Date.now();
+	// Whole seconds avoid filesystem timestamp rounding across the exact expiry boundary.
+	const now = Math.floor(Date.now() / 1000) * 1000;
 	const locations = new Map<string, string>();
 	for (const [label, pid, age] of [
 		['dead00', 4242, 3600001],
@@ -199,6 +200,7 @@ test('restart cleanup reclaims expired dead owners while preserving live, fresh 
 				expect(
 					fs.readFileSync(path.join(locations.get(label)!, 'result.json'), 'utf8')
 				).toBe('Private fixture');
+			expect(fs.existsSync(path.join(locations.get('other0')!, '.owner.json'))).toBe(false);
 			formatter.disposeSpool();
 			formatter.disposeSpool();
 			expect(
