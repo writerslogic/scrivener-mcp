@@ -13,7 +13,7 @@ import {
 	generateMarketingMaterialsHandler as marketing,
 } from '../../src/handlers/compilation-handlers.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 
 const ROOT = '10000000-0000-4000-8000-000000000000';
 const FIRST = '10000000-0000-4000-8000-000000000001';
@@ -24,7 +24,6 @@ const validator = new AjvJsonSchemaValidator();
 const validateCompile = validator.getValidator(compile.outputSchema as JsonSchemaType);
 const validateMarketing = validator.getValidator(marketing.outputSchema as JsonSchemaType);
 const rtf = new RTFHandler();
-const spools = new Set<string>();
 let root: string;
 let store: PersistentStore;
 let manager: DocumentManager;
@@ -44,7 +43,7 @@ async function save(text: string, id = FIRST): Promise<string> {
 function retrieved(value: Record<string, unknown>): Record<string, unknown> {
 	const id = (value._ref ?? value.resultId) as string;
 	if (!id) return value;
-	spools.add(dirname((value._file ?? value.file) as string));
+
 	let offset: number | null = 0;
 	let text = '';
 	do {
@@ -113,7 +112,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-	for (const directory of spools) await rm(directory, { recursive: true, force: true });
+	disposeSpool();
 });
 
 test('preserves a complete oversized compilation and exposes warnings, availability and saved revisions', async () => {

@@ -75,6 +75,10 @@ function trusted(validation) {
 	assert.equal(validation.trustPolicy, 'configured-roots');
 }
 function manifestRequirements(validation) {
+	assert.equal(validation.trustSnapshot?.policyVersion, 1);
+	assert.match(validation.trustSnapshot?.sha256 ?? '', /^[a-f0-9]{64}$/);
+	assert.equal(validation.trustSnapshot?.freshness, 'unknown');
+	assert.equal(validation.trustSnapshot?.revocation, 'offline-evidence-only');
 	assert.ok(
 		validation.crjson && Array.isArray(validation.crjson.manifests),
 		'Product crJSON is absent'
@@ -87,7 +91,10 @@ function manifestRequirements(validation) {
 	);
 	assert.ok(
 		manifest?.claim_generator_info?.some(
-			(item) => item.name === 'scrivener-mcp' && item.specVersion === '2.4'
+			(item) =>
+				item.name === 'scrivener-mcp' &&
+				/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(item.specVersion) &&
+				item.specVersion === '2.4.0'
 		)
 	);
 	const actions = manifest.assertions.filter((item) => /^c2pa.actions/u.test(item.label));
@@ -674,12 +681,39 @@ try {
 			stage = 'embedded-sign';
 			try {
 				if (format.embedded === 'supported') {
+					const publicationLineage =
+						fixture.file === 'story.docx'
+							? {
+									version: 1,
+									workflowId: 'local-publication-fixture',
+									exportSha256: fixture.sha256,
+									sourceRevisions: [
+										{
+											documentId: '10000000-0000-4000-8000-000000000001',
+											revision: 'a'.repeat(64),
+										},
+									],
+									reviews: [
+										{
+											applicationId: '20000000-0000-4000-8000-000000000001',
+											documentId: '10000000-0000-4000-8000-000000000001',
+											beforeRevision: 'b'.repeat(64),
+											afterRevision: 'a'.repeat(64),
+										},
+									],
+									machineAssistance: {
+										localAnalysis: true,
+										manuscript: 'unknown',
+									},
+								}
+							: undefined;
 					const signed = await signCredentialAsset({
 						assetPath,
 						outputPath: embeddedPath,
 						mimeType: format.mimeType,
 						mode: 'embedded',
 						title: 'Original CC0 embedded compatibility test',
+						...(publicationLineage ? { publicationLineage } : {}),
 					});
 					trusted(signed.validation);
 					assert.equal(signed.sourceRevision, fixture.sha256);
@@ -694,6 +728,13 @@ try {
 					assert.equal(validation.sourceRevision, hash(await readFile(embeddedPath)));
 					manifestRequirements(validation);
 					row.embedded = { status: 'roundtrip', ...summary(validation) };
+					if (publicationLineage) {
+						const assertion = validation.report.manifests[
+							validation.activeManifest
+						].assertions.find((item) => item.label === 'com.writerslogic.publication');
+						assert.deepEqual(assertion?.data, publicationLineage);
+						row.publicationLineage = 'verified-custom-assertion';
+					}
 					if (format.preparation === 'zip-store') {
 						stage = 'signed-archive-preserves-source-parts';
 						const before = await JSZip.loadAsync(await readFile(assetPath), {

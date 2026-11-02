@@ -15,6 +15,57 @@ import {
 
 const logger = getLogger('document-manager');
 
+function binderItems(container: BinderContainer): BinderItem[] {
+	if (!container.BinderItem) return [];
+	return Array.isArray(container.BinderItem) ? container.BinderItem : [container.BinderItem];
+}
+
+function findNativeTrash(binder: BinderContainer): BinderItem | undefined {
+	return binderItems(binder).find((item) => item.Type === 'TrashFolder');
+}
+
+function ensureNativeTrash(binder: BinderContainer): BinderItem {
+	let trash = findNativeTrash(binder);
+	if (trash) return trash;
+	trash = {
+		UUID: generateScrivenerUUID(),
+		Type: 'TrashFolder',
+		Title: 'Trash',
+		Children: { BinderItem: [] },
+	};
+	const legacy = Array.isArray(binder.SearchResults)
+		? binder.SearchResults
+		: binder.SearchResults
+			? [binder.SearchResults]
+			: [];
+	for (const container of legacy)
+		for (const item of binderItems(container.Children ?? {})) addBinderChild(trash, item);
+	delete binder.SearchResults;
+	addBinderItem(binder, trash);
+	return trash;
+}
+
+function ensureChildren(item: BinderItem): BinderContainer {
+	if (!item.Children) item.Children = { BinderItem: [] };
+	if (!item.Children.BinderItem) item.Children.BinderItem = [];
+	else if (!Array.isArray(item.Children.BinderItem))
+		item.Children.BinderItem = [item.Children.BinderItem];
+	return item.Children;
+}
+
+function legacyTrashContainer(binder: BinderContainer): BinderContainer | undefined {
+	const searchResults = Array.isArray(binder.SearchResults)
+		? binder.SearchResults
+		: binder.SearchResults
+			? [binder.SearchResults]
+			: [];
+	return searchResults[0]?.Children;
+}
+
+function defaultRestoreParent(binder: BinderContainer): BinderItem | undefined {
+	return binderItems(binder).find((item) => item.Type === 'DraftFolder');
+}
+
 /** Structural binder edits: create, rename, move, trash and recover. */
 export class BinderEditor {
 	constructor(
@@ -108,10 +159,25 @@ export class BinderEditor {
 			}
 
 			const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
+			const item = findBinderItemById(binder, documentId);
+			if (!item) throw createError(ErrorCode.NOT_FOUND, { documentId }, 'Document not found');
+			if (['DraftFolder', 'ResearchFolder', 'TrashFolder'].includes(item.Type ?? ''))
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Cannot delete a native root folder'
+				);
+			const trash = ensureNativeTrash(binder);
+			const trashId = trash.UUID ?? trash.ID;
+			if (trashId === documentId)
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Cannot delete the Trash folder'
+				);
+			if (trash.Children && findBinderItemById(trash.Children, documentId)) return;
 
-			// Use utility function to remove binder item
 			const removed = removeBinderItem(binder, documentId);
-
 			if (!removed) {
 				throw createError(
 					ErrorCode.NOT_FOUND,
@@ -120,29 +186,8 @@ export class BinderEditor {
 				);
 			}
 
-			// Move to trash - ensure SearchResults is an array
-			const searchResults = Array.isArray(binder.SearchResults)
-				? binder.SearchResults
-				: binder.SearchResults
-					? [binder.SearchResults]
-					: [];
-
-			if (searchResults.length === 0) {
-				searchResults.push({ Children: { BinderItem: [] } });
-				binder.SearchResults = searchResults;
-			} else if (!searchResults[0].Children) {
-				searchResults[0].Children = { BinderItem: [] };
-			}
-
-			const trashContainer = searchResults[0].Children!;
-			if (!trashContainer.BinderItem) {
-				trashContainer.BinderItem = [];
-			} else if (!Array.isArray(trashContainer.BinderItem)) {
-				trashContainer.BinderItem = [trashContainer.BinderItem];
-			}
-
-			(trashContainer.BinderItem as BinderItem[]).push(removed);
-			logger.info(`Document ${documentId} moved to trash`);
+			addBinderChild(trash, removed);
+			logger.info(`Document ${documentId} moved to native trash`);
 		} catch (error) {
 			throw handleError(error, 'deleteDocument');
 		}
@@ -268,6 +313,16 @@ export class BinderEditor {
 				}
 			}
 
+			const movingItem = findBinderItemById(binder, documentId);
+			if (
+				movingItem &&
+				['DraftFolder', 'ResearchFolder', 'TrashFolder'].includes(movingItem.Type ?? '')
+			)
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ documentId },
+					'Cannot move a native root folder'
+				);
 			const targetItems = newParent ? newParent.Children?.BinderItem : binder.BinderItem;
 			const siblings = Array.isArray(targetItems)
 				? targetItems
@@ -314,41 +369,23 @@ export class BinderEditor {
 	 * Recover a document from trash
 	 */
 	async recoverFromTrash(documentId: string, targetParentId?: string): Promise<void> {
+		if (
+			!isValidUUID(documentId) ||
+			(targetParentId !== undefined && !isValidUUID(targetParentId))
+		)
+			throw createError(ErrorCode.INVALID_INPUT, undefined, 'Invalid document or parent ID');
 		if (!this.projectStructure?.ScrivenerProject?.Binder) {
 			throw createError(ErrorCode.INVALID_STATE, undefined, 'Project not loaded');
 		}
 
 		const binder = this.projectStructure.ScrivenerProject.Binder as BinderContainer;
+		const nativeTrash = findNativeTrash(binder);
+		const nativeChildren = nativeTrash?.Children;
+		const legacyChildren = nativeTrash ? undefined : legacyTrashContainer(binder);
+		const trashContainer = nativeChildren ?? legacyChildren;
 
-		const searchResults = Array.isArray(binder.SearchResults)
-			? binder.SearchResults
-			: binder.SearchResults
-				? [binder.SearchResults]
-				: [];
-
-		if (!searchResults[0]?.Children?.BinderItem) {
+		if (!trashContainer?.BinderItem) {
 			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
-		}
-
-		const trashItems = searchResults[0].Children.BinderItem;
-		// Ensure trashItems is an array
-		const trashArray = Array.isArray(trashItems) ? trashItems : [trashItems];
-
-		if (trashArray.length === 0) {
-			throw createError(ErrorCode.NOT_FOUND, undefined, 'Trash is empty');
-		}
-
-		const itemIndex = trashArray.findIndex(
-			(item) =>
-				(item as BinderItem).UUID === documentId || (item as BinderItem).ID === documentId
-		);
-
-		if (itemIndex === -1) {
-			throw createError(
-				ErrorCode.NOT_FOUND,
-				undefined,
-				`Document ${documentId} not found in trash`
-			);
 		}
 
 		let targetParent: BinderItem | undefined;
@@ -361,43 +398,36 @@ export class BinderEditor {
 					`Target parent folder ${targetParentId} not found`
 				);
 			}
-		}
-
-		const recoveredItem = trashArray.splice(itemIndex, 1)[0];
-
-		searchResults[0].Children!.BinderItem = trashArray;
-
-		// Place in target location or root
-		if (targetParent) {
-			addBinderChild(targetParent, recoveredItem as BinderItem);
-		} else {
-			// Restore into the Draft/Manuscript folder, or at the binder top level if
-			// there is none. (This previously assumed binderItems[0] was the container
-			// and threw whenever the binder led with a leaf document — the common case,
-			// since real projects open with a template/front-matter doc.)
-			const binderItems = Array.isArray(binder.BinderItem)
-				? binder.BinderItem
-				: binder.BinderItem
-					? [binder.BinderItem]
-					: [];
-
-			const draftFolder = binderItems.find((it) => it.Type === 'DraftFolder');
-			if (draftFolder) {
-				if (!draftFolder.Children) {
-					draftFolder.Children = { BinderItem: [] };
-				}
-				if (!draftFolder.Children.BinderItem) {
-					draftFolder.Children.BinderItem = [];
-				} else if (!Array.isArray(draftFolder.Children.BinderItem)) {
-					draftFolder.Children.BinderItem = [draftFolder.Children.BinderItem];
-				}
-				(draftFolder.Children.BinderItem as BinderItem[]).push(recoveredItem);
-			} else {
-				binderItems.push(recoveredItem);
-				binder.BinderItem = binderItems;
+			if (
+				targetParent === nativeTrash ||
+				(nativeTrash?.Children && findBinderItemById(nativeTrash.Children, targetParentId))
+			) {
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					{ targetParentId },
+					'Cannot restore a document into the trash subtree'
+				);
 			}
 		}
 
+		const recoveredItem = removeBinderItem(trashContainer, documentId);
+		if (!recoveredItem) {
+			throw createError(
+				ErrorCode.NOT_FOUND,
+				undefined,
+				`Document ${documentId} not found in trash`
+			);
+		}
+
+		if (targetParent) {
+			addBinderChild(targetParent, recoveredItem);
+		} else {
+			const draftFolder = defaultRestoreParent(binder);
+			if (draftFolder) addBinderChild(draftFolder, recoveredItem);
+			else addBinderItem(binder, recoveredItem);
+		}
+
+		if (nativeTrash) ensureChildren(nativeTrash);
 		logger.info(
 			`Document ${documentId} recovered from trash to parent ${targetParentId || 'root'}`
 		);

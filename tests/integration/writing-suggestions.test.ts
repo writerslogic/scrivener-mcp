@@ -18,7 +18,7 @@ import {
 	shutdownAsyncServices,
 } from '../../src/handlers/async-handlers.js';
 import { JobType } from '../../src/services/queue/job-queue.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 
 jest.mock('../../src/services/queue/keydb-detector.js', () => ({
 	detectConnection: async () => ({ isAvailable: false, type: 'none' }),
@@ -110,7 +110,14 @@ test.each([false, true])(
 			envelope: { ...sync.envelope, createdAt: expect.any(String) },
 		});
 		expect(chat).toHaveBeenCalledTimes(2);
-		expect(chat.mock.calls[0]).toEqual(chat.mock.calls[1]);
+		const [
+			[syncPrompt, { signal: syncSignal, ...syncOptions } = {}],
+			[queuedPrompt, { signal: queuedSignal, ...queuedOptions } = {}],
+		] = chat.mock.calls;
+		expect([syncPrompt, syncOptions]).toEqual([queuedPrompt, queuedOptions]);
+		expect(syncSignal).toBeUndefined();
+		expect(queuedSignal).toBeInstanceOf(AbortSignal);
+		expect(queuedSignal?.aborted).toBe(false);
 		if (useContext) {
 			const raw = await readFile(join(root, `${documentId}.rtf`), 'utf8');
 			expect(sync.envelope.sourceRevisions).toEqual([
@@ -285,8 +292,5 @@ test('spools large suggestions without losing text, coverage or source revisions
 	expect(result.suggestions).toBe(reply);
 	expect(result.context).toMatchObject({ mode: 'saved-document', truncated: false });
 	expect(result.envelope.sourceRevisions[0].documentId).toBe(documentId);
-	await rm(dirname(response.structuredContent!._file as string), {
-		recursive: true,
-		force: true,
-	});
+	disposeSpool();
 });

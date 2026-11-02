@@ -1,3 +1,4 @@
+import { RESULT_METADATA_BYTE_RESERVE } from '../../core/response-formatter.js';
 import { createHash } from 'node:crypto';
 import type { HandlerResult } from '../../handlers/types.js';
 
@@ -107,6 +108,7 @@ export class ReportTransport {
 		serialized?: string
 	): HandlerResult {
 		const { limit, start } = reportPageOptions(args);
+		const payloadLimit = limit - RESULT_METADATA_BYTE_RESERVE;
 		let reportId: string;
 		let report: CachedReport;
 		if (serialized !== undefined) {
@@ -133,10 +135,10 @@ export class ReportTransport {
 			if (saved === undefined) throw new Error('Report expired; start a new analysis');
 			report = saved;
 		}
-		const fragment = report.slice(start, Math.floor(limit / 2));
-		if (start === 0 && report.length * 2 < limit) {
+		const fragment = report.slice(start, Math.floor(payloadLimit / 2));
+		if (start === 0 && report.length * 2 < payloadLimit) {
 			const complete = response(action, { ...JSON.parse(fragment), reportId });
-			if (Buffer.byteLength(JSON.stringify(complete)) <= limit) return complete;
+			if (Buffer.byteLength(JSON.stringify(complete)) <= payloadLimit) return complete;
 		}
 		const makePage = (end: number, data = fragment.slice(0, end - start)) =>
 			response(action, {
@@ -173,10 +175,10 @@ export class ReportTransport {
 		const pageBytes = (end: number) =>
 			Buffer.byteLength(JSON.stringify(makePage(end, ''))) + costs[end - start];
 		// The final null cursor can be shorter than a preceding numeric cursor.
-		if (high === report.length && pageBytes(high) <= limit) return makePage(high);
+		if (high === report.length && pageBytes(high) <= payloadLimit) return makePage(high);
 		while (low < high) {
 			const mid = Math.ceil((low + high) / 2);
-			if (pageBytes(mid) <= limit) low = mid;
+			if (pageBytes(mid) <= payloadLimit) low = mid;
 			else high = mid - 1;
 		}
 		if (low < report.length && /[\uDC00-\uDFFF]/.test(fragment[low - start] ?? '')) low--;

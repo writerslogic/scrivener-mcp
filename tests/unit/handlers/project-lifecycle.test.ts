@@ -223,6 +223,8 @@ describe('project scope resource lifecycle', () => {
 		expect(state.projects[0].closed).toBe(true);
 		expect(context.project).toBeNull();
 		expect(context.databaseService).toBeUndefined();
+		state.failClose.delete(candidate);
+		await expect(closeProjectHandler.handler({}, context)).resolves.toBeDefined();
 	});
 
 	it('closes a candidate whose memory initialization fails without publishing its partial scope', async () => {
@@ -235,6 +237,22 @@ describe('project scope resource lifecycle', () => {
 		expect(state.projects[0].closed).toBe(true);
 		expect(context.project).toBeNull();
 		expect(context.memoryManager).toBeNull();
+	});
+
+	it('retains an unpublished candidate until failed memory persistence can be retried', async () => {
+		const candidate = await sample('RetryCandidate');
+		state.failMetadata.set(candidate, new Error('Synthetic metadata failure'));
+		jest.spyOn(MemoryManager.prototype, 'stopAutoSave').mockRejectedValueOnce(
+			new Error('Synthetic persistence failure')
+		);
+		await expect(openProjectHandler.handler({ path: candidate }, context)).rejects.toThrow(
+			'Resource cleanup also failed'
+		);
+		expect(context.project).toBeNull();
+		expect(state.projects[0].database.closed).toBe(false);
+		await closeProjectHandler.handler({}, context);
+		expect(state.projects[0].memoryAtClose).toBeDefined();
+		expect(state.projects[0].closed).toBe(true);
 	});
 
 	it('stops initialized memory and retires its database if later metadata loading fails', async () => {

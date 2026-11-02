@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import {
 	generateScrivenerUUID,
 	parseMetadata,
@@ -7,9 +7,12 @@ import {
 	getDocumentPath,
 	getSynopsisPath,
 	getNotesPath,
+	readProjectTextFile,
 	traverseBinder,
 } from '../../../src/utils/scrivener-utils.js';
 import { join, resolve, sep } from 'path';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import type { BinderItem, BinderContainer } from '../../../src/types/internal.js';
 
 describe('Scrivener Utils', () => {
@@ -322,5 +325,43 @@ describe('Scrivener Utils', () => {
 
 			expect(depths).toEqual([0, 1, 2, 1]);
 		});
+	});
+
+	describe('readProjectTextFile', () => {
+		let tempRoot: string;
+
+		beforeEach(async () => {
+			tempRoot = await mkdtemp(join(tmpdir(), 'scrivener-artifact-'));
+		});
+
+		afterEach(async () => {
+			await rm(tempRoot, { recursive: true, force: true });
+		});
+
+		it.each([9, 10, 11])('enforces byte limit at %i bytes before decoding', async (bytes) => {
+			const file = join(tempRoot, 'artifact.txt');
+			await writeFile(file, 'a'.repeat(bytes));
+			if (bytes <= 10) {
+				expect(await readProjectTextFile(tempRoot, file, { maxBytes: 10 })).toBe(
+					'a'.repeat(bytes)
+				);
+			} else {
+				await expect(readProjectTextFile(tempRoot, file, { maxBytes: 10 })).rejects.toThrow(
+					/regular file/i
+				);
+			}
+		});
+
+		it.each([-1, NaN, Infinity, 0.5, 64 * 1024 * 1024 + 1])(
+			'rejects invalid byte limit %s',
+			async (maxBytes) => {
+				await expect(
+					readProjectTextFile(tempRoot, join(tempRoot, 'absent'), {
+						maxBytes,
+						optional: true,
+					})
+				).rejects.toThrow(/byte limit/i);
+			}
+		);
 	});
 });

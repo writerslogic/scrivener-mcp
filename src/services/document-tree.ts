@@ -7,9 +7,14 @@ import type {
 	MetaDataItem,
 	ProjectStructure,
 } from '../types/internal.js';
-import { handleError, safeReadFile } from '../utils/common.js';
-import { getNotesPath, getSynopsisPath } from '../utils/scrivener-utils.js';
-import { FileUtils } from '../utils/shared-patterns.js';
+import { handleError } from '../utils/common.js';
+import {
+	SCRIVENER_LIMITS,
+	assertValidProjectDocumentId,
+	getNotesPath,
+	getSynopsisPath,
+	readProjectTextFile,
+} from '../utils/scrivener-utils.js';
 import { findBinderItemById } from './document-manager-helpers.js';
 import type { RTFHandler } from './parsers/rtf-handler.js';
 
@@ -50,7 +55,11 @@ export class DocumentTree {
 				}
 
 				// Alternate trash representation: a SearchResults container.
-				if (includeTrash && binder.SearchResults) {
+				if (
+					includeTrash &&
+					binder.SearchResults &&
+					!topItems.some((item) => item.Type === 'TrashFolder')
+				) {
 					const searchResults = Array.isArray(binder.SearchResults)
 						? binder.SearchResults
 						: [binder.SearchResults];
@@ -137,7 +146,7 @@ export class DocumentTree {
 			}
 		}
 
-		if (includeTrash) {
+		if (includeTrash && !binderItems.some((item) => item.Type === 'TrashFolder')) {
 			const searchResults = Array.isArray(binder.SearchResults)
 				? binder.SearchResults
 				: binder.SearchResults
@@ -224,17 +233,30 @@ export class DocumentTree {
 	private async readSynopsisAndNotesFromDisk(
 		documentId: string
 	): Promise<{ synopsis?: string; notes?: string }> {
+		assertValidProjectDocumentId(documentId);
 		const [synopsis, notes] = await Promise.all([
 			(async () => {
-				const filePath = getSynopsisPath(this.projectPath, documentId);
-				if (!(await FileUtils.exists(filePath))) return undefined;
-				const text = await safeReadFile(filePath, 'utf-8');
+				const text = await readProjectTextFile(
+					this.projectPath,
+					getSynopsisPath(this.projectPath, documentId),
+					{
+						maxBytes: SCRIVENER_LIMITS.MAX_SYNOPSIS_LENGTH,
+						optional: true,
+					}
+				);
 				return text || undefined;
 			})(),
 			(async () => {
-				const filePath = getNotesPath(this.projectPath, documentId);
-				if (!(await FileUtils.exists(filePath))) return undefined;
-				const rtf = await this.rtfHandler.readRTF(filePath);
+				const text = await readProjectTextFile(
+					this.projectPath,
+					getNotesPath(this.projectPath, documentId),
+					{
+						maxBytes: SCRIVENER_LIMITS.MAX_NOTES_LENGTH,
+						optional: true,
+					}
+				);
+				if (text === undefined) return undefined;
+				const rtf = await this.rtfHandler.parseRTF(text);
 				return rtf.plainText || undefined;
 			})(),
 		]);

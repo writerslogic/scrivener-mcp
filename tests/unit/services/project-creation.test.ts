@@ -43,6 +43,7 @@ beforeEach(async () => {
 		undefined,
 		() => undefined,
 		async () => ({ document: null, path: [], metadata: {}, location: 'unknown' }),
+		false,
 		(structure, created) => loader.saveProjectWithDocuments(structure, created)
 	);
 });

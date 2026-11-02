@@ -1,3 +1,4 @@
+import type { PublicationLineage } from './publication-lineage.js';
 export type CredentialMediaCategory =
 	'image' | 'video' | 'audio' | 'document' | 'text' | 'font' | 'model' | 'other';
 
@@ -38,6 +39,12 @@ export interface CredentialValidation {
 	integrity: 'valid' | 'invalid' | 'not-evaluated';
 	trust: 'trusted' | 'untrusted' | 'not-evaluated';
 	trustPolicy: 'configured-roots' | 'none';
+	trustSnapshot?: {
+		policyVersion: 1;
+		sha256: string;
+		freshness: 'unknown';
+		revocation: 'offline-evidence-only';
+	};
 	activeManifest?: string;
 	validationCodes: string[];
 	sourceValidationCodes?: string[];
@@ -61,6 +68,7 @@ export interface CredentialSignerConfiguration {
 export type CredentialWorkerRequest = { operation: 'probe' } | CredentialAssetWorkerRequest;
 
 export interface CredentialAssetWorkerRequest {
+	publicationLineage?: PublicationLineage;
 	operation: 'sign' | 'validate';
 	assetPath: string;
 	mimeType: string;
@@ -95,6 +103,7 @@ export type CredentialWorkerResponse =
 	  };
 
 export interface SignCredentialRequest {
+	publicationLineage?: PublicationLineage;
 	assetPath: string;
 	outputPath: string;
 	mimeType?: string;

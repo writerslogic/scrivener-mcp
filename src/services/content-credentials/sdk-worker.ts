@@ -1,3 +1,4 @@
+import { publicationLineageSchema } from './publication-lineage.js';
 import {
 	constants as cryptoConstants,
 	createPrivateKey,
@@ -99,6 +100,7 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 		'includeCrjson',
 		'sourceManifestPath',
 		'preserveInvalidSource',
+		'publicationLineage',
 	]);
 	if (value.operation !== 'sign' && value.operation !== 'validate')
 		fail('REQUEST_INVALID', 'Credential operation is unsupported.');
@@ -142,6 +144,12 @@ export function validateCredentialWorkerRequest(value: unknown): CredentialWorke
 		(typeof value.title !== 'string' || value.title.length > 500 || value.title.includes('\0'))
 	)
 		fail('REQUEST_INVALID', 'Credential title exceeds its supported bounds.');
+	if (
+		value.publicationLineage !== undefined &&
+		(value.operation !== 'sign' ||
+			!publicationLineageSchema.safeParse(value.publicationLineage).success)
+	)
+		fail('REQUEST_INVALID', 'Publication lineage is malformed or not a signing request.');
 	if (value.operation === 'sign') {
 		if (value.validationTime !== undefined || value.includeCrjson !== undefined)
 			fail('REQUEST_INVALID', 'Assessment output and time are validation-only fields.');
@@ -628,6 +636,12 @@ async function validateAsset(
 			includeCrjson
 		);
 		const validation = normalizeCredentialValidation(result.report, roots);
+		validation.trustSnapshot = {
+			policyVersion: 1,
+			sha256: createHash('sha256').update(settings).digest('hex'),
+			freshness: 'unknown',
+			revocation: 'offline-evidence-only',
+		};
 		if (includeCrjson) {
 			boundedReport(result.crjson);
 			if (!Array.isArray(result.crjson.manifests) || !record(result.crjson.jsonGenerator))
@@ -695,6 +709,11 @@ async function executeAsset(
 	const settings = credentialContextSettings(anchors, timestampAnchors);
 	const roots = request.trustAnchorsPath !== undefined;
 	let asset = await readBounded(request.assetPath, MAX_ASSET_BYTES);
+	if (
+		request.publicationLineage &&
+		createHash('sha256').update(asset).digest('hex') !== request.publicationLineage.exportSha256
+	)
+		fail('INPUT_CHANGED', 'Publication export digest does not match the signed input.');
 	if (request.operation === 'validate') {
 		const manifest = request.manifestPath
 			? await readBounded(request.manifestPath, MAX_MANIFEST_BYTES)
@@ -810,10 +829,20 @@ async function executeAsset(
 			title: request.title || 'Credential attached to existing asset',
 			format: request.mimeType,
 			claim_generator_info: [
-				{ name: 'scrivener-mcp', version: credentialProductVersion(), specVersion: '2.4' },
+				{
+					name: 'scrivener-mcp',
+					version: credentialProductVersion(),
+					specVersion: '2.4.0',
+				},
 			],
 			assertions,
 		};
+		if (request.publicationLineage)
+			assertions.push({
+				label: 'com.writerslogic.publication',
+				created: true,
+				data: { ...request.publicationLineage },
+			});
 		if (repackedSource) {
 			assertions.push({
 				label: 'com.writerslogic.input',

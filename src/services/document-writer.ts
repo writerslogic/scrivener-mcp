@@ -30,9 +30,10 @@ export class DocumentWriter {
 		private readonly rtfHandler: RTFHandler,
 		private readonly documentCache: LRUCache<RTFContent>,
 		private readonly observedRevision?: (documentId: string) => string | undefined,
-		private readonly onCommitted?: (documentId: string, revision: string) => void
+		private readonly onCommitted?: (documentId: string, revision: string) => void,
+		readOnly = false
 	) {
-		this.coordinator = new MutationCoordinator(projectPath);
+		this.coordinator = new MutationCoordinator(projectPath, undefined, readOnly);
 	}
 
 	async writeDocument(
@@ -42,6 +43,7 @@ export class DocumentWriter {
 		options: CommitOptions = {}
 	): Promise<void> {
 		if (this.closing) throw new Error('Document writer is closing');
+		this.coordinator.assertWritable();
 		return this.trackWrite(this.queueDocument(documentId, content, immediate, options));
 	}
 

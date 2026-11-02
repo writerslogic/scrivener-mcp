@@ -1,3 +1,4 @@
+import { BinderEditor } from '../services/binder-editor.js';
 import { generateScrivenerUUID, getDocumentType } from './scrivener-utils.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger, type LogContext } from '../core/logger.js';
@@ -234,32 +235,19 @@ function commitCreations(
 	);
 }
 
-function moveBinderItem(binder: BinderContainer, documentId: string, targetParentId: string): void {
-	const item = findBinderItemById(binder, documentId);
-	if (!item)
-		throw createError(ErrorCode.NOT_FOUND, undefined, `Document not found: ${documentId}`);
-	const parent = requireFolder(findBinderItemById(binder, targetParentId), targetParentId);
-	if (item === parent || (item.Children && findBinderItemById(item.Children, targetParentId)))
-		throw createError(
-			ErrorCode.INVALID_REQUEST,
-			undefined,
-			'Cannot move a document into itself or its descendant'
-		);
-	const removed = removeBinderItem(binder, documentId);
-	if (!removed) throw new Error('Document disappeared before it could be moved');
-	addBinderChild(parent, removed);
-	const now = new Date().toISOString();
-	(item as TimedBinderItem).Modified = now;
-	(parent as TimedBinderItem).Modified = now;
-}
-
 export async function moveDocument(
 	documentId: string,
 	targetParentId: string,
 	context: DocumentOperationContext
 ): Promise<void> {
 	return withDocumentTransaction(
-		async () => moveBinderItem(getBinder(context), documentId, targetParentId),
+		async () =>
+			new BinderEditor(
+				() => context.projectStructure as ProjectStructure,
+				async () => {
+					throw new Error('Structural moves cannot create content');
+				}
+			).moveDocument(documentId, targetParentId),
 		context,
 		`move document ${documentId}`
 	);
@@ -284,26 +272,12 @@ export async function deleteDocument(
 					throw new Error('Document disappeared before it could be deleted');
 				return;
 			}
-			let trash = [...iterateBinderItems(binder)].find(
-				(item) =>
-					item.Type === 'TrashFolder' ||
-					(item.Title === 'Trash' && item.Type === 'Folder')
-			);
-			if (!trash) {
-				const now = new Date().toISOString();
-				trash = {
-					UUID: generateScrivenerUUID(),
-					Type: 'Folder',
-					Title: 'Trash',
-					Created: now,
-					Modified: now,
-					Children: { BinderItem: [] },
-				} as TimedBinderItem;
-				addBinderItem(binder, trash);
-			}
-			const trashId = trash.UUID ?? trash.ID;
-			if (!trashId) throw new Error('Trash folder has no document ID');
-			moveBinderItem(binder, documentId, trashId);
+			await new BinderEditor(
+				() => context.projectStructure as ProjectStructure,
+				async () => {
+					throw new Error('Structural deletion cannot create content');
+				}
+			).deleteDocument(documentId);
 		},
 		context,
 		`delete document ${documentId}`

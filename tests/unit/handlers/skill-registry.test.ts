@@ -127,7 +127,7 @@ test('direct dispatch rejects malformed inputs before metadata writes and preser
 	let writes = 0;
 	const project = {
 		ensureWritable: async () => undefined,
-		updateDocumentMetadata: async (
+		updateMetadata: async (
 			id: string,
 			metadata: { customMetadata: Record<string, string> }
 		) => {

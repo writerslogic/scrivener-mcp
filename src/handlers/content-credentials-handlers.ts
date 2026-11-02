@@ -1,3 +1,4 @@
+import { reviewedPublicationSchema } from '../services/content-credentials/publication-lineage.js';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 import {
@@ -28,6 +29,7 @@ const signInput = z
 		title: z.string().max(500).optional(),
 		sourceManifestPath: localPath.optional(),
 		preserveInvalidSource: z.boolean().optional(),
+		reviewedPublication: reviewedPublicationSchema.optional(),
 		includeReport: reportInput,
 	})
 	.strict()
@@ -95,6 +97,35 @@ const validationProperties: ToolSchema['properties'] = {
 		type: 'string',
 		enum: ['configured-roots', 'none'],
 		description: 'Whether administrator-configured trust roots were available for validation.',
+	},
+	trustSnapshot: {
+		type: 'object',
+		additionalProperties: false,
+		properties: {
+			policyVersion: {
+				type: 'integer',
+				const: 1,
+				description: 'Local trust policy format version.',
+			},
+			sha256: {
+				type: 'string',
+				pattern: '^[a-f0-9]{64}$',
+				description: 'SHA-256 digest of the local trust settings.',
+			},
+			freshness: {
+				type: 'string',
+				const: 'unknown',
+				description: 'Online trust-list freshness has not been checked.',
+			},
+			revocation: {
+				type: 'string',
+				const: 'offline-evidence-only',
+				description: 'Revocation assessment uses only locally available evidence.',
+			},
+		},
+		required: ['policyVersion', 'sha256', 'freshness', 'revocation'],
+		description:
+			'Versioned digest of the exact local trust settings; online freshness and revocation are not asserted.',
 	},
 	activeManifest: {
 		type: 'string',
@@ -396,6 +427,14 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 					description:
 						'Explicitly preserve invalid source credentials as an ingredient with signed failure disclosure. The source history is not repaired or declared valid.',
 				},
+				reviewedPublication: {
+					...(z.toJSONSchema(reviewedPublicationSchema, {
+						io: 'input',
+						target: 'draft-07',
+					}) as ToolDefinition['inputSchema']),
+					description:
+						'Optional reviewed workflow: requires an open project, one committed review application per exported document, and embedded output directly inside the project .scrivener-mcp/exports directory. Embeds only source hashes, receipt IDs and declared machine assistance.',
+				},
 				includeReport: reportProperty,
 			},
 			required: ['assetPath', 'outputPath'],
@@ -443,9 +482,13 @@ export const contentCredentialsHandlers: ToolDefinition[] = [
 				'validation',
 			],
 		},
-		handler: async (args) => {
-			const { includeReport, ...request } = signInput.parse(args);
-			const result = await signCredentialAsset(request);
+		handler: async (args, context) => {
+			const { includeReport, reviewedPublication, ...request } = signInput.parse(args);
+			if (reviewedPublication && !context.project)
+				throw new Error('Reviewed publication requires an open project');
+			const result = reviewedPublication
+				? await context.project!.signReviewedPublication(request, reviewedPublication)
+				: await signCredentialAsset(request);
 			return {
 				content: [
 					{

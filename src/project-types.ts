@@ -6,6 +6,7 @@ export interface ScrivenerProjectOptions {
 	cacheSize?: number;
 	syncInterval?: number;
 	scrivxPath?: string;
+	readOnly?: boolean;
 	hhmSystem?: HolographicMemorySystem;
 }
 

@@ -1,7 +1,13 @@
 import { mkdir, mkdtemp, rm, readdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { JobQueueService, JobType } from '../../src/services/queue/job-queue.js';
+import {
+	JobQueueService,
+	JobType,
+	MAX_QUEUE_BYTES,
+	MAX_EMBEDDED_ACTIVE_JOBS,
+	QUEUE_RESULT_TTL_MS,
+} from '../../src/services/queue/job-queue.js';
 import { PersistentStore } from '../../src/services/editorial/persistent-store.js';
 import { createHash } from 'node:crypto';
 import { AIClient } from '../../src/services/ai/ai-client.js';
@@ -31,6 +37,81 @@ describe('embedded queue integration', () => {
 		jest.restoreAllMocks();
 	});
 
+	it('keeps cancelled running work in the aggregate admission budget until it settles', async () => {
+		const original = ContentAnalyzer.prototype.analyzeContent;
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		jest.spyOn(ContentAnalyzer.prototype, 'analyzeContent').mockImplementation(async function (
+			this: ContentAnalyzer,
+			...args
+		) {
+			await gate;
+			return original.apply(this, args);
+		});
+		const ids: string[] = [];
+		try {
+			for (let i = 0; i < MAX_EMBEDDED_ACTIVE_JOBS; i++)
+				ids.push(
+					await queue.addJob(JobType.ANALYZE_DOCUMENT, {
+						documentId: `scene-${i}`,
+						content: 'Mira waited.',
+					})
+				);
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			await queue.cancelJob(JobType.ANALYZE_DOCUMENT, ids[0]);
+			expect(await queue.getJobStatus(JobType.ANALYZE_DOCUMENT, ids[0])).toMatchObject({
+				state: 'active',
+				cancellation: 'requested',
+			});
+			await expect(
+				queue.addJob(JobType.ANALYZE_DOCUMENT, {
+					documentId: 'overflow',
+					content: 'Mira waited.',
+				})
+			).rejects.toThrow(/saturated/);
+		} finally {
+			release();
+			await Promise.all(ids.map((id) => queue.waitForJob(JobType.ANALYZE_DOCUMENT, id)));
+		}
+		expect(await queue.getJobStatus(JobType.ANALYZE_DOCUMENT, ids[0])).toMatchObject({
+			state: 'cancelled',
+			cancellation: 'result-discarded',
+		});
+	});
+
+	it.each([-1, 0, 1])('enforces serialized aggregate bytes at the budget %+i', async (offset) => {
+		const target = queue as unknown as {
+			reserveJob(type: JobType, data: unknown, id: string, embedded: boolean): void;
+		};
+		const data = {
+			body: 'x'.repeat(
+				MAX_QUEUE_BYTES - Buffer.byteLength(JSON.stringify({ body: '' })) + offset
+			),
+		};
+		const invoke = () =>
+			target.reserveJob(JobType.ANALYZE_DOCUMENT, data, `boundary-${offset}`, true);
+		if (offset <= 0) expect(invoke).not.toThrow();
+		else expect(invoke).toThrow(/saturated/);
+	});
+
+	it('expires settled results at the documented one-hour boundary while preserving active records', async () => {
+		const id = await queue.addJob(JobType.ANALYZE_DOCUMENT, {
+			documentId: 'expiry',
+			content: 'Mira waited.',
+		});
+		const status = (await queue.waitForJob(JobType.ANALYZE_DOCUMENT, id)) as {
+			finishedAt: number;
+		};
+		const now = jest.spyOn(Date, 'now');
+		for (const offset of [-1, 0, 1]) {
+			now.mockReturnValue(status.finishedAt + QUEUE_RESULT_TTL_MS + offset);
+			const result = await queue.getJobStatus(JobType.ANALYZE_DOCUMENT, id);
+			if (offset < 0) expect(result).not.toBeNull();
+			else expect(result).toBeNull();
+		}
+	});
 	it('runs real local analysis and retains results through a queue restart without replay', async () => {
 		expect(await readdir(join(directory, '.scrivener-mcp'))).not.toContain('queue-state.json');
 		expect(queue.getConnectionInfo()).toMatchObject({
@@ -382,7 +463,7 @@ describe('embedded queue integration', () => {
 		expect(analyze).toHaveBeenCalledTimes(1);
 	});
 
-	it('closes resources on persistent write failure and marks the abandoned same-process job interrupted without replay', async () => {
+	it('closes independent resources on persistent write failure and retries the retained outcome without replay', async () => {
 		const analyze = jest.spyOn(ContentAnalyzer.prototype, 'analyzeContent');
 		const dispose = jest.spyOn(ContentAnalyzer.prototype, 'dispose');
 		const originalPut = PersistentStore.prototype.put;
@@ -413,15 +494,15 @@ describe('embedded queue integration', () => {
 		} finally {
 			fault.mockRestore();
 		}
+		await queue.shutdown();
 		queue = new JobQueueService(directory);
 		await queue.initialize({ sqliteOnly: true });
 		expect(await queue.getJobStatus(JobType.ANALYZE_DOCUMENT, id!)).toMatchObject({
-			state: 'interrupted',
-			error: expect.stringMatching(/not automatically replayed/),
+			state: 'completed',
 		});
 		expect(await queue.getQueueStats(JobType.ANALYZE_DOCUMENT)).toMatchObject({
 			active: 0,
-			failed: 1,
+			completed: 1,
 		});
 		expect(analyze).toHaveBeenCalledTimes(1);
 	});

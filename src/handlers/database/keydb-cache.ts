@@ -3,13 +3,13 @@
  * Provides intelligent caching for frequently accessed database operations
  */
 
+import { createHash, randomUUID } from 'node:crypto';
+import { serialize } from 'node:v8';
 import type { Redis } from 'ioredis';
 import { getLogger } from '../../core/logger.js';
 import { createBullMQConnection, detectConnection } from '../../services/queue/keydb-detector.js';
 import { retry, withErrorHandling, safeParse, safeStringify } from '../../utils/common.js';
 import type { SQLiteManager } from './sqlite-manager.js';
-
-const logger = getLogger('keydb-cache');
 
 export interface CacheOptions {
 	ttl?: number; // Time to live in seconds
@@ -244,6 +244,7 @@ export class KeyDBCache {
 export class CachedSQLiteManager {
 	private cache: KeyDBCache;
 	private sqliteManager: SQLiteManager;
+	private readonly cacheIdentity = randomUUID();
 
 	constructor(sqliteManager: SQLiteManager, cacheOptions?: CacheOptions) {
 		this.sqliteManager = sqliteManager;
@@ -262,7 +263,7 @@ export class CachedSQLiteManager {
 			return this.sqliteManager.query(sql, params);
 		}
 
-		const cacheKey = `query:${this.hashQuery(sql, params)}`;
+		const cacheKey = this.queryKey('query', sql, params);
 
 		return this.cache.getOrSet(
 			cacheKey,
@@ -279,7 +280,7 @@ export class CachedSQLiteManager {
 			return this.sqliteManager.queryOne(sql, params);
 		}
 
-		const cacheKey = `queryOne:${this.hashQuery(sql, params)}`;
+		const cacheKey = this.queryKey('queryOne', sql, params);
 
 		return this.cache.getOrSet(
 			cacheKey,
@@ -289,54 +290,25 @@ export class CachedSQLiteManager {
 	}
 
 	async execute(sql: string, params: unknown[] = []): Promise<unknown> {
-		const result = this.sqliteManager.execute(sql, params);
-
-		// Invalidate cache based on table being modified
-		if (this.cache.isAvailable()) {
-			const table = this.extractTableName(sql);
-			if (table) {
-				await this.cache.invalidate(`*:${table}:*`);
-				await this.cache.invalidate(`query:*${table}*`);
-			}
-		}
-
-		return result;
+		return this.sqliteManager.execute(sql, params);
 	}
 
-	/**
-	 * Transaction with cache invalidation
-	 */
 	async transaction<T>(fn: () => T, retries?: number): Promise<T> {
-		const result = await this.sqliteManager.transaction(fn, retries);
-
-		// Invalidate all cache after transaction
-		if (this.cache.isAvailable()) {
-			this.cache.invalidate('*').catch((error) => {
-				logger.warn('Failed to invalidate cache after transaction', { error });
-			});
-		}
-
-		return result;
+		return this.sqliteManager.transaction(fn, retries);
 	}
 
-	/**
-	 * Hash query and parameters for cache key
-	 */
-	private hashQuery(sql: string, params: unknown[]): string {
-		const combined = sql + safeStringify(params);
-		// Simple hash function for demo - in production, use a proper hash
-		let hash = 0;
-		for (let i = 0; i < combined.length; i++) {
-			const char = combined.charCodeAt(i);
-			hash = (hash << 5) - hash + char;
-			hash = hash & hash;
-		}
-		return Math.abs(hash).toString(36);
-	}
-
-	private extractTableName(sql: string): string | null {
-		const match = sql.match(/(?:FROM|INTO|UPDATE|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)/i);
-		return match ? match[1].toLowerCase() : null;
+	private queryKey(kind: string, sql: string, params: unknown[]): string {
+		// SQLite tracks local writes, other-connection commits and schema changes, including writes outside this wrapper.
+		const generation = this.sqliteManager
+			.getDatabase()
+			.prepare(
+				'SELECT total_changes() AS local, (SELECT data_version FROM pragma_data_version) AS external, (SELECT schema_version FROM pragma_schema_version) AS schema'
+			)
+			.get();
+		const digest = createHash('sha256')
+			.update(serialize([sql, params]))
+			.digest('hex');
+		return `${kind}:${this.cacheIdentity}:${JSON.stringify(generation)}:${digest}`;
 	}
 
 	getCacheStats(): CacheStats {

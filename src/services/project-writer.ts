@@ -45,6 +45,7 @@ export class ProjectWriter {
 		private readonly hhmSystem: HolographicMemorySystem | undefined,
 		private readonly markDocumentChanged: (documentId: string) => void,
 		private readonly getDocumentInfo: ScrivenerProject['getDocumentInfo'],
+		private readonly readOnly = false,
 		private readonly commitCreation?: (
 			structure: ProjectStructure,
 			documents: readonly CreationDocument[]
@@ -52,6 +53,13 @@ export class ProjectWriter {
 	) {}
 
 	async ensureWritable(force = false): Promise<void> {
+		if (this.readOnly) {
+			throw createError(
+				ErrorCode.INVALID_STATE,
+				{},
+				'Project was opened read-only; close and reopen without readOnly before applying authoritative mutations.'
+			);
+		}
 		if (force) return;
 		const state = await isProjectOpenInScrivener(this.projectPath);
 		if (state !== 'closed') {

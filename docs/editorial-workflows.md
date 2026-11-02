@@ -213,3 +213,30 @@ fail the operation rather than producing an incomplete successful manuscript. St
 selects a manuscript/folder scope; explicit document IDs use standard or intelligent mode. Inline
 Markdown/HTML/JSON project exports contain full active-binder text, including research and
 compile-excluded drafts. Binary/preset exports use their documented manuscript selection instead.
+
+
+Queue admission reserves at most five unfinished jobs and 64 MiB of serialized input per project,
+across job types and instances sharing the project state. Embedded jobs start immediately with no
+pending backlog; Redis reservations include waiting and delayed jobs. Saturation rejects before
+submission. Active Redis jobs report that they cannot be interrupted. Embedded cancellation keeps
+its reservation until the operation settles, reports `requested` then `stopped` or
+`result-discarded`, and stops further project-analysis batches and provider fallback requests.
+Provider calls share the request deadline; embedded jobs have a five-minute cancellation deadline.
+Local operations that cannot be interrupted must finish before releasing their resources.
+
+Embedded results expire after one hour or earlier when the last-100-result/64 MiB cache fills.
+Expiry is checked during reads, completion and admission; missing results require a new request.
+Redis keeps its existing one-hour/100-completion policy and at most 100 failures for 24 hours.
+Workflow admission similarly permits five unfinished workflows and 64 MiB of source text; durable
+workflow history is capped at 100 records/64 MiB and refuses new work when full. Cancellation stops
+between workflow steps and truthfully reports an in-flight step until it settles. Completed steps
+remain resumable, including an export already published before cancellation.
+
+Review, mutation and export receipts retain their existing indefinite replay/undo horizon. No
+pending, conflicted, or committed recovery history is automatically compacted: choosing a shorter
+undo horizon requires measured storage growth and an explicit archival policy. Workflow history
+capacity is a conservative admission limit, not evidence of large-project scalability.
+
+Writing counts use the existing Compromise tokenizer for Latin-script text and the runtime's ICU word/sentence segmentation for text containing other scripts. ICU boundaries are linguistic segments, not a character count; results depend on the supported runtime's ICU data. Advanced readability and writing-metric English formulas abstain on non-Latin text or text without common English function-word evidence, returning unavailable/null scores. This conservative heuristic is not language identification; short English excerpts may abstain, and Latin-script language ambiguity remains. Native narrative rule accuracy outside English has not been validated.
+
+`story_bible` supports `export_state` and `import_state` for human-reviewable JSON, including stable fact identities, quoted provenance, timestamps and correction history. Imports merge into the selected project/series and require the current target `expectedRevision` from `export_state`. They reject stale source quotations, conflicting identities, ambiguous history and concurrent target changes atomically; they do not delete omitted facts. Use the normal correction operation to change an existing identity. Snapshots are limited to 1000 facts and 4 MiB; they contain manuscript quotations and should be kept private.

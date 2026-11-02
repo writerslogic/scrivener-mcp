@@ -15,12 +15,15 @@ import { exposeXmlAttributes, encodeNewBinderAttributes } from '../utils/scriven
 import {
 	MutationCoordinator,
 	validateCreationDocuments,
+	validateMetadataUpdates,
 	type CreationDocument,
+	type MetadataFileUpdate,
 } from './editorial/mutation-coordinator.js';
 
 const logger = getLogger('project-loader');
 
 export interface ProjectLoaderOptions {
+	readOnly?: boolean;
 	autoBackup?: boolean;
 	backupInterval?: number;
 	maxBackups?: number;
@@ -45,7 +48,7 @@ export class ProjectLoader {
 		}
 
 		this.projectPath = path.resolve(projectPath);
-		this.coordinator = new MutationCoordinator(this.projectPath);
+		this.coordinator = new MutationCoordinator(this.projectPath, undefined, options.readOnly);
 		this.scrivxPath = options.scrivxPath
 			? path.resolve(options.scrivxPath)
 			: getDefaultScrivxPath(this.projectPath);
@@ -62,6 +65,7 @@ export class ProjectLoader {
 		logger.info(`Loading project from ${this.scrivxPath}`);
 
 		try {
+			await this.coordinator.recover();
 			const saved = await this.coordinator.readProjectFile(this.scrivxPath);
 			if (!saved.exists) {
 				throw createError(
@@ -118,9 +122,16 @@ export class ProjectLoader {
 		}
 	}
 
-	async saveProject(structure?: ProjectStructure): Promise<void> {
+	async saveProject(structure?: ProjectStructure, expectedRevision?: string): Promise<void> {
 		if (this.closePromise) throw new Error('Project loader is closing');
-		return this.trackWrite(this.saveProjectData(structure));
+		return this.trackWrite(
+			this.saveProjectData(structure, undefined, undefined, expectedRevision)
+		);
+	}
+
+	getLoadedRevision(): string {
+		if (!this.loadedRevision) throw new Error('Project is not loaded');
+		return this.loadedRevision;
 	}
 
 	async saveProjectWithDocuments(
@@ -133,6 +144,16 @@ export class ProjectLoader {
 		);
 	}
 
+	async saveProjectWithMetadata(
+		structure: ProjectStructure,
+		files: readonly MetadataFileUpdate[]
+	): Promise<void> {
+		if (this.closePromise) throw new Error('Project loader is closing');
+		return this.trackWrite(
+			this.saveProjectData(structure, undefined, validateMetadataUpdates(files))
+		);
+	}
+
 	private trackWrite(write: Promise<void>): Promise<void> {
 		const tracked = write.finally(() => this.activeWrites.delete(tracked));
 		this.activeWrites.add(tracked);
@@ -141,10 +162,13 @@ export class ProjectLoader {
 
 	private async saveProjectData(
 		structure?: ProjectStructure,
-		documents?: readonly CreationDocument[]
+		documents?: readonly CreationDocument[],
+		metadataFiles?: readonly MetadataFileUpdate[],
+		expected?: string
 	): Promise<void> {
+		this.coordinator.assertWritable();
 		const projectToSave = structure || this.projectStructure;
-		const expectedRevision = this.loadedRevision;
+		const expectedRevision = expected ?? this.loadedRevision;
 
 		if (!projectToSave) {
 			throw createError(ErrorCode.INVALID_STATE, 'No project loaded to save');
@@ -182,9 +206,14 @@ export class ProjectLoader {
 						expectedRevision,
 						documents: creationDocuments,
 					})
-				: await this.coordinator.commitProjectFile(this.scrivxPath, xml, {
-						expectedRevision,
-					});
+				: metadataFiles
+					? await this.coordinator.commitProjectMetadata(this.scrivxPath, xml, {
+							expectedRevision,
+							files: metadataFiles,
+						})
+					: await this.coordinator.commitProjectFile(this.scrivxPath, xml, {
+							expectedRevision,
+						});
 			this.loadedRevision = mutation.afterRevision;
 			this.projectStructure = projectToSave;
 			this.lastLoadTime = Date.now();

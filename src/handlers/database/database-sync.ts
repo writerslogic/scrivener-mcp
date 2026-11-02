@@ -86,9 +86,8 @@ export class DatabaseSync {
 			});
 		}
 
-		if (this.neo4jManager) {
-			await this.neo4jManager.upsertCharacter(characterData);
-		}
+		const neo4j = this.neo4jManager;
+		if (neo4j?.isAvailable()) await neo4j.upsertCharacter(characterData);
 	}
 
 	async createRelationship(
@@ -113,11 +112,12 @@ export class DatabaseSync {
 		}
 
 		// Store in Neo4j
-		if (this.neo4jManager) {
+		const neo4j = this.neo4jManager;
+		if (neo4j?.isAvailable()) {
 			const fromLabel = this.getNodeLabel(fromType);
 			const toLabel = this.getNodeLabel(toType);
 
-			await this.neo4jManager.createRelationship(
+			await neo4j.createRelationship(
 				fromId,
 				fromLabel,
 				toId,

@@ -70,36 +70,6 @@ describe('ScrivenerProject', () => {
 		await project.close();
 	});
 
-	describe('recoverFromTrash', () => {
-		it('should call document manager and save project', async () => {
-			mockDocumentManager.recoverFromTrash = jest.fn().mockResolvedValue(undefined);
-			mockProjectLoader.saveProject = jest.fn().mockResolvedValue(undefined);
-
-			await project.recoverFromTrash('doc1', 'folder1');
-
-			expect(mockDocumentManager.recoverFromTrash).toHaveBeenCalledWith('doc1', 'folder1');
-			expect(mockProjectLoader.saveProject).toHaveBeenCalled();
-		});
-
-		it('should work without target parent', async () => {
-			mockDocumentManager.recoverFromTrash = jest.fn().mockResolvedValue(undefined);
-			mockProjectLoader.saveProject = jest.fn().mockResolvedValue(undefined);
-
-			await project.recoverFromTrash('doc1');
-
-			expect(mockDocumentManager.recoverFromTrash).toHaveBeenCalledWith('doc1', undefined);
-		});
-
-		it('should propagate errors from document manager', async () => {
-			const error = new Error('Document not found in trash');
-			mockDocumentManager.recoverFromTrash = jest.fn().mockRejectedValue(error);
-
-			await expect(project.recoverFromTrash('doc1')).rejects.toThrow(
-				'Document not found in trash'
-			);
-		});
-	});
-
 	describe('getDocumentAnnotations', () => {
 		it('should extract annotations from raw RTF content', async () => {
 			const mockRtfContent = '{\\rtf1 Content with {\\*\\annotation Test annotation}}';

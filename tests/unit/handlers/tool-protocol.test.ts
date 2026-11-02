@@ -69,9 +69,16 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		notifications++;
 	});
 	let phase = 'initialize';
-	const call = (name: string, args: Record<string, unknown> = {}) => {
+	const call = async (name: string, args: Record<string, unknown> = {}) => {
 		phase = `tools/call ${name}`;
-		return client.callTool({ name, arguments: args }, undefined, { timeout: 10000 });
+		const result = await client.callTool({ name, arguments: args }, undefined, {
+			timeout: 10000,
+		});
+		expect(result._meta?.['com.writerslogic/operation']).toMatchObject({
+			id: expect.stringMatching(/^[a-f0-9-]{36}$/),
+			durationMs: expect.any(Number),
+		});
+		return result;
 	};
 	const names = async () => {
 		phase = 'tools/list';
@@ -311,3 +318,183 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		}
 	}
 }, 60000);
+
+test('modern stdio validates request versions, keeps the full catalog stable and binds operations to the opened project', async () => {
+	const sourceRoot = resolve(__dirname, '../../..');
+	const loader = pathToFileURL(
+		createRequire(join(sourceRoot, 'package.json')).resolve('tsx')
+	).href;
+	const root = await mkdtemp(join(tmpdir(), 'scrivener-modern-protocol-'));
+	const transport = new StdioClientTransport({
+		command: process.execPath,
+		args: ['--import', loader, join(sourceRoot, 'src/index.ts')],
+		cwd: root,
+		stderr: 'pipe',
+		env: {
+			...getDefaultEnvironment(),
+			SCRIVENER_LOCAL_ONLY: 'true',
+			SCRIVENER_DISABLE_KEY_DISCOVERY: '1',
+			SCRIVENER_SKIP_SETUP: 'true',
+			SCRIVENER_DATA_DIR: join(root, 'state'),
+			SCRIVENER_HMS_ENGINE: 'fallback',
+		},
+	});
+	type Reply = { result?: Record<string, unknown>; error?: { code: number; message: string } };
+	const waiting = new Map<number, (reply: Reply) => void>();
+	let nextId = 0;
+	let stderr = '';
+	transport.onmessage = (message) => {
+		if ('id' in message && typeof message.id === 'number')
+			waiting.get(message.id)?.(message as Reply);
+	};
+	const metadata = {
+		'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+		'io.modelcontextprotocol/clientInfo': { name: 'local-modern-fixture', version: '1' },
+		'io.modelcontextprotocol/clientCapabilities': {},
+	};
+	const request = async (
+		method: string,
+		params: Record<string, unknown> = {},
+		meta: Record<string, unknown> = metadata
+	): Promise<Reply> => {
+		const id = ++nextId;
+		let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+		try {
+			const reply = new Promise<Reply>((resolve, reject) => {
+				waiting.set(id, resolve);
+				timeout = globalThis.setTimeout(
+					() => reject(new Error(`Modern request timed out: ${method}; ${stderr}`)),
+					10000
+				);
+			});
+			await transport.send({
+				jsonrpc: '2.0',
+				id,
+				method,
+				params: { ...params, _meta: meta },
+			});
+			return await reply;
+		} finally {
+			clearTimeout(timeout);
+			waiting.delete(id);
+		}
+	};
+	try {
+		for (const name of ['First.scriv', 'Second.scriv'])
+			await cp(join(sourceRoot, 'assets/sample-project/Welcome.scriv'), join(root, name), {
+				recursive: true,
+			});
+		await transport.start();
+		transport.stderr?.on('data', (chunk) => {
+			stderr = (stderr + String(chunk)).slice(-8192);
+		});
+		const discovery = await request('server/discover');
+		expect(discovery.error).toBeUndefined();
+		expect(discovery.result).toMatchObject({
+			resultType: 'complete',
+			ttlMs: 0,
+			cacheScope: 'private',
+		});
+		const before = await request('tools/list');
+		const names = (before.result?.tools as Array<{ name: string }>).map((tool) => tool.name);
+		expect(names.length).toBeGreaterThanOrEqual(82);
+		expect(names).toContain('analyze_document');
+		await request('tools/call', { name: 'use_skill', arguments: { name: 'analysis' } });
+		expect((await request('tools/list')).result?.tools).toEqual(before.result?.tools);
+		expect(
+			(
+				await request(
+					'tools/list',
+					{},
+					{ ...metadata, 'io.modelcontextprotocol/protocolVersion': '2099-01-01' }
+				)
+			).error?.code
+		).toBe(-32022);
+		expect(
+			(
+				await request(
+					'server/discover',
+					{},
+					{ ...metadata, 'io.modelcontextprotocol/protocolVersion': '2099-01-01' }
+				)
+			).error?.code
+		).toBe(-32022);
+		expect(
+			(
+				await request(
+					'tools/list',
+					{},
+					{ ...metadata, 'io.modelcontextprotocol/protocolVersion': '2025-11-25' }
+				)
+			).error?.code
+		).toBe(-32022);
+		expect(
+			(
+				await request(
+					'tools/list',
+					{},
+					{
+						...metadata,
+						'io.modelcontextprotocol/clientCapabilities': {
+							extensions: {
+								'io.modelcontextprotocol/ui': {
+									mimeTypes: ['text/html;profile=mcp-app'],
+								},
+							},
+						},
+					}
+				)
+			).result?.tools
+		).toEqual(before.result?.tools);
+		expect((await request('tools/list', {}, {})).error).toBeDefined();
+		const opened = await request('tools/call', {
+			name: 'open_project',
+			arguments: { path: join(root, 'First.scriv') },
+		});
+		expect(opened.result?.isError).not.toBe(true);
+		const token = (opened.result?._meta as Record<string, unknown>)['com.writerslogic/project'];
+		expect(typeof token).toBe('string');
+		expect(
+			(await request('tools/call', { name: 'get_structure', arguments: {} })).result?.isError
+		).toBe(true);
+		expect(
+			(
+				await request(
+					'tools/call',
+					{ name: 'get_structure', arguments: {} },
+					{ ...metadata, 'com.writerslogic/project': token }
+				)
+			).result?.isError
+		).not.toBe(true);
+		const second = await request('tools/call', {
+			name: 'open_project',
+			arguments: { path: join(root, 'Second.scriv') },
+		});
+		expect(second.result?.isError).not.toBe(true);
+		expect(
+			(
+				await request(
+					'tools/call',
+					{ name: 'get_structure', arguments: {} },
+					{ ...metadata, 'com.writerslogic/project': token }
+				)
+			).result?.isError
+		).toBe(true);
+		expect((await request('tools/list')).result?.tools).toEqual(before.result?.tools);
+		const secondToken = (second.result?._meta as Record<string, unknown>)[
+			'com.writerslogic/project'
+		];
+		expect(
+			(
+				await request(
+					'tools/call',
+					{ name: 'close_project', arguments: {} },
+					{ ...metadata, 'com.writerslogic/project': secondToken }
+				)
+			).result?.isError
+		).not.toBe(true);
+	} finally {
+		await transport.close();
+		await rm(root, { recursive: true, force: true });
+	}
+}, 40000);

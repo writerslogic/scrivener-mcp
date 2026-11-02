@@ -795,10 +795,10 @@ export class PassageSearch {
 				failures.push(error);
 			}
 			const engine = this.engine;
-			this.engine = undefined;
 			if (!this.externalEngine) {
 				try {
 					await engine?.destroy();
+					this.engine = undefined;
 				} catch (error) {
 					failures.push(error);
 				}
@@ -806,7 +806,9 @@ export class PassageSearch {
 			if (failures.length === 1) throw failures[0];
 			if (failures.length > 1)
 				throw new Error('Passage search resources failed to close', { cause: failures });
-		})();
+		})().finally(() => {
+			this.closing = undefined;
+		});
 		return this.closing;
 	}
 }

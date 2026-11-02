@@ -16,6 +16,7 @@ const logger = getLogger('ai-client');
 export type AIProvider = 'anthropic' | 'openai' | 'openrouter' | 'sampling';
 
 export interface ChatOptions {
+	signal?: AbortSignal;
 	/** System prompt that frames the assistant's behavior. */
 	system?: string;
 	/** Maximum tokens to generate. Default 1024. */
@@ -288,6 +289,7 @@ export class AIClient {
 					timeout: this.timeoutMs,
 					maxTotalTimeout: this.timeoutMs,
 					resetTimeoutOnProgress: false,
+					signal: options.signal,
 				}
 			);
 			return completedText(
@@ -305,7 +307,7 @@ export class AIClient {
 					...(options.system ? { system: options.system } : {}),
 					messages: [{ role: 'user', content: prompt }],
 				},
-				{ signal: AbortSignal.timeout(this.timeoutMs) }
+				{ signal: options.signal }
 			);
 			const blocks = response.content.filter(
 				(block): block is Anthropic.TextBlock => block?.type === 'text'
@@ -329,7 +331,7 @@ export class AIClient {
 					temperature,
 					messages,
 				},
-				{ signal: AbortSignal.timeout(this.timeoutMs) }
+				{ signal: options.signal }
 			);
 			const choice = response.choices[0];
 			return completedText(provider, choice?.finish_reason, choice?.message?.content);
@@ -356,7 +358,15 @@ export class AIClient {
 		}
 		if (!options || typeof options !== 'object' || Array.isArray(options))
 			throw createError(ErrorCode.INVALID_INPUT, null, 'Chat options must be an object');
-		const request = { ...options };
+		if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
+			throw new Error('Chat signal must be an AbortSignal');
+		const request = {
+			...options,
+			signal: options.signal
+				? AbortSignal.any([options.signal, AbortSignal.timeout(this.timeoutMs)])
+				: AbortSignal.timeout(this.timeoutMs),
+		};
+		request.signal.throwIfAborted();
 
 		const chain = this.providerChain;
 		if (chain.length === 0) {
@@ -372,10 +382,14 @@ export class AIClient {
 
 		let lastError: unknown;
 		for (let i = 0; i < chain.length; i++) {
+			request.signal.throwIfAborted();
 			const provider = chain[i];
 			try {
-				return await this.chatWith(provider, prompt, request, models[i]);
+				const result = await this.chatWith(provider, prompt, request, models[i]);
+				request.signal.throwIfAborted();
+				return result;
 			} catch (error) {
+				request.signal.throwIfAborted();
 				lastError = error;
 				if (i === chain.length - 1 || !isProviderUnavailable(error)) throw error;
 				logger.warn('AI provider unavailable; falling back', {

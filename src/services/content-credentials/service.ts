@@ -1,3 +1,4 @@
+import { publicationLineageSchema } from './publication-lineage.js';
 import { fork } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
@@ -40,6 +41,15 @@ const validationSchema = z.object({
 	integrity: z.enum(['valid', 'invalid', 'not-evaluated']),
 	trust: z.enum(['trusted', 'untrusted', 'not-evaluated']),
 	trustPolicy: z.enum(['configured-roots', 'none']),
+	trustSnapshot: z
+		.object({
+			policyVersion: z.literal(1),
+			sha256: z.string().regex(/^[a-f0-9]{64}$/),
+			freshness: z.literal('unknown'),
+			revocation: z.literal('offline-evidence-only'),
+		})
+		.strict()
+		.optional(),
 	activeManifest: z.string().max(4096).optional(),
 	validationCodes: z.array(z.string().max(256)).max(1024),
 	sourceValidationCodes: z.array(z.string().max(128)).max(1024).optional(),
@@ -457,6 +467,10 @@ export async function validateCredentialAsset(
 export async function signCredentialAsset(
 	input: SignCredentialRequest
 ): Promise<SignCredentialResult> {
+	const publicationLineage =
+		input.publicationLineage === undefined
+			? undefined
+			: publicationLineageSchema.parse(input.publicationLineage);
 	const assetPath = absolutePath(input.assetPath, 'Asset path');
 	const outputPath = absolutePath(input.outputPath, 'Output path');
 	const sourceManifestPath =
@@ -533,6 +547,8 @@ export async function signCredentialAsset(
 	const timestampTrustAnchorsPath = adminTimestampTrustAnchors();
 	return withStage(async (directory) => {
 		const { staged, revision, identity } = await snapshotAsset(assetPath, directory);
+		if (publicationLineage && publicationLineage.exportSha256 !== revision)
+			throw new Error('Publication export digest changed before signing');
 		let stagedSourceManifest: string | undefined;
 		let sourceManifestIdentity: string | undefined;
 		let sourceManifestRevision: string | undefined;
@@ -557,6 +573,7 @@ export async function signCredentialAsset(
 				mode,
 				...(mode === 'sidecar' ? { manifestPath } : { destinationPath }),
 				title: input.title,
+				...(publicationLineage ? { publicationLineage } : {}),
 				signer,
 				trustAnchorsPath,
 				timestampTrustAnchorsPath,

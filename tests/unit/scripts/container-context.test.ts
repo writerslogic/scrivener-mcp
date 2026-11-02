@@ -20,7 +20,7 @@ async function contextCopies(lines: string[]): Promise<Copy[]> {
 	for (const [line, instruction] of lines.entries()) {
 		if (/^ADD\s/i.test(instruction)) throw new Error('Use explicit literal COPY inputs');
 		if (!/^COPY\s/i.test(instruction)) continue;
-		if (instruction.startsWith('COPY --from=build ')) continue;
+		if (/^COPY --from=(base|build|c2pa) /.test(instruction)) continue;
 		const parts = instruction.split(/\s+/).slice(1);
 		expect(parts.length).toBeGreaterThanOrEqual(2);
 		for (const part of parts) {
@@ -58,6 +58,15 @@ describe('container build input contract (without Docker execution)', () => {
 			.map((line) => line.trim());
 		copies = await contextCopies(lines);
 		expect(copies.length).toBeGreaterThan(0);
+	});
+
+	it('sources the executable engine from the Rust build stage', () => {
+		expect(lines).toContain('COPY --from=base /usr/local/bin/node /usr/local/bin/node');
+		expect(lines).toContain('COPY --from=c2pa /app/assets/c2pa-binding ./assets/c2pa-binding');
+		expect(lines).toContain('RUN node scripts/build-c2pa-binding.mjs');
+		expect(
+			lines.findIndex((line) => line === 'RUN node scripts/build-c2pa-binding.mjs')
+		).toBeLessThan(lines.findIndex((line) => line.startsWith('COPY --from=c2pa ')));
 	});
 
 	it('makes every locked local dependency available at its linked path before npm ci', async () => {

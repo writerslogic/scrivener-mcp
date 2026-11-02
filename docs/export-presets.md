@@ -31,6 +31,11 @@ warning. Native RTF `footnote` anchors, images, objects, tables and fields are r
 unsupported or reduced constructs. Acknowledging a warning with `allowWarnings: true` is required
 before export; review its actual effect first. The source manuscript is never changed.
 
+Ordinary binary `export_project` exports use the same source capture and preflight as presets.
+Returned source revisions identify the exact saved bytes used. Explicit relative paths resolve
+from the server working directory; ordinary and preset exports replace an existing destination,
+while durable workflow exports publish exclusively and replay their saved receipt.
+
 Default files are placed in `.scrivener-mcp/exports`. Explicit destinations must match the output
 extension and cannot write into protected Scrivener project data, including through a directory
 symlink. Export failures propagate instead of silently omitting unreadable scenes.
@@ -44,5 +49,7 @@ accessibility or reading-system certification. Release verification additionally
 
 These presets do not promise equivalence to Scrivener's undocumented native compile engine. Use
 native compile when precise custom layouts, image placement or anchored notes are essential. The
-existing PDF exporter remains available through `export_project`; its standard fonts normalize or
-omit characters outside WinAnsi, so use DOCX/EPUB when Unicode fidelity matters.
+existing PDF exporter remains available through `export_project`; its standard fonts preserve supported WinAnsi characters and reject unsupported characters
+(including CJK, combining marks and emoji) before publication, with affected sources identified.
+PDF inline body styles require an explicit warning acknowledgment. Use DOCX/EPUB for Unicode
+content outside the PDF font repertoire.

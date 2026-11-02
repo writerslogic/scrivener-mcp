@@ -189,3 +189,6 @@ docs/compatibility/
 docs/video/
 AGENTS.md
 CLAUDE.md
+
+# Generated from pinned Rust sources; npm packages and CI artifacts include it.
+/assets/c2pa-binding/binding_bg.wasm

@@ -2,15 +2,14 @@ import { ContentAnalyzer } from '../../../src/analysis/base-analyzer.js';
 import { analyzeDocumentHandler } from '../../../src/handlers/analysis-handlers/document-analysis.js';
 import type { HandlerContext, HandlerResult } from '../../../src/handlers/types.js';
 import { MetricsAnalyzer } from '../../../src/analysis/analyzers/metrics-analyzer.js';
-import { readResult } from '../../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../../src/core/response-formatter.js';
 import { rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-const spools = new Set<string>();
 function data(result: HandlerResult): Record<string, unknown> {
 	const value = result.structuredContent!;
 	if (typeof value._ref !== 'string') return value;
-	spools.add(dirname(value._file as string));
+
 	let offset: number | null = 0,
 		json = '';
 	do {
@@ -21,7 +20,7 @@ function data(result: HandlerResult): Record<string, unknown> {
 	return JSON.parse(json);
 }
 afterAll(async () => {
-	for (const path of spools) await rm(path, { recursive: true, force: true });
+	disposeSpool();
 });
 
 jest.mock('../../../src/analysis/ai-document-analyzer.js', () => ({

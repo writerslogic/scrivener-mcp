@@ -19,6 +19,8 @@ describe('env-config AI key discovery', () => {
 	const openrouterKey = `sk-or-v1-${'d'.repeat(24)}`;
 
 	beforeEach(() => {
+		saved.SCRIVENER_LOCAL_ONLY = process.env.SCRIVENER_LOCAL_ONLY;
+		delete process.env.SCRIVENER_LOCAL_ONLY;
 		saved.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 		saved.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 		saved.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -31,7 +33,12 @@ describe('env-config AI key discovery', () => {
 	});
 
 	afterEach(() => {
-		for (const v of ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY']) {
+		for (const v of [
+			'OPENAI_API_KEY',
+			'ANTHROPIC_API_KEY',
+			'OPENROUTER_API_KEY',
+			'SCRIVENER_LOCAL_ONLY',
+		]) {
 			if (saved[v] === undefined) delete process.env[v];
 			else process.env[v] = saved[v];
 		}

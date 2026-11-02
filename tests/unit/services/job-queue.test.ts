@@ -293,6 +293,7 @@ describe('JobQueueService v2', () => {
 			const mockJob = {
 				...storedJobs.get(id),
 				remove: jest.fn(() => Promise.resolve()),
+				getState: jest.fn(async () => 'waiting'),
 			};
 
 			mockQueue.getJob.mockResolvedValue(mockJob as any);

@@ -412,3 +412,89 @@ it('imports legacy memory without fabricated quotations or silently declaring it
 	).toBe(true);
 	expect(await bible.importMemory(memory as never)).toEqual([]);
 });
+
+it('round-trips private story state and correction history into the same project with exact identities', async () => {
+	const source = new FixtureSource('project-a', root);
+	const document = source.set('scene', 'Mara has blue eyes.');
+	const original = new SeriesBible(source, store('original-state'));
+	const scope = { kind: 'project' as const, id: source.projectId };
+	const first = await original.curate({
+		scope,
+		kind: 'character',
+		subject: 'Mara',
+		predicate: 'eye-color',
+		value: 'blue',
+		confidence: 'confirmed',
+		sources: [sourcePassage(document, 0, document.text.length)],
+	});
+	const corrected = await original.correct(scope, first.id, { intentional: true });
+	const snapshot = JSON.parse(JSON.stringify(original.exportState(scope)));
+	const restored = new SeriesBible(source, store('restored-state'));
+	const imported = await restored.importState(
+		scope,
+		snapshot,
+		restored.exportState(scope).revision
+	);
+	expect(imported).toEqual(snapshot);
+	expect(await restored.importState(scope, snapshot, imported.revision)).toEqual(imported);
+	expect((await restored.listFacts(scope)).map((fact) => fact.id)).toEqual([corrected.id]);
+	await expect(restored.correct(scope, first.id, { value: 'green' })).rejects.toThrow(
+		/already been corrected/
+	);
+});
+
+it('rejects stale, foreign, conflicting and cyclic story snapshots without partial inserts', async () => {
+	const source = new FixtureSource('project-a', root);
+	const document = source.set('scene', 'Mara has blue eyes.');
+	const bible = new SeriesBible(source, store('conflicts'));
+	const scope = { kind: 'project' as const, id: source.projectId };
+	await bible.curate({
+		id: 'original',
+		scope,
+		kind: 'character',
+		subject: 'Mara',
+		predicate: 'eye-color',
+		value: 'blue',
+		sources: [sourcePassage(document, 0, document.text.length)],
+	});
+	const original = bible.exportState(scope);
+	const fresh = { ...original.facts[0], id: 'new-fact', predicate: 'observed' };
+	for (const facts of [
+		[fresh, { ...original.facts[0], value: 'green' }],
+		[
+			{ ...fresh, id: 'a', supersedes: 'b' },
+			{ ...fresh, id: 'b', supersedes: 'a' },
+		],
+		[{ ...fresh, scope: { kind: 'project', id: 'foreign' } }],
+		[{ ...fresh, sources: [{ ...fresh.sources[0], revision: '0'.repeat(64) }] }],
+	]) {
+		await expect(
+			bible.importState(scope, { ...original, facts }, original.revision)
+		).rejects.toThrow();
+		expect(bible.exportState(scope)).toEqual(original);
+	}
+	await expect(bible.importState(scope, original, '0'.repeat(64))).rejects.toThrow(/changed/);
+});
+
+it.each([999, 1000, 1001])('bounds story-state fact imports at %i records', async (count) => {
+	const source = new FixtureSource('project-a', root);
+	const bible = new SeriesBible(source, store('bounded'));
+	const scope = { kind: 'project' as const, id: source.projectId };
+	const empty = bible.exportState(scope);
+	const facts = Array.from({ length: count }, (_, index) => ({
+		id: `fact-${index}`,
+		scope,
+		kind: 'character',
+		subject: 'Mara',
+		predicate: `trait-${index}`,
+		value: 'unknown',
+		confidence: 'uncertain',
+		sources: [],
+		updatedAt: '2026-11-01T00:00:00.000Z',
+	}));
+	const pending = bible.importState(scope, { ...empty, facts }, empty.revision);
+	if (count > 1000) {
+		await expect(pending).rejects.toThrow(/oversized/);
+		expect(bible.exportState(scope)).toEqual(empty);
+	} else expect((await pending).facts).toHaveLength(count);
+});

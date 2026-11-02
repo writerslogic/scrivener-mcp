@@ -2,10 +2,12 @@
 
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
-let samplingServer: Server | null = null;
+type SamplingServer = Pick<Server, 'getClientCapabilities' | 'createMessage'>;
+
+let samplingServer: SamplingServer | null = null;
 
 /** Called once at startup with the MCP server instance (null to clear, for tests). */
-export function registerSamplingServer(server: Server | null): void {
+export function registerSamplingServer(server: SamplingServer | null): void {
 	samplingServer = server;
 }
 
@@ -14,7 +16,7 @@ export function registerSamplingServer(server: Server | null): void {
  * Client capabilities are only known after the initialize handshake, so this
  * must be consulted at call time, not at registration time.
  */
-export function getSamplingServer(): Server | null {
+export function getSamplingServer(): SamplingServer | null {
 	if (process.env.SCRIVENER_LOCAL_ONLY === 'true') return null;
 	if (!samplingServer) return null;
 	return samplingServer.getClientCapabilities()?.sampling ? samplingServer : null;

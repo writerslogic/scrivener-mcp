@@ -521,6 +521,8 @@ export const deleteDocumentHandler: ToolDefinition = {
 		properties: {
 			documentId: SHARED_DEFS.docId,
 			force: SHARED_DEFS.force,
+			dryRun: SHARED_DEFS.dryRun,
+			expectedRevision: SHARED_DEFS.binderRevision,
 		},
 		required: ['documentId'],
 	},
@@ -530,14 +532,18 @@ export const deleteDocumentHandler: ToolDefinition = {
 			validateInput(args, documentIdSchema);
 
 			const documentId = getStringArg(args, 'documentId');
-			await project.deleteDocument(documentId, {
+			const result = await project.deleteDocument(documentId, {
 				force: getOptionalBooleanArg(args, 'force') ?? false,
+				dryRun: getOptionalBooleanArg(args, 'dryRun'),
+				expectedRevision: getOptionalStringArg(args, 'expectedRevision'),
 			});
 			return {
 				content: [
 					{
 						type: 'text',
-						text: 'Document moved to trash',
+						text: result?.dryRun
+							? `Validated trash preview: ${JSON.stringify(result)}`
+							: 'Document moved to trash',
 					},
 				],
 			};
@@ -567,6 +573,8 @@ export const moveDocumentHandler: ToolDefinition = {
 			documentId: SHARED_DEFS.docId,
 			targetFolderId: SHARED_DEFS.folderId,
 			force: SHARED_DEFS.force,
+			dryRun: SHARED_DEFS.dryRun,
+			expectedRevision: SHARED_DEFS.binderRevision,
 			position: {
 				type: 'integer',
 				minimum: 0,
@@ -586,14 +594,18 @@ export const moveDocumentHandler: ToolDefinition = {
 			const documentId = getStringArg(args, 'documentId');
 			const targetFolderId = getStringArg(args, 'targetFolderId');
 			const position = getOptionalNumberArg(args, 'position');
-			await project.moveDocument(documentId, targetFolderId, position, {
+			const result = await project.moveDocument(documentId, targetFolderId, position, {
 				force: getOptionalBooleanArg(args, 'force') ?? false,
+				dryRun: getOptionalBooleanArg(args, 'dryRun'),
+				expectedRevision: getOptionalStringArg(args, 'expectedRevision'),
 			});
 			return {
 				content: [
 					{
 						type: 'text',
-						text: 'Document moved successfully',
+						text: result?.dryRun
+							? `Validated move preview: ${JSON.stringify(result)}`
+							: 'Document moved successfully',
 					},
 				],
 			};
@@ -662,21 +674,20 @@ export const updateDocumentHandler: ToolDefinition = {
 		const options = { force: getOptionalBooleanArg(args, 'force') ?? false };
 		await project.ensureWritable(options.force);
 
-		if (title !== undefined) {
-			await project.renameDocument(documentId, title, options);
-		}
-		if (
+		const hasMetadata =
 			synopsis !== undefined ||
 			notes !== undefined ||
 			label !== undefined ||
 			status !== undefined ||
-			customMetadata !== undefined
-		) {
-			await project.updateDocumentMetadata(
+			customMetadata !== undefined;
+		if (hasMetadata) {
+			await project.updateMetadata(
 				documentId,
-				{ synopsis, notes, label, status, customMetadata },
+				{ title, synopsis, notes, label, status, customMetadata },
 				options
 			);
+		} else if (title !== undefined) {
+			await project.renameDocument(documentId, title, options);
 		}
 
 		return {

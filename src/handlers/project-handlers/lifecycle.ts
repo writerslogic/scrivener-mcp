@@ -9,6 +9,32 @@ import type { HandlerContext, HandlerResult, ToolDefinition } from '../types.js'
 import { requireProject, getStringArg } from '../types.js';
 
 const lifecycleOperations = new WeakMap<HandlerContext, Promise<void>>();
+const pendingCleanup = new WeakMap<
+	HandlerContext,
+	Set<{ project: ScrivenerProject; memory?: MemoryManager }>
+>();
+
+export async function cleanupPendingProjects(context: HandlerContext): Promise<void> {
+	const pending = pendingCleanup.get(context);
+	if (!pending) return;
+	const failures: unknown[] = [];
+	for (const owned of pending) {
+		try {
+			await owned.memory?.stopAutoSave();
+			owned.memory = undefined;
+			await owned.project.close();
+			pending.delete(owned);
+		} catch (error) {
+			failures.push(error);
+		}
+	}
+	if (!pending.size) pendingCleanup.delete(context);
+	if (failures.length)
+		throw new AggregateError(
+			failures,
+			'Pending project resources could not close; retry close_project'
+		);
+}
 
 function withProjectLifecycle<T>(context: HandlerContext, operation: () => Promise<T>): Promise<T> {
 	const pending = (lifecycleOperations.get(context) ?? Promise.resolve()).then(operation);
@@ -31,6 +57,7 @@ function clearProjectContext(context: HandlerContext): void {
 }
 
 async function retireProject(context: HandlerContext): Promise<void> {
+	await cleanupPendingProjects(context);
 	if (context.memoryManager) {
 		try {
 			await context.memoryManager.stopAutoSave();
@@ -41,11 +68,8 @@ async function retireProject(context: HandlerContext): Promise<void> {
 			);
 		}
 	}
-	try {
-		await context.project?.close();
-	} finally {
-		clearProjectContext(context);
-	}
+	await context.project?.close();
+	clearProjectContext(context);
 }
 
 export const openProjectHandler: ToolDefinition = {
@@ -72,6 +96,11 @@ export const openProjectHandler: ToolDefinition = {
 					'Path to the Scrivener project: either the .scriv folder (e.g. ' +
 					'"~/Documents/My Novel.scriv") or the .scrivx file inside it. Absolute or ~-relative.',
 			},
+			readOnly: {
+				type: 'boolean',
+				description:
+					'Open the project for authoritative reads only; mutation tools reject even when force is set.',
+			},
 		},
 		required: ['path'],
 	},
@@ -83,9 +112,11 @@ export const openProjectHandler: ToolDefinition = {
 					required: true,
 					minLength: 1,
 				},
+				readOnly: { type: 'boolean' },
 			});
 
 			const rawPath = getStringArg(args, 'path');
+			const readOnly = args.readOnly === true;
 			const { projectPath, scrivxPath } = await resolveScrivenerProjectPath(rawPath);
 
 			await retireProject(context);
@@ -93,6 +124,7 @@ export const openProjectHandler: ToolDefinition = {
 			const project = new ScrivenerProject(projectPath, {
 				hhmSystem: context.hhmSystem,
 				scrivxPath,
+				readOnly,
 			});
 			let memoryManager: MemoryManager | undefined;
 			let memoryInitialized = false;
@@ -130,10 +162,22 @@ export const openProjectHandler: ToolDefinition = {
 						cleanupFailures.push({ resource: 'memory', cause });
 					}
 				}
-				try {
-					await project.close();
-				} catch (cause) {
-					cleanupFailures.push({ resource: 'project', cause });
+				if (!cleanupFailures.length) {
+					try {
+						await project.close();
+					} catch (cause) {
+						cleanupFailures.push({ resource: 'project', cause });
+					}
+				}
+				if (cleanupFailures.length) {
+					const pending = pendingCleanup.get(context) ?? new Set();
+					pending.add({
+						project,
+						memory: cleanupFailures.some((failure) => failure.resource === 'memory')
+							? memoryManager
+							: undefined,
+					});
+					pendingCleanup.set(context, pending);
 				}
 				const expectedScrivxPath = path.join(
 					projectPath,
@@ -210,7 +254,7 @@ export const closeProjectHandler: ToolDefinition = {
 	},
 	handler: async (_args, context): Promise<HandlerResult> => {
 		return withProjectLifecycle(context, async () => {
-			requireProject(context);
+			if (!pendingCleanup.has(context)) requireProject(context);
 			await retireProject(context);
 
 			return {

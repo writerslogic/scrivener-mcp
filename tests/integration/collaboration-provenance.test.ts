@@ -15,14 +15,13 @@ import type { AnalysisEnvelope } from '../../src/services/editorial/analysis-env
 import { RTFHandler } from '../../src/services/parsers/rtf-handler.js';
 import { multiAgentAnalysisHandler as tool } from '../../src/handlers/analysis-handlers/advanced.js';
 import type { HandlerContext } from '../../src/handlers/types.js';
-import { readResult } from '../../src/core/response-formatter.js';
+import { disposeSpool, readResult } from '../../src/core/response-formatter.js';
 
 const DOCUMENT = '10000000-0000-4000-8000-000000000001';
 const validator = new AjvJsonSchemaValidator();
 const validateInput = validator.getValidator(tool.inputSchema as JsonSchemaType);
 const validateOutput = validator.getValidator(tool.outputSchema as JsonSchemaType);
 const rtf = new RTFHandler();
-const spools = new Set<string>();
 let root: string;
 let store: PersistentStore;
 let source: ProjectSource;
@@ -51,7 +50,7 @@ async function analyze(
 	let data = response.structuredContent!;
 	if (typeof data._ref === 'string') {
 		expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThan(4000);
-		spools.add(dirname(data._file as string));
+
 		let offset: number | null = 0;
 		let json = '';
 		do {
@@ -89,7 +88,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-	for (const directory of spools) await rm(directory, { recursive: true, force: true });
+	disposeSpool();
 });
 
 test('binds one provider response to saved RTF and decoded text revisions', async () => {

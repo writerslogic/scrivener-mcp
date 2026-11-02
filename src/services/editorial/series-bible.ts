@@ -47,6 +47,13 @@ export interface CurateFactInput {
 	supersedes?: string;
 }
 
+export interface StoryState {
+	schemaVersion: 1;
+	scope: StoryScope;
+	revision: string;
+	facts: StoryFact[];
+}
+
 export type FactCorrection = Partial<
 	Pick<
 		CurateFactInput,
@@ -244,6 +251,118 @@ export class SeriesBible {
 				fact.sourceStates.some((source) => source.state === 'unavailable')
 			).length,
 		};
+	}
+
+	exportState(scope: StoryScope): StoryState {
+		const store = this.storeFor(scope);
+		const facts = store
+			.list<StoryFact>(FACTS, { maxItems: 1000, maxBytes: 4 * 1024 * 1024 })
+			.filter((fact) => fact.scope.kind === scope.kind && fact.scope.id === scope.id);
+		return {
+			schemaVersion: 1,
+			scope: { ...scope },
+			revision: stableStoryId('story-state', JSON.stringify(facts)),
+			facts,
+		};
+	}
+
+	async importState(
+		scope: StoryScope,
+		input: unknown,
+		expectedRevision: string
+	): Promise<StoryState> {
+		const store = this.storeFor(scope);
+		if (!/^[a-f0-9]{64}$/.test(expectedRevision))
+			throw new Error('Expected story-state revision must be a SHA-256 digest');
+		if (!input || typeof input !== 'object' || Array.isArray(input))
+			throw new Error('A story-state object is required');
+		const snapshot = input as StoryState;
+		if (
+			Object.keys(input).some(
+				(key) => !['schemaVersion', 'scope', 'revision', 'facts'].includes(key)
+			) ||
+			snapshot.schemaVersion !== 1 ||
+			snapshot.scope?.kind !== scope.kind ||
+			snapshot.scope?.id !== scope.id ||
+			!/^[a-f0-9]{64}$/.test(snapshot.revision) ||
+			!Array.isArray(snapshot.facts) ||
+			snapshot.facts.length > 1000 ||
+			Buffer.byteLength(JSON.stringify(input)) > 4 * 1024 * 1024
+		)
+			throw new Error('Invalid, foreign or oversized story-state snapshot');
+		if (this.exportState(scope).revision !== expectedRevision)
+			throw new Error('Story state changed; export the current state before importing');
+		const facts = new Map<string, StoryFact>();
+		for (const value of snapshot.facts) {
+			if (
+				!value ||
+				typeof value !== 'object' ||
+				Array.isArray(value) ||
+				Object.keys(value).some(
+					(key) =>
+						![
+							'id',
+							'scope',
+							'kind',
+							'subject',
+							'predicate',
+							'value',
+							'confidence',
+							'sources',
+							'storyTime',
+							'intentional',
+							'supersedes',
+							'updatedAt',
+						].includes(key)
+				) ||
+				value.scope?.kind !== scope.kind ||
+				value.scope?.id !== scope.id ||
+				typeof value.updatedAt !== 'string' ||
+				value.updatedAt.length !== 24 ||
+				!Number.isFinite(Date.parse(value.updatedAt)) ||
+				new Date(value.updatedAt).toISOString() !== value.updatedAt
+			)
+				throw new Error('Invalid story-state fact');
+			storyIdentifier(value.id, 'Fact id');
+			const fact = await this.prepareFact(value);
+			fact.updatedAt = value.updatedAt;
+			if (facts.has(fact.id)) throw new Error('Duplicate story-state fact identity');
+			facts.set(fact.id, fact);
+		}
+		return store.transaction(() => {
+			if (this.exportState(scope).revision !== expectedRevision)
+				throw new Error('Story state changed during import');
+			const combined = new Map(this.exportState(scope).facts.map((fact) => [fact.id, fact]));
+			for (const fact of facts.values()) {
+				for (const source of fact.sources) this.authorizeSource(scope, source.projectId);
+				const existing = store.get<StoryFact>(FACTS, fact.id);
+				if (existing && JSON.stringify(existing) !== JSON.stringify(fact))
+					throw new Error('Fact identity conflicts with saved content; use a correction');
+				combined.set(fact.id, fact);
+			}
+			if (
+				combined.size > 1000 ||
+				Buffer.byteLength(JSON.stringify([...combined.values()])) > 4 * 1024 * 1024
+			)
+				throw new Error('Merged story state exceeds its bounded import budget');
+			const successors = new Map<string, string>();
+			for (const fact of combined.values()) {
+				if (!fact.supersedes) continue;
+				if (!combined.has(fact.supersedes) || successors.has(fact.supersedes))
+					throw new Error('Ambiguous or missing fact correction history');
+				successors.set(fact.supersedes, fact.id);
+				const seen = new Set([fact.id]);
+				let previous: StoryFact | undefined = combined.get(fact.supersedes);
+				while (previous) {
+					if (seen.has(previous.id)) throw new Error('Cyclic fact correction history');
+					seen.add(previous.id);
+					previous = previous.supersedes ? combined.get(previous.supersedes) : undefined;
+				}
+			}
+			for (const fact of facts.values()) store.put(FACTS, fact.id, fact);
+			for (const [previous, id] of successors) store.put(CORRECTIONS, previous, { id });
+			return this.exportState(scope);
+		});
 	}
 
 	async importMemory(memory: MemoryManager): Promise<StoryFact[]> {

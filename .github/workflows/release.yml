@@ -10,9 +10,13 @@ permissions:
   actions: read
 
 jobs:
+  c2pa-build:
+    uses: ./.github/workflows/c2pa-build.yml
+
   # Release assets must exist before the release is created: this repo uses immutable
   # releases, so nothing can be attached afterwards.
   mcpb:
+    needs: c2pa-build
     if: github.repository == 'writerslogic/scrivener-mcp'
     runs-on: macos-latest
     timeout-minutes: 45
@@ -33,6 +37,12 @@ jobs:
         run: node scripts/check-release-candidate.mjs source
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Restore the verified source-built C2PA engine
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: c2pa-binding
+          path: assets/c2pa-binding
 
       - name: Install dependencies
         run: npm ci
@@ -84,6 +94,12 @@ jobs:
         run: node scripts/check-release-candidate.mjs source
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Restore the verified source-built C2PA engine
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: c2pa-binding
+          path: assets/c2pa-binding
 
       - name: Install dependencies
         run: npm ci

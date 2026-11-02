@@ -74,6 +74,10 @@ const analysisFlags = ['includeReadability', 'includeEntities', 'includeSentimen
 const liveEmbeddedOwners = new Set<string>();
 export const MAX_ANALYSIS_CONTENT_LENGTH = 5_000_000;
 export const MAX_ANALYSIS_DOCUMENTS = 5000;
+export const MAX_EMBEDDED_ACTIVE_JOBS = 5;
+export const MAX_QUEUE_BYTES = 64 * 1024 * 1024;
+export const MAX_RETAINED_JOBS = 100;
+export const QUEUE_RESULT_TTL_MS = 3600_000;
 
 function validateDocumentAnalysis(data: AnalyzeDocumentJob): void {
 	if (
@@ -137,6 +141,9 @@ interface EmbeddedJobStatus {
 	jobType: JobType;
 	state: 'active' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
 	progress: number;
+	inputBytes?: number;
+	finishedAt?: number;
+	cancellation?: 'requested' | 'stopped' | 'result-discarded';
 	result?: unknown;
 	error?: string;
 	owner?: { pid: number; host: string; instance?: string };
@@ -155,6 +162,7 @@ export class JobQueueService {
 	private scope?: QueueScope;
 	private readonly unboundIdentity = randomUUID();
 	private continuity?: (options: ContinuityOptions) => Promise<ContinuityReport>;
+	private readonly controllers = new Map<string, AbortController>();
 	private readonly embeddedRuns = new Map<string, Promise<void>>();
 	private readonly pendingEmbeddedResults = new Map<string, EmbeddedJobStatus>();
 	private logger: ReturnType<typeof getLogger>;
@@ -314,6 +322,7 @@ export class JobQueueService {
 				},
 				removeOnFail: {
 					age: 24 * 3600, // Keep failed jobs for 24 hours
+					count: MAX_RETAINED_JOBS,
 				},
 				attempts: jobType === JobType.GENERATE_SUGGESTIONS ? 1 : 3,
 				backoff: {
@@ -332,10 +341,28 @@ export class JobQueueService {
 			async (job: Job) => {
 				this.logger.debug(`Processing job ${job.id} of type ${jobType}`);
 				try {
-					const result = await this.processJob(jobType, job);
+					if (!job.id) throw new UnrecoverableError('Queue job has no identity');
+					if (this.readEmbeddedJob(job.id)?.state !== 'active')
+						this.reserveJob(jobType, job.data as ScopedJob, job.id, false);
+					const result = await this.processJob(
+						jobType,
+						job,
+						AbortSignal.timeout(300_000)
+					);
+					if (Buffer.byteLength(JSON.stringify(result) ?? 'null') > MAX_QUEUE_BYTES)
+						throw new UnrecoverableError(
+							'Queue result exceeds the 64 MiB retention budget'
+						);
+					this.finishEmbeddedJob(job.id, { jobType, state: 'completed', progress: 100 });
 					this.logger.debug(`Job ${job.id} completed successfully`);
 					return result;
 				} catch (error) {
+					if (
+						job.id &&
+						(error instanceof UnrecoverableError ||
+							job.attemptsMade + 1 >= (job.opts?.attempts ?? 1))
+					)
+						this.finishEmbeddedJob(job.id, { jobType, state: 'failed', progress: 0 });
 					this.logger.error(`Job ${job.id} failed`, { error });
 					throw error;
 				}
@@ -394,16 +421,20 @@ export class JobQueueService {
 		}
 	}
 
-	private async processJob(jobType: JobType, job: Job): Promise<unknown> {
+	private async processJob(jobType: JobType, job: Job, signal?: AbortSignal): Promise<unknown> {
+		signal?.throwIfAborted();
 		const data = readScopedJob(this.requireScope(), jobType, job.id, job.data);
 		this.validateAnalysisJob(jobType, data);
 		switch (jobType) {
 			case JobType.ANALYZE_DOCUMENT:
 				return this.processAnalyzeDocument(data as unknown as AnalyzeDocumentJob);
 			case JobType.ANALYZE_PROJECT:
-				return this.processAnalyzeProject(data as unknown as AnalyzeProjectJob);
+				return this.processAnalyzeProject(data as unknown as AnalyzeProjectJob, signal);
 			case JobType.GENERATE_SUGGESTIONS:
-				return this.processGenerateSuggestions(data as unknown as GenerateSuggestionsJob);
+				return this.processGenerateSuggestions(
+					data as unknown as GenerateSuggestionsJob,
+					signal
+				);
 			case JobType.BUILD_VECTOR_STORE:
 				return this.processBuildVectorStore(data as unknown as BuildVectorStoreJob);
 			case JobType.CHECK_CONSISTENCY:
@@ -602,10 +633,14 @@ export class JobQueueService {
 			);
 	}
 
-	private async processAnalyzeProject(data: AnalyzeProjectJob): Promise<Record<string, unknown>> {
+	private async processAnalyzeProject(
+		data: AnalyzeProjectJob,
+		signal?: AbortSignal
+	): Promise<Record<string, unknown>> {
 		const results: Record<string, unknown>[] = [];
 		const batchSize = data.options?.parallel ? (data.options.batchSize ?? 5) : 1;
 		for (let start = 0; start < data.documents.length; start += batchSize) {
+			signal?.throwIfAborted();
 			const batch = await Promise.allSettled(
 				data.documents
 					.slice(start, start + batchSize)
@@ -625,16 +660,21 @@ export class JobQueueService {
 	}
 
 	private async processGenerateSuggestions(
-		data: GenerateSuggestionsJob
+		data: GenerateSuggestionsJob,
+		signal?: AbortSignal
 	): Promise<SuggestionResult> {
 		if (!this.writingSuggestions) throw new Error('Writing suggestions are unavailable');
-		return this.writingSuggestions.generate(data);
+		return this.writingSuggestions.generate(data, signal);
 	}
 
-	async generateSuggestions(data: SuggestionRequest): Promise<SuggestionResult> {
+	async generateSuggestions(
+		data: SuggestionRequest,
+		signal?: AbortSignal
+	): Promise<SuggestionResult> {
 		if (!this.isInitialized || !this.writingSuggestions)
 			throw new Error('Writing suggestions are unavailable');
-		return this.processGenerateSuggestions(await this.writingSuggestions.prepare(data));
+		signal?.throwIfAborted();
+		return this.processGenerateSuggestions(await this.writingSuggestions.prepare(data), signal);
 	}
 
 	async analyzeWritingStyle(samples: string[]) {
@@ -849,7 +889,16 @@ export class JobQueueService {
 			);
 		}
 
-		const job = await queue.add(jobType, envelope, { ...options, jobId });
+		this.reserveJob(jobType, envelope, jobId, false);
+		let job: Job;
+		try {
+			job = await queue.add(jobType, envelope, { ...options, jobId });
+		} catch (error) {
+			throw new Error(
+				`Redis submission outcome is unknown for ${jobId}; its capacity reservation is retained until completion or confirmed cancellation.`,
+				{ cause: error }
+			);
+		}
 		if (job.id !== jobId) throw new Error('Queue returned a job outside the submitted scope');
 		this.logger.info(`Job ${job.id} added to queue ${jobType}`);
 		return job.id as string;
@@ -864,24 +913,36 @@ export class JobQueueService {
 		data: ScopedJob,
 		jobId: string
 	): Promise<string> {
-		this.storeEmbeddedJob(jobId, {
-			jobType,
-			state: 'active',
-			progress: 0,
-			owner: { pid: process.pid, host: hostname(), instance: this.unboundIdentity },
-		});
+		this.reserveJob(jobType, data, jobId, true);
+		const controller = new AbortController();
+		this.controllers.set(jobId, controller);
+		const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300_000)]);
 		this.logger.info(`Job ${jobId} added to embedded queue ${jobType}`);
 
 		const run = new Promise<void>((resolve) => setImmediate(resolve)).then(async () => {
 			let status: EmbeddedJobStatus;
 			try {
-				if (this.readEmbeddedJob(jobId)?.state === 'cancelled') return;
-				const result = await this.processJob(jobType, { id: jobId, data } as Job);
-				status = { jobType, state: 'completed', progress: 100, result };
+				signal.throwIfAborted();
+				const result = await this.processJob(jobType, { id: jobId, data } as Job, signal);
+				status =
+					signal.aborted || this.readEmbeddedJob(jobId)?.cancellation === 'requested'
+						? {
+								jobType,
+								state: 'cancelled',
+								progress: 0,
+								cancellation: 'result-discarded',
+							}
+						: { jobType, state: 'completed', progress: 100, result };
+				if (Buffer.byteLength(JSON.stringify(status)) > MAX_QUEUE_BYTES)
+					throw new Error('Queue result exceeds the 64 MiB retention budget');
 			} catch (error) {
 				status = {
 					jobType,
-					state: 'failed',
+					state:
+						signal.aborted || this.readEmbeddedJob(jobId)?.cancellation === 'requested'
+							? 'cancelled'
+							: 'failed',
+					...(signal.aborted ? { cancellation: 'stopped' as const } : {}),
 					progress: 0,
 					error: error instanceof Error ? error.message : String(error),
 				};
@@ -894,11 +955,97 @@ export class JobQueueService {
 		});
 		this.embeddedRuns.set(jobId, run);
 		void run.then(
-			() => this.embeddedRuns.delete(jobId),
+			() => {
+				this.embeddedRuns.delete(jobId);
+				this.controllers.delete(jobId);
+			},
 			() => this.embeddedRuns.delete(jobId)
 		);
 
 		return jobId;
+	}
+
+	private reserveJob(jobType: JobType, data: ScopedJob, jobId: string, embedded: boolean): void {
+		const inputBytes = Buffer.byteLength(JSON.stringify(data));
+		const admit = (): void => {
+			this.pruneEmbeddedJobs();
+			const active = this.activeEmbeddedJobs();
+			if (
+				active.length >= MAX_EMBEDDED_ACTIVE_JOBS ||
+				active.reduce((bytes, status) => bytes + (status.inputBytes ?? 0), inputBytes) >
+					MAX_QUEUE_BYTES
+			)
+				throw new Error(
+					'Queue is saturated: active job or 64 MiB input budget reached; retry after polling existing jobs.'
+				);
+			this.storeEmbeddedJob(jobId, {
+				jobType,
+				state: 'active',
+				progress: 0,
+				inputBytes,
+				...(embedded
+					? {
+							owner: {
+								pid: process.pid,
+								host: hostname(),
+								instance: this.unboundIdentity,
+							},
+						}
+					: {}),
+			});
+		};
+		if (this.embeddedStore) this.embeddedStore.transaction(admit);
+		else admit();
+	}
+
+	private activeEmbeddedJobs(): EmbeddedJobStatus[] {
+		if (!this.embeddedStore)
+			return [...this.embeddedJobs.values()].filter((status) => status.state === 'active');
+		const items = this.embeddedStore.page<EmbeddedJobStatus & { id: string }>(
+			this.embeddedNamespace(),
+			{ limit: 100 },
+			['id', 'state', 'inputBytes'],
+			{ field: 'state', values: ['active'] }
+		).items;
+		return items.filter((status) => this.readEmbeddedJob(status.id)?.state === 'active');
+	}
+
+	private pruneEmbeddedJobs(): void {
+		const entries: Array<[string, EmbeddedJobStatus]> = [];
+		if (this.embeddedStore) {
+			let after: string | undefined;
+			do {
+				const page = this.embeddedStore.page<EmbeddedJobStatus & { id: string }>(
+					this.embeddedNamespace(),
+					{ limit: 100, after },
+					['id', 'state', 'finishedAt']
+				);
+				for (const item of page.items) entries.push([item.id, item]);
+				after = page.nextCursor ?? undefined;
+			} while (after);
+		} else entries.push(...this.embeddedJobs);
+		const terminal = entries
+			.filter(([, status]) => status.state !== 'active')
+			.sort((a, b) => (a[1].finishedAt ?? 0) - (b[1].finishedAt ?? 0));
+		let retained = terminal.length;
+		let bytes =
+			this.embeddedStore?.usage(this.embeddedNamespace()).bytes ??
+			Buffer.byteLength(JSON.stringify([...this.embeddedJobs]));
+		for (const [id, status] of terminal) {
+			const expired =
+				status.finishedAt !== undefined &&
+				Date.now() - status.finishedAt >= QUEUE_RESULT_TTL_MS;
+			if (!expired && retained <= MAX_RETAINED_JOBS && bytes <= MAX_QUEUE_BYTES) continue;
+			if (this.pendingEmbeddedResults.has(id) || this.embeddedRuns.has(id)) continue;
+			if (this.embeddedStore) {
+				this.embeddedStore.delete(this.embeddedNamespace(), id);
+				bytes = this.embeddedStore.usage(this.embeddedNamespace()).bytes;
+			} else {
+				this.embeddedJobs.delete(id);
+				bytes = Buffer.byteLength(JSON.stringify([...this.embeddedJobs]));
+			}
+			retained--;
+		}
 	}
 
 	private storeEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
@@ -908,7 +1055,10 @@ export class JobQueueService {
 	}
 
 	private finishEmbeddedJob(id: string, status: EmbeddedJobStatus): void {
-		const terminal = this.pendingEmbeddedResults.get(id) ?? status;
+		const terminal = this.pendingEmbeddedResults.get(id) ?? {
+			...status,
+			finishedAt: status.finishedAt ?? Date.now(),
+		};
 		const finish = (): EmbeddedJobStatus => {
 			const current = this.embeddedStore
 				? this.embeddedStore.get<EmbeddedJobStatus>(this.embeddedNamespace(), id)
@@ -924,6 +1074,7 @@ export class JobQueueService {
 				: finish();
 			if (!this.embeddedStore) this.embeddedJobs.set(id, committed);
 			this.pendingEmbeddedResults.delete(id);
+			this.pruneEmbeddedJobs();
 		} catch (cause) {
 			this.pendingEmbeddedResults.set(id, terminal);
 			throw new Error(
@@ -977,6 +1128,7 @@ export class JobQueueService {
 	async getJobStatus(jobType: JobType, jobId: string): Promise<Job | EmbeddedJobStatus | null> {
 		if (!this.scope || !ownsJobId(this.scope, jobId)) return null;
 		if (this.connectionType === 'embedded') {
+			this.pruneEmbeddedJobs();
 			const status = this.readEmbeddedJob(jobId);
 			return status?.jobType === jobType ? status : null;
 		}
@@ -1018,7 +1170,15 @@ export class JobQueueService {
 					`Job ${jobId} not found in queue ${jobType}`
 				);
 			}
-			this.finishEmbeddedJob(jobId, { ...status, state: 'cancelled', owner: undefined });
+			if (status.state !== 'active') return;
+			const cancel = (): void => {
+				const current = this.readEmbeddedJob(jobId);
+				if (current?.state === 'active')
+					this.storeEmbeddedJob(jobId, { ...current, cancellation: 'requested' });
+			};
+			if (this.embeddedStore) this.embeddedStore.transaction(cancel);
+			else cancel();
+			this.controllers.get(jobId)?.abort(new Error('Job cancellation requested'));
 			this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
 			return;
 		}
@@ -1042,7 +1202,18 @@ export class JobQueueService {
 		}
 		readScopedJob(this.requireScope(), jobType, job.id, job.data);
 
+		if ((await job.getState()) === 'active')
+			throw new Error(
+				'This Redis job is active and cannot be interrupted; wait for completion.'
+			);
 		await job.remove();
+		if (this.readEmbeddedJob(jobId))
+			this.finishEmbeddedJob(jobId, {
+				jobType,
+				state: 'cancelled',
+				progress: 0,
+				cancellation: 'stopped',
+			});
 		this.logger.info(`Job ${jobId} cancelled from queue ${jobType}`);
 	}
 
@@ -1181,9 +1352,10 @@ export class JobQueueService {
 				failures,
 				'Job queue workers failed to close; dependent resources retained'
 			);
-		liveEmbeddedOwners.delete(this.unboundIdentity);
-		if (await close(() => this.embeddedStore?.close())) this.embeddedStore = undefined;
-		this.pendingEmbeddedResults.clear();
+		if (!this.pendingEmbeddedResults.size) {
+			liveEmbeddedOwners.delete(this.unboundIdentity);
+			if (await close(() => this.embeddedStore?.close())) this.embeddedStore = undefined;
+		}
 
 		for (const [type, events] of this.events.entries()) {
 			if (await close(() => events.close())) this.events.delete(type);
@@ -1205,7 +1377,7 @@ export class JobQueueService {
 		]);
 		if (results[0].status === 'fulfilled') this.databaseService = null;
 		if (results[1].status === 'fulfilled') this.aiWritingService = null;
-		this.scope = undefined;
+		if (!this.embeddedStore) this.scope = undefined;
 		this.continuity = undefined;
 
 		this.isInitialized = false;

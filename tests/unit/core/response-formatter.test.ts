@@ -1,17 +1,14 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+	disposeSpool,
 	compact,
 	formatList,
 	formatPayload,
 	readResult,
 } from '../../../src/core/response-formatter.js';
 
-const directories = new Set<string>();
-
-afterAll(() => {
-	for (const directory of directories) fs.rmSync(directory, { recursive: true, force: true });
-});
+afterAll(() => disposeSpool());
 
 test.each([4, 4095, 65535, 65536])(
 	'reconstructs a large Unicode result using bounded %i-byte pages',
@@ -54,7 +51,6 @@ test('expired result identifiers cannot disclose prior content', () => {
 
 function result(text: string): Record<string, unknown> | unknown[] | string {
 	const parsed = JSON.parse(text);
-	if (parsed?._file) directories.add(path.dirname(parsed._file));
 	return parsed;
 }
 
@@ -138,22 +134,21 @@ describe.each([
 			const parsed = result(text);
 			if (length <= 4000) expect(text).toHaveLength(length);
 			else {
-				const reference = parsed as { _file: string; _ref: string };
+				const reference = parsed as { _ref: string };
+				expect(reference).not.toHaveProperty('_file');
 				expect(reference._ref).toMatch(/^[a-f0-9-]{36}$/);
-				const stored = fs.readFileSync(reference._file, 'utf8');
+				const stored = readResult(reference._ref, 0, 65536).text;
 				expect(stored).toHaveLength(length);
 				expect(JSON.parse(stored)).toEqual(
 					name === 'list' ? ['x'.repeat(length - 4)] : 'x'.repeat(length - 2)
 				);
-				if (process.platform !== 'win32')
-					expect(fs.statSync(reference._file).mode & 0o777).toBe(0o600);
 			}
 		}
 	);
 
 	test.each([63, 64, 65])('bounds a label of length %i', (length) => {
 		if (length > 64) expect(() => format(4001, 'a'.repeat(length))).toThrow(/1–64/);
-		else expect(result(format(4001, 'a'.repeat(length)))).toHaveProperty('_file');
+		else expect(result(format(4001, 'a'.repeat(length)))).toHaveProperty('_ref');
 	});
 
 	test.each(['../escape', '/absolute', 'unsafe\\path'])(
@@ -162,4 +157,87 @@ describe.each([
 			expect(() => format(4001, label)).toThrow(/Result label/);
 		}
 	);
+});
+
+test('restart cleanup reclaims expired dead owners while preserving live, fresh and unidentified directories', () => {
+	const os = require('node:os') as typeof import('node:os');
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spool-ownership-test-'));
+	// Whole seconds avoid filesystem timestamp rounding across the exact expiry boundary.
+	const now = Math.floor(Date.now() / 1000) * 1000;
+	const locations = new Map<string, string>();
+	for (const [label, pid, age] of [
+		['dead00', 4242, 3600001],
+		['live00', process.pid, 3600001],
+		['fresh0', 4242, 3599999],
+		['limit0', 4242, 3600000],
+		['other0', undefined, 3600001],
+	] as const) {
+		const name = `scrivener-mcp-spool-${label}`;
+		const dir = path.join(root, name);
+		fs.mkdirSync(dir, { mode: 0o700 });
+		fs.writeFileSync(path.join(dir, 'result.json'), 'Private fixture');
+		if (pid)
+			fs.writeFileSync(
+				path.join(dir, '.owner.json'),
+				JSON.stringify({ version: 1, pid, host: os.hostname(), directory: name })
+			);
+		fs.utimesSync(dir, new Date(now - age), new Date(now - age));
+		locations.set(label, dir);
+	}
+	const temporary = jest.spyOn(os, 'tmpdir').mockReturnValue(root);
+	const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+	const kill = jest.spyOn(process, 'kill').mockImplementation((pid) => {
+		if (pid === 4242) throw Object.assign(new Error('No process'), { code: 'ESRCH' });
+		return true;
+	});
+	try {
+		jest.isolateModules(() => {
+			const formatter =
+				require('../../../src/core/response-formatter.js') as typeof import('../../../src/core/response-formatter.js');
+			const reference = JSON.parse(formatter.formatPayload('x'.repeat(5000)));
+			expect(fs.existsSync(locations.get('dead00')!)).toBe(false);
+			for (const label of ['live00', 'fresh0', 'limit0', 'other0'])
+				expect(
+					fs.readFileSync(path.join(locations.get(label)!, 'result.json'), 'utf8')
+				).toBe('Private fixture');
+			expect(fs.existsSync(path.join(locations.get('other0')!, '.owner.json'))).toBe(false);
+			formatter.disposeSpool();
+			formatter.disposeSpool();
+			expect(
+				fs
+					.readdirSync(root)
+					.filter(
+						(name) =>
+							![...locations.values()].some((dir) => path.basename(dir) === name)
+					)
+			).toEqual([]);
+			expect(() => formatter.readResult(reference._ref)).toThrow(/expired/);
+		});
+	} finally {
+		kill.mockRestore();
+		clock.mockRestore();
+		temporary.mockRestore();
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test('keeps spool paths private while retaining restrictive filesystem modes', () => {
+	const write = jest.spyOn(require('fs') as typeof import('node:fs'), 'writeFileSync');
+	try {
+		const response = formatPayload('private fixture'.repeat(500));
+		const reference = JSON.parse(response);
+		expect(reference).not.toHaveProperty('_file');
+		const file = write.mock.calls
+			.map(([file]) => String(file))
+			.find((file) => file.endsWith(`-${reference._ref}.json`))!;
+		expect(file).toBeDefined();
+		expect(response).not.toContain(file);
+		expect(response).not.toContain(path.dirname(file));
+		if (process.platform !== 'win32') {
+			expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+			expect(fs.statSync(path.dirname(file)).mode & 0o777).toBe(0o700);
+		}
+	} finally {
+		write.mockRestore();
+	}
 });

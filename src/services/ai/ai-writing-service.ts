@@ -14,6 +14,7 @@ import {
 const logger = getLogger('ai-writing-service');
 
 export interface RAGOptions {
+	signal?: AbortSignal;
 	topK?: number;
 	context?: string;
 	temperature?: number;
@@ -153,12 +154,14 @@ export class AIWritingService {
 	 * rather than failing, so callers degrade gracefully.
 	 */
 	async generateWithContext(prompt: string, options: RAGOptions = {}): Promise<string> {
+		options.signal?.throwIfAborted();
 		if (
 			options.context !== undefined &&
 			(typeof options.context !== 'string' || options.context.length > 16000)
 		)
 			throw new Error('Writing context must be text up to 16000 UTF-16 characters');
 		await this.lifecycle;
+		options.signal?.throwIfAborted();
 		const topK = options.topK ?? 3;
 		let context = options.context;
 		if (context === undefined && topK > 0 && this.vectorStore) {
@@ -181,7 +184,9 @@ export class AIWritingService {
 				? `Context from the manuscript:\n${untrustedBlock(context)}\n\nRequest:\n${prompt}`
 				: prompt;
 
+		options.signal?.throwIfAborted();
 		return this.ai.chat(fullPrompt, {
+			signal: options.signal,
 			system,
 			temperature: options.temperature ?? 0.7,
 			maxTokens: options.maxTokens ?? 1000,

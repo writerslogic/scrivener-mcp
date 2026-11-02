@@ -5,18 +5,108 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 
+// Reserve space for bounded dispatch and MCP result metadata in paged responses.
+export const RESULT_METADATA_BYTE_RESERVE = 512;
+
 const PAYLOAD_THRESHOLD = 4000; // chars before spilling to disk
 let spoolDir: string | undefined;
 const MAX_SPOOL_BYTES = 64 * 1024 * 1024;
 const MAX_SPOOL_RESULTS = 256;
+const SPOOL_TTL_MS = 60 * 60 * 1000;
 export const RESULT_RETENTION = `Results expire after one hour, on server restart, or when the ${MAX_SPOOL_BYTES / 1024 / 1024} MiB/${MAX_SPOOL_RESULTS}-result cache fills.`;
 const RESULT_HINT = `Use read_result with resultId equal to _ref to retrieve bounded chunks. ${RESULT_RETENTION}`;
 const spoolEntries = new Map<string, { filepath: string; bytes: number; createdAt: number }>();
 
+export function cleanupAbandonedSpoolDirs(): void {
+	const now = Date.now();
+	for (const name of fs.readdirSync(os.tmpdir())) {
+		if (!name.startsWith('scrivener-mcp-spool-')) continue;
+		if (!/^scrivener-mcp-spool-[A-Za-z0-9]{6}$/.test(name)) continue;
+		const dir = path.join(os.tmpdir(), name);
+		try {
+			const stat = fs.lstatSync(dir);
+			if (
+				!stat.isDirectory() ||
+				stat.isSymbolicLink() ||
+				now - stat.mtimeMs <= SPOOL_TTL_MS ||
+				(process.getuid && stat.uid !== process.getuid())
+			)
+				continue;
+			const ownerPath = path.join(dir, '.owner.json');
+			const fd = fs.openSync(
+				ownerPath,
+				fs.constants.O_RDONLY |
+					(fs.constants.O_NOFOLLOW ?? 0) |
+					(fs.constants.O_NONBLOCK ?? 0)
+			);
+			let owner: { version?: unknown; pid?: unknown; host?: unknown; directory?: unknown };
+			try {
+				const ownerStat = fs.fstatSync(fd);
+				if (
+					!ownerStat.isFile() ||
+					ownerStat.size > 1024 ||
+					fs.lstatSync(ownerPath).isSymbolicLink()
+				)
+					continue;
+				const bytes = Buffer.alloc(1025);
+				const count = fs.readSync(fd, bytes, 0, bytes.length, 0);
+				if (count !== ownerStat.size) continue;
+				owner = JSON.parse(bytes.subarray(0, count).toString('utf8'));
+			} finally {
+				fs.closeSync(fd);
+			}
+			if (
+				!owner ||
+				owner.version !== 1 ||
+				owner.directory !== name ||
+				owner.host !== os.hostname() ||
+				typeof owner.pid !== 'number' ||
+				!Number.isSafeInteger(owner.pid) ||
+				owner.pid <= 0 ||
+				owner.pid > 2147483647
+			)
+				continue;
+			try {
+				process.kill(owner.pid, 0);
+				continue;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== 'ESRCH') continue;
+			}
+			const current = fs.lstatSync(dir);
+			if (
+				current.isDirectory() &&
+				!current.isSymbolicLink() &&
+				current.dev === stat.dev &&
+				current.ino === stat.ino
+			) {
+				fs.rmSync(dir, { recursive: true });
+			}
+		} catch (error) {
+			if (
+				error instanceof SyntaxError ||
+				['ENOENT', 'ELOOP', 'EACCES'].includes((error as NodeJS.ErrnoException).code ?? '')
+			)
+				continue;
+			throw error;
+		}
+	}
+}
+
 function getSpoolDir(): string {
 	if (!spoolDir) {
+		cleanupAbandonedSpoolDirs();
 		spoolDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrivener-mcp-spool-'));
 		fs.chmodSync(spoolDir, 0o700);
+		fs.writeFileSync(
+			path.join(spoolDir, '.owner.json'),
+			JSON.stringify({
+				version: 1,
+				pid: process.pid,
+				host: os.hostname(),
+				directory: path.basename(spoolDir),
+			}),
+			{ flag: 'wx', mode: 0o600 }
+		);
 	}
 	return spoolDir;
 }
@@ -28,7 +118,7 @@ export function compact(data: unknown): string {
 	return JSON.stringify(data) ?? 'null';
 }
 
-function spool(json: string, label: string): { id: string; filepath: string } {
+function spool(json: string, label: string): string {
 	if (typeof label !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(label))
 		throw new Error('Result label must contain 1–64 letters, digits, underscores or hyphens');
 	cleanupSpool();
@@ -45,7 +135,7 @@ function spool(json: string, label: string): { id: string; filepath: string } {
 	const filepath = path.join(getSpoolDir(), `${label}-${id}.json`);
 	fs.writeFileSync(filepath, json, { flag: 'wx', mode: 0o600 });
 	spoolEntries.set(id, { filepath, bytes, createdAt: Date.now() });
-	return { id, filepath };
+	return id;
 }
 
 /**
@@ -56,11 +146,10 @@ export function formatPayload(data: unknown, label?: string): string {
 	const json = compact(data);
 	if (json.length <= PAYLOAD_THRESHOLD) return json;
 
-	const { id, filepath } = spool(json, label ?? 'result');
+	const id = spool(json, label ?? 'result');
 
 	return compact({
 		_ref: id,
-		_file: filepath,
 		_size: json.length,
 		_preview: json.slice(0, 200),
 		_hint: RESULT_HINT,
@@ -185,10 +274,16 @@ export function formatError(error: unknown, operation?: string): string {
 }
 
 export function cleanupSpool(): void {
-	const cutoff = Date.now() - 3600000;
+	const cutoff = Date.now() - SPOOL_TTL_MS;
 	for (const [id, entry] of spoolEntries) {
 		if (entry.createdAt >= cutoff) continue;
 		fs.rmSync(entry.filepath, { force: true });
 		spoolEntries.delete(id);
 	}
+}
+
+export function disposeSpool(): void {
+	if (spoolDir) fs.rmSync(spoolDir, { recursive: true, force: true });
+	spoolEntries.clear();
+	spoolDir = undefined;
 }

@@ -198,6 +198,60 @@ export class ReviewService {
 		return this.store.list<ReviewApplication>(APPLICATIONS);
 	}
 
+	publicationReceipts(ids: string[], sources: Array<{ documentId: string; revision: string }>) {
+		if (
+			!Array.isArray(ids) ||
+			ids.length < 1 ||
+			ids.length > 1000 ||
+			new Set(ids).size !== ids.length
+		)
+			throw new Error(
+				'Publication requires 1 to 1000 distinct committed review applications'
+			);
+		const expected = new Map(sources.map((source) => [source.documentId, source.revision]));
+		const receipts = ids.map((id) => {
+			const application = this.store.get<ReviewApplication>(
+				APPLICATIONS,
+				identity(id, 'application ID')
+			);
+			const mutation = this.documents.getMutationCoordinator().get(id);
+			if (
+				!application ||
+				application.state !== 'committed' ||
+				!mutation ||
+				mutation.state !== 'committed' ||
+				mutation.targetKind !== 'document' ||
+				!application.afterRevision ||
+				application.afterRevision !== mutation.afterRevision ||
+				application.beforeRevision !== mutation.beforeRevision
+			)
+				throw new Error('Publication requires committed review and mutation receipts');
+			const proposal = this.get(application.proposalId);
+			if (
+				proposal.applyingOperation ||
+				proposal.documentId !== mutation.documentId ||
+				expected.get(proposal.documentId) !== application.afterRevision
+			)
+				throw new Error(
+					'Publication review is stale, uncommitted or outside the export scope'
+				);
+			return {
+				applicationId: id,
+				documentId: proposal.documentId,
+				beforeRevision: application.beforeRevision,
+				afterRevision: application.afterRevision,
+			};
+		});
+		if (
+			receipts.length !== expected.size ||
+			new Set(receipts.map((receipt) => receipt.documentId)).size !== expected.size
+		)
+			throw new Error(
+				'Every published document requires exactly one review receipt for its exported revision'
+			);
+		return receipts.sort((left, right) => left.documentId.localeCompare(right.documentId));
+	}
+
 	creationHistory(options: StorePageOptions = {}) {
 		return this.documents.getMutationCoordinator().listCreations(options);
 	}

@@ -214,7 +214,7 @@ export class ContentAnalyzer {
 
 	async analyzeContentDirect(content: string, documentId: string): Promise<ContentAnalysis> {
 		const contentHash = generateHash(content);
-		const cacheKey = `analysis:availability-v2:${documentId}:${contentHash}`;
+		const cacheKey = `analysis:language-v3:${documentId}:${contentHash}`;
 		const context = [documentId, 'content-analysis', contentHash.substring(0, 8)];
 
 		// Try predictive cache first
@@ -343,7 +343,7 @@ export class ContentAnalyzer {
 			logger.debug('Content analysis completed', {
 				documentId: truncate(documentId, 50),
 				executionTime: formatDuration(executionResult.ms),
-				cacheKey: `analysis:availability-v2:${documentId}:${truncate(contentHash, 8)}`,
+				cacheKey: `analysis:language-v3:${documentId}:${truncate(contentHash, 8)}`,
 			});
 
 			// Store result in predictive cache for future access

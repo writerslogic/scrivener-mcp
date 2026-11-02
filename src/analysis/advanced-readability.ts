@@ -1,4 +1,5 @@
 import { computeReadability } from 'narrative-lens';
+import { getWritingTextMetrics, hasEnglishReadabilityEvidence } from '../utils/text-metrics.js';
 /**
  * Advanced Readability Metrics Service
  * Provides comprehensive text readability analysis using multiple algorithms
@@ -62,7 +63,7 @@ export type UnavailableReadabilityMetrics = {
 		: AvailableReadabilityMetrics[Key];
 } & {
 	availability: 'unavailable';
-	reason: 'empty_text' | 'no_words' | 'analysis_failed';
+	reason: 'empty_text' | 'no_words' | 'analysis_failed' | 'unsupported_language';
 	readingLevel: null;
 	comprehensionDifficulty: 'unavailable';
 };
@@ -116,8 +117,23 @@ export class AdvancedReadabilityService {
 
 	calculateMetrics(text: string): ReadabilityMetrics {
 		if (typeof text !== 'string') throw new TypeError('text must be a string');
+		return this.calculateMetricsWithLanguage(text, hasEnglishReadabilityEvidence(text));
+	}
+
+	private calculateMetricsWithLanguage(
+		text: string,
+		englishEvidence: boolean
+	): ReadabilityMetrics {
 		const characterCount = text.replace(/\s/g, '').length;
 		try {
+			if (/\p{Letter}/u.test(text) && !englishEvidence) {
+				const counts = getWritingTextMetrics(text);
+				return this.getUnavailableMetrics('unsupported_language', {
+					lexiconCount: counts.wordCount,
+					sentenceCount: counts.sentenceCount,
+					characterCount,
+				});
+			}
 			const readability = computeReadability(text);
 			const counts = {
 				syllableCount: readability.syllableCount,
@@ -213,7 +229,10 @@ export class AdvancedReadabilityService {
 			throw new Error('segmentCount must be an integer from 1 to 1000');
 		const segments = this.splitTextIntoSegments(text, segmentCount);
 		const segmentMetrics = segments.map((segment, index) => {
-			const metrics = this.calculateMetrics(segment);
+			const metrics = this.calculateMetricsWithLanguage(
+				segment,
+				hasEnglishReadabilityEvidence(text)
+			);
 			return {
 				position: ((index + 1) / segments.length) * 100,
 				fleschScore: metrics.fleschReadingEase,
