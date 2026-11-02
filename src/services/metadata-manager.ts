@@ -7,6 +7,10 @@ import { getLogger } from '../core/logger.js';
 import type { BinderItem, MetaDataItem, ProjectStructure } from '../types/internal.js';
 import { findMetadataField, parseMetadata } from '../utils/scrivener-utils.js';
 import { AsyncUtils, MemoryCache, ValidationUtils } from '../utils/shared-patterns.js';
+import {
+	assignDocumentClassification,
+	readDocumentClassification,
+} from './document-classification.js';
 
 const logger = getLogger('metadata-manager');
 
@@ -43,7 +47,9 @@ export class MetadataManager {
 	>;
 	private readonly maxStringLength = 10000; // Safety limit for metadata fields
 
-	constructor() {
+	constructor(
+		private readonly getProject: () => ProjectStructure['ScrivenerProject'] = () => undefined
+	) {
 		this.validationCache = new MemoryCache<{ valid: boolean; missing: string[] }>(
 			5 * 60 * 1000
 		); // 5 minutes
@@ -60,7 +66,11 @@ export class MetadataManager {
 		this.projectTitle = title;
 	}
 
-	updateDocumentMetadata(item: BinderItem, metadata: DocumentMetadata): void {
+	updateDocumentMetadata(
+		item: BinderItem,
+		metadata: DocumentMetadata,
+		project?: NonNullable<ProjectStructure['ScrivenerProject']>
+	): void {
 		if (!item) {
 			throw new AppError('No item provided', ErrorCode.INVALID_INPUT);
 		}
@@ -102,6 +112,7 @@ export class MetadataManager {
 		if (metadata.status !== undefined) {
 			metaData.Status = metadata.status;
 		}
+		if (project) assignDocumentClassification(project, metaData, metadata);
 
 		if (metadata.keywords) {
 			metaData.Keywords = metadata.keywords.join(';');
@@ -136,13 +147,7 @@ export class MetadataManager {
 				metadata.notes = metaData.Notes;
 			}
 
-			if (metaData.Label) {
-				metadata.label = metaData.Label;
-			}
-
-			if (metaData.Status) {
-				metadata.status = metaData.Status;
-			}
+			Object.assign(metadata, readDocumentClassification(metaData, this.getProject()));
 
 			if (metaData.Keywords) {
 				metadata.keywords =
@@ -445,13 +450,14 @@ export class MetadataManager {
 							: [];
 					keywords.forEach((k) => stats.keywords.add(k.trim()));
 				}
-				if (item.MetaData.Label) {
+				const classification = readDocumentClassification(item.MetaData, this.getProject());
+				if (classification.label) {
 					stats.withLabel++;
-					stats.labels.add(item.MetaData.Label);
+					stats.labels.add(classification.label);
 				}
-				if (item.MetaData.Status) {
+				if (classification.status) {
 					stats.withStatus++;
-					stats.statuses.add(item.MetaData.Status);
+					stats.statuses.add(classification.status);
 				}
 				if (item.MetaData.CustomMetaData?.MetaDataItem) {
 					stats.withCustomMetadata++;

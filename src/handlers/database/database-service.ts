@@ -36,6 +36,7 @@ import {
 } from './user-data.js';
 import type {
 	ContentAnalysisEntry,
+	ContentAnalysisHistoryOptions,
 	WritingSessionInput,
 	WritingStatistics,
 } from './session-analytics.js';
@@ -341,9 +342,10 @@ export class DatabaseService {
 
 	async getContentAnalysisHistory(
 		documentId: string,
-		analysisType?: string
+		analysisType?: string,
+		options: ContentAnalysisHistoryOptions = {}
 	): Promise<ContentAnalysisEntry[]> {
-		return getContentAnalysisHistory(this.sqliteManager, documentId, analysisType);
+		return getContentAnalysisHistory(this.sqliteManager, documentId, analysisType, options);
 	}
 
 	/**

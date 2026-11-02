@@ -4,6 +4,7 @@ import { createError, ErrorCode } from '../core/errors.js';
 import { getLogger, type LogContext } from '../core/logger.js';
 import { validateInput } from './common.js';
 import { exposeXmlAttributes } from './scrivener-xml.js';
+import { assignDocumentClassification } from '../services/document-classification.js';
 import type { BinderItem, BinderContainer, ProjectStructure } from '../types/internal.js';
 import {
 	addBinderItem,
@@ -108,7 +109,11 @@ interface CreationPlan {
 	result: DocumentCreationResult;
 }
 
-function planCreation(options: DocumentCreationOptions, binder: BinderContainer): CreationPlan {
+function planCreation(
+	options: DocumentCreationOptions,
+	binder: BinderContainer,
+	project: NonNullable<ProjectStructure['ScrivenerProject']>
+): CreationPlan {
 	validateInput(
 		{ ...options },
 		{
@@ -133,12 +138,13 @@ function planCreation(options: DocumentCreationOptions, binder: BinderContainer)
 		Children: type === 'Folder' ? { BinderItem: [] } : undefined,
 	};
 	if (options.metadata) {
+		const { label, status, ...metadata } = options.metadata;
 		item.MetaData = {
-			...options.metadata,
+			...metadata,
 			IncludeInCompile: 'Yes',
 			NotesTextSelection: [0, 0],
-			StatusID: options.metadata.status || 'N/A',
 		} as BinderItem['MetaData'];
+		assignDocumentClassification(project, item.MetaData!, { label, status });
 	}
 	return {
 		options,
@@ -203,7 +209,9 @@ function commitCreations(
 			exposeXmlAttributes(candidate);
 			const stagedContext = { ...context, projectStructure: candidate };
 			const binder = getBinder(stagedContext);
-			const plans = documents.map((options) => planCreation(options, binder));
+			const plans = documents.map((options) =>
+				planCreation(options, binder, candidate.ScrivenerProject!)
+			);
 			const contents = plans
 				.filter((plan) => plan.item.Type === 'Text')
 				.map((plan) => ({
@@ -217,14 +225,14 @@ function commitCreations(
 			const results = plans.map((plan) => applyCreation(plan, stagedContext));
 			if (context.commitCreation) {
 				await context.commitCreation(candidate, contents);
-				live.ScrivenerProject!.Binder = candidate.ScrivenerProject!.Binder;
+				live.ScrivenerProject = candidate.ScrivenerProject;
 			} else {
-				const originalBinder = live.ScrivenerProject!.Binder;
-				live.ScrivenerProject!.Binder = candidate.ScrivenerProject!.Binder;
+				const originalProject = live.ScrivenerProject;
+				live.ScrivenerProject = candidate.ScrivenerProject;
 				try {
 					await context.saveProject?.();
 				} catch (error) {
-					live.ScrivenerProject!.Binder = originalBinder;
+					live.ScrivenerProject = originalProject;
 					throw error;
 				}
 			}

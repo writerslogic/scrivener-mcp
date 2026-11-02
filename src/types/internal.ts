@@ -8,6 +8,8 @@ export interface ProjectStructure {
 		ProjectSettings?: ProjectSettings;
 		ProjectTargets?: ProjectTargets;
 		CustomMetaDataSettings?: { MetaDataField?: CustomMetaDataField | CustomMetaDataField[] };
+		LabelSettings?: { Labels?: { Label?: NativeNamedItem | NativeNamedItem[] } };
+		StatusSettings?: { StatusItems?: { Status?: NativeNamedItem | NativeNamedItem[] } };
 	};
 	_loadTime?: number;
 }
@@ -47,6 +49,8 @@ export interface BinderAttributes {
 
 export interface BinderMetaData {
 	IncludeInCompile?: string;
+	LabelID?: string;
+	StatusID?: string;
 	Label?: string;
 	Status?: string;
 	Synopsis?: string;
@@ -79,6 +83,12 @@ export interface CustomMetaDataField {
 	$?: Record<string, string>;
 	ID?: string;
 	Title?: string;
+}
+
+export interface NativeNamedItem {
+	$?: Record<string, string>;
+	ID?: string;
+	_?: string;
 }
 
 export interface RTFParserDocument {

@@ -15,6 +15,7 @@ import type { ScrivenerDocument } from '../types/index.js';
 import { findBinderItemById } from './document-manager-helpers.js';
 import { exposeXmlAttributes } from '../utils/scrivener-xml.js';
 import type { MetadataFileUpdate } from './editorial/mutation-coordinator.js';
+import { readDocumentClassification } from './document-classification.js';
 
 /** Document metadata edits: binder metadata, synopsis/notes files and the index snapshot. */
 export class ProjectMetadataEditor {
@@ -51,7 +52,7 @@ export class ProjectMetadataEditor {
 			throw createError(ErrorCode.NOT_FOUND, `Document ${documentId} not found`);
 		}
 
-		this.metadataManager.updateDocumentMetadata(item, metadata);
+		this.metadataManager.updateDocumentMetadata(item, metadata, nextStructure.ScrivenerProject);
 		if (metadata.customMetadata) {
 			const project = nextStructure.ScrivenerProject;
 			if (!project) throw createError(ErrorCode.INVALID_STATE, 'Project root is missing');
@@ -83,7 +84,15 @@ export class ProjectMetadataEditor {
 				raw: new RTFHandler().convertToRTF(metadata.notes),
 			});
 		await this.saveProject(nextStructure, files);
-		this.patchDocumentIndex(documentId, metadata);
+		const classification = readDocumentClassification(
+			item.MetaData ?? {},
+			nextStructure.ScrivenerProject
+		);
+		this.patchDocumentIndex(documentId, {
+			...metadata,
+			...(metadata.label !== undefined ? { label: classification.label ?? '' } : {}),
+			...(metadata.status !== undefined ? { status: classification.status ?? '' } : {}),
+		});
 	}
 
 	private validateSynopsisAndNotesPaths(
@@ -116,8 +125,8 @@ export class ProjectMetadataEditor {
 		if (typeof metadata.title === 'string') patch.title = metadata.title;
 		if (typeof metadata.synopsis === 'string') patch.synopsis = metadata.synopsis || undefined;
 		if (typeof metadata.notes === 'string') patch.notes = metadata.notes || undefined;
-		if (typeof metadata.label === 'string') patch.label = metadata.label;
-		if (typeof metadata.status === 'string') patch.status = metadata.status;
+		if (typeof metadata.label === 'string') patch.label = metadata.label || undefined;
+		if (typeof metadata.status === 'string') patch.status = metadata.status || undefined;
 		if (Array.isArray(metadata.keywords)) patch.keywords = metadata.keywords as string[];
 		if (typeof metadata.includeInCompile === 'boolean') {
 			patch.includeInCompile = metadata.includeInCompile;

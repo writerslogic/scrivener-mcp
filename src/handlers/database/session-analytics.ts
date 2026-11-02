@@ -1,5 +1,15 @@
-import { safeParse, safeStringify } from '../../utils/common.js';
+import { safeStringify } from '../../utils/common.js';
 import type { SQLiteManager } from './sqlite-manager.js';
+import {
+	decodeContentAnalysis,
+	encodeContentAnalysis,
+	MAX_CONTENT_ANALYSIS_BYTES,
+} from './content-analysis-storage.js';
+
+export interface ContentAnalysisHistoryOptions {
+	limit?: number;
+	offset?: number;
+}
 
 export interface ContentAnalysisEntry {
 	id: number;
@@ -38,43 +48,62 @@ export function storeContentAnalysis(
 		VALUES (?, ?, ?)
 	`);
 
-	stmt.run([documentId, analysisType, safeStringify(analysisData)]);
+	stmt.run([documentId, analysisType, encodeContentAnalysis(analysisData)]);
 }
 
 export function getContentAnalysisHistory(
 	sqlite: SQLiteManager | null,
 	documentId: string,
-	analysisType?: string
+	analysisType?: string,
+	options: ContentAnalysisHistoryOptions = {}
 ): ContentAnalysisEntry[] {
+	if (!options || typeof options !== 'object' || Array.isArray(options))
+		throw new Error('Analysis history options must be an object');
+	const { limit, offset = 0 } = options;
+	if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000))
+		throw new Error('Analysis history limit must be an integer from 1 to 1000');
+	if (!Number.isSafeInteger(offset) || offset < 0)
+		throw new Error('Analysis history offset must be a nonnegative safe integer');
 	if (!sqlite) return [];
 
 	let sql = `
-		SELECT id, analysis_type, analysis_data, analyzed_at
+		SELECT id, analysis_type, substr(CAST(analysis_data AS BLOB), 1, ${MAX_CONTENT_ANALYSIS_BYTES + 1}) AS analysis_data, analyzed_at
 		FROM content_analysis
 		WHERE document_id = ?
 	`;
-	const params = [documentId];
+	const params: Array<string | number> = [documentId];
 
 	if (analysisType) {
 		sql += ` AND analysis_type = ?`;
 		params.push(analysisType);
 	}
 
-	sql += ` ORDER BY analyzed_at DESC`;
+	sql += ` ORDER BY analyzed_at DESC, id DESC LIMIT ? OFFSET ?`;
+	params.push(limit ?? 1001, offset);
 
-	const results = sqlite.query(sql, params) as Array<{
+	const rows = sqlite.getDatabase().prepare(sql).iterate(params) as Iterable<{
 		id: number;
 		analysis_type: string;
-		analysis_data: string;
+		analysis_data: Buffer;
 		analyzed_at: string;
 	}>;
-
-	return results.map((row) => ({
-		id: row.id,
-		analysisType: row.analysis_type,
-		analysisData: safeParse(row.analysis_data, {}),
-		analyzedAt: row.analyzed_at,
-	}));
+	const results: ContentAnalysisEntry[] = [];
+	let remaining = MAX_CONTENT_ANALYSIS_BYTES;
+	for (const row of rows) {
+		if (results.length === 1000)
+			throw new Error(
+				'Analysis history exceeds 1000 records; request a page with limit and offset'
+			);
+		const decoded = decodeContentAnalysis(row.analysis_data, remaining);
+		remaining -= decoded.bytes;
+		results.push({
+			id: row.id,
+			analysisType: row.analysis_type,
+			analysisData: decoded.value,
+			analyzedAt: row.analyzed_at,
+		});
+	}
+	return results;
 }
 
 export function recordWritingSession(

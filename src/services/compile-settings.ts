@@ -197,9 +197,9 @@ export function extractProjectTaxonomy(scrivenerProject: unknown): {
 	const labels = asArray(asRecord(asRecord(project.LabelSettings).Labels).Label).map(
 		(raw): CompileLabel => {
 			const label = asRecord(raw);
-			const color = asString(label.Color);
+			const color = asString(label.Color ?? asRecord(label.$).Color);
 			return {
-				id: asString(label.ID) ?? '',
+				id: asString(label.ID ?? asRecord(label.$).ID) ?? '',
 				title: textOf(label),
 				color,
 				hex: scrivColorToHex(color),
@@ -210,7 +210,10 @@ export function extractProjectTaxonomy(scrivenerProject: unknown): {
 	const statuses = asArray(asRecord(asRecord(project.StatusSettings).StatusItems).Status).map(
 		(raw): CompileStatus => {
 			const status = asRecord(raw);
-			return { id: asString(status.ID) ?? '', title: textOf(status) };
+			return {
+				id: asString(status.ID ?? asRecord(status.$).ID) ?? '',
+				title: textOf(status),
+			};
 		}
 	);
 
