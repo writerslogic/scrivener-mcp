@@ -21,6 +21,47 @@ describe('HMS fallback corpus vectors', () => {
 		return Object.fromEntries(results.map((result) => [result.id, result.similarity]));
 	}
 
+	it('enforces the configured similarity floor for single and batched legacy retrieval', async () => {
+		const engine = new HolographicMemorySystem({ engine: 'fallback', similarityThreshold: 1 });
+		engines.push(engine);
+		await engine.memorizeBatch(documents);
+		for (const hits of [
+			await engine.queryText('captain', 4),
+			...(await engine.queryBatch(['captain', 'violet'], 4)),
+		]) {
+			expect(hits.every((hit) => hit.similarity >= 1)).toBe(true);
+			expect(hits.map((hit) => hit.rank)).toEqual(hits.map((_, index) => index + 1));
+		}
+		expect(await engine.queryText('captain', 4)).toEqual([]);
+	});
+
+	it.each([-1.01, -1, 0, 1, 1.01, NaN, Infinity])(
+		'validates similarity threshold %s',
+		(similarityThreshold) => {
+			if (
+				Number.isFinite(similarityThreshold) &&
+				similarityThreshold >= -1 &&
+				similarityThreshold <= 1
+			)
+				engines.push(
+					new HolographicMemorySystem({ engine: 'fallback', similarityThreshold })
+				);
+			else
+				expect(
+					() => new HolographicMemorySystem({ engine: 'fallback', similarityThreshold })
+				).toThrow('similarityThreshold');
+		}
+	);
+
+	it.each([{ maxMemories: 1 }, { useGPU: true }, { autoEvolve: true }, { evolution: {} }])(
+		'refuses a configuration policy it cannot enforce: %j',
+		(policy) => {
+			expect(() => new HolographicMemorySystem({ engine: 'fallback', ...policy })).toThrow(
+				'Unsupported Warm option'
+			);
+		}
+	);
+
 	it('retrieves a large vocabulary without exceeding function argument limits', async () => {
 		const engine = createEngine();
 		const text = Array.from({ length: 150_000 }, (_, index) => `token${index}`).join(' ');

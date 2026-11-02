@@ -5,10 +5,72 @@ import {
 	compact,
 	formatList,
 	formatPayload,
+	formatError,
 	readResult,
 } from '../../../src/core/response-formatter.js';
 
 afterAll(() => disposeSpool());
+
+test.each([
+	'/srv/private manuscripts/Secret.scriv/Files/Data/content.rtf',
+	"/srv/author's novel/content.rtf",
+	'C:\\Users\\Writer Name\\Private.scriv\\content.rtf',
+	'\\\\private-server\\Manuscripts\\Secret.scriv',
+	'file:///srv/private%20manuscripts/content.rtf',
+	'~/Private.scriv/content.rtf',
+	'/srv/private\ncontent.rtf',
+])('keeps filesystem paths out of client errors: %s', (file) => {
+	for (const value of [
+		`ENOENT: no such file or directory, open '${file}'`,
+		new Error(`Handler failed: Cannot read ${file}`),
+		new Error(`Cannot read path:${file}`),
+		new Error(`Cannot read "${file}"\n    at load (/app/private/loader.js:12:3)`),
+	]) {
+		const message = formatError(value, 'read_document');
+		expect(message).toContain('read_document:');
+		expect(message).toContain('[path]');
+		for (const privateText of [
+			file,
+			'Private.scriv',
+			'content.rtf',
+			'loader.js',
+			'Secret.scriv',
+		])
+			expect(message).not.toContain(privateText);
+	}
+});
+
+test('sanitizes real filesystem errors and credentials without losing the failure reason', () => {
+	let error: unknown;
+	try {
+		fs.readFileSync(path.join(__dirname, 'missing-private-manuscript.rtf'));
+	} catch (caught) {
+		error = caught;
+	}
+	expect(error).toMatchObject({ code: 'ENOENT' });
+	expect(formatError(error)).toContain('ENOENT');
+	expect(formatError(error)).not.toContain('missing-private-manuscript');
+	const credential = Buffer.from('fixture:placeholder-password').toString('base64');
+	const message = formatError(
+		`Cannot connect redis://writer:fixture-password@localhost; Basic ${credential}`
+	);
+	expect(message).not.toContain('fixture-password');
+	expect(message).not.toContain(credential);
+	expect(message).toContain('localhost');
+	expect(formatError('Document revision changed; read it again')).toBe(
+		'Document revision changed; read it again'
+	);
+});
+
+test.each([199, 200, 201])('bounds the complete client error at %i characters', (length) => {
+	const message = formatError('x'.repeat(length - 6), 'read');
+	expect(message).toHaveLength(Math.min(length, 200));
+	if (length > 200) expect(message.endsWith('...')).toBe(true);
+});
+
+test('applies path protection to operation labels as well as error messages', () => {
+	expect(formatError('Failed', '/private/server')).toBe('[path]: Failed');
+});
 
 test.each([4, 4095, 65535, 65536])(
 	'reconstructs a large Unicode result using bounded %i-byte pages',

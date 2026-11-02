@@ -25,6 +25,52 @@ if (option === '--worker') {
 		assert.equal(hms.getStats().engine, engine);
 	});
 
+	await test(`${argument}: legacy retrieval enforces its configured similarity floor`, async () => {
+		const limited = new HolographicMemorySystem({
+			engine: argument,
+			dimensions: 128,
+			storagePath: join(process.cwd(), 'threshold-store'),
+			similarityThreshold: 1,
+		});
+		const unfiltered = new HolographicMemorySystem({
+			engine: argument,
+			dimensions: 128,
+			storagePath: join(process.cwd(), 'threshold-store'),
+		});
+		try {
+			const items = [
+				{ id: 'orchid', text: 'An orchid blooms beside the window.' },
+				{ id: 'locomotive', text: 'A locomotive crosses the mountains.' },
+			];
+			await limited.memorizeBatch(items);
+			await unfiltered.memorizeBatch(items);
+			const results = [
+				await limited.queryText('orchid', 2),
+				...(await limited.queryBatch(['orchid', 'locomotive'], 2)),
+			];
+			for (const hits of results) {
+				assert.ok(hits.every((hit) => hit.similarity >= 1));
+				assert.deepEqual(
+					hits.map((hit) => hit.rank),
+					hits.map((_, index) => index + 1)
+				);
+			}
+			const baseline = await unfiltered.queryText('orchid', 2);
+			assert.ok(baseline.some((hit) => hit.similarity < 1));
+			assert.deepEqual(
+				(await limited.queryText('orchid', 2)).map((hit) => hit.id),
+				baseline.filter((hit) => hit.similarity >= 1).map((hit) => hit.id)
+			);
+		} finally {
+			await limited.destroy();
+			await unfiltered.destroy();
+		}
+		assert.throws(
+			() => new HolographicMemorySystem({ engine: argument, maxMemories: 1 }),
+			/Unsupported Warm option/
+		);
+	});
+
 	await test(`${argument}: text, document, buffer and batch retrieval`, async () => {
 		await hms.memorizeText(text, 'text', 'trace-text');
 		await hms.memorizeDocument({ id: 'scene', content: text });

@@ -14,6 +14,7 @@ import { planSnapshot, writePlannedSnapshot, type SnapshotEntry } from '../snaps
 import { PersistentStore, type StorePage, type StorePageOptions } from './persistent-store.js';
 
 const MAX_RAW_BYTES = 64 * 1024 * 1024;
+const MAX_CHECKSUM_BYTES = 4 * 1024 * 1024;
 const MAX_EXPORT_BYTES = 32 * 1024 * 1024;
 const MAX_EXPORT_RESULT_BYTES = 8 * 1024 * 1024;
 const SAVED_READ_FLAGS =
@@ -397,9 +398,10 @@ export class MutationCoordinator {
 	}
 
 	private async readSaved(
-		target: string
+		target: string,
+		maximum = MAX_RAW_BYTES
 	): Promise<{ raw: string; exists: boolean; revision: string }> {
-		const saved = await this.readSavedBytes(target);
+		const saved = await this.readSavedBytes(target, maximum);
 		const raw = saved.bytes.toString('utf8');
 		if (!Buffer.from(raw).equals(saved.bytes))
 			throw new Error('Saved content is not valid UTF-8');
@@ -659,7 +661,9 @@ export class MutationCoordinator {
 						await this.ensureSnapshot(record);
 					if (current.revision === record.afterRevision && current.exists) {
 						if ((record.targetKind ?? 'document') === 'document')
-							await this.syncChecksum(record.documentId, record.afterRaw);
+							await this.syncChecksums([
+								{ documentId: record.documentId, raw: record.afterRaw },
+							]);
 						record.state = 'committed';
 						record.completedAt = new Date().toISOString();
 					} else if (
@@ -763,8 +767,7 @@ export class MutationCoordinator {
 					complete = false;
 			}
 			if (complete) {
-				for (const document of record.creationDocuments)
-					await this.syncChecksum(document.documentId, document.raw);
+				await this.syncChecksums(record.creationDocuments);
 				record.state = 'committed';
 				record.creationOutcome = 'published';
 			} else {
@@ -1298,8 +1301,11 @@ export class MutationCoordinator {
 		const id = options.operationId ?? randomUUID();
 		if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error('Invalid operation ID');
 		const target = this.targetPath(targetInfo);
-		if (targetInfo.targetKind === 'document')
-			this.assertProjectPath(path.join(this.projectPath, 'Files', 'Data', 'docs.checksum'));
+		const checksumDocuments =
+			targetInfo.targetKind === 'document'
+				? [{ documentId, raw: afterRaw }]
+				: creationDocuments;
+		if (checksumDocuments?.length) await this.prepareChecksums(checksumDocuments);
 		const store = this.state();
 		await this.recover();
 		const before = await this.readSaved(target);
@@ -1328,7 +1334,6 @@ export class MutationCoordinator {
 				throw new Error('Load an existing binder before creating documents');
 			if (before.revision !== options.expectedRevision)
 				throw new Error('Stale document revision; refresh and review the saved changes');
-			this.assertProjectPath(path.join(this.projectPath, 'Files', 'Data', 'docs.checksum'));
 			for (const document of creationDocuments) {
 				if ((await this.readRaw(document.documentId)).exists)
 					throw new Error(
@@ -1453,10 +1458,8 @@ export class MutationCoordinator {
 				throw new Error('Saved manuscript changed before commit; the edit was not applied');
 			this.assertProjectPath(target);
 			if (targetInfo.targetKind !== 'snapshot') await safeWriteFile(target, afterRaw);
-			if (targetInfo.targetKind === 'document') await this.syncChecksum(documentId, afterRaw);
+			if (checksumDocuments?.length) await this.syncChecksums(checksumDocuments);
 			if (record.creationDocuments) {
-				for (const document of record.creationDocuments)
-					await this.syncChecksum(document.documentId, document.raw);
 				record.creationOutcome = 'published';
 			}
 			record.state = 'committed';
@@ -1503,32 +1506,48 @@ export class MutationCoordinator {
 		}
 	}
 
-	private async syncChecksum(documentId: string, raw: string): Promise<void> {
+	private async prepareChecksums(
+		documents: readonly CreationDocument[]
+	): Promise<{ path: string; raw: string } | undefined> {
 		const checksumPath = path.join(this.projectPath, 'Files', 'Data', 'docs.checksum');
 		this.assertProjectPath(checksumPath);
-		let existing: string;
-		try {
-			existing = await fs.readFile(checksumPath, 'utf8');
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
-			throw error;
-		}
-		const key = `${documentId}/content.rtf=`;
-		const canonicalKey = key.toLowerCase();
+		const saved = await this.readSaved(checksumPath, MAX_CHECKSUM_BYTES);
+		if (!saved.exists) return undefined;
 		// Scrivener's native checksum sidecar uses SHA-1; revision and conflict checks use SHA-256.
-		const hash = createHash('sha1').update(raw).digest('hex');
+		const updates = new Map(
+			documents.map(({ documentId, raw }) => {
+				const key = `${documentId}/content.rtf=`;
+				return [
+					key.toLowerCase(),
+					{ key, hash: createHash('sha1').update(raw).digest('hex') },
+				];
+			})
+		);
 		const lines: string[] = [];
-		let updated = false;
-		for (const line of existing.split('\n').filter(Boolean)) {
-			if (line.slice(0, key.length).toLowerCase() !== canonicalKey) {
+		const updated = new Set<string>();
+		for (const line of saved.raw.split('\n').filter(Boolean)) {
+			const key = line.slice(0, line.indexOf('=') + 1);
+			const canonicalKey = key.toLowerCase();
+			const update = updates.get(canonicalKey);
+			if (!update) {
 				lines.push(line);
-			} else if (!updated) {
-				lines.push(`${line.slice(0, key.length)}${hash}${line.endsWith('\r') ? '\r' : ''}`);
-				updated = true;
+			} else if (!updated.has(canonicalKey)) {
+				lines.push(`${key}${update.hash}${line.endsWith('\r') ? '\r' : ''}`);
+				updated.add(canonicalKey);
 			}
 		}
-		if (!updated) lines.push(`${key}${hash}${existing.includes('\r\n') ? '\r' : ''}`);
-		await safeWriteFile(checksumPath, `${lines.join('\n')}\n`);
+		for (const [canonicalKey, update] of updates)
+			if (!updated.has(canonicalKey))
+				lines.push(`${update.key}${update.hash}${saved.raw.includes('\r\n') ? '\r' : ''}`);
+		const raw = `${lines.join('\n')}\n`;
+		if (Buffer.byteLength(raw) > MAX_CHECKSUM_BYTES)
+			throw new Error('Updated native checksum sidecar exceeds its 4 MiB limit');
+		return { path: checksumPath, raw };
+	}
+
+	private async syncChecksums(documents: readonly CreationDocument[]): Promise<void> {
+		const prepared = await this.prepareChecksums(documents);
+		if (prepared) await safeWriteFile(prepared.path, prepared.raw);
 	}
 
 	close(): Promise<void> {

@@ -32,6 +32,10 @@ export interface ManuscriptSource {
 	readonly projectPath: string;
 	list(options?: SourceScopeOptions): Promise<SourceDocument[]>;
 	read(documentId: string): Promise<SourceDocument>;
+	readMany?(
+		documentIds: readonly string[],
+		options?: SourceScopeOptions
+	): Promise<SourceDocument[]>;
 }
 
 export type FactKind = 'character' | 'alias' | 'location' | 'world-rule' | 'chronology';

@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import { types } from 'node:util';
+import { redactDiagnostics } from '../utils/redaction.js';
 
 // Reserve space for bounded dispatch and MCP result metadata in paged responses.
 export const RESULT_METADATA_BYTE_RESERVE = 512;
@@ -234,7 +236,7 @@ export function readResult(
 export function formatError(error: unknown, operation?: string): string {
 	let message: string;
 
-	if (error instanceof Error) {
+	if (error instanceof Error || types.isNativeError(error)) {
 		message = error.message;
 	} else if (typeof error === 'string') {
 		message = error;
@@ -242,18 +244,24 @@ export function formatError(error: unknown, operation?: string): string {
 		message = 'Operation failed';
 	}
 
-	// Strip file paths
-	message = message.replace(/\/[^\s:]+\.(ts|js|mjs):\d+/g, '');
 	// Strip stack traces
-	message = message.replace(/\s+at\s+.+/g, '');
+	message = message.replace(/(?:\r?\n)\s*at\s+[^\r\n]*/g, '');
+	const sanitize = (text: string): string => {
+		// Unquoted paths may contain spaces or quotes; redact through the end of the line.
+		const paths = text
+			.split(/[\r\n]/, 1)[0]
+			.replace(
+				/(^|[\s"'`=([{<]|:(?!\/\/))(?:file:\/\/|[a-z]:[\\/]|\\\\|\/|~[\\/])[^\r\n]*/gi,
+				'$1[path]'
+			);
+		return String(redactDiagnostics(paths)).replace(/[\r\n\t]+/g, ' ');
+	};
+	message = sanitize(message);
 	// Strip SQL/Cypher query dumps
 	message = message.replace(
 		/(?:SELECT|INSERT|UPDATE|DELETE|MATCH|MERGE|CREATE)\s.{50,}/gi,
 		'[query]'
 	);
-	// Truncate
-	if (message.length > 200) message = `${message.slice(0, 197)}...`;
-
 	// Translate internal service names to writer-friendly language
 	const translations: [RegExp, string][] = [
 		[/\bHolographicMemorySystem\b|\bHMS\b/g, 'semantic search'],
@@ -269,8 +277,9 @@ export function formatError(error: unknown, operation?: string): string {
 		message = message.replace(pattern, replacement);
 	}
 
-	const prefix = operation ? `${operation}: ` : '';
-	return `${prefix}${message.trim()}`;
+	const prefix = operation ? `${sanitize(operation)}: ` : '';
+	const formatted = `${prefix}${message.trim()}`;
+	return formatted.length > 200 ? `${formatted.slice(0, 197)}...` : formatted;
 }
 
 export function cleanupSpool(): void {

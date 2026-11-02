@@ -227,6 +227,64 @@ it.each([1, 2, 3])(
 	}
 );
 
+it('reads a selected batch from one fresh binder snapshot and rereads current saved bytes', async () => {
+	let binder = [document(FIRST, 'First'), document(SECOND, 'Second')];
+	let raw = '{\\rtf1\\ansi Original}';
+	const list = jest.fn(async () => binder);
+	const read = jest.fn(async () => raw);
+	const source = new ProjectSource(
+		root,
+		openStore(join(root, 'batch.sqlite')),
+		list,
+		read,
+		async () => [...binder, document(RESEARCH, 'Research')]
+	);
+	const initial = await source.readMany([SECOND, FIRST]);
+	expect(initial.map((doc) => doc.order)).toEqual([1, 0]);
+	expect(list).toHaveBeenCalledTimes(1);
+	expect(read).toHaveBeenCalledTimes(2);
+	raw = '{\\rtf1\\ansi Revised}';
+	binder = [document(FIRST, 'Renamed')];
+	const [revised] = await source.readMany([FIRST]);
+	expect(revised.text).toBe('Revised');
+	expect(revised.title).toBe('Renamed');
+	expect(revised.revision).not.toBe(initial[1].revision);
+	await expect(source.readMany([FIRST, SECOND])).rejects.toThrow('selected project scope');
+	await expect(source.readMany([RESEARCH])).rejects.toThrow('selected project scope');
+	expect(read).toHaveBeenCalledTimes(3);
+	expect((await source.readMany([RESEARCH], { scope: 'all' }))[0].documentId).toBe(RESEARCH);
+});
+
+it.each([1, 2, 3])(
+	'bounds a batch at two documents and two decoded characters: %i',
+	async (count) => {
+		const docs = [FIRST, SECOND, RESEARCH].map((id) => document(id, 'Scene'));
+		const read = jest.fn(async () => '{\\rtf1\\ansi x}');
+		const source = new ProjectSource(
+			root,
+			openStore(join(root, 'batch-budget.sqlite')),
+			async () => docs,
+			read
+		);
+		const ids = docs.slice(0, count).map((doc) => doc.id);
+		if (count > 2) {
+			await expect(source.readMany(ids, { maxDocuments: 2 })).rejects.toThrow(
+				'document budget'
+			);
+			expect(read).not.toHaveBeenCalled();
+			await expect(source.readMany(ids, { maxCharacters: 2 })).rejects.toThrow(
+				'character analysis budget'
+			);
+		} else
+			expect(await source.readMany(ids, { maxDocuments: 2, maxCharacters: 2 })).toHaveLength(
+				count
+			);
+		await expect(source.readMany([FIRST, FIRST])).rejects.toThrow(
+			'Invalid source document selection'
+		);
+	}
+);
+
 it.each([2, 3, 4])(
 	'checks a requested three-character source budget against %i decoded characters',
 	async (count) => {
