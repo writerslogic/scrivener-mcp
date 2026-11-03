@@ -98,12 +98,6 @@ configures them for you, then confirms the server starts. No Node.js on your Mac
 <details>
 <summary><strong>Other ways to install</strong></summary>
 
-**Smithery**
-
-```bash
-npx -y @smithery/cli install scrivener-mcp --client claude
-```
-
 **npx, no install**
 
 ```bash
@@ -537,7 +531,7 @@ necessarily impossible through the connected AI client.
 | Token optimization             |       progressive skill loading, compact output, paged reads        |             no documented equivalent              |                       no documented equivalent                        |                       no documented equivalent                        |                scoped binder/chapter reads                 |                scoped overview/read tools                 |
 | Export / compilation           |                Markdown, HTML, JSON, DOCX, EPUB, PDF                |           compile + whole-draft export            |                                  PDF                                  |           saves AI drafts; no manuscript export documented            |                             no                             |                            no                             |
 | Windows support                |               native CI verified; synthetic projects                |               yes (prebuilt binary)               |                                  yes                                  |                            not documented                             |                       not documented                       |                            yes                            |
-| Installation                   |     npm, Homebrew, Docker, Smithery, or the Draftbridge Mac app     |       crates.io, prebuilt binary, or source       |                       npm package (deprecated)                        |                            MCPB or source                             |                       source / `uv`                        |                 source / `pip install -e`                 |
+| Installation                   |          npm, Homebrew, Docker, or the Draftbridge Mac app          |       crates.io, prebuilt binary, or source       |                       npm package (deprecated)                        |                            MCPB or source                             |                       source / `uv`                        |                 source / `pip install -e`                 |
 | License                        |                 AGPL-3.0 / commercial dual-license                  |                        MIT                        |                                  MIT                                  |                                  MIT                                  |                        not declared                        |                            MIT                            |
 | Repository/package status      |                    weekly activity; npm `0.12.0`                    |                occasional activity                |                           removed from npm                            |                          occasional activity                          |              occasional activity; no releases              |                  repository unavailable                   |
 | Community                      |                          ⭐ 70 · 24 forks                           |                       ⭐ 7                        |                     source repository unavailable                     |                                 ⭐ 1                                  |                            ⭐ 0                            |                        unavailable                        |
