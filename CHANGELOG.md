@@ -27,6 +27,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Remove retired Smithery installation
 - Point Draftbridge buyers to live checkout
 - Align installation requirements and historical runtime evidence
 - Introduce Content Credentials and patched runtime support
