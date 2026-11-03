@@ -1,6 +1,4 @@
 import { createHash } from 'node:crypto';
-import { rm } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
 import type { JsonSchemaType } from '@modelcontextprotocol/server';
 import { AIClient } from '../../src/services/ai/ai-client.js';
