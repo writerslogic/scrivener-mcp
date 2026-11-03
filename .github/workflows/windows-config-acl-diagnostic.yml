@@ -44,7 +44,7 @@ jobs:
             public static extern bool ReplaceFile(string replaced, string replacement, string backup, uint flags, IntPtr exclude, IntPtr reserved);
           }
           '@
-            $ok = [NativeReplace]::ReplaceFile((Join-Path $dir 'original.json'), (Join-Path $dir 'fresh.json'), $null, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+            $ok = [NativeReplace]::ReplaceFile((Join-Path $dir 'original.json'), (Join-Path $dir 'fresh.json'), (Join-Path $dir 'backup.json'), 0, [IntPtr]::Zero, [IntPtr]::Zero)
             if (-not $ok) { throw ('ReplaceFile failed: ' + [Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
             $after = (Get-Acl 'original.json').Sddl
             $stream = Get-Content -LiteralPath (Join-Path $dir 'original.json') -Stream 'fixture' -Raw
