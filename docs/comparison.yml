@@ -130,7 +130,7 @@ features:
       zaphodsdad: 'yes'
 
     - label: Installation
-      scrivener-mcp: 'npm, Homebrew, Docker, Smithery, or the Draftbridge Mac app'
+      scrivener-mcp: 'npm, Homebrew, Docker, or the Draftbridge Mac app'
       jiayun: 'crates.io, prebuilt binary, or source'
       twelvetake: 'npm package (deprecated)'
       scrivener-assistant: 'MCPB or source'

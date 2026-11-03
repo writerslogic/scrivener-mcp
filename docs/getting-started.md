@@ -46,9 +46,6 @@ missing Node.js? Follow the [Mac install guide](./install-mac.md).
 ### Other install methods
 
 ```bash
-# Smithery
-npx -y @smithery/cli install scrivener-mcp --client claude
-
 # Direct from GitHub
 npm install -g writerslogic/scrivener-mcp
 ```
