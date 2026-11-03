@@ -35,11 +35,27 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Node metadata experiment failed' }
             $copy = (Get-Acl 'copy.json').Sddl
             $fresh = (Get-Acl 'fresh.json').Sddl
+            Set-Content -LiteralPath (Join-Path $dir 'original.json') -Stream 'fixture' -Value 'retained'
+            Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class NativeReplace {
+            [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern bool ReplaceFile(string replaced, string replacement, string backup, uint flags, IntPtr exclude, IntPtr reserved);
+          }
+          '@
+            $ok = [NativeReplace]::ReplaceFile((Join-Path $dir 'original.json'), (Join-Path $dir 'fresh.json'), $null, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+            if (-not $ok) { throw ('ReplaceFile failed: ' + [Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
+            $after = (Get-Acl 'original.json').Sddl
+            $stream = Get-Content -LiteralPath (Join-Path $dir 'original.json') -Stream 'fixture' -Raw
             [PSCustomObject]@{
               node = (node --version)
               protectedOriginal = (Get-Acl 'original.json').AreAccessRulesProtected
               copyDescriptorIdentical = $before -ceq $copy
               freshDescriptorIdentical = $before -ceq $fresh
+              replacementDescriptorIdentical = $before -ceq $after
+              replacementStreamRetained = $stream.Trim() -ceq 'retained'
+              replacementContentCorrect = [IO.File]::ReadAllText((Join-Path $dir 'original.json')) -ceq 'fixture'
             } | ConvertTo-Json | Write-Output
           } finally {
             Pop-Location
