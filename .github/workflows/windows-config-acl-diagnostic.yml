@@ -22,7 +22,7 @@ jobs:
           New-Item -ItemType Directory -Path $dir | Out-Null
           Push-Location $dir
           try {
-            [IO.File]::WriteAllText('original.json', '{"fixture":true}')
+            [IO.File]::WriteAllText((Join-Path $dir 'original.json'), '{"fixture":true}')
             $acl = Get-Acl 'original.json'
             $acl.SetAccessRuleProtection($true, $false)
             $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
@@ -30,7 +30,8 @@ jobs:
             $acl.SetAccessRule($rule)
             Set-Acl 'original.json' $acl
             $before = (Get-Acl 'original.json').Sddl
-            node -e "const fs=require('node:fs');fs.copyFileSync('original.json','copy.json');fs.writeFileSync('fresh.json','fixture',{mode:0o600});"
+            $env:ACL_DIAGNOSTIC_DIR = $dir
+            node -e "process.chdir(process.env.ACL_DIAGNOSTIC_DIR);const fs=require('node:fs');fs.copyFileSync('original.json','copy.json');fs.writeFileSync('fresh.json','fixture',{mode:0o600});"
             if ($LASTEXITCODE -ne 0) { throw 'Node metadata experiment failed' }
             $copy = (Get-Acl 'copy.json').Sddl
             $fresh = (Get-Acl 'fresh.json').Sddl
