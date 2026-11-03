@@ -23,7 +23,15 @@ const ARTIFACT_BYTES: Record<string, Buffer> = {
 	'binding_bg.wasm.d.ts': Buffer.from('export declare const memory: WebAssembly.Memory;\n'),
 	'package.json': Buffer.from(JSON.stringify({ type: 'module', private: true })),
 };
-const SOURCES = ['Cargo.toml', 'Cargo.lock', 'src/lib.rs', 'c2pa-0.91.7.crate', 'sdk-patches.json']
+const SOURCES = [
+	'Cargo.toml',
+	'Cargo.lock',
+	'src/lib.rs',
+	'c2pa-0.91.7.crate',
+	'sdk-patches.json',
+	'static-regular-grammar-2.0.2.crate',
+	'grammar-patches.json',
+]
 	.map((file) => `native/c2pa-binding/${file}`)
 	.concat('scripts/build-c2pa-binding.mjs');
 
@@ -136,7 +144,7 @@ describe('C2PA binding provenance verifier', () => {
 			const before = await Promise.all(files.map((file) => readFile(file)));
 			expect(await run(fixture)).toEqual({
 				ok: true,
-				result: { version: '0.91.7', artifacts: 5, sources: 6 },
+				result: { version: '0.91.7', artifacts: 5, sources: 8 },
 			});
 			expect(await Promise.all(files.map((file) => readFile(file)))).toEqual(before);
 		});

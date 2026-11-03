@@ -29,3 +29,4 @@ panic = "abort"
 
 [patch.crates-io]
 c2pa = { path = ".sdk/c2pa-0.91.7" }
+static-regular-grammar = { path = ".sdk/static-regular-grammar-2.0.2" }

@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"upstream": "https://static.crates.io/crates/static-regular-grammar/static-regular-grammar-2.0.2.crate",
+	"crateSha256": "4f4a6c40247579acfbb138c3cd7de3dab113ab4ac6227f1b7de7d626ee667957",
+	"purpose": "Use the existing syn error emitter for identical diagnostic messages and source spans, removing the unmaintained proc-macro-error dependency without adding a replacement.",
+	"patches": [
+		{
+			"file": "Cargo.toml",
+			"beforeSha256": "87aad0c48f954bb6f795220ea4a9ebf3ba74cdc74d07b7a7f3998e687f309863",
+			"afterSha256": "4a03da4981daae9f537fe501466b003de70a030e78c34ab89224afafe5ed961e",
+			"before": "[dependencies.proc-macro-error]\nversion = \"1.0.4\"\n\n",
+			"after": ""
+		},
+		{
+			"file": "Cargo.toml.orig",
+			"beforeSha256": "fe5b97ceef8d87bb49c2202320199dadfb4f1341d0682a6e23f46f0fbf070d9f",
+			"afterSha256": "2f0122c585265984f3d6c083eca67e8db577019d4bab5375c929052a9cb0a890",
+			"before": "proc-macro-error = \"1.0.4\"\n",
+			"after": ""
+		},
+		{
+			"file": "src/lib.rs",
+			"beforeSha256": "64cd221608bab32195bdc3153925da79a5be132e81a7e134ca10a881e8c276ee",
+			"afterSha256": "a434987b95dff4f75cd40f662993f3987acc7f4d094480f02678f033ee13acd1",
+			"before": "use proc_macro_error::{abort, proc_macro_error};\n",
+			"after": ""
+		},
+		{
+			"file": "src/lib.rs",
+			"beforeSha256": "a434987b95dff4f75cd40f662993f3987acc7f4d094480f02678f033ee13acd1",
+			"afterSha256": "1eb37e0068a5f2fd729d3e5dd7ee82bded03611bcc6352f0e9ffd4b232bef48a",
+			"before": "#[proc_macro_error]\npub fn derive_regular_grammar(input_tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {\n\tlet input = parse_macro_input!(input_tokens as DeriveInput);\n\tmatch generate_regular_grammar(input) {\n\t\tOk(tokens) => tokens.into(),\n\t\tErr((e, span)) => abort!(span, e),\n\t}\n}",
+			"after": "pub fn derive_regular_grammar(input_tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {\n\tlet input = parse_macro_input!(input_tokens as DeriveInput);\n\tmatch generate_regular_grammar(input) {\n\t\tOk(tokens) => tokens.into(),\n\t\tErr((e, span)) => syn::Error::new(span, e).into_compile_error().into(),\n\t}\n}"
+		}
+	]
+}

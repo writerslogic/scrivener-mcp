@@ -20,10 +20,14 @@ npm run build:c2pa
 npm run build
 ```
 
-`Cargo.lock` pins the dependency graph. The shipped upstream source archive is verified against its
-digest; `sdk-patches.json` records exact before/after hashes for the small patch that restricts
-signing and timestamp trust to their respective anchor purposes. The build extracts and patches a
-fresh ignored SDK source tree; it does not alter the Cargo registry cache. The build uses
+`Cargo.lock` pins the dependency graph. The shipped C2PA and `static-regular-grammar` source archives
+are verified against their digests. `sdk-patches.json` records exact before/after hashes for the
+patch that restricts signing and timestamp trust to their respective anchor purposes.
+`grammar-patches.json` replaces the unmaintained `proc-macro-error` emitter with the grammar crate's
+existing `syn::Error`, preserving diagnostic messages and source spans. The build extracts and
+patches fresh ignored source trees; it does not alter the Cargo registry cache. Use
+`node scripts/build-c2pa-binding.mjs --prepare-only` before inspecting or updating the Cargo graph.
+The build uses
 `--locked`, remaps local paths, and caps linear memory at 1 GiB. `assets/c2pa-binding/build.json`
 records source and generated artifact digests; ordinary builds and installed-package checks verify
 them. Rebuilding requires the compiler, while using the packaged engine does not. Generated

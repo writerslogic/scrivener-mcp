@@ -39,7 +39,15 @@ export async function checkC2paBinding(root = ROOT) {
 		],
 		[
 			manifest.sources,
-			['Cargo.toml', 'Cargo.lock', 'src/lib.rs', 'c2pa-0.91.7.crate', 'sdk-patches.json']
+			[
+				'Cargo.toml',
+				'Cargo.lock',
+				'src/lib.rs',
+				'c2pa-0.91.7.crate',
+				'sdk-patches.json',
+				'static-regular-grammar-2.0.2.crate',
+				'grammar-patches.json',
+			]
 				.map((file) => `native/c2pa-binding/${file}`)
 				.concat('scripts/build-c2pa-binding.mjs'),
 		],
