@@ -26,6 +26,19 @@ jobs:
           name: c2pa-binding
           path: assets/c2pa-binding
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run build
+      - run: node scripts/check-runtime-policy.mjs
+      - run: node scripts/check-tool-registry.mjs
+      - run: node scripts/generate-narrative-annotation-schema.mjs --check
+      - run: node scripts/check-output-conformance.mjs
+      - name: HMS fallback compatibility
+        env:
+          SCRIVENER_WARM_ENGINE: fallback
+        run: node scripts/check-hms-compatibility.mjs
+      - run: node scripts/check-c2pa-compatibility.mjs --output logs/c2pa/native-compatibility.json
       - name: Apply diagnostic-only instrumentation
         run: |
           New-Item -ItemType Directory -Path $env:SCRIVENER_DIAGNOSTIC_DIR -Force | Out-Null
