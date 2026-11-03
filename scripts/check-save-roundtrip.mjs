@@ -7,8 +7,8 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseStringPromise } from 'xml2js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { ProjectLoader } from '../dist/services/project-loader.js';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -56,7 +56,7 @@ const transport = new StdioClientTransport({
 transport.stderr.on('data', () => {});
 const client = new Client({ name: 'scrivener-save-regression', version: '1.0.0' });
 const call = async (name, args = {}) => {
-	const result = await client.callTool({ name, arguments: args }, undefined, { timeout: 30000 });
+	const result = await client.callTool({ name, arguments: args }, { timeout: 30000 });
 	assert.notEqual(result.isError, true, `${name}: ${JSON.stringify(result.content)}`);
 	return result;
 };
@@ -72,7 +72,13 @@ try {
 		before,
 		'Unchanged save must preserve the XML tree'
 	);
-	const result = await call('create_document', { title, content, documentType: 'Text' });
+	// This fresh disposable copy has never been opened in the native application.
+	const result = await call('create_document', {
+		title,
+		content,
+		documentType: 'Text',
+		force: true,
+	});
 	const documentId = result.structuredContent.documentId;
 	assert.ok(documentId);
 	const contentPath = path.join(projectPath, 'Files/Data', documentId, 'content.rtf');

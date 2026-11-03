@@ -1,17 +1,6 @@
 import * as path from 'path';
-import parseRTF from 'rtf-parser';
-import { promisify } from 'util';
 import { safeReadFile, safeWriteFile } from '../../utils/common.js';
-import { getLogger } from '../../core/logger.js';
 import { isStructurallyValidRtf, readRtfControl, rtfGroupEnd } from './rtf-validation.js';
-import type {
-	RTFParserDocument,
-	RTFParserContent,
-	RTFParserContentNode,
-} from '../../types/internal.js';
-
-const logger = getLogger('rtf-handler');
-const parseRTFAsync = promisify(parseRTF.string);
 
 export const RTF_TEXT_CONTROLS: ReadonlyMap<string, string> = new Map([
 	['\\ldblquote', '"'],
@@ -128,20 +117,7 @@ export class RTFHandler {
 	}
 
 	async parseRTF(rtfString: string): Promise<RTFContent> {
-		try {
-			return this.enhancedRTFParse(rtfString);
-		} catch {
-			try {
-				const doc = (await parseRTFAsync(rtfString)) as RTFParserDocument;
-				return this.convertRTFDocument(doc);
-			} catch (error) {
-				logger.warn('RTF parsing failed with both parsers; returning empty content', {
-					error,
-					length: rtfString.length,
-				});
-				return { plainText: '', formattedText: [] };
-			}
-		}
+		return this.enhancedRTFParse(rtfString);
 	}
 
 	async writeRTF(filePath: string, content: RTFContent | string): Promise<void> {
@@ -235,6 +211,21 @@ export class RTFHandler {
 	 * Enhanced manual RTF parsing with better Scrivener support
 	 */
 	private enhancedRTFParse(rtfString: string): RTFContent {
+		if (typeof rtfString !== 'string') throw new TypeError('RTF content must be a string');
+		for (let offset = 0; offset < rtfString.length;) {
+			if (rtfString[offset] !== '\\') {
+				offset++;
+				continue;
+			}
+			const control = readRtfControl(rtfString, offset);
+			if (!control) throw new Error('Invalid RTF control sequence');
+			if (control.word === 'bin') {
+				// Binary lengths can consume group delimiters, making structural recovery ambiguous.
+				if (!isStructurallyValidRtf(rtfString)) throw new Error('Invalid RTF binary data');
+				break;
+			}
+			offset = control.end;
+		}
 		const result: RTFContent = {
 			plainText: '',
 			formattedText: [],
@@ -399,11 +390,21 @@ export class RTFHandler {
 						if (!binary) throw new Error('Invalid RTF binary data');
 						i = binary.end;
 					} else if (wordName === 'uc') {
-						const n = parseInt(wordParam, 10);
-						uc = Number.isNaN(n) ? 1 : Math.max(0, n);
+						const n = Number(wordParam);
+						if (!wordParam || !Number.isSafeInteger(n) || n < 0 || n > 32767)
+							throw new Error('Invalid RTF Unicode fallback length');
+						uc = n;
 						i += controlMatch[0].length;
-					} else if (wordName === 'u' && wordParam) {
-						let code = parseInt(wordParam, 10);
+					} else if (wordName === 'u') {
+						let code = Number(wordParam);
+						// Accept unsigned UTF-16 units emitted by older generators as well as signed RTF values.
+						if (
+							!wordParam ||
+							!Number.isSafeInteger(code) ||
+							code < -32768 ||
+							code > 65535
+						)
+							throw new Error('Invalid RTF Unicode code unit');
 						if (code < 0) code += 65536;
 						tokens.push({ type: 'text', value: String.fromCodePoint(code) });
 						i += controlMatch[0].length;
@@ -513,75 +514,6 @@ export class RTFHandler {
 		if (fsMatch) {
 			style.fontSize = parseInt(fsMatch[1]) / 2; // RTF uses half-points
 		}
-	}
-
-	private convertRTFDocument(doc: RTFParserDocument): RTFContent {
-		const result: RTFContent = {
-			plainText: '',
-			formattedText: [],
-			metadata: {},
-		};
-
-		if (doc.meta) {
-			result.metadata = {
-				title: doc.meta.title,
-				author: doc.meta.author,
-				subject: doc.meta.subject,
-				keywords: doc.meta.keywords,
-				creationDate: doc.meta.creationDate,
-				modificationDate: doc.meta.modificationDate,
-			};
-		}
-
-		const processContent = (content: RTFParserContent, currentStyle?: RTFStyle) => {
-			if (typeof content === 'string') {
-				result.plainText += content;
-				result.formattedText.push({
-					text: content,
-					style: currentStyle,
-				});
-			} else if (Array.isArray(content)) {
-				content.forEach((item) => processContent(item, currentStyle));
-			} else if (typeof content === 'object' && content !== null) {
-				// Type narrowing for RTFParserContentNode
-				const node = content as RTFParserContentNode;
-
-				if ('value' in node && typeof node.value === 'string') {
-					const text = node.value;
-					result.plainText += text;
-					const style: RTFStyle = { ...currentStyle };
-					if ('style' in node && node.style) {
-						const nodeStyle = node.style as RTFStyle;
-						if (nodeStyle.bold) style.bold = true;
-						if (nodeStyle.italic) style.italic = true;
-						if (nodeStyle.underline) style.underline = true;
-					}
-					result.formattedText.push({
-						text,
-						style,
-					});
-				} else if ('content' in node) {
-					const style: RTFStyle = { ...currentStyle };
-
-					// Apply style attributes
-					if ('style' in node && node.style) {
-						Object.assign(style, node.style);
-					}
-
-					if (Array.isArray(node.content)) {
-						node.content.forEach((item) => processContent(item, style));
-					} else if (node.content) {
-						processContent(node.content, style);
-					}
-				}
-			}
-		};
-
-		if (doc.content) {
-			processContent(doc.content);
-		}
-
-		return result;
 	}
 
 	convertToRTF(content: RTFContent | string): string {

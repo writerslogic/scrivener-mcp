@@ -1,0 +1,181 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -181,7 +181,7 @@
+ version = "0.4"
+ 
+ [dependencies.macro_rules_attribute]
+-version = "0.2.0"
++version = "0.2.3"
+ 
+ [dependencies.monostate]
+ version = "0.1.12"
+@@ -192,7 +192,8 @@
+ default-features = false
+ 
+ [dependencies.paste]
+-version = "1.0.14"
++version = "0.2.3"
++package = "pastey"
+ 
+ [dependencies.rand]
+ version = "0.9"
+--- a/Cargo.toml.orig
++++ b/Cargo.toml.orig
+@@ -59,8 +59,8 @@
+ spm_precompiled = "0.1.3"
+ hf-hub = { version = "0.4.1", features = ["ureq"], default-features = false, optional = true }
+ aho-corasick = "1.1"
+-paste = "1.0.14"
+-macro_rules_attribute = "0.2.0"
++paste = { package = "pastey", version = "0.2.3" }
++macro_rules_attribute = "0.2.3"
+ thiserror = "2"
+ fancy-regex = { version = "0.14", optional = true}
+ getrandom = { version = "0.3" }
+--- a/tests/serialization.rs
++++ b/tests/serialization.rs
+@@ -248,3 +248,144 @@
+ fn test_deserialize_long_file() {
+     let _tokenizer = Tokenizer::from_file("data/albert-base-v1-tokenizer.json").unwrap();
+ }
++
++mod paste_alias_regressions {
++    use serde::{Deserialize, Serialize};
++    use tokenizers::decoders::wordpiece::WordPiece as WordPieceDecoder;
++    use tokenizers::models::wordpiece::WordPiece;
++    use tokenizers::normalizers::bert::BertNormalizer;
++    use tokenizers::pre_tokenizers::bert::BertPreTokenizer;
++    use tokenizers::processors::bert::BertProcessing;
++    use tokenizers::{AddedToken, Tokenizer};
++
++    tokenizers::impl_serde_type! {
++        #[derive(Debug, PartialEq)]
++        struct AliasUnit;
++    }
++
++    tokenizers::impl_serde_type! {
++        #[derive(Debug, PartialEq)]
++        struct AliasRecord {
++            #[serde(rename = "label")]
++            value: String,
++            #[serde(default)]
++            count: usize,
++        }
++    }
++
++    #[test]
++    fn generated_unit_requires_its_exact_tag() {
++        assert_eq!(
++            serde_json::to_string(&AliasUnit).unwrap(),
++            r#"{"type":"AliasUnit"}"#
++        );
++        assert_eq!(
++            serde_json::from_str::<AliasUnit>(r#"{"type":"AliasUnit"}"#).unwrap(),
++            AliasUnit
++        );
++        for invalid in [
++            r#"{}"#,
++            r#"{"type":"AliasRecord"}"#,
++            r#"{"type":null}"#,
++            r#"{"type":1}"#,
++        ] {
++            assert!(
++                serde_json::from_str::<AliasUnit>(invalid).is_err(),
++                "{}",
++                invalid
++            );
++        }
++    }
++
++    #[test]
++    fn generated_record_preserves_field_attributes_and_tag_validation() {
++        let value = AliasRecord {
++            value: "café 中文".into(),
++            count: 2,
++        };
++        let json = r#"{"type":"AliasRecord","label":"café 中文","count":2}"#;
++        assert_eq!(serde_json::to_string(&value).unwrap(), json);
++        assert_eq!(serde_json::from_str::<AliasRecord>(json).unwrap(), value);
++        assert_eq!(
++            serde_json::from_str::<AliasRecord>(r#"{"type":"AliasRecord","label":"default"}"#)
++                .unwrap(),
++            AliasRecord {
++                value: "default".into(),
++                count: 0
++            }
++        );
++        for invalid in [
++            r#"{"label":"x"}"#,
++            r#"{"type":"AliasUnit","label":"x"}"#,
++            r#"{"type":null,"label":"x"}"#,
++            r#"{"type":"AliasRecord"}"#,
++        ] {
++            assert!(
++                serde_json::from_str::<AliasRecord>(invalid).is_err(),
++                "{}",
++                invalid
++            );
++        }
++    }
++
++    #[test]
++    fn tokenizer_roundtrip_preserves_unicode_offsets_and_word_length_boundaries() {
++        let vocabulary: ahash::AHashMap<String, u32> = [
++            "[UNK]", "[CLS]", "[SEP]", "cafe", "play", "##ing", "!", "a", "##a",
++        ]
++        .iter()
++        .enumerate()
++        .map(|(id, token)| ((*token).into(), id as u32))
++        .collect();
++        let model = WordPiece::builder()
++            .vocab(vocabulary)
++            .max_input_chars_per_word(8)
++            .build()
++            .unwrap();
++        let mut tokenizer = Tokenizer::new(model);
++        tokenizer.with_normalizer(Some(BertNormalizer::new(true, true, Some(true), true)));
++        tokenizer.with_pre_tokenizer(Some(BertPreTokenizer));
++        tokenizer.with_decoder(Some(WordPieceDecoder::default()));
++        tokenizer.with_post_processor(Some(BertProcessing::new(
++            ("[SEP]".into(), 2),
++            ("[CLS]".into(), 1),
++        )));
++        tokenizer.add_special_tokens(&[
++            AddedToken::from("[CLS]", true),
++            AddedToken::from("[SEP]", true),
++        ]);
++        let restored = Tokenizer::from_bytes(serde_json::to_vec(&tokenizer).unwrap()).unwrap();
++        for candidate in [&tokenizer, &restored] {
++            let encoded = candidate.encode("CAFÉ playing!", true).unwrap();
++            assert_eq!(encoded.get_ids(), &[1, 3, 4, 5, 6, 2]);
++            assert_eq!(
++                encoded.get_offsets(),
++                &[(0, 0), (0, 5), (6, 10), (10, 13), (13, 14), (0, 0)]
++            );
++            assert_eq!(
++                candidate.decode(encoded.get_ids(), true).unwrap(),
++                "cafe playing!"
++            );
++            assert_eq!(candidate.encode("", true).unwrap().get_ids(), &[1, 2]);
++            assert_eq!(candidate.encode("🦀", false).unwrap().get_ids(), &[0]);
++            for length in [7, 8, 9] {
++                let encoded = candidate.encode("a".repeat(length), false).unwrap();
++                let expected = if length <= 8 {
++                    let mut ids = vec![8; length];
++                    ids[0] = 7;
++                    ids
++                } else {
++                    vec![0]
++                };
++                assert_eq!(encoded.get_ids(), &expected);
++            }
++        }
++        let input = ("CAFÉ playing!", "a");
++        let original_pair = tokenizer.encode(input, true).unwrap();
++        let restored_pair = restored.encode(input, true).unwrap();
++        assert_eq!(
++            serde_json::to_value(original_pair).unwrap(),
++            serde_json::to_value(restored_pair).unwrap()
++        );
++    }
++}

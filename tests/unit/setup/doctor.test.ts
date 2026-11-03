@@ -2,7 +2,7 @@ import { readFileSync, watch } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/server';
 import { handshake } from '../../../src/setup/doctor.js';
 import type { ServerEntry } from '../../../src/setup/runtime.js';
 
@@ -88,6 +88,13 @@ test.each([
 	expect(result.error).not.toContain(secret);
 	expect(result.error).not.toContain('doctor-secret-value');
 	expect(result.error).not.toContain('reader:password');
+	await expectStopped();
+});
+
+test('does not request tools from a server that did not advertise them', async () => {
+	const result = await handshake(entry('no-tools'), 5000);
+	expect(result).toMatchObject({ ok: false, error: expect.stringContaining('advertise tools') });
+	expect((await events()).some((event) => event.method === 'tools/list')).toBe(false);
 	await expectStopped();
 });
 

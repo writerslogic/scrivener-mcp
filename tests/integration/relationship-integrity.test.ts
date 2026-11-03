@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
-import type { JsonSchemaType } from '@modelcontextprotocol/sdk/validation/types';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
+import type { JsonSchemaType } from '@modelcontextprotocol/server';
 import { PersistentStore } from '../../src/services/editorial/persistent-store.js';
 import { ProjectSource } from '../../src/services/editorial/project-source.js';
 import type { ManuscriptSource, SourceDocument } from '../../src/services/editorial/types.js';

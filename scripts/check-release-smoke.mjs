@@ -226,7 +226,7 @@ async function runNpm(cli, args, cwd, env) {
 async function tool(client, name, args, expectError = false) {
 	let response;
 	try {
-		response = await client.callTool({ name, arguments: args }, undefined, { timeout: 60000 });
+		response = await client.callTool({ name, arguments: args }, { timeout: 60000 });
 	} catch {
 		throw new SmokeFailure(`MCP request failed for ${name}; transport details withheld`);
 	}
@@ -556,6 +556,39 @@ async function main() {
 			});
 		}
 		const requireInstalled = createRequire(join(installed, 'package.json'));
+		if (!opts['installed-server']) {
+			await check('installed-optional-models-remain-opt-in', async () => {
+				const script = `
+const assert = (await import('node:assert/strict')).default;
+const { createRequire } = await import('node:module');
+const { mkdir } = await import('node:fs/promises');
+const { join } = await import('node:path');
+const { pathToFileURL } = await import('node:url');
+const [installed, root] = process.argv.slice(1);
+const require = createRequire(join(installed, 'package.json'));
+for (const dependency of ['@huggingface/transformers', 'onnxruntime-node', 'onnxruntime-web', 'sharp'])
+  assert.throws(() => require.resolve(dependency), { code: 'MODULE_NOT_FOUND' });
+const { loadWarmModels } = await import(pathToFileURL(join(installed, 'dist/services/memory/warm-models.js')).href);
+assert.equal(await loadWarmModels(), undefined);
+const model = join(root, 'empty-local-model');
+await mkdir(model);
+process.env.SCRIVENER_WARM_EMBED_MODEL_PATH = model;
+process.env.SCRIVENER_WARM_EMBED_MODEL_ID = 'fixture-local-model';
+process.env.SCRIVENER_WARM_EMBED_REVISION = 'fixture-revision';
+await assert.rejects(loadWarmModels(), /Install @huggingface\\/transformers/);
+delete process.env.SCRIVENER_WARM_EMBED_MODEL_PATH;
+delete process.env.SCRIVENER_WARM_EMBED_MODEL_ID;
+delete process.env.SCRIVENER_WARM_EMBED_REVISION;
+process.env.SCRIVENER_WARM_RERANK_MODEL_PATH = model;
+await assert.rejects(loadWarmModels(), /Install @huggingface\\/transformers/);
+`;
+				await promisify(execFile)(
+					process.execPath,
+					['--input-type=module', '-e', script, installed, root],
+					{ cwd: root, env, timeout: 20000, maxBuffer: 128 * 1024 }
+				);
+			});
+		}
 		await check('installed-native-c2pa-sdk', async () => {
 			const result = await promisify(execFile)(
 				process.execPath,
@@ -585,14 +618,11 @@ async function main() {
 					{ cwd: root, env, timeout: 20000, maxBuffer: 128 * 1024 }
 				);
 				const clientModule = await import(
-					pathToFileURL(
-						requireInstalled.resolve('@modelcontextprotocol/sdk/client/index.js')
-					).href
+					pathToFileURL(requireInstalled.resolve('@modelcontextprotocol/client')).href
 				);
 				const transportModule = await import(
-					pathToFileURL(
-						requireInstalled.resolve('@modelcontextprotocol/sdk/client/stdio.js')
-					).href
+					pathToFileURL(requireInstalled.resolve('@modelcontextprotocol/client/stdio'))
+						.href
 				);
 				const setupModule = await import(
 					pathToFileURL(join(installed, 'dist', 'setup', 'first-session.js')).href

@@ -8,10 +8,10 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
+import { Client } from '@modelcontextprotocol/client';
+import { getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { serializeMessage } from '@modelcontextprotocol/server';
 
 const execute = promisify(execFile);
 const label = 'io.scrivener-mcp.smoke';

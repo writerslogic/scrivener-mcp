@@ -1,4 +1,4 @@
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
 import { NarrativeContext } from '../../../src/services/editorial/narrative-context.js';
 import * as worker from '../../../src/services/editorial/narrative-worker.js';
 import { analysisEnvelope } from '../../../src/services/editorial/analysis-envelope.js';

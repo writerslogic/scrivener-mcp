@@ -23,8 +23,8 @@ import { contentCredentialsHandlers } from './content-credentials-handlers.js';
 import { readResultHandler } from './result-handlers.js';
 import type { HandlerContext, HandlerResult, ToolDefinition } from './types.js';
 import { HandlerError } from './types.js';
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
-import type { JsonSchemaType, JsonSchemaValidator } from '@modelcontextprotocol/sdk/validation';
+import { createProjectSchemaValidator } from '../utils/json-schema-validator.js';
+import type { JsonSchemaType, JsonSchemaValidator } from '@modelcontextprotocol/server';
 
 export interface Skill {
 	name: string;
@@ -109,7 +109,7 @@ function visibleTools(skill: Skill): ToolDefinition[] {
 
 const handlerMap = new Map<string, ToolDefinition>();
 const activatedSkills = new Set<string>();
-const schemaValidator = new AjvJsonSchemaValidator();
+const schemaValidator = createProjectSchemaValidator();
 const validators = new WeakMap<object, JsonSchemaValidator<Record<string, unknown>>>();
 let catalogRevision = 0;
 

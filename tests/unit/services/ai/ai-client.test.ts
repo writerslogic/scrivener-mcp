@@ -7,7 +7,7 @@
 import { describeLiveAnthropic as liveAnthropic } from '../../../helpers/live-provider.js';
 import { AIClient, isProviderUnavailable } from '../../../../src/services/ai/ai-client.js';
 import { registerSamplingServer } from '../../../../src/services/ai/sampling-bridge.js';
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { Server } from '@modelcontextprotocol/server';
 
 const localOnlyBeforeTests = process.env.SCRIVENER_LOCAL_ONLY;
 beforeEach(() => {

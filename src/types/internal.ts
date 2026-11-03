@@ -91,33 +91,6 @@ export interface NativeNamedItem {
 	_?: string;
 }
 
-export interface RTFParserDocument {
-	content?: RTFParserContent;
-	meta?: {
-		title?: string;
-		author?: string;
-		subject?: string;
-		keywords?: string;
-		creationDate?: Date;
-		modificationDate?: Date;
-	};
-}
-
-export type RTFParserContent = string | RTFParserContentNode | (string | RTFParserContentNode)[];
-
-export interface RTFParserContentNode {
-	value?: string;
-	content?: RTFParserContent;
-	style?: {
-		bold?: boolean;
-		italic?: boolean;
-		underline?: boolean;
-		strikethrough?: boolean;
-		fontSize?: number;
-		[key: string]: unknown;
-	};
-}
-
 // Error type guard
 export interface ErrorWithCode extends Error {
 	code?: string;

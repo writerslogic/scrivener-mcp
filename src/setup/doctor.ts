@@ -1,8 +1,5 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import {
-	StdioClientTransport,
-	getDefaultEnvironment,
-} from '@modelcontextprotocol/sdk/client/stdio.js';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 import type { ServerEntry } from './runtime.js';
 import { redactDiagnostics } from './redaction.js';
 
@@ -163,12 +160,14 @@ export async function handshake(
 			await diagnosticClient.connect(diagnosticTransport, options());
 			server = diagnosticClient.getServerVersion();
 			stage = 'tools/list';
+			if (!diagnosticClient.getServerCapabilities()?.tools)
+				throw new Error('Server does not advertise tools');
 			const cursors = new Set<string>();
 			const names = new Set<string>();
 			let cursor: string | undefined;
 			for (let page = 0; page < MAX_PAGES; page++) {
-				const listing = await diagnosticClient.listTools(
-					cursor === undefined ? {} : { cursor },
+				const listing = await diagnosticClient.request(
+					{ method: 'tools/list', params: cursor === undefined ? {} : { cursor } },
 					options()
 				);
 				for (const tool of listing.tools) {

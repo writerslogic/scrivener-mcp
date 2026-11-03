@@ -1,5 +1,5 @@
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
-import type { JsonSchemaType } from '@modelcontextprotocol/sdk/validation/types';
+import { createProjectSchemaValidator } from '../../utils/json-schema-validator.js';
+import type { JsonSchemaType } from '@modelcontextprotocol/server';
 import { cloneHMSMetadata } from './hhm/document-index.js';
 import type { CharacterProfile, PlotThread, WorldElement } from '../../memory-manager.js';
 import type { JSONValue } from '../../types/index.js';
@@ -230,7 +230,7 @@ export const MEMORY_INPUT_SCHEMA = {
 	})),
 };
 
-const validator = new AjvJsonSchemaValidator();
+const validator = createProjectSchemaValidator();
 const validateInput = validator.getValidator(MEMORY_INPUT_SCHEMA as JsonSchemaType);
 export function memoryInput(value: unknown): MemoryInput {
 	const snapshot = cloneHMSMetadata(value);

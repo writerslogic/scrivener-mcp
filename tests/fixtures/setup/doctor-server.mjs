@@ -1,6 +1,6 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
+import { SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/server';
 
 const mode = process.argv[2] ?? 'success';
 const trace = (event) => appendFileSync(process.env.DOCTOR_TRACE, `${JSON.stringify(event)}\n`);
@@ -65,7 +65,7 @@ if (mode === 'stderr-cut') {
 						: mode === 'legacy'
 							? SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_VERSIONS.length - 1]
 							: request.params.protocolVersion,
-				capabilities: { tools: {} },
+				capabilities: mode === 'no-tools' ? {} : { tools: {} },
 				serverInfo: { name: 'diagnostic-fixture', version: 'fixture-1' },
 			});
 		} else if (request.method === 'tools/list') {

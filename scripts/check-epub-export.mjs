@@ -61,6 +61,12 @@ const sections = [
 		depth: 1,
 		isFolder: false,
 		sectionType: 'chapter',
+		formattedText: [
+			{ text: 'A lantern ', style: { bold: true } },
+			{ text: 'shone. 🌙', style: { italic: true } },
+			{ text: '\nMara returned ', style: { underline: true } },
+			{ text: 'home.', style: { strikethrough: true } },
+		],
 		notes: ['Note: Original sample note.'],
 	},
 ];
@@ -104,6 +110,17 @@ try {
 	for (const [name, selected] of [
 		['unicode-notes', sections],
 		['empty', []],
+		[
+			'literal-markup',
+			[
+				{
+					title: '../<Chapter> " & Café 東京',
+					text: '<img src="file:///private/file"/><script>throw 1</script>&',
+					depth: 6,
+					isFolder: false,
+				},
+			],
+		],
 	]) {
 		const buffer = await toEpub(selected, {
 			title: `Original CC0 ${name} fixture`,

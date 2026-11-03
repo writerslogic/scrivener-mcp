@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-03",
+  "baseCommit": "9b60abb88942af1bf4ba48247ce4e5e22bb43079",
+  "implemented": [
+    "MCP v2 client migration with draft-07 validation retained through pinned AJV 8.20.0",
+    "EPUB generation using existing JSZip/xml2js instead of epub-gen-memory",
+    "Remove rtf-parser fallback and fail malformed controls explicitly",
+    "Replace direct chalk usage with node:util.styleText",
+    "Remove redundant type and ESLint declarations",
+    "Make Transformers an optional peer installed explicitly"
+  ],
+  "lockfile": {
+    "beforePackages": 792,
+    "afterPackages": 631,
+    "beforeProductionEntries": 308,
+    "afterProductionEntries": 148
+  },
+  "verification": {
+    "platform": "darwin-arm64",
+    "node": "24.22.2",
+    "requiredGates": [
+      "format:check",
+      "lint",
+      "typecheck",
+      "build",
+      "test"
+    ],
+    "testSuitesPassed": 161,
+    "testsPassed": 2882,
+    "testsSkipped": 12,
+    "integrationGates": [
+      "runtime policy",
+      "tool registry",
+      "output conformance",
+      "HMS fallback",
+      "save roundtrip",
+      "C2PA compatibility",
+      "EPUBCheck 5.4.0 (six unsigned/signed cases)",
+      "packed-package install and protocol smoke (24 checks)"
+    ],
+    "npmAuditVulnerabilities": 0
+  },
+  "nativeCandidates": {
+    "static-regular-grammar": {
+      "version": "2.0.2",
+      "change": "Use existing syn diagnostics and remove proc-macro-error",
+      "patch": "static-regular-grammar-2.0.2.patch",
+      "validation": "Three regression tests, three existing examples, and exact compiler-message/span comparisons pass. Original/patched isolated doctests both have four passes and one pre-existing ASCII example failure; shared upstream cache is order-dependent.",
+      "remaining": "Integrate vetted source and rebuild the reproducible Linux reference WASM; regenerate genuine build provenance."
+    },
+    "tokenizers": {
+      "versions": [
+        "0.23.2",
+        "0.21.4"
+      ],
+      "change": "Alias paste to pastey 0.2.3; require macro_rules_attribute >=0.2.3",
+      "patches": [
+        "tokenizers-0.23.2.patch",
+        "tokenizers-0.21.4.patch"
+      ],
+      "validation": "413 patched tests, 20 baseline compatibility tests, and actual wasm32 compilation pass. Four fixture-dependent upstream serialization tests per version were skipped. Full ONNX runtime integration was not run.",
+      "remaining": "Upstream release and new platform binaries/provenance before Narrative Lens consumption."
+    },
+    "writerslogic-warm": {
+      "shippedVersion": "0.6.4",
+      "sourceFixCommit": "92a544f907470c9a370d99cedd88ab87031a9680",
+      "change": "Existing upstream source removes bincode; do not duplicate",
+      "verification": "Fix merged upstream; ten archived validation logs matched their recorded hashes.",
+      "remaining": "Published replacement version with native artifacts, provenance and platform SBOMs."
+    }
+  },
+  "patchSha256": {
+    "static-regular-grammar-2.0.2.patch": "c420755d04f8c34679a51b73abbf6743c14e53a6d2a564746378e58992697882",
+    "tokenizers-0.23.2.patch": "a93556407586b9d357627552b2e3fc83dd52b9daa139d7f0232437bd707d241b",
+    "tokenizers-0.21.4.patch": "3c2a2a10eb5908dee9bc2a71cef0b08d059aeb0950a9da8407f9b290eacfb36f"
+  },
+  "limits": [
+    "Native-source patches do not change or reclassify currently shipped binaries.",
+    "Local validation is macOS Node24; hosted cross-platform verification is separate."
+  ],
+  "retained": [
+    "pdf-lib pending a concrete typography requirement",
+    "TS7 compiler and TS6 API alias for tool compatibility",
+    "Patched vendored deepmerge until an equivalent upstream fix exists"
+  ]
+}

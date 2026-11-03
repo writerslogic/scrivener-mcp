@@ -234,8 +234,10 @@ working directory. It does not load an arbitrary module from the manuscript dire
 Passage retrieval uses native document batches, replacement/deletion and BM25 fused with supplied
 local ONNX model embeddings or the default story-concept vectors. Warm's official local embedding
 and reranking factories load configured files only. The model/revision/dimension identity is
-explicit; no model is downloaded. The existing SQLite passage catalog remains authoritative. A
-durable pending-ID catalog covers interrupted native updates; unchanged passages are reused. On
+explicit; no model is downloaded. A local model requires the optional `@huggingface/transformers`
+peer to be installed alongside the server; default installations omit Transformers and its ONNX
+runtimes. The existing SQLite passage catalog remains authoritative. A durable pending-ID catalog
+covers interrupted native updates; unchanged passages are reused. On
 reopening, paged native document inventory repairs missing entries and removes stale owned passages.
 Index maintenance follows changes. Native UTF-8 byte ranges are verified against exact quotations
 before returning canonical UTF-16 manuscript locations and saved revisions. The full-project keyword
@@ -353,7 +355,7 @@ Defensive reader for Scrivener's undocumented `Settings/compile.xml` and the `.s
 
 ### Manuscript Exporters (`src/services/export/manuscript-exporters.ts`)
 
-Pure-JS binary export of the compiled manuscript to DOCX (`docx`), EPUB (`epub-gen-memory`), and PDF
+Pure-JS binary export of the compiled manuscript to DOCX (`docx`), EPUB (JSZip and XML builders), and PDF
 (`pdf-lib`), used by `export_project` alongside the inline Markdown/HTML/JSON paths.
 
 ## Data Flow
