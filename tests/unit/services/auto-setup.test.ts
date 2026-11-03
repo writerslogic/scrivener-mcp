@@ -28,14 +28,6 @@ jest.mock('../../../src/utils/common.js', () => ({
 	readJSON: jest.fn(),
 	writeJSON: jest.fn(),
 }));
-jest.mock('chalk', () => ({
-	cyan: jest.fn((str) => str),
-	white: { bold: jest.fn((str) => str) },
-	gray: jest.fn((str) => str),
-	green: jest.fn((str) => str),
-	red: jest.fn((str) => str),
-	yellow: jest.fn((str) => str),
-}));
 
 describe('AutoSetup', () => {
 	const directory = join(homedir(), '.scrivener-mcp');

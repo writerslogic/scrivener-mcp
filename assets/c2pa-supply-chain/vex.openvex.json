@@ -1,24 +1,10 @@
 {
   "@context": "https://openvex.dev/ns/v0.2.0",
-  "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-10-30/ejs",
+  "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-11-03/dependencies",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-11-01T01:53:24.996Z",
-  "version": 3,
+  "timestamp": "2026-11-03T05:10:55.568Z",
+  "version": 4,
   "statements": [
-    {
-      "vulnerability": {
-        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2023-29827",
-        "name": "CVE-2023-29827"
-      },
-      "products": [
-        {
-          "@id": "pkg:npm/ejs@7.0.2"
-        }
-      ],
-      "status": "not_affected",
-      "justification": "vulnerable_code_not_in_execute_path",
-      "impact_statement": "Reassessed for pinned EJS 7.0.2 with epub-gen-memory 1.1.2. The reported attack requires attacker-controlled templates or compilation options. ProjectExporter constructs title/author/preset metadata explicitly; toEpub constructs a fixed generator-option allowlist and escapes manuscript text. The generator renders its packaged templates with data only. In EJS 7.0.2 lib/cjs/ejs.js, render(template, data, options) uses only its third argument for compilation options; data is not copied into options. No template body/path, closeDelimiter, client, escapeFunction or settings from export metadata reaches that argument. Regressions in tests/unit/services/manuscript-exporters.test.ts exercise template syntax as text and malicious template/engine-option properties while verifying real EPUB output; all nine exporter cases pass. Vendor security policy: https://github.com/mde/ejs/blob/main/SECURITY.md . Exact product version and CVE only; reassess on any generator, EJS, template or export-option change."
-    },
     {
       "vulnerability": {
         "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-111497",

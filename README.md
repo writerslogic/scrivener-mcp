@@ -170,6 +170,25 @@ export ANTHROPIC_API_KEY="sk-ant-..."                                           
 
 </details>
 
+<details>
+<summary><strong>Optional: offline embedding and reranking models</strong></summary>
+
+Local passage search works without installing a model runtime. To use your own offline ONNX
+embedding or reranking models with a global installation, install the optional runtime alongside the
+server:
+
+```bash
+npm install -g scrivener-mcp '@huggingface/transformers@^4.3.2'
+```
+
+For a local installation, run the same command without `-g` in the server's installation directory.
+Set `SCRIVENER_WARM_EMBED_MODEL_PATH` to a complete local model directory and provide
+`SCRIVENER_WARM_EMBED_MODEL_ID` and `SCRIVENER_WARM_EMBED_REVISION`. Set
+`SCRIVENER_WARM_RERANK_MODEL_PATH` to enable a local reranker. No model weights are downloaded; the
+available options are listed in [.env.example](.env.example).
+
+</details>
+
 ## What You Can Do
 
 > For manuscript operations, open a project first. The server has no link to the Scrivener app

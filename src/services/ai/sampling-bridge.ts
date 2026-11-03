@@ -1,6 +1,6 @@
 // Handlers construct AIClient without a server reference; this bridge supplies client sampling.
 
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { Server } from '@modelcontextprotocol/server';
 
 type SamplingServer = Pick<Server, 'getClientCapabilities' | 'createMessage'>;
 

@@ -5,11 +5,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
-import { CancellationSafeTransport } from '../../../src/utils/cancellation-safe-transport.js';
+import { Client } from '@modelcontextprotocol/client';
+import { getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { serializeMessage } from '@modelcontextprotocol/server';
 
 const alive = (pid: number) => {
 	try {
@@ -140,18 +139,13 @@ if (require('node:worker_threads').isMainThread) {
 				await cp(join(sourceRoot, 'assets/sample-project/Welcome.scriv'), project, {
 					recursive: true,
 				});
-				// Reserve wire ID zero for the cancellation probe instead of reusing initialize's ID.
-				await client.connect(
-					cancellation ? new CancellationSafeTransport(transport) : transport,
-					{
-						timeout: 30000,
-					}
-				);
+				await client.connect(transport, {
+					timeout: 30000,
+				});
 				expect(
 					(
 						await client.callTool(
 							{ name: 'open_project', arguments: { path: project } },
-							undefined,
 							{ timeout: 10000 }
 						)
 					).isError
@@ -166,9 +160,12 @@ if (require('node:worker_threads').isMainThread) {
 					});
 				} else {
 					analysis = client
-						.callTool({ name: 'analyze_manuscript_local', arguments: {} }, undefined, {
-							timeout: 15000,
-						})
+						.callTool(
+							{ name: 'analyze_manuscript_local', arguments: {} },
+							{
+								timeout: 15000,
+							}
+						)
 						.catch(() => undefined);
 				}
 				const startedBy = Date.now() + 5000;

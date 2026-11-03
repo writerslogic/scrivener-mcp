@@ -3,8 +3,6 @@ import { analyzeDocumentHandler } from '../../../src/handlers/analysis-handlers/
 import type { HandlerContext, HandlerResult } from '../../../src/handlers/types.js';
 import { MetricsAnalyzer } from '../../../src/analysis/analyzers/metrics-analyzer.js';
 import { disposeSpool, readResult } from '../../../src/core/response-formatter.js';
-import { rm } from 'node:fs/promises';
-import { dirname } from 'node:path';
 
 function data(result: HandlerResult): Record<string, unknown> {
 	const value = result.structuredContent!;

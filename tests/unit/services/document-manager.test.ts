@@ -129,6 +129,18 @@ describe('DocumentManager', () => {
 		expect(await manager.readDocument(DOC)).toBe('A saved external change.');
 	});
 
+	test.each([
+		String.raw`{\rtf1 Original \u1114112? manuscript}`,
+		String.raw`{\rtf1 Original \bin-1 manuscript}`,
+	])('propagates parsing failure without caching an empty manuscript: %p', async (raw) => {
+		await fs.writeFile(file(), raw);
+		await expect(manager.readDocument(DOC)).rejects.toThrow(/RTF/);
+		await expect(manager.readDocumentFormattedVersion(DOC)).rejects.toThrow(/RTF/);
+		expect(await fs.readFile(file(), 'utf8')).toBe(raw);
+		await fs.writeFile(file(), rtf.convertToRTF('Recovered saved manuscript.'));
+		expect(await manager.readDocument(DOC)).toBe('Recovered saved manuscript.');
+	});
+
 	test('binds formatted content to one raw revision even when an external save occurs during parsing', async () => {
 		const raw = '{\\rtf1\\ansi Before {\\b bold} save.}';
 		await fs.writeFile(file(), raw);

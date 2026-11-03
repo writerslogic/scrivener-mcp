@@ -55,7 +55,7 @@ describe('manuscript binary exporters', () => {
 		expect(buf.subarray(0, 4)).toEqual(ZIP_MAGIC);
 	});
 
-	it('treats template syntax in manuscript and metadata as text, with no user-supplied EJS options', async () => {
+	it('treats template syntax in manuscript and metadata as literal text', async () => {
 		const payload = '<%= (() => { throw new Error("must not execute"); })() %>';
 		const archive = await JSZip.loadAsync(
 			await toEpub(
@@ -82,7 +82,7 @@ describe('manuscript binary exporters', () => {
 		await expect(toPdf(SECTIONS, META)).rejects.toThrow(/unsupported characters.*❤/i);
 	});
 
-	it('excludes injected template bodies and engine options from the EPUB generator', async () => {
+	it('ignores unknown template and engine properties in export metadata', async () => {
 		const injected = '<% throw new Error("untrusted template executed"); %>';
 		const meta = {
 			...META,

@@ -1,0 +1,50 @@
+[
+	{
+		"file": "tests/sample-project.scriv/Files/Data/0BFBFA71-F1E9-401C-8A78-97B10BC12399/content.rtf",
+		"sha256": "f7891aff14d066b20e067b8f6892aba28eff15a0b70e888c778d5f1cef9b3621"
+	},
+	{
+		"file": "tests/sample-project.scriv/Files/Data/684ADA52-4D45-48D2-B03D-5ECB784963EE/content.rtf",
+		"sha256": "2ea05b6ca15b881d4907be4a3a915675eea7584db67d5734d5f6c8dcc446f46d"
+	},
+	{
+		"file": "tests/sample-project.scriv/Files/Data/684ADA52-4D45-48D2-B03D-5ECB784963EE/notes.rtf",
+		"sha256": "63b43a223a4e680ac871e41985b04981a50f7a52c115cd2e1c82e1b1627d6fd3"
+	},
+	{
+		"file": "tests/sample-project.scriv/Files/Data/95A0E87E-0497-4ADA-8A51-8855420732BC/content.rtf",
+		"sha256": "2535471750d643a3ebb165e6ebf01433cc97f06d91b360ed8931424fde24573e"
+	},
+	{
+		"file": "tests/sample-project.scriv/Files/Data/EC77D680-CDD2-449C-8D91-AEB249C14C89/content.rtf",
+		"sha256": "fae6f6801ce5b0fe71460754032be4856e9cfd60e17cea09e379eb75d794b2dd"
+	},
+	{
+		"file": "tests/sample-project.scriv/Files/Data/F8F9FDEF-FD9F-4A8C-B33D-3434A1220ADC/content.rtf",
+		"sha256": "f7891aff14d066b20e067b8f6892aba28eff15a0b70e888c778d5f1cef9b3621"
+	},
+	{
+		"file": "tests/sample-project.scriv/Snapshots/684ADA52-4D45-48D2-B03D-5ECB784963EE.snapshots/2025-10-27-02-20-40-0700.rtf",
+		"sha256": "2cdf46e8c00c02e741a65b0cbb1c3ad3f1e906914c170f052e7188c8915464ae"
+	},
+	{
+		"file": "tests/sample-project.scriv/Snapshots/684ADA52-4D45-48D2-B03D-5ECB784963EE.snapshots/2025-10-27-09-15-12-0700.rtf",
+		"sha256": "560d2a97c5dad58162d19198d40b6fa8d8f8b839169e4285af1595d3a659b1e0"
+	},
+	{
+		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000003/content.rtf",
+		"sha256": "f3e82fa2648cbb140c466210c5b2d1f4a5d70004b170e2d6ddf2eb73d342258b"
+	},
+	{
+		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000003/notes.rtf",
+		"sha256": "9052e82b2ee3c24767ed0518ac8d16cc8798d60b7d80e74b9b2ca2cf4a6008fc"
+	},
+	{
+		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000004/content.rtf",
+		"sha256": "a3c8d74c9526024660a3dfe3acc82a9e845c08c28d3b4971436c801dafa23cca"
+	},
+	{
+		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000006/content.rtf",
+		"sha256": "3b322a47c71446952b7e6d2fb604215dd85963a84bf51c553122d171d1835fac"
+	}
+]
