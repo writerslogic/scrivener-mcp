@@ -23,10 +23,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Integrate editorial tools dashboard presets and first session
 
 ### Changed
+- Remove redundant dependencies and prepare native replacements
 - Streamline editorial persistence and recovery
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Correct tool counts, protocol-dependent loading and advisory exit paths
 - Remove retired Smithery installation
 - Point Draftbridge buyers to live checkout
 - Align installation requirements and historical runtime evidence
@@ -36,6 +38,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Record dispositions for Scorecard Rust advisories and SQLite 3.53.4 CVEs
 - Preserve document ancestry in the index
 - Preserve SQLite availability and cached value types
 - Preserve native label and status assignments
