@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
-import { getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 
 const root = resolve(__dirname, '../../..');
 const sourceRequire = createRequire(join(root, 'package.json'));

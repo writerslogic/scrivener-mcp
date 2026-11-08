@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+ignoreUntil = 2027-02-01
+reason = "Unmaintained-crate notice, no vulnerability. This Cargo.lock is the hash-pinned build record of the published narrative-lens 0.2.0 (see ../upstream.json) and cannot be edited here. paste 1.0.15 is a build-time proc-macro pulled in by tokenizers 0.23.2. tokenizers main and 1.0.0-rc.3 drop paste; adopt it in narrative-lens once 1.0 is stable, then refresh this record."

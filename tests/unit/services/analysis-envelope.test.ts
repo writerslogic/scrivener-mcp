@@ -1,6 +1,6 @@
 import { analysisEnvelope } from '../../../src/services/editorial/analysis-envelope.js';
 import { ANALYSIS_ENVELOPE_SCHEMA } from '../../../src/handlers/shared-schemas.js';
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
 
 test('represents context-free provider work without inventing a project identity', () => {
 	const envelope = analysisEnvelope(

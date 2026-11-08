@@ -4,17 +4,16 @@
  * Run this to auto-install and configure all advanced features
  */
 
-// Use dynamic import for ESM modules
+const { styleText } = require('node:util');
 async function loadModules() {
 	const { AutoSetup } = await import('../dist/services/auto-setup/auto-setup.js');
-	const chalk = (await import('chalk')).default;
-	return { AutoSetup, chalk };
+	return { AutoSetup };
 }
 
 async function main() {
-	const { AutoSetup, chalk } = await loadModules();
+	const { AutoSetup } = await loadModules();
 
-	console.log(chalk.bold.cyan('\n🚀 Scrivener MCP - Advanced Features Auto-Setup\n'));
+	console.log(styleText(['bold', 'cyan'], '\n🚀 Scrivener MCP - Advanced Features Auto-Setup\n'));
 
 	const args = process.argv.slice(2);
 	const showHelp = args.includes('--help') || args.includes('-h');
@@ -35,7 +34,7 @@ async function main() {
 	try {
 		await AutoSetup.cli(args);
 	} catch (error) {
-		console.error(chalk.red('\n❌ Setup failed:'), error);
+		console.error(styleText('red', '\n❌ Setup failed:', { stream: process.stderr }), error);
 		process.exit(1);
 	}
 }

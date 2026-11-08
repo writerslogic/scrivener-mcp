@@ -1,14 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { CreateMessageRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { Client } from '@modelcontextprotocol/client';
+import { Server } from '@modelcontextprotocol/server';
+import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { setImmediate } from 'node:timers/promises';
 import { getLogger } from '../../../../src/core/logger.js';
 import { AIClient, type AIProvider } from '../../../../src/services/ai/ai-client.js';
 import { registerSamplingServer } from '../../../../src/services/ai/sampling-bridge.js';
-import { CancellationSafeTransport } from '../../../../src/utils/cancellation-safe-transport.js';
 
 const environmentKeys = [
 	'AI_PROVIDER',
@@ -406,12 +404,12 @@ it.each([0, 1])(
 		let cancelled = false;
 		let calls = 0;
 		let release = () => {};
-		client.setRequestHandler(CreateMessageRequestSchema, async (_request, extra) => {
+		client.setRequestHandler('sampling/createMessage', async (_request, extra) => {
 			calls++;
 			if (calls === 1)
 				await new Promise<void>((resolve) => {
 					release = resolve;
-					extra.signal.addEventListener(
+					extra.mcpReq.signal.addEventListener(
 						'abort',
 						() => {
 							cancelled = true;
@@ -428,7 +426,7 @@ it.each([0, 1])(
 			};
 		});
 		try {
-			await server.connect(new CancellationSafeTransport(serverTransport));
+			await server.connect(serverTransport);
 			await client.connect(clientTransport);
 			if (requestId === 1) await server.ping();
 			registerSamplingServer(server);
@@ -442,7 +440,7 @@ it.each([0, 1])(
 			)?.[0];
 			expect(sampling).toHaveProperty('id');
 			if (!sampling || !('id' in sampling)) throw new Error('Missing sampling request');
-			expect(sampling.id).toBeTruthy();
+			expect(sampling.id).toBe(requestId);
 			expect(send).toHaveBeenCalledWith(
 				expect.objectContaining({
 					method: 'notifications/cancelled',

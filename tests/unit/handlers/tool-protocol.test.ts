@@ -6,16 +6,10 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { collectNarrativeReport } from '../../helpers/narrative-report.js';
 import { setTimeout } from 'node:timers/promises';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import {
-	StdioClientTransport,
-	getDefaultEnvironment,
-} from '@modelcontextprotocol/sdk/client/stdio.js';
-import {
-	CallToolResultSchema,
-	ErrorCode,
-	ToolListChangedNotificationSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
+import { ProtocolErrorCode as ErrorCode } from '@modelcontextprotocol/client';
+import { ScrivenerToolResultSchema } from '../../helpers/mcp-result.js';
 
 test('real stdio dispatch distinguishes protocol errors and discloses tools after failed and memory-only activation', async () => {
 	const sourceRoot = resolve(__dirname, '../../..');
@@ -65,15 +59,18 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		protocolError = error.message;
 	};
 	let notifications = 0;
-	client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
+	client.setNotificationHandler('notifications/tools/list_changed', () => {
 		notifications++;
 	});
 	let phase = 'initialize';
 	const call = async (name: string, args: Record<string, unknown> = {}) => {
 		phase = `tools/call ${name}`;
-		const result = await client.callTool({ name, arguments: args }, undefined, {
-			timeout: 10000,
-		});
+		const result = await client.callTool(
+			{ name, arguments: args },
+			{
+				timeout: 10000,
+			}
+		);
 		expect(result._meta?.['com.writerslogic/operation']).toMatchObject({
 			id: expect.stringMatching(/^[a-f0-9-]{36}$/),
 			durationMs: expect.any(Number),
@@ -120,7 +117,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		expect((await call('open_project', { path: project })).isError).not.toBe(true);
 		expect(notifications).toBe(4);
 		expect(await names()).toContain('remember');
-		const remembered = CallToolResultSchema.parse(
+		const remembered = ScrivenerToolResultSchema.parse(
 			await call('remember', {
 				memoryType: 'worldBuilding',
 				data: { name: 'Moon Harbor', type: 'location', description: 'A tidal port.' },
@@ -131,7 +128,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 			persisted: true,
 			memoryType: 'worldBuilding',
 		});
-		const recalledMemory = CallToolResultSchema.parse(
+		const recalledMemory = ScrivenerToolResultSchema.parse(
 			await call('recall', { memoryType: 'worldBuilding' })
 		);
 		expect(recalledMemory.isError).not.toBe(true);
@@ -151,14 +148,16 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		};
 		const documentId = structure.documents.find((document) => document.type === 'Text')?.id;
 		expect(documentId).toBeDefined();
-		const info = CallToolResultSchema.parse(await call('get_document_info', { documentId }));
+		const info = ScrivenerToolResultSchema.parse(
+			await call('get_document_info', { documentId })
+		);
 		expect(info.isError).not.toBe(true);
 		const text = info.content.find((item) => item.type === 'text');
 		expect(text?.type).toBe('text');
 		if (text?.type !== 'text') throw new Error('Missing document information text');
 		expect(JSON.parse(text.text)).toEqual(info.structuredContent);
 		expect(JSON.parse(text.text)).toHaveProperty('metadata');
-		const enhancement = CallToolResultSchema.parse(
+		const enhancement = ScrivenerToolResultSchema.parse(
 			await call('enhance_content', { documentId, enhancementType: 'style' })
 		);
 		expect(enhancement.isError).toBe(true);
@@ -168,7 +167,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 			availability: { status: 'unavailable', reason: 'provider_failed' },
 			envelope: { policy: { revisionChecked: true } },
 		});
-		const generation = CallToolResultSchema.parse(
+		const generation = ScrivenerToolResultSchema.parse(
 			await call('generate_content', { prompt: 'Write a scene.' })
 		);
 		expect(generation.isError).toBe(true);
@@ -178,7 +177,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 				text: expect.stringContaining('disabled in local-only mode'),
 			}),
 		]);
-		const documentAnalysis = CallToolResultSchema.parse(
+		const documentAnalysis = ScrivenerToolResultSchema.parse(
 			await call('analyze_document', { documentId, analysisTypes: ['style'] })
 		);
 		expect(documentAnalysis.isError).not.toBe(true);
@@ -189,7 +188,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 			let offset: number | null = 0,
 				json = '';
 			do {
-				const result = CallToolResultSchema.parse(
+				const result = ScrivenerToolResultSchema.parse(
 					await call('read_result', { resultId, offset, limit: 1024 })
 				);
 				expect(result.isError).not.toBe(true);
@@ -218,7 +217,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		expect(notifications).toBe(4);
 		const suppliedText =
 			'Mira waited by the gate. The wind carried a distant bell across the harbor.';
-		const queued = CallToolResultSchema.parse(
+		const queued = ScrivenerToolResultSchema.parse(
 			await call('queue_document_analysis', { documentId, content: suppliedText })
 		);
 		expect(queued.isError).not.toBe(true);
@@ -226,7 +225,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		expect(typeof jobId).toBe('string');
 		let status: Record<string, unknown> | undefined;
 		for (let attempt = 0; attempt < 100; attempt++) {
-			const response = CallToolResultSchema.parse(
+			const response = ScrivenerToolResultSchema.parse(
 				await call('get_job_status', { jobType: 'analyze_document', jobId })
 			);
 			expect(response.isError).not.toBe(true);
@@ -240,7 +239,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 			let offset: number | null = 0;
 			let serialized = '';
 			do {
-				const page = CallToolResultSchema.parse(
+				const page = ScrivenerToolResultSchema.parse(
 					await call('read_result', { resultId: analysis._ref, offset })
 				).structuredContent as { text: string; nextOffset: number | null };
 				serialized += page.text;
@@ -284,7 +283,7 @@ test('real stdio dispatch distinguishes protocol errors and discloses tools afte
 		});
 		const narrative = (args: Record<string, unknown>) =>
 			call('analyze_manuscript_local', args).then((value) =>
-				CallToolResultSchema.parse(value)
+				ScrivenerToolResultSchema.parse(value)
 			);
 		const before = await collectNarrativeReport(narrative, { saveAs: 'protocol-baseline' });
 		const compared = await collectNarrativeReport(narrative, { baseline: 'protocol-baseline' });

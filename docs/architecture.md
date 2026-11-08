@@ -41,7 +41,7 @@ Tools are organized into skills that load progressively by default to minimize t
 | `project`       | open_project, get_structure, refresh_project, close_project, discover_projects, detect_open_project, get_compile_settings, get_manuscript_briefing, list_snapshots, read_snapshot, compare_snapshot, create_snapshot, verify_project_integrity, manuscript_dashboard                                                                                                                                                                                         | Startup (always)   |
 | `documents`     | get_document_info, read_document, write_document, create_document, delete_document, move_document, update_document, review_changes                                                                                                                                                                                                                                                                                                                           | After open_project |
 | `search`        | search, list_trash, restore_document, read_annotations, find_mentions, semantic_search, search_passages                                                                                                                                                                                                                                                                                                                                                      | After open_project |
-| `analysis`      | analyze_document, enhance_content, generate_content, check_consistency, analyze_craft_local, check_continuity_local, analyze_foreshadowing_local, measure_voice_drift_local, analyze_opening_local, check_style_local, find_repetition_local, analyze_rhythm_local, analyze_dialogue_tags_local, manuscript_style_report_local, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback, continuity_findings | On demand          |
+| `analysis`      | analyze_document, enhance_content, generate_content, check_consistency, analyze_craft_local, check_continuity_local, analyze_foreshadowing_local, measure_voice_drift_local, analyze_opening_local, analyze_manuscript_local, analyze_narrative_annotations, check_style_local, find_repetition_local, analyze_rhythm_local, analyze_dialogue_tags_local, manuscript_style_report_local, set_writing_goal, get_writing_goals, set_writing_preferences, get_writing_preferences, collect_feedback, continuity_findings | On demand          |
 | `compilation`   | compile_documents, export_project, get_statistics, generate_marketing_materials, export_manuscript                                                                                                                                                                                                                                                                                                                                                           | On demand          |
 | `credentials`   | c2pa_capabilities, sign_content_credentials, validate_content_credentials                                                                                                                                                                                                                                                                                                                                                                                    | On demand          |
 | `memory`        | remember, recall, manage_series, story_bible                                                                                                                                                                                                                                                                                                                                                                                                                 | On demand          |
@@ -234,8 +234,10 @@ working directory. It does not load an arbitrary module from the manuscript dire
 Passage retrieval uses native document batches, replacement/deletion and BM25 fused with supplied
 local ONNX model embeddings or the default story-concept vectors. Warm's official local embedding
 and reranking factories load configured files only. The model/revision/dimension identity is
-explicit; no model is downloaded. The existing SQLite passage catalog remains authoritative. A
-durable pending-ID catalog covers interrupted native updates; unchanged passages are reused. On
+explicit; no model is downloaded. A local model requires the optional `@huggingface/transformers`
+peer to be installed alongside the server; default installations omit Transformers and its ONNX
+runtimes. The existing SQLite passage catalog remains authoritative. A durable pending-ID catalog
+covers interrupted native updates; unchanged passages are reused. On
 reopening, paged native document inventory repairs missing entries and removes stale owned passages.
 Index maintenance follows changes. Native UTF-8 byte ranges are verified against exact quotations
 before returning canonical UTF-16 manuscript locations and saved revisions. The full-project keyword
@@ -353,7 +355,7 @@ Defensive reader for Scrivener's undocumented `Settings/compile.xml` and the `.s
 
 ### Manuscript Exporters (`src/services/export/manuscript-exporters.ts`)
 
-Pure-JS binary export of the compiled manuscript to DOCX (`docx`), EPUB (`epub-gen-memory`), and PDF
+Pure-JS binary export of the compiled manuscript to DOCX (`docx`), EPUB (JSZip and XML builders), and PDF
 (`pdf-lib`), used by `export_project` alongside the inline Markdown/HTML/JSON paths.
 
 ## Data Flow

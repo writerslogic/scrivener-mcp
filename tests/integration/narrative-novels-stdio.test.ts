@@ -4,11 +4,11 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
-import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { Client } from '@modelcontextprotocol/client';
+import { getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { serializeMessage } from '@modelcontextprotocol/server';
+import { ScrivenerToolResultSchema } from '../helpers/mcp-result.js';
 import { createNovelProject, type NovelCorpus } from '../helpers/narrative-novel-project.js';
 import { collectNarrativeReport } from '../helpers/narrative-report.js';
 
@@ -185,8 +185,8 @@ module.exports = { ...native,
 		let operation = 'initialize';
 		const call = async (name: string, args: Record<string, unknown> = {}) => {
 			operation = name;
-			const result = CallToolResultSchema.parse(
-				await client.callTool({ name, arguments: args }, undefined, { timeout: 10000 })
+			const result = ScrivenerToolResultSchema.parse(
+				await client.callTool({ name, arguments: args }, { timeout: 10000 })
 			);
 			if (result.isError)
 				throw new Error(

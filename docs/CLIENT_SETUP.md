@@ -153,7 +153,7 @@ exist):
 
 1. **Quit and restart** Claude Desktop (MCP servers load only at startup).
 2. Open a new chat and ask: **"What Scrivener tools do you have?"**
-3. You should see the 14 project tools plus `list_skills` and `use_skill` (16 startup tools total).
+3. You should see the 14 project tools plus `list_skills`, `use_skill` and `read_result` (17 startup tools total).
    These include `open_project`, `get_structure`, `refresh_project`, `close_project`, and
    `discover_projects`.
 
@@ -201,7 +201,7 @@ For user-wide setup, add the same `scrivener` entry under the top-level `mcpServ
 
 1. Start a new Claude Code session in the configured project (config is read at session start).
 2. Run `/mcp` to confirm the server is connected, or ask: **"What Scrivener tools do you have?"**
-3. You should see the 14 project tools plus `list_skills` and `use_skill` (16 startup tools total).
+3. You should see the 14 project tools plus `list_skills`, `use_skill` and `read_result` (17 startup tools total).
    These include `open_project`, `get_structure`, `refresh_project`, `close_project`, and
    `discover_projects`.
 

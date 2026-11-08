@@ -33,7 +33,7 @@ export default {
 		],
 	},
 	transformIgnorePatterns: [
-		'/node_modules/(?!(@modelcontextprotocol|@peculiar/utils|asn1js|chalk|cheerio|syllable|turndown|compromise|compromise-dates|compromise-numbers|compromise-adjectives)/)',
+		'/node_modules/(?!(@modelcontextprotocol|@peculiar/utils|asn1js|cheerio|syllable|turndown|compromise|compromise-dates|compromise-numbers|compromise-adjectives)/)',
 	],
 	roots: ['<rootDir>/src', '<rootDir>/tests'],
 	testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
