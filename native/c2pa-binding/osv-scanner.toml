@@ -2,3 +2,8 @@
 id = "RUSTSEC-2023-0071"
 ignoreUntil = 2027-02-01
 reason = "Not affected in this binding: rsa 0.9.10 only verifies public signatures. ClaimSigner in src/lib.rs passes bounded message bytes to a JavaScript callback and never receives private keys; sdk-worker.ts performs RSA-PSS with node:crypto/OpenSSL. Real callback signatures are independently verified in tests/unit/services/content-credentials-sdk.test.ts. Matches assets/c2pa-supply-chain/vex.openvex.json CVE-2023-49092. Reassess before expiry or any binding/private-key-path change; upstream rsa remains unpatched."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+ignoreUntil = 2027-02-01
+reason = "Unmaintained-crate notice, no vulnerability. proc-macro-error 1.0.4 is a build-time proc-macro reached only through c2pa 0.91.7 -> iref 3.2.2 -> static-regular-grammar 2.0.2; it emits no runtime code. c2pa main still pins iref 3, and iref 5 swaps to static-automata-macros, which also depends on proc-macro-error 1.0.4, so no upgrade path exists yet. Upstream fix: remove it from static-regular-grammar in favor of syn diagnostics (docs/dependency-maintenance/static-regular-grammar-2.0.2.patch). Reassess before expiry or on any c2pa upgrade."

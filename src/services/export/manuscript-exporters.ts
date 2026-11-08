@@ -10,34 +10,9 @@ import {
 	PageNumber,
 } from 'docx';
 import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
-import * as epubGenMemory from 'epub-gen-memory';
 import type { RTFContent } from '../parsers/rtf-handler.js';
 import { EXPORT_PRESETS, type ExportPreset } from './export-presets.js';
-
-type EpubFn = (
-	options: {
-		title: string;
-		author?: string;
-		description?: string;
-		version?: number;
-		css?: string;
-		prependChapterTitles?: boolean;
-		numberChaptersInTOC?: boolean;
-	},
-	content: Array<{ title: string; content: string }>
-) => Promise<Buffer>;
-
-// epub-gen-memory is CJS with `export default`; under Node's ESM/CJS interop the
-// callable ends up nested (namespace.default.default), so walk `.default` until
-// we reach the function.
-function resolveCallable(mod: unknown): EpubFn {
-	let candidate: unknown = mod;
-	for (let i = 0; i < 3 && candidate && typeof candidate !== 'function'; i++) {
-		candidate = (candidate as { default?: unknown }).default;
-	}
-	return candidate as EpubFn;
-}
-const generateEpub = resolveCallable(epubGenMemory);
+import { createEpub, escapeEpubText, validateEpubText } from './epub.js';
 
 export interface ExportSection {
 	id?: string;
@@ -65,11 +40,6 @@ function splitParagraphs(text: string): string[] {
 		.split(/\n{2,}|\r\n{2,}|\n/)
 		.map((p) => p.trim())
 		.filter((p) => p.length > 0);
-}
-
-/** Minimal HTML escape for EPUB chapter content. */
-function escapeHtml(s: string): string {
-	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function styledParagraphs(section: ExportSection): Array<RTFContent['formattedText']> {
@@ -223,13 +193,16 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 	const chapters = sections
 		.filter((s) => !!meta.preset || !s.isFolder || s.text.trim().length > 0)
 		.map((s) => {
+			validateEpubText(s.text);
+			if (!Number.isSafeInteger(s.depth) || s.depth < 0)
+				throw new Error('EPUB section depth must be a nonnegative safe integer');
 			const paragraphs =
 				styledParagraphs(s)
 					.map(
 						(paragraph) =>
 							`<p>${paragraph
 								.map((run) => {
-									let text = escapeHtml(run.text);
+									let text = escapeEpubText(run.text);
 									if (run.style?.bold) text = `<strong>${text}</strong>`;
 									if (run.style?.italic) text = `<em>${text}</em>`;
 									if (run.style?.underline)
@@ -241,31 +214,19 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 					)
 					.join('\n') || '<p></p>';
 			const notes = (s.notes ?? [])
-				.map((note) => `<aside><p>${escapeHtml(note)}</p></aside>`)
+				.map((note) => `<aside><p>${escapeEpubText(note)}</p></aside>`)
 				.join('');
 			const level = Math.min(s.depth + 1, 6);
 			return {
 				title: s.title,
-				content: `<h${level}>${escapeHtml(s.title)}</h${level}>${paragraphs}${notes}`,
+				content: `<h${level}>${escapeEpubText(s.title)}</h${level}>${paragraphs}${notes}`,
 			};
 		});
 
-	const result = await generateEpub(
-		{
-			title: meta.title,
-			author: meta.author || 'Unknown',
-			description: `Manuscript export: ${meta.title}`,
-			version: 3,
-			prependChapterTitles: false,
-			numberChaptersInTOC: false,
-			css:
-				meta.preset === 'ebook'
-					? 'body { font-family: serif; line-height: 1.5; margin: 5%; } p { text-indent: 1.2em; margin: 0 0 .5em; } h1, h2, h3 { text-align: center; break-after: avoid; } aside { font-size: .9em; margin: 1em; }'
-					: undefined,
-		},
-		chapters.length > 0 ? chapters : [{ title: meta.title, content: '<p></p>' }]
+	return createEpub(
+		chapters.length > 0 ? chapters : [{ title: meta.title, content: '<p></p>' }],
+		meta
 	);
-	return Buffer.isBuffer(result) ? result : Buffer.from(result as ArrayBuffer);
 }
 
 // PDF (pdf-lib is low-level: we wrap and paginate text ourselves)

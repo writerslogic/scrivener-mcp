@@ -1,8 +1,5 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import {
-	StdioClientTransport,
-	getDefaultEnvironment,
-} from '@modelcontextprotocol/sdk/client/stdio.js';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 import { cp, mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -57,9 +54,12 @@ export async function firstSession(
 		name: string,
 		args: Record<string, unknown>
 	): Promise<Record<string, unknown>> => {
-		const result = await client.callTool({ name, arguments: args }, undefined, {
-			timeout: 60_000,
-		});
+		const result = await client.callTool(
+			{ name, arguments: args },
+			{
+				timeout: 60_000,
+			}
+		);
 		if (result.isError)
 			throw new Error(`First-session ${name} failed; run redacted diagnostics for details`);
 		return (result.structuredContent ?? {}) as Record<string, unknown>;

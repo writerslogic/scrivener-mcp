@@ -70,7 +70,7 @@ can retrieve supported paraphrases with no shared query words. Keyword mode work
 terms outside that vocabulary. Each response discloses its method and limitations.
 
 For general semantic retrieval, configure a locally stored Transformers.js-compatible ONNX
-embedding model. The optional `@huggingface/transformers` dependency supplies CPU inference. Model
+embedding model. The optional `@huggingface/transformers` peer, which you must install explicitly, supplies CPU inference. Model
 files must already exist; the server never downloads models or contacts an embedding provider.
 For CPU-only installation on Linux x64, set `ONNXRUNTIME_NODE_INSTALL=skip` when running `npm ci`
 or `npm install` to omit ONNX Runtime's optional CUDA downloads.

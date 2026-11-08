@@ -10,7 +10,7 @@ import { getLogger } from '../../core/logger.js';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import chalk from 'chalk';
+import { styleText } from 'node:util';
 import { readJSON, writeJSON } from '../../utils/common.js';
 
 const logger = getLogger('auto-setup');
@@ -118,44 +118,68 @@ export class AutoSetup {
 
 		try {
 			// Step 1: Queue system is now embedded, no setup needed
-			logger.info(chalk.green('✅ Queue system ready (embedded, no setup required)'));
+			logger.info(
+				styleText('green', '✅ Queue system ready (embedded, no setup required)', {
+					stream: process.stderr,
+				})
+			);
 
 			// Step 2: Configure AI services (optional)
 			if (!options.skipAI) {
-				logger.info(chalk.cyan('\n📊 Configuring AI services...'));
+				logger.info(
+					styleText('cyan', '\n📊 Configuring AI services...', { stream: process.stderr })
+				);
 
 				if (options.quickSetup && options.openaiApiKey) {
 					// Quick setup with provided key
 					await this.aiWizard.quickSetup(options.openaiApiKey);
 					result.aiConfigured = true;
-					logger.info(chalk.green('✅ AI services configured with OpenAI'));
+					logger.info(
+						styleText('green', '✅ AI services configured with OpenAI', {
+							stream: process.stderr,
+						})
+					);
 				} else if (options.interactive) {
 					// Interactive wizard
 					const aiConfig = await this.aiWizard.runWizard();
 					result.aiConfigured = !!aiConfig;
 					if (result.aiConfigured) {
-						logger.info(chalk.green('✅ AI services configured'));
+						logger.info(
+							styleText('green', '✅ AI services configured', {
+								stream: process.stderr,
+							})
+						);
 					}
 				} else {
 					const existingConfig = await this.aiWizard.getActiveConfig();
 					if (existingConfig.openaiApiKey || existingConfig.anthropicApiKey) {
 						result.aiConfigured = true;
-						logger.info(chalk.green('✅ AI services already configured'));
+						logger.info(
+							styleText('green', '✅ AI services already configured', {
+								stream: process.stderr,
+							})
+						);
 					} else {
 						result.warnings?.push(
 							'AI services not configured. Run with --interactive to configure.'
 						);
-						logger.info(chalk.yellow('⚠️  AI services not configured (optional)'));
+						logger.info(
+							styleText('yellow', '⚠️  AI services not configured (optional)', {
+								stream: process.stderr,
+							})
+						);
 					}
 				}
 			}
 
 			// Step 3: Initialize async services
-			logger.info(chalk.cyan('\n🚀 Initializing services...'));
+			logger.info(
+				styleText('cyan', '\n🚀 Initializing services...', { stream: process.stderr })
+			);
 			await initializeAsyncServices({
 				openaiApiKey: options.openaiApiKey,
 			});
-			logger.info(chalk.green('✅ Services initialized'));
+			logger.info(styleText('green', '✅ Services initialized', { stream: process.stderr }));
 
 			await this.saveSetupStatus({
 				completed: true,
@@ -164,18 +188,36 @@ export class AutoSetup {
 			});
 
 			// Final summary
-			logger.info(chalk.green('\n✨ Setup completed successfully!'));
-			logger.info(chalk.gray('\nYou can now use Scrivener MCP with:'));
-			logger.info(chalk.cyan('  • Embedded queue system for async processing'));
+			logger.info(
+				styleText('green', '\n✨ Setup completed successfully!', { stream: process.stderr })
+			);
+			logger.info(
+				styleText('gray', '\nYou can now use Scrivener MCP with:', {
+					stream: process.stderr,
+				})
+			);
+			logger.info(
+				styleText('cyan', '  • Embedded queue system for async processing', {
+					stream: process.stderr,
+				})
+			);
 			if (result.aiConfigured) {
-				logger.info(chalk.cyan('  • AI-powered content analysis and generation'));
+				logger.info(
+					styleText('cyan', '  • AI-powered content analysis and generation', {
+						stream: process.stderr,
+					})
+				);
 			}
-			logger.info(chalk.gray('\nNo external services required!'));
+			logger.info(
+				styleText('gray', '\nNo external services required!', { stream: process.stderr })
+			);
 		} catch (error) {
 			logger.error('Setup failed', { error });
 			result.success = false;
 			result.errors?.push(`Setup failed: ${error}`);
-			logger.info(chalk.red(`\n❌ Setup failed: ${error}`));
+			logger.info(
+				styleText('red', `\n❌ Setup failed: ${error}`, { stream: process.stderr })
+			);
 		}
 
 		return result;

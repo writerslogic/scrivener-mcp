@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
-import type { JsonSchemaType } from '@modelcontextprotocol/sdk/validation/types';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
+import type { JsonSchemaType } from '@modelcontextprotocol/server';
 import { SQLiteManager } from '../../src/handlers/database/sqlite-manager.js';
 import { CachedSQLiteManager } from '../../src/handlers/database/keydb-cache.js';
 import { PersistentStore } from '../../src/services/editorial/persistent-store.js';

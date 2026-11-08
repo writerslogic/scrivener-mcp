@@ -92,8 +92,9 @@ the duration of the conversation -- you don't need to reopen it between tool cal
 
 ## "Unknown tool" errors
 
-Tools load progressively to minimize token overhead. At startup, only 15 tools are registered (the
-`project` skill + meta-tools). Calling a tool whose skill is not active yet now activates that skill
+On MCP 2026-07-28 connections every tool is listed at once. On earlier protocol versions, tools load
+progressively to minimize token overhead: at startup, only 17 tools are registered (the
+`project` skill + the three meta-tools). Calling a tool whose skill is not active yet now activates that skill
 on the fly, so a valid tool call no longer dead-ends on "Unknown tool" -- that error is reserved for
 genuinely unknown or intentionally hidden tools.
 

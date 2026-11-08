@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0141"
+ignoreUntil = 2027-02-01
+reason = "Unmaintained-crate notice, no vulnerability. These CycloneDX inventories are hash-pinned records of the published writerslogic-warm 0.6.4 (see ../upstream.json) and cannot be edited here. bincode 2.0.1 is a runtime dependency of the Warm native binary. writerslogic/warm main removes bincode (92a544f9, version 0.6.5); bump writerslogic-warm and regenerate these inventories once 0.6.5 is published."
