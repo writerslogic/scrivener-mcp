@@ -4,7 +4,7 @@ Scrivener projects can be massive -- hundreds of documents, deeply nested binder
 
 ## Skill-Based Registration
 
-Tools are grouped into skills (`project`, `documents`, `search`, `analysis`, `compilation`, `memory`, `relationships`). By default the server uses **progressive disclosure**: only the `project` group and the `list_skills`/`use_skill` meta-tools register at startup (~300 tokens instead of the ~5,000 tokens of the full set), and the rest activate on demand:
+Tools are grouped into skills (`project`, `documents`, `search`, `analysis`, `compilation`, `memory`, `relationships`, `credentials`, `advanced`). MCP 2026-07-28 connections list every tool at once. On earlier protocol versions the server uses **progressive disclosure** by default: only the `project` group and the `list_skills`/`use_skill`/`read_result` meta-tools register at startup (about 30 KB of serialized tool definitions instead of about 340 KB for all 82 tools), and the rest activate on demand:
 
 | Trigger | Skills activated |
 |---------|-----------------|
@@ -89,7 +89,7 @@ For a typical writing session with a 100-document novel project:
 
 | Without optimization | With optimization |
 |---------------------|-------------------|
-| 5,000 tokens for tool definitions | 300 tokens at startup |
+| ~340 KB of tool definitions (all 82 tools) | ~30 KB at startup (17 tools, pre-2026-07-28 protocol) |
 | 8,000 tokens for project structure | 2,000 tokens (flat format) |
 | 50,000 tokens to read a long chapter | 1,000 tokens per window |
 | 4,000 tokens for analysis results | 800 tokens (top 3 summary) |

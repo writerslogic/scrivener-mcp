@@ -66,21 +66,22 @@ After restarting Claude Desktop, ask:
 
 > "What Scrivener tools do you have?"
 
-Claude should list 16 startup tools: the 14 tools in the `project` skill plus two meta-tools
-(`list_skills`, `use_skill`). If you don't see the startup tools, check the troubleshooting section
+Claude should list 17 startup tools: the 14 tools in the `project` skill plus three meta-tools
+(`list_skills`, `use_skill`, `read_result`); an MCP 2026-07-28 connection lists all 82. If you don't see the startup tools, check the troubleshooting section
 below.
 
 ### How skills activate
 
-The server uses progressive tool loading to keep conversations fast by only loading what you need.
+On MCP protocol versions before 2026-07-28, the server uses progressive tool loading to keep
+conversations fast by only loading what you need.
 If the model calls a tool whose skill is not active yet, the server activates that skill on the fly,
 so a valid call never dead-ends:
 
 1. **At startup:** the `project` skill (`open_project`, `get_structure`, `refresh_project`,
    `close_project`, `discover_projects`, `detect_open_project`, `verify_project_integrity`,
    `get_compile_settings`, `get_manuscript_briefing`, `list_snapshots`, `read_snapshot`,
-   `compare_snapshot`, `create_snapshot`, `manuscript_dashboard`) plus `list_skills` and
-   `use_skill`.
+   `compare_snapshot`, `create_snapshot`, `manuscript_dashboard`) plus `list_skills`,
+   `use_skill` and `read_result`.
 2. **After opening a project:** the `documents` and `search` skills auto-activate, adding read,
    write, create, delete, move, local passage search and review tools.
 3. **On demand:** say "activate analysis tools" or Claude calls `use_skill` with
@@ -89,7 +90,7 @@ so a valid call never dead-ends:
     - **compilation** -- compile manuscripts, export, statistics
     - **credentials** -- inspect local C2PA capabilities, sign assets, validate Content Credentials
     - **memory** -- persistent project facts and local HMS-backed memory
-    - **advanced** -- fractal memory, async job queue, batch operations
+    - **advanced** -- async job queue, batch analysis, editorial workflows
 
 You can see all available skills and which are active by asking Claude to call `list_skills`.
 

@@ -238,8 +238,9 @@ limits.
 
 ## All Tools
 
-82 tools organized by workflow. To keep token usage low, tools load progressively — project tools at
-startup, document and search tools once a project is open, the rest on demand. Set
+82 tools organized by workflow. MCP 2026-07-28 connections list all of them at once. On earlier
+protocol versions, tools load progressively to keep token usage low — project tools at startup,
+document and search tools once a project is open, the rest on demand. Set
 `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
 
 <details>
