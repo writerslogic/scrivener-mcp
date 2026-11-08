@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-11-03/dependencies",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-11-03T05:10:55.568Z",
-  "version": 4,
+  "timestamp": "2026-11-08T07:13:42.000Z",
+  "version": 5,
   "statements": [
     {
       "vulnerability": {
@@ -94,6 +94,62 @@
       "status": "not_affected",
       "justification": "vulnerable_code_not_present",
       "impact_statement": "The CNA record identifies V8 as used in Chrome before 15.0.874.102; the Chrome 15.0.874.102 release explicitly includes the fix. The measured product is modern V8 13.6.233.17-node.63 in Node 24.22.2, not that 2011 engine. This match results from the broad historical V8 CPE record. References: https://chromereleases.googleblog.com/2011/10/chrome-stable-release.html and https://cveawg.mitre.org/api/cve/CVE-2011-3886 . Exact V8 product version only; reassess other versions and advisories."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-119586",
+        "name": "CVE-2026-119586"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/sqlite@3.53.4"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The flaw is in the sqlite3 command-line shell's .recover output (src/shell.c.in). Neither Node 24.22.2 nor better-sqlite3 13.0.3 builds or ships the shell, and scrivener-mcp never invokes a sqlite3 executable. https://abraxaslabs.tech/research/sqlite-cli-recover . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-119379",
+        "name": "CVE-2026-119379"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/sqlite@3.53.4"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Two copies of SQLite 3.53.4 are measured: Node 24.22.2 (process.versions.sqlite), reachable only through node:sqlite, which neither src/ nor any production dependency imports; and better-sqlite3 13.0.3, whose deps/defines.gypi builds without SQLITE_ENABLE_SESSION and with FTS5. The overflow is in sqlite3changeset_apply() of the session extension: absent from the better-sqlite3 build, and Node's DatabaseSync.applyChangeset() is never reached because node:sqlite is never loaded. https://github.com/sqlite/sqlite/commit/64459c87cc702d600704fb77ee40ca1782398a52 . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-119374",
+        "name": "CVE-2026-119374"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/sqlite@3.53.4"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Two copies of SQLite 3.53.4 are measured: Node 24.22.2 (process.versions.sqlite), reachable only through node:sqlite, which neither src/ nor any production dependency imports; and better-sqlite3 13.0.3, whose deps/defines.gypi builds without SQLITE_ENABLE_SESSION and with FTS5. The server creates its own SQLite schemas (src/handlers/database/sqlite-manager.ts, src/services/editorial/persistent-store.ts) with no FTS virtual tables, never issues FTS5 MATCH or secure-delete operations, and exposes no SQL interface to MCP clients. fts5DoSecureDelete() requires deletes from an FTS5 table with secure-delete enabled. https://github.com/sqlite/sqlite/commit/d9de6eedbe918c074c7556400fa21df5960704d9 . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-119373",
+        "name": "CVE-2026-119373"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/sqlite@3.53.4"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Two copies of SQLite 3.53.4 are measured: Node 24.22.2 (process.versions.sqlite), reachable only through node:sqlite, which neither src/ nor any production dependency imports; and better-sqlite3 13.0.3, whose deps/defines.gypi builds without SQLITE_ENABLE_SESSION and with FTS5. The server creates its own SQLite schemas (src/handlers/database/sqlite-manager.ts, src/services/editorial/persistent-store.ts) with no FTS virtual tables, never issues FTS5 MATCH or secure-delete operations, and exposes no SQL interface to MCP clients. fts5MergeRowidLists() requires a prefix MATCH over a detail=none FTS5 table. https://github.com/sqlite/sqlite/commit/e1c9934f9f11a499029abb020ea715a08970da80 . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
     }
   ]
 }
