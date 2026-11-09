@@ -70,3 +70,24 @@ test('identifies SQLITE_BUSY from a competing connection but not other failures'
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+test('returns plain-object rows with Buffer BLOBs from get, all and iterate', () => {
+	const db = openSqliteDatabase(':memory:');
+	try {
+		db.exec('CREATE TABLE t(id INTEGER PRIMARY KEY, payload BLOB)');
+		db.prepare('INSERT INTO t(payload) VALUES (?)').run(new Uint8Array([0, 127, 128, 255]));
+		const select = db.prepare('SELECT id, payload FROM t');
+		const rows = [select.get(), ...select.all(), ...select.iterate()] as Array<{
+			payload: unknown;
+		}>;
+		expect(rows).toHaveLength(3);
+		for (const row of rows) {
+			expect(Object.getPrototypeOf(row)).toBe(Object.prototype);
+			expect(Buffer.isBuffer(row.payload)).toBe(true);
+			expect([...(row.payload as Buffer)]).toEqual([0, 127, 128, 255]);
+		}
+		expect(db.prepare('SELECT id FROM t WHERE id = ?').get(99)).toBeUndefined();
+	} finally {
+		db.close();
+	}
+});

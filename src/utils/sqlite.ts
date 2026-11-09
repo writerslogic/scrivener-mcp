@@ -37,21 +37,29 @@ function assertBindableArguments(args: readonly unknown[]): void {
 	});
 }
 
-// better-sqlite3 returned BLOB columns as Buffer; the driver returns plain Uint8Array.
-function bufferBlobs<R>(row: R): R {
-	if (row === null || typeof row !== 'object') return row;
-	const record = row as Record<string, unknown>;
-	for (const key of Object.keys(record)) {
-		const value = record[key];
-		if (value instanceof Uint8Array && !Buffer.isBuffer(value))
-			record[key] = Buffer.from(value.buffer, value.byteOffset, value.byteLength);
-	}
-	return row;
+const toBuffer = (value: unknown): unknown =>
+	value instanceof Uint8Array && !Buffer.isBuffer(value)
+		? Buffer.from(value.buffer, value.byteOffset, value.byteLength)
+		: value;
+
+// Match better-sqlite3 rows: plain objects (the driver returns null-prototype objects) with
+// BLOB columns as Buffer (the driver returns plain Uint8Array).
+function normalizeRow(row: unknown): unknown {
+	if (Array.isArray(row)) return row.map(toBuffer);
+	if (row === null || typeof row !== 'object' || ArrayBuffer.isView(row)) return toBuffer(row);
+	const plain: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(row)) plain[key] = toBuffer(value);
+	return plain;
 }
 
-function bufferResult(method: (typeof BOUND_METHODS)[number], result: unknown): unknown {
-	if (method === 'get') return bufferBlobs(result);
-	if (method === 'all') return Array.isArray(result) ? result.map(bufferBlobs) : result;
+function* normalizeRows(rows: Iterable<unknown>): Generator<unknown> {
+	for (const row of rows) yield normalizeRow(row);
+}
+
+function normalizeResult(method: (typeof BOUND_METHODS)[number], result: unknown): unknown {
+	if (method === 'get') return result === undefined ? result : normalizeRow(result);
+	if (method === 'all') return (result as unknown[]).map(normalizeRow);
+	if (method === 'iterate') return normalizeRows(result as Iterable<unknown>);
 	return result;
 }
 
@@ -61,7 +69,7 @@ function strictStatement<T extends StatementSyncInstance>(statement: T): T {
 		Object.defineProperty(statement, method, {
 			value: (...args: unknown[]) => {
 				assertBindableArguments(args);
-				return bufferResult(method, call.apply(statement, args));
+				return normalizeResult(method, call.apply(statement, args));
 			},
 		});
 	}
