@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { openSqliteDatabase, type SqliteDatabase } from '../../src/utils/sqlite.js';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -23,7 +23,7 @@ describe('SQLite transaction ownership and durability', () => {
 	let file: string;
 	let sqlite: SQLiteManager;
 	let coordinator: TransactionCoordinator;
-	let connections: Database.Database[];
+	let connections: SqliteDatabase[];
 	let services: DatabaseService[];
 	const insert = (value: string) => sqlite.execute('INSERT INTO tx_rows VALUES (?)', [value]);
 	const rows = () => sqlite.query('SELECT value FROM tx_rows ORDER BY value');
@@ -49,13 +49,13 @@ describe('SQLite transaction ownership and durability', () => {
 		jest.useRealTimers();
 		jest.restoreAllMocks();
 		for (const service of services) await service.close();
-		for (const db of connections) if (db.open) db.close();
+		for (const db of connections) if (db.isOpen) db.close();
 		await sqlite.close();
 		await rm(root, { recursive: true, force: true });
 	});
 
-	function connect(): Database.Database {
-		const db = new Database(file);
+	function connect(): SqliteDatabase {
+		const db = openSqliteDatabase(file);
 		db.pragma('busy_timeout = 0');
 		connections.push(db);
 		return db;
@@ -87,7 +87,7 @@ describe('SQLite transaction ownership and durability', () => {
 		insert('kept');
 		sqlite.commit();
 		expect(rows()).toEqual([{ value: 'kept' }]);
-		expect(sqlite.getDatabase().inTransaction).toBe(false);
+		expect(sqlite.getDatabase().isTransaction).toBe(false);
 	});
 
 	it('rejects an async callback before any writes can escape its transaction', async () => {
@@ -119,7 +119,7 @@ describe('SQLite transaction ownership and durability', () => {
 			})
 		).resolves.toBe(42);
 		expect(rows()).toEqual([{ value: 'nested' }]);
-		expect(sqlite.getDatabase().inTransaction).toBe(false);
+		expect(sqlite.getDatabase().isTransaction).toBe(false);
 	});
 
 	it.each(['commit', 'begin', 'rollback'] as const)(
@@ -147,10 +147,10 @@ describe('SQLite transaction ownership and durability', () => {
 		sqlite.beginTransaction();
 		sqlite.execute('INSERT INTO children VALUES (7)');
 		expect(() => sqlite.commit()).toThrow(/FOREIGN KEY/i);
-		expect(db.inTransaction).toBe(true);
+		expect(db.isTransaction).toBe(true);
 		sqlite.execute('INSERT INTO parents VALUES (7)');
 		sqlite.commit();
-		expect(db.inTransaction).toBe(false);
+		expect(db.isTransaction).toBe(false);
 		expect(sqlite.query('SELECT parent FROM children')).toEqual([{ parent: 7 }]);
 	});
 
@@ -205,7 +205,7 @@ describe('SQLite transaction ownership and durability', () => {
 			insert('kept');
 		}, 2);
 		expect(attempts).toBe(1);
-		expect(sqlite.getDatabase().inTransaction).toBe(false);
+		expect(sqlite.getDatabase().isTransaction).toBe(false);
 		competing.exec('ROLLBACK');
 		await jest.advanceTimersByTimeAsync(100);
 		await pending;
@@ -224,7 +224,7 @@ describe('SQLite transaction ownership and durability', () => {
 		insert('owner');
 		await jest.advanceTimersByTimeAsync(100);
 		await rejected;
-		expect(sqlite.getDatabase().inTransaction).toBe(true);
+		expect(sqlite.getDatabase().isTransaction).toBe(true);
 		sqlite.commit();
 		expect(rows()).toEqual([{ value: 'owner' }]);
 	});
@@ -242,7 +242,7 @@ describe('SQLite transaction ownership and durability', () => {
 		await expect(coordinator.rollback(committed)).rejects.toThrow('Committed transaction');
 		await coordinator.rollback(aborted);
 		await expect(coordinator.prepare(aborted)).rejects.toThrow('was rolled back');
-		expect(sqlite.getDatabase().inTransaction).toBe(true);
+		expect(sqlite.getDatabase().isTransaction).toBe(true);
 		expect(connect().prepare('SELECT value FROM tx_rows ORDER BY value').all()).toEqual([
 			{ value: 'committed' },
 		]);
@@ -274,7 +274,7 @@ describe('SQLite transaction ownership and durability', () => {
 	it('does not publish a ticket if opening the native transaction fails', async () => {
 		sqlite.getDatabase().exec('BEGIN');
 		await expect(coordinator.begin()).rejects.toMatchObject({
-			code: 'SQLITE_ERROR',
+			sqliteCodeName: 'SQLITE_ERROR',
 			message: expect.stringMatching(/transaction/i),
 		});
 		expect((coordinator as unknown as { log: Map<string, unknown> }).log.size).toBe(0);
@@ -314,12 +314,12 @@ describe('SQLite transaction ownership and durability', () => {
 		const closing = sqlite.close();
 		try {
 			await Promise.resolve();
-			expect(db.open).toBe(true);
+			expect(db.isOpen).toBe(true);
 		} finally {
 			release.resolve();
 			await Promise.all([first, second, closing]);
 		}
-		expect(db.open).toBe(false);
+		expect(db.isOpen).toBe(false);
 	});
 
 	it('waits for an in-flight close before opening a new connection', async () => {
@@ -335,12 +335,12 @@ describe('SQLite transaction ownership and durability', () => {
 		const opening = sqlite.initialize();
 		try {
 			await Promise.resolve();
-			expect(old.open).toBe(true);
+			expect(old.isOpen).toBe(true);
 		} finally {
 			release.resolve();
 			await Promise.all([closing, opening]);
 		}
-		expect(old.open).toBe(false);
+		expect(old.isOpen).toBe(false);
 		expect(sqlite.getDatabase()).not.toBe(old);
 		await sqlite.transaction(() => insert('kept'));
 		expect(rows()).toEqual([{ value: 'kept' }]);
@@ -371,7 +371,7 @@ describe('SQLite transaction ownership and durability', () => {
 		invalid.exec('DROP TABLE documents; CREATE TABLE documents(id TEXT PRIMARY KEY)');
 		invalid.close();
 		await expect(sqlite.initialize()).rejects.toMatchObject({
-			code: 'SQLITE_ERROR',
+			sqliteCodeName: 'SQLITE_ERROR',
 			message: expect.stringMatching(/column/i),
 		});
 		expect(() => sqlite.getDatabase()).toThrow('not initialized');
@@ -389,7 +389,7 @@ describe('SQLite transaction ownership and durability', () => {
 			new Error('Cache close failed')
 		);
 		await expect(sqlite.close()).rejects.toThrow('Cache close failed');
-		expect(old.open).toBe(false);
+		expect(old.isOpen).toBe(false);
 		await sqlite.initialize();
 		expect(sqlite.getDatabase()).not.toBe(old);
 	});
@@ -398,7 +398,7 @@ describe('SQLite transaction ownership and durability', () => {
 		insert('backed up');
 		const backup = join(root, 'backup.sqlite');
 		await sqlite.backup(backup);
-		const copy = new Database(backup, { readonly: true });
+		const copy = openSqliteDatabase(backup, { readOnly: true });
 		connections.push(copy);
 		expect(copy.prepare('SELECT value FROM tx_rows').all()).toEqual([{ value: 'backed up' }]);
 		const stats = sqlite.getDatabaseStats();
@@ -441,10 +441,10 @@ describe('SQLite transaction ownership and durability', () => {
 			release.resolve();
 			await Promise.all([pending, closing]);
 		}
-		expect(db.open).toBe(false);
+		expect(db.isOpen).toBe(false);
 		const files = await readdir(folder);
 		expect(files).toHaveLength(1);
-		const copy = new Database(join(folder, files[0]), { readonly: true });
+		const copy = openSqliteDatabase(join(folder, files[0]), { readOnly: true });
 		connections.push(copy);
 		expect(copy.prepare('SELECT value FROM tx_rows').all()).toEqual([{ value: 'backed up' }]);
 	});
@@ -466,13 +466,13 @@ describe('SQLite transaction ownership and durability', () => {
 		const closing = sqlite.close();
 		try {
 			await new Promise<void>((resolve) => setImmediate(resolve));
-			expect(db.open).toBe(true);
+			expect(db.isOpen).toBe(true);
 		} finally {
 			release.resolve();
 			await Promise.all([backup, closing]);
 		}
-		expect(db.open).toBe(false);
-		const copy = new Database(target, { readonly: true });
+		expect(db.isOpen).toBe(false);
+		const copy = openSqliteDatabase(target, { readOnly: true });
 		connections.push(copy);
 		expect(copy.prepare('SELECT value FROM tx_rows').all()).toEqual([{ value: 'backed up' }]);
 	});
@@ -509,7 +509,7 @@ describe('SQLite transaction ownership and durability', () => {
 			release.resolve();
 			await closing;
 		}
-		expect(old.open).toBe(false);
+		expect(old.isOpen).toBe(false);
 		await service.initialize();
 		expect(service.isInitialized()).toBe(true);
 		expect(
@@ -534,7 +534,7 @@ describe('SQLite transaction ownership and durability', () => {
 				bothFail ? 'Multiple database resources' : 'Cache close failed'
 			);
 			expect(close).toHaveBeenCalledTimes(1);
-			expect(old.open).toBe(false);
+			expect(old.isOpen).toBe(false);
 			expect(service.isInitialized()).toBe(false);
 			await service.close();
 			expect(() => service.getSQLite()).toThrow('not initialized');
@@ -543,13 +543,13 @@ describe('SQLite transaction ownership and durability', () => {
 
 	it('releases DatabaseService storage after failed migrations and permits initialization retry', async () => {
 		const service = createService();
-		let failed: Database.Database | undefined;
+		let failed: SqliteDatabase | undefined;
 		jest.spyOn(MigrationManager.prototype, 'migrate').mockImplementationOnce(async () => {
 			failed = service.getSQLite().getDatabase();
 			throw new Error('Migration failed');
 		});
 		await expect(service.initialize()).rejects.toThrow('Migration failed');
-		expect(failed?.open).toBe(false);
+		expect(failed?.isOpen).toBe(false);
 		expect(service.isInitialized()).toBe(false);
 		await service.initialize();
 		expect(service.isInitialized()).toBe(true);

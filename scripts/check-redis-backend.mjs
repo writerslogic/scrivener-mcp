@@ -293,7 +293,16 @@ async function verify() {
 				assert.deepEqual(rows, [{ payload: bytes }]);
 				assert.ok(Buffer.isBuffer(rows[0].payload));
 			}
-			sqlite.getDatabase().defaultSafeIntegers(true);
+			const db = sqlite.getDatabase();
+			const prepare = db.prepare.bind(db);
+			Object.defineProperty(db, 'prepare', {
+				configurable: true,
+				value: (sql) => {
+					const statement = prepare(sql);
+					statement.setReadBigInts(true);
+					return statement;
+				},
+			});
 			const value = 9007199254740993n;
 			for (let attempt = 0; attempt < 2; attempt++)
 				assert.deepEqual(

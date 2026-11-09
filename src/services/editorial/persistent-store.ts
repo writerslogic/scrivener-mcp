@@ -1,6 +1,10 @@
-import Database from 'better-sqlite3';
 import { mkdirSync, chmodSync, lstatSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import {
+	openSqliteDatabase,
+	type SqliteDatabase,
+	type SqliteStatement,
+} from '../../utils/sqlite.js';
 
 export interface StorePageOptions {
 	after?: string;
@@ -17,12 +21,12 @@ function validField(value: unknown): value is string {
 }
 
 export class PersistentStore {
-	private readonly db: Database.Database;
+	private readonly db: SqliteDatabase;
 	private readonly statements: {
-		get: Database.Statement;
-		list: Database.Statement;
-		put: Database.Statement;
-		delete: Database.Statement;
+		get: SqliteStatement;
+		list: SqliteStatement;
+		put: SqliteStatement;
+		delete: SqliteStatement;
 	};
 
 	constructor(filePath: string) {
@@ -35,7 +39,7 @@ export class PersistentStore {
 			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 		}
 		mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-		this.db = new Database(file);
+		this.db = openSqliteDatabase(file);
 		try {
 			chmodSync(file, 0o600);
 			this.db.pragma('busy_timeout = 5000');
@@ -238,6 +242,6 @@ export class PersistentStore {
 	}
 
 	close(): void {
-		if (this.db.open) this.db.close();
+		if (this.db.isOpen) this.db.close();
 	}
 }

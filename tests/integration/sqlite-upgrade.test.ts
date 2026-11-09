@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it } from '@jest/globals';
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '../../src/utils/sqlite.js';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { copyFile, mkdtemp, rm } from 'node:fs/promises';
@@ -84,7 +84,7 @@ it.each(['baseline', 'interrupted'] as const)(
 		);
 		reopened.close();
 
-		const inspected = new Database(file);
+		const inspected = openSqliteDatabase(file);
 		try {
 			expect(inspected.pragma('user_version', { simple: true })).toBe(1);
 			expect(inspected.pragma('journal_mode', { simple: true })).toBe('wal');
@@ -129,8 +129,8 @@ it('serializes competing process claims and retains the winner after reopening a
 	const file = await copyFixture('baseline');
 	const store = openStore(file);
 	const script = `
-const Database = require('better-sqlite3');
-const database = new Database(process.argv[1]);
+const { DatabaseSync, enhance } = require('@photostructure/sqlite');
+const database = enhance(new DatabaseSync(process.argv[1]));
 database.pragma('busy_timeout = 5000');
 process.once('message', () => {
 	let winner;

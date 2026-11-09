@@ -225,7 +225,7 @@ test.each(['text', 'registry', 'binder'])(
 		const list = source.list.bind(source);
 		jest.spyOn(source, 'list').mockImplementationOnce(async (options) => {
 			const saved = await list(options);
-			expect(sqlite.getDatabase().inTransaction).toBe(false);
+			expect(sqlite.getDatabase().isTransaction).toBe(false);
 			if (change === 'text') await save('draft', 'Changed text.');
 			if (change === 'registry')
 				sqlite.execute('UPDATE characters SET name = ? WHERE id = ?', ['Renamed', 'mara']);

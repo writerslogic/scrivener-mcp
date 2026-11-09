@@ -48,7 +48,7 @@ export function storeContentAnalysis(
 		VALUES (?, ?, ?)
 	`);
 
-	stmt.run([documentId, analysisType, encodeContentAnalysis(analysisData)]);
+	stmt.run(documentId, analysisType, encodeContentAnalysis(analysisData));
 }
 
 export function getContentAnalysisHistory(
@@ -81,10 +81,13 @@ export function getContentAnalysisHistory(
 	sql += ` ORDER BY analyzed_at DESC, id DESC LIMIT ? OFFSET ?`;
 	params.push(limit ?? 1001, offset);
 
-	const rows = sqlite.getDatabase().prepare(sql).iterate(params) as Iterable<{
+	const rows = sqlite
+		.getDatabase()
+		.prepare(sql)
+		.iterate(...params) as Iterable<{
 		id: number;
 		analysis_type: string;
-		analysis_data: Buffer;
+		analysis_data: Uint8Array;
 		analyzed_at: string;
 	}>;
 	const results: ContentAnalysisEntry[] = [];
@@ -118,13 +121,13 @@ export function recordWritingSession(
 		VALUES (?, ?, ?, ?, ?)
 	`);
 
-	stmt.run([
+	stmt.run(
 		sessionData.date,
 		sessionData.wordsWritten,
 		sessionData.durationMinutes,
 		safeStringify(sessionData.documentsWorkedOn),
-		sessionData.notes || null,
-	]);
+		sessionData.notes || null
+	);
 }
 
 export function getWritingStatistics(

@@ -227,7 +227,7 @@ describe('database synchronization with real SQLite', () => {
 		await sync.syncCharacterData({ id: 'mara', name: 'Mara' });
 		await sync.syncCharacterData({ id: 'elin', name: 'Elin' });
 		await expect(sync.syncCharacterData({ id: 'elin', name: 'Mara' })).rejects.toMatchObject({
-			code: 'SQLITE_CONSTRAINT_UNIQUE',
+			errcode: 2067,
 		});
 		expect(sqlite.query('SELECT id, name FROM characters ORDER BY id')).toEqual([
 			{ id: 'elin', name: 'Elin' },
@@ -251,7 +251,7 @@ describe('database synchronization with real SQLite', () => {
 		const rejection = expect(failed).rejects.toThrow('Graph failed');
 		await entered.promise;
 		try {
-			expect(sqlite.getDatabase().inTransaction).toBe(false);
+			expect(sqlite.getDatabase().isTransaction).toBe(false);
 			await sync.syncDocumentData(document(IDS[1], 'Successful'));
 		} finally {
 			release.reject(new Error('Graph failed'));
@@ -260,7 +260,7 @@ describe('database synchronization with real SQLite', () => {
 		expect(sqlite.query('SELECT id, title FROM documents')).toEqual([
 			{ id: IDS[1], title: 'Successful' },
 		]);
-		expect(sqlite.getDatabase().inTransaction).toBe(false);
+		expect(sqlite.getDatabase().isTransaction).toBe(false);
 	});
 
 	it('leaves existing local data unchanged if the optional graph rejects an update', async () => {
@@ -346,6 +346,6 @@ describe('database synchronization with real SQLite', () => {
 			{ id: IDS[0] },
 			{ id: IDS[2] },
 		]);
-		expect(sqlite.getDatabase().inTransaction).toBe(false);
+		expect(sqlite.getDatabase().isTransaction).toBe(false);
 	});
 });

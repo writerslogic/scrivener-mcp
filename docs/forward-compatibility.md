@@ -23,10 +23,11 @@ patch.
 SQLite 13 additionally requires Node-API 10. Its earlier ABI-only floor of 22.14.0/23.6.0 is not the
 current security policy. The SQLite native binding ships with the package and is verified through an
 actual in-memory query under the bundled Node, rather than downloaded through a private
-install-script path. Existing SQLite databases retain their schema; checked-in v12 fixtures verify
+install-script path. Existing SQLite databases retain their schema; fixtures written by the previous
+better-sqlite3 12 driver verify
 normal closure, interrupted WAL recovery and Unicode state. See the
 [Node-API version matrix](https://nodejs.org/download/release/v22.23.0/docs/api/n-api.html#node-api-version-matrix)
-and [SQLite driver release](https://github.com/WiseLibs/better-sqlite3/releases/tag/v13.0.0).
+and [SQLite driver release](https://github.com/photostructure/node-sqlite/releases/tag/v3.3.1).
 
 New bundles download the latest patch of the tested Node 24 line from an immutable version URL and
 verify its official SHA-256. Downloads use finite timeouts and temporary files; incomplete or

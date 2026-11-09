@@ -162,7 +162,16 @@ describe('optional query cache with real SQLite', () => {
 
 	it('retains safe integers in cached rows and generation keys', async () => {
 		await sqlite.initialize();
-		sqlite.getDatabase().defaultSafeIntegers(true);
+		const db = sqlite.getDatabase();
+		const prepare = db.prepare.bind(db);
+		Object.defineProperty(db, 'prepare', {
+			configurable: true,
+			value: (sql: string) => {
+				const statement = prepare(sql);
+				statement.setReadBigInts(true);
+				return statement;
+			},
+		});
 		const query = jest.spyOn(sqlite, 'queryOne');
 		const cached = sqlite.getCachedManager()!;
 		const value = 9007199254740993n;

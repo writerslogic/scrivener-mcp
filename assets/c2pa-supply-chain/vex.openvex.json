@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-11-03/dependencies",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-11-08T07:13:42.000Z",
-  "version": 5,
+  "timestamp": "2026-11-09T02:27:23.000Z",
+  "version": 7,
   "statements": [
     {
       "vulnerability": {
@@ -103,11 +103,14 @@
       "products": [
         {
           "@id": "pkg:generic/sqlite@3.53.4"
+        },
+        {
+          "@id": "pkg:generic/sqlite@3.54.1"
         }
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_present",
-      "impact_statement": "The flaw is in the sqlite3 command-line shell's .recover output (src/shell.c.in). Neither Node 24.22.2 nor better-sqlite3 13.0.3 builds or ships the shell, and scrivener-mcp never invokes a sqlite3 executable. https://abraxaslabs.tech/research/sqlite-cli-recover . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+      "impact_statement": "The flaw is in the sqlite3 command-line shell's .recover output (src/shell.c.in, ext/recover/sqlite3recover.c), reported through 3.54.1 with no fixed release. Neither measured copy contains that code: Node 24.22.2 does not build or ship the shell, and @photostructure/sqlite 3.3.1 compiles only the library amalgamation src/upstream/sqlite3.c, which has no shell or sqlite3_recover symbols. scrivener-mcp never invokes a sqlite3 executable. https://abraxaslabs.tech/research/sqlite-cli-recover . Exact sqlite 3.53.4 and 3.54.1 products only; reassess if a SQLite release fixes the shell or the driver's build sources change."
     },
     {
       "vulnerability": {
@@ -121,7 +124,7 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
-      "impact_statement": "Two copies of SQLite 3.53.4 are measured: Node 24.22.2 (process.versions.sqlite), reachable only through node:sqlite, which neither src/ nor any production dependency imports; and better-sqlite3 13.0.3, whose deps/defines.gypi builds without SQLITE_ENABLE_SESSION and with FTS5. The overflow is in sqlite3changeset_apply() of the session extension: absent from the better-sqlite3 build, and Node's DatabaseSync.applyChangeset() is never reached because node:sqlite is never loaded. https://github.com/sqlite/sqlite/commit/64459c87cc702d600704fb77ee40ca1782398a52 . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+      "impact_statement": "The only remaining SQLite 3.53.4 copy is the one compiled into Node 24.22.2 (process.versions.sqlite), reachable solely through node:sqlite, which neither src/ nor any production dependency imports. The server's SQLite driver is @photostructure/sqlite, which bundles its own SQLite 3.54.1 that already contains this fix; it does not load Node's copy. The overflow is in the session extension's sqlite3changeset_apply(), reached in Node only through DatabaseSync.applyChangeset(). https://github.com/sqlite/sqlite/commit/64459c87cc702d600704fb77ee40ca1782398a52 . Remove this statement once every supported Node release bundles SQLite 3.54.0 or newer. Exact sqlite 3.53.4 product only; reassess any node:sqlite or dependency change."
     },
     {
       "vulnerability": {
@@ -135,7 +138,7 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
-      "impact_statement": "Two copies of SQLite 3.53.4 are measured: Node 24.22.2 (process.versions.sqlite), reachable only through node:sqlite, which neither src/ nor any production dependency imports; and better-sqlite3 13.0.3, whose deps/defines.gypi builds without SQLITE_ENABLE_SESSION and with FTS5. The server creates its own SQLite schemas (src/handlers/database/sqlite-manager.ts, src/services/editorial/persistent-store.ts) with no FTS virtual tables, never issues FTS5 MATCH or secure-delete operations, and exposes no SQL interface to MCP clients. fts5DoSecureDelete() requires deletes from an FTS5 table with secure-delete enabled. https://github.com/sqlite/sqlite/commit/d9de6eedbe918c074c7556400fa21df5960704d9 . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+      "impact_statement": "The only remaining SQLite 3.53.4 copy is the one compiled into Node 24.22.2 (process.versions.sqlite), reachable solely through node:sqlite, which neither src/ nor any production dependency imports. The server's SQLite driver is @photostructure/sqlite, which bundles its own SQLite 3.54.1 that already contains this fix; it does not load Node's copy. fts5DoSecureDelete() additionally requires deletes from an FTS5 table with secure-delete enabled. https://github.com/sqlite/sqlite/commit/d9de6eedbe918c074c7556400fa21df5960704d9 . Remove this statement once every supported Node release bundles SQLite 3.54.0 or newer. Exact sqlite 3.53.4 product only; reassess any node:sqlite or dependency change."
     },
     {
       "vulnerability": {
@@ -149,7 +152,7 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
-      "impact_statement": "Two copies of SQLite 3.53.4 are measured: Node 24.22.2 (process.versions.sqlite), reachable only through node:sqlite, which neither src/ nor any production dependency imports; and better-sqlite3 13.0.3, whose deps/defines.gypi builds without SQLITE_ENABLE_SESSION and with FTS5. The server creates its own SQLite schemas (src/handlers/database/sqlite-manager.ts, src/services/editorial/persistent-store.ts) with no FTS virtual tables, never issues FTS5 MATCH or secure-delete operations, and exposes no SQL interface to MCP clients. fts5MergeRowidLists() requires a prefix MATCH over a detail=none FTS5 table. https://github.com/sqlite/sqlite/commit/e1c9934f9f11a499029abb020ea715a08970da80 . better-sqlite3 has not yet released SQLite 3.54.x; remove this statement when it does. Exact sqlite 3.53.4 product only; reassess any schema, node:sqlite or dependency change."
+      "impact_statement": "The only remaining SQLite 3.53.4 copy is the one compiled into Node 24.22.2 (process.versions.sqlite), reachable solely through node:sqlite, which neither src/ nor any production dependency imports. The server's SQLite driver is @photostructure/sqlite, which bundles its own SQLite 3.54.1 that already contains this fix; it does not load Node's copy. fts5MergeRowidLists() additionally requires a prefix MATCH over a detail=none FTS5 table. https://github.com/sqlite/sqlite/commit/e1c9934f9f11a499029abb020ea715a08970da80 . Remove this statement once every supported Node release bundles SQLite 3.54.0 or newer. Exact sqlite 3.53.4 product only; reassess any node:sqlite or dependency change."
     }
   ]
 }

@@ -780,7 +780,7 @@ export class ContextAnalyzer {
 				WHERE id = ?
 			`);
 
-			stmt.run([JSON.stringify(context), context.documentId]);
+			stmt.run(JSON.stringify(context), context.documentId);
 		}
 	}
 
@@ -799,7 +799,7 @@ export class ContextAnalyzer {
 				VALUES ('story_context', ?, CURRENT_TIMESTAMP)
 			`);
 
-			stmt.run([JSON.stringify(contextData)]);
+			stmt.run(JSON.stringify(contextData));
 		}
 	}
 

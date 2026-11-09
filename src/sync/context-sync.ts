@@ -350,7 +350,7 @@ export class ContextSyncService {
 				VALUES (?, ?, ?)
 			`);
 
-			stmt.run([themeId, themeName, `Theme: ${themeName}`]);
+			stmt.run(themeId, themeName, `Theme: ${themeName}`);
 		}
 
 		if (this.databaseService.getNeo4j()?.isAvailable()) {

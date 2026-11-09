@@ -1,5 +1,3 @@
-import type { RunResult } from 'better-sqlite3';
-import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../../core/logger.js';
@@ -12,12 +10,18 @@ import {
 	measureExecution,
 	retry,
 } from '../../utils/common.js';
+import {
+	isSqliteBusy,
+	openSqliteDatabase,
+	type SqliteDatabase,
+	type SqliteRunResult,
+} from '../../utils/sqlite.js';
 import { CachedSQLiteManager } from './keydb-cache.js';
 
 const logger = getLogger('sqlite-manager');
 
 export class SQLiteManager {
-	private db: Database.Database | null = null;
+	private db: SqliteDatabase | null = null;
 	private dbPath: string;
 	private transactionDepth = 0;
 	private readonly callbackDepths: number[] = [];
@@ -34,7 +38,7 @@ export class SQLiteManager {
 	}
 
 	private async initializeDatabase(): Promise<void> {
-		if (this.initialized && this.db?.open) return;
+		if (this.initialized && this.db?.isOpen) return;
 		try {
 			await this.releaseResources();
 			const initResult = await measureExecution(async () => {
@@ -44,7 +48,7 @@ export class SQLiteManager {
 
 				await retry(
 					async () => {
-						this.db = new Database(this.dbPath);
+						this.db = openSqliteDatabase(this.dbPath);
 						try {
 							this.db.exec('SELECT 1');
 						} catch (error) {
@@ -222,14 +226,14 @@ export class SQLiteManager {
 		logger.info(`Database tables created in ${formatDuration(createResult.ms)}`);
 	}
 
-	getDatabase(): Database.Database {
-		if (!this.db?.open) {
+	getDatabase(): SqliteDatabase {
+		if (!this.db?.isOpen) {
 			throw new AppError(
 				'Database not initialized. Call initialize() first.',
 				ErrorCode.DATABASE_ERROR
 			);
 		}
-		if (this.callbackDepths.length && !this.db.inTransaction)
+		if (this.callbackDepths.length && !this.db.isTransaction)
 			throw new AppError(
 				'Transaction callback was already rolled back',
 				ErrorCode.DATABASE_ERROR
@@ -246,15 +250,21 @@ export class SQLiteManager {
 	}
 
 	query(sql: string, params: unknown[] = []): unknown[] {
-		return this.getDatabase().prepare(sql).all(params);
+		return this.getDatabase()
+			.prepare(sql)
+			.all(...params);
 	}
 
 	queryOne(sql: string, params: unknown[] = []): unknown {
-		return this.getDatabase().prepare(sql).get(params);
+		return this.getDatabase()
+			.prepare(sql)
+			.get(...params);
 	}
 
-	execute(sql: string, params: unknown[] = []): RunResult {
-		return this.getDatabase().prepare(sql).run(params);
+	execute(sql: string, params: unknown[] = []): SqliteRunResult {
+		return this.getDatabase()
+			.prepare(sql)
+			.run(...params);
 	}
 
 	async transaction<T>(fn: () => T, retries: number = 3): Promise<T> {
@@ -276,7 +286,7 @@ export class SQLiteManager {
 			this.callbackDepths.push(this.transactionDepth);
 			try {
 				const result = fn();
-				if (!db.inTransaction || this.transactionDepth !== depth + 1)
+				if (!db.isTransaction || this.transactionDepth !== depth + 1)
 					throw new AppError(
 						'Transaction callback changed its transaction scope',
 						ErrorCode.DATABASE_ERROR
@@ -291,21 +301,16 @@ export class SQLiteManager {
 			try {
 				return run();
 			} catch (error) {
-				if (!db.open || !db.inTransaction) this.transactionDepth = 0;
-				if (
-					(error as { code?: string } | null)?.code === 'SQLITE_BUSY' &&
-					i < retries - 1 &&
-					db.open &&
-					!db.inTransaction
-				) {
+				if (!db.isOpen || !db.isTransaction) this.transactionDepth = 0;
+				if (isSqliteBusy(error) && i < retries - 1 && db.isOpen && !db.isTransaction) {
 					const delay = Math.min(100 * Math.pow(2, i), 1000);
 					await new Promise((resolve) => setTimeout(resolve, delay));
-					if (this.db !== db || !db.open)
+					if (this.db !== db || !db.isOpen)
 						throw new AppError(
 							'Database closed during transaction retry',
 							ErrorCode.DATABASE_ERROR
 						);
-					if (db.inTransaction)
+					if (db.isTransaction)
 						throw new AppError(
 							'Another transaction started during retry',
 							ErrorCode.DATABASE_ERROR
@@ -327,7 +332,7 @@ export class SQLiteManager {
 			db.prepare('BEGIN TRANSACTION').run();
 			this.transactionDepth = 1;
 		} else {
-			if (!db.inTransaction) {
+			if (!db.isTransaction) {
 				this.transactionDepth = 0;
 				throw new AppError(
 					'Managed transaction is no longer active',
@@ -344,7 +349,7 @@ export class SQLiteManager {
 	commit(): void {
 		const db = this.getDatabase();
 		if (this.transactionDepth === 0) return;
-		if (!db.inTransaction) {
+		if (!db.isTransaction) {
 			this.transactionDepth = 0;
 			throw new AppError('Managed transaction is no longer active', ErrorCode.DATABASE_ERROR);
 		}
@@ -367,7 +372,7 @@ export class SQLiteManager {
 				'Callback transactions must be rolled back by throwing',
 				ErrorCode.DATABASE_ERROR
 			);
-		if (db.inTransaction) db.prepare('ROLLBACK').run();
+		if (db.isTransaction) db.prepare('ROLLBACK').run();
 		this.transactionDepth = 0;
 	}
 
@@ -388,7 +393,7 @@ export class SQLiteManager {
 					integrity,
 					stats,
 					transactionDepth: this.transactionDepth,
-					isInTransaction: this.db.inTransaction,
+					isInTransaction: this.db.isTransaction,
 				},
 			};
 		} catch (error) {
@@ -422,7 +427,7 @@ export class SQLiteManager {
 		}
 		if (this.db) {
 			try {
-				if (this.db.open) this.db.close();
+				if (this.db.isOpen) this.db.close();
 				this.db = null;
 				this.transactionDepth = 0;
 			} catch (error) {
