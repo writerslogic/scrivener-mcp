@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-11-03/dependencies",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-11-09T02:13:18.000Z",
-  "version": 6,
+  "timestamp": "2026-11-09T02:27:23.000Z",
+  "version": 7,
   "statements": [
     {
       "vulnerability": {
@@ -103,11 +103,14 @@
       "products": [
         {
           "@id": "pkg:generic/sqlite@3.53.4"
+        },
+        {
+          "@id": "pkg:generic/sqlite@3.54.1"
         }
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_present",
-      "impact_statement": "The flaw is in the sqlite3 command-line shell's .recover output (src/shell.c.in). Node does not build or ship the shell, and scrivener-mcp never invokes a sqlite3 executable. The only remaining SQLite 3.53.4 copy is the one compiled into Node 24.22.2 (process.versions.sqlite), reachable solely through node:sqlite, which neither src/ nor any production dependency imports. The server's SQLite driver is @photostructure/sqlite, which bundles its own SQLite 3.54.1 that already contains this fix; it does not load Node's copy. https://abraxaslabs.tech/research/sqlite-cli-recover . Remove this statement once every supported Node release bundles SQLite 3.54.0 or newer. Exact sqlite 3.53.4 product only; reassess any node:sqlite or dependency change."
+      "impact_statement": "The flaw is in the sqlite3 command-line shell's .recover output (src/shell.c.in, ext/recover/sqlite3recover.c), reported through 3.54.1 with no fixed release. Neither measured copy contains that code: Node 24.22.2 does not build or ship the shell, and @photostructure/sqlite 3.3.1 compiles only the library amalgamation src/upstream/sqlite3.c, which has no shell or sqlite3_recover symbols. scrivener-mcp never invokes a sqlite3 executable. https://abraxaslabs.tech/research/sqlite-cli-recover . Exact sqlite 3.53.4 and 3.54.1 products only; reassess if a SQLite release fixes the shell or the driver's build sources change."
     },
     {
       "vulnerability": {
