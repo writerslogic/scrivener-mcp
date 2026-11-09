@@ -38,6 +38,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Return plain-object SQLite rows and drop better-sqlite3 API from Redis check
+- Record CLI-only SQLite CVE as not present in the 3.54.1 driver
+- Ship SQLite 3.54.1 by replacing better-sqlite3 with @photostructure/sqlite
 - Record dispositions for Scorecard Rust advisories and SQLite 3.53.4 CVEs
 - Preserve document ancestry in the index
 - Preserve SQLite availability and cached value types
