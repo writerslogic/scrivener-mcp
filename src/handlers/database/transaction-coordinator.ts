@@ -134,14 +134,14 @@ export class TransactionCoordinator {
 			);
 		if (!this.members.has(transactionId))
 			throw new AppError('Transaction is no longer active', ErrorCode.DATABASE_ERROR);
-		if (this.connection?.open) this.owner?.rollback();
+		if (this.connection?.isOpen) this.owner?.rollback();
 		this.markRolledBack();
 		this.finishGroup();
 	}
 
 	private assertConnection(): void {
-		if (this.connection && (!this.connection.open || !this.connection.inTransaction)) {
-			const closed = !this.connection.open;
+		if (this.connection && (!this.connection.isOpen || !this.connection.isTransaction)) {
+			const closed = !this.connection.isOpen;
 			this.markRolledBack();
 			this.finishGroup();
 			throw new AppError(

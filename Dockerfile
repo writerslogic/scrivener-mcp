@@ -26,7 +26,7 @@ COPY native/c2pa-binding ./native/c2pa-binding
 COPY scripts/check-c2pa-binding.mjs scripts/check-release-candidate.mjs scripts/build-c2pa-binding.mjs ./scripts/
 RUN npm run build
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund
-RUN node -e "for (const name of ['narrative-lens', 'bluepencil-node', 'writerslogic-warm']) require(name); const db = new (require('better-sqlite3'))(':memory:'); db.prepare('SELECT 1').get(); db.close()"
+RUN node -e "for (const name of ['narrative-lens', 'bluepencil-node', 'writerslogic-warm']) require(name); const db = new (require('@photostructure/sqlite').DatabaseSync)(':memory:'); db.prepare('SELECT 1').get(); db.close()"
 
 FROM base AS runtime
 

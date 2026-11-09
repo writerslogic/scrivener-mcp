@@ -101,7 +101,7 @@ evidence required before claiming support.
 ## Codex (local fork)
 
 Build the checkout with `npm ci --ignore-scripts` and `npm run build`. If native dependencies need a
-binary for your Node version, run `npm rebuild better-sqlite3`. The launcher keeps the server's
+binary for your Node version, run `npm rebuild @photostructure/sqlite`. The launcher keeps the server's
 cache/database working directory in the checkout.
 
 Add this block to `~/.codex/config.toml`, adjusting both absolute paths:

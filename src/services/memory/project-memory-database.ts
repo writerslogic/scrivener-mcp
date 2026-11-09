@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from '../../utils/sqlite.js';
 import type { ProjectMemory } from '../../memory-manager.js';
 import { buildInsertQuery, escapeIdentifier } from '../../utils/database.js';
 import { MAX_PROJECT_MEMORY_BYTES as MAX_BYTES } from './project-memory-contract.js';
@@ -18,7 +18,7 @@ function supplied(fields: Record<string, unknown>): Record<string, unknown> {
 	return Object.fromEntries(Object.entries(fields).filter(([, value]) => value != null));
 }
 
-export function readMemoryDatabase(db: Database.Database): Record<string, unknown> {
+export function readMemoryDatabase(db: SqliteDatabase): Record<string, unknown> {
 	return db.transaction(() => {
 		const snapshot = db
 			.prepare(
@@ -138,7 +138,7 @@ export function readMemoryDatabase(db: Database.Database): Record<string, unknow
 }
 
 export function mirrorMemoryDatabase(
-	db: Database.Database,
+	db: SqliteDatabase,
 	memory: ProjectMemory,
 	serialized: string
 ): void {

@@ -21,13 +21,13 @@ export function encodeContentAnalysis(value: unknown): string {
 }
 
 export function decodeContentAnalysis(
-	stored: string | Buffer,
+	stored: string | Uint8Array,
 	maxBytes = MAX_CONTENT_ANALYSIS_BYTES
 ): { value: unknown; bytes: number } {
 	if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_CONTENT_ANALYSIS_BYTES)
 		throw new Error('Content analysis decoding budget is invalid');
 	if (
-		(typeof stored !== 'string' && !Buffer.isBuffer(stored)) ||
+		(typeof stored !== 'string' && !(stored instanceof Uint8Array)) ||
 		Buffer.byteLength(stored) > MAX_CONTENT_ANALYSIS_BYTES
 	)
 		throw new Error('Stored content analysis exceeds 64 MiB or has an invalid type');

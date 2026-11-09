@@ -1,7 +1,7 @@
 # SQLite driver 12 upgrade fixtures
 
 These synthetic fixtures exercise databases written with `better-sqlite3@12.11.1` (SQLite 3.53.2)
-and opened with the current driver through `PersistentStore`. `provenance.json` records the driver,
+and opened with the current `@photostructure/sqlite` driver through `PersistentStore`. `provenance.json` records the driver,
 SQLite version, schema, contents and file sizes. Their contents are dedicated to the public domain
 under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). They contain no manuscript or
 user data.

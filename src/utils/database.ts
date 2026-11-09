@@ -6,7 +6,7 @@
 import { ApplicationError as AppError, ErrorCode } from '../core/errors.js';
 import { ERROR_MESSAGES } from '../core/constants.js';
 import type { QueryResult, Record as Neo4jRecord } from 'neo4j-driver';
-import type Database from 'better-sqlite3';
+import type { SqliteDatabase } from './sqlite.js';
 
 export enum DatabaseErrorType {
 	CONNECTION = 'CONNECTION',
@@ -283,7 +283,7 @@ export function escapeIdentifier(identifier: string): string {
  * Transaction wrapper for SQLite
  */
 export async function withSqliteTransaction<T>(
-	db: Database.Database,
+	db: SqliteDatabase,
 	fn: () => Promise<T>
 ): Promise<T> {
 	db.prepare('BEGIN').run();
@@ -301,7 +301,7 @@ export async function withSqliteTransaction<T>(
  * Batch insert for SQLite
  */
 export function batchInsert(
-	db: Database.Database,
+	db: SqliteDatabase,
 	table: string,
 	items: Record<string, unknown>[],
 	batchSize = 100

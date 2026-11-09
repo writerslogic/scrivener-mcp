@@ -77,8 +77,8 @@ say "Verifying the bundled C2PA engine"
 
 say "Verifying the shipped SQLite binary with the bundled Node"
 (cd "$SERVER" && "$FULL_NODE" -e '
-const Database = require("better-sqlite3");
-const database = new Database(":memory:");
+const { DatabaseSync } = require("@photostructure/sqlite");
+const database = new DatabaseSync(":memory:");
 try {
 	if (database.prepare("SELECT 1 AS ready").get().ready !== 1) {
 		throw new Error("The bundled SQLite binary failed its query check");

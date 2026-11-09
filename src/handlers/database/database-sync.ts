@@ -32,7 +32,7 @@ export class DatabaseSync {
 		sqlite
 			.getDatabase()
 			.prepare(`${sql} ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}`)
-			.run(params);
+			.run(...params);
 	}
 
 	/** Synchronize the optional graph before the atomic local upsert. */
@@ -107,7 +107,7 @@ export class DatabaseSync {
 					VALUES (?, ?, ?, ?)
 				`);
 
-				stmt.run([fromId, toId, relationshipType, safeStringify(properties)]);
+				stmt.run(fromId, toId, relationshipType, safeStringify(properties));
 			}
 		}
 

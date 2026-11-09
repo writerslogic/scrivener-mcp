@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from '../../../src/utils/sqlite.js';
 import { mkdtemp, rm, mkdir, symlink, writeFile, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -107,7 +107,7 @@ it('migrates the empty schema, rolls back interrupted transitions and preserves 
 		reopened.close();
 		reopened.close();
 	}
-	const future = new Database(file);
+	const future = openSqliteDatabase(file);
 	try {
 		future.pragma('journal_mode = DELETE');
 		future.pragma('user_version = 2');
@@ -115,7 +115,7 @@ it('migrates the empty schema, rolls back interrupted transitions and preserves 
 		future.close();
 	}
 	expect(() => new PersistentStore(file)).toThrow('newer than this server');
-	const inspected = new Database(file);
+	const inspected = openSqliteDatabase(file);
 	try {
 		expect(inspected.pragma('user_version', { simple: true })).toBe(2);
 		expect(inspected.pragma('journal_mode', { simple: true })).toBe('delete');
@@ -142,7 +142,7 @@ it('rejects native async transactions before their writes can escape a rollback'
 });
 
 it('fails initialization on an incompatible state table and releases the failed connection', () => {
-	const invalid = new Database(file);
+	const invalid = openSqliteDatabase(file);
 	try {
 		invalid.exec('CREATE TABLE editorial_state (obsolete TEXT)');
 		invalid.pragma('user_version = 1');
@@ -150,7 +150,7 @@ it('fails initialization on an incompatible state table and releases the failed 
 		invalid.close();
 	}
 	expect(() => new PersistentStore(file)).toThrow(/column/i);
-	const repaired = new Database(file);
+	const repaired = openSqliteDatabase(file);
 	try {
 		repaired.exec('DROP TABLE editorial_state');
 		repaired.pragma('user_version = 0');

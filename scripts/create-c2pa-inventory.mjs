@@ -267,8 +267,8 @@ async function sqliteEvidence(root) {
 	const require = createRequire(join(root, 'package.json'));
 	let database;
 	try {
-		const Database = require('better-sqlite3');
-		database = new Database(':memory:');
+		const { DatabaseSync } = require('@photostructure/sqlite');
+		database = new DatabaseSync(':memory:');
 		const row = database.prepare('SELECT sqlite_version() AS version').get();
 		requireCondition(
 			object(row) && validVersion(row.version),
@@ -278,19 +278,19 @@ async function sqliteEvidence(root) {
 		const loadedNativeFiles = Object.keys(require.cache).filter(
 			(file) =>
 				file.endsWith('.node') &&
-				file.startsWith(join(root, 'node_modules', 'better-sqlite3') + sep)
+				file.startsWith(join(root, 'node_modules', '@photostructure', 'sqlite') + sep)
 		);
 		return {
 			available: true,
 			version: row.version,
 			loadedNativeFiles,
-			method: 'better-sqlite3 :memory: SELECT sqlite_version()',
+			method: '@photostructure/sqlite :memory: SELECT sqlite_version()',
 		};
 	} catch (error) {
 		if (database || error instanceof InventoryError) throw error;
 		return {
 			available: false,
-			reason: 'Installed better-sqlite3 native binding could not be loaded; its SQLite version is unverified.',
+			reason: 'Installed @photostructure/sqlite native binding could not be loaded; its SQLite version is unverified.',
 		};
 	} finally {
 		if (database) database.close();
@@ -336,14 +336,15 @@ async function nativeFiles(root, sqlite, lock) {
 		'NATIVE_DIRECTORY_LIMIT',
 		'Installed package directory exceeds its entry limit.'
 	);
-	const imageScope = entries.find((entry) => entry.name === '@img');
-	if (imageScope) {
+	for (const scope of ['@img', '@photostructure']) {
+		const scopeEntry = entries.find((entry) => entry.name === scope);
+		if (!scopeEntry) continue;
 		requireCondition(
-			imageScope.isDirectory() && !imageScope.isSymbolicLink(),
+			scopeEntry.isDirectory() && !scopeEntry.isSymbolicLink(),
 			'NATIVE_SYMLINK',
 			'Native package scopes must be ordinary directories.'
 		);
-		const scoped = await fs.readdir(join(directory, '@img'), { withFileTypes: true });
+		const scoped = await fs.readdir(join(directory, scope), { withFileTypes: true });
 		requireCondition(
 			scoped.length <= 128,
 			'NATIVE_DIRECTORY_LIMIT',
@@ -351,7 +352,7 @@ async function nativeFiles(root, sqlite, lock) {
 		);
 		entries.push(
 			...scoped.map((entry) => ({
-				name: `@img/${entry.name}`,
+				name: `${scope}/${entry.name}`,
 				isDirectory: () => entry.isDirectory(),
 				isSymbolicLink: () => entry.isSymbolicLink(),
 			}))
@@ -364,7 +365,7 @@ async function nativeFiles(root, sqlite, lock) {
 	let totalBytes = 0;
 	for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
 		if (
-			!/^(?:bluepencil-node|narrative-lens|writerslogic-warm)(?:-|$)|^(?:better-sqlite3|onnxruntime-node|onnxruntime-web|sharp)$|^@img\/sharp-/u.test(
+			!/^(?:bluepencil-node|narrative-lens|writerslogic-warm)(?:-|$)|^(?:@photostructure\/sqlite|onnxruntime-node|onnxruntime-web|sharp)$|^@img\/sharp-/u.test(
 				entry.name
 			)
 		)
@@ -887,8 +888,8 @@ export async function createC2paInventory(options) {
 			);
 		};
 		const npmExpected = [
+			'@photostructure/sqlite',
 			'asn1js',
-			'better-sqlite3',
 			'bluepencil-node',
 			'narrative-lens',
 			'writerslogic-warm',
@@ -974,10 +975,10 @@ export async function createC2paInventory(options) {
 				runtimeComponent(
 					'sqlite',
 					sqlite.version,
-					'better-sqlite3 in-memory SELECT sqlite_version()',
+					'@photostructure/sqlite in-memory SELECT sqlite_version()',
 					nodeHash,
 					RUNTIME_IDENTITIES.sqlite,
-					'better-sqlite3-sqlite'
+					'photostructure-sqlite'
 				)
 			);
 		provenance.runtime = {
@@ -997,7 +998,7 @@ export async function createC2paInventory(options) {
 				'Installed node_modules was unavailable; no native package binaries were inventoried.'
 			);
 		const sqliteComponent = components.find(
-			(component) => component['bom-ref'] === 'runtime:better-sqlite3-sqlite'
+			(component) => component['bom-ref'] === 'runtime:photostructure-sqlite'
 		);
 		if (sqliteComponent) {
 			for (const binary of provenance.nativeBinaries.files.filter(
@@ -1011,7 +1012,7 @@ export async function createC2paInventory(options) {
 		const runtime = cyclonedx(
 			pkg,
 			components,
-			'Executing Node component versions and optional in-memory better-sqlite3 query. Runtime ABI counters are retained in provenance; OS packages and unreported static libraries are outside this inventory.'
+			'Executing Node component versions and optional in-memory @photostructure/sqlite query. Runtime ABI counters are retained in provenance; OS packages and unreported static libraries are outside this inventory.'
 		);
 		const runtimeOutput = join(output, 'runtime.cdx.json');
 		await writeJSON(runtimeOutput, runtime);

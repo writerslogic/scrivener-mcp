@@ -432,7 +432,7 @@ test('live process ownership blocks recovery, then a dead process reservation re
 		createdAt: new Date().toISOString(),
 	};
 	store.put('mutations', id, record);
-	const script = `const Database = require('better-sqlite3'); const db = new Database(process.env.REVIEW_DB); db.prepare('INSERT INTO editorial_state(namespace,id,value) VALUES(?,?,?)').run('mutation-claims','project',JSON.stringify({operationId:process.env.REVIEW_OPERATION,ownerPid:process.pid,host:require('os').hostname(),token:'child-claim'})); process.send('ready'); process.on('message',()=>{db.close();process.exit(0)});`;
+	const script = `const { DatabaseSync } = require('@photostructure/sqlite'); const db = new DatabaseSync(process.env.REVIEW_DB, { timeout: 5000 }); db.prepare('INSERT INTO editorial_state(namespace,id,value) VALUES(?,?,?)').run('mutation-claims','project',JSON.stringify({operationId:process.env.REVIEW_OPERATION,ownerPid:process.pid,host:require('os').hostname(),token:'child-claim'})); process.send('ready'); process.on('message',()=>{db.close();process.exit(0)});`;
 	const child = spawn(process.execPath, ['-e', script], {
 		cwd: process.cwd(),
 		env: { ...process.env, REVIEW_DB: database(), REVIEW_OPERATION: id },
