@@ -150,8 +150,31 @@ jobs:
         if: runner.os == 'Linux' && matrix.node-version == '24.x'
         run: node scripts/check-epub-export.mjs
 
+      - name: Build and verify the desktop extension
+        if: matrix.os == 'macos-latest' && matrix.node-version == '24.x'
+        run: scripts/build-mcpb.sh
+
+      - name: Retain the verified desktop extension
+        if: matrix.os == 'macos-latest' && matrix.node-version == '24.x'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mcpb
+          path: dist-mcpb/*.mcpb
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Dependency audit
         run: npm audit
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v4
+        with:
+          fail-on-severity: high
 
   c2pa-supply-chain:
     needs: c2pa-rebuild
@@ -216,7 +239,7 @@ jobs:
 
   release-gate:
     name: Release verification
-    needs: [build, c2pa-supply-chain, c2pa-rebuild]
+    needs: [build, c2pa-supply-chain, c2pa-rebuild, dependency-review]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -225,4 +248,12 @@ jobs:
           MATRIX_RESULT: ${{ needs.build.result }}
           SECURITY_RESULT: ${{ needs.c2pa-supply-chain.result }}
           REBUILD_RESULT: ${{ needs.c2pa-rebuild.result }}
-        run: test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success && test "$REBUILD_RESULT" = success
+          DEPENDENCY_RESULT: ${{ needs.dependency-review.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success && test "$REBUILD_RESULT" = success
+          if [ "$EVENT_NAME" = pull_request ]; then
+            test "$DEPENDENCY_RESULT" = success
+          else
+            test "$DEPENDENCY_RESULT" = skipped
+          fi

@@ -90,6 +90,29 @@ excludes the entrypoint, declarations, tests and `.cts` files.
 - Conventional commit subjects: `<type>: <description>` where
   `type ∈ fix | feat | refactor | test | docs | perf | security | chore`.
 
+## CI and maintenance automation
+
+CI owns the compatibility matrix, dependency review, desktop extension packaging, and the shared
+C2PA source rebuild. `Release verification` requires these checks before merging. Security scanning
+(CodeQL) and Scorecard provide separate security analysis; Dependency Graph supplies dependency
+inventory. Run `npm run build` before the integration tests, whose release checks load compiled code.
+
+Comparison and changelog refreshes open pull requests. GitHub requires manual approval for PR
+workflows triggered with `GITHUB_TOKEN`. To run these checks automatically, install a GitHub App
+on this repository only, granting **Contents: read/write** and **Pull requests: read/write**. Set
+repository variable `MAINTENANCE_APP_CLIENT_ID` and secret `MAINTENANCE_APP_PRIVATE_KEY`. The
+workflows request a short-lived token restricted to this repository and those permissions. Do not
+grant the App a branch-rule bypass: generated changes must still pass `Release verification`.
+Without App configuration, refreshes continue using `GITHUB_TOKEN` and require workflow approval.
+
+npm releases use trusted publishing for `writerslogic/scrivener-mcp`, workflow `release.yml`,
+environment `npm`, with direct publishing permission. The release job uses a pinned compatible npm
+CLI and GitHub OIDC; it does not require a persistent npm token. Managing npm publisher settings
+still requires account authentication and 2FA. A real publication is needed to verify the OIDC
+exchange; a dry run does not prove publishing permission.
+
+See [GitHub's workflow trigger rules](https://docs.github.com/en/actions/concepts/security/github_token).
+
 ## Pull Request Process
 
 - Fill out the [pull request template](.github/pull_request_template.md).

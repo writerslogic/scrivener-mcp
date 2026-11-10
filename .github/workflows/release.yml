@@ -87,7 +87,10 @@ jobs:
           node-version: 24
           check-latest: true
           registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
+          package-manager-cache: false
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.21.2 --ignore-scripts
 
       - name: Verify the exact protected release source
         timeout-minutes: 3
@@ -122,7 +125,7 @@ jobs:
         run: node scripts/check-release-candidate.mjs artifacts --directory release-assets --stamp-registry
 
       - name: Install the pinned signature verifier
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         timeout-minutes: 3
         with:
           cosign-release: 'v3.0.6'
@@ -156,10 +159,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Publish to npm (provenance)
+      - name: Publish to npm with trusted publishing
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to MCP Registry
         run: |
