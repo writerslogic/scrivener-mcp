@@ -1,5 +1,5 @@
 # CodeQL: static security analysis on push, PR, and weekly.
-name: CodeQL
+name: Security scanning (CodeQL)
 
 on:
   push:
@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   analyze:
+    name: CodeQL security analysis
     runs-on: ubuntu-latest
     permissions:
       security-events: write
