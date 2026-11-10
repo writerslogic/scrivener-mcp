@@ -87,7 +87,10 @@ jobs:
           node-version: 24
           check-latest: true
           registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
+          package-manager-cache: false
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.21.2 --ignore-scripts
 
       - name: Verify the exact protected release source
         timeout-minutes: 3
@@ -156,10 +159,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Publish to npm (provenance)
+      - name: Publish to npm with trusted publishing
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to MCP Registry
         run: |

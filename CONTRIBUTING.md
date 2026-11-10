@@ -105,6 +105,12 @@ workflows request a short-lived token restricted to this repository and those pe
 grant the App a branch-rule bypass: generated changes must still pass `Release verification`.
 Without App configuration, refreshes continue using `GITHUB_TOKEN` and require workflow approval.
 
+npm releases use trusted publishing for `writerslogic/scrivener-mcp`, workflow `release.yml`,
+environment `npm`, with direct publishing permission. The release job uses a pinned compatible npm
+CLI and GitHub OIDC; it does not require a persistent npm token. Managing npm publisher settings
+still requires account authentication and 2FA. A real publication is needed to verify the OIDC
+exchange; a dry run does not prove publishing permission.
+
 See [GitHub's workflow trigger rules](https://docs.github.com/en/actions/concepts/security/github_token).
 
 ## Pull Request Process
