@@ -2,7 +2,7 @@ FROM node:26.13-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414
 
 WORKDIR /app
 
-FROM rust:1.99.1-bookworm@sha256:9181b56c2a21ab1d5e73cffe04fc762426d30aa7fac3c91141dd033f49a7fc8b AS c2pa
+FROM rust:1.99.1-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS c2pa
 ENV RUSTUP_TOOLCHAIN=1.96.0
 WORKDIR /app
 COPY --from=base /usr/local/bin/node /usr/local/bin/node
