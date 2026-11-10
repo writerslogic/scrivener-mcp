@@ -17,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install PyYAML
         run: |
@@ -31,12 +33,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/update-comparison.py
 
-      # main requires status checks on every ref update, so this can no longer
-      # push directly (that always failed: "2 of 2 required status checks are
-      # expected"). Open a PR instead, same as the changelog workflow.
+      - name: Create maintenance App token
+        if: vars.MAINTENANCE_APP_CLIENT_ID != ''
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.MAINTENANCE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.MAINTENANCE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Explain workflow approval requirement
+        if: vars.MAINTENANCE_APP_CLIENT_ID == ''
+        run: echo '::notice::Configure MAINTENANCE_APP_CLIENT_ID and MAINTENANCE_APP_PRIVATE_KEY to run maintenance PR checks without manual approval.'
+
       - name: Open comparison-table PR
         uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8.1.2
         with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
           commit-message: 'chore: update comparison table stats'
           title: 'chore: update comparison table stats'
           body: Auto-generated weekly refresh of stars/forks/activity/version stats in the "Why This One?" table.
