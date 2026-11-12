@@ -130,9 +130,10 @@ const PLAN = [
 	['get_manuscript_briefing', {}, { id: 'project.briefing' }],
 	[
 		'create_snapshot',
-		(c) => ({ documentId: c.anyDocId, title: 'Conformance before edit' }),
+		(c) => ({ documentId: c.anyDocId, title: 'Conformance before edit', force: true }),
 		{
 			id: 'snapshot.create',
+			unavailableCommands: true,
 			after: (r, c) => {
 				c.snapshotId = r.snapshotId;
 			},
@@ -795,11 +796,11 @@ const PLAN = [
 	],
 	[
 		'queue_document_analysis',
-		{
-			documentId: 'conformance-supplied-one',
+		(c) => ({
+			documentId: c.queueDocumentIds[0],
 			content: 'Original supplied prose. Mara waits beside the harbor.',
 			options: { includeReadability: true, includeEntities: false, includeSentiment: false },
-		},
+		}),
 		{
 			id: 'queue.document.enqueue',
 			after: (r, c) => {
@@ -815,10 +816,11 @@ const PLAN = [
 		},
 		{
 			id: 'queue.document.completed',
-			after: async (r) => {
+			after: async (r, c) => {
 				r = { ...r, result: await readFixtureResult(r.result) };
 				assert.equal(r.state, 'completed');
-				assert.equal(r.result.documentId, 'conformance-supplied-one');
+				assert.equal(r.result.documentId, c.queueDocumentIds[0]);
+				await assertPersistedAnalysis(c, r.result);
 				assert.equal(r.result.envelope.sourceFormat, 'supplied-text');
 				assert.equal(r.result.envelope.policy.mode, 'raw');
 				assert.equal(
@@ -830,14 +832,14 @@ const PLAN = [
 	],
 	[
 		'queue_project_analysis',
-		{
+		(c) => ({
 			projectId: 'conformance-supplied-project',
 			documents: [
-				{ id: 'supplied-a', content: 'Mara waits beside the harbor.' },
-				{ id: 'supplied-b', content: 'Ren walks home.' },
+				{ id: c.queueDocumentIds[0], content: 'Mara waits beside the harbor.' },
+				{ id: c.queueDocumentIds[1], content: 'Ren walks home.' },
 			],
 			options: { parallel: false, batchSize: 1 },
-		},
+		}),
 		{
 			id: 'queue.project.enqueue',
 			after: (r, c) => {
@@ -853,13 +855,15 @@ const PLAN = [
 		},
 		{
 			id: 'queue.project.completed',
-			after: async (r) => {
+			after: async (r, c) => {
 				r = { ...r, result: await readFixtureResult(r.result) };
 				assert.equal(r.state, 'completed');
 				assert.equal(r.result.projectId, 'conformance-supplied-project');
+				for (const document of r.result.documents)
+					await assertPersistedAnalysis(c, document);
 				assert.deepEqual(
 					r.result.documents.map((item) => item.documentId),
-					['supplied-a', 'supplied-b']
+					c.queueDocumentIds
 				);
 				assert.deepEqual(
 					r.result.documents.map((item) => item.envelope.sourceRevisions[0].revision),
@@ -940,6 +944,16 @@ async function assertPassages(result, context) {
 		assert.equal(hit.context, doc.text.slice(hit.contextStart, hit.contextEnd));
 	}
 }
+async function assertPersistedAnalysis(context, result) {
+	const history = await context.databaseService.getContentAnalysisHistory(
+		result.documentId,
+		'document',
+		{ limit: 1 }
+	);
+	assert.equal(history.length, 1, 'Queued fixture analysis must persist in its project database');
+	assert.deepEqual(history[0].analysisData, result);
+}
+
 async function readFixtureResult(value) {
 	if (!value?._ref) return value;
 	const { readResult } = await import('../dist/core/response-formatter.js');
@@ -1217,7 +1231,16 @@ async function main() {
 		});
 		const structure = await invoke('get_structure', {});
 		const docs = structure.structuredContent?.documents ?? [];
-		context.anyDocId = docs.find((doc) => doc.type === 'Text')?.id;
+		context.queueDocumentIds = docs
+			.filter((doc) => doc.type === 'Text')
+			.slice(0, 2)
+			.map((doc) => doc.id);
+		assert.equal(
+			context.queueDocumentIds.length,
+			2,
+			'Queue fixture requires two original binder documents'
+		);
+		context.anyDocId = context.queueDocumentIds[0];
 		assert.ok(context.anyDocId, 'Fixture binder must have a text document');
 		record({
 			id: 'project.structure.nonempty',

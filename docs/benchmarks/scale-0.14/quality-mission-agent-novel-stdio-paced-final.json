@@ -1,0 +1,1107 @@
+{
+  "node": "v26.12.1",
+  "platform": "darwin-arm64",
+  "samplesPerPhase": 5,
+  "pageBytes": 1048576,
+  "retryRateLimits": true,
+  "gcDiagnostic": false,
+  "paced": true,
+  "pacingPolicy": "Between phases, wait successful calls / 2 per second, capped at20,000ms. The measured default-page maximum was30 calls, requiring15,000ms refill. Pauses are outside phase timings and inside workload wall time; admission and SLO budgets are unchanged.",
+  "maxPacingMs": 20000,
+  "workloadWallTimes": [
+    {
+      "corpusId": 84,
+      "elapsedMs": 30614.089792
+    },
+    {
+      "corpusId": 1342,
+      "elapsedMs": 30175.619334000003
+    },
+    {
+      "corpusId": 2701,
+      "elapsedMs": 188232.630417
+    }
+  ],
+  "pacingTotalMs": 162521.923039,
+  "retryWaitBudgetMs": 5000,
+  "failedMeasurements": [],
+  "budgets": {
+    "elapsedMs": 5000,
+    "eventLoopLagMs": 100,
+    "rssGrowthBytes": 134217728,
+    "processTreeRssPeakBytes": 2147483648
+  },
+  "scope": "Measured retries honor RATE_LIMITED metadata with 500 ms waits, bounded to 5 seconds per phase; wait time and rejected calls are included. Page bytes are declared separately. Real src/index.ts server in a separate process, public MCP tools over stdio, complete pinned novel fixtures and bounded result pages. Server RSS and event-loop lag sampled every 5 ms exclude client/Jest and all native children. Native children report lifetime high-water RSS after native execution and after serialization: on the next event-loop turn for the persistent context, and at process exit for comparisons. The sum of observed process peaks is not simultaneous RSS or a containment bound. Elapsed time includes client reconstruction, child instrumentation and local IPC. Setup, project opening and OS cold disk cache are excluded. Cold means a reopened project with fresh native/source caches. Simultaneous server/descendant RSS is sampled using ps every 100 ms plus operation boundaries, including measurement overhead but excluding client/Jest; sample peaks are not hard containment. Sampling can miss peaks. This is workload evidence, not RSS containment or editorial accuracy.",
+  "measurements": [
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 0,
+      "phase": "cold",
+      "rssStartBytes": 337264640,
+      "rssPeakBytes": 478986240,
+      "processTreeRssPeakBytes": 668827648,
+      "processTreeSamples": 8,
+      "eventLoopLagMs": 46.53212499999972,
+      "elapsedMs": 702.9161660000009,
+      "rssGrowthBytes": 141721600,
+      "lifetimeHighWaterBytes": 478986240,
+      "calls": 11,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 27465,
+          "maxRssBytes": 146407424,
+          "rssBytes": 142917632
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 27465,
+          "maxRssBytes": 170262528,
+          "rssBytes": 170262528
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 649248768,
+      "pages": 11,
+      "outputBytes": 10630214,
+      "maxPageBytes": 1048166,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 79,
+        "recomputedMetricsScenes": 79,
+        "recomputedScenes": 79,
+        "recomputedWorldScenes": 79,
+        "retainedBytes": 3009748,
+        "reusedScenes": 0
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 5500,
+      "pacingActualMs": 5502.398249999998
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 0,
+      "phase": "warm",
+      "rssStartBytes": 479051776,
+      "rssPeakBytes": 649560064,
+      "processTreeRssPeakBytes": 939442176,
+      "processTreeSamples": 10,
+      "eventLoopLagMs": 33.80374999999913,
+      "elapsedMs": 891.4937080000018,
+      "rssGrowthBytes": 170508288,
+      "lifetimeHighWaterBytes": 649560064,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 27465,
+          "maxRssBytes": 178176000,
+          "rssBytes": 178176000
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 27465,
+          "maxRssBytes": 186990592,
+          "rssBytes": 186990592
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 27638,
+          "maxRssBytes": 272924672,
+          "rssBytes": 270172160
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 27638,
+          "maxRssBytes": 303579136,
+          "rssBytes": 303579136
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1140129792,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 0,
+        "recomputedMetricsScenes": 0,
+        "recomputedScenes": 0,
+        "recomputedWorldScenes": 0,
+        "retainedBytes": 3009748,
+        "reusedScenes": 79
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15002.435750000004
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 0,
+      "phase": "one-scene-edit",
+      "rssStartBytes": 649576448,
+      "rssPeakBytes": 696762368,
+      "processTreeRssPeakBytes": 1077035008,
+      "processTreeSamples": 9,
+      "eventLoopLagMs": 26.30316699999821,
+      "elapsedMs": 836.919541999996,
+      "rssGrowthBytes": 47185920,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 27465,
+          "maxRssBytes": 196313088,
+          "rssBytes": 180961280
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 27465,
+          "maxRssBytes": 197279744,
+          "rssBytes": 197279744
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 27918,
+          "maxRssBytes": 295108608,
+          "rssBytes": 276480000
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 27918,
+          "maxRssBytes": 310247424,
+          "rssBytes": 310083584
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1204289536,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 1,
+        "recomputedMetricsScenes": 1,
+        "recomputedScenes": 1,
+        "recomputedWorldScenes": 1,
+        "retainedBytes": 3009795,
+        "reusedScenes": 78
+      },
+      "requestId": "1542c9a86fc5be6993b0a18bf28411c02b3104430ec02ee373c9dd977d495e1b",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15000.715874999994
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 1,
+      "phase": "cold",
+      "rssStartBytes": 466665472,
+      "rssPeakBytes": 543637504,
+      "processTreeRssPeakBytes": 729612288,
+      "processTreeSamples": 7,
+      "eventLoopLagMs": 42.905291999995825,
+      "elapsedMs": 647.8182089999973,
+      "rssGrowthBytes": 76972032,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 11,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 28166,
+          "maxRssBytes": 146243584,
+          "rssBytes": 142753792
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 28166,
+          "maxRssBytes": 169934848,
+          "rssBytes": 169934848
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 713572352,
+      "pages": 11,
+      "outputBytes": 10630214,
+      "maxPageBytes": 1048166,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 79,
+        "recomputedMetricsScenes": 79,
+        "recomputedScenes": 79,
+        "recomputedWorldScenes": 79,
+        "retainedBytes": 3009748,
+        "reusedScenes": 0
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 5500,
+      "pacingActualMs": 5499.681000000011
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 1,
+      "phase": "warm",
+      "rssStartBytes": 539934720,
+      "rssPeakBytes": 591265792,
+      "processTreeRssPeakBytes": 977256448,
+      "processTreeSamples": 9,
+      "eventLoopLagMs": 23.84504200000083,
+      "elapsedMs": 820.6513330000016,
+      "rssGrowthBytes": 51331072,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 28166,
+          "maxRssBytes": 177684480,
+          "rssBytes": 177684480
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 28166,
+          "maxRssBytes": 186580992,
+          "rssBytes": 186580992
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 28288,
+          "maxRssBytes": 270614528,
+          "rssBytes": 267878400
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 28288,
+          "maxRssBytes": 301334528,
+          "rssBytes": 301334528
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1079181312,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 0,
+        "recomputedMetricsScenes": 0,
+        "recomputedScenes": 0,
+        "recomputedWorldScenes": 0,
+        "retainedBytes": 3009748,
+        "reusedScenes": 79
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15002.343915999983
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 1,
+      "phase": "one-scene-edit",
+      "rssStartBytes": 566902784,
+      "rssPeakBytes": 566902784,
+      "processTreeRssPeakBytes": 831635456,
+      "processTreeSamples": 11,
+      "eventLoopLagMs": 30.725708999991184,
+      "elapsedMs": 984.6528749999998,
+      "rssGrowthBytes": 0,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 28166,
+          "maxRssBytes": 195952640,
+          "rssBytes": 180142080
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 28166,
+          "maxRssBytes": 197001216,
+          "rssBytes": 197001216
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 28501,
+          "maxRssBytes": 231473152,
+          "rssBytes": 228720640
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 28501,
+          "maxRssBytes": 264257536,
+          "rssBytes": 264257536
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1028161536,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 1,
+        "recomputedMetricsScenes": 1,
+        "recomputedScenes": 1,
+        "recomputedWorldScenes": 1,
+        "retainedBytes": 3009795,
+        "reusedScenes": 78
+      },
+      "requestId": "1542c9a86fc5be6993b0a18bf28411c02b3104430ec02ee373c9dd977d495e1b",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15001.854499999987
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 2,
+      "phase": "cold",
+      "rssStartBytes": 364199936,
+      "rssPeakBytes": 469581824,
+      "processTreeRssPeakBytes": 657440768,
+      "processTreeSamples": 10,
+      "eventLoopLagMs": 51.19991699999082,
+      "elapsedMs": 930.9533329999977,
+      "rssGrowthBytes": 105381888,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 11,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 28725,
+          "maxRssBytes": 146194432,
+          "rssBytes": 142688256
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 28725,
+          "maxRssBytes": 171147264,
+          "rssBytes": 171147264
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 640729088,
+      "pages": 11,
+      "outputBytes": 10630214,
+      "maxPageBytes": 1048166,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 79,
+        "recomputedMetricsScenes": 79,
+        "recomputedScenes": 79,
+        "recomputedWorldScenes": 79,
+        "retainedBytes": 3009748,
+        "reusedScenes": 0
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 5500,
+      "pacingActualMs": 5500.880917000002
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 2,
+      "phase": "warm",
+      "rssStartBytes": 466518016,
+      "rssPeakBytes": 571670528,
+      "processTreeRssPeakBytes": 939786240,
+      "processTreeSamples": 10,
+      "eventLoopLagMs": 30.16166599999997,
+      "elapsedMs": 950.978958000007,
+      "rssGrowthBytes": 105152512,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 28725,
+          "maxRssBytes": 179290112,
+          "rssBytes": 179290112
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 28725,
+          "maxRssBytes": 187596800,
+          "rssBytes": 187596800
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 28904,
+          "maxRssBytes": 273055744,
+          "rssBytes": 270303232
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 28904,
+          "maxRssBytes": 304316416,
+          "rssBytes": 304316416
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1063583744,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 0,
+        "recomputedMetricsScenes": 0,
+        "recomputedScenes": 0,
+        "recomputedWorldScenes": 0,
+        "retainedBytes": 3009748,
+        "reusedScenes": 79
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15000.579041000019
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 2,
+      "phase": "one-scene-edit",
+      "rssStartBytes": 571686912,
+      "rssPeakBytes": 600637440,
+      "processTreeRssPeakBytes": 1023262720,
+      "processTreeSamples": 10,
+      "eventLoopLagMs": 32.85833299999649,
+      "elapsedMs": 971.0528340000019,
+      "rssGrowthBytes": 28950528,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 28725,
+          "maxRssBytes": 197017600,
+          "rssBytes": 181436416
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 28725,
+          "maxRssBytes": 198426624,
+          "rssBytes": 198426624
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 29118,
+          "maxRssBytes": 273268736,
+          "rssBytes": 270516224
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 29118,
+          "maxRssBytes": 305430528,
+          "rssBytes": 305430528
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1104494592,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 1,
+        "recomputedMetricsScenes": 1,
+        "recomputedScenes": 1,
+        "recomputedWorldScenes": 1,
+        "retainedBytes": 3009795,
+        "reusedScenes": 78
+      },
+      "requestId": "1542c9a86fc5be6993b0a18bf28411c02b3104430ec02ee373c9dd977d495e1b",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15001.900500000018
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 3,
+      "phase": "cold",
+      "rssStartBytes": 427376640,
+      "rssPeakBytes": 512081920,
+      "processTreeRssPeakBytes": 698318848,
+      "processTreeSamples": 9,
+      "eventLoopLagMs": 52.35791700000118,
+      "elapsedMs": 788.4922090000036,
+      "rssGrowthBytes": 84705280,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 11,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 29331,
+          "maxRssBytes": 146472960,
+          "rssBytes": 142966784
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 29331,
+          "maxRssBytes": 170524672,
+          "rssBytes": 170524672
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 682606592,
+      "pages": 11,
+      "outputBytes": 10630214,
+      "maxPageBytes": 1048166,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 79,
+        "recomputedMetricsScenes": 79,
+        "recomputedScenes": 79,
+        "recomputedWorldScenes": 79,
+        "retainedBytes": 3009748,
+        "reusedScenes": 0
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 5500,
+      "pacingActualMs": 5502.68616599997
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 3,
+      "phase": "warm",
+      "rssStartBytes": 507936768,
+      "rssPeakBytes": 636813312,
+      "processTreeRssPeakBytes": 940507136,
+      "processTreeSamples": 10,
+      "eventLoopLagMs": 31.466250000026776,
+      "elapsedMs": 982.0254169999971,
+      "rssGrowthBytes": 128876544,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 29331,
+          "maxRssBytes": 178585600,
+          "rssBytes": 178585600
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 29331,
+          "maxRssBytes": 187662336,
+          "rssBytes": 187662336
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 29502,
+          "maxRssBytes": 239796224,
+          "rssBytes": 237060096
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 29502,
+          "maxRssBytes": 274186240,
+          "rssBytes": 274022400
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1098661888,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 0,
+        "recomputedMetricsScenes": 0,
+        "recomputedScenes": 0,
+        "recomputedWorldScenes": 0,
+        "retainedBytes": 3009748,
+        "reusedScenes": 79
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15000.61470799998
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 3,
+      "phase": "one-scene-edit",
+      "rssStartBytes": 636829696,
+      "rssPeakBytes": 636829696,
+      "processTreeRssPeakBytes": 887209984,
+      "processTreeSamples": 10,
+      "eventLoopLagMs": 29.35899999999674,
+      "elapsedMs": 955.5824589999975,
+      "rssGrowthBytes": 0,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 29331,
+          "maxRssBytes": 197623808,
+          "rssBytes": 181927936
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 29331,
+          "maxRssBytes": 197918720,
+          "rssBytes": 197918720
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 29757,
+          "maxRssBytes": 273367040,
+          "rssBytes": 270630912
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 29757,
+          "maxRssBytes": 305446912,
+          "rssBytes": 305446912
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1140195328,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 1,
+        "recomputedMetricsScenes": 1,
+        "recomputedScenes": 1,
+        "recomputedWorldScenes": 1,
+        "retainedBytes": 3009795,
+        "reusedScenes": 78
+      },
+      "requestId": "1542c9a86fc5be6993b0a18bf28411c02b3104430ec02ee373c9dd977d495e1b",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15002.059667000023
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 4,
+      "phase": "cold",
+      "rssStartBytes": 401276928,
+      "rssPeakBytes": 484261888,
+      "processTreeRssPeakBytes": 670187520,
+      "processTreeSamples": 8,
+      "eventLoopLagMs": 44.739208000013605,
+      "elapsedMs": 659.310708999983,
+      "rssGrowthBytes": 82984960,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 11,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 29944,
+          "maxRssBytes": 146587648,
+          "rssBytes": 143081472
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 29944,
+          "maxRssBytes": 170246144,
+          "rssBytes": 170246144
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 654508032,
+      "pages": 11,
+      "outputBytes": 10630214,
+      "maxPageBytes": 1048166,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 79,
+        "recomputedMetricsScenes": 79,
+        "recomputedScenes": 79,
+        "recomputedWorldScenes": 79,
+        "retainedBytes": 3009748,
+        "reusedScenes": 0
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 5500,
+      "pacingActualMs": 5502.264041000046
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 4,
+      "phase": "warm",
+      "rssStartBytes": 480067584,
+      "rssPeakBytes": 580665344,
+      "processTreeRssPeakBytes": 946192384,
+      "processTreeSamples": 9,
+      "eventLoopLagMs": 26.598041999997804,
+      "elapsedMs": 813.646624999994,
+      "rssGrowthBytes": 100597760,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 29944,
+          "maxRssBytes": 178241536,
+          "rssBytes": 178257920
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 29944,
+          "maxRssBytes": 186990592,
+          "rssBytes": 186990592
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 30088,
+          "maxRssBytes": 270221312,
+          "rssBytes": 267485184
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 30088,
+          "maxRssBytes": 301072384,
+          "rssBytes": 301072384
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1068728320,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 0,
+        "recomputedMetricsScenes": 0,
+        "recomputedScenes": 0,
+        "recomputedWorldScenes": 0,
+        "retainedBytes": 3009748,
+        "reusedScenes": 79
+      },
+      "requestId": "0243aa6559b81effce1b658d71bdd921b84b4a603d6505795c4926e3b6cd2359",
+      "pacingPlannedMs": 15000,
+      "pacingActualMs": 15001.50870799995
+    },
+    {
+      "corpusId": 2701,
+      "corpusSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+      "sample": 4,
+      "phase": "one-scene-edit",
+      "rssStartBytes": 580698112,
+      "rssPeakBytes": 596721664,
+      "processTreeRssPeakBytes": 1014415360,
+      "processTreeSamples": 9,
+      "eventLoopLagMs": 25.08683299997938,
+      "elapsedMs": 841.744458000001,
+      "rssGrowthBytes": 16023552,
+      "lifetimeHighWaterBytes": 696811520,
+      "calls": 30,
+      "rateLimitRetries": 0,
+      "rateLimitWaitMs": 0,
+      "nativeResources": [
+        {
+          "kind": "context",
+          "stage": "native",
+          "pid": 29944,
+          "maxRssBytes": 196296704,
+          "rssBytes": 180895744
+        },
+        {
+          "kind": "context",
+          "stage": "serialized",
+          "pid": 29944,
+          "maxRssBytes": 197263360,
+          "rssBytes": 197263360
+        },
+        {
+          "kind": "comparison",
+          "stage": "native",
+          "pid": 30268,
+          "maxRssBytes": 270548992,
+          "rssBytes": 267812864
+        },
+        {
+          "kind": "comparison",
+          "stage": "serialized",
+          "pid": 30268,
+          "maxRssBytes": 302219264,
+          "rssBytes": 302219264
+        }
+      ],
+      "sumObservedProcessPeaksBytes": 1096204288,
+      "pages": 30,
+      "outputBytes": 30752824,
+      "maxPageBytes": 1048164,
+      "findings": {
+        "omittedFindings": 2361,
+        "omittedSuppressed": 0,
+        "returnedFindings": 5000,
+        "severityCounts": {
+          "info": 432,
+          "suggestion": 6910,
+          "warning": 19
+        },
+        "suppressedFindings": 0,
+        "totalFindings": 7361
+      },
+      "cache": {
+        "budgetBytes": 16777216,
+        "entries": 79,
+        "recomputedGrammarScenes": 1,
+        "recomputedMetricsScenes": 1,
+        "recomputedScenes": 1,
+        "recomputedWorldScenes": 1,
+        "retainedBytes": 3009795,
+        "reusedScenes": 78
+      },
+      "requestId": "1542c9a86fc5be6993b0a18bf28411c02b3104430ec02ee373c9dd977d495e1b",
+      "pacingPlannedMs": 0,
+      "pacingActualMs": 0
+    }
+  ]
+}

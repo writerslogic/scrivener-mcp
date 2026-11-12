@@ -1,0 +1,122 @@
+[
+  {
+    "engine": "fallback",
+    "passages": 1000,
+    "exitCode": 1,
+    "wallSeconds": 4.716621792176738,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "1000",
+      "--samples",
+      "5",
+      "--engine",
+      "fallback",
+      "--output",
+      "docs/development/quality-mission-agent-passage-fallback-1000-final.json"
+    ]
+  },
+  {
+    "engine": "fallback",
+    "passages": 10000,
+    "exitCode": 1,
+    "wallSeconds": 32.802690624957904,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "10000",
+      "--samples",
+      "5",
+      "--engine",
+      "fallback",
+      "--output",
+      "docs/development/quality-mission-agent-passage-fallback-10000-final.json"
+    ]
+  },
+  {
+    "engine": "fallback",
+    "passages": 50000,
+    "exitCode": 1,
+    "wallSeconds": 227.26324616582133,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "50000",
+      "--samples",
+      "5",
+      "--engine",
+      "fallback",
+      "--output",
+      "docs/development/quality-mission-agent-passage-fallback-50000-final.json"
+    ]
+  },
+  {
+    "engine": "native",
+    "passages": 1000,
+    "exitCode": 1,
+    "wallSeconds": 6.8322490830905735,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "1000",
+      "--samples",
+      "5",
+      "--engine",
+      "native",
+      "--output",
+      "docs/development/quality-mission-agent-passage-native-1000-final.json"
+    ]
+  },
+  {
+    "engine": "native",
+    "passages": 10000,
+    "exitCode": 1,
+    "wallSeconds": 41.666828708024696,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "10000",
+      "--samples",
+      "5",
+      "--engine",
+      "native",
+      "--output",
+      "docs/development/quality-mission-agent-passage-native-10000-final.json"
+    ]
+  },
+  {
+    "engine": "native",
+    "passages": 50000,
+    "exitCode": -15,
+    "wallSeconds": 151.2647322078701,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "50000",
+      "--samples",
+      "5",
+      "--engine",
+      "native",
+      "--output",
+      "docs/development/quality-mission-agent-passage-native-50000-final.json"
+    ]
+  }
+]

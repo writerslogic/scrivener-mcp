@@ -6,6 +6,9 @@ described in [Scrivener format handling](scrivener-format.md),
 The observations below are local candidate evidence, not standards certification or a
 claim that every client, manuscript or RTF construct has been tested. The protected
 release workflow additionally requires successful CI for the exact released main commit.
+The protected merge check now propagates each prerequisite failure; a shell regression
+test covers failed, cancelled, skipped and missing job results. The separate publication
+verifier continues to require overall exact-commit CI success.
 
 ## Manuscript integrity
 
@@ -51,6 +54,12 @@ Mutation receipts have explicit admission budgets with reserved inverse-undo cap
 existing history is not silently purged. Those budgets do not bound all snapshots, WAL
 files, native memory or total project disk usage.
 
+Snapshot creation accepts the same explicit `force` acknowledgment of uncertain native
+application state as other guarded writes. It still refuses by default when native state
+is open or unknown, and `force` never overrides a read-only project. Headless CI exposed
+the previously missing option plumbing; disposable snapshot and queue fixtures now also
+check the saved result, not only its response schema.
+
 The [direct-handler conformance receipt](benchmarks/conformance-0.14.json) records 144 cases: 125 schema-valid successes,
 17 expected refusals and two lifecycle acknowledgments. All 70 schema-bearing tools have
 an observed success or provider-unavailable refusal. The [generated ledger](benchmarks/coverage-ledger-0.14.json) distinguishes
@@ -93,6 +102,18 @@ CI runs it on macOS with Node 24. Real RTF corpus checks use
 `scripts/check-native-rtf.mjs --project PATH --corpus-version LABEL --output NEW_FILE.json`
 against an explicitly selected disposable or read-only corpus. Never use a working
 manuscript for mutation tests.
+
+## Scale evidence
+
+The [performance report](performance-0.14.md) retains 120 completed passage phases across
+1,000/10,000/50,000 passages, an actual 10,000-edit quota/replay/inverse test and 45 completed
+explicitly paced novel phases. Citation and recovery checks passed. Existing latency,
+event-loop and memory objectives did not all pass; two initial server startup timeouts
+remain undiagnosed. Earlier failed unpaced and observer runs are preserved. These are
+measured limits, not performance or general containment guarantees.
+
+The subsequent snapshot/release-check corrections passed 70 focused tests, static checks,
+the registry gate and a fresh 144-case conformance receipt with its matching ledger.
 
 ## Token and editorial evidence
 

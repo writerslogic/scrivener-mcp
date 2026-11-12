@@ -1,6 +1,12 @@
 import { compact } from '../../core/response-formatter.js';
 import type { HandlerResult, ToolDefinition } from '../types.js';
-import { requireProject, getOptionalStringArg, getStringArg } from '../types.js';
+import {
+	requireProject,
+	getOptionalStringArg,
+	getOptionalBooleanArg,
+	getStringArg,
+} from '../types.js';
+import { SHARED_DEFS } from '../shared-schemas.js';
 
 export const listSnapshotsHandler: ToolDefinition = {
 	name: 'list_snapshots',
@@ -244,6 +250,7 @@ export const createSnapshotHandler: ToolDefinition = {
 		type: 'object',
 		properties: {
 			documentId: { type: 'string', description: 'UUID of the document to snapshot.' },
+			force: SHARED_DEFS.force,
 			title: {
 				type: 'string',
 				description: 'Snapshot title shown in Scrivener. Defaults to "Snapshot".',
@@ -268,7 +275,9 @@ export const createSnapshotHandler: ToolDefinition = {
 		const project = requireProject(context);
 		const documentId = getStringArg(args, 'documentId');
 		const title = getOptionalStringArg(args, 'title') || 'Snapshot';
-		const snapshot = await project.takeSnapshot(documentId, title);
+		const snapshot = await project.takeSnapshot(documentId, title, {
+			force: getOptionalBooleanArg(args, 'force') ?? false,
+		});
 		return {
 			content: [{ type: 'text', text: compact(snapshot) }],
 			structuredContent: snapshot as unknown as Record<string, unknown>,

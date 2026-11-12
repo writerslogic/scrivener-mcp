@@ -722,8 +722,12 @@ export class ScrivenerProject {
 	 * from Scrivener's own Snapshots browser. Use this before a lossy edit to give
 	 * the writer a native rollback point. Requires the document to have content.
 	 */
-	async takeSnapshot(documentId: string, title = 'Snapshot'): Promise<SnapshotEntry> {
-		await this.ensureWritable();
+	async takeSnapshot(
+		documentId: string,
+		title = 'Snapshot',
+		options: Pick<WriteOptions, 'force'> = {}
+	): Promise<SnapshotEntry> {
+		await this.ensureWritable(options.force);
 		return this.snapshots.takeSnapshot(documentId, title);
 	}
 

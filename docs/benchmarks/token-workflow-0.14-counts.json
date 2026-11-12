@@ -1,8 +1,8 @@
 {
   "tokenizer": "tiktoken",
   "version": "0.12.0",
-  "input": "docs/development/quality-mission/evidence/token-release-candidate-raw.json",
-  "sourceSha256": "10831b8a6c99def36820fb75f7dd9a8916b70432a8e077adaa2e091b2c3a6575",
+  "input": "docs/development/quality-mission/evidence/token-candidate-snapshot-release-raw.json",
+  "sourceSha256": "0dd3a64885e87dd9dd9d9f03aa119093f65cd8b1e0eb1d5ca1037dc15355e783",
   "fixtureSha256": "8d02ae8e014afa6838faf20af1898d603d5d6fe160d5e8358dabf4a506a074f2",
   "client": "@modelcontextprotocol/client 2.4.0 StdioClientTransport",
   "runtime": "v26.12.1",
@@ -32,108 +32,108 @@
         "o200k_base": 67
       },
       "response": {
-        "utf8Bytes": 356291,
-        "cl100k_base": 73551,
-        "o200k_base": 74425
+        "utf8Bytes": 356514,
+        "cl100k_base": 73591,
+        "o200k_base": 74465
       }
     },
     {
       "label": "open_project",
       "request": {
-        "utf8Bytes": 393,
-        "cl100k_base": 121,
-        "o200k_base": 123
+        "utf8Bytes": 372,
+        "cl100k_base": 108,
+        "o200k_base": 107
       },
       "response": {
-        "utf8Bytes": 591,
-        "cl100k_base": 215,
-        "o200k_base": 217
+        "utf8Bytes": 590,
+        "cl100k_base": 214,
+        "o200k_base": 216
       }
     },
     {
       "label": "get_structure",
       "request": {
         "utf8Bytes": 347,
-        "cl100k_base": 104,
-        "o200k_base": 106
+        "cl100k_base": 103,
+        "o200k_base": 105
       },
       "response": {
         "utf8Bytes": 789,
-        "cl100k_base": 285,
-        "o200k_base": 288
+        "cl100k_base": 282,
+        "o200k_base": 285
       }
     },
     {
       "label": "read_document",
       "request": {
         "utf8Bytes": 421,
-        "cl100k_base": 133,
-        "o200k_base": 135
+        "cl100k_base": 132,
+        "o200k_base": 134
       },
       "response": {
-        "utf8Bytes": 749,
-        "cl100k_base": 265,
-        "o200k_base": 267
+        "utf8Bytes": 748,
+        "cl100k_base": 261,
+        "o200k_base": 263
       }
     },
     {
       "label": "review_changes:propose",
       "request": {
         "utf8Bytes": 605,
-        "cl100k_base": 196,
-        "o200k_base": 199
+        "cl100k_base": 195,
+        "o200k_base": 198
       },
       "response": {
         "utf8Bytes": 1779,
-        "cl100k_base": 639,
-        "o200k_base": 648
+        "cl100k_base": 631,
+        "o200k_base": 638
       }
     },
     {
       "label": "review_changes:preview",
       "request": {
         "utf8Bytes": 419,
-        "cl100k_base": 134,
-        "o200k_base": 137
+        "cl100k_base": 133,
+        "o200k_base": 135
       },
       "response": {
         "utf8Bytes": 1784,
-        "cl100k_base": 645,
-        "o200k_base": 651
+        "cl100k_base": 641,
+        "o200k_base": 644
       }
     },
     {
       "label": "review_changes:apply",
       "request": {
         "utf8Bytes": 430,
-        "cl100k_base": 138,
-        "o200k_base": 141
+        "cl100k_base": 137,
+        "o200k_base": 139
       },
       "response": {
         "utf8Bytes": 1739,
-        "cl100k_base": 725,
-        "o200k_base": 732
+        "cl100k_base": 716,
+        "o200k_base": 719
       }
     },
     {
       "label": "review_changes:undo",
       "request": {
         "utf8Bytes": 430,
-        "cl100k_base": 135,
-        "o200k_base": 137
+        "cl100k_base": 137,
+        "o200k_base": 139
       },
       "response": {
         "utf8Bytes": 2691,
-        "cl100k_base": 967,
-        "o200k_base": 972
+        "cl100k_base": 975,
+        "o200k_base": 981
       }
     },
     {
       "label": "close_project",
       "request": {
         "utf8Bytes": 348,
-        "cl100k_base": 104,
-        "o200k_base": 106
+        "cl100k_base": 103,
+        "o200k_base": 105
       },
       "response": {
         "utf8Bytes": 306,
@@ -143,8 +143,8 @@
     }
   ],
   "totals": {
-    "cl100k_base": 78677,
-    "o200k_base": 79610
+    "cl100k_base": 78679,
+    "o200k_base": 79599
   },
   "limitations": [
     "Original tiny manuscript fixture; not a representative novel or commercial host.",

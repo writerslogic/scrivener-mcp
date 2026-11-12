@@ -270,7 +270,9 @@ jobs:
           DEPENDENCY_RESULT: ${{ needs.dependency-review.result }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success && test "$REBUILD_RESULT" = success
+          test "$MATRIX_RESULT" = success
+          test "$SECURITY_RESULT" = success
+          test "$REBUILD_RESULT" = success
           if [ "$EVENT_NAME" = pull_request ]; then
             test "$DEPENDENCY_RESULT" = success
           else

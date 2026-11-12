@@ -49,7 +49,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 708
+          "line": 709
         },
         {
           "tool": "add_relationship",
@@ -66,7 +66,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 724
+          "line": 725
         },
         {
           "tool": "add_relationship",
@@ -83,7 +83,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 735
+          "line": 736
         }
       ],
       "inputBranches": [
@@ -118,15 +118,15 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 708
+              "line": 709
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 724
+              "line": 725
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 735
+              "line": 736
             }
           ],
           "observedSuccess": [
@@ -229,11 +229,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 708
+              "line": 709
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 724
+              "line": 725
             }
           ],
           "observedSuccess": [
@@ -251,7 +251,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 735
+              "line": 736
             }
           ],
           "observedSuccess": [
@@ -293,17 +293,17 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 709,
+          "line": 710,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 725,
+          "line": 726,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 736,
+          "line": 737,
           "kind": "literal-reference-only"
         },
         {
@@ -458,7 +458,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 487
+          "line": 488
         },
         {
           "tool": "analyze_change_impact",
@@ -472,7 +472,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 497
+          "line": 498
         }
       ],
       "inputBranches": [
@@ -485,7 +485,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 487
+              "line": 488
             }
           ],
           "observedSuccess": [
@@ -519,7 +519,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 497
+              "line": 498
             }
           ],
           "observedSuccess": [
@@ -642,12 +642,12 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 488,
+          "line": 489,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 498,
+          "line": 499,
           "kind": "literal-reference-only"
         }
       ],
@@ -671,7 +671,7 @@
           "inputSha256": "db9ec5d77722627bff6e6a10980a32f58b42e4b7824c9430e8c8959c5406bba5",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "14e36adfb15765fa2d8a12cbf86f415826874f4006dc51cff1fc6dd18a09e23a",
+          "resultSha256": "b16eabdd9e3fe48a1707714b183e1bafef6e2b97ba1d81b4434c11fabe3d0baa",
           "postcondition": "none"
         },
         {
@@ -680,14 +680,14 @@
           "tool": "analyze_change_impact",
           "inputSelector": {
             "kind": "replace",
-            "documentId": "604A5506-82DE-4EB0-8E16-52F07BFBE106",
+            "documentId": "73477E11-1B7A-43FE-87A8-75768CCEDD02",
             "expectedRevision": "0847dcc76da20f941a914d1bcda360819a85593a641b9830e538daff5932a6e3",
             "replacementText": "Mara has hazel eyes."
           },
-          "inputSha256": "938462043e95606967616424eb15944ac66a77fa57e2d9d0ae1738c6cc338cac",
+          "inputSha256": "b447337985c3105b050bbabe628035003deb494d5f9922b76bdb4cd206350df8",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "021daf4519999de0068db47a8c1b624da39923eefb1eea190313ea51a064c7f9",
+          "resultSha256": "250712bdb15be0f6a7fc0b6ad9941b655dabcdf86edc7b15cfce9f48217fa3e8",
           "postcondition": "none"
         },
         {
@@ -696,14 +696,14 @@
           "tool": "analyze_change_impact",
           "inputSelector": {
             "kind": "move",
-            "documentId": "604A5506-82DE-4EB0-8E16-52F07BFBE106",
+            "documentId": "73477E11-1B7A-43FE-87A8-75768CCEDD02",
             "expectedRevision": "0847dcc76da20f941a914d1bcda360819a85593a641b9830e538daff5932a6e3",
             "beforeDocumentId": null
           },
-          "inputSha256": "396516cf34c6e16e2587d3b079395e99bcb334883aaf15d315665aa4dbae71df",
+          "inputSha256": "106b6fbb7f77cffb843f4dea83b7c05effe082237cdc4b7a7dcc3a49dc08e8ad",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "ce070b9881481fdef7b12c84f5c37ca9fa098f144511d33c1ff475fe977b8800",
+          "resultSha256": "85e50e8f73986061d259fa2232780444243f75fd1f030026f5fb0dd3b12ca5c2",
           "postcondition": "none"
         }
       ],
@@ -787,12 +787,12 @@
           "unavailableSelectors": [],
           "tool": "analyze_craft_local",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "c8fee7061024d7c163d26bb2b707d07bea68f6bc66828979044f7dddc4b57a86",
+          "resultSha256": "046a7a1864cb43f679b2f1b959bc3e3eb29916663e8a92e1960f066915ce8ff6",
           "postcondition": "none"
         }
       ],
@@ -850,9 +850,9 @@
           "unavailableSelectors": [],
           "tool": "analyze_dialogue_tags_local",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "df6b3763d53fb835de422aac2a675afb013d868d3aa5d64f43766d314bf84d60",
@@ -1021,17 +1021,17 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 813,
-          "kind": "literal-reference-only"
-        },
-        {
-          "file": "scripts/check-output-conformance.mjs",
           "line": 814,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 873,
+          "line": 815,
+          "kind": "literal-reference-only"
+        },
+        {
+          "file": "scripts/check-output-conformance.mjs",
+          "line": 877,
           "kind": "literal-reference-only"
         },
         {
@@ -1153,7 +1153,7 @@
           "inputSha256": "4fbc692d2e81a91797c0e7a6f83bd1ba5b9543c27a279515ef5385403220bd65",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "4061e59e1e99e6bedf3767127b37fbc67a9c7b4bf2af5223d4c759c503daa531",
+          "resultSha256": "d7985b028fbd0e4c3d48c588837be1cc324b3d8739af8064a1805fb0c5aa807c",
           "postcondition": "none"
         }
       ],
@@ -1225,7 +1225,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "7fc6d12a6372042556da5be7bbf0dc9eb597fb9abc84f534665ae6962607f992",
+          "resultSha256": "1cf970733c28f6a6eff43380a8a99f4d54fd5ee273a8f0350798d3611acc25b1",
           "postcondition": "none"
         }
       ],
@@ -1508,12 +1508,12 @@
         },
         {
           "file": "tests/integration/narrative-novels-stdio.test.ts",
-          "line": 238,
+          "line": 256,
           "kind": "literal-reference-only"
         },
         {
           "file": "tests/integration/narrative-novels-stdio.test.ts",
-          "line": 264,
+          "line": 282,
           "kind": "literal-reference-only"
         },
         {
@@ -1564,7 +1564,7 @@
           "inputSha256": "4d57328773c0142ec16c1b2ca73f82eeba07e8d71e6ec6460d392262c6d17cf3",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "25cec463df94bde3f5db002da8084748d7c1a3d047871f897c65008fbf7990c8",
+          "resultSha256": "442db12f25866bb16cb4a8107c746c02f43d1f6e99f0a85a1bf6c625e334975c",
           "postcondition": "none"
         },
         {
@@ -1578,7 +1578,7 @@
           "inputSha256": "1d7a9ab9f5188d37d651ad3e0ff54ba6c407896ef0bf870864793343f700cb3e",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "584d182fb9a788442bfa8aa3a20bcbd92f31d47cdf0ec3a45e407a999f772ee0",
+          "resultSha256": "3ed8e3de8e0de25670ca42951846d845c77bfc2db762080da825f95ec6b72a60",
           "postcondition": "none"
         }
       ],
@@ -3796,7 +3796,7 @@
           "inputSha256": "1ad997feeeeec121b669673f16a08ba753882ecb9ec30ed4f629483cd79da9ce",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "403d0918ffc153f65a79bc60a4698bce3067bf512d386ad6d01f9449677fe2ec",
+          "resultSha256": "f65b89b21d1a4fdcf11336b9e171d6c7cfb0d540c37e40374e13fa82562da789",
           "postcondition": "none"
         }
       ],
@@ -3865,12 +3865,12 @@
           "unavailableSelectors": [],
           "tool": "analyze_opening_local",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "b31961ad9f12121de39ffc6fe006c68ccb701e5343731b9699d28f0e8898a123",
+          "resultSha256": "666c680c1fc297e0ff1da4c8f6ab27dd28ece0bcc77362dc0e312bef0c163689",
           "postcondition": "none"
         }
       ],
@@ -3928,9 +3928,9 @@
           "unavailableSelectors": [],
           "tool": "analyze_rhythm_local",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "8ce83fe5fcfabe9e4884fdeeef0896ca1d9740e5dd1f31e269643ebbd9e584d4",
@@ -3966,7 +3966,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 623
+          "line": 624
         }
       ],
       "inputBranches": [
@@ -4018,7 +4018,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 624,
+          "line": 625,
           "kind": "literal-reference-only"
         },
         {
@@ -4084,7 +4084,7 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1166,
+          "line": 1180,
           "kind": "literal-reference-only"
         },
         {
@@ -4185,14 +4185,14 @@
           "inputs": {},
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 758
+          "line": 759
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 759,
+          "line": 760,
           "kind": "literal-reference-only"
         },
         {
@@ -4232,7 +4232,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "b803602565c33bef1e5353ef28e562f648f1758a29b38ff0fcd6389cef0c3a9a",
+          "resultSha256": "2e0a9d4b2075fb54bc6108f890669c791a99755cc0ac9cec4f012d50d49c16c8",
           "postcondition": "passed"
         }
       ],
@@ -4276,7 +4276,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 348
+          "line": 349
         },
         {
           "tool": "check_consistency",
@@ -4291,7 +4291,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 379
+          "line": 380
         }
       ],
       "inputBranches": [
@@ -4304,7 +4304,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 348
+              "line": 349
             }
           ],
           "observedSuccess": [],
@@ -4339,7 +4339,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 379
+              "line": 380
             }
           ],
           "observedSuccess": [],
@@ -4364,12 +4364,12 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 349,
+          "line": 350,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 380,
+          "line": 381,
           "kind": "literal-reference-only"
         },
         {
@@ -4404,7 +4404,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "9ba26bd78e5e03966eb6ccbe573d43cdea64390d8a441f89aae6c95c44038c82",
+          "resultSha256": "d698a813af2c423e10db2db47f3172d96242772430d2585c18c7b864ce58fada",
           "postcondition": "none"
         },
         {
@@ -4412,10 +4412,10 @@
           "unavailableSelectors": [],
           "tool": "check_consistency",
           "inputSelector": {},
-          "inputSha256": "662e31cf1c6bcd05eee06ef6892d350618d90770dca3f8d493596066b005306b",
+          "inputSha256": "30c10f617cb8a8822420262e3df481c2511c4ce6411b327572a67ccfde813d07",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "4ab74120eb8266a13ff694220eaf337045655d93b6a9f014a7dfb77d0b8aa841",
+          "resultSha256": "286498574b5735686b6cc7f804d30af19a28a7dbdd2aa285388b21b7e62403de",
           "postcondition": "passed"
         }
       ],
@@ -4499,7 +4499,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "0d6646537fcf5e2197379a4215e296461e976d6fc58042b21b81371cdc8678f4",
+          "resultSha256": "877a59af664a992e30025074a0718f6813567a2c1ebca4f2cf1d14b7dee4bca4",
           "postcondition": "none"
         }
       ],
@@ -4616,7 +4616,7 @@
           "inputSha256": "e30dc9810c31f2efeae3781e25d8d02901af1f47e4679fcea0af99523f8ceeba",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "e16e850bd220f0751f12b2562366305c1f3d0df0f6631938bb9112a6e04ec965",
+          "resultSha256": "01197de5487f2f7b2843bf2bb5d36f2ef6eab48fc46ae1f4b86f19a297ef9afa",
           "postcondition": "none"
         }
       ],
@@ -4679,9 +4679,9 @@
           "unavailableSelectors": [],
           "tool": "check_style_local",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "fed96fd93095e56fb117da39579741c7c391813e3c09c4ef9ff83aa146ccd909",
@@ -4708,17 +4708,17 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1335,
+          "line": 1358,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1340,
+          "line": 1363,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1349,
+          "line": 1372,
           "kind": "literal-reference-only"
         },
         {
@@ -4793,12 +4793,12 @@
         },
         {
           "file": "tests/integration/narrative-novels-stdio.test.ts",
-          "line": 242,
+          "line": 260,
           "kind": "literal-reference-only"
         },
         {
           "file": "tests/integration/narrative-novels-stdio.test.ts",
-          "line": 365,
+          "line": 398,
           "kind": "literal-reference-only"
         },
         {
@@ -4905,14 +4905,14 @@
           "inputs": {},
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 150
+          "line": 151
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 151,
+          "line": 152,
           "kind": "literal-reference-only"
         }
       ],
@@ -4929,13 +4929,13 @@
           "unavailableSelectors": [],
           "tool": "compare_snapshot",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
-            "snapshotId": "2026-11-11-18-31-50-0800"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
+            "snapshotId": "2026-11-11-19-28-34-0800"
           },
-          "inputSha256": "a004885744352628c95bf3af15db3eb1ec735dcef98f5356c32d0d1e286afecf",
+          "inputSha256": "a3f53d26bd5efbd6a02a25763f55498f466182d27581def4a9b44a9af1cfeac7",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6c14b34226fffa2b8cd8a10755b605fac6f5ec7d4bf136ff2135e9c473fca6bf",
+          "resultSha256": "6489027abee65a629d26e9acb21daf75f988a71f5b69dbe8458b10857d16cf17",
           "postcondition": "passed"
         }
       ],
@@ -4967,7 +4967,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 552
+          "line": 553
         },
         {
           "tool": "compile_documents",
@@ -4981,7 +4981,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 557
+          "line": 558
         }
       ],
       "inputBranches": [
@@ -4994,7 +4994,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 552
+              "line": 553
             }
           ],
           "observedSuccess": [
@@ -5011,7 +5011,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 557
+              "line": 558
             }
           ],
           "observedSuccess": [
@@ -5038,7 +5038,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 552
+              "line": 553
             }
           ],
           "observedSuccess": [
@@ -5055,7 +5055,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 557
+              "line": 558
             }
           ],
           "observedSuccess": [
@@ -5181,12 +5181,12 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 553,
+          "line": 554,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 558,
+          "line": 559,
           "kind": "literal-reference-only"
         },
         {
@@ -5211,7 +5211,7 @@
             "mode": "standard",
             "format": "text"
           },
-          "inputSha256": "87eda53ada5b429acdfa3ad707f7bc5c72578798eff48919d15d5d81482cbe5d",
+          "inputSha256": "4c535d6012a3ed7b94bb9aa8299fa10696ddb05155d5fd018cb6d870ad554869",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "4c8f7c1a77c224e13ade5a808989928a41e5f5bd7e0bf0309cf646860979c829",
@@ -5273,7 +5273,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 359
+          "line": 360
         },
         {
           "tool": "continuity_findings",
@@ -5287,7 +5287,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 364
+          "line": 365
         },
         {
           "tool": "continuity_findings",
@@ -5301,7 +5301,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 369
+          "line": 370
         },
         {
           "tool": "continuity_findings",
@@ -5314,7 +5314,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 374
+          "line": 375
         }
       ],
       "inputBranches": [
@@ -5388,7 +5388,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 359
+              "line": 360
             }
           ],
           "observedSuccess": [
@@ -5405,7 +5405,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 364
+              "line": 365
             }
           ],
           "observedSuccess": [
@@ -5422,7 +5422,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 369
+              "line": 370
             }
           ],
           "observedSuccess": [
@@ -5439,7 +5439,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 374
+              "line": 375
             }
           ],
           "observedSuccess": [
@@ -5456,22 +5456,22 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 360,
+          "line": 361,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 365,
+          "line": 366,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 370,
+          "line": 371,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 375,
+          "line": 376,
           "kind": "literal-reference-only"
         },
         {
@@ -5522,12 +5522,12 @@
           "tool": "continuity_findings",
           "inputSelector": {
             "action": "confirm",
-            "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95"
+            "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e"
           },
-          "inputSha256": "1bbbe67cdb6c474fd67dd92431c990b3404a2de9785c066a50bd210f0ec3f481",
+          "inputSha256": "0c49d9585baf60dd7a0148c0e4c06f42057d2c5debb0c033ea9e2be290b98d66",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "e748026a68a638cf6c8b03514f20246772b575351c0cba84e879059bc9cadfac",
+          "resultSha256": "dd16683abbee8ed3093085d65d06d6825a430b981bf12e5ed608243d8bad40da",
           "postcondition": "none"
         },
         {
@@ -5536,13 +5536,13 @@
           "tool": "continuity_findings",
           "inputSelector": {
             "action": "dismiss",
-            "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95",
+            "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e",
             "note": "Synthetic fixture review"
           },
-          "inputSha256": "14aa3a6c5f27f407005ae13f52c1feb1afc4d7be19b8cff273f1cc36c988bd8e",
+          "inputSha256": "a7cea7891a04280d96d56cd63af5980e6a86d468921afb3491e971e0e221c978",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "39e51c0b1a3370def8acba04ad82983aa6669d76bc3d31c6365ee7e60dae8033",
+          "resultSha256": "292cae8cad5e9c290e683456a311cdab74bbd6d324fd87516c45023ef482139e",
           "postcondition": "none"
         },
         {
@@ -5551,13 +5551,13 @@
           "tool": "continuity_findings",
           "inputSelector": {
             "action": "resolve",
-            "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95",
+            "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e",
             "note": "Synthetic fixture decision"
           },
-          "inputSha256": "0e3d53290ee97f61193f22930ed93b62900865509a74839b31215eb05df5335b",
+          "inputSha256": "1c50978dc35e396f6f0899026068106c1c53ab91fda0622003bd5549738040fd",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "8ffbb1a478a7d6a8b82b820c5f210882d58206a5875db72e434067b2ccc7ad13",
+          "resultSha256": "171304498761cf2bbb13c2e54f6cd44d1bea40e8bbe4f8ccd7f7d015599bcce8",
           "postcondition": "none"
         },
         {
@@ -5566,12 +5566,12 @@
           "tool": "continuity_findings",
           "inputSelector": {
             "action": "recheck",
-            "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95"
+            "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e"
           },
-          "inputSha256": "127ef80a6bce0a5972e89bd5e6f719d774c447e02fe777750bb30deb1a197fef",
+          "inputSha256": "4f9a51cde9d59b9bf49a070475f33e8ea0e0457ccb97ae156afa3fc627157ea9",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "167bed9749b6471a4c289e618d437602910a960e4bad7dffe5f906333cc36259",
+          "resultSha256": "2349aa84ea6a5a557ac50b5d9ba2f7e62f64e66d7272686eadbfc35e37efa200",
           "postcondition": "none"
         }
       ],
@@ -5619,7 +5619,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 276
+          "line": 277
         },
         {
           "tool": "create_document",
@@ -5634,7 +5634,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 291
+          "line": 292
         },
         {
           "tool": "create_document",
@@ -5649,7 +5649,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 693
+          "line": 694
         }
       ],
       "inputBranches": [
@@ -5682,22 +5682,22 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 277,
+          "line": 278,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 292,
+          "line": 293,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 694,
+          "line": 695,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1304,
+          "line": 1327,
           "kind": "literal-reference-only"
         },
         {
@@ -5738,7 +5738,7 @@
           "inputSha256": "b01f95501a42f4efc5556ba77cd5126628248cd3a118b43b7a7086fe4a51c8eb",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "dbe2a5b37ff611e2f6cdfcd727bddee97a26c7789de1faef02fbcc4af7b868a9",
+          "resultSha256": "f070d03a043ffbc3231b88d73fe81cef79a4f7556cae23127cce641d4a8b52fc",
           "postcondition": "none"
         },
         {
@@ -5756,7 +5756,7 @@
           "inputSha256": "6379b0b628fe6aa4f341ed29ddef8748f183593b07cb802545f401aa01dd8da0",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "553ef17ea8b41f04f37c48333f6ff41bbf664d74f8005b395c8f3b286612b65b",
+          "resultSha256": "8a67b4419d647aad2202f74ba540bec3e6031cc291ac90a339f5a572270a68cb",
           "postcondition": "passed"
         },
         {
@@ -5774,7 +5774,7 @@
           "inputSha256": "fd3038a462331b5a0eb4c1944b95430e6a4d7ee632c8f6bb10d8c98acd0b1c55",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "dae470df327546a76ec8ff686d514371000fb0f6220d17eb7ef0e2caa6202358",
+          "resultSha256": "fb6b7fe10b2ebb6eccffda2c9b1f615c02aecf9b0bc77a6f41d5ac5421518fec",
           "postcondition": "passed"
         },
         {
@@ -5792,7 +5792,7 @@
           "inputSha256": "2f412d8ef37295c657473b622f4a633e6597132766089d9b46b2c5f91fc5fd79",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "490a28a10149a1464e83f2bd9e3a6f9684e0f961a4b6b60f79bfe78dd5d30ae4",
+          "resultSha256": "47dbc63439d7abb9cd8af2abd25cb3858e74667303fb09217d9e8117c216d37b",
           "postcondition": "passed"
         }
       ],
@@ -5800,7 +5800,7 @@
     },
     {
       "tool": "create_snapshot",
-      "schemaSha256": "f69627713dfd82abc71dc83f33ab4ebdae6ec93de77bc7db8e7fca9958192b66",
+      "schemaSha256": "72726510ac2d55c5d087c96a11667f54e56856e9bbab66b1469ec6b35500741c",
       "outputSchema": true,
       "coverage": {
         "success": "U",
@@ -5819,7 +5819,8 @@
           "hasPostcondition": true,
           "expectedOutcome": "success",
           "inputs": {
-            "title": "Conformance before edit"
+            "title": "Conformance before edit",
+            "force": true
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
@@ -5847,13 +5848,14 @@
           "unavailableSelectors": [],
           "tool": "create_snapshot",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
-            "title": "Conformance before edit"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
+            "title": "Conformance before edit",
+            "force": true
           },
-          "inputSha256": "f2921e8ae58e814f759b164c5fd01d4a34d86096759ac9b775c4bf2c7c8fee48",
+          "inputSha256": "440794c1b2ba63cc9f30cda2b8544d2a06e01dabf59aa99b057779b7e008e478",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "94c934677bc94a1647c65ed991a25cfa2c08db87c4793cd42abc83415bff07a3",
+          "resultSha256": "3d7b4f5c55f4f1940885eff52c43b0afaa8d72f412c2ae14b04a1e1c878a56cc",
           "postcondition": "passed"
         }
       ],
@@ -5914,14 +5916,14 @@
           "inputs": {},
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 903
+          "line": 907
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 904,
+          "line": 908,
           "kind": "literal-reference-only"
         }
       ],
@@ -5972,7 +5974,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 772
+          "line": 773
         }
       ],
       "inputBranches": [
@@ -6002,7 +6004,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 773,
+          "line": 774,
           "kind": "literal-reference-only"
         },
         {
@@ -6084,7 +6086,7 @@
           "inputSha256": "3a31faefe6ac58e261290d9e9fbaf72a67fc87f62b0950955deed78d45e1c217",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "a9df143b9080a4e24a3deddcad28af743f8938b5363931980ec58ed7abedf48a",
+          "resultSha256": "82ac6c8d73dff2538893508f766668413c804f4417213e98128b349da4ac7cb9",
           "postcondition": "passed"
         }
       ],
@@ -6113,7 +6115,7 @@
           "inputs": {},
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 887
+          "line": 891
         },
         {
           "tool": "discover_projects",
@@ -6124,19 +6126,19 @@
           "inputs": {},
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 895
+          "line": 899
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 888,
+          "line": 892,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 896,
+          "line": 900,
           "kind": "literal-reference-only"
         }
       ],
@@ -6164,12 +6166,12 @@
           "unavailableSelectors": [],
           "tool": "discover_projects",
           "inputSelector": {
-            "searchPath": "~/tmp/scriv-conf-Zlk2GF"
+            "searchPath": "~/tmp/scriv-conf-mZF924"
           },
-          "inputSha256": "d1c2151ca6dc1dc824ce326604836f2cb07e264257468b9e5db0047faacf6a2b",
+          "inputSha256": "d5183fd66d25ead4606a73b56d60161989eb63fd6e2fe5193de0e6e13630867d",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "d5c10c3bb6f26bd2652f1aab02ae3c99c70dd5ea25f042937243ddb0d2402ad3",
+          "resultSha256": "f0f4a68cae7958ca9fbf27c1f3de6edeb98aeac948247b464c9a802edbac5d6f",
           "postcondition": "passed"
         }
       ],
@@ -6215,7 +6217,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 512
+          "line": 513
         },
         {
           "tool": "editorial_workflow",
@@ -6228,7 +6230,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 531
+          "line": 532
         },
         {
           "tool": "editorial_workflow",
@@ -6241,7 +6243,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 536
+          "line": 537
         },
         {
           "tool": "editorial_workflow",
@@ -6254,7 +6256,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 544
+          "line": 545
         }
       ],
       "inputBranches": [
@@ -6311,7 +6313,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 512
+              "line": 513
             }
           ],
           "observedSuccess": [
@@ -6328,7 +6330,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 531
+              "line": 532
             }
           ],
           "observedSuccess": [
@@ -6362,7 +6364,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 536
+              "line": 537
             }
           ],
           "observedSuccess": [
@@ -6379,7 +6381,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 544
+              "line": 545
             }
           ],
           "observedSuccess": [
@@ -6406,7 +6408,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 512
+              "line": 513
             }
           ],
           "observedSuccess": [
@@ -6521,22 +6523,22 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 513,
+          "line": 514,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 532,
+          "line": 533,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 537,
+          "line": 538,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 545,
+          "line": 546,
           "kind": "literal-reference-only"
         },
         {
@@ -6605,10 +6607,10 @@
             "kind": "audit-continuity",
             "idempotencyKey": "conformance-audit"
           },
-          "inputSha256": "f515454417d2012557364d6350382f50fdb21788554d385b8d215bf06ab9124b",
+          "inputSha256": "fd2a3d28af6d2fa1c2df6f9a7caf7a234f6fcf19b1f1d76e924a8564b7a487c3",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "a4dc4f522b3721e8315cf319e3d7a35fad051f5c33d0eed84b1b242509881922",
+          "resultSha256": "4a7f7f06909d8d9b91ed82f19ac91c0bdf7366935e94c1cbeec1c2f601e5dca4",
           "postcondition": "passed"
         },
         {
@@ -6617,12 +6619,12 @@
           "tool": "editorial_workflow",
           "inputSelector": {
             "action": "get",
-            "workflowId": "f636624f4bec87383ebdd5d43e62111cbacda746146c5c5480c08ad8fc894f07"
+            "workflowId": "b6e8473fd982a0cabd921881ada8d9cc32d77c6148e73a1299e39500aa704a05"
           },
-          "inputSha256": "e69d98e93e018182a1f7d3aedde0f7ad1bff92ea693fbef74c3a1b41765451cc",
+          "inputSha256": "2776f1a8ddede7686684c6a5c3335cac71255bf145aa130a713d9f489f2b5da4",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6f5c9b1489a03be78d7e1e17fd28096c8c68f380b0a35d29839a35b31015178f",
+          "resultSha256": "78ae8a016b632ad85018ad78a8d2c036eec7fdbae34a3289ede7a6279df77d54",
           "postcondition": "none"
         },
         {
@@ -6631,12 +6633,12 @@
           "tool": "editorial_workflow",
           "inputSelector": {
             "action": "cancel",
-            "workflowId": "f636624f4bec87383ebdd5d43e62111cbacda746146c5c5480c08ad8fc894f07"
+            "workflowId": "b6e8473fd982a0cabd921881ada8d9cc32d77c6148e73a1299e39500aa704a05"
           },
-          "inputSha256": "189f7b6a4cdf36727925cf360a62284126973777a796686cf76ddfc7429bc6ac",
+          "inputSha256": "95537556b1951dc28dfd3a8a3831677551887d317e6ca7c54f15776b8cb7b0f0",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6f5c9b1489a03be78d7e1e17fd28096c8c68f380b0a35d29839a35b31015178f",
+          "resultSha256": "78ae8a016b632ad85018ad78a8d2c036eec7fdbae34a3289ede7a6279df77d54",
           "postcondition": "passed"
         },
         {
@@ -6645,12 +6647,12 @@
           "tool": "editorial_workflow",
           "inputSelector": {
             "action": "resume",
-            "workflowId": "f636624f4bec87383ebdd5d43e62111cbacda746146c5c5480c08ad8fc894f07"
+            "workflowId": "b6e8473fd982a0cabd921881ada8d9cc32d77c6148e73a1299e39500aa704a05"
           },
-          "inputSha256": "672381e6359860866bdb8a43187cfa86545fa60358cb68e88e47284ceecee00f",
+          "inputSha256": "c9c5cd4a72efe842284d29630c6102207fa919b9cd21f8a1f87a391f9a68ec04",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6f5c9b1489a03be78d7e1e17fd28096c8c68f380b0a35d29839a35b31015178f",
+          "resultSha256": "78ae8a016b632ad85018ad78a8d2c036eec7fdbae34a3289ede7a6279df77d54",
           "postcondition": "passed"
         }
       ],
@@ -6681,7 +6683,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 618
+          "line": 619
         }
       ],
       "inputBranches": [
@@ -6716,7 +6718,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 618
+              "line": 619
             }
           ],
           "observedSuccess": [],
@@ -7059,7 +7061,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 619,
+          "line": 620,
           "kind": "literal-reference-only"
         },
         {
@@ -7142,13 +7144,13 @@
           "unavailableSelectors": [],
           "tool": "enhance_content",
           "inputSelector": {
-            "documentId": "604A5506-82DE-4EB0-8E16-52F07BFBE106",
+            "documentId": "73477E11-1B7A-43FE-87A8-75768CCEDD02",
             "enhancementType": "grammar"
           },
-          "inputSha256": "71bd9b0ea073618c540c34d5b8ce180fff578f8bc831a61698f8c1101ba5cf7c",
+          "inputSha256": "9537c1b3829c1e8416931d9216cbcd691a280187ef97b68bb64398d050780572",
           "outcome": "returned-error",
           "schema": "valid",
-          "resultSha256": "93a1733a9d417ba24bf255fc2a7633360fd291b232464becbd541f86622bfb41",
+          "resultSha256": "52c7197502093509d539f1b6314ba5413ed847ce79ab36b82bbffc63b584ab5d",
           "postcondition": "none"
         }
       ]
@@ -7192,7 +7194,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 563
+          "line": 564
         },
         {
           "tool": "export_manuscript",
@@ -7206,7 +7208,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 572
+          "line": 573
         },
         {
           "tool": "export_manuscript",
@@ -7221,7 +7223,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 577
+          "line": 578
         },
         {
           "tool": "export_manuscript",
@@ -7236,7 +7238,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 591
+          "line": 592
         }
       ],
       "inputBranches": [
@@ -7249,11 +7251,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 563
+              "line": 564
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 572
+              "line": 573
             }
           ],
           "observedSuccess": [
@@ -7271,11 +7273,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 577
+              "line": 578
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 591
+              "line": 592
             }
           ],
           "observedSuccess": [
@@ -7324,11 +7326,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 563
+              "line": 564
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 591
+              "line": 592
             }
           ],
           "observedSuccess": [
@@ -7346,7 +7348,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 572
+              "line": 573
             }
           ],
           "observedSuccess": [
@@ -7367,7 +7369,7 @@
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 577
+              "line": 578
             }
           ],
           "observedSuccess": [
@@ -7385,22 +7387,22 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 564,
+          "line": 565,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 573,
+          "line": 574,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 578,
+          "line": 579,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 592,
+          "line": 593,
           "kind": "literal-reference-only"
         },
         {
@@ -7453,10 +7455,10 @@
             "action": "preflight",
             "preset": "submission-manuscript"
           },
-          "inputSha256": "61eaa8982e59c368fb7d09ee586dc2b20a5a06c90642bf0a5cacb3cfd78bb495",
+          "inputSha256": "c9271db419754755df8c06d6dbb29364112ac8a537ef433a1d2b03690aa70227",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "9262dfc1f36708c12fb4f2630c13c30ce06ba4f6d03f74a781b851cc0ed2cc9c",
+          "resultSha256": "a543748fa4f622fcd7e3600d84382b357e4f5e73b48b93f16c64892cb22801a1",
           "postcondition": "none"
         },
         {
@@ -7467,10 +7469,10 @@
             "action": "preflight",
             "preset": "beta-reader"
           },
-          "inputSha256": "9d4627cf37c085d7f82ec822bc3f191aafe2828b6b756906d994d0f2d214dbe9",
+          "inputSha256": "1d51e2dfdecec8f17bc6d6a4bcd1f6a32e081c0e6698427d60ba92a2ba20007d",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "39c0559a9eb138639e9130bc126a68a795c9675e47612c3420042048d113abb6",
+          "resultSha256": "3102b4764f66c6e5d8f90112112e0f320fcfcee3aae1cb8f18aac05128bb06b7",
           "postcondition": "none"
         },
         {
@@ -7481,12 +7483,12 @@
             "action": "export",
             "preset": "ebook",
             "language": "fr",
-            "outputPath": "~/tmp/scriv-conf-Zlk2GF/fixture.epub"
+            "outputPath": "~/tmp/scriv-conf-mZF924/fixture.epub"
           },
-          "inputSha256": "8d32f523dc5d70c61aa963205cd539c1ff407362be9ae2720258e51e924ab55b",
+          "inputSha256": "2948a7418c10af67eb42d806d22354b97a0792416e921aec5fc16b64d3fa3b07",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6f02d9135f3eb3f22bab3bca9eccd6eee3172c4d995a41bc50be4ce9ae11ef32",
+          "resultSha256": "ab1b07b6f3f45c2d2fd246a39956f8f85a812187d9d6b8339a7be7a5b2664201",
           "postcondition": "passed"
         },
         {
@@ -7497,12 +7499,12 @@
             "action": "export",
             "preset": "submission-manuscript",
             "language": "ja",
-            "outputPath": "~/tmp/scriv-conf-Zlk2GF/fixture.docx"
+            "outputPath": "~/tmp/scriv-conf-mZF924/fixture.docx"
           },
-          "inputSha256": "355a6252868f68b1201d016c42f91f8c66275932a58adb0259fbb78e0dbd4676",
+          "inputSha256": "acb60c04b777e25729d2e13a1c8fb9940857ef6063458030f7a3500fc99c14f6",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "f020f3f61c9944085340872b5c51f7b63c6eac1e9e3fcc0627b56a04865e9892",
+          "resultSha256": "4e7fa1cb0cc2933f4807840964f6f068d384347d1d1d471a9725b5ddd3d8caa2",
           "postcondition": "passed"
         }
       ],
@@ -7533,7 +7535,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 562
+          "line": 563
         }
       ],
       "inputBranches": [
@@ -7566,7 +7568,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 562
+              "line": 563
             }
           ],
           "observedSuccess": [
@@ -7639,7 +7641,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 562,
+          "line": 563,
           "kind": "literal-reference-only"
         },
         {
@@ -7671,7 +7673,7 @@
           "inputSha256": "319e33e3ff0321ec166c815e39147049abe23b436936e9e8ee2b866cd0c8ed1b",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "079a4bf29ffb51f42fa2e1d9abef4e88d62e90f69e1dfd631175a6aa5547f3a1",
+          "resultSha256": "fd2b4c911c869824e3d29935e2f90ac4caa603915d60fe099f439ea073c4bba7",
           "postcondition": "none"
         }
       ],
@@ -7832,7 +7834,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "eb7f2a449759154c7537570d2a15cdebf9d7aba32dffeabbde75ce919489cfa4",
+          "resultSha256": "1d5f24340c97674b6fc8dd0bd7addf1f09f9844576ef885fdd6d0aff865578eb",
           "postcondition": "none"
         }
       ],
@@ -7864,7 +7866,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 746
+          "line": 747
         }
       ],
       "inputBranches": [
@@ -7998,7 +8000,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 747,
+          "line": 748,
           "kind": "literal-reference-only"
         },
         {
@@ -8086,7 +8088,7 @@
           "inputSha256": "d79d7829ec18645563260035555ba156428c5d4bb8e71b3eda698c26b1d46c10",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "c8ca2efb918977c65443fde4ac6e95d4972da24b52bb60f9a20e92b6a3c50c02",
+          "resultSha256": "807e5723c9dcdda8ba07d64cbf9205a4a853c60d50c1d06d3168ae4d2a38cff6",
           "postcondition": "passed"
         }
       ],
@@ -8144,9 +8146,9 @@
           "unavailableSelectors": [],
           "tool": "find_repetition_local",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "29a83d4819f399286a1fabb7bc81b651c707d03ff2ba99f083f917cce79a39fb",
@@ -8181,7 +8183,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 605
+          "line": 606
         },
         {
           "tool": "generate_content",
@@ -8195,7 +8197,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 613
+          "line": 614
         }
       ],
       "inputBranches": [
@@ -8324,12 +8326,12 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 606,
+          "line": 607,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 614,
+          "line": 615,
           "kind": "literal-reference-only"
         },
         {
@@ -8422,7 +8424,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 636
+          "line": 637
         }
       ],
       "inputBranches": [
@@ -8475,7 +8477,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 636
+              "line": 637
             }
           ],
           "observedSuccess": [],
@@ -8572,7 +8574,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 637,
+          "line": 638,
           "kind": "literal-reference-only"
         },
         {
@@ -8597,7 +8599,7 @@
           "inputSelector": {
             "materialType": "book_blurb"
           },
-          "inputSha256": "5db767b8d7ab5c5ef0ff6d319af7369e2d0e8402e2f7dc41d8a82c2fbe103d3a",
+          "inputSha256": "e9b26ef8879881007b660ffbba8a712f184da16b0715f98418f7f395e10c9519",
           "outcome": "returned-error",
           "schema": "not-returned",
           "resultSha256": "ff95b24963b41ff64426288e7f56c68de432c52c4ab57e813c69597ee9a12a7f",
@@ -8713,12 +8715,12 @@
           "unavailableSelectors": [],
           "tool": "get_document_info",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "821b89a22b66bfa44cd7f98ee8c32c782c67725d9ca0769bb0c59a66cded47d8",
+          "resultSha256": "69813036376e1544b73502e5724ab19b4fc549b075ee2699eca1ebb8c34ac7ef",
           "postcondition": "none"
         }
       ],
@@ -8927,7 +8929,7 @@
           "inputSha256": "4fbc692d2e81a91797c0e7a6f83bd1ba5b9543c27a279515ef5385403220bd65",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "c4842f4d39a4df0737eea6d5217f0dfff209a7917337e030204d94f576a77b79",
+          "resultSha256": "f02ebf0f9db299d4427f379f2400d473ba05d251b0c418c7c58bfbdde57cc473",
           "postcondition": "none"
         },
         {
@@ -8940,7 +8942,7 @@
           "inputSha256": "7f22e6d4ac367f64a8ce5d991b68b7accb3110519f9ff42aa02db335ae4b69c4",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "885172d1d4c239ef3f9f2c79cd14bba001e13519a942bcfb884221760011bb0a",
+          "resultSha256": "1e46a19cb9a16395fbab5c7825e9fb561ea66415f326f080a3cd66b53cb97d08",
           "postcondition": "none"
         }
       ],
@@ -8971,7 +8973,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 810
+          "line": 811
         },
         {
           "tool": "get_job_status",
@@ -8984,7 +8986,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 848
+          "line": 850
         },
         {
           "tool": "get_job_status",
@@ -8998,7 +9000,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 871
+          "line": 875
         }
       ],
       "inputBranches": [
@@ -9011,11 +9013,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 810
+              "line": 811
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 871
+              "line": 875
             }
           ],
           "observedSuccess": [
@@ -9033,7 +9035,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 848
+              "line": 850
             }
           ],
           "observedSuccess": [
@@ -9105,17 +9107,17 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 811,
+          "line": 812,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 849,
+          "line": 851,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 872,
+          "line": 876,
           "kind": "literal-reference-only"
         },
         {
@@ -9143,12 +9145,12 @@
           "tool": "get_job_status",
           "inputSelector": {
             "jobType": "analyze_document",
-            "jobId": "6c12201bbd6368358ae61a2614c805d4734733c456cb95a04db20d0d2299c81b-9e1528aa-c69b-40fc-ad39-f261c12d951c"
+            "jobId": "8bebd791eaba3660932a0ae9360979b59b80f70b8c1b2eccfbb2259a467a9c22-66a30e54-1058-48c4-ac1b-9c68a2037191"
           },
-          "inputSha256": "45b82f5c4d4939c6dcfac4c471ca452847bd0a4db03fa05cb0d2c6edf8c3125c",
+          "inputSha256": "6dee3f6f6a6a7e28f28205b519692449a10ecea53b3e2fcc9c476a723c45186a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "f43152a5fc5af53ec186745e6694d51d58a027fc7852eacb59465bc224160031",
+          "resultSha256": "fc0dbea1b370a6efd25fa94ae6d9f5754a2a4319a13e2fc76a469bd4fa77d0ec",
           "postcondition": "passed"
         },
         {
@@ -9157,12 +9159,12 @@
           "tool": "get_job_status",
           "inputSelector": {
             "jobType": "analyze_project",
-            "jobId": "6c12201bbd6368358ae61a2614c805d4734733c456cb95a04db20d0d2299c81b-577f4455-a420-404f-ac12-51f2eabf4e74"
+            "jobId": "8bebd791eaba3660932a0ae9360979b59b80f70b8c1b2eccfbb2259a467a9c22-48fe42dc-4535-4f61-856d-208e30ec29e0"
           },
-          "inputSha256": "63f2d35e5a34c02536f5ef2c67dfb5610f989f2f9eb4ef20bc6bfe493ebb7fc1",
+          "inputSha256": "6228943c889879936462f82f082f8f2e49c67cef3b6c16725b4f2de677850767",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "f6e683132e8598e36daf480cdb1daea322e621e91e6f18ff23fef39aa4e7bc5f",
+          "resultSha256": "b170b3e98be411c7476bfaaf6206e350853ec99ece5893951a57aa2f3cf248b5",
           "postcondition": "passed"
         },
         {
@@ -9261,14 +9263,14 @@
           "inputs": {},
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 876
+          "line": 880
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 877,
+          "line": 881,
           "kind": "literal-reference-only"
         },
         {
@@ -9303,7 +9305,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "bffc5346080fc3f39f4c69968663d4309764b26ee6645baeb2f73bf5f892a173",
+          "resultSha256": "6d00153e182602184afccbddaf97415212112b499ed41f6d1475f56deb6690f7",
           "postcondition": "passed"
         }
       ],
@@ -9359,7 +9361,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "eae55553e460c99363bf1e03ad9449abb203a70b5d98e6f421c7d3a6a763a809",
+          "resultSha256": "04ce9499767a15684eed993d82e3428dc4e0b1fb2e995e5b043e2b6b2e18e680",
           "postcondition": "none"
         }
       ],
@@ -9400,22 +9402,22 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1218,
+          "line": 1232,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1224,
+          "line": 1247,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1227,
+          "line": 1250,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1228,
+          "line": 1251,
           "kind": "literal-reference-only"
         },
         {
@@ -9754,14 +9756,14 @@
           "inputs": {},
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 141
+          "line": 142
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 141,
+          "line": 142,
           "kind": "literal-reference-only"
         }
       ],
@@ -9778,12 +9780,12 @@
           "unavailableSelectors": [],
           "tool": "list_snapshots",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "74134a7ff9bbad879ab8ddac1929f68e35d1f6f8fba61cac83d009073d1e07a6",
+          "resultSha256": "a73e971dc29c395cbed881a94035bef49b1fe61745a5924ec024c17d73b17b9a",
           "postcondition": "none"
         }
       ],
@@ -9884,7 +9886,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 387
+          "line": 388
         },
         {
           "tool": "manage_series",
@@ -9897,7 +9899,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 397
+          "line": 398
         },
         {
           "tool": "manage_series",
@@ -9910,7 +9912,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 398
+          "line": 399
         }
       ],
       "inputBranches": [
@@ -9923,7 +9925,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 387
+              "line": 388
             }
           ],
           "observedSuccess": [
@@ -9940,7 +9942,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 398
+              "line": 399
             }
           ],
           "observedSuccess": [
@@ -9957,7 +9959,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 397
+              "line": 398
             }
           ],
           "observedSuccess": [
@@ -9991,17 +9993,17 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 388,
-          "kind": "literal-reference-only"
-        },
-        {
-          "file": "scripts/check-output-conformance.mjs",
-          "line": 397,
+          "line": 389,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
           "line": 398,
+          "kind": "literal-reference-only"
+        },
+        {
+          "file": "scripts/check-output-conformance.mjs",
+          "line": 399,
           "kind": "literal-reference-only"
         },
         {
@@ -10048,7 +10050,7 @@
           "inputSha256": "584e7600815c4c752e42f8f3c00aa4bf1597f13bb08ed5de443b33097e1a1751",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6891263d49b1393b937f7da802e017a51958046ca53f3ea32d314610deddfbb6",
+          "resultSha256": "ff4b66d6c55ad451466b4e42574111cc0ae35ee1c9f604a38531b0ea22fabb6a",
           "postcondition": "none"
         },
         {
@@ -10062,7 +10064,7 @@
           "inputSha256": "ec126eae83bbef0800b0e514936d92932fe28c9aa3991259027c2d0f310014aa",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "a51c665b0dac42e7d5f93439228ac30b7d02aee630f9baef2886d170c65b47aa",
+          "resultSha256": "1c704f8cf30d33ff3e88237a1fa257ce554b52137f11849c9d2c0c2a96bfe9d9",
           "postcondition": "passed"
         },
         {
@@ -10071,12 +10073,12 @@
           "tool": "manage_series",
           "inputSelector": {
             "action": "leave",
-            "seriesId": "504ddb60-5d17-401b-9036-667dfed5c94a"
+            "seriesId": "bca41456-c470-45a0-b749-c81ef37d6fbc"
           },
-          "inputSha256": "16e44303a1a769e4c1148ae8397d4afb3ff753d6f38cad1543944618f4925c5e",
+          "inputSha256": "7041ec2ffb04ee41c868e8badb4f4516eedcaddaefe5058a057b3af23d9b76d7",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "13d22fb4661bce4f6df535972a011c7e37c4645c832fe482f887250fd790bccb",
+          "resultSha256": "c1cfdfcc3ecd8f64d08d06c9cfc733823a3b2f3de0d1829b44f4e0b0faa669d8",
           "postcondition": "none"
         },
         {
@@ -10085,12 +10087,12 @@
           "tool": "manage_series",
           "inputSelector": {
             "action": "join",
-            "seriesId": "504ddb60-5d17-401b-9036-667dfed5c94a"
+            "seriesId": "bca41456-c470-45a0-b749-c81ef37d6fbc"
           },
-          "inputSha256": "6692c14e679caa2bc172a4769c827c3cf9e29e7ce3e36aea7d381f25241fe716",
+          "inputSha256": "21ac9843c984692a63928b2c4a3d8056206da121fe35550b6102f9274c10c385",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "ce5e9974aa172e26d3c626152cc8b1e84e78d0efe8815be43d1476f5c30f20a0",
+          "resultSha256": "cb9e1988598b61b751ed9bf647956eec72adcff95a1d9014b0fe7a6937ed0f1f",
           "postcondition": "none"
         }
       ],
@@ -10455,7 +10457,7 @@
           "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "91e1b043e4c97c710aa6aff45ca355aa0f30a26f9028c8337ed2467594583575",
+          "resultSha256": "be72f9181807badb7a3a6d905247b74e44c9a1e79e5d3143512a3b516df7ff22",
           "postcondition": "none"
         }
       ],
@@ -10592,7 +10594,7 @@
           "inputSha256": "a3450f54cc941d75691d8ee9b27eb76c4aa96a97b2a5744fbcb39f7d6fc907af",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "a7f72be6bae2b54367a8d0abfc7cd4b8490b6642b1e15601b2dbe5b5139438fa",
+          "resultSha256": "451a5ede4c1b5f5f30406ec727b2883fcd906a19d6dea58f52c0c8000070d994",
           "postcondition": "none"
         }
       ],
@@ -10676,12 +10678,12 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1207,
+          "line": 1221,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 1212,
+          "line": 1226,
           "kind": "literal-reference-only"
         },
         {
@@ -10771,12 +10773,12 @@
         },
         {
           "file": "tests/integration/narrative-novels-stdio.test.ts",
-          "line": 237,
+          "line": 255,
           "kind": "literal-reference-only"
         },
         {
           "file": "tests/integration/narrative-novels-stdio.test.ts",
-          "line": 247,
+          "line": 265,
           "kind": "literal-reference-only"
         },
         {
@@ -10841,12 +10843,11 @@
           "hasPostcondition": true,
           "expectedOutcome": "success",
           "inputs": {
-            "documentId": "conformance-supplied-one",
             "content": "Original supplied prose. Mara waits beside the harbor."
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 796
+          "line": 797
         }
       ],
       "inputBranches": [
@@ -10909,7 +10910,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 797,
+          "line": 798,
           "kind": "literal-reference-only"
         },
         {
@@ -10933,13 +10934,13 @@
           ],
           "tool": "queue_document_analysis",
           "inputSelector": {
-            "documentId": "conformance-supplied-one",
+            "documentId": "F8F9FDEF-FD9F-4A8C-B33D-3434A1220ADC",
             "content": "[redacted]"
           },
-          "inputSha256": "43145822bc5a02747db591a5e2b9a371db83fb4e9d249777dd5070fad4175954",
+          "inputSha256": "4e53b46b5ffef96773a8ea989ee4c4e449a202804aa92e643b4b442ed87bf27b",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "4a13eacce4b7f79f71531f1492939a95081e6a035abbd44377a450d0fceb917b",
+          "resultSha256": "f5ade2b9d32dc5f6c6df5c2efef1cef98ca0428d405b8760993d9a2a932fcf42",
           "postcondition": "passed"
         }
       ],
@@ -10970,7 +10971,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 831
+          "line": 833
         }
       ],
       "inputBranches": [
@@ -11099,7 +11100,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 832,
+          "line": 834,
           "kind": "literal-reference-only"
         }
       ],
@@ -11118,10 +11119,10 @@
           "inputSelector": {
             "projectId": "conformance-supplied-project"
           },
-          "inputSha256": "0e5d285fc791f6df1ed5c474928c09a29456ac720e36ddb68fc85d6150ddce37",
+          "inputSha256": "6070708acd6a60111dc7ab47ab117849aa9aef0d0919dc37e8b6773a4d681f89",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "0e09bbd0d43ddaaa6c2c516cfc36c1331581c6f38c0e7d4d8eed8be9f767228d",
+          "resultSha256": "7bee9b3061d0a0df35176c7942d26cf1f1ac03538ef2ced6ab36f035379465ff",
           "postcondition": "passed"
         }
       ],
@@ -11174,9 +11175,9 @@
           "unavailableSelectors": [],
           "tool": "read_annotations",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
           },
-          "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+          "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "06f008018020913acc62fff45c439f7496b47b11c2ac1b072f5ee1a120cddb6e",
@@ -11348,7 +11349,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 657
+          "line": 658
         },
         {
           "tool": "read_result",
@@ -11361,7 +11362,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 669
+          "line": 670
         },
         {
           "tool": "read_result",
@@ -11374,7 +11375,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 683
+          "line": 684
         },
         {
           "tool": "read_result",
@@ -11387,7 +11388,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 688
+          "line": 689
         }
       ],
       "inputBranches": [
@@ -11444,22 +11445,22 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 658,
+          "line": 659,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 670,
+          "line": 671,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 684,
+          "line": 685,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 689,
+          "line": 690,
           "kind": "literal-reference-only"
         },
         {
@@ -11521,14 +11522,14 @@
           "unavailableSelectors": [],
           "tool": "read_result",
           "inputSelector": {
-            "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+            "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
             "offset": 0,
             "limit": 4
           },
-          "inputSha256": "de71e4c99360256412a7d3742c4890038bc7641c799da068d1bc53468163be91",
+          "inputSha256": "6d55764b50fd71e911e031c9f3ae66fe5d7dd60f331a7c5e75b91d0de4522afa",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "bd233abe911eb4dbcd82d35397bbfda3e0a4408dad11c88ddea91f6cd0dda580",
+          "resultSha256": "96b99076c01205c878d718385897a1e7c2d3970ca43a067b261b88dddd126f40",
           "postcondition": "passed"
         },
         {
@@ -11536,14 +11537,14 @@
           "unavailableSelectors": [],
           "tool": "read_result",
           "inputSelector": {
-            "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+            "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
             "offset": 4,
             "limit": 65536
           },
-          "inputSha256": "9781aa7cd8b7fe6db122daffe612ffbe22d5e499c6e66586811724efc2a6aad4",
+          "inputSha256": "cee95ca06aeef4746ab0a7e41257231df7560a29c1f25812d7a02d0b0c022a8c",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "a0230d1f0778aa6e11b6627a12a6d2eb095e9bb17206e097cab8d6f1fd8b91d6",
+          "resultSha256": "6689544a7be9362f181996f2262e73da63ffe766c19a1a3d36c9d34147d87933",
           "postcondition": "passed"
         }
       ],
@@ -11553,10 +11554,10 @@
           "unavailableSelectors": [],
           "tool": "read_result",
           "inputSelector": {
-            "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+            "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
             "limit": 3
           },
-          "inputSha256": "c44503cc42273e60b33031b43cd5c82dd560d32c5bc25df0fc0eea841907b73b",
+          "inputSha256": "e20590c72dd2e3fb172b8e8db3ec1f234c2c8c129f323b18b639924182d2f791",
           "outcome": "thrown-error",
           "schema": "not-returned",
           "resultSha256": null,
@@ -11567,10 +11568,10 @@
           "unavailableSelectors": [],
           "tool": "read_result",
           "inputSelector": {
-            "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+            "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
             "limit": 65537
           },
-          "inputSha256": "c7a88eca122330a4e57915dd54b044e07cc38a52f39cf4410ab289a2bafd1bde",
+          "inputSha256": "bfbf30fcf4b680ad94be81bc1e9ea55782f3f613606aa4a26f86a58729132904",
           "outcome": "thrown-error",
           "schema": "not-returned",
           "resultSha256": null,
@@ -11601,14 +11602,14 @@
           "inputs": {},
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 142
+          "line": 143
         }
       ],
       "inputBranches": [],
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 143,
+          "line": 144,
           "kind": "literal-reference-only"
         }
       ],
@@ -11625,13 +11626,13 @@
           "unavailableSelectors": [],
           "tool": "read_snapshot",
           "inputSelector": {
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
-            "snapshotId": "2026-11-11-18-31-50-0800"
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
+            "snapshotId": "2026-11-11-19-28-34-0800"
           },
-          "inputSha256": "a004885744352628c95bf3af15db3eb1ec735dcef98f5356c32d0d1e286afecf",
+          "inputSha256": "a3f53d26bd5efbd6a02a25763f55498f466182d27581def4a9b44a9af1cfeac7",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "fa228973b7a098071560f96146916dc5e74761ed49b9225678fc191e8d0c8388",
+          "resultSha256": "b2822176747fb6d92ac4ca40411bf23bb1932936911c493b1dde18c170adf319",
           "postcondition": "passed"
         }
       ],
@@ -11662,7 +11663,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 160
+          "line": 161
         },
         {
           "tool": "recall",
@@ -11675,7 +11676,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 166
+          "line": 167
         },
         {
           "tool": "recall",
@@ -11688,7 +11689,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 172
+          "line": 173
         },
         {
           "tool": "recall",
@@ -11701,7 +11702,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 178
+          "line": 179
         },
         {
           "tool": "recall",
@@ -11714,7 +11715,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 646
+          "line": 647
         }
       ],
       "inputBranches": [
@@ -11727,7 +11728,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 160
+              "line": 161
             }
           ],
           "observedSuccess": [
@@ -11744,7 +11745,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 166
+              "line": 167
             }
           ],
           "observedSuccess": [
@@ -11761,7 +11762,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 172
+              "line": 173
             }
           ],
           "observedSuccess": [
@@ -11778,7 +11779,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 178
+              "line": 179
             }
           ],
           "observedSuccess": [
@@ -11795,7 +11796,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 646
+              "line": 647
             }
           ],
           "observedSuccess": [
@@ -11807,27 +11808,27 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 160,
+          "line": 161,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 166,
+          "line": 167,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 172,
+          "line": 173,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 178,
+          "line": 179,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 647,
+          "line": 648,
           "kind": "literal-reference-only"
         },
         {
@@ -11854,7 +11855,7 @@
           "inputSha256": "fa964e78c167ca657a450523c71e1761c36cabacb6603e136ea4df6dde390d29",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "2ca51ab0970bf0c917f4ba05bff4fc6c0843c8e370bde4ede51e2981a2835b51",
+          "resultSha256": "a7d0f340e864cceb134d21d07153b1d4d1a25d0b3594b05ac8950bb780eb6c9c",
           "postcondition": "none"
         },
         {
@@ -11867,7 +11868,7 @@
           "inputSha256": "f95637ddda7089da2f2dadf7161b0477d4cfad85b7547e4e29b96135d9d11eca",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "e891f7f6c7bbbc0ef5d19e231aaf559ca343b5156a6e3e06a0be83013cac8ea2",
+          "resultSha256": "0bb8e26642042ee3966610386e36af1e78cb0f889f07347dd60c21bd84100a00",
           "postcondition": "none"
         },
         {
@@ -11880,7 +11881,7 @@
           "inputSha256": "7683090ab1e9339e0f100e56df05739f45679fb6d8284f184451670e9202410f",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "66cee6952319dd4aa33c07bf6a3c3265ed0091248a20b19de103c538f6b74364",
+          "resultSha256": "449c265f1e10570bc5496c184059430f6beb86b4b3419ade486ce765d9e4a320",
           "postcondition": "none"
         },
         {
@@ -11893,7 +11894,7 @@
           "inputSha256": "79b713252b42368b0e614ef817b6f132d6bd5edf14d98d5beebde10cb282b374",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "438524aa69d6a24e08c00bb5658a6ce363e2b158d6647d4931d3dcd99b32762d",
+          "resultSha256": "dc3586e02f83cb2e5743d1f43cdb91bafb8d30c583279f25e38cbae427f6f99b",
           "postcondition": "none"
         },
         {
@@ -11906,7 +11907,7 @@
           "inputSha256": "0803c8757e825fe141dba6fd40262351467d166c473472f01454bb87449b09e5",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "a0be9c324a68b5f7c666e691a40cffc9fb96aa9bb84847c9ff8c18da53b5e4fa",
+          "resultSha256": "3e22ea6414113874d5bf113dec50485aef7abedfc5e4e76a4a8b30eac35567f5",
           "postcondition": "passed"
         }
       ],
@@ -11974,7 +11975,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 155
+          "line": 156
         },
         {
           "tool": "remember",
@@ -11987,7 +11988,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 161
+          "line": 162
         },
         {
           "tool": "remember",
@@ -12000,7 +12001,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 167
+          "line": 168
         },
         {
           "tool": "remember",
@@ -12013,7 +12014,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 173
+          "line": 174
         },
         {
           "tool": "remember",
@@ -12026,7 +12027,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 179
+          "line": 180
         },
         {
           "tool": "remember",
@@ -12039,7 +12040,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 641
+          "line": 642
         }
       ],
       "inputBranches": [
@@ -12052,11 +12053,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 155
+              "line": 156
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 179
+              "line": 180
             }
           ],
           "observedSuccess": [
@@ -12075,7 +12076,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 161
+              "line": 162
             }
           ],
           "observedSuccess": [
@@ -12092,7 +12093,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 167
+              "line": 168
             }
           ],
           "observedSuccess": [
@@ -12109,7 +12110,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 173
+              "line": 174
             }
           ],
           "observedSuccess": [
@@ -12126,7 +12127,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 641
+              "line": 642
             }
           ],
           "observedSuccess": [
@@ -13158,32 +13159,32 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 156,
+          "line": 157,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 162,
+          "line": 163,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 168,
+          "line": 169,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 174,
+          "line": 175,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 180,
+          "line": 181,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 642,
+          "line": 643,
           "kind": "literal-reference-only"
         },
         {
@@ -13225,7 +13226,7 @@
           "inputSha256": "aa6fdd9fff318ec43de5a293cdfac53f92ea6dd8b3a2b0a6b3f779cbfe911047",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "8550082f44ef3bf48b8865593165a439e12d60681db920a234dca0df5c94228f",
+          "resultSha256": "fa5c5f58373cd7183fe4546b7f839bbbe99e5629719708567d54e2ba6117e75d",
           "postcondition": "none"
         },
         {
@@ -13238,7 +13239,7 @@
           "inputSha256": "1859024c02f15a7acc88b21d72ec71c05ae7cfb33a0ba7750412d05cc09bcc53",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "f99e20a9e2eef92e8064217017dbe86d893e0ee18a378785c88f4f53fa1b148a",
+          "resultSha256": "05a758b7d39f2ab99a8b3d4e22731abcb5316dac9fc805949f74fef34f09c654",
           "postcondition": "none"
         },
         {
@@ -13251,7 +13252,7 @@
           "inputSha256": "eacfdc9428e7a7452308d06d4117d1cc93d44e7664e90b4eaf8fb3dfabf63f8b",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "22300099f00973b974bd89ab50f7ea0f14db17f606170fa7a6131592282fd843",
+          "resultSha256": "c7564bfacad70d44d664b7616fb807b8cd5a231da0244f065f7f0c849c239555",
           "postcondition": "none"
         },
         {
@@ -13264,7 +13265,7 @@
           "inputSha256": "bd4fe22e21caed5d0c5fea8d307655e44859b67f006f0265e325259efd3d30e6",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "77aa2945283543b015f0aa63f3c05f9f3f09864811ce23d22a35081b985e2f37",
+          "resultSha256": "8a37c0ab08041bc6c33d11fdcc8756a577f5ea2a0160cb1b14af0d6d3ac3cde6",
           "postcondition": "none"
         },
         {
@@ -13277,7 +13278,7 @@
           "inputSha256": "b3ad46e5a18d2f5cc94c853734bd15e4a5ccb81d77cff0c9a9dca54ae7f6ba8c",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "78046829638f330c5be835df750d9ea9128033007dfff24691b36abe01e20dc0",
+          "resultSha256": "6e32c5422770ff8c364ab466b8f76e96129c4f7cd9fa4918344796cbaf687621",
           "postcondition": "none"
         }
       ],
@@ -13381,7 +13382,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 184
+          "line": 185
         },
         {
           "tool": "review_changes",
@@ -13394,7 +13395,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 206
+          "line": 207
         },
         {
           "tool": "review_changes",
@@ -13407,7 +13408,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 207
+          "line": 208
         },
         {
           "tool": "review_changes",
@@ -13421,7 +13422,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 212
+          "line": 213
         },
         {
           "tool": "review_changes",
@@ -13435,7 +13436,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 226
+          "line": 227
         },
         {
           "tool": "review_changes",
@@ -13448,7 +13449,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 240
+          "line": 241
         },
         {
           "tool": "review_changes",
@@ -13461,7 +13462,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 255
+          "line": 256
         },
         {
           "tool": "review_changes",
@@ -13474,7 +13475,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 260
+          "line": 261
         },
         {
           "tool": "review_changes",
@@ -13487,7 +13488,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 261
+          "line": 262
         },
         {
           "tool": "review_changes",
@@ -13501,7 +13502,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 271
+          "line": 272
         }
       ],
       "inputBranches": [
@@ -13531,15 +13532,15 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 184
+              "line": 185
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 240
+              "line": 241
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 261
+              "line": 262
             }
           ],
           "observedSuccess": [
@@ -13563,7 +13564,7 @@
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 271
+              "line": 272
             }
           ],
           "observedSuccess": [
@@ -13582,7 +13583,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 206
+              "line": 207
             }
           ],
           "observedSuccess": [
@@ -13599,7 +13600,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 207
+              "line": 208
             }
           ],
           "observedSuccess": [
@@ -13616,7 +13617,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 255
+              "line": 256
             }
           ],
           "observedSuccess": [
@@ -13633,7 +13634,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 212
+              "line": 213
             }
           ],
           "observedSuccess": [
@@ -13660,7 +13661,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 226
+              "line": 227
             }
           ],
           "observedSuccess": [
@@ -13677,7 +13678,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 260
+              "line": 261
             }
           ],
           "observedSuccess": [
@@ -13943,52 +13944,52 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 185,
+          "line": 186,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 206,
+          "line": 207,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 208,
+          "line": 209,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 213,
+          "line": 214,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 227,
+          "line": 228,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 241,
+          "line": 242,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 256,
+          "line": 257,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 260,
+          "line": 261,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 262,
+          "line": 263,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 272,
+          "line": 273,
           "kind": "literal-reference-only"
         },
         {
@@ -14167,14 +14168,14 @@
           "tool": "review_changes",
           "inputSelector": {
             "action": "propose",
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
             "expectedRevision": "de471cc114350eccf4e445130f0ead757f53a5928987853fb8358f244e4808e7",
             "idempotencyKey": "conformance-edit"
           },
-          "inputSha256": "8e4fb5a5eedd43ea507e7bf3ea558ffbcd31a0a20e2497732f46462f973c8a24",
+          "inputSha256": "28bb78729889d4553edffcf6226a057078fef111385205cd94fc3db71e3edadd",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "16af8bcb9ff7592dd83645ecff836dae9f5e2d8ca369f1252cd4c9edb5e13f1d",
+          "resultSha256": "4af3de317b8f9a49c007b049536f7684802579caf6ea08fad13ee0054b12ec6b",
           "postcondition": "passed"
         },
         {
@@ -14188,7 +14189,7 @@
           "inputSha256": "6fb63a9ca7aba3609aeeba2b00a5eaa031c577880307021c1875d46988797258",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "16af8bcb9ff7592dd83645ecff836dae9f5e2d8ca369f1252cd4c9edb5e13f1d",
+          "resultSha256": "4af3de317b8f9a49c007b049536f7684802579caf6ea08fad13ee0054b12ec6b",
           "postcondition": "none"
         },
         {
@@ -14202,7 +14203,7 @@
           "inputSha256": "16b37e4bb62be82cee9eb36eb7673b7ba6e622f46bde34a9aeefe161ff9a40e3",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "bf97b765282bf3bc24cd9003643643a8b4795748b3da8b13742b3a7b4d685579",
+          "resultSha256": "25ee5a867a6c6da8fcec4c1779e706a4ccc9cced2b8df95a29c7117594e29408",
           "postcondition": "none"
         },
         {
@@ -14217,7 +14218,7 @@
           "inputSha256": "f298f8ebeb0fa7bb224b9d03098874a00585593d215f397f1ed085c55dfb020e",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "b4c3136ed95b3ce05eb1de08c22c07dd97c31bae9aa8db392cbf7b377cc27c3f",
+          "resultSha256": "0c8afc1946aab8202249abb69c3ce0ddf4aa256d292fd58469aecc0ac415b3ca",
           "postcondition": "passed"
         },
         {
@@ -14232,7 +14233,7 @@
           "inputSha256": "457c2c0e3740afc3deb4e76ec2dcad3251a474a0df5f708f83b1ad27f3e559bb",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "8c35aef499ca94afc6f9a55c721e8ccd2e594fc1ea47c5e201ffd8caf2844b38",
+          "resultSha256": "eca78d06635ddfff40fcdf0716367d513622d882d3105455f2860e63fe320cfe",
           "postcondition": "passed"
         },
         {
@@ -14241,13 +14242,13 @@
           "tool": "review_changes",
           "inputSelector": {
             "action": "propose",
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
             "expectedRevision": "de471cc114350eccf4e445130f0ead757f53a5928987853fb8358f244e4808e7"
           },
-          "inputSha256": "b369d7610e340edabd4821f087be4e2ed3a977b86a53c2b8b26ecfdf1e9dd09c",
+          "inputSha256": "cdb8de14d850a17082d5d521cf923af5d12281991208e9b914c4a3927c210b09",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "932d18fd0aeb90a3cd69986ed6555ed992f2c5b48ebab1e11a6ab43b776d3b0b",
+          "resultSha256": "c370f8f254166b9c18d8e7f96f9573cfbf602896b66b82ccfe0e43898999e23d",
           "postcondition": "passed"
         },
         {
@@ -14256,12 +14257,12 @@
           "tool": "review_changes",
           "inputSelector": {
             "action": "reject",
-            "proposalId": "f79625df-2f30-4168-82ef-64727e3c2290"
+            "proposalId": "39bc72f9-88ce-44ff-9d19-979bcf9c28b8"
           },
-          "inputSha256": "77f5df1b7f83663b4d18539b9241498c527d7b2d7752b8c2c8a246938ac688fb",
+          "inputSha256": "867bf2ca00a84e36bdff5ff2080bdfffe5c05f47364582d0dc880693ab5d60c9",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "67b7ee6b9c6bfdd092e3a2b411c1e250438d35726061326bf51d68d8636cd1f8",
+          "resultSha256": "7883438bf313a9cc91513be70dd476e43a36835b8d79705373505c89c1c2c844",
           "postcondition": "none"
         },
         {
@@ -14274,7 +14275,7 @@
           "inputSha256": "0de664fef22b534a8a6f6b716c5f11ee88d2ada319677b1171c62996d84f2380",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "2c80d794683540427ca50216bfa328cc77319b84357d88857b1213f20896bddf",
+          "resultSha256": "7b623559aefd774f32fded190d3ea9c11189b16e12ec56c1e990b0b0d3e461b7",
           "postcondition": "none"
         }
       ],
@@ -14285,10 +14286,10 @@
           "tool": "review_changes",
           "inputSelector": {
             "action": "propose",
-            "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
+            "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
             "expectedRevision": "0000000000000000000000000000000000000000000000000000000000000000"
           },
-          "inputSha256": "35ae0f4c0d2022f62c3462bd6a27163f7c5efad3ea4525159b94c6a20df95f6e",
+          "inputSha256": "44c3cad8e3632c2c127ee02345f941f7c56325b5bcc61f7851a40a604612be15",
           "outcome": "thrown-error",
           "schema": "not-returned",
           "resultSha256": null,
@@ -14523,7 +14524,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 306
+          "line": 307
         },
         {
           "tool": "search_passages",
@@ -14539,7 +14540,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 317
+          "line": 318
         },
         {
           "tool": "search_passages",
@@ -14553,7 +14554,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 328
+          "line": 329
         },
         {
           "tool": "search_passages",
@@ -14567,7 +14568,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 333
+          "line": 334
         },
         {
           "tool": "search_passages",
@@ -14581,7 +14582,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 338
+          "line": 339
         },
         {
           "tool": "search_passages",
@@ -14594,7 +14595,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 343
+          "line": 344
         }
       ],
       "inputBranches": [
@@ -14629,7 +14630,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 317
+              "line": 318
             }
           ],
           "observedSuccess": [
@@ -14646,7 +14647,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 306
+              "line": 307
             }
           ],
           "observedSuccess": [
@@ -14757,32 +14758,32 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 307,
+          "line": 308,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 318,
+          "line": 319,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 329,
+          "line": 330,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 334,
+          "line": 335,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 339,
+          "line": 340,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 344,
+          "line": 345,
           "kind": "literal-reference-only"
         },
         {
@@ -14868,10 +14869,10 @@
             "limit": 1,
             "contextChars": 0
           },
-          "inputSha256": "04a20d2fa9437a94b930f92c68c169d31d393bb7e5e7bb6de0ff7f49510c4bac",
+          "inputSha256": "14a5551283e41f2d9cc8ec67131fd7a69376108031ac7655939a49384d24662d",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "d6a758ca71d0351670fae296060770affa3d8d957f1422ad36fb52f85fc38f8c",
+          "resultSha256": "33ac26bbb633e9305c790f20ade3dd72fa04f2d238087c07095fa95bc889c7cb",
           "postcondition": "passed"
         },
         {
@@ -14884,10 +14885,10 @@
             "limit": 50,
             "contextChars": 2000
           },
-          "inputSha256": "af3788b2dd93ef64b9c5946d040f93e87dea99bcc70bbd0e3f6e3e1faad6f79e",
+          "inputSha256": "1c28b6b7a413eba1a31a68456e2a367501a4f37ef3d7771abc61c6c4eccd203c",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "60b23fe722fe4c804f1af4b380c73f020c438e5483c82a09f3f19ab1ab9536fd",
+          "resultSha256": "5284d867968eaa6fa3bdc884b9297d1d11a5ec989c7b75e23bce3efcf1457c29",
           "postcondition": "passed"
         }
       ],
@@ -15489,14 +15490,14 @@
           "unavailableSelectors": [],
           "tool": "sign_content_credentials",
           "inputSelector": {
-            "assetPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.txt",
-            "outputPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.c2pa",
+            "assetPath": "~/tmp/scriv-conf-mZF924/credential-source.txt",
+            "outputPath": "~/tmp/scriv-conf-mZF924/credential-source.c2pa",
             "mode": "sidecar"
           },
-          "inputSha256": "51d0de52dac9132087e2ac969bb593e0f3bd985b2a873a295c4adf7ec2d2956a",
+          "inputSha256": "5ad0499c16f2a1cc1c49dbb2027c1c558cc2114412fa8c60525c9513c1a19f78",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "5871f3f9ab1618e6ffc7dfe0731c7a7e0feb8b0e7a2b3d4dc9b29324f16ce8cd",
+          "resultSha256": "1d88db025e1e2cbf026bfed16dbcdd788d98ce5c68d8934d86c73d890cc68190",
           "postcondition": "none"
         }
       ],
@@ -15540,7 +15541,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 399
+          "line": 400
         },
         {
           "tool": "story_bible",
@@ -15553,7 +15554,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 420
+          "line": 421
         },
         {
           "tool": "story_bible",
@@ -15566,7 +15567,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 430
+          "line": 431
         },
         {
           "tool": "story_bible",
@@ -15579,7 +15580,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 435
+          "line": 436
         },
         {
           "tool": "story_bible",
@@ -15592,7 +15593,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 446
+          "line": 447
         },
         {
           "tool": "story_bible",
@@ -15605,7 +15606,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 456
+          "line": 457
         },
         {
           "tool": "story_bible",
@@ -15618,7 +15619,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 466
+          "line": 467
         }
       ],
       "inputBranches": [
@@ -15648,7 +15649,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 399
+              "line": 400
             }
           ],
           "observedSuccess": [
@@ -15665,7 +15666,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 420
+              "line": 421
             }
           ],
           "observedSuccess": [
@@ -15682,7 +15683,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 430
+              "line": 431
             }
           ],
           "observedSuccess": [
@@ -15699,7 +15700,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 466
+              "line": 467
             }
           ],
           "observedSuccess": [
@@ -15716,7 +15717,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 435
+              "line": 436
             }
           ],
           "observedSuccess": [
@@ -15733,11 +15734,11 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 446
+              "line": 447
             },
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 456
+              "line": 457
             }
           ],
           "observedSuccess": [
@@ -15889,37 +15890,37 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 400,
+          "line": 401,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 421,
+          "line": 422,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 431,
+          "line": 432,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 436,
+          "line": 437,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 447,
+          "line": 448,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 457,
+          "line": 458,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 467,
+          "line": 468,
           "kind": "literal-reference-only"
         },
         {
@@ -15973,7 +15974,7 @@
           "inputSelector": {
             "action": "list"
           },
-          "inputSha256": "13d555eee284492a9b86f2983ad6d06974244b0f7e5219c8d69b37f8a1c42763",
+          "inputSha256": "73132636b7e13e3e741e56bbadc0ee483c03a4f9470e8eb5da66933c1ba381ea",
           "outcome": "success",
           "schema": "valid",
           "resultSha256": "a0905d7eefc22018ccfd916c1bea317a569781f11764fe3b19bc9874b318ffa4",
@@ -15986,10 +15987,10 @@
           "inputSelector": {
             "action": "curate"
           },
-          "inputSha256": "d13cc4f8a01fa7049828860fd3161fc28d9a99b6a7bf1146b5fa30a0abb92117",
+          "inputSha256": "4d831b95f84511969a3b226d6f85add8aba9d38434bc4eadc185ad821b24a433",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "bb461b902183dcfe644088c0035e8390530bb9bd061e0f640e8a01f3f23eb738",
+          "resultSha256": "f237ba75de53074977910470f33bff86a0a620f6b23e822aa80dd6ebf4cfef15",
           "postcondition": "passed"
         },
         {
@@ -15998,12 +15999,12 @@
           "tool": "story_bible",
           "inputSelector": {
             "action": "correct",
-            "factId": "04654441630705395cd0407f2cd74f48df1c9cd31f8198fd39838effa5b3470b"
+            "factId": "46ae10bcc0988c2c33b5595fb2f3fd45fe94a6442a1d1018ce169b2265ca785b"
           },
-          "inputSha256": "49395c5777a9b841a27768c6e95b66c2deee80dfcafbff3515cb2e59d6fc1a45",
+          "inputSha256": "dab1788dc0bd3cac87db7118ab5383599aafc7b5b9216d19947f26c1ba25a29e",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "5260d80ad88cb1c4e220252c57affcb065a4dab3b8c9ad20881f8e38c9029d8b",
+          "resultSha256": "ff0cab2425bf73b96ae4fd617f66ec955edf6784e5dc07615b220ed7628f7945",
           "postcondition": "none"
         },
         {
@@ -16013,10 +16014,10 @@
           "inputSelector": {
             "action": "recheck"
           },
-          "inputSha256": "1adc1d1bd4a0dbea85f84120dd308364f7b28a3f0cb17c52e27ffd83df6c6964",
+          "inputSha256": "bda51ab45c9ab01642f4d0940886feecd47ae6f967852d40dcac90ba1bc42f76",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "9f33b5869f271b6ab17fac0004b62282b009e624ada63bf44059d4c98bafe09a",
+          "resultSha256": "2ebc6296d56dd4a83e36e55a0d2c29b3c05c25cbead1e19ade4dfd65e4bd9978",
           "postcondition": "none"
         },
         {
@@ -16026,10 +16027,10 @@
           "inputSelector": {
             "action": "export_state"
           },
-          "inputSha256": "860c11bc9eb7034e1367b35d586ae91d2485875efa45521e178c709655921089",
+          "inputSha256": "ff3e9d9df3d4afe1e06c47ae3b116768cfe5e47e9417369a8675ecab0538f19e",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "86d932644a243817a27dcbb34d3bfaa2b7eae60243bf3132203457b9ed63c65a",
+          "resultSha256": "46e69da04bed75c8dccac6692428044634a99725eab4b52f8a1ac5d883f200c6",
           "postcondition": "passed"
         },
         {
@@ -16038,12 +16039,12 @@
           "tool": "story_bible",
           "inputSelector": {
             "action": "import_state",
-            "expectedRevision": "cd8526c72a4b66c153ff2f9f387be585a6d949af6798f621f87189db3dec66ca"
+            "expectedRevision": "3e48b34229d140980adab69f775a5c28c1a8f693429fb3959d1bb89dc54e90ad"
           },
-          "inputSha256": "2721feb95ada249cd56f667c3e2b3c18d591c99ee1ceb2817561551860f7175f",
+          "inputSha256": "75d3f5e0bb4d267b67b06575bcda4696e7c1adf5bd7e90023adc621949bee4bf",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "86d932644a243817a27dcbb34d3bfaa2b7eae60243bf3132203457b9ed63c65a",
+          "resultSha256": "46e69da04bed75c8dccac6692428044634a99725eab4b52f8a1ac5d883f200c6",
           "postcondition": "none"
         },
         {
@@ -16053,10 +16054,10 @@
           "inputSelector": {
             "action": "import_memory"
           },
-          "inputSha256": "2dcc63bcf1271d1e0b0e21a450beb7d0dcda21fe2fead798d66cb0ca88b5d530",
+          "inputSha256": "c81f33c5dee0a06c079c943ce14c1991d22effe7c4db0e7cf02127a0e48bd620",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "6fc90d810ef69a3b4bd0d3f7cba0f708e10a8b9805d14590c3126b0efb6fb801",
+          "resultSha256": "29ff44022f904a1ef413fb199a4fb495406aec59e553e3bb0d559075bf7cfab4",
           "postcondition": "none"
         }
       ],
@@ -16069,7 +16070,7 @@
             "action": "import_state",
             "expectedRevision": "0000000000000000000000000000000000000000000000000000000000000000"
           },
-          "inputSha256": "60d4102ad3061f1629aabcc36e32718f0072dbc3249d09d05b407e1d5242a146",
+          "inputSha256": "81ec00a4d449a402649ea0ff8d1c8b91bc7fb108c205b9c5101e1929a5c9461c",
           "outcome": "thrown-error",
           "schema": "not-returned",
           "resultSha256": null,
@@ -16117,7 +16118,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 471
+          "line": 472
         },
         {
           "tool": "story_dependencies",
@@ -16130,7 +16131,7 @@
           },
           "dynamicInputs": true,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 507
+          "line": 508
         }
       ],
       "inputBranches": [
@@ -16160,7 +16161,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 471
+              "line": 472
             }
           ],
           "observedSuccess": [
@@ -16177,7 +16178,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 507
+              "line": 508
             }
           ],
           "observedSuccess": [
@@ -16194,7 +16195,7 @@
           "declaredCases": [
             {
               "file": "scripts/check-output-conformance.mjs",
-              "line": 471
+              "line": 472
             }
           ],
           "observedSuccess": [
@@ -16561,12 +16562,12 @@
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 472,
+          "line": 473,
           "kind": "literal-reference-only"
         },
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 508,
+          "line": 509,
           "kind": "literal-reference-only"
         }
       ],
@@ -16600,10 +16601,10 @@
             "kind": "causal",
             "explanation": "Synthetic fixture relationship"
           },
-          "inputSha256": "96f8dec1df7673975613b6b33e781d4a50f9ecaefea59c6eb7adde32791269f8",
+          "inputSha256": "fb54bfc73e4113d577e44dc480c507cba6814e3ecb85602c23114824e2bf514a",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "842b21c45d9ae2790c5abe5d566ad5c282c1162539624e2a5d6522a5a8e3ada5",
+          "resultSha256": "1daa2ef2f744d1acf949526e7b757fda2cfaf9b21e34e1176338b13d4dfe900c",
           "postcondition": "passed"
         },
         {
@@ -16612,12 +16613,12 @@
           "tool": "story_dependencies",
           "inputSelector": {
             "action": "unlink",
-            "id": "2ed2caaa31b5f927b94daf8035ec7a06105df847a7443d7efcd4c0abb18ad6ea"
+            "id": "b7ff0ceda9352d3426391532f6b085b59a8c4f5e8c69d85ef234f944a057db8a"
           },
-          "inputSha256": "e3543e88cfb01c62f7b68ba38ca77a3ae4dd95d6a7e6aba4524ef2a65e649ba7",
+          "inputSha256": "0b93c02957da5e3e2fd4e3ca0f82d4f37d5bf29a38bf67559cc87a3d0288e198",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "691f40051f9d528d4135e6735ffa149921a00d2a44f26ed4326a4b9b7529c746",
+          "resultSha256": "63d42d2f002c1c6a8db85cc5b42ab3354948131671dc91dd0270451950253cbb",
           "postcondition": "none"
         }
       ],
@@ -16708,7 +16709,7 @@
           "inputSha256": "4fbc692d2e81a91797c0e7a6f83bd1ba5b9543c27a279515ef5385403220bd65",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "fb6fa00b499636c505f63fa8ec5d9c9ea9e3202c2c87ebbb24f73ff5640b7e87",
+          "resultSha256": "0fa634f9a5b0729e179ee57e260098c73c50b947cd89da364fae5843644315b9",
           "postcondition": "none"
         }
       ],
@@ -16741,7 +16742,7 @@
           },
           "dynamicInputs": false,
           "file": "scripts/check-output-conformance.mjs",
-          "line": 628
+          "line": 629
         }
       ],
       "inputBranches": [
@@ -16830,7 +16831,7 @@
       "sourceReferences": [
         {
           "file": "scripts/check-output-conformance.mjs",
-          "line": 629,
+          "line": 630,
           "kind": "literal-reference-only"
         },
         {
@@ -17185,13 +17186,13 @@
           "unavailableSelectors": [],
           "tool": "validate_content_credentials",
           "inputSelector": {
-            "assetPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.txt",
-            "manifestPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.c2pa"
+            "assetPath": "~/tmp/scriv-conf-mZF924/credential-source.txt",
+            "manifestPath": "~/tmp/scriv-conf-mZF924/credential-source.c2pa"
           },
-          "inputSha256": "36a5427aa733544d33b4d13a3f0efa94c91f86247fa1ae5895a101919ee8c1b4",
+          "inputSha256": "4243b2efc4ac917857dd54cd5085909eff2485d24e47ab1110777b342c77569b",
           "outcome": "success",
           "schema": "valid",
-          "resultSha256": "5191764cc39be078e558e8a7dc2c64b60b630c27dab8e822b19d387a1a8142c4",
+          "resultSha256": "07d597f9a201af04208429b1bedc54fbe1a83fd49868f46c7b0707f7e4b36377",
           "postcondition": "none"
         }
       ],
@@ -17298,7 +17299,7 @@
   ],
   "provenance": {
     "repository": "/Volumes/A/scrivener-mcp",
-    "revision": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+    "revision": "64709ea6682e8149face2c85f849b8cdce96a157",
     "workingTreeDirty": true,
     "node": "v26.12.1",
     "platform": "darwin-arm64",
@@ -17307,7 +17308,8 @@
       "package.json": "8f9e6b14bbed9d04d5aea82d623ea7418844293cd6a4618da143ba4a4a55be96",
       "scripts/benchmark-editorial.mjs": "63804ec161d81f9dd472d408fcc5f0e596db4960b7cda96161dbdf691e0dcd1f",
       "scripts/benchmark-hms-fallback.ts": "b9d0e41953ef77d820da6bf7a03929630303813d30b273d6ece0351851f52865",
-      "scripts/benchmark-mutation-history.ts": "bb3bad183175b371c84a0cbf550da9d2444d1c0562d4ca35664a9746b3e0d473",
+      "scripts/benchmark-mutation-history.ts": "e2414564323821bcf4825bcd4847fccfbffcb36e82c8dfc715672961b1caa875",
+      "scripts/benchmark-passage-scale.ts": "dad7cd23128b3b96b357a0d80aa5faf67ee8fc94cfdb1c64c2709da6ea5a456c",
       "scripts/build-c2pa-binding.mjs": "95ef5163435cec4e354adb2a95ad6b2c9a6cfb995a6076ce6f13c1f60d97c4f4",
       "scripts/check-c2pa-binding.mjs": "8ab29eeab56f66cea814cb48a67295c220b9e8a37c72865fb582bcd7f892ec07",
       "scripts/check-c2pa-compatibility.mjs": "63a55dcdcc9a97460e7829842b2ffb59a854b4fe4f8ff79ea25eb61ce084984e",
@@ -17319,7 +17321,7 @@
       "scripts/check-hms-compatibility.mjs": "eabde5d0c995aed7359d10069d5f2e3a563ac756792294cf968d8bb32195ba35",
       "scripts/check-narrative-lens.mjs": "931d91f98f16f51bd28a55d7841300f48e27a46beec32135c0e3609f2aeddaa5",
       "scripts/check-native-rtf.mjs": "d82eabc74d2e341383e3b9d017bfd326c0e7ae5e9e648c612c62f34bd3933d22",
-      "scripts/check-output-conformance.mjs": "4cf41c9b11b1e0fab2ee836d6aaa81a306edfcef7437fc8303c8d2acd8c3b646",
+      "scripts/check-output-conformance.mjs": "08d4c28a7573b00ae6597b8717add95997750b04208989a4c7e2fdd4231906a9",
       "scripts/check-project-queue-isolation.mjs": "3d69c431f085c2a9b59dfec4a77757fe4cb6f984e4417955de5148bb357e3456",
       "scripts/check-redis-backend.mjs": "857033e5fb9cdf9a294f37efb3c4ea490609bb5ac824a81c3dc6416b133514e1",
       "scripts/check-release-candidate.mjs": "96e09cf68ba617d94019a9107d3c2af954dacb76f889fc66f86cd6dc463c6ee4",
@@ -17335,6 +17337,7 @@
       "scripts/evaluate-editorial.mjs": "303630ea0ea93f86c205f04acbef953aff40553ced9914bca58d4345cb27c125",
       "scripts/generate-continuity-nouns.mjs": "732381b9a9ff7efedca742e834d120da8711a856e6cf6d9e74b2c70fe4c72da0",
       "scripts/generate-narrative-annotation-schema.mjs": "27e3252feff693f6f7a29746aec50ef1d5e92bd0d87c13d8e8d53ca8aff3354c",
+      "scripts/lib/benchmark-process-tree.ts": "282348b4bc8d96f612a29f48f67dc5a54267ff8badda32d49a062c88b49c8cf6",
       "scripts/measure-token-workflow.mjs": "92d4034273d37c9cff8e85ca7ee6cadfaa405c30507b4adffa350a0460157708",
       "scripts/postinstall.cjs": "adc5628f069bde14be4754484d1d2d89c291c139cba66b37618702d4a677ebb6",
       "scripts/prepare.cjs": "83e7cb52c388d1db37a8722333514d10fe363d674ca66d45f921c4c1df2bb873",
@@ -17410,7 +17413,7 @@
       "src/handlers/project-handlers/discovery.ts": "92a533c4be0c4066e036dc40ab9874006d9af82f19a7d07003e6cabff951fa0d",
       "src/handlers/project-handlers/lifecycle.ts": "ff65b6f056bf25d90ebf6ba192ef95e0cd3b7c3476a292991e8c102ff3f6a348",
       "src/handlers/project-handlers/manuscript.ts": "879cd3d48c4c799a3d151a797a42ca674366fdec5e5ebb2e980d7be005ba9d07",
-      "src/handlers/project-handlers/snapshots.ts": "ee0530760afa9aeb0c7aeee0855c76ac4996e7873e1851d289887375c11a237d",
+      "src/handlers/project-handlers/snapshots.ts": "1776ddf12bcb648fa2a340728edf173eca394a6adf506208113c51b221b9cc9d",
       "src/handlers/project-handlers/structure.ts": "7bc191ec6752553fb6a8a5413af8835ea7c0cd067facd4458ddb629a11dbb714",
       "src/handlers/relationship-handlers.ts": "7913c7a51115723ea2561871aa4c56406f4fb6df9324cb94f263005be9088a5e",
       "src/handlers/result-handlers.ts": "68d8a5153b7a87084d26f62afff84f732e7523d959a5dcedf1ea6168d5b77c60",
@@ -17426,7 +17429,7 @@
       "src/index.ts": "0104b22a77e65959514ceb22a577ee871d26a23d683cca927492c72f946830a9",
       "src/memory-manager.ts": "afdc2587372b6514a0e5efc1f8b0b32fb22c9d208fbb31ed867bf0641f68a624",
       "src/project-types.ts": "ca6d9677652bc09f9af35fcd7d2515358482f81c0bbd1662fbea3440e7575bbb",
-      "src/scrivener-project.ts": "425c54702a87a14340a25293f9c0db3abb8bb7d1c2909a9b1b75b8033dc9124c",
+      "src/scrivener-project.ts": "7ec2d0fe14b4654207b7bba3e880b4c3f4de823904534266293ab870b6994cbb",
       "src/services/agents/ai-collaboration.ts": "54d0a51db9b3f3fd6e78df0b2fdeba02adcdba9a8230007aa4f0b0db941a2bbc",
       "src/services/ai/ai-client.ts": "102b9e446304feeb3ac1800c4113b81b66d734f841e206be63e3a1be2d09950e",
       "src/services/ai/ai-writing-service.ts": "4a5674ea1d870c57b55b05b331263036ccedeeae17c64c3c38adf9789386ee54",
@@ -17587,7 +17590,7 @@
       "tests/integration/embedded-queue.test.ts": "6679f1a5420252df14292a4fed44ec6f36d3e91d518fd2b245fd456c83ea004d",
       "tests/integration/enhancement-provenance.test.ts": "c0ceb3269dcc9fec737461de950ddb9b8563b875bd24c161a8076c87a216e236",
       "tests/integration/generation-provenance.test.ts": "2817b80704457d19bde9d11fa0cc76071c48b38c3c9c2c63a7c80602036dce09",
-      "tests/integration/narrative-novels-stdio.test.ts": "8c43be93b4104cdc95ebc829bf4c1aae6c6f15e1156e8e1a6bcff8414a4de2dd",
+      "tests/integration/narrative-novels-stdio.test.ts": "3765901c20435d5a2c96d67f1e2f4d43bd34efafbb3a9a8aaf262844fd36570e",
       "tests/integration/narrative-novels.test.ts": "0f6277ca54fdfc7e86c6c6c66a50c1e8493aea6dfd79a85cd8a25ddb88aea979",
       "tests/integration/native-classification.test.ts": "2ae8df7e4ab5fde8698689edd41e947aba0717bef672d2f6d794bb0b69a4547d",
       "tests/integration/native-metadata.test.ts": "a34a5b7afb5300739dec2cef2360f3a1c3619caad26d118115eed8af2439025e",
@@ -17649,6 +17652,7 @@
       "tests/unit/handlers/tool-admission-protocol.test.ts": "4e5891c30b202a94736b4c0a972d2cc154c6a95a6112193598bf4c504dfc2b5c",
       "tests/unit/handlers/tool-protocol.test.ts": "536dc927a07bd6ca88aa18b910ec6b94046f75ac2f36b0d80e9aee209b9e0c0e",
       "tests/unit/js-yaml.test.ts": "266f92109f7d34d04b216871dcf85c9f3b044409dafe61d158ceb90c857604f2",
+      "tests/unit/scripts/benchmark-process-tree.test.ts": "f46560bb15ffef49b6435a268a535027cbdcd0e4b754346845545e3894359449",
       "tests/unit/scripts/c2pa-binding.test.ts": "6243169bd0af7a94f281acdf11d22e05bbc63ad77ca1580f879b7496ddeb7e02",
       "tests/unit/scripts/c2pa-supply-chain.test.ts": "6661f2e4d47dd47cc439463252b30791e4db099fa946a6db60c8dad728e51b43",
       "tests/unit/scripts/container-context.test.ts": "80b49c5818bd3b12cbdeb9458e5c00c4b3d17ab03b264cecef6337253ae7f90c",
@@ -17658,6 +17662,7 @@
       "tests/unit/scripts/editorial-benchmark.test.ts": "55758538885355ceaf139f55209ee15fb02fcd4952bcb8bcc7ef6a762752a07e",
       "tests/unit/scripts/editorial-evaluation.test.ts": "2c6be8cd17969e44dcbd76590c588b95620e51d65d5135d5a387c87f4beb995a",
       "tests/unit/scripts/output-conformance.test.ts": "367586c2d6962e46b079e23ae65a570b74760a0e1ed0ed1213ee4ca10663df70",
+      "tests/unit/scripts/release-gate.test.ts": "44d32e0f3418b1bb237f7c9c294c0c32ad793cee889c987e26b54fbb9f33764e",
       "tests/unit/scripts/tool-registry.test.ts": "e40f1c90064972429bd820617f2bb914ee91617e7a4bd78114c0d973d529ac1d",
       "tests/unit/scripts/warm-provenance.test.ts": "4a886da3db6294d14f648054e232ebeb3551f179fe260f9809d9697783f11cd0",
       "tests/unit/scrivener-project.test.ts": "247c67c596bd2b87dff7c53b2c01f11fa364bbed513e6209e2f09ea9df2d29e7",
@@ -17719,7 +17724,7 @@
       "tests/unit/services/parsers/rtf-validation.test.ts": "77770ed1b4021230fdfa8083deab41a88a738bdd9d2d4960c09f9a1facc36995",
       "tests/unit/services/passage-search.test.ts": "2cec1998df8ce76f86e20e063fe2d9888298d64e04fc157af3c46bf92b813f79",
       "tests/unit/services/personalization/personalization-service.test.ts": "6938763e0a44fbe6d131ba3947385003d4ebbebc380966436db65ae6384a8159",
-      "tests/unit/services/project-binder-guard.test.ts": "faa3f9dcc4426040984ce772567dc615edcddb523acc62b1d3721cc4567e2e4b",
+      "tests/unit/services/project-binder-guard.test.ts": "ebb4744ad0ef20c4a52144205f749de2dc33a16acd127a39ac579a391f70ff58",
       "tests/unit/services/project-content-search.test.ts": "05d785eb98a8050a19d6aa6da030ceb1b5c6429d370b67136bb9296678d5b55a",
       "tests/unit/services/project-creation.test.ts": "c8dd66f1d76ef1b7858886bda8474571eb2e4de0c143e7cd6ec047b61faccfc6",
       "tests/unit/services/project-loader-conflicts.test.ts": "ea33f9324ed7540646fca287d4fa702e2f4b06204d61beaee66c469a55b35622",
@@ -18132,9 +18137,9 @@
       "dist/handlers/project-handlers/manuscript.js": "7b936ca80040bc3b8f7100c13de0657a01b9dbdbcc6e18e836f36cb687c09bfc",
       "dist/handlers/project-handlers/manuscript.js.map": "55692161baae008949a1bc357e4f7e3825e18a2d83b4be272dd5a5c353e395c9",
       "dist/handlers/project-handlers/snapshots.d.ts": "4ffcd8d38b1dae821badbe0adebb247bd414f4a8f0222603a89d3ae617af4a4b",
-      "dist/handlers/project-handlers/snapshots.d.ts.map": "b24c875bd061041f952bf82bc744b23ef3dc0da1d5d5f69e2e637b71a4e0514b",
-      "dist/handlers/project-handlers/snapshots.js": "e5706c0463575fc2aa1dd59671f552f8cb406a1c1190ca6e87e29c4c178c92a8",
-      "dist/handlers/project-handlers/snapshots.js.map": "169f2c3c2730cc3e1b86723b227a6c560c5af0b5892ef7d930604f10e08318c0",
+      "dist/handlers/project-handlers/snapshots.d.ts.map": "8ce9601aae79a99ee71b885a4a85faced79435271034865df1a95905be43d096",
+      "dist/handlers/project-handlers/snapshots.js": "c72b4a8c04a432758d9c13dafbbae952f65c2efd4b1e024e373efe1eab47a49c",
+      "dist/handlers/project-handlers/snapshots.js.map": "088f1c41322f755f30a30305f089a63c99cd720372905313b676a6bc6b61719e",
       "dist/handlers/project-handlers/structure.d.ts": "bee4c173820c31e88e0cec0cba88d0efc6b14bf899c97f1a2d90f57216b08d47",
       "dist/handlers/project-handlers/structure.d.ts.map": "d65db116afd7a85cde79b3330d84ee2855ac75d7dc2f68d498c251ddfe73ebf6",
       "dist/handlers/project-handlers/structure.js": "2d177473ee9a87537edf556b4c9b73fbc4d06ee5921aaf92db1bef07a3d82f58",
@@ -18195,10 +18200,10 @@
       "dist/project-types.d.ts.map": "825ab4113eafe77dd78b435d0f28b093bb73b97736b694d16290d16839c6ad65",
       "dist/project-types.js": "c3a8b4f541fc7a015689d790506beb8a8bdf4220f4c1da7851f2f544bac6a892",
       "dist/project-types.js.map": "d45d45b1451eba29657efb5de00e154c4e9a0fb2433e72472a2342d7201c1e86",
-      "dist/scrivener-project.d.ts": "8cad6402e9fa074e4894ebe14a04f774034b6d8b5867e44aefac6e0c3f76f4de",
-      "dist/scrivener-project.d.ts.map": "790c545300c0079b499d799f7b977253c2d8bf4deed87b4b4a65f21862925039",
-      "dist/scrivener-project.js": "e4475355c2abc6434e0753fc58a4e28e6d7f7805d1faf3d358fd6669c1ad10af",
-      "dist/scrivener-project.js.map": "eef48044ead0ef7969316e3e38e146d6925b26f8ca7eaacf2b65d7240cb65f1d",
+      "dist/scrivener-project.d.ts": "0a41be0247bb4e7c6ccc0e55ad0d8d5da48237ada807a1804086bef49167aa3a",
+      "dist/scrivener-project.d.ts.map": "e63bae41a061b3c63c3aeedce6d2727af24962016a1b370b519243e0214ff29d",
+      "dist/scrivener-project.js": "2aff92ed191661502eeee4683c2bcd7ccc53292fec8bcd0d94407023a6d2fbdb",
+      "dist/scrivener-project.js.map": "93f38a75a7cb946b8fd2b02b903b226ea0ae2751ba73f6f764ccc3b6c4f16204",
       "dist/services/agents/ai-collaboration.d.ts": "641d8ad5c9dafbbcc79ee37c9585ca2e69c0a87910c1366d81ab05ea45e87fcc",
       "dist/services/agents/ai-collaboration.d.ts.map": "4f0bc83f06e83214634aee8c958e5271a3db754a43971001afa40ac10fa55567",
       "dist/services/agents/ai-collaboration.js": "1582799451ac01b6a740eecde9e0aaf72242c2ca91d191211c85632d629bf0b7",
@@ -18953,7 +18958,7 @@
       "dist/utils/wasm-accelerator.js.map": "63a1d125fe98eafec4a2cdba1ca143bc46d4e9fbd3b644e632ff12f66351d73f",
       "package-lock.json": "d95fc5b1ecd061d36a9bbd6f997c57bb0529319bff8a4c06f4bfecacf979170a",
       "package.json": "8f9e6b14bbed9d04d5aea82d623ea7418844293cd6a4618da143ba4a4a55be96",
-      "scripts/check-output-conformance.mjs": "4cf41c9b11b1e0fab2ee836d6aaa81a306edfcef7437fc8303c8d2acd8c3b646",
+      "scripts/check-output-conformance.mjs": "08d4c28a7573b00ae6597b8717add95997750b04208989a4c7e2fdd4231906a9",
       "scripts/create-c2pa-fixtures.mjs": "a2509e8f707db67c3ad59ccf1bc119c608569f8f8a68d736dcd583620577c970",
       "src/.DS_Store": "209cb208ed661e5b30fd88a55c3d8074e63977690f39bc437ed2e19f799f8919",
       "src/analysis/advanced-readability.ts": "9f759caf8c47d191e34ae47fdff9adeb2ad6bf6dc5fb41d679d2558e64e2ad21",
@@ -19027,7 +19032,7 @@
       "src/handlers/project-handlers/discovery.ts": "92a533c4be0c4066e036dc40ab9874006d9af82f19a7d07003e6cabff951fa0d",
       "src/handlers/project-handlers/lifecycle.ts": "ff65b6f056bf25d90ebf6ba192ef95e0cd3b7c3476a292991e8c102ff3f6a348",
       "src/handlers/project-handlers/manuscript.ts": "879cd3d48c4c799a3d151a797a42ca674366fdec5e5ebb2e980d7be005ba9d07",
-      "src/handlers/project-handlers/snapshots.ts": "ee0530760afa9aeb0c7aeee0855c76ac4996e7873e1851d289887375c11a237d",
+      "src/handlers/project-handlers/snapshots.ts": "1776ddf12bcb648fa2a340728edf173eca394a6adf506208113c51b221b9cc9d",
       "src/handlers/project-handlers/structure.ts": "7bc191ec6752553fb6a8a5413af8835ea7c0cd067facd4458ddb629a11dbb714",
       "src/handlers/relationship-handlers.ts": "7913c7a51115723ea2561871aa4c56406f4fb6df9324cb94f263005be9088a5e",
       "src/handlers/result-handlers.ts": "68d8a5153b7a87084d26f62afff84f732e7523d959a5dcedf1ea6168d5b77c60",
@@ -19043,7 +19048,7 @@
       "src/index.ts": "0104b22a77e65959514ceb22a577ee871d26a23d683cca927492c72f946830a9",
       "src/memory-manager.ts": "afdc2587372b6514a0e5efc1f8b0b32fb22c9d208fbb31ed867bf0641f68a624",
       "src/project-types.ts": "ca6d9677652bc09f9af35fcd7d2515358482f81c0bbd1662fbea3440e7575bbb",
-      "src/scrivener-project.ts": "425c54702a87a14340a25293f9c0db3abb8bb7d1c2909a9b1b75b8033dc9124c",
+      "src/scrivener-project.ts": "7ec2d0fe14b4654207b7bba3e880b4c3f4de823904534266293ab870b6994cbb",
       "src/services/.DS_Store": "55cefc552fba82d39bd53fd0d17d746cecc0ed8d6567c4df735889de50722884",
       "src/services/agents/ai-collaboration.ts": "54d0a51db9b3f3fd6e78df0b2fdeba02adcdba9a8230007aa4f0b0db941a2bbc",
       "src/services/ai/ai-client.ts": "102b9e446304feeb3ac1800c4113b81b66d734f841e206be63e3a1be2d09950e",
@@ -19686,10 +19691,10 @@
     }
   },
   "receiptEvidence": {
-    "sha256": "f060a14ab35afc404ee1e317f71ba9e2ed69a8dafb8ed1f31d864adc01bdd7fe",
-    "producerManifestSha256": "c9d87726f705f02503326d00c581f6f8117edd88df495fba12126246f8396fb7",
-    "startedAt": "2026-11-12T02:31:31.650Z",
-    "finishedAt": "2026-11-12T02:31:54.625Z",
+    "sha256": "f11d1c26883e049c593a1cc45167d12d206c1b3e2eb4a7fde7e7255f3c888a33",
+    "producerManifestSha256": "e74dd0caf790cb606540f8722e6b92efb8ee78dd697e6b202b8834de80805079",
+    "startedAt": "2026-11-12T03:28:29.507Z",
+    "finishedAt": "2026-11-12T03:28:35.807Z",
     "runtime": {
       "node": "v26.12.1",
       "platform": "darwin",
@@ -19709,6 +19714,6 @@
         "reason": "Lifecycle acknowledgment has no advertised output schema or full input receipt."
       }
     ],
-    "file": "docs/development/quality-mission/evidence/candidate-conformance-coverage-complete.json"
+    "file": "docs/development/quality-mission/evidence/candidate-conformance-snapshot-release.json"
   }
 }

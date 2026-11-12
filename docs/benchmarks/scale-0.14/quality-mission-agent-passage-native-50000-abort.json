@@ -1,0 +1,9 @@
+{
+  "pid": 80599,
+  "reason": "Repeated ps observer parsing failure on unrelated process row; preserve partial case and rerun with corrected observer.",
+  "fixtureRoots": [
+    "/private/var/folders/f6/9fydz_3n0p13t2scsr8ppdlm0000gn/T/scrivener-passage-scale-1KfJpa"
+  ],
+  "signal": "SIGTERM",
+  "fixtureCleanupComplete": true
+}

@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "repositoryRevision": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
-  "startedAt": "2026-11-12T02:31:31.650Z",
-  "finishedAt": "2026-11-12T02:31:54.625Z",
+  "repositoryRevision": "64709ea6682e8149face2c85f849b8cdce96a157",
+  "startedAt": "2026-11-12T03:28:29.507Z",
+  "finishedAt": "2026-11-12T03:28:35.807Z",
   "invocation": [
     "/Volumes/A/scrivener-mcp/scripts/check-output-conformance.mjs",
     "--receipt",
-    "/Volumes/A/scrivener-mcp/docs/development/quality-mission/evidence/candidate-conformance-coverage-complete.json"
+    "/Volumes/A/scrivener-mcp/docs/development/quality-mission/evidence/candidate-conformance-snapshot-release.json"
   ],
   "runtime": {
     "node": "v26.12.1",
@@ -15,7 +15,7 @@
   },
   "boundary": "Direct registered handlers in one local process; no MCP wire or commercial-host compatibility claim. Local-only provider refusals; no paid calls. Synthetic fixture checks do not establish editorial accuracy or native Scrivener interoperability. Discovery uses a disposable home; native detection uses an empty command PATH. Queues use an explicit held loopback listener that immediately closes sockets for embedded fallback; bounded internal status polling and spool retrieval coordinate fixture postconditions and is not a transport or latency measurement.",
   "provenance": {
-    "sha256": "c9d87726f705f02503326d00c581f6f8117edd88df495fba12126246f8396fb7",
+    "sha256": "e74dd0caf790cb606540f8722e6b92efb8ee78dd697e6b202b8834de80805079",
     "files": [
       {
         "path": "assets/c2pa-binding/binding_bg.wasm",
@@ -1503,15 +1503,15 @@
       },
       {
         "path": "dist/handlers/project-handlers/snapshots.d.ts.map",
-        "sha256": "b24c875bd061041f952bf82bc744b23ef3dc0da1d5d5f69e2e637b71a4e0514b"
+        "sha256": "8ce9601aae79a99ee71b885a4a85faced79435271034865df1a95905be43d096"
       },
       {
         "path": "dist/handlers/project-handlers/snapshots.js",
-        "sha256": "e5706c0463575fc2aa1dd59671f552f8cb406a1c1190ca6e87e29c4c178c92a8"
+        "sha256": "c72b4a8c04a432758d9c13dafbbae952f65c2efd4b1e024e373efe1eab47a49c"
       },
       {
         "path": "dist/handlers/project-handlers/snapshots.js.map",
-        "sha256": "169f2c3c2730cc3e1b86723b227a6c560c5af0b5892ef7d930604f10e08318c0"
+        "sha256": "088f1c41322f755f30a30305f089a63c99cd720372905313b676a6bc6b61719e"
       },
       {
         "path": "dist/handlers/project-handlers/structure.d.ts",
@@ -1755,19 +1755,19 @@
       },
       {
         "path": "dist/scrivener-project.d.ts",
-        "sha256": "8cad6402e9fa074e4894ebe14a04f774034b6d8b5867e44aefac6e0c3f76f4de"
+        "sha256": "0a41be0247bb4e7c6ccc0e55ad0d8d5da48237ada807a1804086bef49167aa3a"
       },
       {
         "path": "dist/scrivener-project.d.ts.map",
-        "sha256": "790c545300c0079b499d799f7b977253c2d8bf4deed87b4b4a65f21862925039"
+        "sha256": "e63bae41a061b3c63c3aeedce6d2727af24962016a1b370b519243e0214ff29d"
       },
       {
         "path": "dist/scrivener-project.js",
-        "sha256": "e4475355c2abc6434e0753fc58a4e28e6d7f7805d1faf3d358fd6669c1ad10af"
+        "sha256": "2aff92ed191661502eeee4683c2bcd7ccc53292fec8bcd0d94407023a6d2fbdb"
       },
       {
         "path": "dist/scrivener-project.js.map",
-        "sha256": "eef48044ead0ef7969316e3e38e146d6925b26f8ca7eaacf2b65d7240cb65f1d"
+        "sha256": "93f38a75a7cb946b8fd2b02b903b226ea0ae2751ba73f6f764ccc3b6c4f16204"
       },
       {
         "path": "dist/services/agents/ai-collaboration.d.ts",
@@ -4787,7 +4787,7 @@
       },
       {
         "path": "scripts/check-output-conformance.mjs",
-        "sha256": "4cf41c9b11b1e0fab2ee836d6aaa81a306edfcef7437fc8303c8d2acd8c3b646"
+        "sha256": "08d4c28a7573b00ae6597b8717add95997750b04208989a4c7e2fdd4231906a9"
       },
       {
         "path": "scripts/create-c2pa-fixtures.mjs",
@@ -5083,7 +5083,7 @@
       },
       {
         "path": "src/handlers/project-handlers/snapshots.ts",
-        "sha256": "ee0530760afa9aeb0c7aeee0855c76ac4996e7873e1851d289887375c11a237d"
+        "sha256": "1776ddf12bcb648fa2a340728edf173eca394a6adf506208113c51b221b9cc9d"
       },
       {
         "path": "src/handlers/project-handlers/structure.ts",
@@ -5147,7 +5147,7 @@
       },
       {
         "path": "src/scrivener-project.ts",
-        "sha256": "425c54702a87a14340a25293f9c0db3abb8bb7d1c2909a9b1b75b8033dc9124c"
+        "sha256": "7ec2d0fe14b4654207b7bba3e880b4c3f4de823904534266293ab870b6994cbb"
       },
       {
         "path": "src/services/.DS_Store",
@@ -6249,7 +6249,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "25cec463df94bde3f5db002da8084748d7c1a3d047871f897c65008fbf7990c8",
+      "resultSha256": "442db12f25866bb16cb4a8107c746c02f43d1f6e99f0a85a1bf6c625e334975c",
       "postcondition": "none"
     },
     {
@@ -6267,7 +6267,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "584d182fb9a788442bfa8aa3a20bcbd92f31d47cdf0ec3a45e407a999f772ee0",
+      "resultSha256": "3ed8e3de8e0de25670ca42951846d845c77bfc2db762080da825f95ec6b72a60",
       "postcondition": "none"
     },
     {
@@ -6284,7 +6284,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "403d0918ffc153f65a79bc60a4698bce3067bf512d386ad6d01f9449677fe2ec",
+      "resultSha256": "f65b89b21d1a4fdcf11336b9e171d6c7cfb0d540c37e40374e13fa82562da789",
       "postcondition": "none"
     },
     {
@@ -6309,16 +6309,16 @@
       "expectedError": null,
       "inputSchemaSha256": "4010e9aac9ce7c5861cea49d33059dbf47b5b9fabdf693dd791662aa4db87a9c",
       "outputSchemaSha256": "28f44a641bbf20ffd4fc7f2f769ae60047aa1c48753a90decc5bce7a6c20c59c",
-      "inputSha256": "51d0de52dac9132087e2ac969bb593e0f3bd985b2a873a295c4adf7ec2d2956a",
+      "inputSha256": "5ad0499c16f2a1cc1c49dbb2027c1c558cc2114412fa8c60525c9513c1a19f78",
       "inputSelector": {
-        "assetPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.txt",
-        "outputPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.c2pa",
+        "assetPath": "~/tmp/scriv-conf-mZF924/credential-source.txt",
+        "outputPath": "~/tmp/scriv-conf-mZF924/credential-source.c2pa",
         "mode": "sidecar"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "5871f3f9ab1618e6ffc7dfe0731c7a7e0feb8b0e7a2b3d4dc9b29324f16ce8cd",
+      "resultSha256": "1d88db025e1e2cbf026bfed16dbcdd788d98ce5c68d8934d86c73d890cc68190",
       "postcondition": "none"
     },
     {
@@ -6328,15 +6328,15 @@
       "expectedError": null,
       "inputSchemaSha256": "dc174e325ca8f04beedb710b501352c1468d99a86f521344d941d4f1fd8e6fbe",
       "outputSchemaSha256": "7df550a066a2c5dabaff79e322f585c1eac37a926b2e790a209e3ba278c256fb",
-      "inputSha256": "36a5427aa733544d33b4d13a3f0efa94c91f86247fa1ae5895a101919ee8c1b4",
+      "inputSha256": "4243b2efc4ac917857dd54cd5085909eff2485d24e47ab1110777b342c77569b",
       "inputSelector": {
-        "assetPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.txt",
-        "manifestPath": "~/tmp/scriv-conf-Zlk2GF/credential-source.c2pa"
+        "assetPath": "~/tmp/scriv-conf-mZF924/credential-source.txt",
+        "manifestPath": "~/tmp/scriv-conf-mZF924/credential-source.c2pa"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "5191764cc39be078e558e8a7dc2c64b60b630c27dab8e822b19d387a1a8142c4",
+      "resultSha256": "07d597f9a201af04208429b1bedc54fbe1a83fd49868f46c7b0707f7e4b36377",
       "postcondition": "none"
     },
     {
@@ -6351,7 +6351,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "91e1b043e4c97c710aa6aff45ca355aa0f30a26f9028c8337ed2467594583575",
+      "resultSha256": "be72f9181807badb7a3a6d905247b74e44c9a1e79e5d3143512a3b516df7ff22",
       "postcondition": "none"
     },
     {
@@ -6421,7 +6421,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "14e36adfb15765fa2d8a12cbf86f415826874f4006dc51cff1fc6dd18a09e23a",
+      "resultSha256": "b16eabdd9e3fe48a1707714b183e1bafef6e2b97ba1d81b4434c11fabe3d0baa",
       "postcondition": "none"
     },
     {
@@ -6488,7 +6488,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "9ba26bd78e5e03966eb6ccbe573d43cdea64390d8a441f89aae6c95c44038c82",
+      "resultSha256": "d698a813af2c423e10db2db47f3172d96242772430d2585c18c7b864ce58fada",
       "postcondition": "none"
     },
     {
@@ -6522,7 +6522,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6891263d49b1393b937f7da802e017a51958046ca53f3ea32d314610deddfbb6",
+      "resultSha256": "ff4b66d6c55ad451466b4e42574111cc0ae35ee1c9f604a38531b0ea22fabb6a",
       "postcondition": "none"
     },
     {
@@ -6532,7 +6532,7 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "13d555eee284492a9b86f2983ad6d06974244b0f7e5219c8d69b37f8a1c42763",
+      "inputSha256": "73132636b7e13e3e741e56bbadc0ee483c03a4f9470e8eb5da66933c1ba381ea",
       "inputSelector": {
         "action": "list"
       },
@@ -6603,7 +6603,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "eae55553e460c99363bf1e03ad9449abb203a70b5d98e6f421c7d3a6a763a809",
+      "resultSha256": "04ce9499767a15684eed993d82e3428dc4e0b1fb2e995e5b043e2b6b2e18e680",
       "postcondition": "none"
     },
     {
@@ -6633,7 +6633,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "eb7f2a449759154c7537570d2a15cdebf9d7aba32dffeabbde75ce919489cfa4",
+      "resultSha256": "1d5f24340c97674b6fc8dd0bd7addf1f09f9844576ef885fdd6d0aff865578eb",
       "postcondition": "none"
     },
     {
@@ -6650,7 +6650,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "c4842f4d39a4df0737eea6d5217f0dfff209a7917337e030204d94f576a77b79",
+      "resultSha256": "f02ebf0f9db299d4427f379f2400d473ba05d251b0c418c7c58bfbdde57cc473",
       "postcondition": "none"
     },
     {
@@ -6667,7 +6667,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "885172d1d4c239ef3f9f2c79cd14bba001e13519a942bcfb884221760011bb0a",
+      "resultSha256": "1e46a19cb9a16395fbab5c7825e9fb561ea66415f326f080a3cd66b53cb97d08",
       "postcondition": "none"
     },
     {
@@ -6684,7 +6684,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "fb6fa00b499636c505f63fa8ec5d9c9ea9e3202c2c87ebbb24f73ff5640b7e87",
+      "resultSha256": "0fa634f9a5b0729e179ee57e260098c73c50b947cd89da364fae5843644315b9",
       "postcondition": "none"
     },
     {
@@ -6796,7 +6796,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "4061e59e1e99e6bedf3767127b37fbc67a9c7b4bf2af5223d4c759c503daa531",
+      "resultSha256": "d7985b028fbd0e4c3d48c588837be1cc324b3d8739af8064a1805fb0c5aa807c",
       "postcondition": "none"
     },
     {
@@ -6815,7 +6815,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "dbe2a5b37ff611e2f6cdfcd727bddee97a26c7789de1faef02fbcc4af7b868a9",
+      "resultSha256": "f070d03a043ffbc3231b88d73fe81cef79a4f7556cae23127cce641d4a8b52fc",
       "postcondition": "none"
     },
     {
@@ -6825,14 +6825,14 @@
       "expectedError": null,
       "inputSchemaSha256": "ba3a2c88fb96909ba9d74219d46a84381eb3e7f30bcfc31f47b59686ef026b57",
       "outputSchemaSha256": "829f03c846b8b3bb25be235281086d0ef0fc0890d4735e3ad8aab6ed4ffce817",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "821b89a22b66bfa44cd7f98ee8c32c782c67725d9ca0769bb0c59a66cded47d8",
+      "resultSha256": "69813036376e1544b73502e5724ab19b4fc549b075ee2699eca1ebb8c34ac7ef",
       "postcondition": "none"
     },
     {
@@ -6842,9 +6842,9 @@
       "expectedError": null,
       "inputSchemaSha256": "c593e6c5198d4a51d6c743360202560df76f25c4bcbec2e2503145a8f73531c1",
       "outputSchemaSha256": "ceef7dcddf4a1c538d109aaa0c89e559e2676331a92dac1442233563cf2e31e0",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
@@ -6874,9 +6874,9 @@
       "expectedError": null,
       "inputSchemaSha256": "a13011de9b3e83a93b2398893bb503392cca289a955237bfc784e894d4614eab",
       "outputSchemaSha256": "ba420072553264e0b2b1e084621c52108271276de1c2308df7f5c70c17ea31bb",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
@@ -6891,9 +6891,9 @@
       "expectedError": null,
       "inputSchemaSha256": "b69da1d82ab4c869c8bca900ea9e6878f6192f07c2494db84a846ed3228b2cc8",
       "outputSchemaSha256": "93bfc07ed37c2fbf744b641d0902e4e4ca62aaba449a8b32d471c608f6ea2e37",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
@@ -6908,9 +6908,9 @@
       "expectedError": null,
       "inputSchemaSha256": "ac36a918fc924a2a661211cf3065e783de340ea0d27bb3f92550228c01664fb5",
       "outputSchemaSha256": "8727e29f98768d24e0f4d844720bfa45520150dd87deacafb5653aa9b8a5d482",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
@@ -6925,9 +6925,9 @@
       "expectedError": null,
       "inputSchemaSha256": "00428fca1846fbd2c05dcca303d6b6065a2859f640d41dc1c50831c8ad048efd",
       "outputSchemaSha256": "833d7045f6054c3d12e510a85e8045ef75f91be584769611b44130079f372de4",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
@@ -6942,14 +6942,14 @@
       "expectedError": null,
       "inputSchemaSha256": "c562172322686f523737ed49e1c0eccacd2a0d529f5f33868f8d3ef4d41a66ac",
       "outputSchemaSha256": "f54ded9812805f78e53c870e26e8e25aac73bd85e45048fdbe3107c612d53524",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "c8fee7061024d7c163d26bb2b707d07bea68f6bc66828979044f7dddc4b57a86",
+      "resultSha256": "046a7a1864cb43f679b2f1b959bc3e3eb29916663e8a92e1960f066915ce8ff6",
       "postcondition": "none"
     },
     {
@@ -6959,14 +6959,14 @@
       "expectedError": null,
       "inputSchemaSha256": "cbf27936f7dff9cf4ee0825c512dbf0855c497a2a3ae54f4e09503aa6907dcf4",
       "outputSchemaSha256": "d5343864cd08cdff3ac9dc96726b0d5f91bac8c375b631e41f4ad1b8775a21c6",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "b31961ad9f12121de39ffc6fe006c68ccb701e5343731b9699d28f0e8898a123",
+      "resultSha256": "666c680c1fc297e0ff1da4c8f6ab27dd28ece0bcc77362dc0e312bef0c163689",
       "postcondition": "none"
     },
     {
@@ -6996,7 +6996,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "0d6646537fcf5e2197379a4215e296461e976d6fc58042b21b81371cdc8678f4",
+      "resultSha256": "877a59af664a992e30025074a0718f6813567a2c1ebca4f2cf1d14b7dee4bca4",
       "postcondition": "none"
     },
     {
@@ -7011,7 +7011,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "7fc6d12a6372042556da5be7bbf0dc9eb597fb9abc84f534665ae6962607f992",
+      "resultSha256": "1cf970733c28f6a6eff43380a8a99f4d54fd5ee273a8f0350798d3611acc25b1",
       "postcondition": "none"
     },
     {
@@ -7028,7 +7028,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "a7f72be6bae2b54367a8d0abfc7cd4b8490b6642b1e15601b2dbe5b5139438fa",
+      "resultSha256": "451a5ede4c1b5f5f30406ec727b2883fcd906a19d6dea58f52c0c8000070d994",
       "postcondition": "none"
     },
     {
@@ -7043,7 +7043,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "e16e850bd220f0751f12b2562366305c1f3d0df0f6631938bb9112a6e04ec965",
+      "resultSha256": "01197de5487f2f7b2843bf2bb5d36f2ef6eab48fc46ae1f4b86f19a297ef9afa",
       "postcondition": "none"
     },
     {
@@ -7065,18 +7065,20 @@
       "id": "snapshot.create",
       "tool": "create_snapshot",
       "expectedOutcome": "success",
+      "fixture": "Command PATH is empty; native GUI detection is not exercised.",
       "expectedError": null,
-      "inputSchemaSha256": "353193c801370fe2518e47a9571703dd932a705f259ec351d52ca7af1e92aad3",
+      "inputSchemaSha256": "7483dfddc7c0df896dad03ab65f996adf07b274c61950d9f6381a048ecb9afbc",
       "outputSchemaSha256": "13fd140e7c5b2ec70726faab92eb72be83e2e26a0dbf3aaeddea6fb84f8ac98f",
-      "inputSha256": "f2921e8ae58e814f759b164c5fd01d4a34d86096759ac9b775c4bf2c7c8fee48",
+      "inputSha256": "440794c1b2ba63cc9f30cda2b8544d2a06e01dabf59aa99b057779b7e008e478",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
-        "title": "Conformance before edit"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
+        "title": "Conformance before edit",
+        "force": true
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "94c934677bc94a1647c65ed991a25cfa2c08db87c4793cd42abc83415bff07a3",
+      "resultSha256": "3d7b4f5c55f4f1940885eff52c43b0afaa8d72f412c2ae14b04a1e1c878a56cc",
       "postcondition": "passed"
     },
     {
@@ -7086,14 +7088,14 @@
       "expectedError": null,
       "inputSchemaSha256": "6d410e399707d6c657f2347ade35a40f3c5f553227b8ca04c7193fa2d3207a3f",
       "outputSchemaSha256": "075ae2a9e15ba97a1118c12fc2bf6811609c2b68b03c963f908ab1508d66b7e4",
-      "inputSha256": "ab03e0b8e0b45ef02e7457090124fba3a7e4db7d45d5d4b13e356fd97f47b568",
+      "inputSha256": "9d1d7d6dbfbf93f8cf2cbf5c2368f0dd67a663e7a0a7c7d99f0c2cbea6633117",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "74134a7ff9bbad879ab8ddac1929f68e35d1f6f8fba61cac83d009073d1e07a6",
+      "resultSha256": "a73e971dc29c395cbed881a94035bef49b1fe61745a5924ec024c17d73b17b9a",
       "postcondition": "none"
     },
     {
@@ -7103,15 +7105,15 @@
       "expectedError": null,
       "inputSchemaSha256": "0c60bdfd4b3822ad9ebb631e53031e8897bb2c2753b4c32cc7675725e8d11e40",
       "outputSchemaSha256": "643f96ce36387811a5cad8089165f82c98472ed1a3d15044ff810c8c6e23d313",
-      "inputSha256": "a004885744352628c95bf3af15db3eb1ec735dcef98f5356c32d0d1e286afecf",
+      "inputSha256": "a3f53d26bd5efbd6a02a25763f55498f466182d27581def4a9b44a9af1cfeac7",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
-        "snapshotId": "2026-11-11-18-31-50-0800"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
+        "snapshotId": "2026-11-11-19-28-34-0800"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "fa228973b7a098071560f96146916dc5e74761ed49b9225678fc191e8d0c8388",
+      "resultSha256": "b2822176747fb6d92ac4ca40411bf23bb1932936911c493b1dde18c170adf319",
       "postcondition": "passed"
     },
     {
@@ -7121,15 +7123,15 @@
       "expectedError": null,
       "inputSchemaSha256": "20fe0a2d93e5037b6ad20f68fcb0e32109a09ef7f9293e51325b7766e65cf465",
       "outputSchemaSha256": "700cdd370ed5f862745baf11e14deaae49aafa7db40e86475a54a872e49ff907",
-      "inputSha256": "a004885744352628c95bf3af15db3eb1ec735dcef98f5356c32d0d1e286afecf",
+      "inputSha256": "a3f53d26bd5efbd6a02a25763f55498f466182d27581def4a9b44a9af1cfeac7",
       "inputSelector": {
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
-        "snapshotId": "2026-11-11-18-31-50-0800"
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
+        "snapshotId": "2026-11-11-19-28-34-0800"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6c14b34226fffa2b8cd8a10755b605fac6f5ec7d4bf136ff2135e9c473fca6bf",
+      "resultSha256": "6489027abee65a629d26e9acb21daf75f988a71f5b69dbe8458b10857d16cf17",
       "postcondition": "passed"
     },
     {
@@ -7146,7 +7148,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "8550082f44ef3bf48b8865593165a439e12d60681db920a234dca0df5c94228f",
+      "resultSha256": "fa5c5f58373cd7183fe4546b7f839bbbe99e5629719708567d54e2ba6117e75d",
       "postcondition": "none"
     },
     {
@@ -7163,7 +7165,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "2ca51ab0970bf0c917f4ba05bff4fc6c0843c8e370bde4ede51e2981a2835b51",
+      "resultSha256": "a7d0f340e864cceb134d21d07153b1d4d1a25d0b3594b05ac8950bb780eb6c9c",
       "postcondition": "none"
     },
     {
@@ -7180,7 +7182,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "f99e20a9e2eef92e8064217017dbe86d893e0ee18a378785c88f4f53fa1b148a",
+      "resultSha256": "05a758b7d39f2ab99a8b3d4e22731abcb5316dac9fc805949f74fef34f09c654",
       "postcondition": "none"
     },
     {
@@ -7197,7 +7199,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "e891f7f6c7bbbc0ef5d19e231aaf559ca343b5156a6e3e06a0be83013cac8ea2",
+      "resultSha256": "0bb8e26642042ee3966610386e36af1e78cb0f889f07347dd60c21bd84100a00",
       "postcondition": "none"
     },
     {
@@ -7214,7 +7216,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "22300099f00973b974bd89ab50f7ea0f14db17f606170fa7a6131592282fd843",
+      "resultSha256": "c7564bfacad70d44d664b7616fb807b8cd5a231da0244f065f7f0c849c239555",
       "postcondition": "none"
     },
     {
@@ -7231,7 +7233,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "66cee6952319dd4aa33c07bf6a3c3265ed0091248a20b19de103c538f6b74364",
+      "resultSha256": "449c265f1e10570bc5496c184059430f6beb86b4b3419ade486ce765d9e4a320",
       "postcondition": "none"
     },
     {
@@ -7248,7 +7250,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "77aa2945283543b015f0aa63f3c05f9f3f09864811ce23d22a35081b985e2f37",
+      "resultSha256": "8a37c0ab08041bc6c33d11fdcc8756a577f5ea2a0160cb1b14af0d6d3ac3cde6",
       "postcondition": "none"
     },
     {
@@ -7265,7 +7267,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "438524aa69d6a24e08c00bb5658a6ce363e2b158d6647d4931d3dcd99b32762d",
+      "resultSha256": "dc3586e02f83cb2e5743d1f43cdb91bafb8d30c583279f25e38cbae427f6f99b",
       "postcondition": "none"
     },
     {
@@ -7291,17 +7293,17 @@
       "expectedError": null,
       "inputSchemaSha256": "4af4a69a8e3471c3a4ab2733d30ef9085409a93b307daf258820ec837fa76053",
       "outputSchemaSha256": "e9f7b4e9453683d1728809ed9c1ef9526ebb7b0aaab4df2f08e627638beb59e6",
-      "inputSha256": "8e4fb5a5eedd43ea507e7bf3ea558ffbcd31a0a20e2497732f46462f973c8a24",
+      "inputSha256": "28bb78729889d4553edffcf6226a057078fef111385205cd94fc3db71e3edadd",
       "inputSelector": {
         "action": "propose",
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
         "expectedRevision": "de471cc114350eccf4e445130f0ead757f53a5928987853fb8358f244e4808e7",
         "idempotencyKey": "conformance-edit"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "16af8bcb9ff7592dd83645ecff836dae9f5e2d8ca369f1252cd4c9edb5e13f1d",
+      "resultSha256": "4af3de317b8f9a49c007b049536f7684802579caf6ea08fad13ee0054b12ec6b",
       "postcondition": "passed"
     },
     {
@@ -7319,7 +7321,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "16af8bcb9ff7592dd83645ecff836dae9f5e2d8ca369f1252cd4c9edb5e13f1d",
+      "resultSha256": "4af3de317b8f9a49c007b049536f7684802579caf6ea08fad13ee0054b12ec6b",
       "postcondition": "none"
     },
     {
@@ -7337,7 +7339,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "bf97b765282bf3bc24cd9003643643a8b4795748b3da8b13742b3a7b4d685579",
+      "resultSha256": "25ee5a867a6c6da8fcec4c1779e706a4ccc9cced2b8df95a29c7117594e29408",
       "postcondition": "none"
     },
     {
@@ -7356,7 +7358,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "b4c3136ed95b3ce05eb1de08c22c07dd97c31bae9aa8db392cbf7b377cc27c3f",
+      "resultSha256": "0c8afc1946aab8202249abb69c3ce0ddf4aa256d292fd58469aecc0ac415b3ca",
       "postcondition": "passed"
     },
     {
@@ -7375,7 +7377,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "8c35aef499ca94afc6f9a55c721e8ccd2e594fc1ea47c5e201ffd8caf2844b38",
+      "resultSha256": "eca78d06635ddfff40fcdf0716367d513622d882d3105455f2860e63fe320cfe",
       "postcondition": "passed"
     },
     {
@@ -7385,16 +7387,16 @@
       "expectedError": null,
       "inputSchemaSha256": "4af4a69a8e3471c3a4ab2733d30ef9085409a93b307daf258820ec837fa76053",
       "outputSchemaSha256": "e9f7b4e9453683d1728809ed9c1ef9526ebb7b0aaab4df2f08e627638beb59e6",
-      "inputSha256": "b369d7610e340edabd4821f087be4e2ed3a977b86a53c2b8b26ecfdf1e9dd09c",
+      "inputSha256": "cdb8de14d850a17082d5d521cf923af5d12281991208e9b914c4a3927c210b09",
       "inputSelector": {
         "action": "propose",
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
         "expectedRevision": "de471cc114350eccf4e445130f0ead757f53a5928987853fb8358f244e4808e7"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "932d18fd0aeb90a3cd69986ed6555ed992f2c5b48ebab1e11a6ab43b776d3b0b",
+      "resultSha256": "c370f8f254166b9c18d8e7f96f9573cfbf602896b66b82ccfe0e43898999e23d",
       "postcondition": "passed"
     },
     {
@@ -7404,15 +7406,15 @@
       "expectedError": null,
       "inputSchemaSha256": "4af4a69a8e3471c3a4ab2733d30ef9085409a93b307daf258820ec837fa76053",
       "outputSchemaSha256": "e9f7b4e9453683d1728809ed9c1ef9526ebb7b0aaab4df2f08e627638beb59e6",
-      "inputSha256": "77f5df1b7f83663b4d18539b9241498c527d7b2d7752b8c2c8a246938ac688fb",
+      "inputSha256": "867bf2ca00a84e36bdff5ff2080bdfffe5c05f47364582d0dc880693ab5d60c9",
       "inputSelector": {
         "action": "reject",
-        "proposalId": "f79625df-2f30-4168-82ef-64727e3c2290"
+        "proposalId": "39bc72f9-88ce-44ff-9d19-979bcf9c28b8"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "67b7ee6b9c6bfdd092e3a2b411c1e250438d35726061326bf51d68d8636cd1f8",
+      "resultSha256": "7883438bf313a9cc91513be70dd476e43a36835b8d79705373505c89c1c2c844",
       "postcondition": "none"
     },
     {
@@ -7429,7 +7431,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "2c80d794683540427ca50216bfa328cc77319b84357d88857b1213f20896bddf",
+      "resultSha256": "7b623559aefd774f32fded190d3ea9c11189b16e12ec56c1e990b0b0d3e461b7",
       "postcondition": "none"
     },
     {
@@ -7439,10 +7441,10 @@
       "expectedError": "revision|changed",
       "inputSchemaSha256": "4af4a69a8e3471c3a4ab2733d30ef9085409a93b307daf258820ec837fa76053",
       "outputSchemaSha256": "e9f7b4e9453683d1728809ed9c1ef9526ebb7b0aaab4df2f08e627638beb59e6",
-      "inputSha256": "35ae0f4c0d2022f62c3462bd6a27163f7c5efad3ea4525159b94c6a20df95f6e",
+      "inputSha256": "44c3cad8e3632c2c127ee02345f941f7c56325b5bcc61f7851a40a604612be15",
       "inputSelector": {
         "action": "propose",
-        "documentId": "2D1D74CE-AF49-4B84-9F70-63D291414EF0",
+        "documentId": "6D44EA6B-7A97-4500-BBDF-E1B670EEAB78",
         "expectedRevision": "0000000000000000000000000000000000000000000000000000000000000000"
       },
       "outcome": "thrown-error",
@@ -7484,7 +7486,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "553ef17ea8b41f04f37c48333f6ff41bbf664d74f8005b395c8f3b286612b65b",
+      "resultSha256": "8a67b4419d647aad2202f74ba540bec3e6031cc291ac90a339f5a572270a68cb",
       "postcondition": "passed"
     },
     {
@@ -7504,7 +7506,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "dae470df327546a76ec8ff686d514371000fb0f6220d17eb7ef0e2caa6202358",
+      "resultSha256": "fb6b7fe10b2ebb6eccffda2c9b1f615c02aecf9b0bc77a6f41d5ac5421518fec",
       "postcondition": "passed"
     },
     {
@@ -7514,7 +7516,7 @@
       "expectedError": null,
       "inputSchemaSha256": "774cf7ef2e3e49b5bbefecaf17401bb08885ad3a241586497a07bb27ca0dcbc0",
       "outputSchemaSha256": "944c8b3ac63f34355ff083c9a8db1541f26fb8419d1969f995425d57b0f75501",
-      "inputSha256": "04a20d2fa9437a94b930f92c68c169d31d393bb7e5e7bb6de0ff7f49510c4bac",
+      "inputSha256": "14a5551283e41f2d9cc8ec67131fd7a69376108031ac7655939a49384d24662d",
       "inputSelector": {
         "query": "Mara",
         "mode": "keyword",
@@ -7524,7 +7526,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "d6a758ca71d0351670fae296060770affa3d8d957f1422ad36fb52f85fc38f8c",
+      "resultSha256": "33ac26bbb633e9305c790f20ade3dd72fa04f2d238087c07095fa95bc889c7cb",
       "postcondition": "passed"
     },
     {
@@ -7534,7 +7536,7 @@
       "expectedError": null,
       "inputSchemaSha256": "774cf7ef2e3e49b5bbefecaf17401bb08885ad3a241586497a07bb27ca0dcbc0",
       "outputSchemaSha256": "944c8b3ac63f34355ff083c9a8db1541f26fb8419d1969f995425d57b0f75501",
-      "inputSha256": "af3788b2dd93ef64b9c5946d040f93e87dea99bcc70bbd0e3f6e3e1faad6f79e",
+      "inputSha256": "1c28b6b7a413eba1a31a68456e2a367501a4f37ef3d7771abc61c6c4eccd203c",
       "inputSelector": {
         "query": "Mara",
         "mode": "hybrid",
@@ -7544,7 +7546,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "60b23fe722fe4c804f1af4b380c73f020c438e5483c82a09f3f19ab1ab9536fd",
+      "resultSha256": "5284d867968eaa6fa3bdc884b9297d1d11a5ec989c7b75e23bce3efcf1457c29",
       "postcondition": "passed"
     },
     {
@@ -7621,12 +7623,12 @@
       "expectedError": null,
       "inputSchemaSha256": "46e69658c18b3c6558bbb9f5b8c5ec7b127e6c3a5cd507e935a5cbef11018f48",
       "outputSchemaSha256": "a94b64254d6cbc6dcc7d00b512b1d5af3f026fc8c0986351b9a946d14e90673d",
-      "inputSha256": "662e31cf1c6bcd05eee06ef6892d350618d90770dca3f8d493596066b005306b",
+      "inputSha256": "30c10f617cb8a8822420262e3df481c2511c4ce6411b327572a67ccfde813d07",
       "inputSelector": {},
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "4ab74120eb8266a13ff694220eaf337045655d93b6a9f014a7dfb77d0b8aa841",
+      "resultSha256": "286498574b5735686b6cc7f804d30af19a28a7dbdd2aa285388b21b7e62403de",
       "postcondition": "passed"
     },
     {
@@ -7636,15 +7638,15 @@
       "expectedError": null,
       "inputSchemaSha256": "c6c0469511e35678237577f4e1a1ba6e12bde8206d09e6f1e75f924cbee36dcf",
       "outputSchemaSha256": "37bc0e5992306305f3bd4b2142b7d3326374f9cdd6efd5ef2bb1609acac6307b",
-      "inputSha256": "1bbbe67cdb6c474fd67dd92431c990b3404a2de9785c066a50bd210f0ec3f481",
+      "inputSha256": "0c49d9585baf60dd7a0148c0e4c06f42057d2c5debb0c033ea9e2be290b98d66",
       "inputSelector": {
         "action": "confirm",
-        "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95"
+        "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "e748026a68a638cf6c8b03514f20246772b575351c0cba84e879059bc9cadfac",
+      "resultSha256": "dd16683abbee8ed3093085d65d06d6825a430b981bf12e5ed608243d8bad40da",
       "postcondition": "none"
     },
     {
@@ -7654,16 +7656,16 @@
       "expectedError": null,
       "inputSchemaSha256": "c6c0469511e35678237577f4e1a1ba6e12bde8206d09e6f1e75f924cbee36dcf",
       "outputSchemaSha256": "37bc0e5992306305f3bd4b2142b7d3326374f9cdd6efd5ef2bb1609acac6307b",
-      "inputSha256": "14aa3a6c5f27f407005ae13f52c1feb1afc4d7be19b8cff273f1cc36c988bd8e",
+      "inputSha256": "a7cea7891a04280d96d56cd63af5980e6a86d468921afb3491e971e0e221c978",
       "inputSelector": {
         "action": "dismiss",
-        "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95",
+        "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e",
         "note": "Synthetic fixture review"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "39e51c0b1a3370def8acba04ad82983aa6669d76bc3d31c6365ee7e60dae8033",
+      "resultSha256": "292cae8cad5e9c290e683456a311cdab74bbd6d324fd87516c45023ef482139e",
       "postcondition": "none"
     },
     {
@@ -7673,16 +7675,16 @@
       "expectedError": null,
       "inputSchemaSha256": "c6c0469511e35678237577f4e1a1ba6e12bde8206d09e6f1e75f924cbee36dcf",
       "outputSchemaSha256": "37bc0e5992306305f3bd4b2142b7d3326374f9cdd6efd5ef2bb1609acac6307b",
-      "inputSha256": "0e3d53290ee97f61193f22930ed93b62900865509a74839b31215eb05df5335b",
+      "inputSha256": "1c50978dc35e396f6f0899026068106c1c53ab91fda0622003bd5549738040fd",
       "inputSelector": {
         "action": "resolve",
-        "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95",
+        "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e",
         "note": "Synthetic fixture decision"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "8ffbb1a478a7d6a8b82b820c5f210882d58206a5875db72e434067b2ccc7ad13",
+      "resultSha256": "171304498761cf2bbb13c2e54f6cd44d1bea40e8bbe4f8ccd7f7d015599bcce8",
       "postcondition": "none"
     },
     {
@@ -7692,15 +7694,15 @@
       "expectedError": null,
       "inputSchemaSha256": "c6c0469511e35678237577f4e1a1ba6e12bde8206d09e6f1e75f924cbee36dcf",
       "outputSchemaSha256": "37bc0e5992306305f3bd4b2142b7d3326374f9cdd6efd5ef2bb1609acac6307b",
-      "inputSha256": "127ef80a6bce0a5972e89bd5e6f719d774c447e02fe777750bb30deb1a197fef",
+      "inputSha256": "4f9a51cde9d59b9bf49a070475f33e8ea0e0457ccb97ae156afa3fc627157ea9",
       "inputSelector": {
         "action": "recheck",
-        "findingId": "bb70aca2482e2fd95d950305de01891dfcff6204e07ce1fca3e96e740c7c2c95"
+        "findingId": "20e6374394a44b0990b4e287ad7e1d4f308bafe3227efa48cd7afd2ad9f2209e"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "167bed9749b6471a4c289e618d437602910a960e4bad7dffe5f906333cc36259",
+      "resultSha256": "2349aa84ea6a5a557ac50b5d9ba2f7e62f64e66d7272686eadbfc35e37efa200",
       "postcondition": "none"
     },
     {
@@ -7732,7 +7734,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "a51c665b0dac42e7d5f93439228ac30b7d02aee630f9baef2886d170c65b47aa",
+      "resultSha256": "1c704f8cf30d33ff3e88237a1fa257ce554b52137f11849c9d2c0c2a96bfe9d9",
       "postcondition": "passed"
     },
     {
@@ -7742,15 +7744,15 @@
       "expectedError": null,
       "inputSchemaSha256": "a8811e4cc6a7f88c2685abcea5c754dd2d50b696bfec58354fb8f5c6c8fd5fb8",
       "outputSchemaSha256": "f4b5b64f8659a27869a5c9946deb02504d0772553ce5bfca2ae46b3366a156c9",
-      "inputSha256": "16e44303a1a769e4c1148ae8397d4afb3ff753d6f38cad1543944618f4925c5e",
+      "inputSha256": "7041ec2ffb04ee41c868e8badb4f4516eedcaddaefe5058a057b3af23d9b76d7",
       "inputSelector": {
         "action": "leave",
-        "seriesId": "504ddb60-5d17-401b-9036-667dfed5c94a"
+        "seriesId": "bca41456-c470-45a0-b749-c81ef37d6fbc"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "13d22fb4661bce4f6df535972a011c7e37c4645c832fe482f887250fd790bccb",
+      "resultSha256": "c1cfdfcc3ecd8f64d08d06c9cfc733823a3b2f3de0d1829b44f4e0b0faa669d8",
       "postcondition": "none"
     },
     {
@@ -7760,15 +7762,15 @@
       "expectedError": null,
       "inputSchemaSha256": "a8811e4cc6a7f88c2685abcea5c754dd2d50b696bfec58354fb8f5c6c8fd5fb8",
       "outputSchemaSha256": "f4b5b64f8659a27869a5c9946deb02504d0772553ce5bfca2ae46b3366a156c9",
-      "inputSha256": "6692c14e679caa2bc172a4769c827c3cf9e29e7ce3e36aea7d381f25241fe716",
+      "inputSha256": "21ac9843c984692a63928b2c4a3d8056206da121fe35550b6102f9274c10c385",
       "inputSelector": {
         "action": "join",
-        "seriesId": "504ddb60-5d17-401b-9036-667dfed5c94a"
+        "seriesId": "bca41456-c470-45a0-b749-c81ef37d6fbc"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "ce5e9974aa172e26d3c626152cc8b1e84e78d0efe8815be43d1476f5c30f20a0",
+      "resultSha256": "cb9e1988598b61b751ed9bf647956eec72adcff95a1d9014b0fe7a6937ed0f1f",
       "postcondition": "none"
     },
     {
@@ -7778,14 +7780,14 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "d13cc4f8a01fa7049828860fd3161fc28d9a99b6a7bf1146b5fa30a0abb92117",
+      "inputSha256": "4d831b95f84511969a3b226d6f85add8aba9d38434bc4eadc185ad821b24a433",
       "inputSelector": {
         "action": "curate"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "bb461b902183dcfe644088c0035e8390530bb9bd061e0f640e8a01f3f23eb738",
+      "resultSha256": "f237ba75de53074977910470f33bff86a0a620f6b23e822aa80dd6ebf4cfef15",
       "postcondition": "passed"
     },
     {
@@ -7795,15 +7797,15 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "49395c5777a9b841a27768c6e95b66c2deee80dfcafbff3515cb2e59d6fc1a45",
+      "inputSha256": "dab1788dc0bd3cac87db7118ab5383599aafc7b5b9216d19947f26c1ba25a29e",
       "inputSelector": {
         "action": "correct",
-        "factId": "04654441630705395cd0407f2cd74f48df1c9cd31f8198fd39838effa5b3470b"
+        "factId": "46ae10bcc0988c2c33b5595fb2f3fd45fe94a6442a1d1018ce169b2265ca785b"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "5260d80ad88cb1c4e220252c57affcb065a4dab3b8c9ad20881f8e38c9029d8b",
+      "resultSha256": "ff0cab2425bf73b96ae4fd617f66ec955edf6784e5dc07615b220ed7628f7945",
       "postcondition": "none"
     },
     {
@@ -7813,14 +7815,14 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "1adc1d1bd4a0dbea85f84120dd308364f7b28a3f0cb17c52e27ffd83df6c6964",
+      "inputSha256": "bda51ab45c9ab01642f4d0940886feecd47ae6f967852d40dcac90ba1bc42f76",
       "inputSelector": {
         "action": "recheck"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "9f33b5869f271b6ab17fac0004b62282b009e624ada63bf44059d4c98bafe09a",
+      "resultSha256": "2ebc6296d56dd4a83e36e55a0d2c29b3c05c25cbead1e19ade4dfd65e4bd9978",
       "postcondition": "none"
     },
     {
@@ -7830,14 +7832,14 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "860c11bc9eb7034e1367b35d586ae91d2485875efa45521e178c709655921089",
+      "inputSha256": "ff3e9d9df3d4afe1e06c47ae3b116768cfe5e47e9417369a8675ecab0538f19e",
       "inputSelector": {
         "action": "export_state"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "86d932644a243817a27dcbb34d3bfaa2b7eae60243bf3132203457b9ed63c65a",
+      "resultSha256": "46e69da04bed75c8dccac6692428044634a99725eab4b52f8a1ac5d883f200c6",
       "postcondition": "passed"
     },
     {
@@ -7847,15 +7849,15 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "2721feb95ada249cd56f667c3e2b3c18d591c99ee1ceb2817561551860f7175f",
+      "inputSha256": "75d3f5e0bb4d267b67b06575bcda4696e7c1adf5bd7e90023adc621949bee4bf",
       "inputSelector": {
         "action": "import_state",
-        "expectedRevision": "cd8526c72a4b66c153ff2f9f387be585a6d949af6798f621f87189db3dec66ca"
+        "expectedRevision": "3e48b34229d140980adab69f775a5c28c1a8f693429fb3959d1bb89dc54e90ad"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "86d932644a243817a27dcbb34d3bfaa2b7eae60243bf3132203457b9ed63c65a",
+      "resultSha256": "46e69da04bed75c8dccac6692428044634a99725eab4b52f8a1ac5d883f200c6",
       "postcondition": "none"
     },
     {
@@ -7865,7 +7867,7 @@
       "expectedError": "revision|changed",
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "60d4102ad3061f1629aabcc36e32718f0072dbc3249d09d05b407e1d5242a146",
+      "inputSha256": "81ec00a4d449a402649ea0ff8d1c8b91bc7fb108c205b9c5101e1929a5c9461c",
       "inputSelector": {
         "action": "import_state",
         "expectedRevision": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -7882,14 +7884,14 @@
       "expectedError": null,
       "inputSchemaSha256": "02592f5dade4e2800ad745da8d0133882df4f99ce974b741feca2ad69dd562e3",
       "outputSchemaSha256": "1d1386d9e22f3aaa6499b17025df85666bdc97c20d6f8ee631b54d9a04d2ca1a",
-      "inputSha256": "2dcc63bcf1271d1e0b0e21a450beb7d0dcda21fe2fead798d66cb0ca88b5d530",
+      "inputSha256": "c81f33c5dee0a06c079c943ce14c1991d22effe7c4db0e7cf02127a0e48bd620",
       "inputSelector": {
         "action": "import_memory"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6fc90d810ef69a3b4bd0d3f7cba0f708e10a8b9805d14590c3126b0efb6fb801",
+      "resultSha256": "29ff44022f904a1ef413fb199a4fb495406aec59e553e3bb0d559075bf7cfab4",
       "postcondition": "none"
     },
     {
@@ -7899,7 +7901,7 @@
       "expectedError": null,
       "inputSchemaSha256": "30a05d5ef4a283d48e88518a4b248debc84f85aab424db68915f5be7efddbb1b",
       "outputSchemaSha256": "00709bbabebad17a28ff460e33ac5c48741a1b8213952c3379eae5ef6d37c65c",
-      "inputSha256": "96f8dec1df7673975613b6b33e781d4a50f9ecaefea59c6eb7adde32791269f8",
+      "inputSha256": "fb54bfc73e4113d577e44dc480c507cba6814e3ecb85602c23114824e2bf514a",
       "inputSelector": {
         "action": "link",
         "kind": "causal",
@@ -7908,7 +7910,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "842b21c45d9ae2790c5abe5d566ad5c282c1162539624e2a5d6522a5a8e3ada5",
+      "resultSha256": "1daa2ef2f744d1acf949526e7b757fda2cfaf9b21e34e1176338b13d4dfe900c",
       "postcondition": "passed"
     },
     {
@@ -7918,17 +7920,17 @@
       "expectedError": null,
       "inputSchemaSha256": "35e5c122337b61bf3fffd9be5b5511483c0cf7399729b5ab12de2371aad93e59",
       "outputSchemaSha256": "00709bbabebad17a28ff460e33ac5c48741a1b8213952c3379eae5ef6d37c65c",
-      "inputSha256": "938462043e95606967616424eb15944ac66a77fa57e2d9d0ae1738c6cc338cac",
+      "inputSha256": "b447337985c3105b050bbabe628035003deb494d5f9922b76bdb4cd206350df8",
       "inputSelector": {
         "kind": "replace",
-        "documentId": "604A5506-82DE-4EB0-8E16-52F07BFBE106",
+        "documentId": "73477E11-1B7A-43FE-87A8-75768CCEDD02",
         "expectedRevision": "0847dcc76da20f941a914d1bcda360819a85593a641b9830e538daff5932a6e3",
         "replacementText": "Mara has hazel eyes."
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "021daf4519999de0068db47a8c1b624da39923eefb1eea190313ea51a064c7f9",
+      "resultSha256": "250712bdb15be0f6a7fc0b6ad9941b655dabcdf86edc7b15cfce9f48217fa3e8",
       "postcondition": "none"
     },
     {
@@ -7938,17 +7940,17 @@
       "expectedError": null,
       "inputSchemaSha256": "35e5c122337b61bf3fffd9be5b5511483c0cf7399729b5ab12de2371aad93e59",
       "outputSchemaSha256": "00709bbabebad17a28ff460e33ac5c48741a1b8213952c3379eae5ef6d37c65c",
-      "inputSha256": "396516cf34c6e16e2587d3b079395e99bcb334883aaf15d315665aa4dbae71df",
+      "inputSha256": "106b6fbb7f77cffb843f4dea83b7c05effe082237cdc4b7a7dcc3a49dc08e8ad",
       "inputSelector": {
         "kind": "move",
-        "documentId": "604A5506-82DE-4EB0-8E16-52F07BFBE106",
+        "documentId": "73477E11-1B7A-43FE-87A8-75768CCEDD02",
         "expectedRevision": "0847dcc76da20f941a914d1bcda360819a85593a641b9830e538daff5932a6e3",
         "beforeDocumentId": null
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "ce070b9881481fdef7b12c84f5c37ca9fa098f144511d33c1ff475fe977b8800",
+      "resultSha256": "85e50e8f73986061d259fa2232780444243f75fd1f030026f5fb0dd3b12ca5c2",
       "postcondition": "none"
     },
     {
@@ -7958,15 +7960,15 @@
       "expectedError": null,
       "inputSchemaSha256": "30a05d5ef4a283d48e88518a4b248debc84f85aab424db68915f5be7efddbb1b",
       "outputSchemaSha256": "00709bbabebad17a28ff460e33ac5c48741a1b8213952c3379eae5ef6d37c65c",
-      "inputSha256": "e3543e88cfb01c62f7b68ba38ca77a3ae4dd95d6a7e6aba4524ef2a65e649ba7",
+      "inputSha256": "0b93c02957da5e3e2fd4e3ca0f82d4f37d5bf29a38bf67559cc87a3d0288e198",
       "inputSelector": {
         "action": "unlink",
-        "id": "2ed2caaa31b5f927b94daf8035ec7a06105df847a7443d7efcd4c0abb18ad6ea"
+        "id": "b7ff0ceda9352d3426391532f6b085b59a8c4f5e8c69d85ef234f944a057db8a"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "691f40051f9d528d4135e6735ffa149921a00d2a44f26ed4326a4b9b7529c746",
+      "resultSha256": "63d42d2f002c1c6a8db85cc5b42ab3354948131671dc91dd0270451950253cbb",
       "postcondition": "none"
     },
     {
@@ -7976,7 +7978,7 @@
       "expectedError": null,
       "inputSchemaSha256": "e77d625e1611516fd23306ac19790057b39d56dea837b76df142e546897b6d74",
       "outputSchemaSha256": "700fc246a6bc0f99b0dba6252f3600a4ec8955d051a181f26e71f38c9bf3948d",
-      "inputSha256": "f515454417d2012557364d6350382f50fdb21788554d385b8d215bf06ab9124b",
+      "inputSha256": "fd2a3d28af6d2fa1c2df6f9a7caf7a234f6fcf19b1f1d76e924a8564b7a487c3",
       "inputSelector": {
         "action": "start",
         "kind": "audit-continuity",
@@ -7985,7 +7987,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "a4dc4f522b3721e8315cf319e3d7a35fad051f5c33d0eed84b1b242509881922",
+      "resultSha256": "4a7f7f06909d8d9b91ed82f19ac91c0bdf7366935e94c1cbeec1c2f601e5dca4",
       "postcondition": "passed"
     },
     {
@@ -7995,15 +7997,15 @@
       "expectedError": null,
       "inputSchemaSha256": "e77d625e1611516fd23306ac19790057b39d56dea837b76df142e546897b6d74",
       "outputSchemaSha256": "700fc246a6bc0f99b0dba6252f3600a4ec8955d051a181f26e71f38c9bf3948d",
-      "inputSha256": "e69d98e93e018182a1f7d3aedde0f7ad1bff92ea693fbef74c3a1b41765451cc",
+      "inputSha256": "2776f1a8ddede7686684c6a5c3335cac71255bf145aa130a713d9f489f2b5da4",
       "inputSelector": {
         "action": "get",
-        "workflowId": "f636624f4bec87383ebdd5d43e62111cbacda746146c5c5480c08ad8fc894f07"
+        "workflowId": "b6e8473fd982a0cabd921881ada8d9cc32d77c6148e73a1299e39500aa704a05"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6f5c9b1489a03be78d7e1e17fd28096c8c68f380b0a35d29839a35b31015178f",
+      "resultSha256": "78ae8a016b632ad85018ad78a8d2c036eec7fdbae34a3289ede7a6279df77d54",
       "postcondition": "none"
     },
     {
@@ -8013,15 +8015,15 @@
       "expectedError": null,
       "inputSchemaSha256": "e77d625e1611516fd23306ac19790057b39d56dea837b76df142e546897b6d74",
       "outputSchemaSha256": "700fc246a6bc0f99b0dba6252f3600a4ec8955d051a181f26e71f38c9bf3948d",
-      "inputSha256": "189f7b6a4cdf36727925cf360a62284126973777a796686cf76ddfc7429bc6ac",
+      "inputSha256": "95537556b1951dc28dfd3a8a3831677551887d317e6ca7c54f15776b8cb7b0f0",
       "inputSelector": {
         "action": "cancel",
-        "workflowId": "f636624f4bec87383ebdd5d43e62111cbacda746146c5c5480c08ad8fc894f07"
+        "workflowId": "b6e8473fd982a0cabd921881ada8d9cc32d77c6148e73a1299e39500aa704a05"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6f5c9b1489a03be78d7e1e17fd28096c8c68f380b0a35d29839a35b31015178f",
+      "resultSha256": "78ae8a016b632ad85018ad78a8d2c036eec7fdbae34a3289ede7a6279df77d54",
       "postcondition": "passed"
     },
     {
@@ -8031,15 +8033,15 @@
       "expectedError": null,
       "inputSchemaSha256": "e77d625e1611516fd23306ac19790057b39d56dea837b76df142e546897b6d74",
       "outputSchemaSha256": "700fc246a6bc0f99b0dba6252f3600a4ec8955d051a181f26e71f38c9bf3948d",
-      "inputSha256": "672381e6359860866bdb8a43187cfa86545fa60358cb68e88e47284ceecee00f",
+      "inputSha256": "c9c5cd4a72efe842284d29630c6102207fa919b9cd21f8a1f87a391f9a68ec04",
       "inputSelector": {
         "action": "resume",
-        "workflowId": "f636624f4bec87383ebdd5d43e62111cbacda746146c5c5480c08ad8fc894f07"
+        "workflowId": "b6e8473fd982a0cabd921881ada8d9cc32d77c6148e73a1299e39500aa704a05"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6f5c9b1489a03be78d7e1e17fd28096c8c68f380b0a35d29839a35b31015178f",
+      "resultSha256": "78ae8a016b632ad85018ad78a8d2c036eec7fdbae34a3289ede7a6279df77d54",
       "postcondition": "passed"
     },
     {
@@ -8049,7 +8051,7 @@
       "expectedError": null,
       "inputSchemaSha256": "72cb339c69912ee20f0984e9098934c2b717bd24ccd83f699133c7393d56374b",
       "outputSchemaSha256": "ee113b11e560ec322d94add195038c633bfa5d73aaa5739fdac42059b2153c48",
-      "inputSha256": "87eda53ada5b429acdfa3ad707f7bc5c72578798eff48919d15d5d81482cbe5d",
+      "inputSha256": "4c535d6012a3ed7b94bb9aa8299fa10696ddb05155d5fd018cb6d870ad554869",
       "inputSelector": {
         "mode": "standard",
         "format": "text"
@@ -8093,7 +8095,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "079a4bf29ffb51f42fa2e1d9abef4e88d62e90f69e1dfd631175a6aa5547f3a1",
+      "resultSha256": "fd2b4c911c869824e3d29935e2f90ac4caa603915d60fe099f439ea073c4bba7",
       "postcondition": "none"
     },
     {
@@ -8103,7 +8105,7 @@
       "expectedError": null,
       "inputSchemaSha256": "72a732542ea94953e0929117eb03e218feb3f61d768dcbd1490402525150db9d",
       "outputSchemaSha256": "2bda385fc49654fbc71580f4b31ca4ba03a48a5fd56a6764093389e2083abb0c",
-      "inputSha256": "61eaa8982e59c368fb7d09ee586dc2b20a5a06c90642bf0a5cacb3cfd78bb495",
+      "inputSha256": "c9271db419754755df8c06d6dbb29364112ac8a537ef433a1d2b03690aa70227",
       "inputSelector": {
         "action": "preflight",
         "preset": "submission-manuscript"
@@ -8111,7 +8113,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "9262dfc1f36708c12fb4f2630c13c30ce06ba4f6d03f74a781b851cc0ed2cc9c",
+      "resultSha256": "a543748fa4f622fcd7e3600d84382b357e4f5e73b48b93f16c64892cb22801a1",
       "postcondition": "none"
     },
     {
@@ -8121,7 +8123,7 @@
       "expectedError": null,
       "inputSchemaSha256": "72a732542ea94953e0929117eb03e218feb3f61d768dcbd1490402525150db9d",
       "outputSchemaSha256": "2bda385fc49654fbc71580f4b31ca4ba03a48a5fd56a6764093389e2083abb0c",
-      "inputSha256": "9d4627cf37c085d7f82ec822bc3f191aafe2828b6b756906d994d0f2d214dbe9",
+      "inputSha256": "1d51e2dfdecec8f17bc6d6a4bcd1f6a32e081c0e6698427d60ba92a2ba20007d",
       "inputSelector": {
         "action": "preflight",
         "preset": "beta-reader"
@@ -8129,7 +8131,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "39c0559a9eb138639e9130bc126a68a795c9675e47612c3420042048d113abb6",
+      "resultSha256": "3102b4764f66c6e5d8f90112112e0f320fcfcee3aae1cb8f18aac05128bb06b7",
       "postcondition": "none"
     },
     {
@@ -8139,17 +8141,17 @@
       "expectedError": null,
       "inputSchemaSha256": "72a732542ea94953e0929117eb03e218feb3f61d768dcbd1490402525150db9d",
       "outputSchemaSha256": "2bda385fc49654fbc71580f4b31ca4ba03a48a5fd56a6764093389e2083abb0c",
-      "inputSha256": "8d32f523dc5d70c61aa963205cd539c1ff407362be9ae2720258e51e924ab55b",
+      "inputSha256": "2948a7418c10af67eb42d806d22354b97a0792416e921aec5fc16b64d3fa3b07",
       "inputSelector": {
         "action": "export",
         "preset": "ebook",
         "language": "fr",
-        "outputPath": "~/tmp/scriv-conf-Zlk2GF/fixture.epub"
+        "outputPath": "~/tmp/scriv-conf-mZF924/fixture.epub"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "6f02d9135f3eb3f22bab3bca9eccd6eee3172c4d995a41bc50be4ce9ae11ef32",
+      "resultSha256": "ab1b07b6f3f45c2d2fd246a39956f8f85a812187d9d6b8339a7be7a5b2664201",
       "postcondition": "passed"
     },
     {
@@ -8159,17 +8161,17 @@
       "expectedError": null,
       "inputSchemaSha256": "72a732542ea94953e0929117eb03e218feb3f61d768dcbd1490402525150db9d",
       "outputSchemaSha256": "2bda385fc49654fbc71580f4b31ca4ba03a48a5fd56a6764093389e2083abb0c",
-      "inputSha256": "355a6252868f68b1201d016c42f91f8c66275932a58adb0259fbb78e0dbd4676",
+      "inputSha256": "acb60c04b777e25729d2e13a1c8fb9940857ef6063458030f7a3500fc99c14f6",
       "inputSelector": {
         "action": "export",
         "preset": "submission-manuscript",
         "language": "ja",
-        "outputPath": "~/tmp/scriv-conf-Zlk2GF/fixture.docx"
+        "outputPath": "~/tmp/scriv-conf-mZF924/fixture.docx"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "f020f3f61c9944085340872b5c51f7b63c6eac1e9e3fcc0627b56a04865e9892",
+      "resultSha256": "4e7fa1cb0cc2933f4807840964f6f068d384347d1d1d471a9725b5ddd3d8caa2",
       "postcondition": "passed"
     },
     {
@@ -8214,15 +8216,15 @@
       "expectedError": "unavailable|provider_failed",
       "inputSchemaSha256": "ec294855ee8ecd376462226161bf24b6a693574dfcecc4f0bb9f5822440c2c90",
       "outputSchemaSha256": "24c6e3567385ae4e35877984a3833e25bb4d99eb18799cd0edfeae2a285af331",
-      "inputSha256": "71bd9b0ea073618c540c34d5b8ce180fff578f8bc831a61698f8c1101ba5cf7c",
+      "inputSha256": "9537c1b3829c1e8416931d9216cbcd691a280187ef97b68bb64398d050780572",
       "inputSelector": {
-        "documentId": "604A5506-82DE-4EB0-8E16-52F07BFBE106",
+        "documentId": "73477E11-1B7A-43FE-87A8-75768CCEDD02",
         "enhancementType": "grammar"
       },
       "outcome": "returned-error",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "93a1733a9d417ba24bf255fc2a7633360fd291b232464becbd541f86622bfb41",
+      "resultSha256": "52c7197502093509d539f1b6314ba5413ed847ce79ab36b82bbffc63b584ab5d",
       "postcondition": "none"
     },
     {
@@ -8264,7 +8266,7 @@
       "expectedError": "Marketing generation failed",
       "inputSchemaSha256": "734594ffa16be6a8b134260f3b45973854cef963bd61d5feea35a609b1f119a0",
       "outputSchemaSha256": "fb44fbf94ac4017c3ef98514e6d7aac6a8d4b4d2312907a7186a12e40a1e4746",
-      "inputSha256": "5db767b8d7ab5c5ef0ff6d319af7369e2d0e8402e2f7dc41d8a82c2fbe103d3a",
+      "inputSha256": "e9b26ef8879881007b660ffbba8a712f184da16b0715f98418f7f395e10c9519",
       "inputSelector": {
         "materialType": "book_blurb"
       },
@@ -8288,7 +8290,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "78046829638f330c5be835df750d9ea9128033007dfff24691b36abe01e20dc0",
+      "resultSha256": "6e32c5422770ff8c364ab466b8f76e96129c4f7cd9fa4918344796cbaf687621",
       "postcondition": "none"
     },
     {
@@ -8305,7 +8307,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "a0be9c324a68b5f7c666e691a40cffc9fb96aa9bb84847c9ff8c18da53b5e4fa",
+      "resultSha256": "3e22ea6414113874d5bf113dec50485aef7abedfc5e4e76a4a8b30eac35567f5",
       "postcondition": "passed"
     },
     {
@@ -8315,16 +8317,16 @@
       "expectedError": null,
       "inputSchemaSha256": "4241c9842a16a0f2edc027556af4a7a72c73dcf5aa5775dd7f833b31ecceeb32",
       "outputSchemaSha256": "114401ece31f8aca3fc6d242728fe4e4714ce2e0834c9df87d50483005070071",
-      "inputSha256": "de71e4c99360256412a7d3742c4890038bc7641c799da068d1bc53468163be91",
+      "inputSha256": "6d55764b50fd71e911e031c9f3ae66fe5d7dd60f331a7c5e75b91d0de4522afa",
       "inputSelector": {
-        "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+        "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
         "offset": 0,
         "limit": 4
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "bd233abe911eb4dbcd82d35397bbfda3e0a4408dad11c88ddea91f6cd0dda580",
+      "resultSha256": "96b99076c01205c878d718385897a1e7c2d3970ca43a067b261b88dddd126f40",
       "postcondition": "passed"
     },
     {
@@ -8334,16 +8336,16 @@
       "expectedError": null,
       "inputSchemaSha256": "4241c9842a16a0f2edc027556af4a7a72c73dcf5aa5775dd7f833b31ecceeb32",
       "outputSchemaSha256": "114401ece31f8aca3fc6d242728fe4e4714ce2e0834c9df87d50483005070071",
-      "inputSha256": "9781aa7cd8b7fe6db122daffe612ffbe22d5e499c6e66586811724efc2a6aad4",
+      "inputSha256": "cee95ca06aeef4746ab0a7e41257231df7560a29c1f25812d7a02d0b0c022a8c",
       "inputSelector": {
-        "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+        "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
         "offset": 4,
         "limit": 65536
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "a0230d1f0778aa6e11b6627a12a6d2eb095e9bb17206e097cab8d6f1fd8b91d6",
+      "resultSha256": "6689544a7be9362f181996f2262e73da63ffe766c19a1a3d36c9d34147d87933",
       "postcondition": "passed"
     },
     {
@@ -8353,9 +8355,9 @@
       "expectedError": "limit|4",
       "inputSchemaSha256": "4241c9842a16a0f2edc027556af4a7a72c73dcf5aa5775dd7f833b31ecceeb32",
       "outputSchemaSha256": "114401ece31f8aca3fc6d242728fe4e4714ce2e0834c9df87d50483005070071",
-      "inputSha256": "c44503cc42273e60b33031b43cd5c82dd560d32c5bc25df0fc0eea841907b73b",
+      "inputSha256": "e20590c72dd2e3fb172b8e8db3ec1f234c2c8c129f323b18b639924182d2f791",
       "inputSelector": {
-        "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+        "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
         "limit": 3
       },
       "outcome": "thrown-error",
@@ -8370,9 +8372,9 @@
       "expectedError": "limit|65536",
       "inputSchemaSha256": "4241c9842a16a0f2edc027556af4a7a72c73dcf5aa5775dd7f833b31ecceeb32",
       "outputSchemaSha256": "114401ece31f8aca3fc6d242728fe4e4714ce2e0834c9df87d50483005070071",
-      "inputSha256": "c7a88eca122330a4e57915dd54b044e07cc38a52f39cf4410ab289a2bafd1bde",
+      "inputSha256": "bfbf30fcf4b680ad94be81bc1e9ea55782f3f613606aa4a26f86a58729132904",
       "inputSelector": {
-        "resultId": "67522702-f6b5-49b8-8f1a-2d9bc6c3031a",
+        "resultId": "9e7d8a86-69f0-4159-8bc3-be1d13ae4ab2",
         "limit": 65537
       },
       "outcome": "thrown-error",
@@ -8397,7 +8399,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "490a28a10149a1464e83f2bd9e3a6f9684e0f961a4b6b60f79bfe78dd5d30ae4",
+      "resultSha256": "47dbc63439d7abb9cd8af2abd25cb3858e74667303fb09217d9e8117c216d37b",
       "postcondition": "passed"
     },
     {
@@ -8478,7 +8480,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "c8ca2efb918977c65443fde4ac6e95d4972da24b52bb60f9a20e92b6a3c50c02",
+      "resultSha256": "807e5723c9dcdda8ba07d64cbf9205a4a853c60d50c1d06d3168ae4d2a38cff6",
       "postcondition": "passed"
     },
     {
@@ -8493,7 +8495,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "b803602565c33bef1e5353ef28e562f648f1758a29b38ff0fcd6389cef0c3a9a",
+      "resultSha256": "2e0a9d4b2075fb54bc6108f890669c791a99755cc0ac9cec4f012d50d49c16c8",
       "postcondition": "passed"
     },
     {
@@ -8510,7 +8512,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "a9df143b9080a4e24a3deddcad28af743f8938b5363931980ec58ed7abedf48a",
+      "resultSha256": "82ac6c8d73dff2538893508f766668413c804f4417213e98128b349da4ac7cb9",
       "postcondition": "passed"
     },
     {
@@ -8520,15 +8522,15 @@
       "expectedError": null,
       "inputSchemaSha256": "9c38f6a2983062d804132e5a67c62114080617a2002b11f4b8ca0614c7c4b74b",
       "outputSchemaSha256": "b64af5ba4b53c581ab3f8c605a4fa21925c70b465b28225f2977b3c88d14c4b6",
-      "inputSha256": "43145822bc5a02747db591a5e2b9a371db83fb4e9d249777dd5070fad4175954",
+      "inputSha256": "4e53b46b5ffef96773a8ea989ee4c4e449a202804aa92e643b4b442ed87bf27b",
       "inputSelector": {
-        "documentId": "conformance-supplied-one",
+        "documentId": "F8F9FDEF-FD9F-4A8C-B33D-3434A1220ADC",
         "content": "[redacted]"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "4a13eacce4b7f79f71531f1492939a95081e6a035abbd44377a450d0fceb917b",
+      "resultSha256": "f5ade2b9d32dc5f6c6df5c2efef1cef98ca0428d405b8760993d9a2a932fcf42",
       "postcondition": "passed"
     },
     {
@@ -8538,15 +8540,15 @@
       "expectedError": null,
       "inputSchemaSha256": "0c04b24ddf55c966605f26e35149a4480ade8f4aa715398209893cb5357f9d1d",
       "outputSchemaSha256": "ba732e463e2e6d2e5032df51a76d3d7891caf37faceb4e9a761d1e0fcce61f6b",
-      "inputSha256": "45b82f5c4d4939c6dcfac4c471ca452847bd0a4db03fa05cb0d2c6edf8c3125c",
+      "inputSha256": "6dee3f6f6a6a7e28f28205b519692449a10ecea53b3e2fcc9c476a723c45186a",
       "inputSelector": {
         "jobType": "analyze_document",
-        "jobId": "6c12201bbd6368358ae61a2614c805d4734733c456cb95a04db20d0d2299c81b-9e1528aa-c69b-40fc-ad39-f261c12d951c"
+        "jobId": "8bebd791eaba3660932a0ae9360979b59b80f70b8c1b2eccfbb2259a467a9c22-66a30e54-1058-48c4-ac1b-9c68a2037191"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "f43152a5fc5af53ec186745e6694d51d58a027fc7852eacb59465bc224160031",
+      "resultSha256": "fc0dbea1b370a6efd25fa94ae6d9f5754a2a4319a13e2fc76a469bd4fa77d0ec",
       "postcondition": "passed"
     },
     {
@@ -8556,14 +8558,14 @@
       "expectedError": null,
       "inputSchemaSha256": "9a96be842bd60edfaa85079388fea3b81318176abfdb3bc78082633f94416eea",
       "outputSchemaSha256": "9665cc91d198d4600897040af1931fb364f9a20d2594b7da97950f54f4dbad4e",
-      "inputSha256": "0e5d285fc791f6df1ed5c474928c09a29456ac720e36ddb68fc85d6150ddce37",
+      "inputSha256": "6070708acd6a60111dc7ab47ab117849aa9aef0d0919dc37e8b6773a4d681f89",
       "inputSelector": {
         "projectId": "conformance-supplied-project"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "0e09bbd0d43ddaaa6c2c516cfc36c1331581c6f38c0e7d4d8eed8be9f767228d",
+      "resultSha256": "7bee9b3061d0a0df35176c7942d26cf1f1ac03538ef2ced6ab36f035379465ff",
       "postcondition": "passed"
     },
     {
@@ -8573,15 +8575,15 @@
       "expectedError": null,
       "inputSchemaSha256": "0c04b24ddf55c966605f26e35149a4480ade8f4aa715398209893cb5357f9d1d",
       "outputSchemaSha256": "ba732e463e2e6d2e5032df51a76d3d7891caf37faceb4e9a761d1e0fcce61f6b",
-      "inputSha256": "63f2d35e5a34c02536f5ef2c67dfb5610f989f2f9eb4ef20bc6bfe493ebb7fc1",
+      "inputSha256": "6228943c889879936462f82f082f8f2e49c67cef3b6c16725b4f2de677850767",
       "inputSelector": {
         "jobType": "analyze_project",
-        "jobId": "6c12201bbd6368358ae61a2614c805d4734733c456cb95a04db20d0d2299c81b-577f4455-a420-404f-ac12-51f2eabf4e74"
+        "jobId": "8bebd791eaba3660932a0ae9360979b59b80f70b8c1b2eccfbb2259a467a9c22-48fe42dc-4535-4f61-856d-208e30ec29e0"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "f6e683132e8598e36daf480cdb1daea322e621e91e6f18ff23fef39aa4e7bc5f",
+      "resultSha256": "b170b3e98be411c7476bfaaf6206e350853ec99ece5893951a57aa2f3cf248b5",
       "postcondition": "passed"
     },
     {
@@ -8614,7 +8616,7 @@
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "bffc5346080fc3f39f4c69968663d4309764b26ee6645baeb2f73bf5f892a173",
+      "resultSha256": "6d00153e182602184afccbddaf97415212112b499ed41f6d1475f56deb6690f7",
       "postcondition": "passed"
     },
     {
@@ -8639,14 +8641,14 @@
       "expectedError": null,
       "inputSchemaSha256": "7560643a2721288a95706cc6220b1a50c3e6c8b9835e38d024eb42b39ec86ad9",
       "outputSchemaSha256": "83a02f06204c7b945092a8321d49527a8a6f590530df008d49a38841de78521a",
-      "inputSha256": "d1c2151ca6dc1dc824ce326604836f2cb07e264257468b9e5db0047faacf6a2b",
+      "inputSha256": "d5183fd66d25ead4606a73b56d60161989eb63fd6e2fe5193de0e6e13630867d",
       "inputSelector": {
-        "searchPath": "~/tmp/scriv-conf-Zlk2GF"
+        "searchPath": "~/tmp/scriv-conf-mZF924"
       },
       "outcome": "success",
       "schema": "valid",
       "status": "PASS",
-      "resultSha256": "d5c10c3bb6f26bd2652f1aab02ae3c99c70dd5ea25f042937243ddb0d2402ad3",
+      "resultSha256": "f0f4a68cae7958ca9fbf27c1f3de6edeb98aeac948247b464c9a802edbac5d6f",
       "postcondition": "passed"
     },
     {

@@ -1,0 +1,74 @@
+[
+  {
+    "label": "fallback-50000-corrected",
+    "exitCode": 1,
+    "wallSeconds": 173.7849794169888,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "50000",
+      "--samples",
+      "5",
+      "--engine",
+      "fallback",
+      "--output",
+      "docs/development/quality-mission-agent-passage-fallback-50000-corrected.json"
+    ]
+  },
+  {
+    "label": "native-50000-corrected",
+    "exitCode": -15,
+    "wallSeconds": 819.7139227080625,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "50000",
+      "--samples",
+      "5",
+      "--engine",
+      "native",
+      "--output",
+      "docs/development/quality-mission-agent-passage-native-50000-corrected.json"
+    ]
+  },
+  {
+    "label": "mutation-10000-candidate",
+    "exitCode": 0,
+    "wallSeconds": 506.8158666670788,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-mutation-history.ts",
+      "--edits",
+      "10000",
+      "--documents",
+      "32",
+      "--characters",
+      "16000",
+      "--output",
+      "docs/development/quality-mission-agent-mutation-10000-candidate.json"
+    ]
+  },
+  {
+    "label": "novels-paced-final",
+    "exitCode": 1,
+    "wallSeconds": 339.3740944589954,
+    "command": [
+      "npm",
+      "test",
+      "--",
+      "--config",
+      "jest.narrative-performance.config.js",
+      "--runInBand",
+      "--testMatch",
+      "**/integration/narrative-novels-stdio.test.ts"
+    ]
+  }
+]

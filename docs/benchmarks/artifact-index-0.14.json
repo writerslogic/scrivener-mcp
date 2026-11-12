@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "performanceSourceCommit": "64709ea6682e8149face2c85f849b8cdce96a157",
+  "qualification": "Historical receipt revisions and individual source/harness fingerprints remain authoritative; final protected CI and release artifacts identify the shipped commit. This index is not a signature or independent certification.",
+  "files": [
+    {
+      "path": "docs/benchmarks/conformance-0.14.json",
+      "sha256": "f11d1c26883e049c593a1cc45167d12d206c1b3e2eb4a7fde7e7255f3c888a33",
+      "bytes": 353598
+    },
+    {
+      "path": "docs/benchmarks/coverage-ledger-0.14.json",
+      "sha256": "3edf6b0bf8b797549dbf029e397eec9708a5d39e55ba33a8f731e55cc70b3103",
+      "bytes": 910531
+    },
+    {
+      "path": "docs/benchmarks/editorial-evaluation-baseline.json",
+      "sha256": "cf132ca3301154766119dc6679f61fdfec549697ac7024c9caf0111e33bb374e",
+      "bytes": 19451
+    },
+    {
+      "path": "docs/benchmarks/editorial-evaluation-before-coreference.json",
+      "sha256": "d0d817875dd8401d82ccb839033a56d1f4e72ae6d4cc30b91c626cc470778254",
+      "bytes": 31482
+    },
+    {
+      "path": "docs/benchmarks/editorial-evaluation-current.json",
+      "sha256": "1ad01f69ade3a1f060b858e53e7ff6b13398134854cdb751606c0799e7b66359",
+      "bytes": 33891
+    },
+    {
+      "path": "docs/benchmarks/editorial-evaluation-development.json",
+      "sha256": "b53fffd2f7cd84a24f2a17f21c047daec27fb8094f242d0686df8a385d638533",
+      "bytes": 23350
+    },
+    {
+      "path": "docs/benchmarks/editorial-evaluation-holdout.json",
+      "sha256": "9b05e4e083d54aaf3f1367dc4ea1b2d45abf85a66347a9490b20195fa7e8b41a",
+      "bytes": 12061
+    },
+    {
+      "path": "docs/benchmarks/editorial-quality-baseline.json",
+      "sha256": "668050818a553118d90321238391cb58b04386e314accb25948aa7d930835346",
+      "bytes": 26891
+    },
+    {
+      "path": "docs/benchmarks/editorial-quality-current.json",
+      "sha256": "759b02accfad6179556e68f300582b9100c2a8f9de470c2e1a011459465a8e90",
+      "bytes": 60109
+    },
+    {
+      "path": "docs/benchmarks/export-rendering-0.14.json",
+      "sha256": "fe52ab4635deb002005c5fe1bc614e41c521061f311980518f1b9ce347f27dea",
+      "bytes": 4647
+    },
+    {
+      "path": "docs/benchmarks/export-rendering-before.json",
+      "sha256": "6dc6fdf1ea1debcb9f5cb29813bcd6aa3693d0231f8623e7185378848b66f4fd",
+      "bytes": 4390
+    },
+    {
+      "path": "docs/benchmarks/native-rtf-0.14.json",
+      "sha256": "d8140553a54ffa736f982a0f306fe0017ff7a30dca2bb219c9d2c384a5db4f10",
+      "bytes": 38444
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/README.md",
+      "sha256": "0f8c7ec69300ed3b511989e92558826f5531570c2d456edb4aee456548e3c9b5",
+      "bytes": 3071
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-final-measurement-run.json",
+      "sha256": "52aefd8488b7f37c926dcef9cf976846065691156dc7df5afffcc15e56ec0a06",
+      "bytes": 1587
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-final-retries-run.json",
+      "sha256": "7cba5236c79e5bfc08723f8ddd22ba03f3073bdd395a18c35a572f3612147680",
+      "bytes": 1667
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-final-run-concurrency.json",
+      "sha256": "43b8f15251e3db893d86cc137b8caea639a5870c4e06069ffab6d096930ea60b",
+      "bytes": 624
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-mutation-10000-candidate.json",
+      "sha256": "bf96865e7975a75ba46efaa9f7719d8e058314745f8c8be14364bd3d7d78899e",
+      "bytes": 1898447
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-novel-paced-frankenstein-retry.json",
+      "sha256": "8be359d42b8b98446a29d99e6563fe0a4aea7ffed6c948b159c8ce8be0c0974e",
+      "bytes": 32537
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-novel-paced-pride-retry.json",
+      "sha256": "45b5c3ac22e6fdd197c06a5fdc0540ac86c5f339f6da5a4d0b128065b99ef8f5",
+      "bytes": 32626
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-novel-paced-summary.json",
+      "sha256": "4da0d808e82e68a8d40d83c39842472bab93894f3f81d06509afa0ad6ed4b72c",
+      "bytes": 5376
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-novel-stdio-default.json",
+      "sha256": "b2b58625555fa9503a50b5ef302daf9c2f6facf6467950548643e782a7303054",
+      "bytes": 69442
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-novel-stdio-paced-final.json",
+      "sha256": "3986d4ccbf738e0179c103dd9375189737ebcb23d2b06054578c5b90e5ee20c8",
+      "bytes": 32876
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-fallback-1000-final.json",
+      "sha256": "91b0e624544dac5b2a8cd059f7b0ec08aa2c6685fe1f101c41dfbb91ad1dd4be",
+      "bytes": 85479
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-fallback-10000-final.json",
+      "sha256": "26e8b2a7a6c316800019bbe3e395fbd94e12c7ef28b5c3db124d8af91291c1a0",
+      "bytes": 82905
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-fallback-50000-corrected.json",
+      "sha256": "625522d409eab73ae39bd1cfd6eb64306172575a76047535808f91d6d38ece2f",
+      "bytes": 89367
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-fallback-50000-final.json",
+      "sha256": "70bd049751e7b600d0260509d65b392507507949acf6e505b711e444ec5865fc",
+      "bytes": 88312
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-fallback-50000-observer30s.json",
+      "sha256": "a5b66649e6c14bb67de90582ea2203ea9ec5ebe28c9be130977d271d0bfe0deb",
+      "bytes": 94664
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-matrix-run.json",
+      "sha256": "3fe807d7420d87a08381a4531d3ab3526028a9baa34543e90ea7eeb41f64e43d",
+      "bytes": 2547
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-native-1000-final.json",
+      "sha256": "0875afc6f9a37311b3710ba8e94423d49ce025c4929f38e2c8ad9d8b6a119724",
+      "bytes": 88238
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-native-10000-final.json",
+      "sha256": "9dea110125df49060bebe8704a8cf71d61f2a1be765a9bfccee00568bd28068a",
+      "bytes": 90130
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-native-50000-abort.json",
+      "sha256": "72a8fae18ee254bdafd99aac0f535f4203b5f8a018f4380d3bedd91d4217d57c",
+      "bytes": 330
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-native-50000-corrected.json",
+      "sha256": "db8e90f4cbab495a7d94abc06be2060b4eade4de20d9425ee50389ff3c0abf07",
+      "bytes": 68436
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-native-50000-final.json",
+      "sha256": "38a695d63a9a176dc68ed217c5669be0afcf7987ffd32f93a8d4be7858dc1151",
+      "bytes": 59859
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-native-50000-observer30s.json",
+      "sha256": "f6785ff4bd4dc58eb3e30e7edcdfcea4bad98187fb6e62786b3abe673acd7538",
+      "bytes": 98045
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-source-manifest.json",
+      "sha256": "1c990b6d829bb5a25cae398c1aea35dbb9e901a7aebed3bfcb8095fe9469bc6d",
+      "bytes": 35009
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-passage-summary.json",
+      "sha256": "04ff1ef958ae2939783f22bc708e14e72d86b87d5e5ddcda1695a85279c317b4",
+      "bytes": 68603
+    },
+    {
+      "path": "docs/benchmarks/scale-0.14/quality-mission-agent-process-observer-timeout-reproduction.json",
+      "sha256": "6accbecef6035dc5fe168fda1fec1724169ab120bfc209668e528fcbae7f123e",
+      "bytes": 102
+    },
+    {
+      "path": "docs/benchmarks/token-workflow-0.14-counts.json",
+      "sha256": "750e20cb2622c6a28502e7cd14b30a19c6852fcd5b38c9616909f896bf9abc4e",
+      "bytes": 3806
+    },
+    {
+      "path": "docs/benchmarks/token-workflow-0.14.json",
+      "sha256": "d0e1573c924c20f4ca565c759bd2e03ee789c6cd933919f93fe260d6ca53d01f",
+      "bytes": 1217775
+    },
+    {
+      "path": "docs/benchmarks/token-workflow-baseline-counts.json",
+      "sha256": "3bc3b2392ea145eb15d1fac430fd26641231be0eb78072a96985ee3741d23643",
+      "bytes": 3788
+    },
+    {
+      "path": "docs/benchmarks/token-workflow-baseline.json",
+      "sha256": "afe1a2647a8d04b457a0b389fe10a10672260af657678f8f180082000547bd3e",
+      "bytes": 1192421
+    }
+  ]
+}

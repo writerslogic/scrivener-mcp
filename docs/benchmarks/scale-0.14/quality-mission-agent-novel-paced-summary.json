@@ -1,0 +1,198 @@
+{
+  "scope": "Five repeats per phase; Moby from original combined run, other two from one filtered retry each. Original two initialize timeouts remain failures with undiagnosed cause; this aggregate is conditional on successful startup, not a startup reliability claim. Same source, no timeout/SLO/rate increases.",
+  "inputs": [
+    {
+      "path": "quality-mission-agent-novel-stdio-paced-final.json",
+      "sha256": "3986d4ccbf738e0179c103dd9375189737ebcb23d2b06054578c5b90e5ee20c8"
+    },
+    {
+      "path": "quality-mission-agent-novel-paced-frankenstein-retry.json",
+      "sha256": "8be359d42b8b98446a29d99e6563fe0a4aea7ffed6c948b159c8ce8be0c0974e"
+    },
+    {
+      "path": "quality-mission-agent-novel-paced-pride-retry.json",
+      "sha256": "45b5c3ac22e6fdd197c06a5fdc0540ac86c5f339f6da5a4d0b128065b99ef8f5"
+    }
+  ],
+  "originalInitializeFailures": [
+    {
+      "corpusId": 84,
+      "timeoutMs": 30000,
+      "diagnostics": "empty stderr",
+      "exitStateBeforeCleanup": "unrecorded"
+    },
+    {
+      "corpusId": 1342,
+      "timeoutMs": 30000,
+      "diagnostics": "empty stderr",
+      "exitStateBeforeCleanup": "unrecorded"
+    }
+  ],
+  "corpora": [
+    {
+      "corpusId": 2701,
+      "phases": [
+        {
+          "phase": "cold",
+          "samples": 5,
+          "calls": [
+            11
+          ],
+          "medians": {
+            "elapsedMs": 702.9161660000009,
+            "eventLoopLagMs": 46.53212499999972,
+            "rssGrowthBytes": 84705280,
+            "processTreeRssPeakBytes": 670187520
+          }
+        },
+        {
+          "phase": "warm",
+          "samples": 5,
+          "calls": [
+            30
+          ],
+          "medians": {
+            "elapsedMs": 891.4937080000018,
+            "eventLoopLagMs": 30.16166599999997,
+            "rssGrowthBytes": 105152512,
+            "processTreeRssPeakBytes": 940507136
+          }
+        },
+        {
+          "phase": "one-scene-edit",
+          "samples": 5,
+          "calls": [
+            30
+          ],
+          "medians": {
+            "elapsedMs": 955.5824589999975,
+            "eventLoopLagMs": 29.35899999999674,
+            "rssGrowthBytes": 16023552,
+            "processTreeRssPeakBytes": 1014415360
+          }
+        }
+      ],
+      "completePhases": 15,
+      "rateLimitRetries": 0,
+      "pacingActualMs": 162521.923039,
+      "workloadWallTimeMs": 188232.630417,
+      "lastPhasePacingActualMs": 0,
+      "violations": [
+        {
+          "sample": 0,
+          "phase": "cold",
+          "metric": "rssGrowthBytes",
+          "value": 141721600,
+          "budget": 134217728
+        },
+        {
+          "sample": 0,
+          "phase": "warm",
+          "metric": "rssGrowthBytes",
+          "value": 170508288,
+          "budget": 134217728
+        }
+      ]
+    },
+    {
+      "corpusId": 84,
+      "phases": [
+        {
+          "phase": "cold",
+          "samples": 5,
+          "calls": [
+            3
+          ],
+          "medians": {
+            "elapsedMs": 255.5525419999999,
+            "eventLoopLagMs": 9.897500000002765,
+            "rssGrowthBytes": 12566528,
+            "processTreeRssPeakBytes": 478527488
+          }
+        },
+        {
+          "phase": "warm",
+          "samples": 5,
+          "calls": [
+            8
+          ],
+          "medians": {
+            "elapsedMs": 299.1401249999999,
+            "eventLoopLagMs": 7.726458000001003,
+            "rssGrowthBytes": 23871488,
+            "processTreeRssPeakBytes": 590544896
+          }
+        },
+        {
+          "phase": "one-scene-edit",
+          "samples": 5,
+          "calls": [
+            8
+          ],
+          "medians": {
+            "elapsedMs": 300.8384580000002,
+            "eventLoopLagMs": 8.01116600000023,
+            "rssGrowthBytes": 10043392,
+            "processTreeRssPeakBytes": 605323264
+          }
+        }
+      ],
+      "completePhases": 15,
+      "rateLimitRetries": 0,
+      "pacingActualMs": 43527.897124999996,
+      "workloadWallTimeMs": 49740.617833,
+      "lastPhasePacingActualMs": 0,
+      "violations": []
+    },
+    {
+      "corpusId": 1342,
+      "phases": [
+        {
+          "phase": "cold",
+          "samples": 5,
+          "calls": [
+            4
+          ],
+          "medians": {
+            "elapsedMs": 343.3949170000051,
+            "eventLoopLagMs": 15.812624999998661,
+            "rssGrowthBytes": 33882112,
+            "processTreeRssPeakBytes": 502022144
+          }
+        },
+        {
+          "phase": "warm",
+          "samples": 5,
+          "calls": [
+            12
+          ],
+          "medians": {
+            "elapsedMs": 365.60629199999676,
+            "eventLoopLagMs": 9.70945799999754,
+            "rssGrowthBytes": 41598976,
+            "processTreeRssPeakBytes": 603193344
+          }
+        },
+        {
+          "phase": "one-scene-edit",
+          "samples": 5,
+          "calls": [
+            12
+          ],
+          "medians": {
+            "elapsedMs": 371.61125000000175,
+            "eventLoopLagMs": 9.42225000000326,
+            "rssGrowthBytes": 23724032,
+            "processTreeRssPeakBytes": 652378112
+          }
+        }
+      ],
+      "completePhases": 15,
+      "rateLimitRetries": 0,
+      "pacingActualMs": 64026.029627,
+      "workloadWallTimeMs": 71788.780917,
+      "lastPhasePacingActualMs": 0,
+      "violations": []
+    }
+  ]
+}

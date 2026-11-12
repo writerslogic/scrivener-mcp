@@ -110,9 +110,9 @@ arguments instead of custom scope metadata. Exact undo passed in both runs.
 | Complete serialized payloads | `cl100k_base` | `o200k_base` |
 | --- | ---: | ---: |
 | Baseline workflow | 76,685 | 77,611 |
-| Candidate workflow | 78,677 | 79,610 |
+| Candidate workflow | 78,679 | 79,599 |
 | Baseline `tools/list` request and response | 71,720 | 72,602 |
-| Candidate `tools/list` request and response | 73,617 | 74,492 |
+| Candidate `tools/list` request and response | 73,657 | 74,532 |
 
 Total measured tokens increased about 2.6%; these changes do not establish overall token
 savings. Discovery accounts for about 94% of this tiny workflow. Factoring one repeated
