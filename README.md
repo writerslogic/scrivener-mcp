@@ -534,7 +534,7 @@ npm run typecheck    # Type checking only
 A few Scrivener MCP servers exist. Our column describes the current server; other feature claims
 come from each project's own docs, published package, and advertised tools, last re-read on
 **2026-10-22**; stars, forks, activity, and published version were refreshed
-<!-- comparison-refreshed -->2026-11-09<!-- /comparison-refreshed -->. "No" means undocumented — not
+<!-- comparison-refreshed -->2026-11-10<!-- /comparison-refreshed -->. "No" means undocumented — not
 
 necessarily impossible through the connected AI client.
 
@@ -556,7 +556,7 @@ necessarily impossible through the connected AI client.
 | Installation | npm, Homebrew, Docker, or the Draftbridge Mac app | crates.io, prebuilt binary, or source | npm package (deprecated) | MCPB or source | source / `uv` | source / `pip install -e` |
 | License | AGPL-3.0 / commercial dual-license | MIT | MIT | MIT | not declared | MIT |
 | Repository/package status | weekly activity; npm `0.12.0` | occasional activity | removed from npm | weekly activity | occasional activity; no releases | repository unavailable |
-| Community | ⭐ 71 · 25 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | unavailable |
+| Community | ⭐ 72 · 25 forks | ⭐ 7 | source repository unavailable | ⭐ 1 | ⭐ 0 | unavailable |
 
 <!-- comparison-end -->
 
