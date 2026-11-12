@@ -53,3 +53,23 @@ existing PDF exporter remains available through `export_project`; its standard f
 (including CJK, combining marks and emoji) before publication, with affected sources identified.
 PDF inline body styles require an explicit warning acknowledgment. Use DOCX/EPUB for Unicode
 content outside the PDF font repertoire.
+
+### Language and exact source text
+
+`export_manuscript` accepts `language` and an optional `documentLanguages` map of
+selected document UUIDs to language tags. `export_project` accepts the same values
+inside `options` for binary exports. Tags use the Unicode BCP47 syntax accepted by
+`Intl.getCanonicalLocales`, with a 255-character limit (for example `fr-CA`, `ja`,
+or `und`); private-use-only and grandfathered tags outside that syntax are rejected.
+An omitted language is `und` (undetermined), replacing the former unconditional
+English label. No language is inferred from manuscript text. Overrides outside the
+selected export scope are rejected.
+
+EPUB records the publication language and distinct resource languages in its package,
+with matching `lang` and `xml:lang` on each chapter. The generated English contents
+heading is marked separately. DOCX body runs receive the selected document language.
+Supported styles now remain aligned with exact decoded text, including terminal
+paragraphs; blank paragraphs and EPUB whitespace are preserved. Preset fonts still
+replace source typography, and renderer font availability is not guaranteed. PDF
+continues to reject characters its configured fonts cannot encode; use DOCX or EPUB
+for those manuscripts. These exports do not claim native compile or layout parity.

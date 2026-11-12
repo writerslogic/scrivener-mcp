@@ -38,7 +38,7 @@ test('writes a stored first mimetype and complete EPUB3 metadata with matching i
 	expect(pkg.metadata['dc:title']).toBe(metadata.title);
 	expect(pkg.metadata['dc:creator']).toBe(metadata.author);
 	expect(pkg.metadata['dc:description']).toBe(`Manuscript export: ${metadata.title}`);
-	expect(pkg.metadata['dc:language']).toBe('en');
+	expect(pkg.metadata['dc:language']).toBe('und');
 	expect(pkg.metadata['dc:identifier'].$.id).toBe(pkg.$['unique-identifier']);
 	expect(pkg.metadata['dc:identifier']._).toMatch(/^urn:uuid:[a-f0-9-]{36}$/);
 	expect(pkg.metadata.meta.$.property).toBe('dcterms:modified');

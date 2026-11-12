@@ -971,3 +971,80 @@ test('publication receipts require committed approval for every exact saved revi
 	await reviews.undo(applied.id, { force: true });
 	expect(() => reviews.publicationReceipts([applied.id], current)).toThrow(/committed/);
 });
+
+test('revision inbox groups alternatives, filters decisions, paginates compact summaries and tracks undo', async () => {
+	const proposal = await reviews.propose({
+		documentId: DOCUMENT,
+		category: 'clarity',
+		rationale: 'Sharpen the opening',
+		alternativeGroup: 'Opening',
+		edits: [
+			{ start: 0, end: 3, text: 'One' },
+			{ start: 4, end: 9, text: 'swift' },
+		],
+	});
+	await reviews.propose({
+		documentId: DOCUMENT,
+		category: 'clarity',
+		alternativeGroup: 'Opening',
+		edits: [{ start: 0, end: 3, text: 'That' }],
+	});
+	await proposeOpening();
+	const first = reviews.inbox({ category: 'clarity', query: 'OPENING', limit: 1 });
+	expect(first.totals).toEqual({ proposals: 2, pending: 3, accepted: 0, rejected: 0 });
+	expect(first.items).toHaveLength(1);
+	expect(first.items[0]).not.toHaveProperty('before');
+	expect(first.items[0]).not.toHaveProperty('edits');
+	const second = reviews.inbox({
+		category: 'clarity',
+		query: 'opening',
+		limit: 1,
+		after: first.nextCursor!,
+	});
+	expect(second.items[0].id).not.toBe(first.items[0].id);
+	expect(second.nextCursor).toBeNull();
+	await reviews.reject(proposal.id, [proposal.edits[1].id]);
+	const applied = await reviews.apply(proposal.id, {
+		editIds: [proposal.edits[0].id],
+		force: true,
+	});
+	expect(reviews.inbox({ category: 'clarity' }).totals).toEqual({
+		proposals: 2,
+		pending: 1,
+		accepted: 1,
+		rejected: 1,
+	});
+	expect(
+		reviews.inbox({ category: 'clarity', status: 'reviewed' }).items.map((item) => item.id)
+	).toEqual([proposal.id]);
+	await reviews.undo(applied.id, { force: true });
+	expect(reviews.inbox({ category: 'clarity' }).totals).toEqual({
+		proposals: 2,
+		pending: 2,
+		accepted: 0,
+		rejected: 1,
+	});
+	expect(reviews.inbox({ category: 'general' }).items).toHaveLength(1);
+});
+
+test.each([199, 200, 201])('revision query boundary %d', (length) => {
+	if (length > 200) expect(() => reviews.inbox({ query: 'x'.repeat(length) })).toThrow();
+	else expect(reviews.inbox({ query: 'x'.repeat(length) }).total).toBe(0);
+});
+test.each([99, 100, 101])('revision page boundary %d', (limit) => {
+	if (limit > 100) expect(() => reviews.inbox({ limit })).toThrow();
+	else expect(reviews.inbox({ limit }).items).toEqual([]);
+});
+test('array-count projection rejects SQL syntax and never selects manuscript bodies', async () => {
+	await proposeOpening();
+	for (const value of ["pending'); DROP TABLE editorial_state; --", '', 'x'.repeat(129)]) {
+		expect(() =>
+			store.page('review-proposals', {}, ['id'], undefined, {
+				field: 'edits',
+				property: 'status',
+				values: [value],
+			})
+		).toThrow();
+	}
+	expect(reviews.inbox().items).toHaveLength(1);
+});

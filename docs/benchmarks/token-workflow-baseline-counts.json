@@ -1,0 +1,156 @@
+{
+  "tokenizer": "tiktoken",
+  "version": "0.12.0",
+  "input": "docs/development/quality-mission/evidence/token-baseline-raw.json",
+  "sourceSha256": "0681e329ab65aed9fa45f43510fedb7b80a89e3dd013d37dbf6c2008ef290248",
+  "fixtureSha256": "8d02ae8e014afa6838faf20af1898d603d5d6fe160d5e8358dabf4a506a074f2",
+  "client": "@modelcontextprotocol/client 2.4.0 StdioClientTransport",
+  "runtime": "v26.12.1",
+  "protocol": "2026-07-28",
+  "calls": 10,
+  "toolCount": 84,
+  "scopeMode": "metadata",
+  "rows": [
+    {
+      "label": "server/discover",
+      "request": {
+        "utf8Bytes": 260,
+        "cl100k_base": 67,
+        "o200k_base": 68
+      },
+      "response": {
+        "utf8Bytes": 326,
+        "cl100k_base": 90,
+        "o200k_base": 92
+      }
+    },
+    {
+      "label": "tools/list",
+      "request": {
+        "utf8Bytes": 255,
+        "cl100k_base": 66,
+        "o200k_base": 67
+      },
+      "response": {
+        "utf8Bytes": 346505,
+        "cl100k_base": 71654,
+        "o200k_base": 72535
+      }
+    },
+    {
+      "label": "open_project",
+      "request": {
+        "utf8Bytes": 393,
+        "cl100k_base": 122,
+        "o200k_base": 123
+      },
+      "response": {
+        "utf8Bytes": 379,
+        "cl100k_base": 130,
+        "o200k_base": 131
+      }
+    },
+    {
+      "label": "get_structure",
+      "request": {
+        "utf8Bytes": 359,
+        "cl100k_base": 105,
+        "o200k_base": 106
+      },
+      "response": {
+        "utf8Bytes": 789,
+        "cl100k_base": 278,
+        "o200k_base": 281
+      }
+    },
+    {
+      "label": "read_document",
+      "request": {
+        "utf8Bytes": 432,
+        "cl100k_base": 132,
+        "o200k_base": 133
+      },
+      "response": {
+        "utf8Bytes": 642,
+        "cl100k_base": 225,
+        "o200k_base": 228
+      }
+    },
+    {
+      "label": "review_changes:propose",
+      "request": {
+        "utf8Bytes": 616,
+        "cl100k_base": 196,
+        "o200k_base": 198
+      },
+      "response": {
+        "utf8Bytes": 1779,
+        "cl100k_base": 638,
+        "o200k_base": 645
+      }
+    },
+    {
+      "label": "review_changes:preview",
+      "request": {
+        "utf8Bytes": 430,
+        "cl100k_base": 136,
+        "o200k_base": 138
+      },
+      "response": {
+        "utf8Bytes": 1784,
+        "cl100k_base": 650,
+        "o200k_base": 654
+      }
+    },
+    {
+      "label": "review_changes:apply",
+      "request": {
+        "utf8Bytes": 441,
+        "cl100k_base": 140,
+        "o200k_base": 141
+      },
+      "response": {
+        "utf8Bytes": 1739,
+        "cl100k_base": 741,
+        "o200k_base": 746
+      }
+    },
+    {
+      "label": "review_changes:undo",
+      "request": {
+        "utf8Bytes": 441,
+        "cl100k_base": 138,
+        "o200k_base": 139
+      },
+      "response": {
+        "utf8Bytes": 2691,
+        "cl100k_base": 975,
+        "o200k_base": 981
+      }
+    },
+    {
+      "label": "close_project",
+      "request": {
+        "utf8Bytes": 360,
+        "cl100k_base": 105,
+        "o200k_base": 106
+      },
+      "response": {
+        "utf8Bytes": 307,
+        "cl100k_base": 97,
+        "o200k_base": 99
+      }
+    }
+  ],
+  "totals": {
+    "cl100k_base": 76685,
+    "o200k_base": 77611
+  },
+  "limitations": [
+    "Original tiny manuscript fixture; not a representative novel or commercial host.",
+    "Records complete JSON-RPC payloads, including duplicated text/structured content and volatile IDs/timings; model-facing selection and billing vary by client.",
+    "No latency or performance claim; one workflow sample per invocation.",
+    "No model/provider requests; local fallback and isolated state only.",
+    "Tokenizes complete minified JSON payloads without transport newline framing; these are tokenizer measurements, not billed-token counts."
+  ]
+}

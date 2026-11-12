@@ -1,0 +1,652 @@
+{
+  "corpusVersion": 1,
+  "reviewer": "",
+  "reviewDate": "",
+  "instructions": "Review independently before opening predictions or labeled cases. A finding is an advisory factual mismatch, not confirmed canon. Record exact subject, predicate and two document-index/quote evidence regions; otherwise record no-conflict or abstain with a rationale. Do not infer identity from unconfirmed aliases or pronouns with multiple plausible owners. Different or unknown story times do not establish changing appearance conflicts; birth year is immutable. Keep original judgments and adjudicate disagreements separately. Save each reviewer copy separately; do not edit the frozen evaluation corpus.",
+  "cases": [
+    {
+      "id": "narrated-color",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "same-color",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "named-object",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila greeted Tomas. Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "two-antecedents",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila greeted Nessa. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "different-owner",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Nessa has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "short-dialogue",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "“Leila has amber eyes,” Tomas said.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "dialogue-then-fact",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "“Look closely,” Tomas said. Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "reported-doubt",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Tomas doubted that Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "negative-claim",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "It was never true that Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "temporal-hair",
+      "documents": [
+        {
+          "text": "Leila’s hair was brown.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila’s hair was silver.",
+          "metadata": {
+            "flashback": "true"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "timed-hair",
+      "documents": [
+        {
+          "text": "Leila’s hair was brown.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila’s hair was silver.",
+          "metadata": {
+            "storyTime": "forty years later"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "birth-invariant",
+      "documents": [
+        {
+          "text": "Leila was born in 1901.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila was born in 1902.",
+          "metadata": {
+            "storyTime": "forty years later"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "confirmed-alias",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Lark has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [
+        {
+          "subject": "Leila",
+          "value": "Lark",
+          "confidence": "confirmed"
+        }
+      ],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "unconfirmed-alias",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Lark has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [
+        {
+          "subject": "Leila",
+          "value": "Lark",
+          "confidence": "uncertain"
+        }
+      ],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "adjacent-reference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila paused. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "line-wrap-reference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila paused.\nHer eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "paragraph-reference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila paused.\n\nHer eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "unknown-reference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "complex-reference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila folded the empty map. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "indirect-color",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Amber was the color of Leila’s eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "hair-paraphrase",
+      "documents": [
+        {
+          "text": "Leila’s hair was brown.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila wore her silver hair in a braid.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "intentional-variation",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila has amber eyes.",
+          "metadata": {
+            "intentionalContradiction": "true"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "unicode-owner",
+      "documents": [
+        {
+          "text": "Zoë has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Zoë has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "collective-subject",
+      "documents": [
+        {
+          "text": "Nessa has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila and Nessa arrived. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-quoted-birth",
+      "documents": [
+        {
+          "text": "Idris was born in 1870.",
+          "metadata": {}
+        },
+        {
+          "text": "“Idris was born in 1871,” the clerk insisted.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-narrated-birth",
+      "documents": [
+        {
+          "text": "Idris was born in 1870.",
+          "metadata": {}
+        },
+        {
+          "text": "“Read the ledger.” Idris was born in 1871.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-ambiguous",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Sofia and Anya waited. Her eyes were brown.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-alias",
+      "documents": [
+        {
+          "text": "Idris has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Ash has brown eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [
+        {
+          "subject": "Idris",
+          "value": "Ash",
+          "confidence": "confirmed"
+        }
+      ],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-unknown-alias",
+      "documents": [
+        {
+          "text": "Idris has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Ash has brown eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-flashback",
+      "documents": [
+        {
+          "text": "Sofia’s hair was black.",
+          "metadata": {}
+        },
+        {
+          "text": "Sofia’s hair was white.",
+          "metadata": {
+            "flashback": "true"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-immutable",
+      "documents": [
+        {
+          "text": "Idris was born in 1870.",
+          "metadata": {}
+        },
+        {
+          "text": "Idris was born in 1871.",
+          "metadata": {
+            "storyTime": "childhood"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-single-line",
+      "documents": [
+        {
+          "text": "Idris’s hair was black.",
+          "metadata": {}
+        },
+        {
+          "text": "Idris waited.\nHis hair was white.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-inanimate-object",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Sofia closed the wooden chest. Her eyes were brown.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-admitted-uncertainty",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "The witness questioned whether Sofia has brown eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-indirect-color",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Brown was the color of Sofia’s eyes.",
+          "metadata": {}
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    },
+    {
+      "id": "transfer-intentional",
+      "documents": [
+        {
+          "text": "Idris has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Idris has brown eyes.",
+          "metadata": {
+            "intentionalContradiction": "true"
+          }
+        }
+      ],
+      "authorRecordedAliases": [],
+      "judgment": null,
+      "expected": null,
+      "reason": ""
+    }
+  ]
+}

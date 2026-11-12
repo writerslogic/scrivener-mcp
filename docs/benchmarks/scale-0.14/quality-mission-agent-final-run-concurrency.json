@@ -1,0 +1,13 @@
+{
+  "events": [
+    {
+      "workload": "mutation-10000-candidate",
+      "reportedBy": "root",
+      "localTime": "2026-11-11 19:06 America/Los_Angeles",
+      "activity": "Read-only source/build hash reconciliation of1458files",
+      "durationSecondsApprox": 10,
+      "timingImpact": "Concurrent filesystem reads; edit-loop wall time is not fully resource isolated. No throughput/comparative latency claim; integrity/reservation assertions remain usable."
+    }
+  ],
+  "otherCoordination": "Mission builds/tests locally paused by operator; remote GitHub CI may run independently. Unrelated host work is uncontrolled."
+}

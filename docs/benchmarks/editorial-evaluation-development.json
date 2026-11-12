@@ -1,0 +1,774 @@
+{
+  "schemaVersion": 1,
+  "corpusSha256": "d522a9fd666753c4d2fe319b8154e5fa2a29f07489ee2ee8002f383d93da8596",
+  "annotationStatus": "Agent-authored before predictions; not independently human validated",
+  "split": "development",
+  "implementation": {
+    "commit": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+    "workingTreeDirty": true,
+    "node": "v24.22.1",
+    "platform": "darwin-arm64",
+    "runnerSha256": "303630ea0ea93f86c205f04acbef953aff40553ced9914bca58d4345cb27c125",
+    "modules": {
+      "continuity-service": "b0782f3792d3bbb60f2e9b17afd119ba61e3de44a87a9b1b30949326ef23651d",
+      "object-coreference": "eaf26efb79eaf4a2bb5ef78d1d95cd58c4dcc0f1b05540030d3dc9523c35cd43",
+      "continuity-nouns": "85a890784d73029ae7491f5594202b04816151eddb58df0d36d3119a162c086d",
+      "series-bible": "3e5da2af95936e346fd6e45c905dfce923ff1183f58c580d68b910299d12bd21",
+      "provenance": "9a729b7ec28afa1e4450492272b43b1ca7918c833b6a54ac2b3e2e172f251db5",
+      "persistent-store": "3e3507ee375cf0a33c58fed1dffef8602f696b07b3c2c2fc5a76e337be13eccc"
+    }
+  },
+  "overall": {
+    "cases": 24,
+    "tp": 11,
+    "fp": 0,
+    "fn": 0,
+    "tn": 13,
+    "precision": 1,
+    "recall": 1
+  },
+  "splits": {
+    "development": {
+      "cases": 24,
+      "tp": 11,
+      "fp": 0,
+      "fn": 0,
+      "tn": 13,
+      "precision": 1,
+      "recall": 1
+    }
+  },
+  "categories": {
+    "explicit": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": 1,
+      "recall": 1
+    },
+    "multiple-characters": {
+      "cases": 4,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 3,
+      "precision": 1,
+      "recall": 1
+    },
+    "dialogue": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": 1,
+      "recall": 1
+    },
+    "uncertainty": {
+      "cases": 2,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": null,
+      "recall": null
+    },
+    "flashback": {
+      "cases": 3,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": 1,
+      "recall": 1
+    },
+    "aliases": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": 1,
+      "recall": 1
+    },
+    "coreference": {
+      "cases": 3,
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "ambiguity": {
+      "cases": 2,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": null,
+      "recall": null
+    },
+    "paraphrase": {
+      "cases": 2,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "intentional": {
+      "cases": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": null,
+      "recall": null
+    },
+    "unicode": {
+      "cases": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1,
+      "recall": 1
+    }
+  },
+  "evidenceChecked": 22,
+  "predictions": [
+    {
+      "id": "narrated-color",
+      "split": "development",
+      "category": "explicit",
+      "inputSha256": "a3567513bc03705d14eca1dab43430b7fd3d6185207fef0e21a89ceee5f3a7c2",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "a9f9e993559a3b49f989298d8714149b07c0b88c6b60009d8191f7a4e37baf38",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 20,
+              "line": 1,
+              "quote": "Leila has amber eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "same-color",
+      "split": "development",
+      "category": "explicit",
+      "inputSha256": "1614c9cb3c31eb3995239b4b8490c119513284822ac7df0b10eca4499b78c1ee",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "named-object",
+      "split": "development",
+      "category": "multiple-characters",
+      "inputSha256": "94fa00509d90e8190318f132b60c36eb1fcaf56f165b9065b9d1339b64ef0d0f",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "db4e40e17417f2d35f942194817da7bdba691c7afd57a036169f78c27ad6bb9a",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 21,
+              "end": 41,
+              "line": 1,
+              "quote": "Leila has amber eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "two-antecedents",
+      "split": "development",
+      "category": "multiple-characters",
+      "inputSha256": "2aa3585233d6de6ca88edac0c13673878417a8521d13b53e1e94bbc57d8aa27d",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "different-owner",
+      "split": "development",
+      "category": "multiple-characters",
+      "inputSha256": "23c641776ebd1f767c2d0953ca3e8fbf6e1a2afda031e2e6290af6ad903bf00e",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "short-dialogue",
+      "split": "development",
+      "category": "dialogue",
+      "inputSha256": "fc4b78d993ed28f78c2662cecc249103a9a5b2797cb59eb3cfd311d8b969e236",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "dialogue-then-fact",
+      "split": "development",
+      "category": "dialogue",
+      "inputSha256": "0b81a5ba8678291da1d84972fe402778204b4671a16f0b8517f772585ec1eb75",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "dc774dcdd1171d4d130f0fb95d154f916b2dd1f416c14215cbe6ddf2d9fa20b8",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 28,
+              "end": 48,
+              "line": 1,
+              "quote": "Leila has amber eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reported-doubt",
+      "split": "development",
+      "category": "uncertainty",
+      "inputSha256": "cfe2418e2861f6609344cf332e67d2cbf04f6999b4535b74d8c8d3c2bd196bb6",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "negative-claim",
+      "split": "development",
+      "category": "uncertainty",
+      "inputSha256": "1b0efd59ec96d83686946fd59d291e9d4fa9c75207c3fd29523c94cdd1612487",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "temporal-hair",
+      "split": "development",
+      "category": "flashback",
+      "inputSha256": "6a8c0b8b12d7519aa1f16d18301b33fe3233ab2bb4d77c83f70f117f5d216ba6",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "timed-hair",
+      "split": "development",
+      "category": "flashback",
+      "inputSha256": "26fbcf38287aa9126c4ad7611d8d8d2c546f9d30d4dcbc0437fe46243e31780e",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "birth-invariant",
+      "split": "development",
+      "category": "flashback",
+      "inputSha256": "bcdf0a08cd53841aeeb38731d4e1cea01d39fb5eea8f3e241a47b295e68728f9",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: birth-year has competing values \"1901\" and \"1902\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "f5599fd9fd3d8c6dddfcbb5797aa5f0dbd3458d7bb6a2960d211ca66b2891ed1",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Leila was born in 1901"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "4ec3666ab6f2d2f1aa0391d6be8cb25c8c74d7ebfe04860c74365aac0fef0819",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Leila was born in 1902"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "confirmed-alias",
+      "split": "development",
+      "category": "aliases",
+      "inputSha256": "b765ead741cc5aa9f5473e8e2b697f426b421e0c4a8e3720fe526ab20701af74",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "ac74e724b422c344b6cb85422bfaea84acfa0747cebb4dc38b0855e110d96091",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Lark has amber eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unconfirmed-alias",
+      "split": "development",
+      "category": "aliases",
+      "inputSha256": "f7167023b5b22e687f3a7ea54fa9576f15dd75e5b5d318af7f77fc716dfd36d5",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "adjacent-reference",
+      "split": "development",
+      "category": "coreference",
+      "inputSha256": "249231a9a2fbb897f54bd6bfe11cdd031885260e7de6def8fed88d6074185b43",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "a2fa2bd5f67ad78cf7879fdf37d1b80bb0a400dc568794612335ae10cf5efc06",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 33,
+              "line": 1,
+              "quote": "Leila paused. Her eyes were amber"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "line-wrap-reference",
+      "split": "development",
+      "category": "coreference",
+      "inputSha256": "64ea1f95cdb751321dd8f6d025a32788f4a2616d19ec9fa14eaa22a666a09f0d",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "b9c1728126768c6f4895c7cfc8becb05f0c78b1a296451b2c0f5fd95354a7e1e",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 33,
+              "line": 1,
+              "quote": "Leila paused.\nHer eyes were amber"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paragraph-reference",
+      "split": "development",
+      "category": "ambiguity",
+      "inputSha256": "cb61311caa51a6f2e7ad946e84fce39a18159b8c908532501e356c17b1a2225a",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "unknown-reference",
+      "split": "development",
+      "category": "ambiguity",
+      "inputSha256": "b781be1b75ca439c3ae4a71f183f915c72df9b0118467a8ae7987fb3aadda324",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "complex-reference",
+      "split": "development",
+      "category": "coreference",
+      "inputSha256": "8a04bed2583ef574e747b7fff41324b1f6653f7620fd616829ab9445fd490baa",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "72fc1e4c0a2ae5a2d766cc626ad18747b7bd6507c50f4de5fb4a0bdd9bf8c00c",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 47,
+              "line": 1,
+              "quote": "Leila folded the empty map. Her eyes were amber"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "indirect-color",
+      "split": "development",
+      "category": "paraphrase",
+      "inputSha256": "b39d345ed0d5df6a1b6607f463ca4758a72a40a78302ac675b1d409bfabaa204",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "52e1cec5681a17aa3f5919414a9f2d61d1f86164479dd4df4a119cf1a3c7407d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 19,
+              "line": 1,
+              "quote": "Leila has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "447b7b7f62b96dc8f7d12fae8b5cca6ab6d705212cd1583847ea416da0e567d4",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 35,
+              "line": 1,
+              "quote": "Amber was the color of Leila’s eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hair-paraphrase",
+      "split": "development",
+      "category": "paraphrase",
+      "inputSha256": "07d4078626face2123ed50ee5684f5906d47fd09918eb6cadf94934a237ecdd1",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Leila: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "a67e24db35a50b39d9b282ee7a45c750869d69513e34bfa56efdfcd63b3f814d",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Leila’s hair was brown"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "4afcf3f5d92359f342398928bd9351c5434fb3b9cca89bf3cc2f03c1d1c59159",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 26,
+              "line": 1,
+              "quote": "Leila wore her silver hair"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "intentional-variation",
+      "split": "development",
+      "category": "intentional",
+      "inputSha256": "374cede66dffbd884df9046d870d287279ae8030565c063aeade0b26d4441f50",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "unicode-owner",
+      "split": "development",
+      "category": "unicode",
+      "inputSha256": "14f62286c17387587c028bedfaab968cd65a6b2e39b7e03193a2ff204c7b6fd0",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Zoë: eye-color has competing values \"blue\" and \"amber\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "7a5f1d91343fbb2b22cc069b2dc14bbf95520d9ec5e0b9498f79c0ddf30875ae",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 17,
+              "line": 1,
+              "quote": "Zoë has blue eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "81e02dfd701415ce008973ef950fba7cecea7c6dd393aba10731fe480371593e",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 18,
+              "line": 1,
+              "quote": "Zoë has amber eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "collective-subject",
+      "split": "development",
+      "category": "multiple-characters",
+      "inputSha256": "f30834ca0b65c1aba1ac3345af136fbdda3458d82cfdfbd1408e5af30a6404ac",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    }
+  ],
+  "limitations": "Agent-authored synthetic scenarios, labeled before predictions; no independent human review or private manuscripts. Held-out cases are reserved from tuning only until their first evaluation, then become regression cases. No result estimates general manuscript reliability or editorial preference. No paid APIs or network calls.",
+  "comparison": {
+    "before": {
+      "cases": 24,
+      "tp": 6,
+      "fp": 2,
+      "fn": 5,
+      "tn": 11,
+      "precision": 0.75,
+      "recall": 0.5454545454545454
+    },
+    "after": {
+      "cases": 24,
+      "tp": 11,
+      "fp": 0,
+      "fn": 0,
+      "tn": 13,
+      "precision": 1,
+      "recall": 1
+    },
+    "regressions": []
+  }
+}

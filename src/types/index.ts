@@ -252,6 +252,8 @@ export interface CompilationOptions {
 }
 
 export interface ExportOptions {
+	language?: string;
+	documentLanguages?: Record<string, string>;
 	preset?: ExportPreset;
 	documentIds?: string[];
 	frontMatterIds?: string[];

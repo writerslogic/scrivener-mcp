@@ -5,7 +5,7 @@
 
 import { createRequire } from 'module';
 import { readFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 const _require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = _require('../package.json') as { version: string };
 
@@ -28,6 +28,8 @@ import {
 } from '@modelcontextprotocol/server/stdio';
 import { ContentAnalyzer } from './analysis/base-analyzer.js';
 import { getLogger } from './core/logger.js';
+import { TOOL_ADMISSION_LIMITS, ToolInvocationAdmission } from './core/tool-admission.js';
+import { AppError, isValidUUID } from './utils/common.js';
 import {
 	formatError,
 	cleanupSpool,
@@ -43,12 +45,12 @@ import {
 	executeRegisteredHandler,
 	getToolCatalogRevision,
 	activateSkills,
+	isProjectScopedTool,
 } from './handlers/skill-registry.js';
 import { HandlerError } from './handlers/types.js';
 import { SERVER_CAPABILITIES } from './handlers/server-capabilities.js';
 import { APP_MIME_TYPE, DASHBOARD_URI, supportsApps } from './handlers/dashboard-handlers.js';
 import { PersonalizationService } from './services/personalization/personalization-service.js';
-import { initializeHHM } from './handlers/memory-handlers.js';
 import { applyDiscoveredAIKeys } from './utils/env-config.js';
 import { registerSamplingServer } from './services/ai/sampling-bridge.js';
 
@@ -86,31 +88,12 @@ const logger = getLogger('main');
 // macOS Keychain before any AIClient is constructed; explicit env vars always win.
 applyDiscoveredAIKeys();
 
-let hhmInitialized = false;
-
 async function initializeContext(): Promise<HandlerContext> {
-	let hhmSystem;
-
-	try {
-		hhmSystem = await initializeHHM({
-			dimensions: 10000,
-			similarityThreshold: 0.4,
-		});
-		hhmInitialized = true;
-		logger.info('HHM system initialized successfully');
-	} catch (error) {
-		logger.warn('Failed to initialize HHM system, continuing without it', {
-			error: (error as Error).message,
-		});
-		hhmInitialized = false;
-	}
-
 	return {
 		project: null,
 		memoryManager: null,
 		contentAnalyzer: new ContentAnalyzer(),
 		personalization: new PersonalizationService(null),
-		hhmSystem,
 	};
 }
 
@@ -121,7 +104,10 @@ initializeSkillRegistry();
 let stdioHandle: StdioServerHandle | undefined;
 function buildServer(modern: boolean): Server {
 	let projectToken: string | undefined;
-	let dispatch: Promise<void> = Promise.resolve();
+	const admission = new ToolInvocationAdmission({
+		...TOOL_ADMISSION_LIMITS,
+		maxConcurrent: modern ? 1 : TOOL_ADMISSION_LIMITS.maxConcurrent,
+	});
 	const server = new Server(
 		{
 			name: 'scrivener-mcp',
@@ -209,7 +195,8 @@ function buildServer(modern: boolean): Server {
 
 	server.setRequestHandler('tools/call', async (request, extra) => {
 		const execute = async (): Promise<CallToolResult> => {
-			const { name, arguments: args } = request.params;
+			const { name, arguments: suppliedArgs } = request.params;
+			const { projectHandle: argumentHandle, ...args } = suppliedArgs ?? {};
 			const operationId = randomUUID();
 			const started = performance.now();
 			const requestBytes = Buffer.byteLength(JSON.stringify(args ?? {}));
@@ -221,25 +208,40 @@ function buildServer(modern: boolean): Server {
 				}
 				extra.mcpReq.signal.throwIfAborted();
 				context.uiSupported = clientSupportsApps(extra);
-				if (
-					modern &&
-					![
-						'open_project',
-						'discover_projects',
-						'list_skills',
-						'use_skill',
-						'read_result',
-					].includes(name) &&
-					(context.project || request.params._meta?.['com.writerslogic/project'])
-				) {
+				if (isProjectScopedTool(name)) {
+					const metadataHandle = request.params._meta?.['com.writerslogic/project'];
+					for (const handle of [argumentHandle, metadataHandle]) {
+						if (
+							handle !== undefined &&
+							(typeof handle !== 'string' || !isValidUUID(handle))
+						)
+							throw new HandlerError(
+								'projectHandle must be the opaque UUID returned by open_project.',
+								'INVALID_ARGUMENT'
+							);
+					}
 					if (
-						!projectToken ||
-						request.params._meta?.['com.writerslogic/project'] !== projectToken
+						typeof argumentHandle === 'string' &&
+						typeof metadataHandle === 'string' &&
+						!timingSafeEqual(Buffer.from(argumentHandle), Buffer.from(metadataHandle))
 					)
 						throw new HandlerError(
-							'Supply the com.writerslogic/project metadata token returned by open_project; this request belongs to another project scope.',
+							'projectHandle and legacy project metadata refer to different project scopes.',
 							'INVALID_ARGUMENT'
 						);
+					const suppliedHandle = argumentHandle ?? metadataHandle;
+					if ((modern && context.project) || suppliedHandle !== undefined) {
+						if (
+							!context.project ||
+							!projectToken ||
+							typeof suppliedHandle !== 'string' ||
+							!timingSafeEqual(Buffer.from(suppliedHandle), Buffer.from(projectToken))
+						)
+							throw new HandlerError(
+								'Supply projectHandle returned by open_project; the handle is missing, stale, or belongs to another project scope.',
+								'INVALID_ARGUMENT'
+							);
+					}
 				}
 
 				const result = await executeRegisteredHandler(name, args ?? {}, context, {
@@ -247,12 +249,7 @@ function buildServer(modern: boolean): Server {
 				});
 				if (name === 'open_project' && context.project && !result.isError) {
 					projectToken = randomUUID();
-					if (!modern)
-						activateSkills(
-							'documents',
-							'search',
-							...(hhmInitialized ? ['memory'] : [])
-						);
+					if (!modern) activateSkills('documents', 'search', 'memory');
 				}
 				if (name === 'close_project' && !result.isError) projectToken = undefined;
 
@@ -267,6 +264,24 @@ function buildServer(modern: boolean): Server {
 				} = { content: result.content };
 				if (result.structuredContent !== undefined) {
 					response.structuredContent = result.structuredContent;
+				}
+				if (
+					projectToken &&
+					!result.isError &&
+					(name === 'open_project' || name === 'manuscript_dashboard')
+				) {
+					response.structuredContent = {
+						...result.structuredContent,
+						projectHandle: projectToken,
+					};
+					if (name === 'open_project')
+						response.content = [
+							...result.content,
+							{
+								type: 'text',
+								text: `Project handle: ${projectToken}. Supply it as projectHandle on subsequent project calls.`,
+							},
+						];
 				}
 				response._meta = {
 					...result._meta,
@@ -337,13 +352,16 @@ function buildServer(modern: boolean): Server {
 				}
 			}
 		};
-		if (!modern) return execute();
-		const pending = dispatch.then(execute);
-		dispatch = pending.then(
-			() => undefined,
-			() => undefined
-		);
-		return pending;
+		try {
+			return await admission.run(request.params, extra.mcpReq.signal, execute);
+		} catch (error) {
+			if (!(error instanceof AppError)) throw error;
+			return {
+				content: [{ type: 'text', text: formatError(error, 'Tool admission') }],
+				isError: true,
+				_meta: { 'com.writerslogic/admission': { code: error.code } },
+			};
+		}
 	});
 
 	return server;
@@ -351,13 +369,13 @@ function buildServer(modern: boolean): Server {
 
 async function main() {
 	try {
-		const { FirstRunManager } = await import('./services/auto-setup/first-run.js');
-		const firstRunManager = new FirstRunManager();
-
-		await firstRunManager.initialize({
-			quietMode: process.env.SCRIVENER_QUIET === 'true',
-			skipSetup: process.env.SCRIVENER_SKIP_SETUP === 'true',
-		});
+		if (process.env.SCRIVENER_SKIP_SETUP === 'true') {
+			logger.info('Skipping first-run setup');
+		} else {
+			const { FirstRunManager } = await import('./services/auto-setup/first-run.js');
+			const firstRunManager = new FirstRunManager();
+			await firstRunManager.initialize({ quietMode: process.env.SCRIVENER_QUIET === 'true' });
+		}
 	} catch (error) {
 		logger.warn('First-run check failed', { error });
 		// Continue anyway
@@ -377,12 +395,11 @@ async function main() {
 	}
 
 	// Capability summary — lets writers see what's active without reading docs
-	const resolvedCtx = await contextPromise;
+	await contextPromise;
 	const neo4jActive = !!process.env.NEO4J_URI;
 	const redisActive = !!process.env.REDIS_URL;
-	const hmsStatus = resolvedCtx.hhmSystem ? 'active' : 'not available';
 	logger.info(
-		`Core: ready | Semantic search (HMS): ${hmsStatus} | ` +
+		'Core: ready | Local retrieval: on demand | ' +
 			`Neo4j: ${neo4jActive ? 'configured' : 'not connected'} | ` +
 			`Redis: ${redisActive ? 'configured' : 'not connected'}`
 	);
@@ -422,12 +439,6 @@ async function shutdown(): Promise<void> {
 		},
 		async () => {
 			disposeSpool();
-		},
-		async () => {
-			if (hhmInitialized) {
-				const { getHHMSystem } = await import('./handlers/memory-handlers.js');
-				await getHHMSystem().destroy();
-			}
 		},
 	];
 	for (const operation of operations) {

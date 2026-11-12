@@ -84,6 +84,7 @@ export const enhanceContentHandler: ToolDefinition = {
 	},
 	outputSchema: {
 		type: 'object',
+		$defs: { AnalysisEnvelope: ANALYSIS_ENVELOPE_SCHEMA },
 		oneOf: [
 			{
 				type: 'object',
@@ -235,7 +236,10 @@ export const enhanceContentHandler: ToolDefinition = {
 							'truncated',
 						],
 					},
-					envelope: ANALYSIS_ENVELOPE_SCHEMA,
+					envelope: {
+						$ref: '#/$defs/AnalysisEnvelope',
+						description: ANALYSIS_ENVELOPE_SCHEMA.description,
+					},
 				},
 				required: [
 					'documentId',
@@ -280,7 +284,10 @@ export const enhanceContentHandler: ToolDefinition = {
 						},
 						required: ['status', 'reason'],
 					},
-					envelope: ANALYSIS_ENVELOPE_SCHEMA,
+					envelope: {
+						$ref: '#/$defs/AnalysisEnvelope',
+						description: ANALYSIS_ENVELOPE_SCHEMA.description,
+					},
 				},
 				required: ['documentId', 'enhanced', 'availability', 'envelope'],
 			},

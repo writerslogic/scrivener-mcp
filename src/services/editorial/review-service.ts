@@ -29,7 +29,20 @@ export interface ProposedEdit extends ProposedEditInput {
 	status: 'pending' | 'accepted' | 'rejected';
 }
 
+export const REVIEW_CATEGORIES = [
+	'general',
+	'continuity',
+	'structure',
+	'voice',
+	'clarity',
+	'mechanics',
+] as const;
+export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
+
 export interface ChangeProposal {
+	category?: ReviewCategory;
+	rationale?: string;
+	alternativeGroup?: string;
 	id: string;
 	documentId: string;
 	title: string;
@@ -275,13 +288,134 @@ export class ReviewService {
 		return proposal;
 	}
 
+	inbox(
+		options: {
+			limit?: number;
+			after?: string;
+			documentId?: string;
+			category?: ReviewCategory;
+			status?: 'pending' | 'reviewed' | 'all';
+			query?: string;
+		} = {}
+	) {
+		const limit = options.limit ?? 20;
+		if (
+			!Number.isInteger(limit) ||
+			limit < 1 ||
+			limit > 100 ||
+			(options.after !== undefined &&
+				(typeof options.after !== 'string' ||
+					!options.after.length ||
+					options.after.length > 160)) ||
+			(options.query !== undefined &&
+				(typeof options.query !== 'string' || options.query.length > 200)) ||
+			(options.category !== undefined && !REVIEW_CATEGORIES.includes(options.category)) ||
+			(options.status !== undefined &&
+				!['pending', 'reviewed', 'all'].includes(options.status))
+		)
+			throw new Error('Invalid revision inbox filters');
+		if (options.documentId !== undefined) identity(options.documentId, 'document ID');
+		type Summary = Omit<ChangeProposal, 'before' | 'edits'> & {
+			counts: Record<'pending' | 'accepted' | 'rejected', number>;
+		};
+		return this.store.transaction(() => {
+			if (this.store.count(PROPOSALS) > 10000)
+				throw new Error('Revision inbox exceeds 10000 proposals');
+			const summaries: Summary[] = [];
+			let after: string | undefined;
+			do {
+				const page = this.store.page<Summary>(
+					PROPOSALS,
+					{ limit: 100, after },
+					[
+						'id',
+						'documentId',
+						'title',
+						'category',
+						'rationale',
+						'alternativeGroup',
+						'sourceRevision',
+						'currentRevision',
+						'sequence',
+						'createdAt',
+						'applyingOperation',
+					],
+					undefined,
+					{
+						field: 'edits',
+						property: 'status',
+						values: ['pending', 'accepted', 'rejected'],
+					}
+				);
+				summaries.push(...page.items);
+				if (summaries.length > 10000)
+					throw new Error('Revision inbox exceeds 10000 proposals');
+				after = page.nextCursor ?? undefined;
+			} while (after);
+			const query = options.query?.normalize('NFKC').toLocaleLowerCase() ?? '';
+			const matching = summaries.filter(
+				(item) =>
+					(!options.documentId || item.documentId === options.documentId) &&
+					(!options.category || (item.category ?? 'general') === options.category) &&
+					(!query ||
+						[item.title, item.rationale ?? '', item.alternativeGroup ?? '']
+							.join(' ')
+							.normalize('NFKC')
+							.toLocaleLowerCase()
+							.includes(query))
+			);
+			const totals = matching.reduce(
+				(total, item) => ({
+					proposals: total.proposals + 1,
+					pending: total.pending + item.counts.pending,
+					accepted: total.accepted + item.counts.accepted,
+					rejected: total.rejected + item.counts.rejected,
+				}),
+				{ proposals: 0, pending: 0, accepted: 0, rejected: 0 }
+			);
+			const filtered = matching.filter(
+				(item) =>
+					options.status === 'all' ||
+					(options.status === 'reviewed'
+						? item.counts.pending === 0
+						: item.counts.pending > 0)
+			);
+			const remaining = filtered.filter((item) => !options.after || item.id > options.after);
+			const items = remaining.slice(0, limit);
+			return {
+				items,
+				totals,
+				total: filtered.length,
+				nextCursor: remaining.length > limit ? items[items.length - 1].id : null,
+			};
+		});
+	}
+
 	async propose(input: {
+		category?: ReviewCategory;
+		rationale?: string;
+		alternativeGroup?: string;
 		documentId: string;
 		expectedRevision?: string;
 		edits: ProposedEditInput[];
 		title?: string;
 		idempotencyKey?: string;
 	}): Promise<ChangeProposal> {
+		if (input.category !== undefined && !REVIEW_CATEGORIES.includes(input.category))
+			throw new Error('Invalid review category');
+		for (const [value, maximum] of [
+			[input.rationale, 2000],
+			[input.alternativeGroup, 200],
+		] as const) {
+			if (
+				value !== undefined &&
+				(typeof value !== 'string' ||
+					!value.trim() ||
+					value.length > maximum ||
+					value.includes('\0'))
+			)
+				throw new Error('Invalid review rationale or alternative group');
+		}
 		if (!Array.isArray(input.edits) || input.edits.length < 1 || input.edits.length > 1000)
 			throw new Error('A proposal must contain between 1 and 1000 edits');
 		if (
@@ -320,6 +454,9 @@ export class ReviewService {
 		if (prior) {
 			if (
 				prior.documentId !== input.documentId ||
+				prior.category !== input.category ||
+				prior.rationale !== input.rationale ||
+				prior.alternativeGroup !== input.alternativeGroup ||
 				prior.title !== (input.title ?? 'Proposed manuscript changes') ||
 				prior.edits.length !== input.edits.length ||
 				prior.edits.some(
@@ -358,6 +495,9 @@ export class ReviewService {
 			previous = edit;
 		}
 		const proposal: ChangeProposal = {
+			...(input.category ? { category: input.category } : {}),
+			...(input.rationale ? { rationale: input.rationale } : {}),
+			...(input.alternativeGroup ? { alternativeGroup: input.alternativeGroup } : {}),
 			id,
 			documentId: input.documentId,
 			title: input.title ?? 'Proposed manuscript changes',

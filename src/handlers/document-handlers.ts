@@ -8,8 +8,6 @@ import {
 	handleError,
 } from '../utils/common.js';
 import { compact } from '../core/response-formatter.js';
-import { getHHMSystem } from './memory-handlers.js';
-import { getLogger } from '../core/logger.js';
 import type { HandlerResult, ToolDefinition } from './types.js';
 import {
 	getOptionalBooleanArg,
@@ -164,13 +162,38 @@ export const getDocumentInfoHandler: ToolDefinition = {
 	},
 };
 
+function readWordPage(text: string, offset: number, limit: number | undefined) {
+	let totalWords = 0;
+	let sourceStart = offset === 0 ? 0 : text.length;
+	let sourceEnd = text.length;
+	for (const word of text.matchAll(/\S+/gu)) {
+		if (totalWords === offset && offset > 0) sourceStart = word.index;
+		if (limit !== undefined && totalWords - offset === limit) sourceEnd = word.index;
+		totalWords++;
+	}
+	const wordCount = Math.min(limit ?? totalWords, Math.max(0, totalWords - offset));
+	return {
+		text: text.slice(sourceStart, sourceEnd),
+		wordCount,
+		pagination: {
+			offset,
+			limit: limit ?? null,
+			totalWords,
+			nextOffset: offset + wordCount < totalWords ? offset + wordCount : null,
+			sourceStart,
+			sourceEnd,
+		},
+	};
+}
+
 export const readDocumentHandler: ToolDefinition = {
 	name: 'read_document',
 	title: 'Read Document',
 	description:
-		'Read the text of a single document. By default returns plain text; set format to "formatted" ' +
-		'to get rich text with styling and structure preserved. Use offset and limit to page through ' +
-		'long documents by word range instead of returning the whole thing. Use get_document_info ' +
+		'Read saved document text and its revision. Plain-text pages use whitespace-delimited words and preserve source whitespace; ' +
+		'Continue with pagination.nextOffset and require the same revision to assemble pages; pagination.sourceStart/sourceEnd are UTF-16 source offsets. ' +
+		'Formatted reads return decoded text with supported style runs, not native layout or images. ' +
+		'Use get_document_info ' +
 		'when you only need metadata, or search/semantic_search to find content across many documents. ' +
 		'Requires an open project and a valid document id.',
 	annotations: {
@@ -188,18 +211,21 @@ export const readDocumentHandler: ToolDefinition = {
 				enum: ['plain', 'formatted'],
 				description:
 					'"plain" (default) returns unstyled text and supports offset/limit paging. ' +
-					'"formatted" returns rich text with styling and structure preserved (paged ' +
-					'reading does not apply).',
+					'"formatted" returns supported style runs; offset and limit are rejected.',
 			},
 			offset: {
-				type: 'number',
+				type: 'integer',
+				minimum: 0,
+				maximum: Number.MAX_SAFE_INTEGER,
 				description:
 					'Zero-based word index to start reading from. Default 0. Plain format only.',
 			},
 			limit: {
-				type: 'number',
+				type: 'integer',
+				minimum: 1,
+				maximum: 10000,
 				description:
-					'Maximum number of words to return from offset. Omit to read to the end.',
+					'Maximum words per page, 1–10000. Zero is rejected. Omit to read to the end.',
 			},
 		},
 		required: ['documentId'],
@@ -209,10 +235,32 @@ export const readDocumentHandler: ToolDefinition = {
 			const project = requireProject(_context);
 			const documentId = getStringArg(args, 'documentId');
 			const format = getOptionalStringArg(args, 'format') || 'plain';
-			const offset = getOptionalNumberArg(args, 'offset') || 0;
+			const offset = args.offset === undefined ? 0 : getOptionalNumberArg(args, 'offset');
 			const limit = getOptionalNumberArg(args, 'limit');
+			if (offset === undefined || !Number.isSafeInteger(offset) || offset < 0)
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					undefined,
+					'offset must be a nonnegative safe integer word index.'
+				);
+			if (
+				args.limit !== undefined &&
+				(limit === undefined || !Number.isSafeInteger(limit) || limit < 1 || limit > 10000)
+			)
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					undefined,
+					'limit must be an integer from 1 to 10000 words; omit it to read to the end.'
+				);
+			const paged = args.offset !== undefined || args.limit !== undefined;
+			if (format === 'formatted' && paged)
+				throw createError(
+					ErrorCode.INVALID_INPUT,
+					undefined,
+					'offset and limit require plain format.'
+				);
 			assertValidDocumentId(documentId);
-			const docInfo = await requireExistingDocument(project, documentId);
+			await requireExistingDocument(project, documentId);
 
 			if (format === 'formatted') {
 				const formatted = await project.readDocumentFormatted(documentId);
@@ -223,44 +271,19 @@ export const readDocumentHandler: ToolDefinition = {
 
 			const result = await measureExecution(() => project.readDocumentVersion(documentId));
 
-			// Optionally memorize document content in HHM
-			try {
-				const hhmSystem = getHHMSystem();
-				if (docInfo.document && result.result.text.trim()) {
-					await hhmSystem.memorizeDocument({
-						id: docInfo.document.id,
-						title: docInfo.document.title || 'Untitled',
-						path: docInfo.document.path,
-						content: result.result.text,
-						type: docInfo.document.type || 'Text',
-						wordCount: docInfo.document.wordCount || 0,
-						customMetadata: docInfo.document.customMetadata || {},
-					});
-					getLogger('document-handlers').debug('Document memorized in HHM', {
-						documentId,
-					});
-				}
-			} catch (error) {
-				// HHM integration is optional - don't fail the main operation
-				getLogger('document-handlers').debug('Failed to memorize in HHM', { error });
-			}
-
-			let text = result.result.text;
-			const words = text.split(/\s+/);
-			const totalWords = words.length;
-
-			if (offset > 0 || limit) {
-				const end = limit ? offset + limit : undefined;
-				text = words.slice(offset, end).join(' ');
-			}
-
-			const meta =
-				offset > 0 || limit
-					? ` [words ${offset}-${offset + text.split(/\s+/).length}/${totalWords}]`
-					: '';
+			const page = paged ? readWordPage(result.result.text, offset, limit) : undefined;
+			const text = page?.text ?? result.result.text;
+			const meta = page
+				? ` [words ${offset}-${offset + page.wordCount}/${page.pagination.totalWords}]`
+				: '';
 
 			return {
-				structuredContent: { documentId, revision: result.result.revision, text },
+				structuredContent: {
+					documentId,
+					revision: result.result.revision,
+					text,
+					...(page ? { pagination: page.pagination } : {}),
+				},
 				content: [
 					{
 						type: 'text',
@@ -335,23 +358,6 @@ export const writeDocumentHandler: ToolDefinition = {
 					allowFormattingLoss: getOptionalBooleanArg(args, 'allowFormattingLoss'),
 				})
 			);
-
-			try {
-				const hhmSystem = getHHMSystem();
-				const docInfo = await project.getDocumentInfo(documentId);
-				if (docInfo.document && content.trim()) {
-					const memoryId = `doc_${docInfo.document.id}`;
-					if (content.length > 10_000) {
-						await hhmSystem.memorizeTextBuffer(memoryId, Buffer.from(content));
-					} else {
-						await hhmSystem.memorizeText(content, memoryId);
-					}
-					getLogger('document-handlers').debug('Document updated in HHM', { documentId });
-				}
-			} catch (error) {
-				// HHM integration is optional - don't fail the main operation
-				getLogger('document-handlers').debug('Failed to update HHM memory', { error });
-			}
 
 			// Report fidelity honestly: a clean preserving write vs. a lossy regenerate,
 			// naming anything the edit could not preserve and any snapshot taken.
@@ -458,33 +464,6 @@ export const createDocumentHandler: ToolDefinition = {
 					force: getOptionalBooleanArg(args, 'force') ?? false,
 				})
 			);
-
-			// Memorize new document in HHM
-			try {
-				const hhmSystem = getHHMSystem();
-				if (content.trim() && documentType === 'Text') {
-					await hhmSystem.memorizeDocument({
-						id: result.result,
-						title,
-						content,
-						type: documentType as 'Text' | 'Folder' | 'Other',
-						path: '/', // Default path
-						wordCount: content.split(/\s+/).length,
-						customMetadata: {
-							created: Date.now().toString(),
-							parentId: parentId || '',
-						},
-					});
-					getLogger('document-handlers').debug('New document memorized in HHM', {
-						documentId: result.result,
-					});
-				}
-			} catch (error) {
-				// HHM integration is optional - don't fail the main operation
-				getLogger('document-handlers').debug('Failed to memorize new document in HHM', {
-					error,
-				});
-			}
 
 			return {
 				content: [

@@ -82,6 +82,12 @@ jobs:
       - name: Output-schema conformance gate
         run: node scripts/check-output-conformance.mjs
 
+      - name: Offline editorial quality benchmark
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
+        run: |
+          npm run benchmark:editorial -- --baseline docs/benchmarks/editorial-quality-baseline.json --output logs/editorial-quality.json
+          npm run evaluate:editorial -- --split all --baseline docs/benchmarks/editorial-evaluation-current.json --output logs/editorial-evaluation.json
+
       - name: HMS fallback compatibility
         env:
           SCRIVENER_WARM_ENGINE: fallback
@@ -149,6 +155,19 @@ jobs:
       - name: EPUBCheck validation
         if: runner.os == 'Linux' && matrix.node-version == '24.x'
         run: node scripts/check-epub-export.mjs
+
+      - name: Independent DOCX and EPUB rendering
+        if: runner.os == 'macOS' && matrix.node-version == '24.x'
+        timeout-minutes: 3
+        run: node scripts/check-export-rendering.mjs --output logs/export-rendering.json
+
+      - name: Retain independent export rendering evidence
+        if: always() && runner.os == 'macOS' && matrix.node-version == '24.x'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: export-rendering-macos-24
+          path: logs/export-rendering.json
+          if-no-files-found: ignore
 
       - name: Build and verify the desktop extension
         if: matrix.os == 'macos-latest' && matrix.node-version == '24.x'
@@ -251,7 +270,9 @@ jobs:
           DEPENDENCY_RESULT: ${{ needs.dependency-review.result }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          test "$MATRIX_RESULT" = success && test "$SECURITY_RESULT" = success && test "$REBUILD_RESULT" = success
+          test "$MATRIX_RESULT" = success
+          test "$SECURITY_RESULT" = success
+          test "$REBUILD_RESULT" = success
           if [ "$EVENT_NAME" = pull_request ]; then
             test "$DEPENDENCY_RESULT" = success
           else

@@ -1,20 +1,19 @@
 #!/usr/bin/env node
-/**
- * Post-install: auto-configure Claude Desktop MCP client.
- * Runs silently. Never fails the install.
- */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const { pathToFileURL } = require('node:url');
 
-function main() {
-	// Skip in CI or when explicitly disabled
-	if (process.env.CI || process.env.SCRIVENER_SKIP_POSTINSTALL === 'true') {
-		return;
-	}
+async function main() {
+	if (process.env.CI || process.env.SCRIVENER_SKIP_POSTINSTALL === 'true') return;
 
-	const configPaths = [
+	const { clientById, configureClient } = await import(
+		pathToFileURL(path.join(__dirname, '../dist/setup/clients.js')).href
+	);
+	const client = clientById('claude-desktop');
+	const candidates = [
+		client.configPath(),
 		path.join(
 			os.homedir(),
 			'Library',
@@ -25,67 +24,32 @@ function main() {
 		path.join(os.homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json'),
 		path.join(os.homedir(), '.config', 'claude', 'claude_desktop_config.json'),
 	];
-
-	let configPath;
-	let raw = null;
-	for (const candidate of configPaths) {
-		try {
-			raw = fs.readFileSync(candidate, 'utf8');
-			configPath = candidate;
-			break;
-		} catch (error) {
-			if (error.code !== 'ENOENT') return;
-		}
-	}
-
-	if (configPath === undefined) {
-		if (process.platform === 'darwin') configPath = configPaths[0];
-		else if (process.platform === 'win32') configPath = configPaths[1];
-		else configPath = configPaths[2];
-
-		fs.mkdirSync(path.dirname(configPath), { recursive: true });
-	}
-
-	let config = {};
-	if (raw !== null) {
-		try {
-			config = JSON.parse(raw);
-		} catch {
-			// Corrupt config -- start fresh but don't overwrite
-			console.error(
-				'scrivener-mcp: Could not parse ' +
-					configPath +
-					'. Run "npx scrivener-setup" to configure manually.'
-			);
-			return;
-		}
-	}
-
-	// Add scrivener MCP server if not already configured
-	if (!config.mcpServers) config.mcpServers = {};
-
-	if (config.mcpServers.scrivener) {
-		// Already configured -- don't touch it
-		return;
-	}
-
-	config.mcpServers.scrivener = {
-		command: 'npx',
-		args: ['scrivener-mcp'],
-	};
-
-	try {
-		fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+	const configPath =
+		candidates.find((candidate) => {
+			try {
+				fs.lstatSync(candidate);
+				return true;
+			} catch (error) {
+				if (error.code !== 'ENOENT') throw error;
+				return false;
+			}
+		}) ?? client.configPath();
+	const outcome = configureClient(
+		{ ...client, configPath: () => configPath },
+		{ command: 'npx', args: ['scrivener-mcp'] },
+		{ repairExisting: false }
+	);
+	if (outcome.outcome === 'added') {
 		console.error('scrivener-mcp: Configured for Claude Desktop. Restart Claude to activate.');
-	} catch {
-		console.error(
-			'scrivener-mcp: Could not write config. Run "npx scrivener-setup" to configure manually.'
-		);
+		if (outcome.message) console.error(`scrivener-mcp: ${outcome.message}`);
+	} else if (outcome.outcome === 'failed') {
+		console.error(`scrivener-mcp: ${outcome.message}`);
+		console.error('scrivener-mcp: Run "npx scrivener-setup" to configure manually.');
 	}
 }
 
-try {
-	main();
-} catch {
-	// Never fail the install
-}
+main().catch(() => {
+	console.error(
+		'scrivener-mcp: Automatic configuration unavailable. Run "npx scrivener-setup" after installation to configure manually.'
+	);
+});

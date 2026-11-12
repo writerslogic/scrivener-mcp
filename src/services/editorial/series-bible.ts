@@ -196,11 +196,15 @@ export class SeriesBible {
 
 	async listFacts(
 		scope: StoryScope,
-		options: { includeSuperseded?: boolean; sourceDocuments?: readonly SourceDocument[] } = {}
+		options: {
+			includeSuperseded?: boolean;
+			sourceDocuments?: readonly SourceDocument[];
+			readLimits?: { maxItems: number; maxBytes: number };
+		} = {}
 	): Promise<FactView[]> {
 		const store = this.storeFor(scope);
 		const facts = store
-			.list<StoryFact>(FACTS)
+			.list<StoryFact>(FACTS, options.readLimits)
 			.filter((fact) => fact.scope.kind === scope.kind && fact.scope.id === scope.id);
 		const superseded = new Set(
 			facts.flatMap((fact) => (fact.supersedes ? [fact.supersedes] : []))
@@ -251,6 +255,15 @@ export class SeriesBible {
 				fact.sourceStates.some((source) => source.state === 'unavailable')
 			).length,
 		};
+	}
+
+	scopeRevision(scope: StoryScope): string {
+		const store = this.storeFor(scope);
+		const membership = scope.kind === 'series' ? this.requireSeries(scope.id) : undefined;
+		const facts = store
+			.list<StoryFact>(FACTS)
+			.filter((fact) => fact.scope.kind === scope.kind && fact.scope.id === scope.id);
+		return stableStoryId('story-scope', JSON.stringify(membership), JSON.stringify(facts));
 	}
 
 	exportState(scope: StoryScope): StoryState {

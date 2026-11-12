@@ -1,0 +1,1933 @@
+{
+  "schemaVersion": 2,
+  "corpusVersion": 2,
+  "implementation": {
+    "commit": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+    "workingTreeDirty": true,
+    "builtModules": {
+      "editorial/continuity-service": "b0782f3792d3bbb60f2e9b17afd119ba61e3de44a87a9b1b30949326ef23651d",
+      "editorial/object-coreference": "eaf26efb79eaf4a2bb5ef78d1d95cd58c4dcc0f1b05540030d3dc9523c35cd43",
+      "editorial/continuity-nouns": "85a890784d73029ae7491f5594202b04816151eddb58df0d36d3119a162c086d",
+      "editorial/change-impact": "cb19fa1a972ad441c811b1707912407a8550b88a74c6fae2936713d7ea25fbf1",
+      "editorial/review-service": "30cc81e9ddeaff8626eea0960f22b81e506abe7c42d4ad7ffdda51cae884e9ca",
+      "editorial/persistent-store": "3e3507ee375cf0a33c58fed1dffef8602f696b07b3c2c2fc5a76e337be13eccc",
+      "editorial/series-bible": "3e5da2af95936e346fd6e45c905dfce923ff1183f58c580d68b910299d12bd21",
+      "parsers/rtf-handler": "bdf26e75ba420ccf9d17438ced4904993d6919f41b90ab0052eb45eb3f177f03",
+      "project-writer": "3bed4b785fa15d6cc89b8d183c3d08321bec51592e8e0c9a2ed5f72fefc6c1eb",
+      "document-manager": "f77056ff41769d6272c1ec3c5bae7a8ea7fa30ce6317fa75db2a9223548e992d"
+    },
+    "runnerSha256": "63804ec161d81f9dd472d408fcc5f0e596db4960b7cda96161dbdf691e0dcd1f",
+    "node": "v24.22.1",
+    "platform": "darwin-arm64"
+  },
+  "corpus": {
+    "excerptsSha256": "d47914f16173accbb8cf078674dfcbff28bb0508ac96413457bc1c985aa2c13f",
+    "casesSha256": "0c73c70c038e4c4dbe3b8d95ac73daa239c4adfae412a07df9574685ab535fc4",
+    "excerpts": 6,
+    "books": 3,
+    "provenance": [
+      {
+        "id": "84-1",
+        "book": "Frankenstein",
+        "author": "Mary Wollstonecraft Shelley",
+        "catalogue": "https://www.gutenberg.org/ebooks/84",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+        "sourceSha256": "2b97b7f8aad508649481d8dd4f6b54f9b965ddb3ba634e9151c815f537b49e42",
+        "sourceCharacterStart": 33231,
+        "sourceCharacterEnd": 35629,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "7d6fad5c56594f38b9b925fe681564cd30d63ffcb4b311b5e4d00d57c2884b63",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "84-2",
+        "book": "Frankenstein",
+        "author": "Mary Wollstonecraft Shelley",
+        "catalogue": "https://www.gutenberg.org/ebooks/84",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+        "sourceSha256": "2b97b7f8aad508649481d8dd4f6b54f9b965ddb3ba634e9151c815f537b49e42",
+        "sourceCharacterStart": 86678,
+        "sourceCharacterEnd": 90051,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "3e3849fcfed287f4b264d44d030b72bbb782d302e4a09cb73f39db11411327e3",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "1342-1",
+        "book": "Pride and Prejudice",
+        "author": "Jane Austen",
+        "catalogue": "https://www.gutenberg.org/ebooks/1342",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/1342/pg1342.txt",
+        "sourceSha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75",
+        "sourceCharacterStart": 35962,
+        "sourceCharacterEnd": 37669,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "534668050ec4b3c4780ddc5cbe0f2b6e4712bf1c95cbf8dfc811cb639c477bcd",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "1342-2",
+        "book": "Pride and Prejudice",
+        "author": "Jane Austen",
+        "catalogue": "https://www.gutenberg.org/ebooks/1342",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/1342/pg1342.txt",
+        "sourceSha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75",
+        "sourceCharacterStart": 216459,
+        "sourceCharacterEnd": 219245,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "ba9dde397001874ee3d235ecc7bd3734226ced2fbc8e42b4c3f8d7924de54ff9",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "2701-1",
+        "book": "Moby Dick; Or, The Whale",
+        "author": "Herman Melville",
+        "catalogue": "https://www.gutenberg.org/ebooks/2701",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/2701/pg2701.txt",
+        "sourceSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+        "sourceCharacterStart": 28935,
+        "sourceCharacterEnd": 31129,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "5dfd4fddf329c5bdb83626ab72d1c391cf7e4cd3c85ae12c9c133d7f28185873",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "2701-2",
+        "book": "Moby Dick; Or, The Whale",
+        "author": "Herman Melville",
+        "catalogue": "https://www.gutenberg.org/ebooks/2701",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/2701/pg2701.txt",
+        "sourceSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+        "sourceCharacterStart": 411089,
+        "sourceCharacterEnd": 415260,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "3d1fb53dfb3287392e0b4a0979d99958c89c55bb98cc01dea21d99218fb1252e",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      }
+    ]
+  },
+  "overall": {
+    "tp": 30,
+    "fp": 0,
+    "fn": 0,
+    "tn": 60,
+    "cases": 90,
+    "precision": 1,
+    "recall": 1,
+    "falsePositiveCaseRate": 0
+  },
+  "splits": {
+    "natural": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 6,
+      "cases": 6,
+      "precision": null,
+      "recall": null,
+      "falsePositiveCaseRate": 0
+    },
+    "explicit": {
+      "tp": 18,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "cases": 18,
+      "precision": 1,
+      "recall": 1,
+      "falsePositiveCaseRate": null
+    },
+    "negative": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 54,
+      "cases": 54,
+      "precision": null,
+      "recall": null,
+      "falsePositiveCaseRate": 0
+    },
+    "challenge": {
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "cases": 12,
+      "precision": 1,
+      "recall": 1,
+      "falsePositiveCaseRate": null
+    }
+  },
+  "evidenceChecked": 60,
+  "integrity": [
+    {
+      "id": "84-1/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "84-2/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "1342-1/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "1342-2/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "2701-1/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "2701-2/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "84-1/revision",
+      "previewUnchanged": true,
+      "formattingPreserved": true,
+      "selectiveDecision": true,
+      "staleRejected": true,
+      "exactUndo": true
+    },
+    {
+      "id": "1342-1/revision",
+      "previewUnchanged": true,
+      "formattingPreserved": true,
+      "selectiveDecision": true,
+      "staleRejected": true,
+      "exactUndo": true
+    },
+    {
+      "id": "2701-1/revision",
+      "previewUnchanged": true,
+      "formattingPreserved": true,
+      "selectiveDecision": true,
+      "staleRejected": true,
+      "exactUndo": true
+    }
+  ],
+  "humanPreference": {
+    "status": "unmeasured",
+    "judgments": 0
+  },
+  "thresholds": {
+    "naturalFalsePositives": 0,
+    "negativeFalsePositives": 0,
+    "explicitMinimumRecall": 0.8
+  },
+  "passed": true,
+  "limitations": "Small public development corpus; annotations are not independently human validated. Natural prose and injected mutations are reported separately. Challenge misses count toward overall recall. Integrity checks are not editorial preference judgments. No network or model calls.",
+  "predictions": [
+    {
+      "id": "84-1/natural",
+      "inputSha256": "c11cedfc43db414c211f4cc7da6766bcd93fe34ef40b8578b37e1e549601eadf",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/eyes-conflict",
+      "inputSha256": "16e1531b03ec573958b73c626f7c8f504689a06bc57a7ede4f8950c908f9f76e",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2382,
+              "quote": "Mara has blue eyes",
+              "revision": "3e9802f50d688dca446a3cea53fcd13bcc78e73c0836710f5654bde4b550ff53"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2383,
+              "quote": "Mara has green eyes",
+              "revision": "25fc34ae04bc7d60d66bdd4950518824b472c87976c9bd74f3e53a0f12ba98b0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-1/birth-conflict",
+      "inputSha256": "013c262f6803bf6ab3d9c936a722f9cc79e78aa4d79d1fd04f4ee5873b9ac423",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2385,
+              "quote": "Mara was born in 1800",
+              "revision": "843040c1c14ce9001d78146a3d7b03d13e687c2ce88cdd22becf19080377365a"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2385,
+              "quote": "Mara was born in 1801",
+              "revision": "12cf52b96e95fae32f95ba4e94453818375438a80e307083983cda9d52790708"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-1/consistent",
+      "inputSha256": "d153465d359e13f8d96b5843656882f5436985d9713de7357c1ea6154579ff6c",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/rumor",
+      "inputSha256": "a5a0dbbf142c6eccabc755a6963e7b9ed6e438cc4e045f66adc774e587432214",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/flashback",
+      "inputSha256": "7c6f9d7377d17c26b44881029c198b453c126e42c09ec616a24206ac80254ec9",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/intentional",
+      "inputSha256": "8e98d3164bf6d31459aca3109c9a244918a5c4cacdb018aeceac4ee5a1159afc",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/paraphrase",
+      "inputSha256": "38699164b206df10847a07bf6567a448e10f588d4a43f00c6f297b50b68d5fcd",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2392,
+              "quote": "The irises of Mara were blue",
+              "revision": "1cafcd4d46b883449b88f88f5962c412cb6eaf3f7760c54bf9b9c34cebf7e2f5"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2393,
+              "quote": "The irises of Mara were green",
+              "revision": "af0529010ef20ff7e40475ac0a7ad17b92dc8d23373405f041c60b32926e7dba"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-1/pronoun",
+      "inputSha256": "86021d9e54da79067499402524cd5a19af7e7bc7f54f51019db06862ae73b769",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2382,
+              "quote": "Mara has blue eyes",
+              "revision": "3e9802f50d688dca446a3cea53fcd13bcc78e73c0836710f5654bde4b550ff53"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2405,
+              "quote": "Mara stepped forward. Her eyes were green",
+              "revision": "de7451cac48e390f05d3496d008bfb2f1e7ec938041154a7e4b8898fad21a012"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-1/long-quoted-claim",
+      "inputSha256": "3a18a0c536dcd7b261674cb0ce069d7e0f1da7dcede026c8a31a4ec41353252b",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/negated-claim",
+      "inputSha256": "f31e65ed5678a71932cd76852e41510eca9e55f892ba4d404791bc3be4e77105",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/conditional-claim",
+      "inputSha256": "9d7774592cfb461643d31b1db16caed4519b45cf67314be8ff6adb093de3e0a0",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/different-people",
+      "inputSha256": "164f40c952a8e777b46a7abe24a5b66a18e2ea12574582f81f00b120c994ef72",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/ambiguous-pronoun",
+      "inputSha256": "98c32c67017219344a1f7baa91849fb0e51d6ddf291852b38ca9b5394c2b77b8",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/inverse-hair",
+      "inputSha256": "625b9027a9664a1c099f8aa21a8c69b3c076c81421fd282d2042df7fdae61b8a",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Elena: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2391,
+              "quote": "The hair of Elena was brown",
+              "revision": "20e7bd9df578145703155d529ccb4f8a9b9a5f27a82492191804c1f21458ac11"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2392,
+              "quote": "The hair of Elena was silver",
+              "revision": "096ea100b57091fb191fbb9bb28b40cf7b2b6fd3a0a8207f7b6ecf83c2f16336"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/natural",
+      "inputSha256": "d14cd359604da505851109a4aa02ff2eec5a4a601104175241a0ed4577f6a999",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/eyes-conflict",
+      "inputSha256": "7f7be8a2afb2e029d069df1e0a362695a99c6d6fb5d9d6e9a3a4decf8e0601c4",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3343,
+              "quote": "Mara has blue eyes",
+              "revision": "843bb8d5ff352ef2402fa9fe454db8ee104a57506a14b09dc80e81004c2d6c56"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3344,
+              "quote": "Mara has green eyes",
+              "revision": "122df685ed2d209dc7270d56ecc18238f30704298e0332ad384d01122187ad43"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/birth-conflict",
+      "inputSha256": "c841833c21d1dc3e624c10c1026f67f8a1b4df4f12ab4b5a363426ca4a15c6d8",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3346,
+              "quote": "Mara was born in 1800",
+              "revision": "909c237993c26dcbc6c4acc7e39628f766b760ce13cfdb77cc3672b77fb003aa"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3346,
+              "quote": "Mara was born in 1801",
+              "revision": "b8ef07b8ef46052218284ddc2df90a1567df3afb0f5e8bfb693b0de10f78c342"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/consistent",
+      "inputSha256": "effb493f5ad3aefd65219d730a0bbdf3fb0cc5594ba895b659c3e9fc234c19cf",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/rumor",
+      "inputSha256": "e7ee988433623187d44645e7997b99d3a132005b98b57bc77138756ea24f44f2",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/flashback",
+      "inputSha256": "962cc23c4641da8421a4faf97066556748f0ebfc6a3165e35049e2554c5d27b1",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/intentional",
+      "inputSha256": "158932173660579f106dc19ba3f3bafe4696fc60c3673a4f6388eecf10586394",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/paraphrase",
+      "inputSha256": "9ce003d9b061d8893bd45694820f4c4400862f4e9163f808e3dfd339c18edda5",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3353,
+              "quote": "The irises of Mara were blue",
+              "revision": "d0b7340217e61f193be943a6242bd6fe7e3814689598e076f87530f375f8f3db"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3354,
+              "quote": "The irises of Mara were green",
+              "revision": "f7405e7b81f26adc0defeb90be1ca056689aaa5a414daf0dd3d4c4ab7680436e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/pronoun",
+      "inputSha256": "44819cbbe1318e110f8f15e38f636e93d00ab04a2d729e41e717196cf6729fcf",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3343,
+              "quote": "Mara has blue eyes",
+              "revision": "843bb8d5ff352ef2402fa9fe454db8ee104a57506a14b09dc80e81004c2d6c56"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3366,
+              "quote": "Mara stepped forward. Her eyes were green",
+              "revision": "5cc459ec6f24126d921c064d798395985ca6e10cafdd57d776770eaa1e73deaf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/long-quoted-claim",
+      "inputSha256": "56db37ef21f4500caf885bfd7280e432f421e0df0589b22fd3ed5c3bd8d986dd",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/negated-claim",
+      "inputSha256": "cce649bd13f55fdd4d2af15c71d41bccfbfb811fc879c629b01105c015622805",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/conditional-claim",
+      "inputSha256": "06b4c4951f0ab68c6cba1ef989d198d418ebea0107b15b51d09277db9d3563dd",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/different-people",
+      "inputSha256": "2b04ba4b878c305618c50b2f30e3fa2c3d475c228885e5c9952007b8c378e352",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/ambiguous-pronoun",
+      "inputSha256": "8e0e08b69d74c9a26b36a009c0373c02dbc538ee9db8608e6a7f44b974488375",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/inverse-hair",
+      "inputSha256": "f2fb0b6f0ec252873cda64c6cdedafcbce920c50c9ca25f5714aba7267cdecb0",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Elena: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3352,
+              "quote": "The hair of Elena was brown",
+              "revision": "be06bf52064505c7bc4e53d79f3be69b911a4ff40f150c87b2ad50c20b6b70e0"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3353,
+              "quote": "The hair of Elena was silver",
+              "revision": "cf58466eb0bca86338ca0174b4f46173f530338469ba1b6a346386849ac575ce"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-1/natural",
+      "inputSha256": "7a0a193dbdf81fad41247eccbadc57cb810a513fbcf771685edecc30b519e34f",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/eyes-conflict",
+      "inputSha256": "413110bdedd3971ad82a5924fba0b83181473af895f4dc31569108858e89aed7",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 1660,
+              "end": 1678,
+              "quote": "Mara has blue eyes",
+              "revision": "c15433c90cbc7b1102c67c63022ee3104b410684911668f5361642f46b76751e"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 1660,
+              "end": 1679,
+              "quote": "Mara has green eyes",
+              "revision": "7a8203ab9884bb771726e5d7fea25350219175ebfe67802b4aa57131a05722c9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-1/birth-conflict",
+      "inputSha256": "92e763095b0a4d9d384b9cbe57c6891efd3865ab9a13fb642b01fcfae1cd7881",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 1660,
+              "end": 1681,
+              "quote": "Mara was born in 1800",
+              "revision": "39d01c6e26ca7676feadf4d15cb20259cb14e037c4380acf3aefa8d92d4df3c3"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 1660,
+              "end": 1681,
+              "quote": "Mara was born in 1801",
+              "revision": "bf3a7b7ba49f9e0d75047e3f0a2788c8ddf0ffe973216680523975c613d8becd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-1/consistent",
+      "inputSha256": "8950484cad7269370def7281d588ed052b2d5889249807c2758df1fd29843bdb",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/rumor",
+      "inputSha256": "89c425229e508a24611da0d284003bef6fdfaa8c6d11ba42fa9e1822156572bc",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/flashback",
+      "inputSha256": "2da9d83f7673c72da71947c51ef239254c532882114adfb8b3371317288b0209",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/intentional",
+      "inputSha256": "e50fbfdb21d0f8985b104c9f0fcc6d4f2b1abbde52649c3dea811fc86d33de61",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/paraphrase",
+      "inputSha256": "320945822830e247e1ece72aa1b8786af539581fbabdbba96185db0b08f11727",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 1660,
+              "end": 1688,
+              "quote": "The irises of Mara were blue",
+              "revision": "91323752909cb5ff1e21cdc9b83936e558258280579d879f08befb7a9e8de5e6"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 1660,
+              "end": 1689,
+              "quote": "The irises of Mara were green",
+              "revision": "62c8d3f78c46fa99c575b869ffb640ad2c7ee46a0c425d37d6fad8703b2ea1e8"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-1/pronoun",
+      "inputSha256": "8711af962d01d3d9503e37f380fc5c905ed2f6ab4000797e70b2b4a829de5b4b",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 1660,
+              "end": 1678,
+              "quote": "Mara has blue eyes",
+              "revision": "c15433c90cbc7b1102c67c63022ee3104b410684911668f5361642f46b76751e"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 1660,
+              "end": 1701,
+              "quote": "Mara stepped forward. Her eyes were green",
+              "revision": "614371117052adf61079550032fadf0468a37c0fdbdd7200281df54c950287bd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-1/long-quoted-claim",
+      "inputSha256": "cf15bffc014f12e210e08a91ad58609abf8ab7fd641370860ef01a231b47cfef",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/negated-claim",
+      "inputSha256": "3c8e3af290d5aa45a6102bf0719344f4041de6432877f417897ec60f07b71703",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/conditional-claim",
+      "inputSha256": "6beaf69f57d1015b34a9021be6a3ed8ba26a33f1b77eb9fef1f181f47f9f5731",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/different-people",
+      "inputSha256": "def9f6270d0b1ebc7b0102442336bec5d040c1e0a1a0a035ffde00e10e3e479f",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/ambiguous-pronoun",
+      "inputSha256": "c73fe114ae147bcc57c71def164c6a86cc5f25abdd04af20d6b76af8d2ef3180",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/inverse-hair",
+      "inputSha256": "132a4e91f40fc622a5d3effe642fc7e56d73c72b639f485844008664423cd5d7",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Elena: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 1660,
+              "end": 1687,
+              "quote": "The hair of Elena was brown",
+              "revision": "4e4a183f394767b90db2f09b8d7ffd64fd6889e83a1648837d7f7a5640ddb9bd"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 1660,
+              "end": 1688,
+              "quote": "The hair of Elena was silver",
+              "revision": "51640ec6c8b78979aa2e408f2c475ef09ad6e8c576de8173c8deab9dc7a14696"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/natural",
+      "inputSha256": "bd0fc6b5a7e16b745b74099a495bed91623faea201c47dddc2aef60c39131292",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/eyes-conflict",
+      "inputSha256": "d865364da9eecaedd97c9d428fd1162768fe4d5943f563ea11ff21599ff04ee9",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2764,
+              "quote": "Mara has blue eyes",
+              "revision": "b0e820ac66ca5bd373d26087bc5789ae5ee0fc165919e68fe2c7b07ffa902673"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2765,
+              "quote": "Mara has green eyes",
+              "revision": "111533541f11c45bc04220090335302cbf4077cac5e9345f8b505141c844a232"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/birth-conflict",
+      "inputSha256": "761216104235677b2403fef8dd692d91f68f1cdbc12b0720407917d05faae485",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2767,
+              "quote": "Mara was born in 1800",
+              "revision": "e42060e56e7bf86a161769ef7e80ffe7e4e8481089c51ebabe3b24082f590667"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2767,
+              "quote": "Mara was born in 1801",
+              "revision": "3510d4b0664931c8ad91d7548dda2eca5f81f00e5c722c2c2760e2d91f7b5e2a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/consistent",
+      "inputSha256": "a0731d68635fa0b3d69a061290a3a256caf5e14db6bc8390bf981eca4b7db762",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/rumor",
+      "inputSha256": "cf1d8c8b11d4364f5cd1d06d7bd94a26c399b55ec02fec0fcdec1dbc91c87335",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/flashback",
+      "inputSha256": "34a6b5aeef7603494c8238cc774d0578f188d4008a1eec0972ed9913bb0a076d",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/intentional",
+      "inputSha256": "08997958e3cf7802d338a2ce79831ff5f1e58cb9e016d994889a8fb98e1c083f",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/paraphrase",
+      "inputSha256": "4567b5e3023126c5bd11b6227afc8e71423dbb29d7cbbde98fb32522f45e11ca",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2774,
+              "quote": "The irises of Mara were blue",
+              "revision": "ccc6ff78435d57a6d84ee8c9e70a582e4fb900ecce2dedf6db0d6a40d7f2985c"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2775,
+              "quote": "The irises of Mara were green",
+              "revision": "2ff2ba6ff6d024e0a1880b1fa61c8c65a6347f51631184957f9c43294efda945"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/pronoun",
+      "inputSha256": "a89e68d4d0d153e0fa227c95b3e29e36254a30e0dbb5e66067a14fc596fcdea4",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2764,
+              "quote": "Mara has blue eyes",
+              "revision": "b0e820ac66ca5bd373d26087bc5789ae5ee0fc165919e68fe2c7b07ffa902673"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2787,
+              "quote": "Mara stepped forward. Her eyes were green",
+              "revision": "1d07e6e51fec9e0d0892661b7d5a6129685aeeda9d56f64efc4a648a24d54b95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/long-quoted-claim",
+      "inputSha256": "e6220027b2d164b2cb33789cb149426e9fdff5be32b8d3f2a32029182e9b17fd",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/negated-claim",
+      "inputSha256": "22571b8738eb95deb038949e8b11e04496fb340cc2fcde7d865f38f49b62c732",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/conditional-claim",
+      "inputSha256": "7c715bbac1a97ca8fb74091b24d277ad59b50b098a97c9f2fa4c91c48ea86c72",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/different-people",
+      "inputSha256": "13903e1b5a647238fa3f1143167d91cedff0e32a644d9ebf5aac926a2859f56a",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/ambiguous-pronoun",
+      "inputSha256": "f9c5128d4ae42de575cbb97402d3ccfdad0b65460e7c33dd1a34f26919659a0c",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/inverse-hair",
+      "inputSha256": "eff7aaa2c77c2c175b669596553735d57c14c70b508b818db000de3d40937ec1",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Elena: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2773,
+              "quote": "The hair of Elena was brown",
+              "revision": "a74da66a0d99aa64b269e19689c17dcafb1fbced54179ad34a19fdce15fad3b4"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2774,
+              "quote": "The hair of Elena was silver",
+              "revision": "9f9c593543f5888ccfc36ca50278f9ab63d9a6728f19075f95349acab00525cb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/natural",
+      "inputSha256": "d480986d65865ec4087084cea991d72309d9792c9c6583c7c862d30b57c2da75",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/eyes-conflict",
+      "inputSha256": "de2b1cbb92d968b53b01fb6d7ccc7c525ea13ba51b9cc6f432ca3b9c2cbe7233",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2181,
+              "quote": "Mara has blue eyes",
+              "revision": "8c20e4506b7ec4ff077c1522a242b13e0bb94440485c8de5f0e44a1d3cb91196"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2182,
+              "quote": "Mara has green eyes",
+              "revision": "cf3c4c8f2ef050510c25513b3852f6a648f2810c5acb61683aeed2e13ef96610"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/birth-conflict",
+      "inputSha256": "7b4a41912d01728256136ec3533eca4dca700e2e04cdd94ca07b15718bb88f3f",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2184,
+              "quote": "Mara was born in 1800",
+              "revision": "4bd9bc37ef87175f9b848ba75b7e0b341bca5ab4bb6d322182e8ececfebefd4b"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2184,
+              "quote": "Mara was born in 1801",
+              "revision": "45c68c1a5a8f2df1d9ab004998c1a11d3386417c4565875bf383002e5068936f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/consistent",
+      "inputSha256": "c55f5d95df5e034d7e7afbfb1a130c62a05f6e8dd107dbc17af7a493bcde32b6",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/rumor",
+      "inputSha256": "7b9520d82713408dada20bcd99b7cba06e3fdbf20ba490ffe8490181a6478377",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/flashback",
+      "inputSha256": "adfb2b431e6aa1b42f58cd539845cbe00707e962f0cf666dcd99d7f327dc5e5d",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/intentional",
+      "inputSha256": "22226d8e2b4d970511741f2f649fd47a7cbbe4e674941c7e429b3a82e24a8f77",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/paraphrase",
+      "inputSha256": "b8d40c78ee5280ce0896c9e6a346b0720fe873198fe81e46c3d73a8b3efacf6c",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2191,
+              "quote": "The irises of Mara were blue",
+              "revision": "faecc76053ef00bed3d3651ddd4b7838ea1028d55f32a06bde194248f4cc39aa"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2192,
+              "quote": "The irises of Mara were green",
+              "revision": "17d887ae82c044c2a6f9a128398b382cd1923ebb8936332ccc139a5d896a83d0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/pronoun",
+      "inputSha256": "c71c41b3423ce73e2348621759631471dd6c89731f448dd5508e435c238ba645",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2181,
+              "quote": "Mara has blue eyes",
+              "revision": "8c20e4506b7ec4ff077c1522a242b13e0bb94440485c8de5f0e44a1d3cb91196"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2204,
+              "quote": "Mara stepped forward. Her eyes were green",
+              "revision": "708b882e236fc33d92e684f724079f6d7de6bf17a378b83c9bc6fbfea07b7323"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/long-quoted-claim",
+      "inputSha256": "63dc85249276935f28c9deed306eb08365c8e15b6a41aae232487d8857a92e77",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/negated-claim",
+      "inputSha256": "965b3d1204f7cf1b58161aed41b848b07b58795a87f7913b16ded573d78942e2",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/conditional-claim",
+      "inputSha256": "267358f6e178a19536feb94cee64b6793680bdb595f74f72ece4839a39383fdb",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/different-people",
+      "inputSha256": "25b895779c9e99e6f24c3ba68c418fe6e072f970793571e578e1b1876f16d2c0",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/ambiguous-pronoun",
+      "inputSha256": "05f452aa20f97adae764171555ec40f9c93943dd0f125476fd4f0071c5247db9",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/inverse-hair",
+      "inputSha256": "ea90aadbc976f019083217b0abbbc4c381ce0363600c2ddcba699962e069a314",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Elena: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2190,
+              "quote": "The hair of Elena was brown",
+              "revision": "f39ff0dd34678f6e6405906b4428fa000850525522e6ef3258063a463dfff34b"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2191,
+              "quote": "The hair of Elena was silver",
+              "revision": "952bce9e90482b639c9b49ee742c2c2f5ba888bd0fc8c473aafd39a6455210fa"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/natural",
+      "inputSha256": "60b71e8730ab3cda9fd9c0b63a6ef048266b420ade0d4d5885282b844018aceb",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/eyes-conflict",
+      "inputSha256": "25ac19e54c21433c9c20a16911c84bf77193b6bb0cebf508a7ba11aaae328fbb",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4131,
+              "quote": "Mara has blue eyes",
+              "revision": "3d9a35162ead51fe850901d845c302c058f83407ed7ded6dcdf26e4126a59f55"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4132,
+              "quote": "Mara has green eyes",
+              "revision": "87a354d62e4407b0882798b855495c18ace31615f231c0ee81257eec4f456219"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/birth-conflict",
+      "inputSha256": "bd64803522b8a5a8a1c87dc89754c1fd1185d38d05560d991da05a3ffc500acf",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4134,
+              "quote": "Mara was born in 1800",
+              "revision": "1772acd5621d23bb216a5e0636080171307bd3eb66393e08db6b7039263eaa61"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4134,
+              "quote": "Mara was born in 1801",
+              "revision": "658afc897d064a2c0b952216e51b76626060f5bd33a3c98b3452744a81c844ef"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/consistent",
+      "inputSha256": "31eef5e52f566a4f7ad396da01fbc0094dd50048e23f3c685509ac565207889e",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/rumor",
+      "inputSha256": "1edcff52c9ca0a72cf17764423f9675483e8db881da314d2fed7fd7af3e9b8f2",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/flashback",
+      "inputSha256": "768950fffda773d3450fc2f029e1dcebd8622c022f673c813ea6887f1314fb54",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/intentional",
+      "inputSha256": "13e5d84fa2fddb8bd3248a8ecc037d1f7cbbadf6363724255ceb8d851071b955",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/paraphrase",
+      "inputSha256": "8c348161d6483ef3ff2c4d4b318d955757db818d497d4472e14cc5051a75753d",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4141,
+              "quote": "The irises of Mara were blue",
+              "revision": "7ebca5cc747056bef742ed4c03d48ef0ab191351028b00eb1889d55c0a4b4962"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4142,
+              "quote": "The irises of Mara were green",
+              "revision": "ec2e51a7c5af3dffad860c791898ea47c5a2e4f363166a3cefa9bb4a902e34c9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/pronoun",
+      "inputSha256": "28808ac0828e038703917d447e6ecc1f93308ac8a7a3a33aba50d38605a4feef",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4131,
+              "quote": "Mara has blue eyes",
+              "revision": "3d9a35162ead51fe850901d845c302c058f83407ed7ded6dcdf26e4126a59f55"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4154,
+              "quote": "Mara stepped forward. Her eyes were green",
+              "revision": "33701688b9ca3136613f6c2b3af998af9f120be51fb6c973851d50ef6393ba14"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/long-quoted-claim",
+      "inputSha256": "0caecd2b58b7e6c565270b0afed481e910ea3c6f1712e507a04622f3f592d6e0",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/negated-claim",
+      "inputSha256": "a0ce0e4ca22ce81aab4c6037fd4b2513cb829bfd1a396c90ca58d10d9ac0b36d",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/conditional-claim",
+      "inputSha256": "c37b118caaed386df96ebb253e0c5887ea90a3041a0f114519f6d8a5bf6ea445",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/different-people",
+      "inputSha256": "8d7d05f007d7ac211dce0a34af4b707fbbef0c33a933fde6d3ec22b356bb8ce7",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/ambiguous-pronoun",
+      "inputSha256": "88d5ae01c8b6c949b4fc499b151bc12e7d40378c9396da1e850900a8b992defd",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/inverse-hair",
+      "inputSha256": "0b9bdad679c3c6c6dcd49ee06d98c1d6bdaacd14dabda8896c11c98024771815",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Elena: hair-color has competing values \"brown\" and \"silver\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4140,
+              "quote": "The hair of Elena was brown",
+              "revision": "939346f34f0fbabfc9d69c95231040f632900bd558f1731557bc72ae6f7ec3b6"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4141,
+              "quote": "The hair of Elena was silver",
+              "revision": "597eae8eff59f233cbbb598fb205c04a6e9325c1a80a55f70d949a1af837754e"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "regressions": [],
+    "baseline": {
+      "commit": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+      "workingTreeDirty": true,
+      "builtModules": {
+        "editorial/continuity-service": "6faf95cbc244f47a04dfc3b131b53c99e3ec27e6eb752715fe01af3d3fb5736e",
+        "editorial/change-impact": "cb19fa1a972ad441c811b1707912407a8550b88a74c6fae2936713d7ea25fbf1",
+        "editorial/review-service": "30cc81e9ddeaff8626eea0960f22b81e506abe7c42d4ad7ffdda51cae884e9ca",
+        "editorial/persistent-store": "3e3507ee375cf0a33c58fed1dffef8602f696b07b3c2c2fc5a76e337be13eccc",
+        "editorial/series-bible": "3e5da2af95936e346fd6e45c905dfce923ff1183f58c580d68b910299d12bd21",
+        "parsers/rtf-handler": "bdf26e75ba420ccf9d17438ced4904993d6919f41b90ab0052eb45eb3f177f03",
+        "project-writer": "3bed4b785fa15d6cc89b8d183c3d08321bec51592e8e0c9a2ed5f72fefc6c1eb",
+        "document-manager": "f77056ff41769d6272c1ec3c5bae7a8ea7fa30ce6317fa75db2a9223548e992d"
+      },
+      "runnerSha256": "6a5abf8b0f803775396bb50d29e347dfeb07c43502f2297be6fdd00516a9688d",
+      "node": "v24.22.1",
+      "platform": "darwin-arm64"
+    },
+    "pairedCases": 54,
+    "addedCases": 36,
+    "before": {
+      "tp": 10,
+      "fp": 0,
+      "fn": 14,
+      "tn": 30,
+      "cases": 54,
+      "precision": 1,
+      "recall": 0.4166666666666667,
+      "falsePositiveCaseRate": 0
+    },
+    "after": {
+      "tp": 24,
+      "fp": 0,
+      "fn": 0,
+      "tn": 30,
+      "cases": 54,
+      "precision": 1,
+      "recall": 1,
+      "falsePositiveCaseRate": 0
+    },
+    "changed": [
+      "84-1/paraphrase",
+      "84-1/pronoun",
+      "84-2/paraphrase",
+      "84-2/pronoun",
+      "1342-1/eyes-conflict",
+      "1342-1/birth-conflict",
+      "1342-1/paraphrase",
+      "1342-1/pronoun",
+      "1342-2/paraphrase",
+      "1342-2/pronoun",
+      "2701-1/paraphrase",
+      "2701-1/pronoun",
+      "2701-2/paraphrase",
+      "2701-2/pronoun"
+    ]
+  }
+}

@@ -2,19 +2,8 @@ import * as path from 'path';
 import { safeReadFile, safeWriteFile } from '../../utils/common.js';
 import { isStructurallyValidRtf, readRtfControl, rtfGroupEnd } from './rtf-validation.js';
 
-export const RTF_TEXT_CONTROLS: ReadonlyMap<string, string> = new Map([
-	['\\ldblquote', '"'],
-	['\\rdblquote', '"'],
-	['\\lquote', "'"],
-	['\\rquote', "'"],
-	['\\endash', '–'],
-	['\\emdash', '—'],
-	['\\bullet', '•'],
-	['\\tab', '\t'],
-	['\\line', '\n'],
-	['\\par', '\n'],
-	['\\~', ' '],
-]);
+import { assertRtfText, rtfTextTokens } from './rtf-text.js';
+export { RTF_TEXT_CONTROLS } from './rtf-text.js';
 
 export interface RTFStyle {
 	bold?: boolean;
@@ -49,18 +38,6 @@ export interface RTFContent {
  * Comprehensive RTF handler for Scrivener documents
  */
 export class RTFHandler {
-	private readonly SPECIAL_CHARS = RTF_TEXT_CONTROLS;
-
-	private readonly SPECIAL_CHARS_REVERSE = new Map([
-		['"', '\\ldblquote '],
-		['"', '\\rdblquote '],
-		["'", '\\lquote '],
-		["'", '\\rquote '],
-		['–', '\\endash '],
-		['—', '\\emdash '],
-		['•', '\\bullet '],
-	]);
-
 	/**
 	 * Find a brace-balanced RTF group by keyword (e.g. "\\info").
 	 * Uses linear scanning instead of regex to avoid ReDoS on nested braces.
@@ -81,30 +58,15 @@ export class RTFHandler {
 				if (!control) return -1;
 				offset = control.end;
 			} else {
-				if (input.startsWith(`{${keyword}`, offset)) return offset;
+				if (
+					input.startsWith(`{${keyword}`, offset) &&
+					!/[a-zA-Z]/.test(input[offset + keyword.length + 1] ?? '')
+				)
+					return offset;
 				offset++;
 			}
 		}
 		return -1;
-	}
-
-	/**
-	 * Remove a brace-balanced RTF group by keyword from the string.
-	 * Uses linear scanning to avoid ReDoS.
-	 */
-	private removeBraceGroup(input: string, keyword: string): string {
-		const parts: string[] = [];
-		let cursor = 0;
-		while (true) {
-			const idx = this.findBraceGroupStart(input, keyword, cursor);
-			if (idx === -1) break;
-			const end = rtfGroupEnd(input, idx);
-			if (end === undefined) break;
-			parts.push(input.slice(cursor, idx));
-			cursor = end;
-		}
-		parts.push(input.slice(cursor));
-		return parts.join('');
 	}
 
 	async readRTF(filePath: string): Promise<RTFContent> {
@@ -134,6 +96,14 @@ export class RTFHandler {
 	 */
 	private unifiedConvertToRTF(content: RTFContent | string): string {
 		const isPlainText = typeof content === 'string';
+		if (
+			!isPlainText &&
+			content.formattedText.length > 0 &&
+			content.formattedText.map((segment) => segment.text).join('') !== content.plainText
+		)
+			throw new Error(
+				'Formatted RTF spans must concatenate to the exact plainText, including whitespace'
+			);
 
 		const header = this.buildRTFHeader(isPlainText ? undefined : content.metadata);
 
@@ -158,6 +128,12 @@ export class RTFHandler {
 		parts.push('{\\*\\generator WritersLogic Scrivener MCP;}');
 
 		if (metadata) {
+			for (const key of ['synopsis', 'notes', 'creationDate', 'modificationDate'] as const) {
+				if (metadata[key] !== undefined)
+					throw new Error(
+						`RTF serialization does not support metadata ${key}; use the project metadata operation instead`
+					);
+			}
 			const info: string[] = [];
 			if (metadata.title) info.push(`{\\title ${this.encodeRTFString(metadata.title)}}`);
 			if (metadata.author) info.push(`{\\author ${this.encodeRTFString(metadata.author)}}`);
@@ -190,6 +166,22 @@ export class RTFHandler {
 
 				if (segment.style) {
 					const styles: string[] = [];
+					for (const key of ['fontFamily', 'color', 'backgroundColor'] as const) {
+						if (segment.style[key] !== undefined)
+							throw new Error(
+								`RTF serialization does not support ${
+									key
+								}; use a preserving text edit or explicitly remove the unsupported style`
+							);
+					}
+					if (segment.style.fontSize !== undefined) {
+						const halfPoints = segment.style.fontSize * 2;
+						if (!Number.isInteger(halfPoints) || halfPoints < 1 || halfPoints > 32767)
+							throw new Error(
+								'RTF font size must be 0.5 to 16383.5 points in half-point increments'
+							);
+						styles.push(`\\fs${halfPoints}`);
+					}
 					if (segment.style.bold) styles.push('\\b');
 					if (segment.style.italic) styles.push('\\i');
 					if (segment.style.underline) styles.push('\\ul');
@@ -197,8 +189,7 @@ export class RTFHandler {
 
 					if (styles.length > 0) {
 						const styleString = styles.join(' ');
-						const resetString = styles.map((s) => `${s}0`).join(' ');
-						text = `{${styleString} ${text}${resetString}}`;
+						text = `{${styleString} ${text}}`;
 					}
 				}
 
@@ -233,9 +224,7 @@ export class RTFHandler {
 
 		result.metadata = this.extractMetadata(rtfString);
 
-		const content = this.stripRTFHeaders(rtfString);
-
-		const segments = this.parseRTFSegments(content);
+		const segments = this.parseRTFSegments(rtfString);
 
 		const plainTextParts: string[] = [];
 		segments.forEach((segment) => {
@@ -243,22 +232,22 @@ export class RTFHandler {
 			result.formattedText.push(segment);
 		});
 
-		result.plainText = plainTextParts.join('').trim();
+		result.plainText = plainTextParts.join('');
 
 		return result;
 	}
 
 	private extractMetadata(rtfString: string): RTFContent['metadata'] | undefined {
-		// Metadata is always near the start; limit search to avoid scanning large files
-		const head = rtfString.substring(0, 2000);
-		const info = this.findBraceGroup(head, '\\info');
+		const info = this.findBraceGroup(rtfString, '\\info');
 		if (!info) return undefined;
 		const metadata: RTFContent['metadata'] = {};
 
 		const extractField = (field: string) => {
-			const regex = new RegExp(`\\\\${field}\\s+([^\\\\}]+)`);
-			const match = info.match(regex);
-			return match ? this.decodeRTFString(match[1]) : undefined;
+			const value = this.findBraceGroup(info, `\\${field}`);
+			if (value === null) return undefined;
+			return this.parseRTFSegments(rtfString, field)
+				.map((run) => run.text)
+				.join('');
 		};
 
 		metadata.title = extractField('title');
@@ -269,41 +258,9 @@ export class RTFHandler {
 		return Object.keys(metadata).length > 0 ? metadata : undefined;
 	}
 
-	/**
-	 * Strip RTF headers and control tables
-	 */
-	private stripRTFHeaders(rtfString: string): string {
-		let content = rtfString;
-
-		// Image destinations (\*\shppict, \pict) are dropped too: their bodies are
-		// raw hex image data (\jpegblip/\pngblip) that must never surface as document
-		// text — and a long hex run with no delimiters otherwise bloats the parser.
-		const tableKeywords = [
-			'\\fonttbl',
-			'\\colortbl',
-			'\\stylesheet',
-			'\\listtable',
-			'\\listoverridetable',
-			'\\info',
-			// Ignorable destinations ({\*\...}): expandedcolortbl, shppict, generator,
-			// etc. A reader that doesn't understand them must drop the whole group, not
-			// emit its body as text (which leaked "*;;" and image markup into content).
-			'\\*',
-			'\\pict',
-		];
-
-		tableKeywords.forEach((keyword) => {
-			content = this.removeBraceGroup(content, keyword);
-		});
-
-		content = this.removeBraceGroup(content, '\\Scrv_');
-
-		return content;
-	}
-
 	private parseRTFSegments(
 		content: string,
-		documentUc = 1
+		metadataField?: string
 	): Array<{ text: string; style?: RTFStyle }> {
 		const segments: Array<{ text: string; style?: RTFStyle }> = [];
 		const stack: RTFStyle[] = [{}];
@@ -311,7 +268,7 @@ export class RTFHandler {
 		let currentStyle = { ...stack[0] };
 
 		// Enhanced tokenization
-		const tokens = this.tokenizeRTF(content, documentUc);
+		const tokens = rtfTextTokens(content, metadataField);
 
 		for (const token of tokens) {
 			if (token.type === 'control') {
@@ -337,8 +294,7 @@ export class RTFHandler {
 					currentText = '';
 				}
 				if (stack.length > 1) {
-					stack.pop();
-					currentStyle = { ...stack[stack.length - 1] };
+					currentStyle = stack.pop()!;
 				}
 			} else if (token.type === 'text') {
 				currentText += token.value;
@@ -356,159 +312,26 @@ export class RTFHandler {
 	}
 
 	/**
-	 * Tokenize RTF content for easier parsing
-	 */
-	private tokenizeRTF(content: string, initialUc = 1): Array<{ type: string; value: string }> {
-		const tokens: Array<{ type: string; value: string }> = [];
-		let i = 0;
-		// Number of fallback characters that follow each \u escape (RTF \uc, default 1).
-		// Genuine Scrivener files use \uc0 (no fallback); honoring it prevents dropping
-		// the real character that follows a Unicode escape.
-		let uc = initialUc;
-		const ucStack: number[] = [];
-
-		while (i < content.length) {
-			const char = content[i];
-
-			if (char === '\\') {
-				// Control word or special character
-				const controlMatch = content.slice(i).match(/^\\([a-z]+)(-?\d*)\s?/i);
-				if (controlMatch) {
-					const wordName = controlMatch[1].toLowerCase();
-					const wordParam = controlMatch[2];
-					if (wordName === 'par' || wordName === 'line' || wordName === 'sect') {
-						tokens.push({ type: 'text', value: '\n' });
-						i += controlMatch[0].length;
-					} else if (this.SPECIAL_CHARS.has(`\\${wordName}`)) {
-						tokens.push({
-							type: 'text',
-							value: this.SPECIAL_CHARS.get(`\\${wordName}`)!,
-						});
-						i += controlMatch[0].length;
-					} else if (wordName === 'bin') {
-						const binary = readRtfControl(content, i);
-						if (!binary) throw new Error('Invalid RTF binary data');
-						i = binary.end;
-					} else if (wordName === 'uc') {
-						const n = Number(wordParam);
-						if (!wordParam || !Number.isSafeInteger(n) || n < 0 || n > 32767)
-							throw new Error('Invalid RTF Unicode fallback length');
-						uc = n;
-						i += controlMatch[0].length;
-					} else if (wordName === 'u') {
-						let code = Number(wordParam);
-						// Accept unsigned UTF-16 units emitted by older generators as well as signed RTF values.
-						if (
-							!wordParam ||
-							!Number.isSafeInteger(code) ||
-							code < -32768 ||
-							code > 65535
-						)
-							throw new Error('Invalid RTF Unicode code unit');
-						if (code < 0) code += 65536;
-						tokens.push({ type: 'text', value: String.fromCodePoint(code) });
-						i += controlMatch[0].length;
-						// Skip the `uc` fallback units that follow the \u escape. A unit is a
-						// \'xx hex escape or a single literal character; stop at group braces.
-						for (let skipped = 0; skipped < uc && i < content.length; skipped++) {
-							if (content[i] === '{' || content[i] === '}') break;
-							if (content[i] === '\\' && content[i + 1] === "'") {
-								i += 4;
-							} else if (content[i] === '\\') {
-								break;
-							} else {
-								i++;
-							}
-						}
-					} else {
-						tokens.push({ type: 'control', value: controlMatch[0] });
-						i += controlMatch[0].length;
-					}
-				} else if (content[i + 1] === "'") {
-					// Hex character
-					const hex = content.slice(i + 2, i + 4);
-					tokens.push({ type: 'text', value: String.fromCharCode(parseInt(hex, 16)) });
-					i += 4;
-				} else if (
-					content[i + 1] === '\\' ||
-					content[i + 1] === '{' ||
-					content[i + 1] === '}'
-				) {
-					// Escaped character
-					tokens.push({ type: 'text', value: content[i + 1] });
-					i += 2;
-				} else {
-					i++;
-				}
-			} else if (char === '{') {
-				ucStack.push(uc);
-				tokens.push({ type: 'group-start', value: '{' });
-				i++;
-			} else if (char === '}') {
-				uc = ucStack.pop() ?? initialUc;
-				tokens.push({ type: 'group-end', value: '}' });
-				i++;
-			} else {
-				// Regular text - collect until next control character
-				let text = '';
-				while (
-					i < content.length &&
-					content[i] !== '\\' &&
-					content[i] !== '{' &&
-					content[i] !== '}'
-				) {
-					text += content[i];
-					i++;
-				}
-				if (text) {
-					tokens.push({ type: 'text', value: text });
-				}
-			}
-		}
-
-		return tokens;
-	}
-
-	/**
 	 * Apply RTF control word to current style
 	 */
 	private applyControlWord(control: string, style: RTFStyle): void {
 		const cleaned = control.replace(/^\\/, '').replace(/\s+$/, '');
 
-		for (const [rtfChar] of this.SPECIAL_CHARS) {
-			if (control.startsWith(rtfChar.slice(1))) {
-				// This is handled in tokenization
-				return;
-			}
+		const toggles = {
+			b: 'bold',
+			i: 'italic',
+			ul: 'underline',
+			strike: 'strikethrough',
+		} as const;
+		const toggle = /^(b|i|ul|strike)(-?\d+)?$/.exec(cleaned);
+		if (toggle) {
+			style[toggles[toggle[1] as keyof typeof toggles]] =
+				toggle[2] === undefined || Number(toggle[2]) !== 0;
+			return;
 		}
-
-		switch (cleaned) {
-			case 'b':
-				style.bold = true;
-				break;
-			case 'b0':
-				style.bold = false;
-				break;
-			case 'i':
-				style.italic = true;
-				break;
-			case 'i0':
-				style.italic = false;
-				break;
-			case 'ul':
-				style.underline = true;
-				break;
-			case 'ul0':
-			case 'ulnone':
-				style.underline = false;
-				break;
-			case 'strike':
-				style.strikethrough = true;
-				break;
-			case 'strike0':
-				style.strikethrough = false;
-				break;
-		}
+		if (cleaned === 'plain') {
+			for (const key of Object.keys(style) as Array<keyof RTFStyle>) delete style[key];
+		} else if (cleaned === 'ulnone') style.underline = false;
 
 		const fsMatch = cleaned.match(/^fs(\d+)$/);
 		if (fsMatch) {
@@ -582,23 +405,9 @@ export class RTFHandler {
 	 * Clean annotation text by removing RTF formatting
 	 */
 	private cleanAnnotationText(text: string): string {
-		// Remove RTF control words but preserve text
-		let cleaned = text
-			.replace(/\\[a-z]+\d*\s?/gi, '')
-			.replace(/\\'([0-9a-fA-F]{2})/g, (_match, hex) =>
-				String.fromCharCode(parseInt(hex, 16))
-			) // Decode hex
-			.replace(/\\([{}\\])/g, '$1') // Unescape special chars
-			.replace(/\{|\}/g, '')
-			.trim();
-
-		// Apply special character replacements
-		for (const [rtfChar, replacement] of this.SPECIAL_CHARS) {
-			const pattern = new RegExp(rtfChar.replace(/\\/g, '\\\\'), 'g');
-			cleaned = cleaned.replace(pattern, replacement);
-		}
-
-		return cleaned;
+		return this.parseRTFSegments(text)
+			.map((run) => run.text)
+			.join('');
 	}
 
 	/**
@@ -614,11 +423,9 @@ export class RTFHandler {
 
 		encoded = encoded.replace(/\n/g, '\\par\n');
 		encoded = encoded.replace(/\t/g, '\\tab ');
+		encoded = encoded.replace(/\f/g, '\\page ');
 
-		// Replace special characters with RTF equivalents
-		for (const [char, rtfEquiv] of this.SPECIAL_CHARS_REVERSE) {
-			encoded = encoded.replace(new RegExp(char, 'g'), rtfEquiv);
-		}
+		encoded = encoded.replace(/\r/g, String.raw`\u13?`);
 
 		// Encode non-ASCII characters
 		encoded = this.encodeNonASCII(encoded);
@@ -630,34 +437,17 @@ export class RTFHandler {
 	 * Helper: Encode RTF string (for metadata)
 	 */
 	private encodeRTFString(str: string): string {
-		const encoded = str.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-
-		return this.encodeNonASCII(encoded);
-	}
-
-	/**
-	 * Helper: Decode RTF string
-	 */
-	private decodeRTFString(str: string): string {
-		return str
-			.replace(/\\'([0-9a-fA-F]{2})/g, (_match, hex) =>
-				String.fromCharCode(parseInt(hex, 16))
-			)
-			.replace(/\\([{}\\])/g, '$1')
-			.trim();
+		return this.encodeTextForRTF(str);
 	}
 
 	/**
 	 * Helper: Encode non-ASCII characters
 	 */
 	private encodeNonASCII(text: string): string {
+		assertRtfText(text);
 		// eslint-disable-next-line no-control-regex
 		return text.replace(/[^\x00-\x7F]/g, (char) => {
 			const code = char.charCodeAt(0);
-
-			if (code < 256) {
-				return `\\'${code.toString(16).padStart(2, '0')}`;
-			}
 
 			// Unicode characters
 			if (code < 32768) {

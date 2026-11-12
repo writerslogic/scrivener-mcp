@@ -12,6 +12,7 @@ import {
 import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
 import type { RTFContent } from '../parsers/rtf-handler.js';
 import { EXPORT_PRESETS, type ExportPreset } from './export-presets.js';
+import { publicationLanguage } from './language.js';
 import { createEpub, escapeEpubText, validateEpubText } from './epub.js';
 
 export interface ExportSection {
@@ -27,9 +28,11 @@ export interface ExportSection {
 	sectionType?: 'part' | 'chapter' | 'scene' | 'front-matter';
 	formattedText?: RTFContent['formattedText'];
 	notes?: string[];
+	language?: string;
 }
 
 export interface ExportMeta {
+	language?: string;
 	title: string;
 	author?: string;
 	preset?: ExportPreset;
@@ -56,7 +59,7 @@ function styledParagraphs(section: ExportSection): Array<RTFContent['formattedTe
 				paragraphs[paragraphs.length - 1].push({ text: parts[index], style: run.style });
 		}
 	}
-	return paragraphs.filter((paragraph) => paragraph.some((run) => run.text.trim()));
+	return section.text.length ? paragraphs : [];
 }
 
 const DOCX_HEADINGS = [
@@ -67,6 +70,7 @@ const DOCX_HEADINGS = [
 ];
 
 export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promise<Buffer> {
+	const language = publicationLanguage(meta.language);
 	const preset = meta.preset ? EXPORT_PRESETS[meta.preset] : undefined;
 	const children: Paragraph[] = [
 		new Paragraph({
@@ -82,6 +86,7 @@ export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promi
 	}
 
 	for (const section of sections) {
+		const sectionLanguage = publicationLanguage(section.language ?? language);
 		if (section.sectionType !== 'scene' || !meta.preset)
 			children.push(
 				new Paragraph({
@@ -101,6 +106,7 @@ export async function toDocx(sections: ExportSection[], meta: ExportMeta): Promi
 						(run) =>
 							new TextRun({
 								text: run.text,
+								language: { value: sectionLanguage },
 								bold: run.style?.bold,
 								italics: run.style?.italic,
 								underline: run.style?.underline ? {} : undefined,
@@ -219,6 +225,7 @@ export async function toEpub(sections: ExportSection[], meta: ExportMeta): Promi
 			const level = Math.min(s.depth + 1, 6);
 			return {
 				title: s.title,
+				language: publicationLanguage(s.language ?? meta.language),
 				content: `<h${level}>${escapeEpubText(s.title)}</h${level}>${paragraphs}${notes}`,
 			};
 		});

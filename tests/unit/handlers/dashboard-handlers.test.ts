@@ -50,6 +50,11 @@ async function appearances(
 		bible: { listFacts: async () => facts },
 		continuity: { listPage: () => ({ items: [], nextCursor: null }) },
 		review: {
+			inbox: () => ({
+				items: [],
+				totals: { pending: 0, accepted: 0, rejected: 0 },
+				nextCursor: null,
+			}),
 			history: () => ({
 				proposals: [],
 				applications: [],

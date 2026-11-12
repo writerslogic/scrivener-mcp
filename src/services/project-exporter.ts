@@ -117,6 +117,7 @@ export class ProjectExporter {
 			const buffer = await exportBinary(format, sections, {
 				title: meta.title || 'Untitled',
 				author: meta.author,
+				language: options?.language,
 			});
 			const validation = await validateExport(buffer, format);
 			const filePath = await this.writeExportFile(buffer, format, outputPath, meta.title);
@@ -244,6 +245,7 @@ export class ProjectExporter {
 				const buffer = await exportBinary(format, sections, {
 					title: meta.title || 'Untitled',
 					author: meta.author,
+					language: options.language,
 					preset: options.preset,
 				});
 				const validation = await validateExport(buffer, format);
@@ -389,6 +391,7 @@ export class ProjectExporter {
 		const buffer = await exportBinary(format, sections, {
 			title: meta.title || 'Untitled',
 			author: meta.author,
+			language: options.language,
 			preset: options.preset,
 		});
 		const validation = await validateExport(buffer, format);
@@ -471,6 +474,14 @@ export class ProjectExporter {
 						documentId: section.id,
 						message:
 							'Tables and fields are reduced to parsed text; their layout or dynamic behavior is unsupported.',
+					});
+				if (/\\(?:listtext|pntext|listtable|listoverridetable)\b/.test(raw))
+					findings.push({
+						code: 'generated-list-formatting',
+						severity: 'warning',
+						documentId: section.id,
+						message:
+							'Generated list labels and numbering are not reconstructed by these presets; use native Scrivener compile when list formatting is required.',
 					});
 				const annotations = rtf.preserveScrivenerAnnotations(raw);
 				const notes = [...annotations.entries()].filter(
@@ -562,6 +573,7 @@ export class ProjectExporter {
 				isFolder: !isText,
 				sectionType,
 				formattedText: formatted?.formattedText,
+				language: options?.documentLanguages?.[doc.id] ?? options?.language,
 			});
 		};
 		const walk = async (docs: ScrivenerDocument[], depth: number): Promise<void> => {
@@ -586,6 +598,15 @@ export class ProjectExporter {
 		await walk(draft?.children ?? structure, 0);
 		if (selected && [...selected].some((id) => !seen.has(id)))
 			throw new Error('Export scope contains an unknown or excluded manuscript document');
+		if (
+			options?.documentLanguages &&
+			Object.keys(options.documentLanguages).some(
+				(id) => !sections.some((section) => section.id === id && !section.isFolder)
+			)
+		)
+			throw new Error(
+				'Document language refers to a document outside the selected export scope'
+			);
 		return sections;
 	}
 

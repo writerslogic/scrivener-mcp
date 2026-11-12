@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/client';
 import { getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
@@ -28,6 +30,16 @@ const corpus = JSON.parse(
 ) as NovelCorpus[];
 const directory = process.env.SCRIVENER_NOVEL_CORPUS;
 const samples = Number(process.env.SCRIVENER_NOVEL_SAMPLES ?? 1);
+const pageBytes = Number(process.env.SCRIVENER_NOVEL_PAGE_BYTES ?? 32768);
+if (!Number.isSafeInteger(pageBytes) || pageBytes < 16384 || pageBytes > 1048576)
+	throw new Error('Novel page budget must be an integer from 16384 through 1048576');
+const retryRateLimits = process.env.SCRIVENER_NOVEL_RETRY_RATE_LIMITS === '1';
+const gcDiagnostic = process.env.SCRIVENER_NOVEL_GC_DIAGNOSTIC === '1';
+const paced = process.env.SCRIVENER_NOVEL_PACED === '1';
+const maxPacingMs = 20000;
+const workloadWallTimes: Array<{ corpusId: number; elapsedMs: number }> = [];
+const retryWaitBudgetMs = 5000;
+const failedMeasurements: Record<string, unknown>[] = [];
 if (!Number.isSafeInteger(samples) || samples < 1 || samples > 5)
 	throw new Error('Novel sample count must be between one and five');
 const budgets = {
@@ -51,8 +63,32 @@ afterAll(async () => {
 				node: process.version,
 				platform: `${process.platform}-${process.arch}`,
 				samplesPerPhase: samples,
+				pageBytes,
+				retryRateLimits,
+				gcDiagnostic,
+				paced,
+				...(paced
+					? {
+							pacingPolicy:
+								'Between phases, wait successful calls / 2 per second, capped at20,000ms. The measured default-page maximum was30 calls, requiring15,000ms refill. Pauses are outside phase timings and inside workload wall time; admission and SLO budgets are unchanged.',
+							maxPacingMs,
+						}
+					: {}),
+				workloadWallTimes,
+				pacingTotalMs: measurements.reduce(
+					(sum, item) => sum + Number(item.pacingActualMs ?? 0),
+					0
+				),
+				...(gcDiagnostic
+					? {
+							diagnosticLimitation:
+								'Forced GC after each measured phase changes subsequent heap conditions. This run diagnoses parent memory only and is not SLO evidence. Before/after GC excludes the client and native child processes.',
+						}
+					: {}),
+				retryWaitBudgetMs,
+				failedMeasurements,
 				budgets,
-				scope: 'Real src/index.ts server in a separate process, public MCP tools over stdio, complete pinned novel fixtures and 32768-byte result pages. Server RSS and event-loop lag sampled every 5 ms exclude client/Jest and all native children. Native children report lifetime high-water RSS after native execution and after serialization: on the next event-loop turn for the persistent context, and at process exit for comparisons. The sum of observed process peaks is not simultaneous RSS or a containment bound. Elapsed time includes client reconstruction, child instrumentation and local IPC. Setup, project opening and OS cold disk cache are excluded. Cold means a reopened project with fresh native/source caches. Simultaneous server/descendant RSS is sampled using ps every 100 ms plus operation boundaries, including measurement overhead but excluding client/Jest; sample peaks are not hard containment. Sampling can miss peaks. This is workload evidence, not RSS containment or editorial accuracy.',
+				scope: 'Measured retries honor RATE_LIMITED metadata with 500 ms waits, bounded to 5 seconds per phase; wait time and rejected calls are included. Page bytes are declared separately. Real src/index.ts server in a separate process, public MCP tools over stdio, complete pinned novel fixtures and bounded result pages. Server RSS and event-loop lag sampled every 5 ms exclude client/Jest and all native children. Native children report lifetime high-water RSS after native execution and after serialization: on the next event-loop turn for the persistent context, and at process exit for comparisons. The sum of observed process peaks is not simultaneous RSS or a containment bound. Elapsed time includes client reconstruction, child instrumentation and local IPC. Setup, project opening and OS cold disk cache are excluded. Cold means a reopened project with fresh native/source caches. Simultaneous server/descendant RSS is sampled using ps every 100 ms plus operation boundaries, including measurement overhead but excluding client/Jest; sample peaks are not hard containment. Sampling can miss peaks. This is workload evidence, not RSS containment or editorial accuracy.',
 				measurements,
 			},
 			null,
@@ -64,6 +100,7 @@ afterAll(async () => {
 (directory ? test.each(corpus) : test.skip.each(corpus))(
 	'stdio novel $id: $title',
 	async (entry) => {
+		const workloadStarted = performance.now();
 		const fixture = await createNovelProject(entry, directory!);
 		const { root, project, scenes, ids, file, rtf } = fixture;
 		const childResources = join(root, 'native-resources.jsonl');
@@ -98,7 +135,7 @@ module.exports = { ...native,
 		);
 		const child = fork(join(sourceRoot, 'tests/helpers/server-resource-probe.mjs'), [], {
 			execPath: process.execPath,
-			execArgv: ['--import', loader],
+			execArgv: [...(gcDiagnostic ? ['--expose-gc'] : []), '--import', loader],
 			silent: true,
 			cwd: root,
 			env: {
@@ -121,6 +158,7 @@ module.exports = { ...native,
 				RAYON_NUM_THREADS: '1',
 				OMP_NUM_THREADS: '1',
 				SCRIVENER_NOVEL_PROFILE: process.env.SCRIVENER_NOVEL_PROFILE === '1' ? '1' : '0',
+				SCRIVENER_NOVEL_GC_DIAGNOSTIC: gcDiagnostic ? '1' : '0',
 				SCRIVENER_NOVEL_RESOURCE_PRELOAD: resourcePreload,
 			},
 		});
@@ -183,16 +221,33 @@ module.exports = { ...native,
 				}
 			});
 		let operation = 'initialize';
+		let callMetrics = { calls: 0, rateLimitRetries: 0, rateLimitWaitMs: 0 };
 		const call = async (name: string, args: Record<string, unknown> = {}) => {
 			operation = name;
-			const result = ScrivenerToolResultSchema.parse(
-				await client.callTool({ name, arguments: args }, { timeout: 10000 })
-			);
-			if (result.isError)
-				throw new Error(
-					`Public tool failed: ${name}: ${JSON.stringify(result.content).slice(0, 2048)}`
+			for (;;) {
+				callMetrics.calls++;
+				const result = ScrivenerToolResultSchema.parse(
+					await client.callTool({ name, arguments: args }, { timeout: 10000 })
 				);
-			return result;
+				const admission = result._meta?.['com.writerslogic/admission'] as
+					{ code?: string } | undefined;
+				if (
+					result.isError &&
+					retryRateLimits &&
+					admission?.code === 'RATE_LIMITED' &&
+					callMetrics.rateLimitWaitMs + 500 <= retryWaitBudgetMs
+				) {
+					callMetrics.rateLimitRetries++;
+					callMetrics.rateLimitWaitMs += 500;
+					await delay(500);
+					continue;
+				}
+				if (result.isError)
+					throw new Error(
+						`Public tool failed after ${callMetrics.rateLimitWaitMs}ms rate-limit wait: ${name}: ${JSON.stringify(result.content).slice(0, 2048)}`
+					);
+				return result;
+			}
 		};
 		const violations: Record<string, unknown>[] = [];
 		try {
@@ -219,11 +274,28 @@ module.exports = { ...native,
 							)
 						);
 					await writeFile(childResources, '');
+					callMetrics = { calls: 0, rateLimitRetries: 0, rateLimitWaitMs: 0 };
 					await control('start');
-					const { report, ...pages } = await collectNarrativeReport(
-						(args) => call('analyze_manuscript_local', args),
-						phase === 'cold' ? { saveAs: 'baseline' } : { baseline: 'baseline' }
-					);
+					let output: Awaited<ReturnType<typeof collectNarrativeReport>>;
+					try {
+						output = await collectNarrativeReport(
+							(args) => call('analyze_manuscript_local', args),
+							phase === 'cold' ? { saveAs: 'baseline' } : { baseline: 'baseline' },
+							pageBytes
+						);
+					} catch (error) {
+						const failedMetrics = await control('end');
+						failedMeasurements.push({
+							corpusId: entry.id,
+							sample,
+							phase,
+							...failedMetrics,
+							...callMetrics,
+							error: error instanceof Error ? error.message : String(error),
+						});
+						throw error;
+					}
+					const { report, ...pages } = output;
 					const metrics = (await control('end'))!;
 					expect(metrics.processTreeError).toBeUndefined();
 					expect(metrics.processTreeSamples).toBeGreaterThan(0);
@@ -267,6 +339,7 @@ module.exports = { ...native,
 						sample,
 						phase,
 						...metrics,
+						...callMetrics,
 						nativeResources,
 						sumObservedProcessPeaksBytes:
 							metrics.rssPeakBytes +
@@ -275,9 +348,18 @@ module.exports = { ...native,
 						findings: report.snapshot.report.summary,
 						cache: report.cache,
 						requestId: report.envelope.requestId,
+						pacingPlannedMs:
+							paced && !(sample === samples - 1 && phase === 'one-scene-edit')
+								? Math.min(
+										maxPacingMs,
+										Math.ceil(
+											(callMetrics.calls - callMetrics.rateLimitRetries) * 500
+										)
+									)
+								: 0,
+						pacingActualMs: 0,
 					};
 					measurements.push(observation);
-					process.stdout.write(JSON.stringify(observation) + '\n');
 					expect(report.snapshot.sources).toHaveLength(scenes.length);
 					expect(new Set(report.findingIds).size).toBe(report.findingIds.length);
 					expect(report.envelope.policy.revisionChecked).toBe(true);
@@ -306,6 +388,12 @@ module.exports = { ...native,
 								value: metrics[metric as keyof typeof budgets],
 								limit,
 							});
+					if (observation.pacingPlannedMs) {
+						const pacingStarted = performance.now();
+						await delay(observation.pacingPlannedMs);
+						observation.pacingActualMs = performance.now() - pacingStarted;
+					}
+					process.stdout.write(JSON.stringify(observation) + '\n');
 				}
 				await call('close_project');
 			}
@@ -331,9 +419,13 @@ module.exports = { ...native,
 				} finally {
 					clearTimeout(force);
 					await rm(root, { recursive: true, force: true });
+					workloadWallTimes.push({
+						corpusId: entry.id,
+						elapsedMs: performance.now() - workloadStarted,
+					});
 				}
 			}
 		}
 	},
-	120000
+	120000 + (paced ? samples * 3 * maxPacingMs : 0)
 );

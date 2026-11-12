@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 1,
+  "corpusSha256": "d522a9fd666753c4d2fe319b8154e5fa2a29f07489ee2ee8002f383d93da8596",
+  "annotationStatus": "Agent-authored before predictions; not independently human validated",
+  "split": "holdout",
+  "implementation": {
+    "commit": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+    "workingTreeDirty": true,
+    "node": "v24.22.1",
+    "platform": "darwin-arm64",
+    "runnerSha256": "b47f1eac8145bfe4be005de92bc2447fc412dd2431012be06bac6fca1abfce64",
+    "modules": {
+      "continuity-service": "868354f96c04a8bdba9b96724b63fdd97fa2d88160568120a94f44e525bc637d",
+      "series-bible": "3e5da2af95936e346fd6e45c905dfce923ff1183f58c580d68b910299d12bd21",
+      "provenance": "9a729b7ec28afa1e4450492272b43b1ca7918c833b6a54ac2b3e2e172f251db5",
+      "persistent-store": "3e3507ee375cf0a33c58fed1dffef8602f696b07b3c2c2fc5a76e337be13eccc"
+    }
+  },
+  "overall": {
+    "cases": 12,
+    "tp": 5,
+    "fp": 0,
+    "fn": 1,
+    "tn": 6,
+    "precision": 1,
+    "recall": 0.8333333333333334
+  },
+  "splits": {
+    "holdout": {
+      "cases": 12,
+      "tp": 5,
+      "fp": 0,
+      "fn": 1,
+      "tn": 6,
+      "precision": 1,
+      "recall": 0.8333333333333334
+    }
+  },
+  "categories": {
+    "dialogue": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": 1,
+      "recall": 1
+    },
+    "multiple-characters": {
+      "cases": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": null,
+      "recall": null
+    },
+    "aliases": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": 1,
+      "recall": 1
+    },
+    "flashback": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": 1,
+      "recall": 1
+    },
+    "coreference": {
+      "cases": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 1,
+      "tn": 0,
+      "precision": 1,
+      "recall": 0.5
+    },
+    "uncertainty": {
+      "cases": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": null,
+      "recall": null
+    },
+    "paraphrase": {
+      "cases": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "intentional": {
+      "cases": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 1,
+      "precision": null,
+      "recall": null
+    }
+  },
+  "evidenceChecked": 10,
+  "predictions": [
+    {
+      "id": "transfer-quoted-birth",
+      "split": "holdout",
+      "category": "dialogue",
+      "inputSha256": "3608ec76832877cc6bf1482e879a79319448d170f9bb1bb108a4692597ddfc6a",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "transfer-narrated-birth",
+      "split": "holdout",
+      "category": "dialogue",
+      "inputSha256": "de450d53494749aa0864a9ae7afb2608f660d459f1cf15f21bf1ce75eee262c6",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Idris: birth-year has competing values \"1870\" and \"1871\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "dc073d103fe3f90437a50a1cfbced7caf73bda704b7aeaa8363910915877652e",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Idris was born in 1870"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "d6ba134422c283dfbfa184ddb5ee259765c6296d01a4e58528fb5032ea13f683",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 19,
+              "end": 41,
+              "line": 1,
+              "quote": "Idris was born in 1871"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transfer-ambiguous",
+      "split": "holdout",
+      "category": "multiple-characters",
+      "inputSha256": "b548a180c58329990540779debabd9e2356449cdbf2526b1d44eca66ebfd753d",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "transfer-alias",
+      "split": "holdout",
+      "category": "aliases",
+      "inputSha256": "a2d906ed6434d7754df7cfb6f106965ed6ee6f02863fd57378ddc5f8609b5fe8",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Idris: eye-color has competing values \"green\" and \"brown\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "8c69267b6207e7e628693a7a4e522bfdcb57f55160204aeb7586ed7a287e3081",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 20,
+              "line": 1,
+              "quote": "Idris has green eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "ae15997a5e6ce86e3a8d1ea456bc5beffe63a89f810e709ea95bdfdd642c106e",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 18,
+              "line": 1,
+              "quote": "Ash has brown eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transfer-unknown-alias",
+      "split": "holdout",
+      "category": "aliases",
+      "inputSha256": "fc9a7ae0059b427bf3dd9d0cddb45d02f6dd03fbe7ce2d5b52af89382bad402f",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "transfer-flashback",
+      "split": "holdout",
+      "category": "flashback",
+      "inputSha256": "fac61320544fffb8bba48d72951e8d0d56b9f8f2c7343808916dbf47649631f0",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "transfer-immutable",
+      "split": "holdout",
+      "category": "flashback",
+      "inputSha256": "10d83ab0334f43a571c188ee67a7dd716f1146e1ce1fe5d1feedf216480dfab0",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Idris: birth-year has competing values \"1870\" and \"1871\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "dc073d103fe3f90437a50a1cfbced7caf73bda704b7aeaa8363910915877652e",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Idris was born in 1870"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "83bdd335c5b26a0f01252b6c989d64026dc2734105625fda1300d69c41bc2b3b",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Idris was born in 1871"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transfer-single-line",
+      "split": "holdout",
+      "category": "coreference",
+      "inputSha256": "12018ba88c6b0b3c7ca66374231c1e5e8a98431e79a77d510abf0d4a6a72fd4b",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Idris: hair-color has competing values \"black\" and \"white\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "519a9f097381b0f76d0839967d3818bc0de227e232eb819b256bb1aef84fb055",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 22,
+              "line": 1,
+              "quote": "Idris’s hair was black"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "d62ca65a976989bb0b467d2f8fb34c4f7722fd22c2f9dd0e73d728e6f5ff852b",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 32,
+              "line": 1,
+              "quote": "Idris waited.\nHis hair was white"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transfer-inanimate-object",
+      "split": "holdout",
+      "category": "coreference",
+      "inputSha256": "f16517b12a6b00d7ebc1972dc9b737ce75342527a7a20256566979b430c2d39b",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "transfer-admitted-uncertainty",
+      "split": "holdout",
+      "category": "uncertainty",
+      "inputSha256": "c320b77e266dc3694ab29c4e44734c14ea8cd8ef10def342bda34aab3fb14bef",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "transfer-indirect-color",
+      "split": "holdout",
+      "category": "paraphrase",
+      "inputSha256": "0abb23ad5ba6ba861ffb91d4b3008fe97a5c0b124fac8c140c0e6c0f16414a8c",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Sofia: eye-color has competing values \"green\" and \"brown\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "revision": "a4d8a09d4eb6cfd08d2a279ef6b1ca44e84283ad08c999e71a4bfa46b06405e2",
+              "title": "Scene 1",
+              "path": "Draft/1",
+              "start": 0,
+              "end": 20,
+              "line": 1,
+              "quote": "Sofia has green eyes"
+            },
+            {
+              "projectId": "11111111-1111-4111-8111-111111111111",
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "revision": "c1f50b10a04c8e241ea26e1707dd3b7863d601f850b8132e8f2487ed927cab0b",
+              "title": "Scene 2",
+              "path": "Draft/2",
+              "start": 0,
+              "end": 35,
+              "line": 1,
+              "quote": "Brown was the color of Sofia’s eyes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transfer-intentional",
+      "split": "holdout",
+      "category": "intentional",
+      "inputSha256": "509ef07c3d2fdbb066ba7c415616346495437de2827ef1537394029fe7983153",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    }
+  ],
+  "limitations": "Agent-authored synthetic scenarios, labeled before predictions; no independent human review or private manuscripts. Held-out cases are reserved from tuning only until their first evaluation, then become regression cases. No result estimates general manuscript reliability or editorial preference. No paid APIs or network calls."
+}

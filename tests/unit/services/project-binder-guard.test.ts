@@ -9,6 +9,7 @@ import {
 	moveDocumentHandler,
 	updateDocumentHandler,
 } from '../../../src/handlers/document-handlers.js';
+import { createSnapshotHandler } from '../../../src/handlers/project-handlers/snapshots.js';
 import type { HandlerContext } from '../../../src/handlers/types.js';
 import { isProjectOpenInScrivener } from '../../../src/utils/scrivener-app.js';
 
@@ -59,6 +60,7 @@ const mutations: Array<{
 			p.batchUpdateSynopsisAndNotes([{ documentId: DOCUMENT, synopsis: 'New' }], o),
 	},
 	{ name: 'save', run: (p, o) => p.saveProject(o) },
+	{ name: 'snapshot', run: (p, o) => p.takeSnapshot(DOCUMENT, 'Guarded snapshot', o) },
 ];
 
 let directory: string;
@@ -203,6 +205,34 @@ test.each([
 	}
 );
 
+test.each(['open', 'unknown'] as const)(
+	'snapshot handler requires explicit force for %s native state and preserves source bytes',
+	async (state) => {
+		const contentDirectory = path.join(root, 'Files', 'Data', DOCUMENT);
+		await fs.mkdir(contentDirectory, { recursive: true });
+		const contentPath = path.join(contentDirectory, 'content.rtf');
+		const raw = '{\\rtf1\\ansi Disposable snapshot source.}';
+		await fs.writeFile(contentPath, raw);
+		jest.mocked(isProjectOpenInScrivener).mockResolvedValue(state);
+		const before = await savedFiles();
+		await expect(
+			createSnapshotHandler.handler({ documentId: DOCUMENT }, context())
+		).rejects.toThrow(state === 'open' ? /open in Scrivener/i : /unavailable or ambiguous/i);
+		expect(await savedFiles()).toEqual(before);
+		const response = await createSnapshotHandler.handler(
+			{ documentId: DOCUMENT, title: 'Acknowledged fixture snapshot', force: true },
+			context()
+		);
+		const snapshotId = response.structuredContent?.snapshotId;
+		expect(typeof snapshotId).toBe('string');
+		expect(await project.readSnapshot(DOCUMENT, snapshotId as string)).toMatchObject({
+			title: 'Acknowledged fixture snapshot',
+			text: 'Disposable snapshot source.',
+		});
+		expect(await fs.readFile(contentPath, 'utf8')).toBe(raw);
+	}
+);
+
 test('read-only project option rejects authoritative mutations even when force is set', async () => {
 	await project.close();
 	project = new ScrivenerProject(root, { readOnly: true });
@@ -218,6 +248,9 @@ test('read-only project option rejects authoritative mutations even when force i
 		await expect(mutation.run(project, { force: true })).rejects.toThrow(/read-only/i);
 	}
 	await expect(project.takeSnapshot(DOCUMENT)).rejects.toThrow(/read-only/i);
+	await expect(
+		createSnapshotHandler.handler({ documentId: DOCUMENT, force: true }, context())
+	).rejects.toThrow(/read-only/i);
 	await expect(loader.saveProject()).rejects.toThrow(/read-only/i);
 	await expect(resources.documentManager.renameDocument(DOCUMENT, 'Forbidden')).rejects.toThrow(
 		/read-only/i

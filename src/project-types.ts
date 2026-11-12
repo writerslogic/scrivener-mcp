@@ -7,6 +7,7 @@ export interface ScrivenerProjectOptions {
 	syncInterval?: number;
 	scrivxPath?: string;
 	readOnly?: boolean;
+	/** @deprecated Manuscripts are no longer copied into legacy global memory. */
 	hhmSystem?: HolographicMemorySystem;
 }
 

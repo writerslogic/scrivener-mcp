@@ -438,7 +438,7 @@ export class JobQueueService {
 			case JobType.BUILD_VECTOR_STORE:
 				return this.processBuildVectorStore(data as unknown as BuildVectorStoreJob);
 			case JobType.CHECK_CONSISTENCY:
-				return this.processCheckConsistency(data as unknown as CheckConsistencyJob);
+				return this.processCheckConsistency(data as unknown as CheckConsistencyJob, signal);
 			case JobType.SYNC_DATABASE:
 				return this.processSyncDatabase(data as unknown as SyncDatabaseJob);
 			default:
@@ -748,7 +748,10 @@ export class JobQueueService {
 		}
 	}
 
-	private async processCheckConsistency(data: CheckConsistencyJob): Promise<ContinuityReport> {
+	private async processCheckConsistency(
+		data: CheckConsistencyJob,
+		signal?: AbortSignal
+	): Promise<ContinuityReport> {
 		if (!this.continuity || data.projectId !== this.requireScope().projectId)
 			throw new Error(
 				'Continuity analysis requires the selected project and its canonical evidence service'
@@ -769,6 +772,7 @@ export class JobQueueService {
 				'Continuity jobs require 1–5000 saved document identities and revisions'
 			);
 		return this.continuity({
+			signal,
 			documentIds: data.documents.map((doc) => doc.id),
 			expectedRevisions: data.documents.map((doc) => ({
 				documentId: doc.id,

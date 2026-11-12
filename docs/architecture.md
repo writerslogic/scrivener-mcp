@@ -6,7 +6,7 @@ For a user-facing feature overview, see the
 ## Overview
 
 Scrivener MCP is a stdio-based MCP server written in TypeScript. It reads and writes Scrivener 3
-project files directly (XML binder structure + RTF document files) and exposes 82 tools over the
+project files directly (XML binder structure + RTF document files) and exposes the registered tool catalog over the
 Model Context Protocol via skill-based registration (progressive disclosure by default; eager
 registration is opt-in via `SCRIVENER_MCP_EAGER_TOOLS`).
 
@@ -257,6 +257,19 @@ selects a process-local fallback; corruption and incompatible configurations fai
 The fallback implements document BM25 and supplied-vector cosine; its document cache is volatile and
 rehydrates from SQLite. Legacy text/triplet/analogy APIs retain a TF-IDF projection fallback.
 Character trigram analogies are associative suggestions, not proof of general semantic reasoning.
+Plain, paged and formatted document reads, writes and document creation do not copy manuscript
+text into that legacy store. Normal server startup does not open it. Public `remember`/`recall`
+use project-owned `.ai-memory` records; passage retrieval uses the project cache described above.
+The deprecated `ScrivenerProjectOptions.hhmSystem` option and legacy `ProjectWriter` constructor
+arguments remain accepted for source compatibility but do not enable automatic ingestion. Direct
+legacy memory APIs still require explicit calls and retain their existing behavior.
+
+Older global records are neither reassigned to a project nor automatically deleted. Restarting the
+server releases its former process-local legacy cache; persisted native data remains at its original
+location (documented below). To remove that data, stop every process using the store, make a backup,
+then remove only the identified legacy store. Do not delete project passage caches or `.ai-memory`
+as a substitute. Explicit legacy API consumers remain responsible for their own retention policy.
+
 The legacy `similarityThreshold` option filters text, batch, analogy and triplet results before
 ranks are assigned; it does not change document-search scoring. Values must be finite and within
 [-1, 1]. Legacy `maxMemories`, `useGPU`, `autoEvolve` and `evolution` settings are rejected because

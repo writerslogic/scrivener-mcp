@@ -6,10 +6,18 @@ import baseline from '../../../fixtures/rtf/parser-baseline.json';
 
 const handler = new RTFHandler();
 
-test.each(baseline)('preserves the parsed Scrivener fixture $file', async ({ file, sha256 }) => {
-	const raw = await readFile(resolve(__dirname, '../../../..', file), 'utf8');
+test.each(baseline)('checks the declared saved-RTF semantics for $file', async (fixture) => {
+	const raw = await readFile(resolve(__dirname, '../../../..', fixture.file), 'utf8');
+	expect(createHash('sha256').update(raw).digest('hex')).toBe(fixture.sourceSha256);
+
 	const parsed = await handler.parseRTF(raw);
-	expect(createHash('sha256').update(JSON.stringify(parsed)).digest('hex')).toBe(sha256);
+	if (fixture.text !== undefined) {
+		expect(parsed.plainText).toBe(fixture.text);
+		expect(parsed.formattedText.map((run) => run.text).join('')).toBe(fixture.text);
+	} else
+		expect(createHash('sha256').update(JSON.stringify(parsed)).digest('hex')).toBe(
+			fixture.sha256
+		);
 });
 
 test.each([
@@ -77,4 +85,12 @@ test.each([1, 2, 3])('validates UTF-8 binary byte length %i', async (length) => 
 	const raw = `{\\rtf1{\\pict\\bin${length} é}Text}`;
 	if (length === 2) expect((await handler.parseRTF(raw)).plainText).toBe('Text');
 	else await expect(handler.parseRTF(raw)).rejects.toThrow(/RTF/);
+});
+
+test('refuses the historical raw-UTF8-in-ANSI sample instead of misreporting native text', async () => {
+	const raw = await readFile(
+		resolve(__dirname, '../../../fixtures/rtf/unsupported-literal-utf8.rtf'),
+		'utf8'
+	);
+	await expect(handler.parseRTF(raw)).rejects.toThrow(/Unsupported unescaped non-ASCII RTF/);
 });

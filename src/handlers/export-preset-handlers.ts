@@ -5,6 +5,8 @@ import { requireProject } from './types.js';
 const input = z
 	.object({
 		action: z.enum(['preflight', 'export']).default('preflight'),
+		language: z.string().min(2).max(255).optional(),
+		documentLanguages: z.record(z.string().uuid(), z.string().min(2).max(255)).optional(),
 		preset: z.enum(['submission-manuscript', 'beta-reader', 'ebook']),
 		documentIds: z.array(z.string().uuid()).max(10000).optional(),
 		frontMatterIds: z.array(z.string().uuid()).max(1000).optional(),
@@ -33,6 +35,19 @@ export const exportManuscriptHandler: ToolDefinition = {
 				enum: ['preflight', 'export'],
 				description:
 					'Default preflight reads sources and reports coverage without writing an export.',
+			},
+			language: {
+				type: 'string',
+				maxLength: 255,
+				description:
+					'Publication language as a Unicode BCP47 tag, e.g. fr or ja; defaults to und (undetermined).',
+			},
+			documentLanguages: {
+				type: 'object',
+				maxProperties: 10000,
+				additionalProperties: { type: 'string', maxLength: 255 },
+				description:
+					'Optional document UUID to language overrides for multilingual resources.',
 			},
 			preset: {
 				type: 'string',

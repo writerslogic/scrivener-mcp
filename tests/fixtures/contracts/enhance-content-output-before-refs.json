@@ -1,0 +1,542 @@
+{
+	"type": "object",
+	"oneOf": [
+		{
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"documentId": {
+					"type": "string",
+					"description": "Saved document UUID whose revision was checked before returning the rewrite."
+				},
+				"original": {
+					"type": "string",
+					"minLength": 1,
+					"maxLength": 12000,
+					"description": "Complete decoded saved text submitted for rewriting."
+				},
+				"enhanced": {
+					"type": "string",
+					"minLength": 1,
+					"maxLength": 64000,
+					"description": "Complete proposed rewrite returned by the provider; not applied to the document."
+				},
+				"changed": {
+					"type": "boolean",
+					"description": "Whether the proposed rewrite differs from the original text."
+				},
+				"changes": {
+					"type": "null",
+					"description": "Unavailable: this operation does not produce a verified edit list."
+				},
+				"suggestions": {
+					"type": "null",
+					"description": "Unavailable: the provider returns a rewrite without separate suggestions."
+				},
+				"qualityValidation": {
+					"type": "null",
+					"description": "Unavailable: no independent quality validation of the rewrite is performed."
+				},
+				"metrics": {
+					"type": "object",
+					"description": "Native measurements of original and revised prose; failed measurements remain null.",
+					"additionalProperties": false,
+					"properties": {
+						"originalWordCount": {
+							"type": ["integer", "null"],
+							"minimum": 0,
+							"description": "Native word count of the original text, or null when unavailable."
+						},
+						"enhancedWordCount": {
+							"type": ["integer", "null"],
+							"minimum": 0,
+							"description": "Native word count of the proposed rewrite, or null when unavailable."
+						},
+						"readabilityChange": {
+							"type": ["number", "null"],
+							"description": "Native Flesch reading-ease difference, revised minus original; unavailable when either measurement fails."
+						},
+						"changesApplied": {
+							"type": "null",
+							"description": "Unavailable: edits are not enumerated or applied by this operation."
+						}
+					},
+					"required": [
+						"originalWordCount",
+						"enhancedWordCount",
+						"readabilityChange",
+						"changesApplied"
+					]
+				},
+				"availability": {
+					"type": "object",
+					"description": "Explicitly identifies unmeasured metadata and failed native measurements.",
+					"additionalProperties": false,
+					"properties": {
+						"status": {
+							"const": "partial",
+							"description": "A rewrite is available, but edit lists and independent quality validation are not."
+						},
+						"unavailableFields": {
+							"type": "array",
+							"description": "Result field paths returned as null because no measurement or assessment is available.",
+							"uniqueItems": true,
+							"maxItems": 7,
+							"items": {
+								"enum": [
+									"changes",
+									"suggestions",
+									"metrics.changesApplied",
+									"qualityValidation",
+									"metrics.originalWordCount",
+									"metrics.enhancedWordCount",
+									"metrics.readabilityChange"
+								]
+							}
+						}
+					},
+					"required": ["status", "unavailableFields"]
+				},
+				"coverage": {
+					"type": "object",
+					"description": "Complete decoded source range and text digest used for this rewrite.",
+					"additionalProperties": false,
+					"properties": {
+						"start": {
+							"const": 0,
+							"description": "Inclusive UTF-16 start offset of the source text."
+						},
+						"end": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 12000,
+							"description": "Exclusive UTF-16 end offset of the complete source text."
+						},
+						"sourceCharacters": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 12000,
+							"description": "UTF-16 length of the complete decoded saved document text."
+						},
+						"sourceRevision": {
+							"type": "string",
+							"pattern": "^[a-f0-9]{64}$",
+							"description": "SHA-256 of complete decoded text; envelope revisions identify saved RTF."
+						},
+						"truncated": {
+							"const": false,
+							"description": "Always false because enhancement requires the complete source to fit its limit."
+						}
+					},
+					"required": [
+						"start",
+						"end",
+						"sourceCharacters",
+						"sourceRevision",
+						"truncated"
+					]
+				},
+				"envelope": {
+					"type": "object",
+					"description": "Provenance linking the request to its source revisions, engine settings and execution policy.",
+					"additionalProperties": false,
+					"properties": {
+						"requestId": {
+							"type": "string",
+							"description": "Deterministic SHA-256 of canonical project, scope, revision, control, policy, request and engine-version inputs; excludes createdAt."
+						},
+						"projectId": {
+							"type": ["string", "null"],
+							"description": "Project identity or isolated queue-instance identity; null when the request has neither."
+						},
+						"createdAt": {
+							"type": "string",
+							"description": "UTC ISO 8601 timestamp when this provenance envelope was created."
+						},
+						"sourceFormat": {
+							"enum": ["saved-rtf", "supplied-text"],
+							"description": "Source representation hashed for revisions: saved RTF text or caller-supplied text, encoded as UTF-8."
+						},
+						"scope": {
+							"type": "object",
+							"description": "Request scope and ordered identifiers of the source documents used.",
+							"additionalProperties": false,
+							"properties": {
+								"kind": {
+									"enum": [
+										"manuscript",
+										"document",
+										"annotation"
+									],
+									"description": "Scope category: manuscript, document-level request or author-evidence annotation analysis."
+								},
+								"documentIds": {
+									"type": "array",
+									"items": {
+										"type": "string",
+										"description": "Source document identifier used in sourceRevisions."
+									},
+									"description": "Source document identifiers in analysis order; saved documents use binder UUIDs."
+								}
+							},
+							"required": ["kind", "documentIds"]
+						},
+						"sourceRevisions": {
+							"type": "array",
+							"description": "Revision fingerprint for each source document, in the same order as scope.documentIds.",
+							"items": {
+								"type": "object",
+								"description": "Document identity paired with the exact input revision used for analysis.",
+								"additionalProperties": false,
+								"properties": {
+									"documentId": {
+										"type": "string",
+										"description": "Source identifier matching the corresponding scope.documentIds entry."
+									},
+									"revision": {
+										"type": "string",
+										"description": "SHA-256 of the UTF-8 source representation identified by sourceFormat, before analysis."
+									}
+								},
+								"required": ["documentId", "revision"]
+							}
+						},
+						"engine": {
+							"type": "object",
+							"description": "Selected analysis backend and fingerprints of its recorded configuration and author controls.",
+							"additionalProperties": false,
+							"properties": {
+								"name": {
+									"enum": [
+										"narrative-lens",
+										"provider",
+										"scrivener-mcp"
+									],
+									"description": "Analysis backend family selected by the execution policy."
+								},
+								"version": {
+									"type": ["string", "null"],
+									"description": "Installed Narrative Lens package version; null for provider or scrivener-mcp results."
+								},
+								"configurationHash": {
+									"type": "string",
+									"description": "SHA-256 of canonical configuration, or request parameters for raw and local policies."
+								},
+								"controlsHash": {
+									"type": "string",
+									"description": "SHA-256 of the complete canonical author-controls object recorded for this result."
+								}
+							},
+							"required": [
+								"name",
+								"version",
+								"configurationHash",
+								"controlsHash"
+							]
+						},
+						"policy": {
+							"type": "object",
+							"description": "Declared control usage, provider access, manuscript mutation and source-freshness checks.",
+							"additionalProperties": false,
+							"properties": {
+								"mode": {
+									"enum": [
+										"configured",
+										"raw",
+										"author-evidence",
+										"provider",
+										"local"
+									],
+									"description": "Configured native analysis, raw native analysis, explicit author evidence, provider processing or local processing."
+								},
+								"usesSavedProjectControls": {
+									"type": "boolean",
+									"description": "Whether configured or author-evidence analysis selected saved project controls."
+								},
+								"authorIntentionsApplied": {
+									"type": "boolean",
+									"description": "Whether configured analysis included nonempty saved scene intentions."
+								},
+								"suppressionsApplied": {
+									"type": "boolean",
+									"description": "Whether configured analysis included saved finding-suppression rules."
+								},
+								"allowsRawNativeAnalysis": {
+									"type": "boolean",
+									"description": "Whether this request selected raw native analysis without saved project controls."
+								},
+								"providerAccess": {
+									"type": "boolean",
+									"description": "Whether provider access was enabled for this operation; does not certify successful provider output."
+								},
+								"mutatesManuscript": {
+									"const": false,
+									"description": "Whether this operation edits manuscript text; always false for these envelopes."
+								},
+								"revisionChecked": {
+									"type": "boolean",
+									"description": "Whether applicable saved-input revisions were rechecked before completion."
+								}
+							},
+							"required": [
+								"mode",
+								"usesSavedProjectControls",
+								"authorIntentionsApplied",
+								"suppressionsApplied",
+								"allowsRawNativeAnalysis",
+								"providerAccess",
+								"mutatesManuscript",
+								"revisionChecked"
+							]
+						}
+					},
+					"required": [
+						"requestId",
+						"projectId",
+						"createdAt",
+						"scope",
+						"sourceRevisions",
+						"sourceFormat",
+						"engine",
+						"policy"
+					]
+				}
+			},
+			"required": [
+				"documentId",
+				"original",
+				"enhanced",
+				"changed",
+				"changes",
+				"suggestions",
+				"qualityValidation",
+				"metrics",
+				"availability",
+				"coverage",
+				"envelope"
+			]
+		},
+		{
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"documentId": {
+					"type": "string",
+					"description": "Saved document UUID whose rewrite was unavailable."
+				},
+				"enhanced": {
+					"type": "null",
+					"description": "No complete rewrite was returned by the provider."
+				},
+				"availability": {
+					"type": "object",
+					"description": "Explicit provider failure status for an unavailable rewrite.",
+					"additionalProperties": false,
+					"properties": {
+						"status": {
+							"const": "unavailable",
+							"description": "No usable complete rewrite is available."
+						},
+						"reason": {
+							"const": "provider_failed",
+							"description": "The provider failed or returned empty, incomplete or oversized output."
+						}
+					},
+					"required": ["status", "reason"]
+				},
+				"envelope": {
+					"type": "object",
+					"description": "Provenance linking the request to its source revisions, engine settings and execution policy.",
+					"additionalProperties": false,
+					"properties": {
+						"requestId": {
+							"type": "string",
+							"description": "Deterministic SHA-256 of canonical project, scope, revision, control, policy, request and engine-version inputs; excludes createdAt."
+						},
+						"projectId": {
+							"type": ["string", "null"],
+							"description": "Project identity or isolated queue-instance identity; null when the request has neither."
+						},
+						"createdAt": {
+							"type": "string",
+							"description": "UTC ISO 8601 timestamp when this provenance envelope was created."
+						},
+						"sourceFormat": {
+							"enum": ["saved-rtf", "supplied-text"],
+							"description": "Source representation hashed for revisions: saved RTF text or caller-supplied text, encoded as UTF-8."
+						},
+						"scope": {
+							"type": "object",
+							"description": "Request scope and ordered identifiers of the source documents used.",
+							"additionalProperties": false,
+							"properties": {
+								"kind": {
+									"enum": [
+										"manuscript",
+										"document",
+										"annotation"
+									],
+									"description": "Scope category: manuscript, document-level request or author-evidence annotation analysis."
+								},
+								"documentIds": {
+									"type": "array",
+									"items": {
+										"type": "string",
+										"description": "Source document identifier used in sourceRevisions."
+									},
+									"description": "Source document identifiers in analysis order; saved documents use binder UUIDs."
+								}
+							},
+							"required": ["kind", "documentIds"]
+						},
+						"sourceRevisions": {
+							"type": "array",
+							"description": "Revision fingerprint for each source document, in the same order as scope.documentIds.",
+							"items": {
+								"type": "object",
+								"description": "Document identity paired with the exact input revision used for analysis.",
+								"additionalProperties": false,
+								"properties": {
+									"documentId": {
+										"type": "string",
+										"description": "Source identifier matching the corresponding scope.documentIds entry."
+									},
+									"revision": {
+										"type": "string",
+										"description": "SHA-256 of the UTF-8 source representation identified by sourceFormat, before analysis."
+									}
+								},
+								"required": ["documentId", "revision"]
+							}
+						},
+						"engine": {
+							"type": "object",
+							"description": "Selected analysis backend and fingerprints of its recorded configuration and author controls.",
+							"additionalProperties": false,
+							"properties": {
+								"name": {
+									"enum": [
+										"narrative-lens",
+										"provider",
+										"scrivener-mcp"
+									],
+									"description": "Analysis backend family selected by the execution policy."
+								},
+								"version": {
+									"type": ["string", "null"],
+									"description": "Installed Narrative Lens package version; null for provider or scrivener-mcp results."
+								},
+								"configurationHash": {
+									"type": "string",
+									"description": "SHA-256 of canonical configuration, or request parameters for raw and local policies."
+								},
+								"controlsHash": {
+									"type": "string",
+									"description": "SHA-256 of the complete canonical author-controls object recorded for this result."
+								}
+							},
+							"required": [
+								"name",
+								"version",
+								"configurationHash",
+								"controlsHash"
+							]
+						},
+						"policy": {
+							"type": "object",
+							"description": "Declared control usage, provider access, manuscript mutation and source-freshness checks.",
+							"additionalProperties": false,
+							"properties": {
+								"mode": {
+									"enum": [
+										"configured",
+										"raw",
+										"author-evidence",
+										"provider",
+										"local"
+									],
+									"description": "Configured native analysis, raw native analysis, explicit author evidence, provider processing or local processing."
+								},
+								"usesSavedProjectControls": {
+									"type": "boolean",
+									"description": "Whether configured or author-evidence analysis selected saved project controls."
+								},
+								"authorIntentionsApplied": {
+									"type": "boolean",
+									"description": "Whether configured analysis included nonempty saved scene intentions."
+								},
+								"suppressionsApplied": {
+									"type": "boolean",
+									"description": "Whether configured analysis included saved finding-suppression rules."
+								},
+								"allowsRawNativeAnalysis": {
+									"type": "boolean",
+									"description": "Whether this request selected raw native analysis without saved project controls."
+								},
+								"providerAccess": {
+									"type": "boolean",
+									"description": "Whether provider access was enabled for this operation; does not certify successful provider output."
+								},
+								"mutatesManuscript": {
+									"const": false,
+									"description": "Whether this operation edits manuscript text; always false for these envelopes."
+								},
+								"revisionChecked": {
+									"type": "boolean",
+									"description": "Whether applicable saved-input revisions were rechecked before completion."
+								}
+							},
+							"required": [
+								"mode",
+								"usesSavedProjectControls",
+								"authorIntentionsApplied",
+								"suppressionsApplied",
+								"allowsRawNativeAnalysis",
+								"providerAccess",
+								"mutatesManuscript",
+								"revisionChecked"
+							]
+						}
+					},
+					"required": [
+						"requestId",
+						"projectId",
+						"createdAt",
+						"scope",
+						"sourceRevisions",
+						"sourceFormat",
+						"engine",
+						"policy"
+					]
+				}
+			},
+			"required": ["documentId", "enhanced", "availability", "envelope"]
+		},
+		{
+			"type": "object",
+			"description": "Reference to a complete JSON result retained in the server session spool.",
+			"additionalProperties": false,
+			"properties": {
+				"_ref": {
+					"type": "string",
+					"description": "Opaque resultId for read_result; concatenate its text pages before parsing the complete JSON."
+				},
+				"_size": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Length of the complete JSON string in UTF-16 code units."
+				},
+				"_preview": {
+					"type": "string",
+					"maxLength": 200,
+					"description": "First up to 200 UTF-16 code units of the stored JSON; may be incomplete JSON."
+				},
+				"_hint": {
+					"type": "string",
+					"description": "Retrieval instructions and expiration conditions for this spooled result."
+				}
+			},
+			"required": ["_ref", "_size", "_preview", "_hint"]
+		}
+	]
+}

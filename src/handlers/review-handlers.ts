@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { REVIEW_CATEGORIES } from '../services/editorial/review-service.js';
 import type { ToolDefinition } from './types.js';
 import { requireProject } from './types.js';
 
@@ -6,6 +7,7 @@ const uuid = z.string().uuid();
 const input = z
 	.object({
 		action: z.enum([
+			'inbox',
 			'propose',
 			'list',
 			'get',
@@ -42,6 +44,12 @@ const input = z
 			.min(1)
 			.max(1000)
 			.optional(),
+		category: z.enum(REVIEW_CATEGORIES).optional(),
+		rationale: z.string().min(1).max(2000).optional(),
+		alternativeGroup: z.string().min(1).max(200).optional(),
+		status: z.enum(['pending', 'reviewed', 'all']).optional(),
+		query: z.string().max(200).optional(),
+		after: z.string().min(1).max(160).optional(),
 		title: z.string().max(200).optional(),
 		idempotencyKey: z.string().min(1).max(200).optional(),
 		operationId: uuid.optional(),
@@ -67,6 +75,7 @@ export const reviewChangesHandler: ToolDefinition = {
 			action: {
 				type: 'string',
 				enum: [
+					'inbox',
 					'propose',
 					'list',
 					'get',
@@ -144,6 +153,37 @@ export const reviewChangesHandler: ToolDefinition = {
 					required: ['start', 'end', 'text'],
 				},
 			},
+			category: {
+				type: 'string',
+				enum: [...REVIEW_CATEGORIES],
+				description: 'Issue category for a proposal or inbox filter.',
+			},
+			rationale: {
+				type: 'string',
+				maxLength: 2000,
+				description: 'Why this proposed change helps the manuscript.',
+			},
+			alternativeGroup: {
+				type: 'string',
+				maxLength: 200,
+				description:
+					'Shared issue label linking alternative proposals; alternatives remain independent and revision guarded.',
+			},
+			status: {
+				type: 'string',
+				enum: ['pending', 'reviewed', 'all'],
+				description: 'Inbox decision filter, default pending.',
+			},
+			query: {
+				type: 'string',
+				maxLength: 200,
+				description: 'Inbox search across labels and rationale.',
+			},
+			after: {
+				type: 'string',
+				maxLength: 160,
+				description: 'Inbox cursor from nextCursor; reset after changing filters.',
+			},
 			title: { type: 'string', description: 'Optional human-readable proposal label.' },
 			idempotencyKey: {
 				type: 'string',
@@ -187,6 +227,9 @@ export const reviewChangesHandler: ToolDefinition = {
 		};
 		let result: object;
 		switch (request.action) {
+			case 'inbox':
+				result = review.inbox(request);
+				break;
 			case 'list':
 				{
 					const history = review.history(request);
@@ -211,6 +254,9 @@ export const reviewChangesHandler: ToolDefinition = {
 					expectedRevision: request.expectedRevision,
 					edits: request.edits,
 					title: request.title,
+					category: request.category,
+					rationale: request.rationale,
+					alternativeGroup: request.alternativeGroup,
 					idempotencyKey: request.idempotencyKey,
 				});
 				break;

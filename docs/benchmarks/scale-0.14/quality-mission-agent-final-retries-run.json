@@ -1,0 +1,74 @@
+[
+  {
+    "label": "frankenstein",
+    "exitCode": 0,
+    "wallSeconds": 52.12183099985123,
+    "command": [
+      "npm",
+      "test",
+      "--",
+      "--config",
+      "jest.narrative-performance.config.js",
+      "--runInBand",
+      "--testMatch",
+      "**/integration/narrative-novels-stdio.test.ts",
+      "--testNamePattern",
+      "stdio novel 84:"
+    ]
+  },
+  {
+    "label": "pride",
+    "exitCode": 0,
+    "wallSeconds": 72.37735170894302,
+    "command": [
+      "npm",
+      "test",
+      "--",
+      "--config",
+      "jest.narrative-performance.config.js",
+      "--runInBand",
+      "--testMatch",
+      "**/integration/narrative-novels-stdio.test.ts",
+      "--testNamePattern",
+      "stdio novel 1342:"
+    ]
+  },
+  {
+    "label": "fallback-50000-observer30s",
+    "exitCode": 1,
+    "wallSeconds": 185.81519641610794,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "50000",
+      "--samples",
+      "5",
+      "--engine",
+      "fallback",
+      "--output",
+      "/Volumes/A/scrivener-mcp-worktrees/setup/docs/development/quality-mission-agent-passage-fallback-50000-observer30s.json"
+    ]
+  },
+  {
+    "label": "native-50000-observer30s",
+    "exitCode": 1,
+    "wallSeconds": 263.2029443329666,
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "scripts/benchmark-passage-scale.ts",
+      "--passages",
+      "50000",
+      "--samples",
+      "5",
+      "--engine",
+      "native",
+      "--output",
+      "/Volumes/A/scrivener-mcp-worktrees/setup/docs/development/quality-mission-agent-passage-native-50000-observer30s.json"
+    ]
+  }
+]

@@ -398,6 +398,13 @@ test('modern stdio validates request versions, keeps the full catalog stable and
 		const names = (before.result?.tools as Array<{ name: string }>).map((tool) => tool.name);
 		expect(names.length).toBeGreaterThanOrEqual(82);
 		expect(names).toContain('analyze_document');
+		expect(
+			(before.result?.tools as Array<{ name: string }>).find(
+				(tool) => tool.name === 'get_structure'
+			)
+		).toMatchObject({
+			inputSchema: { properties: { projectHandle: { type: 'string', format: 'uuid' } } },
+		});
 		await request('tools/call', { name: 'use_skill', arguments: { name: 'analysis' } });
 		expect((await request('tools/list')).result?.tools).toEqual(before.result?.tools);
 		expect(
@@ -453,6 +460,46 @@ test('modern stdio validates request versions, keeps the full catalog stable and
 		expect(opened.result?.isError).not.toBe(true);
 		const token = (opened.result?._meta as Record<string, unknown>)['com.writerslogic/project'];
 		expect(typeof token).toBe('string');
+		expect((opened.result?.structuredContent as Record<string, unknown>).projectHandle).toBe(
+			token
+		);
+		for (const [name, args] of [
+			['get_structure', {}],
+			['manuscript_dashboard', {}],
+			['review_changes', { action: 'list' }],
+		] as const) {
+			const result = await request('tools/call', {
+				name,
+				arguments: { ...args, projectHandle: token },
+			});
+			expect(result.result?.isError).not.toBe(true);
+			if (name === 'manuscript_dashboard')
+				expect(
+					(result.result?.structuredContent as Record<string, unknown>).projectHandle
+				).toBe(token);
+		}
+		for (const projectHandle of ['', null, 17, '20000000-0000-4000-8000-000000000099'])
+			expect(
+				(
+					await request('tools/call', {
+						name: 'get_structure',
+						arguments: { projectHandle },
+					})
+				).result?.isError
+			).toBe(true);
+		expect(
+			(
+				await request(
+					'tools/call',
+					{ name: 'get_structure', arguments: { projectHandle: token } },
+					{
+						...metadata,
+						'com.writerslogic/project': '20000000-0000-4000-8000-000000000099',
+					}
+				)
+			).result?.isError
+		).toBe(true);
+
 		expect(
 			(await request('tools/call', { name: 'get_structure', arguments: {} })).result?.isError
 		).toBe(true);
@@ -465,11 +512,23 @@ test('modern stdio validates request versions, keeps the full catalog stable and
 				)
 			).result?.isError
 		).not.toBe(true);
-		const second = await request('tools/call', {
-			name: 'open_project',
-			arguments: { path: join(root, 'Second.scriv') },
-		});
+		const second = await request(
+			'tools/call',
+			{
+				name: 'open_project',
+				arguments: { path: join(root, 'Second.scriv') },
+			},
+			{ ...metadata, 'com.writerslogic/project': '20000000-0000-4000-8000-000000000099' }
+		);
 		expect(second.result?.isError).not.toBe(true);
+		expect(
+			(
+				await request('tools/call', {
+					name: 'get_structure',
+					arguments: { projectHandle: token },
+				})
+			).result?.isError
+		).toBe(true);
 		expect(
 			(
 				await request(
@@ -492,6 +551,14 @@ test('modern stdio validates request versions, keeps the full catalog stable and
 				)
 			).result?.isError
 		).not.toBe(true);
+		expect(
+			(
+				await request('tools/call', {
+					name: 'get_structure',
+					arguments: { projectHandle: secondToken },
+				})
+			).result?.isError
+		).toBe(true);
 	} finally {
 		await transport.close();
 		await rm(root, { recursive: true, force: true });

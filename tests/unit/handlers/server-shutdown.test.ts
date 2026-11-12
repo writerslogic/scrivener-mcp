@@ -10,6 +10,10 @@ import { getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { serializeMessage } from '@modelcontextprotocol/server';
 
+const SETUP_TIMEOUT_MS = 30000;
+const NATIVE_STOP_TIMEOUT_MS = 2000;
+const SHUTDOWN_TIMEOUT_MS = 10000;
+
 const alive = (pid: number) => {
 	try {
 		process.kill(pid, 0);
@@ -18,6 +22,12 @@ const alive = (pid: number) => {
 		return false;
 	}
 };
+
+async function expectNativeStopped(pid: number): Promise<void> {
+	const deadline = Date.now() + NATIVE_STOP_TIMEOUT_MS;
+	while (alive(pid) && Date.now() < deadline) await delay(20);
+	expect(alive(pid)).toBe(false);
+}
 
 function kill(pid: number | undefined): void {
 	if (pid === undefined) return;
@@ -140,13 +150,13 @@ if (require('node:worker_threads').isMainThread) {
 					recursive: true,
 				});
 				await client.connect(transport, {
-					timeout: 30000,
+					timeout: SETUP_TIMEOUT_MS,
 				});
 				expect(
 					(
 						await client.callTool(
 							{ name: 'open_project', arguments: { path: project } },
-							{ timeout: 10000 }
+							{ timeout: SETUP_TIMEOUT_MS }
 						)
 					).isError
 				).not.toBe(true);
@@ -180,9 +190,7 @@ if (require('node:worker_threads').isMainThread) {
 						method: 'notifications/cancelled',
 						params: { requestId, reason: 'Cancel the blocked native analysis' },
 					});
-					const cancelledBy = Date.now() + 2000;
-					while (alive(nativePid!) && Date.now() < cancelledBy) await delay(20);
-					expect(alive(nativePid!)).toBe(false);
+					await expectNativeStopped(nativePid!);
 					expect(alive(child.pid!)).toBe(true);
 					expect(child.exitCode).toBeNull();
 					expect(child.signalCode).toBeNull();
@@ -190,14 +198,20 @@ if (require('node:worker_threads').isMainThread) {
 						(await client.listTools(undefined, { timeout: 2000 })).tools.length
 					).toBeGreaterThan(0);
 				}
+				const shutdownBy = Date.now() + SHUTDOWN_TIMEOUT_MS;
 				if (mode === 'SIGTERM') child.kill('SIGTERM');
 				else child.stdin.end();
+				// Native interruption must precede slower project/database cleanup.
+				if (!cancellation) await expectNativeStopped(nativePid!);
 				let timeout: ReturnType<typeof setTimeout> | undefined;
 				try {
 					const exited = await Promise.race([
 						closed,
 						new Promise<undefined>((done) => {
-							timeout = setTimeout(() => done(undefined), 2000);
+							timeout = setTimeout(
+								() => done(undefined),
+								Math.max(0, shutdownBy - Date.now())
+							);
 						}),
 					]);
 					expect(exited).toEqual({ code: 0, signal: null });

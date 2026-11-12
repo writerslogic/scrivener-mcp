@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import JSZip from 'jszip';
 import { Builder } from 'xml2js';
+import { publicationLanguage } from './language.js';
 import type { ExportMeta } from './manuscript-exporters.js';
 
 const XHTML = 'http://www.w3.org/1999/xhtml';
@@ -38,9 +39,10 @@ export function escapeEpubText(value: string): string {
 }
 
 export async function createEpub(
-	chapters: Array<{ title: string; content: string }>,
+	chapters: Array<{ title: string; content: string; language?: string }>,
 	meta: ExportMeta
 ): Promise<Buffer> {
+	const language = publicationLanguage(meta.language);
 	const title = meta.title || 'Untitled';
 	const author = meta.author || 'Unknown';
 	validateEpubText(title);
@@ -49,6 +51,7 @@ export async function createEpub(
 	const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 	const resources = chapters.map((chapter, index) => ({
 		...chapter,
+		language: publicationLanguage(chapter.language ?? language),
 		title: chapter.title || `Section ${index + 1}`,
 		id: `chapter-${index + 1}`,
 		href: `chapter-${index + 1}.xhtml`,
@@ -96,7 +99,9 @@ export async function createEpub(
 					$: { 'xmlns:dc': 'http://purl.org/dc/elements/1.1/' },
 					'dc:identifier': { $: { id: 'book-id' }, _: identifier },
 					'dc:title': title,
-					'dc:language': 'en',
+					'dc:language': [
+						...new Set([language, ...resources.map((resource) => resource.language)]),
+					],
 					'dc:creator': author,
 					'dc:description': `Manuscript export: ${title}`,
 					meta: { $: { property: 'dcterms:modified' }, _: modified },
@@ -138,7 +143,7 @@ export async function createEpub(
 		'OEBPS/toc.xhtml',
 		xml.buildObject({
 			html: {
-				$: { xmlns: XHTML, 'xmlns:epub': EPUB, lang: 'en', 'xml:lang': 'en' },
+				$: { xmlns: XHTML, 'xmlns:epub': EPUB, lang: language, 'xml:lang': language },
 				head: {
 					title,
 					link: { $: { rel: 'stylesheet', type: 'text/css', href: 'style.css' } },
@@ -146,7 +151,7 @@ export async function createEpub(
 				body: {
 					nav: {
 						$: { 'epub:type': 'toc', id: 'toc' },
-						h1: 'Table of Contents',
+						h1: { $: { lang: 'en', 'xml:lang': 'en' }, _: 'Table of Contents' },
 						ol: {
 							li: resources.map(({ title: chapterTitle, href }) => ({
 								a: { $: { href }, _: chapterTitle },
@@ -182,17 +187,18 @@ export async function createEpub(
 			},
 		})
 	);
+	const paragraphStyle = 'p { white-space: pre-wrap; min-height: 1em; }';
 	add(
 		'OEBPS/style.css',
 		meta.preset === 'ebook'
-			? 'body { font-family: serif; line-height: 1.5; margin: 5%; } p { text-indent: 1.2em; margin: 0 0 .5em; } h1, h2, h3 { text-align: center; break-after: avoid; } aside { font-size: .9em; margin: 1em; }'
-			: ''
+			? `${paragraphStyle} body { font-family: serif; line-height: 1.5; margin: 5%; } p { text-indent: 1.2em; margin: 0 0 .5em; } h1, h2, h3 { text-align: center; break-after: avoid; } aside { font-size: .9em; margin: 1em; }`
+			: paragraphStyle
 	);
 	for (const chapter of resources) {
 		const chapterTitle = escapeEpubText(chapter.title);
 		add(
 			`OEBPS/${chapter.href}`,
-			`<?xml version="1.0" encoding="UTF-8"?><html xmlns="${XHTML}" lang="en" xml:lang="en"><head><title>${chapterTitle}</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body>${chapter.content}</body></html>`
+			`<?xml version="1.0" encoding="UTF-8"?><html xmlns="${XHTML}" lang="${chapter.language}" xml:lang="${chapter.language}"><head><title>${chapterTitle}</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body>${chapter.content}</body></html>`
 		);
 	}
 	const result = await archive.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });

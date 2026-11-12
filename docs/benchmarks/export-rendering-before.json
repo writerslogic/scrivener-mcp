@@ -1,0 +1,147 @@
+{
+  "runtime": {
+    "node": "v26.12.1",
+    "platform": "darwin",
+    "release": "27.0.0",
+    "chrome": "Google Chrome 157.0.8103.52"
+  },
+  "fixtureSha256": "97d58877b43a97259081881becd8f8daed8250c7f08f901c97fca93db8afe506",
+  "artifacts": {
+    "docxSha256": "1b7ff531d95795618e4e5ceaa46a18bbf3e1556ed02929391fa8088c864a98d0",
+    "epubSha256": "01f2104a1a5a3c3418443bd3edd4777880c899f111762c976ce64892c5946f67",
+    "screenshotSha256": "3a3aedae39ad47bbd62c5ad973b24958ec2f65c081a5b52fec2e715cf49be30c",
+    "exporterSha256": "ad9d8f5f861b052e5efd862a683491825de5a7f1bcba3e4fcf336b04b257377d",
+    "epubWriterSha256": "d9cd3cb159d77df8a9140f30623abf2926225ef0997d8a8ef75272f4e37ae3d2"
+  },
+  "docx": {
+    "reader": "macOS Cocoa NSAttributedString Office Open XML importer",
+    "textExact": true,
+    "textSha256": "2939bace19eb880fb36fde7e17b8923bb83142096c34f15ef6e3eea4fa00c77b",
+    "utf16Length": 133,
+    "stylesExact": true,
+    "stylesSha256": "0dc9f924887c252024daaa24e60665efe9df48d038360b39f75604c2cf5c7cd3",
+    "languageObservations": [
+      {
+        "expected": "fr-CA",
+        "actual": null
+      },
+      {
+        "expected": "ja",
+        "actual": null
+      },
+      {
+        "expected": "fr",
+        "actual": null
+      },
+      {
+        "expected": "fr",
+        "actual": null
+      },
+      {
+        "expected": "fr",
+        "actual": null
+      },
+      {
+        "expected": "fr",
+        "actual": null
+      },
+      {
+        "expected": "fr",
+        "actual": null
+      }
+    ]
+  },
+  "epub": {
+    "reader": "Chromium native XHTML/CSS layout; system unzip extraction",
+    "pages": [
+      {
+        "textSha256": "8f8e68be86ddd3964dd15a2b317823960264b8722b26a4b3c5bcd29678fe9e2a",
+        "utf16Length": 12,
+        "language": "fr-CA",
+        "stylesSha256": "f3c12c96ef4239be52a074f3da4c8b6bbbad30554f60fa45fc925d4bfd891e88",
+        "paragraphs": [
+          {
+            "empty": false,
+            "height": 24,
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "empty": true,
+            "height": 0,
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "empty": true,
+            "height": 0,
+            "whiteSpace": "pre-wrap"
+          }
+        ]
+      },
+      {
+        "textSha256": "8c7454c6a654f7691e8fd0df0794d71bcfc5ab5a36ed2807e9030052d2c6d162",
+        "utf16Length": 7,
+        "language": "ja",
+        "stylesSha256": "7a5fd912d99fe1372d86dc6552dc92e77e3a2badf37f0a0095d94ac7784c94a8",
+        "paragraphs": [
+          {
+            "empty": false,
+            "height": 24,
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "empty": true,
+            "height": 0,
+            "whiteSpace": "pre-wrap"
+          }
+        ]
+      },
+      {
+        "textSha256": "abf9d0d5155d63c75a8e33ee8b1e4dc9b8fbc5abdd4c04ec8e0b7d85944f2616",
+        "utf16Length": 17,
+        "language": "fr",
+        "stylesSha256": "52bdbc3a192b8bf37ee5a855aa0734fca7cd13d7e27a41aa8b6947c51ddb283f",
+        "paragraphs": [
+          {
+            "empty": false,
+            "height": 24,
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "empty": true,
+            "height": 0,
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "empty": true,
+            "height": 0,
+            "whiteSpace": "pre-wrap"
+          }
+        ]
+      },
+      {
+        "textSha256": "49e6ee9c260b5b473b1f67aff4e9e727057e2e6c547cdfc9b3d312b04a22185f",
+        "utf16Length": 13,
+        "language": "fr",
+        "stylesSha256": "c1af83775a4fa786a4c122334c0e5251cdc6cb12850e5a4723297d478e623815",
+        "paragraphs": [
+          {
+            "empty": false,
+            "height": 24,
+            "whiteSpace": "pre-wrap"
+          }
+        ]
+      }
+    ],
+    "languages": [
+      "fr",
+      "fr-CA",
+      "ja"
+    ]
+  },
+  "limitations": [
+    "Synthetic original CC0 fixtures only; no Word, Pages or commercial EPUB reading-system qualification.",
+    "Chromium renders unmodified EPUB resources; this does not test a full EPUB reader navigation/pagination engine.",
+    "DOCX source language declarations are verified only when the Cocoa importer exposes a language attribute.",
+    "Empty EPUB paragraph layout heights are reported separately; exact DOM text reconstruction does not certify visual blank-line spacing."
+  ]
+}

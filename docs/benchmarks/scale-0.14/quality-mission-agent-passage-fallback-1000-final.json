@@ -1,0 +1,2989 @@
+{
+  "status": "completed-with-failures",
+  "progress": {
+    "sample": 4,
+    "phase": "reopen"
+  },
+  "revision": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+  "sourceTreeSha256": "468bb4c60f9d378565beed32f9fd48ebdc0d25220a443fb4a48d8c10db3c741c",
+  "sourceManifest": [
+    {
+      "file": "src/analysis/advanced-readability.ts",
+      "sha256": "9f759caf8c47d191e34ae47fdff9adeb2ad6bf6dc5fb41d679d2558e64e2ad21"
+    },
+    {
+      "file": "src/analysis/ai-document-analyzer.ts",
+      "sha256": "ad9c4a0ec531fb48e3eee0cff861ff11568d625e8d2b02b251e5371214ce7cfb"
+    },
+    {
+      "file": "src/analysis/analyzers/emotion-analyzer.ts",
+      "sha256": "4d06f485292a2e80faeed58b8922ac575be0327c42af4a908cec0cc069afcc61"
+    },
+    {
+      "file": "src/analysis/analyzers/index.ts",
+      "sha256": "a6acd7f3f0b4eb61c1570cc45925f91695c7dd56ec452ec985310ec438e0b401"
+    },
+    {
+      "file": "src/analysis/analyzers/metrics-analyzer.ts",
+      "sha256": "0dc7c963ea255bebabff4e5e1e3d5d4476658926e3312382759933cc86c56bf2"
+    },
+    {
+      "file": "src/analysis/analyzers/pacing-analyzer.ts",
+      "sha256": "2924ae7dda6d8c40de56be54f6f78465bdfb7b5499ac41d0f0b784b621855be2"
+    },
+    {
+      "file": "src/analysis/analyzers/quality-analyzer.ts",
+      "sha256": "613b8d7e475c1868c99067f941d27941f07c15266f436249988cf392cf1937a0"
+    },
+    {
+      "file": "src/analysis/analyzers/structure-analyzer.ts",
+      "sha256": "484fa62352fd86dec6284b4b6c4bf54121531d9ed691ee97b058cc5be7d65e36"
+    },
+    {
+      "file": "src/analysis/analyzers/style-analyzer.ts",
+      "sha256": "42596c272a7e54e18b593b82ac42b6467c954dce317fc4b06f8d207781780f87"
+    },
+    {
+      "file": "src/analysis/analyzers/suggestion-generator.ts",
+      "sha256": "5cfa87e3de0ae5672298b89345b6a2efca7e4caa08962afd94d3213d0ad2ed81"
+    },
+    {
+      "file": "src/analysis/base-analyzer.ts",
+      "sha256": "3bfe51bd2e123c67292fef85605115c00f14d56168f05b23c3bede46ba11c723"
+    },
+    {
+      "file": "src/analysis/context-analyzer.ts",
+      "sha256": "480255ad3da4a8c84ce55c5f9c989af09c19db19782701531d4544480748697c"
+    },
+    {
+      "file": "src/analysis/index.ts",
+      "sha256": "02f691e3581a1df2cda5f502e40dd0b082529bcc9ce904530f41e384e7d57dcb"
+    },
+    {
+      "file": "src/analysis/ml-word-classifier-pro.ts",
+      "sha256": "f9e1ca27c2836b2fec77077f0e71dffd7f85e3209d9ced76d354a4a2ae317b1a"
+    },
+    {
+      "file": "src/cli/content-credentials.ts",
+      "sha256": "304deb55b36a0b3731dbada21bd538e0e76f8a60a80ee90128b7dbc03ed999b4"
+    },
+    {
+      "file": "src/cli/setup-wizard.ts",
+      "sha256": "4dd4bef997328e8f3e83f2c2166768c3a99d652bd4c25749c60b3622589e7f52"
+    },
+    {
+      "file": "src/cli/setup.ts",
+      "sha256": "3c61f5db7e5837ab8933b5ce9db2169706bda7c7bfae9195e278c19f79cb5265"
+    },
+    {
+      "file": "src/core/cache.ts",
+      "sha256": "195dc125174e745771e61abb5772c321630320c655c312945c82f787c7f53115"
+    },
+    {
+      "file": "src/core/constants.ts",
+      "sha256": "bcce0b3a671d69fea2badd74e2aae9ef64fc8d773f9b487f583cb5a1685c1129"
+    },
+    {
+      "file": "src/core/errors.ts",
+      "sha256": "827021e5ed072501562c57dc516891635c88f0343c07551e437259719ca3794c"
+    },
+    {
+      "file": "src/core/logger.ts",
+      "sha256": "38eee1ed223c3a4a4ae4e04f1e1d2e9f5f4af3f80136e72ce622f842cdcd7da6"
+    },
+    {
+      "file": "src/core/response-formatter.ts",
+      "sha256": "db9d4cc458a5a4729c43320e0660696db829c1833f02c999e87033ec1e0ca2ce"
+    },
+    {
+      "file": "src/core/tool-admission.ts",
+      "sha256": "419b25146304e0fb5b87fb08ee39bb8724b19b2c76e72b1bdd324ecf3d7e2605"
+    },
+    {
+      "file": "src/handlers/analysis-handlers.ts",
+      "sha256": "ba54771d8b42d914fdf8224bc9c7d4483e7d259f485bf686ff7b486a74feca46"
+    },
+    {
+      "file": "src/handlers/analysis-handlers/advanced.ts",
+      "sha256": "e3ad24c9f9493c5f0514c9b39b48eb1d708810fecaa686206e3aba4490f2ff27"
+    },
+    {
+      "file": "src/handlers/analysis-handlers/consistency.ts",
+      "sha256": "586699de945a8bebe45f5b4c4f3f4766674b86d548c8c62ed4a6328e5616c158"
+    },
+    {
+      "file": "src/handlers/analysis-handlers/content-enhancement.ts",
+      "sha256": "1327843b07ff25ec1533ceb4160d5826fc39b42ca465348644acb2a6b8e23110"
+    },
+    {
+      "file": "src/handlers/analysis-handlers/content-generation.ts",
+      "sha256": "7f75cae3e71e2eb44041f7c7cdfbc807a35b03551d6ae12432a68458895381df"
+    },
+    {
+      "file": "src/handlers/analysis-handlers/document-analysis.ts",
+      "sha256": "98e13d2857aaedaf24f25e0166d98fffe6d8bc8098ea11d6b023dd6f0f1bfb73"
+    },
+    {
+      "file": "src/handlers/analysis-handlers/memory.ts",
+      "sha256": "bce6727799a9b2eca395b191af88059d4b1f8c4de9859cf0ede11213cbcdbb46"
+    },
+    {
+      "file": "src/handlers/async-handler-definitions.ts",
+      "sha256": "540c265ea365ced10ac8bf3c88aeceebd9dd6b649d9b78cd87d379abaa87ce90"
+    },
+    {
+      "file": "src/handlers/async-handlers.ts",
+      "sha256": "9ab969bf8a5f38811f899ec750e086a247275e924f7cea489bfa2e260247b8cb"
+    },
+    {
+      "file": "src/handlers/bluepencil-handlers.ts",
+      "sha256": "dcf79435b91492271b9d7cb7edf2f41d96865f2b0096ac3dff06bb6c5dc70653"
+    },
+    {
+      "file": "src/handlers/change-impact-handlers.ts",
+      "sha256": "af3f1d8bd0378f7cf83fd13b894e6a14c8c21e4c4badb5b0d5af8ad930e65a29"
+    },
+    {
+      "file": "src/handlers/compilation-handlers.ts",
+      "sha256": "f4b581c950b129cd51ed1f95917659e255b34bd6aa32320d75522d40d001cc19"
+    },
+    {
+      "file": "src/handlers/content-credentials-handlers.ts",
+      "sha256": "9208670c31b6fc829ba8b16dddc911325fe96877f202250bdf00d0bd01108c50"
+    },
+    {
+      "file": "src/handlers/dashboard-handlers.ts",
+      "sha256": "4d80085dc42421cb323c63ea226ae3a71edcba588e3e65d47c2112d273390e9b"
+    },
+    {
+      "file": "src/handlers/database/auto-installer.ts",
+      "sha256": "a9d3436c6c78eeb77b197cc41a9735bd73f7b50867e001aafdde83555a98f55f"
+    },
+    {
+      "file": "src/handlers/database/config.ts",
+      "sha256": "dda5246d88003cbb61cfb7228f58c6ec994741dfc2a5ab66e22395911d1d7694"
+    },
+    {
+      "file": "src/handlers/database/content-analysis-storage.ts",
+      "sha256": "474109f6a284b553af088914b605957750dcdcb69dcad6b39f0b5859786b99e6"
+    },
+    {
+      "file": "src/handlers/database/database-service.ts",
+      "sha256": "dcf27bb826974b5f14b96d9c0b96f649dc50d4abb5b4cf924942f2cc593eae18"
+    },
+    {
+      "file": "src/handlers/database/database-setup.ts",
+      "sha256": "c7b42d49fbf40a47f70329fc6d030f227e00417674598a91ec1662ad5ba2f9ef"
+    },
+    {
+      "file": "src/handlers/database/database-sync.ts",
+      "sha256": "53577b95c8e7adb2a667505f66f330df667794c4727f62482def1a3f6d20ee0f"
+    },
+    {
+      "file": "src/handlers/database/graph-analytics.ts",
+      "sha256": "14f9f446d5cfb5d7669e23632edc33463d72465f02d62daedefd08f376c55c73"
+    },
+    {
+      "file": "src/handlers/database/index.ts",
+      "sha256": "7ab9df2be14228411b57e495646c675a5f9dc708b13aeb25a982493603fb60da"
+    },
+    {
+      "file": "src/handlers/database/keydb-cache.ts",
+      "sha256": "100893cc1881b909314edc3204c45df2e65735103d24633fb0030d791c16df7e"
+    },
+    {
+      "file": "src/handlers/database/migrations.ts",
+      "sha256": "71adde46d184674b8e1470aca8d8bc455f01aec6db672ddf081379527842407c"
+    },
+    {
+      "file": "src/handlers/database/neo4j-manager.ts",
+      "sha256": "f88996c2790c6c8a85eeba64008e2aabfd86cb2125de8e60debf0671d1024ad7"
+    },
+    {
+      "file": "src/handlers/database/query-builder.ts",
+      "sha256": "07e8d9d69630277fd18242a9ac3c2c7140bdd30aeb9d68eae6f10298f74bb3b4"
+    },
+    {
+      "file": "src/handlers/database/search-service.ts",
+      "sha256": "66650a82bced6309d44d0092db56f725d3e1c4df185513acd36634e2cacf027e"
+    },
+    {
+      "file": "src/handlers/database/session-analytics.ts",
+      "sha256": "f4bff8580d00719332170b1cd56e5c46a8fffe80a6da876eea32161fe2ac50e7"
+    },
+    {
+      "file": "src/handlers/database/sqlite-manager.ts",
+      "sha256": "dffe8ca2341dd1233a2029a5a457b85ebf1a1f024bc784da057ce5d5ca695fb6"
+    },
+    {
+      "file": "src/handlers/database/transaction-coordinator.ts",
+      "sha256": "702df1deceb1feaeb5d9606d3a488c23837a3eaf8efffb7df37600e9bb025f25"
+    },
+    {
+      "file": "src/handlers/database/user-data.ts",
+      "sha256": "547e26f5e25747c27171c6876b8a2de166d9bbb1f91ae867f6130f40296c854c"
+    },
+    {
+      "file": "src/handlers/document-graph-handlers.ts",
+      "sha256": "8e902a144ff445dd70ec922dbc94655606222a44610350d7ae66ffa6d6dc755d"
+    },
+    {
+      "file": "src/handlers/document-handlers.ts",
+      "sha256": "1ac2d865a4e9bf23e87c5a021a7bde7dcfe4491a73627802309eeb3fc3100e78"
+    },
+    {
+      "file": "src/handlers/export-preset-handlers.ts",
+      "sha256": "656553fba5193092864857d60b89c17121cc08ffbbf3389601b6904b9b41eed9"
+    },
+    {
+      "file": "src/handlers/goals-handlers.ts",
+      "sha256": "bd96f679ec402e6d65490e98fefa17a0ec67bc220274fc00005e02ed3832741b"
+    },
+    {
+      "file": "src/handlers/index.ts",
+      "sha256": "f353f3129d9a62a37a107011b62f4fa0443b78bdb5acbf83d85081498435e7b8"
+    },
+    {
+      "file": "src/handlers/integrity-handlers.ts",
+      "sha256": "19013d997f9c9bdd22e85b2efbb55fab23b03689a2b08a83b7ba1bc51594cb2b"
+    },
+    {
+      "file": "src/handlers/local-search-handlers.ts",
+      "sha256": "8ca55a4d6e07fcc072c8c03a7a408d89e783e1c08811cdae0a78d80199cae519"
+    },
+    {
+      "file": "src/handlers/manuscript-analysis-handlers.ts",
+      "sha256": "6388b6866cfea3c18748ed8babacdb9e64343d2473dfb06a186767e95e41d435"
+    },
+    {
+      "file": "src/handlers/memory-handlers.ts",
+      "sha256": "3e4615caf64727b407b95e6444cf48c208b248fe7b64fc85a64a1acf652fa01d"
+    },
+    {
+      "file": "src/handlers/narrative-annotation-schema.ts",
+      "sha256": "6a2d9e6d96d84e124422347e470e3d92f86cf5ddf29f40fb5b092612dc9dccbf"
+    },
+    {
+      "file": "src/handlers/narrative-lens-handlers.ts",
+      "sha256": "f8086788ba1c3a76cce746afa91da6ffde4888d6922cb3c7bcec747e60de8c72"
+    },
+    {
+      "file": "src/handlers/personalization-handlers.ts",
+      "sha256": "c844192c0d416221fe9f6b2e6f6e9d3a208e89646b8ae783f84a5059220f4176"
+    },
+    {
+      "file": "src/handlers/project-handlers.ts",
+      "sha256": "d3b10dd7d672efd1407d1daefcb0f5cddc66b0b161c10b6fdd8cddedd96e6377"
+    },
+    {
+      "file": "src/handlers/project-handlers/discovery.ts",
+      "sha256": "92a533c4be0c4066e036dc40ab9874006d9af82f19a7d07003e6cabff951fa0d"
+    },
+    {
+      "file": "src/handlers/project-handlers/lifecycle.ts",
+      "sha256": "ff65b6f056bf25d90ebf6ba192ef95e0cd3b7c3476a292991e8c102ff3f6a348"
+    },
+    {
+      "file": "src/handlers/project-handlers/manuscript.ts",
+      "sha256": "879cd3d48c4c799a3d151a797a42ca674366fdec5e5ebb2e980d7be005ba9d07"
+    },
+    {
+      "file": "src/handlers/project-handlers/snapshots.ts",
+      "sha256": "ee0530760afa9aeb0c7aeee0855c76ac4996e7873e1851d289887375c11a237d"
+    },
+    {
+      "file": "src/handlers/project-handlers/structure.ts",
+      "sha256": "7bc191ec6752553fb6a8a5413af8835ea7c0cd067facd4458ddb629a11dbb714"
+    },
+    {
+      "file": "src/handlers/relationship-handlers.ts",
+      "sha256": "7913c7a51115723ea2561871aa4c56406f4fb6df9324cb94f263005be9088a5e"
+    },
+    {
+      "file": "src/handlers/result-handlers.ts",
+      "sha256": "68d8a5153b7a87084d26f62afff84f732e7523d959a5dcedf1ea6168d5b77c60"
+    },
+    {
+      "file": "src/handlers/review-handlers.ts",
+      "sha256": "b441d1f665066ffeece9b82b11738498944301077194c3f4c028abbcffa58999"
+    },
+    {
+      "file": "src/handlers/search-handlers.ts",
+      "sha256": "92e2022fb7702ac0020eb1d399a634274e80ab7ec2163acc407484b9cb0eca83"
+    },
+    {
+      "file": "src/handlers/server-capabilities.ts",
+      "sha256": "f67a82231757ab467455a957e4967df427c4ecdf82a684a68996e5cab0037b02"
+    },
+    {
+      "file": "src/handlers/shared-schemas.ts",
+      "sha256": "87f9955735e32820b91985ca8ae6d8319875146a9d9453c49cbd354c8d798419"
+    },
+    {
+      "file": "src/handlers/skill-registry.ts",
+      "sha256": "8f7db10d98ee09923d5f5291e042d366cf5b179f296b1cd3d38bc39807a31178"
+    },
+    {
+      "file": "src/handlers/story-handlers.ts",
+      "sha256": "ad5bd3606dc3305864205683eee6e9bdebef50fa45730fb41c201a88a2179e3b"
+    },
+    {
+      "file": "src/handlers/types.ts",
+      "sha256": "c8c8aeea3dbc7f372becd0f7bc73b6938186a34e61de169f5780fac743710e3d"
+    },
+    {
+      "file": "src/handlers/validation-schemas.ts",
+      "sha256": "1f80e0cf7001d0de711e60ac87746c8baa510000a640c7d62dcd8d347b335a72"
+    },
+    {
+      "file": "src/handlers/workflow-handlers.ts",
+      "sha256": "15fbf5db1fc8f27b6599892b90e7bee7c95379041148af539ba6e9c6c32bf630"
+    },
+    {
+      "file": "src/index.ts",
+      "sha256": "0104b22a77e65959514ceb22a577ee871d26a23d683cca927492c72f946830a9"
+    },
+    {
+      "file": "src/memory-manager.ts",
+      "sha256": "afdc2587372b6514a0e5efc1f8b0b32fb22c9d208fbb31ed867bf0641f68a624"
+    },
+    {
+      "file": "src/project-types.ts",
+      "sha256": "ca6d9677652bc09f9af35fcd7d2515358482f81c0bbd1662fbea3440e7575bbb"
+    },
+    {
+      "file": "src/scrivener-project.ts",
+      "sha256": "425c54702a87a14340a25293f9c0db3abb8bb7d1c2909a9b1b75b8033dc9124c"
+    },
+    {
+      "file": "src/services/agents/ai-collaboration.ts",
+      "sha256": "54d0a51db9b3f3fd6e78df0b2fdeba02adcdba9a8230007aa4f0b0db941a2bbc"
+    },
+    {
+      "file": "src/services/ai/ai-client.ts",
+      "sha256": "102b9e446304feeb3ac1800c4113b81b66d734f841e206be63e3a1be2d09950e"
+    },
+    {
+      "file": "src/services/ai/ai-writing-service.ts",
+      "sha256": "4a5674ea1d870c57b55b05b331263036ccedeeae17c64c3c38adf9789386ee54"
+    },
+    {
+      "file": "src/services/ai/hms-vector-store.ts",
+      "sha256": "4a632b3055db12820bb58aadda3015516e7f031dc3ba937237acd780fafd10c3"
+    },
+    {
+      "file": "src/services/ai/sampling-bridge.ts",
+      "sha256": "6693b614ae4004a90b3cb8644724b9f52b9234636115483cbece03bb03337b13"
+    },
+    {
+      "file": "src/services/ai/writing-style.ts",
+      "sha256": "dd7a5db8d5fc6cfc981d1dc1fd804918c2b146c44bafd9dbe1bfc6de9e3c95c2"
+    },
+    {
+      "file": "src/services/ai/writing-suggestions.ts",
+      "sha256": "28c52279e4ae3b584f5ff2a26e9cd1bcdb5c37848addbc35bedaf1695b20178c"
+    },
+    {
+      "file": "src/services/analysis/nlp-sentiment-analyzer.ts",
+      "sha256": "036bdaf3196b523aff16b65eae006432d8b57fb285483e647649056b578fda6a"
+    },
+    {
+      "file": "src/services/auto-setup/ai-config-wizard.ts",
+      "sha256": "94dc64c436f4d20c6f1c2cc0e80cd4bc74356094cb7e3860724ddd19fc1cb9b8"
+    },
+    {
+      "file": "src/services/auto-setup/auto-setup.ts",
+      "sha256": "cf2319f1831c81bf569568cec161475b1d9b4cef7e3a067df22c787d0a4ed910"
+    },
+    {
+      "file": "src/services/auto-setup/first-run.ts",
+      "sha256": "9da95080a58c8e2a5db126a1a2caec4a35e54b2012f7da61aca46a27d9ae2bea"
+    },
+    {
+      "file": "src/services/auto-setup/keydb-installer.ts",
+      "sha256": "560ed6b3affd8c21ccfd280b265f2e50a0756662665be21cc0ebfede15954073"
+    },
+    {
+      "file": "src/services/binder-editor.ts",
+      "sha256": "9ec5b8e615a2f067084d995d532410e72446eee0a1966fc8070fd04b00c12b8e"
+    },
+    {
+      "file": "src/services/compilation-service.ts",
+      "sha256": "ce1ab78f076f70e2846309e795484c047a91a8e54890362696b927f49889d926"
+    },
+    {
+      "file": "src/services/compilation/ai-compiler.ts",
+      "sha256": "36de6a1a7e87442e5d4ec444e049a8123da913d311d4fb65909cc3549d71a7fb"
+    },
+    {
+      "file": "src/services/compile-settings.ts",
+      "sha256": "36d4d7fc6a7fb52cd2b0ad65285ece6998f128048541e3747a1bd557a32258eb"
+    },
+    {
+      "file": "src/services/content-credentials/archive-preparation.ts",
+      "sha256": "3f51a137d54544583a14d371920f8147c1bc33dbb6111abbf321e7243aa4801d"
+    },
+    {
+      "file": "src/services/content-credentials/binding.ts",
+      "sha256": "7a6cbc99fd64c8ca88bafc810c21e0b9257ec3d49d224f3789e4f342b1be2f06"
+    },
+    {
+      "file": "src/services/content-credentials/crjson-assessment-assets.cts",
+      "sha256": "1224993437a8fa7e2745f56b405515bd57d97d73de06e4723d5d86bbfb968442"
+    },
+    {
+      "file": "src/services/content-credentials/crjson-assessment-files.ts",
+      "sha256": "3cb5f05b8fb66826fe010e2b5468d0ee44b00104d40782edd33f03c99539b6f6"
+    },
+    {
+      "file": "src/services/content-credentials/crjson-assessment.ts",
+      "sha256": "466a982e1c42487b709fb5b7b14d8cbdbf943b3ed85d3ff63172c3a00e0f6df2"
+    },
+    {
+      "file": "src/services/content-credentials/formats.ts",
+      "sha256": "32cd8cc59a18b8c12384da70dd31dca836160225dfb76356f9f7635c94a22a8b"
+    },
+    {
+      "file": "src/services/content-credentials/key-access.ts",
+      "sha256": "7397bce2079f2ef6fdd3a3c1afc80a3615b94b3c0c6969a3efc0027bb4f46ed7"
+    },
+    {
+      "file": "src/services/content-credentials/key-policy.ts",
+      "sha256": "d44e8e10da36312f961c91f17a1e0434def5f8cdc356335a1f24b4508ea76f8e"
+    },
+    {
+      "file": "src/services/content-credentials/limits.ts",
+      "sha256": "02cf25ae9c2be054961aabf37b900567b185ac53b1d50d1acff0e03dd6c50fe7"
+    },
+    {
+      "file": "src/services/content-credentials/local-files.ts",
+      "sha256": "2d50cec1ae1e7657f4b3f7b66746b591f8d1db98c876f6067811d2f55eed1804"
+    },
+    {
+      "file": "src/services/content-credentials/process-environment.ts",
+      "sha256": "819f4a486f27ccc2ce631212b4bed11a559fef81920df34241da0a576f796e96"
+    },
+    {
+      "file": "src/services/content-credentials/publication-lineage.ts",
+      "sha256": "20748607ca211225e42e94b63f9268e7257e1e7e1775c1081841ac95c1251f2b"
+    },
+    {
+      "file": "src/services/content-credentials/sdk-worker.ts",
+      "sha256": "9a8d908856cd3eb701eca3185f13ef5e8ec7412df83eb10f8f53dc0fdd4087dc"
+    },
+    {
+      "file": "src/services/content-credentials/service.ts",
+      "sha256": "42e19fe5f13a29759d99f318d16210b126bcb4216c902703b7c9fef5a89e89e8"
+    },
+    {
+      "file": "src/services/content-credentials/trust.ts",
+      "sha256": "f11bacc644217de5d18ec2bb05533c3ec9fe9c3717f2b1140080fa3e108961ba"
+    },
+    {
+      "file": "src/services/content-credentials/types.ts",
+      "sha256": "3b7ba552021442471d2624d59b619d1544df56c32604a6c859be6b95b2dbc0d8"
+    },
+    {
+      "file": "src/services/content-credentials/worker-path.cts",
+      "sha256": "3f425a6e2b88a3fd511e0eabb360088469f95e5f1b76cf8d4cce83246a79dd1a"
+    },
+    {
+      "file": "src/services/document-classification.ts",
+      "sha256": "e6a593e37864253091ef4b5672bd24d7dc343622788971f2c0876738574c8562"
+    },
+    {
+      "file": "src/services/document-indexer.ts",
+      "sha256": "095985571880d8b0d37a03f6c9d58acaa03675b66101514f1f843f92b805ae7c"
+    },
+    {
+      "file": "src/services/document-manager-helpers.ts",
+      "sha256": "2d1e8de1ad9c77afaf020f840b60449e7ec64de421d01aa35f4c318043e0fe39"
+    },
+    {
+      "file": "src/services/document-manager.ts",
+      "sha256": "947f396637600309fbb55519c396df413f509b5cea9a9970f4e6f9351c203b5d"
+    },
+    {
+      "file": "src/services/document-references.ts",
+      "sha256": "5e1b298454fdb444348fa173544442f8c783b19cb009868a442b2ae12d546f4c"
+    },
+    {
+      "file": "src/services/document-tree.ts",
+      "sha256": "96cbf9efb68966e6912076e67399c166ab69f013343abe0581206b4c28d06749"
+    },
+    {
+      "file": "src/services/document-writer.ts",
+      "sha256": "8cf8dde32b878356e453ee98a02e93b3ac4a95356a6808458d3e2a7579e937f9"
+    },
+    {
+      "file": "src/services/editorial/analysis-envelope.ts",
+      "sha256": "1d93400656ad42750924019173d253a8d896ac0daf36fe5e3ecfdc793a611606"
+    },
+    {
+      "file": "src/services/editorial/change-impact.ts",
+      "sha256": "f5b2963d44344ebbc740c04a5bd7b452ff3bf3429511d91019891e61f6fce3a3"
+    },
+    {
+      "file": "src/services/editorial/continuity-nouns.ts",
+      "sha256": "604bac7fe80d28aa0488f9d60ac64438f4007409aa117ea17b96bb9678218ed8"
+    },
+    {
+      "file": "src/services/editorial/continuity-service.ts",
+      "sha256": "5234d3b980bb26c4f7fc73c0deb025d95af372b3852065e9a6a6a8bb44e6f203"
+    },
+    {
+      "file": "src/services/editorial/lens-native.cts",
+      "sha256": "1b0c4d035308dad805f5697a5f1ef0071fd96c6ac7a07827b17a8de54e08a8cf"
+    },
+    {
+      "file": "src/services/editorial/mutation-coordinator.ts",
+      "sha256": "bb8f8408c6c993af2453ed9b5c3c12d1588510437aed503807abc9d582865389"
+    },
+    {
+      "file": "src/services/editorial/mutation-retention.ts",
+      "sha256": "a4c07f111d1fb3895e2dff8d2b8b1cb6202c82fad5a42cba16f54523d0d04bb6"
+    },
+    {
+      "file": "src/services/editorial/narrative-analysis.ts",
+      "sha256": "6cbda1d4c50aa7ea635be3a8ed762c1611c2297158ebb1a4e0c4d3cef7347aac"
+    },
+    {
+      "file": "src/services/editorial/narrative-context.ts",
+      "sha256": "b10e34fb9922b524a2b4ddac474150bc8cb51c5baa9e70fddebb44d812ce42e0"
+    },
+    {
+      "file": "src/services/editorial/narrative-worker.ts",
+      "sha256": "e7e7e4c56992692e8a52ed0791c2af6f6c4774a9971b8ffdb932882c246d616f"
+    },
+    {
+      "file": "src/services/editorial/object-coreference.ts",
+      "sha256": "fefa447c7210ecdd5da9e2808f1e9bf69a517f9ec975bcf87cd71ac53e7783ec"
+    },
+    {
+      "file": "src/services/editorial/passage-search.ts",
+      "sha256": "d701516a77bc0ff83aa718b6f649ff5a6cffd5e8d3724d92fc9207bf930d56af"
+    },
+    {
+      "file": "src/services/editorial/persistent-store.ts",
+      "sha256": "0d3c1a4d3226a13ed2fdbfe496e986c3e915a5125127cb59e37974ef6098dad5"
+    },
+    {
+      "file": "src/services/editorial/project-identity.ts",
+      "sha256": "6bf845c4e3d0bded0d902b707aa58524fd34d4f6f5e9ad4e02c6814e2fd0b7d1"
+    },
+    {
+      "file": "src/services/editorial/project-registry.ts",
+      "sha256": "2b0295c6a1d7b9649b07d8f227500eeee82233293b590e52a4db9fe6b4b397a4"
+    },
+    {
+      "file": "src/services/editorial/project-source.ts",
+      "sha256": "f1abf850d369a285829cac4006709c148eba96a2c5b2ee907cb7ee614ca186f4"
+    },
+    {
+      "file": "src/services/editorial/provenance.ts",
+      "sha256": "60b7ee3b6c8ba913725ab82ae319f33203f1057092a6b416e81242c73fa64e0c"
+    },
+    {
+      "file": "src/services/editorial/report-transport.ts",
+      "sha256": "1011b3c60fe1ce181d4624443e1854b5459f094ce56a15cfc5b7fa35039216b2"
+    },
+    {
+      "file": "src/services/editorial/review-service.ts",
+      "sha256": "e9596dea7709dff7b15ae9afe62e8d9b9f6586141225eb59e079809264a9e09c"
+    },
+    {
+      "file": "src/services/editorial/series-bible.ts",
+      "sha256": "0fad8880d224aded78a0cb29b7a9a8d0e23ee5cbcce9b7699548598252b2693f"
+    },
+    {
+      "file": "src/services/editorial/types.ts",
+      "sha256": "a14eab80e1340c86e2c73447fc7f55e004e09f355a6008aabf966b89503c8c3b"
+    },
+    {
+      "file": "src/services/editorial/workflow-service.ts",
+      "sha256": "9044091fbce94a78e64dd6161130a45ebd5b2764acf33293e1643d736cdeb9c1"
+    },
+    {
+      "file": "src/services/enhancements/ai-content-enhancer.ts",
+      "sha256": "98c02f21febb2a385971bb139d59c2c4f0d647eda92bd9e789b03178ce19c22d"
+    },
+    {
+      "file": "src/services/export/epub.ts",
+      "sha256": "addd28082b75cc8d7d40036b17c2267a6f47c1c257fc2a38cc897f63c548877e"
+    },
+    {
+      "file": "src/services/export/export-presets.ts",
+      "sha256": "d33ea1eeb83da2e4d925b59878d1962789b7a8cb7bc7d9584cf841fcbe5a7f4c"
+    },
+    {
+      "file": "src/services/export/language.ts",
+      "sha256": "4fed3022a64b22e524f622a7b13fc602bee52cabbdf84fbd635ce6d81d97208c"
+    },
+    {
+      "file": "src/services/export/manuscript-exporters.ts",
+      "sha256": "1b77964fad5cf4d0a3ce15726a754bb93c2259f8af3cd181c210dd4f5c1f554f"
+    },
+    {
+      "file": "src/services/memory/hhm/benchmark.ts",
+      "sha256": "a1894441a6b9d2d1c13d1a15b3746ba6aa436b19c14f17cd61b14baa61070476"
+    },
+    {
+      "file": "src/services/memory/hhm/document-index.ts",
+      "sha256": "93e9a9f62c56264e92080f76ebb97da6df63545da68072c6c60a4b4fca3175df"
+    },
+    {
+      "file": "src/services/memory/hhm/holographic-memory-system.ts",
+      "sha256": "b1eddc75f6fccf3b83ec38269fb05c92c4aa298ec771de29ac6134ee996cd178"
+    },
+    {
+      "file": "src/services/memory/hhm/native-loader.cts",
+      "sha256": "d68711662f05152853443b3a6fa9a44948f67cb8c70f4e50aa832e9e20e517f5"
+    },
+    {
+      "file": "src/services/memory/project-memory-contract.ts",
+      "sha256": "83d1244eb2544fd5a3fba45c014ec60d1218d6885665bbd1897fa0d37ca45b0a"
+    },
+    {
+      "file": "src/services/memory/project-memory-database.ts",
+      "sha256": "7530d650d223084b7ea4930a6eb38b3825aa7f24e89a8c277e3a5df41ad2a6a9"
+    },
+    {
+      "file": "src/services/memory/warm-models.ts",
+      "sha256": "9f9cbaaa9afbf7c46dcd8693ade1de898c2ae2d0d9ee7d943ae0c2d98ed78dcf"
+    },
+    {
+      "file": "src/services/metadata-manager.ts",
+      "sha256": "480faaa3d57c4f9387f10ef0ad758e6cbf6a1c36d32e4debfb32d89068a8a765"
+    },
+    {
+      "file": "src/services/parsers/rtf-handler.ts",
+      "sha256": "7b12f8975b8bbbc62660224f4515779b84c87be45a15c7b023b265ddc3294073"
+    },
+    {
+      "file": "src/services/parsers/rtf-splice.ts",
+      "sha256": "d658d1587ea8a792b78ac800df36d213cee256add773b2ca000133a05c0929ba"
+    },
+    {
+      "file": "src/services/parsers/rtf-text.ts",
+      "sha256": "0eecd92e6f116027b087c8010f3287ad1f8d947386df37e765ef96b29d3916d3"
+    },
+    {
+      "file": "src/services/parsers/rtf-validation.ts",
+      "sha256": "b9fe964bcd04f47d96b4925c90cc14c0c794431a5922f5a0ed9f6b76b18d85ee"
+    },
+    {
+      "file": "src/services/personalization/personalization-service.ts",
+      "sha256": "4e5264e62207ba02da7f70ee8ced88d7607c8191293d1c065a9b5ae64e2e605a"
+    },
+    {
+      "file": "src/services/personalization/types.ts",
+      "sha256": "0a03dcb1eb43b42013b9c4e3e2093d05ff43ddff8bedf85f0f67b0358be39a69"
+    },
+    {
+      "file": "src/services/project-content.ts",
+      "sha256": "6151edac2742ebd9ca9dfc3225cadb359504ea20900aff9ccee1cf07b989befe"
+    },
+    {
+      "file": "src/services/project-context-bridge.ts",
+      "sha256": "a54fc15b23c9b990a98dbf60c853a08ddbfc2bc1c5ea657d749bf1abb21eb2f8"
+    },
+    {
+      "file": "src/services/project-document-info.ts",
+      "sha256": "c38b93879d51ead8de39ad4d73bc22fc1424cbc184b0eda53233a283707a1ec5"
+    },
+    {
+      "file": "src/services/project-exporter.ts",
+      "sha256": "4ce1eea6ccb590a76007e3c87f4a27de31a2808e26e002a871a0266a53426a21"
+    },
+    {
+      "file": "src/services/project-loader.ts",
+      "sha256": "60d32c05be6b2a9d509f4e251127920822b7b30756db08627ec40837e933a5ef"
+    },
+    {
+      "file": "src/services/project-metadata-editor.ts",
+      "sha256": "111518315874a89939fe6192a49e77a8c2e672feb5900ca5652469a2bf7dcff8"
+    },
+    {
+      "file": "src/services/project-reports.ts",
+      "sha256": "a84267d39092da07d07a1d8ab0b3ce27a792a5f1fed10df65716f2ddf027566e"
+    },
+    {
+      "file": "src/services/project-snapshots.ts",
+      "sha256": "8243ca9b095f0ab45d171cf0986909e1f6246d7ea171ec816d90b311f6ffaa16"
+    },
+    {
+      "file": "src/services/project-trash.ts",
+      "sha256": "b49ca9ff449b936a1e29983fd07fd61a86b4b20790d7cce2dd6041d8499b5c7f"
+    },
+    {
+      "file": "src/services/project-writer.ts",
+      "sha256": "02667e86d6614ed07b91584c83e73735a2b3fc0e9135604cacd0373fc9e25b45"
+    },
+    {
+      "file": "src/services/queue/job-queue.ts",
+      "sha256": "200cb7462387b0d25c29f13eda8746d21041f699e00cb1ec9539f07c834f4028"
+    },
+    {
+      "file": "src/services/queue/keydb-detector.ts",
+      "sha256": "61d4631a844517be624c8f94ca1cdcdc25d9d4a793f8702e48d7d20d9d7eb243"
+    },
+    {
+      "file": "src/services/queue/project-scope.ts",
+      "sha256": "dc485c8ece29ba0f73c16a8d5b642ada1f60e0ddf7def8a93410092e1618244a"
+    },
+    {
+      "file": "src/services/relationship-engine.ts",
+      "sha256": "b4a117c146c0f50e21145fe662d84960dacb7d258221d8c06759ce2553f6acc4"
+    },
+    {
+      "file": "src/services/snapshots.ts",
+      "sha256": "8f4b41e98a95e5facb29147daab369264d56af0a7e4d76862dfe0a107d099a10"
+    },
+    {
+      "file": "src/services/web-content-parser.ts",
+      "sha256": "c7a65ff5e66922a615f96d6577e5e56553d92efcb524e9d8f4b7a55aa477327e"
+    },
+    {
+      "file": "src/setup/clients.ts",
+      "sha256": "97b7d6ec377be708c903b692a9af82cbcc2406f55e0f0fbdd168956c3b38d2ae"
+    },
+    {
+      "file": "src/setup/config-file.ts",
+      "sha256": "47ca1ae8d189ea73abc38b32719fdcef654f7468f9030430a7cc25708542bc19"
+    },
+    {
+      "file": "src/setup/doctor.ts",
+      "sha256": "782736ef339e7ae3634b5a3c4751c2e9d786b687ec2e92491612218faec29510"
+    },
+    {
+      "file": "src/setup/first-session.ts",
+      "sha256": "174210dff031b5ebf60f1d8ebb8141faf38fd71b67915a0160cecd56df0a0377"
+    },
+    {
+      "file": "src/setup/links.ts",
+      "sha256": "e5abbcc0fe1cbae6fbf370f9932bb6de75131e4c0cca82597e43292d1a582e55"
+    },
+    {
+      "file": "src/setup/redaction.ts",
+      "sha256": "21cee51025f11632f57a11dc94622cedaa6c8ac28ccee5ed818b49a080b7c4dd"
+    },
+    {
+      "file": "src/setup/runtime.ts",
+      "sha256": "35cbb3d4132c72a358ca2aa2fd6bd249d084e5a8c4a0116f6d6231f7549d570a"
+    },
+    {
+      "file": "src/sync/context-sync.ts",
+      "sha256": "9bedb4acb203bfa8dbc8e723037b4d224407d83de40b8d160da54bbc006faa53"
+    },
+    {
+      "file": "src/types/analysis.d.ts",
+      "sha256": "ada1cf6aa80d09fe736179afdfb950e2ef2db21e67091dd553337a5a4a4a8e2b"
+    },
+    {
+      "file": "src/types/database.ts",
+      "sha256": "a087ed7cf6289731fc46b4d4abebc8b0e39a74560f18bd52c2789d9abc276985"
+    },
+    {
+      "file": "src/types/generated/ConceptCandidate.ts",
+      "sha256": "9a9c0a3b15924701933beb4ca01697d18a5664d347d56a93fc8bcb4171634ad0"
+    },
+    {
+      "file": "src/types/generated/HmsError.ts",
+      "sha256": "82fa16363f573e2a00c1f61fb2e4e9150527572ad6e887004bbafe087531aa7f"
+    },
+    {
+      "file": "src/types/generated/MemorizeBatchItem.ts",
+      "sha256": "50bcdc916ea419bd9e570a0a87f8e0fbf0bb4be22ce88d612db1b9704bbad046"
+    },
+    {
+      "file": "src/types/generated/RetrievalResult.ts",
+      "sha256": "92b1ad6b8f11557b64a9557c045be821bd2a5be7ece1effb7e63ba7a5cfb9da8"
+    },
+    {
+      "file": "src/types/generated/TextMetrics.ts",
+      "sha256": "02087768d78b6c20d9feb666c5e486a7725e7721ee8c90f011678859397a9621"
+    },
+    {
+      "file": "src/types/generated/index.ts",
+      "sha256": "ba3e7635ea8cfa459fd9adefd6d420e467f7331dfadcb4addd5722265e680a11"
+    },
+    {
+      "file": "src/types/index.ts",
+      "sha256": "ca1736c3ff166e1280f8755deab8be73f40c4b3fcf48d36ff523ad3571de53b7"
+    },
+    {
+      "file": "src/types/internal.ts",
+      "sha256": "5afab1f94fd49a1e875f9d553a32b7fe43d5de967551ea13ae343c3e025942d4"
+    },
+    {
+      "file": "src/types/pos.d.ts",
+      "sha256": "0c599458a19ee69f8a039336819fd69ed777f5b9226375458a8f6c27ca467707"
+    },
+    {
+      "file": "src/types/sentiment.d.ts",
+      "sha256": "620cabfb925e5ad941a16ecf5782609acb8751338b1976bf698e673a707d9716"
+    },
+    {
+      "file": "src/types/textstat.d.ts",
+      "sha256": "53dc99a7e1fb7bb86fcbd9dcdda62bef46eb1dfcb51c3f4cc8df37dc626e5f10"
+    },
+    {
+      "file": "src/utils/adaptive-timeout.ts",
+      "sha256": "43690ec3cc3176d9b04bb0f9563a8acc52b384107195c83f243cefc2c28c248b"
+    },
+    {
+      "file": "src/utils/binder-tree.ts",
+      "sha256": "42d6e5cf5719cdf7bedf4aa98ecac541abbe9c2af558e46dc505544d3540cdb6"
+    },
+    {
+      "file": "src/utils/common.ts",
+      "sha256": "3e00a91db0541650c9080244f1e8b99a5a1f9ab5b6fb4c13345922cd34bf95a8"
+    },
+    {
+      "file": "src/utils/condition-waiter.ts",
+      "sha256": "1619a0823cc269d4ffced378fb9faec22cce16180b60d606beb47e1bc4850f47"
+    },
+    {
+      "file": "src/utils/database.ts",
+      "sha256": "4d0f30855df995b78e9f4fcc2fe21b218071bf6e3513156d8d383ed8cde3b2c0"
+    },
+    {
+      "file": "src/utils/document-operations.ts",
+      "sha256": "f7e9fa66ad4bedc752f8c17e3405a5acfb8794bba58132b641ad626ad27f56ee"
+    },
+    {
+      "file": "src/utils/env-config.ts",
+      "sha256": "79fd4f10ba3b772610a1f453d8a6d41966d32f613a17ca90f1a780a6eaa29830"
+    },
+    {
+      "file": "src/utils/json-parse.ts",
+      "sha256": "55699622299e349690a58ca79151f3889175fb4204e1d17957540da6a364ecd3"
+    },
+    {
+      "file": "src/utils/json-schema-validator.ts",
+      "sha256": "dc51a3ec18a2d9aff096d0f0da2c86990abdf1c095b67b43d0dc44014362ea61"
+    },
+    {
+      "file": "src/utils/network-resilience.ts",
+      "sha256": "c71865381c04df4201da077ec5a35b72a06c71f64aeecd5bada13c673b8846f8"
+    },
+    {
+      "file": "src/utils/operation-metrics.ts",
+      "sha256": "6a9b68e29fae7512219c0b20fcfde0f5459a396234534c1ac3372df91a10d346"
+    },
+    {
+      "file": "src/utils/permission-manager.ts",
+      "sha256": "815084632211f07f5ccc32f5c27bd88aa12007e4e94a319135f7000c6aaaac79"
+    },
+    {
+      "file": "src/utils/predictive-cache.ts",
+      "sha256": "a693e4ff03dd2494b037b6387f151481e5219da4e6df2e2063305515cbb9a37d"
+    },
+    {
+      "file": "src/utils/project-utils.ts",
+      "sha256": "995ce07ff0a09451e5b3b9989c797c8803cd729058f370e8f0f454bf219c7a20"
+    },
+    {
+      "file": "src/utils/prompt-input.ts",
+      "sha256": "278248c1601abd58899ecbad8ff6a89709f94e86447156f9a653301b751444da"
+    },
+    {
+      "file": "src/utils/redaction.ts",
+      "sha256": "b61b956ea2fd522590c047c30f1089dd40d6e6146c15ddfbc7748f09d408816e"
+    },
+    {
+      "file": "src/utils/regex.ts",
+      "sha256": "d748531ef41446d4a076856519833d25e5eca8b18845dd309937cbf6e77bb85c"
+    },
+    {
+      "file": "src/utils/scrivener-app.ts",
+      "sha256": "cc13c52b834f36bcf4315e71e1c6954a57e1900b1b3580169bb9aa39d11c92c2"
+    },
+    {
+      "file": "src/utils/scrivener-utils.ts",
+      "sha256": "381f015c808a7a7e67f0c81356e014a32cc7912934b36750c2aadfc839f36949"
+    },
+    {
+      "file": "src/utils/scrivener-xml.ts",
+      "sha256": "89156fa1f0c8a217a753d4cdf55cdf20242320b2e4bd0f3812ab0da6efe220cd"
+    },
+    {
+      "file": "src/utils/shared-patterns.ts",
+      "sha256": "b574728d860e24afa0cc6fbb841d1120ce038a59f1a839c089cf74aa974717c4"
+    },
+    {
+      "file": "src/utils/sqlite.ts",
+      "sha256": "1270ad3b0b6d946b03a2dda03b2e86f74cf6c00f20b3404b00e7d8bac53d1c3d"
+    },
+    {
+      "file": "src/utils/text-diff.ts",
+      "sha256": "0d417e92d74632c3e73e13fe65fc4029171007ca9fe62babeac1782b6bfed3c7"
+    },
+    {
+      "file": "src/utils/text-metrics.ts",
+      "sha256": "75de20499a53be24ecdc6202fc72035648e089a0ec7dbbf9396309957ab9c904"
+    }
+  ],
+  "scriptSha256": "b41deafe02b5c57ef4df60402fc0c34fcd5f36568d180b62c454f75c98d16abd",
+  "resourceHelperSha256": "ad9f51c550d015dd6fc550527a108a0e9b76bcc616c379009ee315bbd94bbe3e",
+  "environment": {
+    "node": "v26.12.1",
+    "v8": "14.6.202.34-node.40",
+    "platform": "darwin",
+    "arch": "arm64",
+    "osRelease": "27.0.0",
+    "cpu": "Apple M4",
+    "logicalCpus": 10,
+    "totalMemoryBytes": 34359738368,
+    "loadAverageBefore": [
+      6.9765625,
+      7.98681640625,
+      7.181640625
+    ]
+  },
+  "workload": {
+    "passages": 1000,
+    "documents": 100,
+    "passageUtf16Units": 900,
+    "sourceUtf16Units": 901800,
+    "samples": 5,
+    "engineMode": "fallback",
+    "fixturePath": "tests/fixtures/passage-relevance.json",
+    "fixtureSha256": "783198d9bfd8bcee92604b2f0764e0d8b4ce2c0fa9d169c5a958c37a1b3016b3",
+    "corpusSha256": "d34cd7cc8aade4d46b1572459a458647c28db7b11b3a2f54a6eaaededf7eecc0",
+    "sourceRawSha256": "74402f3ff4f3e42a35e31d0130fd3fec24f670d0f96dba750cb33aeca231b65b",
+    "queries": [
+      "amberpin",
+      "cobaltzz"
+    ],
+    "model": "scrivener-story-concepts",
+    "modelRevision": "1",
+    "dimensions": 30
+  },
+  "budgets": {
+    "elapsedMs": 5000,
+    "eventLoopLagMs": 100,
+    "rssGrowthBytes": 134217728,
+    "processTreeRssPeakBytes": 2147483648
+  },
+  "limitations": [
+    "Direct PassageSearch + real ProjectSource and saved RTF/filesystem; not MCP, native Scrivener GUI, ranking-quality or client compatibility evidence.",
+    "Fixed original CC0 synthetic fixtures exercise index scale and exact citations; repetitive passages do not represent natural manuscript relevance.",
+    "Cold means a fresh project, SQLite catalog, source text cache and selected engine, not OS cold disk or a fresh Node process. Reopen preserves SQLite and discards source/engine state.",
+    "Trials share one Node process without forced GC; raw RSS baselines and post-close memory are retained. Fixture text is generated on demand outside timed phases, not retained as whole-project oracle copies. Setup allocations may influence later GC. No tail-percentile claims.",
+    "This explicitly supplied engine bypasses model discovery/download. Fallback is JavaScript; native selection only uses an already installed binding.",
+    "RSS includes in-process SQLite/native memory. Process-tree RSS is sampled independently every100ms and at boundaries, excluding the ps observer. The tsx/esbuild helper is a separate descendant and remains included; child identities/CPU/RSS are recorded before/after and checked after close.",
+    "Process inventory spawn/parse overhead remains inside measured parent CPU/elapsed; ps observer RSS/CPU is excluded. RSS/event-loop sampling every5ms can miss peaks. Setup, external fixture edits, citation verification, disk inventory and close/open construction are excluded; reopen search includes cache rehydration.",
+    "Isolation is operator-enforced, not automatic. Pause competing builds/tests before timing; unrelated host activity is uncontrolled."
+  ],
+  "measurements": [
+    {
+      "sample": 0,
+      "phase": "cold",
+      "elapsedMs": 274.8234580000001,
+      "eventLoopLagMs": 168.93987500000003,
+      "rssStartBytes": 158171136,
+      "rssPeakBytes": 221249536,
+      "rssGrowthBytes": 63078400,
+      "parentLifetimeHighWaterBytes": 221282304,
+      "processTreeRssPeakBytes": 241647616,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 158121984,
+          "cpuMs": 450
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 158171136,
+        "heapTotal": 67469312,
+        "heapUsed": 34934848,
+        "external": 6220911,
+        "arrayBuffers": 3547371
+      },
+      "memoryAfter": {
+        "rss": 221282304,
+        "heapTotal": 120815616,
+        "heapUsed": 71663296,
+        "external": 5087708,
+        "arrayBuffers": 2329105
+      },
+      "cpu": {
+        "user": 359738,
+        "system": 20021
+      },
+      "ticks": 18,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 100,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 221298688,
+          "cpuMs": 840
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 0,
+      "phase": "warm",
+      "elapsedMs": 40.068708000000015,
+      "eventLoopLagMs": 16.20500000000004,
+      "rssStartBytes": 221544448,
+      "rssPeakBytes": 223019008,
+      "rssGrowthBytes": 1474560,
+      "parentLifetimeHighWaterBytes": 223051776,
+      "processTreeRssPeakBytes": 243449856,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 221478912,
+          "cpuMs": 840
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 221544448,
+        "heapTotal": 120815616,
+        "heapUsed": 75925800,
+        "external": 5225242,
+        "arrayBuffers": 2466639
+      },
+      "memoryAfter": {
+        "rss": 223051776,
+        "heapTotal": 121077760,
+        "heapUsed": 78288520,
+        "external": 5176826,
+        "arrayBuffers": 2408776
+      },
+      "cpu": {
+        "user": 39192,
+        "system": 4218
+      },
+      "ticks": 3,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 223068160,
+          "cpuMs": 890
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 0,
+      "phase": "same-size-edit",
+      "elapsedMs": 39.871417000000065,
+      "eventLoopLagMs": 14.616208000000029,
+      "rssStartBytes": 223608832,
+      "rssPeakBytes": 224149504,
+      "rssGrowthBytes": 540672,
+      "parentLifetimeHighWaterBytes": 224149504,
+      "processTreeRssPeakBytes": 244547584,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 223608832,
+          "cpuMs": 900
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 223608832,
+        "heapTotal": 122126336,
+        "heapUsed": 56197744,
+        "external": 5257126,
+        "arrayBuffers": 2507970
+      },
+      "memoryAfter": {
+        "rss": 224149504,
+        "heapTotal": 122388480,
+        "heapUsed": 57764856,
+        "external": 5251460,
+        "arrayBuffers": 2492857
+      },
+      "cpu": {
+        "user": 25884,
+        "system": 4901
+      },
+      "ticks": 3,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 1,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 224165888,
+          "cpuMs": 930
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2382396,
+        "allocatedBytes": 2666496,
+        "files": 103
+      }
+    },
+    {
+      "sample": 0,
+      "phase": "reopen",
+      "elapsedMs": 160.28945900000008,
+      "eventLoopLagMs": 76.47574999999983,
+      "rssStartBytes": 227033088,
+      "rssPeakBytes": 258146304,
+      "rssGrowthBytes": 31113216,
+      "parentLifetimeHighWaterBytes": 258162688,
+      "processTreeRssPeakBytes": 278544384,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 227033088,
+          "cpuMs": 970
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20398080,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 227033088,
+        "heapTotal": 125009920,
+        "heapUsed": 64011144,
+        "external": 5339955,
+        "arrayBuffers": 2581352
+      },
+      "memoryAfter": {
+        "rss": 258162688,
+        "heapTotal": 155680768,
+        "heapUsed": 91906224,
+        "external": 5349409,
+        "arrayBuffers": 2581359
+      },
+      "cpu": {
+        "user": 148457,
+        "system": 11377
+      },
+      "ticks": 14,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 258162688,
+          "cpuMs": 1130
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2333244,
+        "allocatedBytes": 2617344,
+        "files": 103
+      }
+    },
+    {
+      "sample": 0,
+      "phase": "closed",
+      "memory": {
+        "rss": 258244608,
+        "heapTotal": 155680768,
+        "heapUsed": 95735336,
+        "external": 5485088,
+        "arrayBuffers": 2685683
+      },
+      "disk": {
+        "logicalBytes": 2300476,
+        "allocatedBytes": 2584576,
+        "files": 101
+      },
+      "processTree": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 258277376,
+          "cpuMs": 1150
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ]
+    },
+    {
+      "sample": 1,
+      "phase": "cold",
+      "elapsedMs": 296.88241700000003,
+      "eventLoopLagMs": 185.9569160000001,
+      "rssStartBytes": 258850816,
+      "rssPeakBytes": 289325056,
+      "rssGrowthBytes": 30474240,
+      "parentLifetimeHighWaterBytes": 289325056,
+      "processTreeRssPeakBytes": 309739520,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 258834432,
+          "cpuMs": 1210
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 258850816,
+        "heapTotal": 156205056,
+        "heapUsed": 88923456,
+        "external": 6631210,
+        "arrayBuffers": 3837176
+      },
+      "memoryAfter": {
+        "rss": 289325056,
+        "heapTotal": 185565184,
+        "heapUsed": 118336528,
+        "external": 6650111,
+        "arrayBuffers": 3837183
+      },
+      "cpu": {
+        "user": 276760,
+        "system": 18717
+      },
+      "ticks": 15,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 100,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 289325056,
+          "cpuMs": 1510
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 1,
+      "phase": "warm",
+      "elapsedMs": 41.149708000000146,
+      "eventLoopLagMs": 15.598416999999927,
+      "rssStartBytes": 289357824,
+      "rssPeakBytes": 289767424,
+      "rssGrowthBytes": 409600,
+      "parentLifetimeHighWaterBytes": 289800192,
+      "processTreeRssPeakBytes": 310214656,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 289357824,
+          "cpuMs": 1520
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 289357824,
+        "heapTotal": 185565184,
+        "heapUsed": 122425472,
+        "external": 6806855,
+        "arrayBuffers": 3993927
+      },
+      "memoryAfter": {
+        "rss": 289800192,
+        "heapTotal": 185565184,
+        "heapUsed": 121158528,
+        "external": 6748992,
+        "arrayBuffers": 3936064
+      },
+      "cpu": {
+        "user": 22505,
+        "system": 5393
+      },
+      "ticks": 3,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 289800192,
+          "cpuMs": 1550
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 1,
+      "phase": "same-size-edit",
+      "elapsedMs": 44.177584000000024,
+      "eventLoopLagMs": 16.221667000000025,
+      "rssStartBytes": 289816576,
+      "rssPeakBytes": 292667392,
+      "rssGrowthBytes": 2850816,
+      "parentLifetimeHighWaterBytes": 292667392,
+      "processTreeRssPeakBytes": 313081856,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 289816576,
+          "cpuMs": 1560
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 289816576,
+        "heapTotal": 185565184,
+        "heapUsed": 125510656,
+        "external": 6976028,
+        "arrayBuffers": 4163100
+      },
+      "memoryAfter": {
+        "rss": 292667392,
+        "heapTotal": 188710912,
+        "heapUsed": 124795520,
+        "external": 6927324,
+        "arrayBuffers": 4104949
+      },
+      "cpu": {
+        "user": 25888,
+        "system": 4884
+      },
+      "ticks": 3,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 1,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 292667392,
+          "cpuMs": 1590
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2382396,
+        "allocatedBytes": 2666496,
+        "files": 103
+      }
+    },
+    {
+      "sample": 1,
+      "phase": "reopen",
+      "elapsedMs": 177.46283300000005,
+      "eventLoopLagMs": 83.81641600000012,
+      "rssStartBytes": 295550976,
+      "rssPeakBytes": 296108032,
+      "rssGrowthBytes": 557056,
+      "parentLifetimeHighWaterBytes": 296108032,
+      "processTreeRssPeakBytes": 316522496,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 295550976,
+          "cpuMs": 1640
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 295550976,
+        "heapTotal": 119242752,
+        "heapUsed": 24100120,
+        "external": 5103716,
+        "arrayBuffers": 2394705
+      },
+      "memoryAfter": {
+        "rss": 296108032,
+        "heapTotal": 120815616,
+        "heapUsed": 59015056,
+        "external": 5122617,
+        "arrayBuffers": 2394712
+      },
+      "cpu": {
+        "user": 178992,
+        "system": 9455
+      },
+      "ticks": 14,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296108032,
+          "cpuMs": 1840
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2333244,
+        "allocatedBytes": 2617344,
+        "files": 103
+      }
+    },
+    {
+      "sample": 1,
+      "phase": "closed",
+      "memory": {
+        "rss": 296091648,
+        "heapTotal": 120815616,
+        "heapUsed": 62801080,
+        "external": 5236557,
+        "arrayBuffers": 2508652
+      },
+      "disk": {
+        "logicalBytes": 2300476,
+        "allocatedBytes": 2584576,
+        "files": 101
+      },
+      "processTree": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296091648,
+          "cpuMs": 1850
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "phase": "cold",
+      "elapsedMs": 293.55808300000035,
+      "eventLoopLagMs": 183.43270800000028,
+      "rssStartBytes": 296140800,
+      "rssPeakBytes": 296157184,
+      "rssGrowthBytes": 16384,
+      "parentLifetimeHighWaterBytes": 296157184,
+      "processTreeRssPeakBytes": 316571648,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296140800,
+          "cpuMs": 1920
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296140800,
+        "heapTotal": 121602048,
+        "heapUsed": 55894560,
+        "external": 6397821,
+        "arrayBuffers": 3679363
+      },
+      "memoryAfter": {
+        "rss": 296157184,
+        "heapTotal": 150175744,
+        "heapUsed": 82624632,
+        "external": 6416722,
+        "arrayBuffers": 3679370
+      },
+      "cpu": {
+        "user": 249358,
+        "system": 13212
+      },
+      "ticks": 14,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 100,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296157184,
+          "cpuMs": 2190
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 2,
+      "phase": "warm",
+      "elapsedMs": 38.78312499999993,
+      "eventLoopLagMs": 18.719249999999647,
+      "rssStartBytes": 296157184,
+      "rssPeakBytes": 296157184,
+      "rssGrowthBytes": 0,
+      "parentLifetimeHighWaterBytes": 296157184,
+      "processTreeRssPeakBytes": 316571648,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296157184,
+          "cpuMs": 2190
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296157184,
+        "heapTotal": 150175744,
+        "heapUsed": 86763136,
+        "external": 6592671,
+        "arrayBuffers": 3855319
+      },
+      "memoryAfter": {
+        "rss": 296157184,
+        "heapTotal": 150700032,
+        "heapUsed": 87953232,
+        "external": 6544255,
+        "arrayBuffers": 3797456
+      },
+      "cpu": {
+        "user": 22743,
+        "system": 3631
+      },
+      "ticks": 2,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296157184,
+          "cpuMs": 2220
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 2,
+      "phase": "same-size-edit",
+      "elapsedMs": 41.73633299999983,
+      "eventLoopLagMs": 15.584416000000147,
+      "rssStartBytes": 296157184,
+      "rssPeakBytes": 296157184,
+      "rssGrowthBytes": 0,
+      "parentLifetimeHighWaterBytes": 296157184,
+      "processTreeRssPeakBytes": 316571648,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296157184,
+          "cpuMs": 2230
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296157184,
+        "heapTotal": 150700032,
+        "heapUsed": 92375176,
+        "external": 6724887,
+        "arrayBuffers": 3978088
+      },
+      "memoryAfter": {
+        "rss": 296157184,
+        "heapTotal": 150700032,
+        "heapUsed": 89296072,
+        "external": 6666736,
+        "arrayBuffers": 3919937
+      },
+      "cpu": {
+        "user": 23607,
+        "system": 4132
+      },
+      "ticks": 3,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 1,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296157184,
+          "cpuMs": 2260
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2382396,
+        "allocatedBytes": 2666496,
+        "files": 103
+      }
+    },
+    {
+      "sample": 2,
+      "phase": "reopen",
+      "elapsedMs": 174.34008399999993,
+      "eventLoopLagMs": 80.49041699999998,
+      "rssStartBytes": 296140800,
+      "rssPeakBytes": 296140800,
+      "rssGrowthBytes": 0,
+      "parentLifetimeHighWaterBytes": 296157184,
+      "processTreeRssPeakBytes": 316555264,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296140800,
+          "cpuMs": 2290
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296140800,
+        "heapTotal": 151486464,
+        "heapUsed": 84011128,
+        "external": 6784177,
+        "arrayBuffers": 4046825
+      },
+      "memoryAfter": {
+        "rss": 296140800,
+        "heapTotal": 141787136,
+        "heapUsed": 69150640,
+        "external": 5179292,
+        "arrayBuffers": 2394705
+      },
+      "cpu": {
+        "user": 205914,
+        "system": 10098
+      },
+      "ticks": 15,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296140800,
+          "cpuMs": 2510
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2333244,
+        "allocatedBytes": 2617344,
+        "files": 103
+      }
+    },
+    {
+      "sample": 2,
+      "phase": "closed",
+      "memory": {
+        "rss": 296124416,
+        "heapTotal": 141787136,
+        "heapUsed": 72940824,
+        "external": 5302817,
+        "arrayBuffers": 2518230
+      },
+      "disk": {
+        "logicalBytes": 2300476,
+        "allocatedBytes": 2584576,
+        "files": 101
+      },
+      "processTree": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296124416,
+          "cpuMs": 2530
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "phase": "cold",
+      "elapsedMs": 239.84837500000003,
+      "eventLoopLagMs": 153.44662500000004,
+      "rssStartBytes": 296189952,
+      "rssPeakBytes": 296206336,
+      "rssGrowthBytes": 16384,
+      "parentLifetimeHighWaterBytes": 296206336,
+      "processTreeRssPeakBytes": 316620800,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296189952,
+          "cpuMs": 2600
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296189952,
+        "heapTotal": 141787136,
+        "heapUsed": 66465288,
+        "external": 6548842,
+        "arrayBuffers": 3773702
+      },
+      "memoryAfter": {
+        "rss": 296206336,
+        "heapTotal": 146243584,
+        "heapUsed": 91356032,
+        "external": 6567743,
+        "arrayBuffers": 3773709
+      },
+      "cpu": {
+        "user": 226450,
+        "system": 10221
+      },
+      "ticks": 14,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 100,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296206336,
+          "cpuMs": 2840
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 3,
+      "phase": "warm",
+      "elapsedMs": 39.61587499999996,
+      "eventLoopLagMs": 18.944041999999627,
+      "rssStartBytes": 296206336,
+      "rssPeakBytes": 296206336,
+      "rssGrowthBytes": 0,
+      "parentLifetimeHighWaterBytes": 296206336,
+      "processTreeRssPeakBytes": 316620800,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296206336,
+          "cpuMs": 2850
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296206336,
+        "heapTotal": 146243584,
+        "heapUsed": 95150488,
+        "external": 6762862,
+        "arrayBuffers": 3968828
+      },
+      "memoryAfter": {
+        "rss": 296206336,
+        "heapTotal": 146243584,
+        "heapUsed": 96204848,
+        "external": 6714446,
+        "arrayBuffers": 3910965
+      },
+      "cpu": {
+        "user": 23072,
+        "system": 4037
+      },
+      "ticks": 2,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296206336,
+          "cpuMs": 2870
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 3,
+      "phase": "same-size-edit",
+      "elapsedMs": 45.911167000000205,
+      "eventLoopLagMs": 20.303084000000126,
+      "rssStartBytes": 296206336,
+      "rssPeakBytes": 296206336,
+      "rssGrowthBytes": 0,
+      "parentLifetimeHighWaterBytes": 296206336,
+      "processTreeRssPeakBytes": 316620800,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296206336,
+          "cpuMs": 2880
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296206336,
+        "heapTotal": 146243584,
+        "heapUsed": 99958192,
+        "external": 6914248,
+        "arrayBuffers": 4110767
+      },
+      "memoryAfter": {
+        "rss": 296206336,
+        "heapTotal": 147030016,
+        "heapUsed": 103985160,
+        "external": 6856097,
+        "arrayBuffers": 4052616
+      },
+      "cpu": {
+        "user": 24503,
+        "system": 3926
+      },
+      "ticks": 2,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 1,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296206336,
+          "cpuMs": 2910
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2382396,
+        "allocatedBytes": 2666496,
+        "files": 103
+      }
+    },
+    {
+      "sample": 3,
+      "phase": "reopen",
+      "elapsedMs": 295.1750000000002,
+      "eventLoopLagMs": 85.7944580000003,
+      "rssStartBytes": 296189952,
+      "rssPeakBytes": 299761664,
+      "rssGrowthBytes": 3571712,
+      "parentLifetimeHighWaterBytes": 299761664,
+      "processTreeRssPeakBytes": 316604416,
+      "processTreeSamples": 3,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 296189952,
+          "cpuMs": 2950
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 296189952,
+        "heapTotal": 147030016,
+        "heapUsed": 79836528,
+        "external": 6983265,
+        "arrayBuffers": 4198678
+      },
+      "memoryAfter": {
+        "rss": 299761664,
+        "heapTotal": 176652288,
+        "heapUsed": 113455352,
+        "external": 7002202,
+        "arrayBuffers": 4198721
+      },
+      "cpu": {
+        "user": 229586,
+        "system": 21899
+      },
+      "ticks": 33,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 299761664,
+          "cpuMs": 3210
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2333244,
+        "allocatedBytes": 2617344,
+        "files": 103
+      }
+    },
+    {
+      "sample": 3,
+      "phase": "closed",
+      "memory": {
+        "rss": 299745280,
+        "heapTotal": 176652288,
+        "heapUsed": 116563888,
+        "external": 7135370,
+        "arrayBuffers": 4331889
+      },
+      "disk": {
+        "logicalBytes": 2300476,
+        "allocatedBytes": 2584576,
+        "files": 101
+      },
+      "processTree": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 299745280,
+          "cpuMs": 3220
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ]
+    },
+    {
+      "sample": 4,
+      "phase": "cold",
+      "elapsedMs": 297.31983299999956,
+      "eventLoopLagMs": 205.92704200000026,
+      "rssStartBytes": 299794432,
+      "rssPeakBytes": 316899328,
+      "rssGrowthBytes": 17104896,
+      "parentLifetimeHighWaterBytes": 316932096,
+      "processTreeRssPeakBytes": 337313792,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 299778048,
+          "cpuMs": 3280
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 299794432,
+        "heapTotal": 176652288,
+        "heapUsed": 135655568,
+        "external": 8464686,
+        "arrayBuffers": 5661205
+      },
+      "memoryAfter": {
+        "rss": 316932096,
+        "heapTotal": 206536704,
+        "heapUsed": 142448520,
+        "external": 8353804,
+        "arrayBuffers": 5540876
+      },
+      "cpu": {
+        "user": 289535,
+        "system": 14389
+      },
+      "ticks": 14,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 100,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 316932096,
+          "cpuMs": 3590
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 4,
+      "phase": "warm",
+      "elapsedMs": 41.80408299999999,
+      "eventLoopLagMs": 18.825583000000734,
+      "rssStartBytes": 316932096,
+      "rssPeakBytes": 317292544,
+      "rssGrowthBytes": 360448,
+      "parentLifetimeHighWaterBytes": 317325312,
+      "processTreeRssPeakBytes": 337707008,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 316932096,
+          "cpuMs": 3590
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20414464,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 316932096,
+        "heapTotal": 206536704,
+        "heapUsed": 145967872,
+        "external": 8568126,
+        "arrayBuffers": 5755198
+      },
+      "memoryAfter": {
+        "rss": 317325312,
+        "heapTotal": 206798848,
+        "heapUsed": 141960680,
+        "external": 8510263,
+        "arrayBuffers": 5697335
+      },
+      "cpu": {
+        "user": 22824,
+        "system": 4340
+      },
+      "ticks": 2,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 317325312,
+          "cpuMs": 3620
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20430848,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2365916,
+        "allocatedBytes": 2650112,
+        "files": 103
+      }
+    },
+    {
+      "sample": 4,
+      "phase": "same-size-edit",
+      "elapsedMs": 46.503917,
+      "eventLoopLagMs": 20.326833999999508,
+      "rssStartBytes": 317325312,
+      "rssPeakBytes": 320143360,
+      "rssGrowthBytes": 2818048,
+      "parentLifetimeHighWaterBytes": 320143360,
+      "processTreeRssPeakBytes": 340574208,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 317325312,
+          "cpuMs": 3630
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20430848,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 317325312,
+        "heapTotal": 206798848,
+        "heapUsed": 145753336,
+        "external": 8729275,
+        "arrayBuffers": 5916347
+      },
+      "memoryAfter": {
+        "rss": 320143360,
+        "heapTotal": 209682432,
+        "heapUsed": 144708576,
+        "external": 8671124,
+        "arrayBuffers": 5858196
+      },
+      "cpu": {
+        "user": 27032,
+        "system": 4985
+      },
+      "ticks": 3,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 1,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 320143360,
+          "cpuMs": 3670
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20430848,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2382396,
+        "allocatedBytes": 2666496,
+        "files": 103
+      }
+    },
+    {
+      "sample": 4,
+      "phase": "reopen",
+      "elapsedMs": 222.57516699999996,
+      "eventLoopLagMs": 86.05308299999979,
+      "rssStartBytes": 323026944,
+      "rssPeakBytes": 331415552,
+      "rssGrowthBytes": 8388608,
+      "parentLifetimeHighWaterBytes": 331415552,
+      "processTreeRssPeakBytes": 350961664,
+      "processTreeSamples": 2,
+      "treeBefore": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 323026944,
+          "cpuMs": 3710
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20430848,
+          "cpuMs": 10
+        }
+      ],
+      "memoryBefore": {
+        "rss": 323026944,
+        "heapTotal": 212566016,
+        "heapUsed": 147411432,
+        "external": 8826952,
+        "arrayBuffers": 6023471
+      },
+      "memoryAfter": {
+        "rss": 331415552,
+        "heapTotal": 145981440,
+        "heapUsed": 62860080,
+        "external": 5169845,
+        "arrayBuffers": 2394705
+      },
+      "cpu": {
+        "user": 221178,
+        "system": 16226
+      },
+      "ticks": 22,
+      "rawReads": 101,
+      "engine": {
+        "package": "writerslogic-warm",
+        "dimensions": 30,
+        "engine": "JS Fallback",
+        "totalMemories": 0,
+        "totalTriplets": 0,
+        "persistentDocuments": false,
+        "embeddingSpace": {
+          "model": "scrivener-story-concepts",
+          "revision": "1",
+          "dimensions": 30
+        },
+        "fallbackReason": "Explicit fallback selection",
+        "closed": false
+      },
+      "index": {
+        "changedDocuments": 0,
+        "removedDocuments": 0,
+        "passages": 1000,
+        "documents": 100
+      },
+      "treeAfter": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 331415552,
+          "cpuMs": 3950
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20430848,
+          "cpuMs": 10
+        }
+      ],
+      "citationsVerified": 1,
+      "catalog": {
+        "count": 100,
+        "bytes": 1302443
+      },
+      "disk": {
+        "logicalBytes": 2333244,
+        "allocatedBytes": 2617344,
+        "files": 103
+      }
+    },
+    {
+      "sample": 4,
+      "phase": "closed",
+      "memory": {
+        "rss": 331399168,
+        "heapTotal": 145981440,
+        "heapUsed": 65921768,
+        "external": 5312560,
+        "arrayBuffers": 2537420
+      },
+      "disk": {
+        "logicalBytes": 2300476,
+        "allocatedBytes": 2584576,
+        "files": 101
+      },
+      "processTree": [
+        {
+          "pid": 63905,
+          "parent": 63903,
+          "rssBytes": 331399168,
+          "cpuMs": 3960
+        },
+        {
+          "pid": 63907,
+          "parent": 63905,
+          "rssBytes": 20430848,
+          "cpuMs": 10
+        }
+      ]
+    }
+  ],
+  "failures": [
+    {
+      "sample": 0,
+      "phase": "cold",
+      "metric": "eventLoopLagMs",
+      "value": 168.93987500000003,
+      "budget": 100
+    },
+    {
+      "sample": 1,
+      "phase": "cold",
+      "metric": "eventLoopLagMs",
+      "value": 185.9569160000001,
+      "budget": 100
+    },
+    {
+      "sample": 2,
+      "phase": "cold",
+      "metric": "eventLoopLagMs",
+      "value": 183.43270800000028,
+      "budget": 100
+    },
+    {
+      "sample": 3,
+      "phase": "cold",
+      "metric": "eventLoopLagMs",
+      "value": 153.44662500000004,
+      "budget": 100
+    },
+    {
+      "sample": 4,
+      "phase": "cold",
+      "metric": "eventLoopLagMs",
+      "value": 205.92704200000026,
+      "budget": 100
+    }
+  ],
+  "wallTimeMs": 4188.961042
+}

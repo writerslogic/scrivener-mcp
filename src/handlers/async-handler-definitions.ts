@@ -622,13 +622,14 @@ export const asyncHandlerDefinitions: ToolDefinition[] = [
 				},
 			},
 		},
-		handler: async (args, context) => {
+		handler: async (args, context, options) => {
 			const result = await asyncHandlers.checkPlotConsistency(
 				args as {
 					documents: Array<{ id: string; content?: string }>;
 					async?: boolean;
 				},
-				requireProject(context).getEditorialServices()
+				requireProject(context).getEditorialServices(),
+				options
 			);
 			return {
 				content: [

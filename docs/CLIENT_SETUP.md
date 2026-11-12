@@ -25,13 +25,31 @@ install dialog for Raycast. What it does for you:
   server "fails to start". The tool writes the full path to `npx` and the matching PATH into each
   config.
 - **Repairs old entries.** An older `npx scrivener-mcp` entry is updated instead of skipped.
-- **Never damages a config.** Other servers and settings are kept, a dated backup is saved next to
-  the file, and a file that is not valid JSON is left untouched.
+- **Preserves settings and saves backups.** Other servers and settings are kept, and the previous
+  bytes are backed up beside the file before an atomic replacement. Invalid JSON is left untouched.
 - **Checks the result.** `npx --package scrivener-mcp scrivener-setup --check` reports each app's
   state and runs the start-up test without changing anything.
 
 Useful options: `--client cursor` (one app only), `--remove`, `--links` (one-click install links),
 `--print` (the JSON for manual setup), `--yes` (no questions), and `--json` (for scripts).
+
+Close configuration editors while running setup. Setup rechecks the original file immediately
+before replacement and refuses detected concurrent changes, but external programs do not share an
+atomic compare-and-swap protocol. The automatic npm postinstall uses the same writer and preserves
+existing Scrivener entries; explicit setup can repair them.
+
+Configuration files must be regular UTF-8 files no larger than 1 MiB; symlinks are refused. Keep a
+manual copy before replacing a symlink with a regular file. Successful updates retain three backups
+with generated timestamp-and-UUID names `<config>.scrivener-backup-*`, including the backup reported
+by the latest update. Legacy or manually named backups are left alone. To restore,
+close the client and copy the chosen backup over its configuration file. Failed updates keep any
+completed backup; incomplete staging files are removed when cleanup succeeds. After a killed process,
+check the configuration and backups, then remove leftover `<config>.scrivener-tmp-*` files only after
+all setup processes have stopped. Retrying setup rereads the current configuration. File contents are
+synced before publication; power-loss durability across all filesystems has not been established.
+
+If a source checkout has no built setup code when postinstall runs, automatic configuration is
+skipped with a message. Finish the build, then run the setup command above.
 
 ### No Node.js installed?
 

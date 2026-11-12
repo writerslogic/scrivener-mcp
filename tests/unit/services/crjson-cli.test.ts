@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -19,10 +19,10 @@ afterAll(async () => {
 	await rm(directory, { recursive: true, force: true });
 });
 
-async function command(args: string[]) {
+async function command(args: string[], entry = executable) {
 	return promisify(execFile)(
 		process.execPath,
-		['--import', pathToFileURL(sourceRequire.resolve('tsx')).href, executable, ...args],
+		['--import', pathToFileURL(sourceRequire.resolve('tsx')).href, entry, ...args],
 		{
 			cwd: directory,
 			timeout: 30000,
@@ -100,4 +100,33 @@ test('does not accept assessment flags on a key command', async () => {
 	]);
 	expect(result.code).toBe(1);
 	await expect(readFile(join(directory, 'key.pem'))).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('help does not import credential validation, assessment or private-key implementations', async () => {
+	const isolated = join(directory, 'help-only');
+	await mkdir(join(isolated, 'cli'), { recursive: true });
+	await mkdir(join(isolated, 'services', 'content-credentials'), { recursive: true });
+	await mkdir(join(isolated, 'core'), { recursive: true });
+	await writeFile(join(isolated, 'package.json'), '{"type":"module"}');
+	const entry = join(isolated, 'cli', 'content-credentials.ts');
+	await copyFile(executable, entry);
+	const modules: Record<string, string> = {
+		'core/errors.ts':
+			'export class ApplicationError extends Error {}; export const ErrorCode = {}; export const createError = () => new Error();',
+		'services/content-credentials/limits.ts':
+			'export const CREDENTIAL_LIMITS = {}; export const MAX_CONFIGURATION_BYTES = 1;',
+		'services/content-credentials/local-files.ts':
+			'export const readStableCredentialFile = () => {throw new Error("Unexpected file read")}; export const writeExclusiveCredentialFile = () => {throw new Error("Unexpected file write")};',
+		'services/content-credentials/crjson-assessment-files.ts':
+			'export const prepareCrjsonAssessmentFiles = () => {throw new Error("Unexpected output preparation")};',
+	};
+	for (const name of ['service', 'key-policy', 'crjson-assessment'])
+		modules[`services/content-credentials/${name}.ts`] =
+			'throw new Error("Heavy implementation loaded during help");';
+	for (const [name, content] of Object.entries(modules))
+		await writeFile(join(isolated, name), content);
+	const result = await command(['--help'], entry);
+	expect(result.code).toBe(0);
+	expect(result.stderr).toBe('');
+	expect(result.stdout).toContain('--crjson-version 2.4 --out ABS --native-out ABS');
 });

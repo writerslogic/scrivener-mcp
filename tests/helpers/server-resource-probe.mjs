@@ -216,11 +216,27 @@ process.on('message', async ({ id, action }) => {
 		timer = undefined;
 		sample();
 		const { started, lastTick, lastCpu, ...metrics } = measurement;
+		const elapsedMs = performance.now() - started;
+		let gcDiagnostic;
+		if (process.env.SCRIVENER_NOVEL_GC_DIAGNOSTIC === '1') {
+			if (typeof globalThis.gc !== 'function')
+				throw new Error('GC diagnostic requires --expose-gc');
+			const before = process.memoryUsage();
+			globalThis.gc();
+			await new Promise(setImmediate);
+			globalThis.gc();
+			gcDiagnostic = {
+				before,
+				after: process.memoryUsage(),
+				scope: 'Parent server only; forced after measured interval; changes subsequent heap conditions; not SLO evidence',
+			};
+		}
 		process.send({
 			id,
 			metrics: {
 				...metrics,
-				elapsedMs: performance.now() - started,
+				elapsedMs,
+				...(gcDiagnostic ? { gcDiagnostic } : {}),
 				rssGrowthBytes: metrics.rssPeakBytes - metrics.rssStartBytes,
 				lifetimeHighWaterBytes: process.resourceUsage().maxRSS * 1024,
 			},

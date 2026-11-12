@@ -57,6 +57,110 @@ rather than claiming chronological ordering; newly inserted lower IDs appear aft
 pagination. The dashboard pages histories separately from scenes and loads proposal details on
 demand.
 
+## Revision workspace
+
+The dashboard now includes a revision inbox with category, decision, text-search and selected-scene
+filters. Progress counts edit decisions across the matching inbox, including accepted and rejected
+edits even when the pending view hides finished proposals. Each edit shows its original and proposed
+text. Load and preview multiple alternatives to compare them before accepting individual edits.
+Existing previews, formatting acknowledgments, native snapshots and guarded undo still apply.
+
+When proposing edits, supply `category` (`general`, `continuity`, `structure`, `voice`, `clarity` or
+`mechanics`), a `rationale` of up to 2,000 characters, and an optional shared `alternativeGroup`
+label of up to 200 characters. Older proposals appear under `general`. Alternatives are independent
+proposals: applying one changes the scene revision and blocks competing stale proposals until they
+are recreated against current text. A shared label does not automatically reject or apply another
+proposal.
+
+```js
+review_changes({
+	action: 'inbox',
+	category: 'clarity',
+	status: 'pending',
+	query: 'opening',
+	limit: 20,
+});
+```
+
+The result contains compact `items`, decision `totals`, the filtered proposal `total`, and
+`nextCursor`. Pass that cursor as `after`; reset it when filters change. The inbox supports up to
+10,000 proposals and refuses an oversized collection instead of silently reporting partial progress.
+Grouping is within the current page; use the shared label as a search to compare alternatives split
+across pages.
+
+## What does this change affect?
+
+Use **Check story impact** beside a proposal to evaluate the selected edits. Selecting a scene also
+exposes hypothetical removal and move checks; neither changes the manuscript. Evidence links open
+the cited saved scene. The equivalent tool accepts a saved revision and one explicit operation:
+
+```js
+analyze_change_impact({
+	documentId: '<scene UUID>',
+	expectedRevision: '<saved revision>',
+	kind: 'replace',
+	proposalId: '<proposal UUID>',
+	editIds: ['<edit UUID>'],
+});
+analyze_change_impact({
+	documentId: '<scene UUID>',
+	expectedRevision: '<saved revision>',
+	kind: 'remove',
+});
+analyze_change_impact({
+	documentId: '<scene UUID>',
+	expectedRevision: '<saved revision>',
+	kind: 'move',
+	beforeDocumentId: null,
+}); // null means end
+```
+
+A replacement can instead supply complete `replacementText`. Optional `terms` locate literal names
+or phrases elsewhere; project character/alias/location facts cited to the changed scene supply
+additional names. A mention is a candidate reference, never proof of causality, character knowledge
+or contradiction. Reported facts and continuity findings need revalidation because their cited scene
+changes revision; the checker does not claim every cited fact becomes false.
+
+Record author-confirmed relationships with
+`story_dependencies({action: 'link', kind: 'causal', prerequisite, dependent, explanation})`, where
+both passages have the same revision-bound structure returned by source evidence tools. `kind` also
+accepts `timeline` and `revelation`. Both passages must exactly match two distinct saved scenes in
+the current manuscript. List relationships with `{action: 'list', limit: 20, after}` and remove
+obsolete ones with `{action: 'unlink', id}`. A retry of the same relationship is idempotent;
+replacing its explanation requires explicitly unlinking it first.
+
+Move checks report a reversal or restoration of recorded prerequisite order. Binder order does not
+establish story time: flashbacks and deliberate reveal ordering still need author judgment. Stale
+dependency evidence is marked for review. Analysis covers saved manuscript scenes and project-scoped
+facts, at most 1,000 scenes / five million UTF-16 characters and 10,000 records per annotation
+collection. Results are bounded to `limit` (1–500, default 100) and one million quoted characters,
+with `total` and `truncated` disclosed. Stale requests and source changes during analysis fail. An
+empty report means no tracked impact was found, not that a change is safe.
+
+## Local editorial quality benchmark
+
+After `npm run build`, run
+`npm run benchmark:editorial -- --baseline docs/benchmarks/editorial-quality-baseline.json --output logs/editorial-quality.json`.
+The offline suite measures precision, recall, false positives, false negatives and evidence validity
+on fixed public-domain excerpts plus annotated mutations, and separately verifies formatting
+preservation, selective decisions, stale revision rejection, dependency impacts and exact undo. It
+includes known paraphrase/coreference challenges and reports their misses. No paid inference, cloud
+credentials or network requests are required.
+
+The [original baseline](benchmarks/editorial-quality-baseline.json) and
+[current comparison](benchmarks/editorial-quality-current.json) retain individual predictions and
+evidence. The comparison validates unchanged inputs and labels and separates matched cases from
+added cases. See [the corpus documentation](../tests/fixtures/editorial-quality/README.md) for
+provenance, licensing, labels and limitations. Human preference remains unmeasured; a passing
+integrity check does not establish that an edit improves prose.
+
+The separate `npm run evaluate:editorial` suite defaults to 24 development scenarios.
+The original 12-case reserved split has been evaluated and used in later tuning; it is now
+regression data, not an unseen holdout. Run `--split all --baseline docs/benchmarks/editorial-evaluation-current.json`
+to check all 36 cases. The [corpus protocol](../tests/fixtures/editorial-quality/README.md#frozen-scenario-evaluation)
+discloses labels, provenance, the first reserved-split result and remaining misses. These synthetic,
+agent-authored annotations have not received independent human review.
+
 ## Find passages locally
 
 ```js
@@ -133,12 +237,17 @@ continuity_findings({ action: 'recheck', findingId: '<finding id>' });
 
 Findings quote their supporting passages and retain document identities, source revisions, binder
 order and review state. Local automatic extraction covers explicit eye color, hair color and
-birth-year statements; other comparisons use curated facts. Narrative candidates remain inferred.
-Keyword counts, absent character mentions and mixed time words do not establish contradictions.
-`check_plot_consistency` uses this same service for synchronous and background requests. Supply
-saved document IDs; optional supplied text must match the saved manuscript. Queued checks bind to
-source revisions and fail if those revisions change before execution. Their results retain the same
-quoted evidence and uncertainty as synchronous analysis.
+birth-year statements; other comparisons use curated facts. It also resolves singular pronouns
+immediately after a supported standalone action sentence, such as “Mara stepped forward. Her eyes
+were green.” The evidence includes both sentences. Multiple possible antecedents, intervening
+sentences and paragraph breaks remain unresolved; this is not general coreference. A simple direct
+object is also supported when a local vocabulary classifies all of its known noun senses as
+nonpersonal. Unknown and ambiguous objects abstain, and quoted evidence still requires author review. Narrative
+candidates remain inferred. Keyword counts, absent character mentions and mixed time words do not
+establish contradictions. `check_plot_consistency` uses this same service for synchronous and
+background requests. Supply saved document IDs; optional supplied text must match the saved
+manuscript. Queued checks bind to source revisions and fail if those revisions change before
+execution. Their results retain the same quoted evidence and uncertainty as synchronous analysis.
 
 Binder order is not assumed to be story chronology. Explicit story-time metadata, flashbacks and
 intentional variations affect comparisons; read the report's coverage statement.
@@ -274,9 +383,30 @@ between workflow steps and truthfully reports an in-flight step until it settles
 remain resumable, including an export already published before cancellation.
 
 Review, mutation and export receipts retain their existing indefinite replay/undo horizon. No
-pending, conflicted, or committed recovery history is automatically compacted: choosing a shorter
-undo horizon requires measured storage growth and an explicit archival policy. Workflow history
-capacity is a conservative admission limit, not evidence of large-project scalability.
+pending, conflicted, or committed recovery history is automatically compacted or deleted.
+New mutation admission defaults to **20,000 reserved receipt slots and 1 GiB of reserved JSON** per
+project. Each edit to an existing document reserves its receipt plus one exact inverse undo; that
+undo consumes the original reservation even when the project is already at capacity. A further
+redo or a different edit requires new capacity. Unused undo reservations are retained indefinitely.
+Snapshot-only operations, binder changes and exports reserve one receipt; exports reserve their
+maximum permitted artifact/result size before rendering. Reservations include bounded metadata
+growth, and an export that fails before retaining its artifact releases its reservation atomically.
+
+The limit concerns mutation receipt JSON and its undo reservations. Native snapshots retain
+before-images separately; SQLite indexes, WAL, filesystem allocation, other project state and
+external/native edits are not included in this number. This is not a free-disk guarantee. Existing
+I/O, revision, ownership and native snapshot limits still apply to recovery and undo.
+
+When full, new mutations refuse before staging a receipt, snapshot or export payload. Existing
+receipts, idempotent retries, pending recovery and reserved inverse undo remain available. Back up
+the project, set `SCRIVENER_MUTATION_MAX_RECORDS` and/or `SCRIVENER_MUTATION_MAX_BYTES` to positive
+safe integers, then reopen the project to change the limits. Do not delete recovery history to
+free capacity. On first open, legacy records receive conservative reservations without rewriting
+or deleting their content; an already over-budget project retains recovery and undo access but
+refuses new work. Metadata is scanned in bounded pages and legacy receipts are read individually.
+Older binaries do not enforce these limits; avoid running different server versions as concurrent
+writers. A supported archival policy remains future work. These conservative admission limits
+are not evidence of large-project scalability.
 
 Writing counts use the existing Compromise tokenizer for Latin-script text and the runtime's ICU word/sentence segmentation for text containing other scripts. ICU boundaries are linguistic segments, not a character count; results depend on the supported runtime's ICU data. Advanced readability and writing-metric English formulas abstain on non-Latin text or text without common English function-word evidence, returning unavailable/null scores. This conservative heuristic is not language identification; short English excerpts may abstain, and Latin-script language ambiguity remains. Native narrative rule accuracy outside English has not been validated.
 

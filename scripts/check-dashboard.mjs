@@ -35,7 +35,7 @@ const mentions=Array.from({length:100},(_,index)=>{const start=prefix.length+ind
 const scene={documentId:'10000000-0000-4000-8000-000000000003',title:'<img src=x onerror=alert(1)> Scene',path:'Manuscript/Scene',revision:'a'.repeat(64),words:source.split(/\\s+/).filter(Boolean).length,pacing:{overall:'fast'},appearances:[{name:'Mara',mentions,truncated:true}]};
 const proposal={id:proposalId,documentId:scene.documentId,title:'Sample proposal'};
 const laterProposal={id:laterProposalId,documentId:scene.documentId,title:'Later proposal'};
-const fullProposal={...proposal,edits:[{id:editId,start:prefix.length,end:prefix.length+4,text:'Maria',status:'pending'}]};
+const fullProposal={...proposal,before:source,currentRevision:scene.revision,edits:[{id:editId,start:prefix.length,end:prefix.length+4,text:'Maria',status:'pending'}]};
 const finding={id:'finding',description:'Candidate eye-color mismatch',confidence:'inferred',evidence:[{projectId:'test-project',documentId:scene.documentId,title:'Scene',path:scene.path,revision:scene.revision,line:1,quote:'Mara waited.'}]};
 const laterFinding={...finding,id:'later-finding',description:'Later continuity finding'};
 function dashboard(args={}){
@@ -44,6 +44,7 @@ function dashboard(args={}){
     findings:[args.findingsAfter?laterFinding:finding],proposals:[args.proposalsAfter?laterProposal:proposal],
     applications:args.applicationsAfter?[{id:laterApplicationId,proposalId:laterProposalId,state:'committed'}]:[],
     historyPagination:Object.fromEntries(Object.entries(cursors).filter(([kind])=>!args[kind+'After'])),
+    ...(args.reviewStatus?{inbox:{items:[{...proposal,category:'clarity',alternativeGroup:'Opening',rationale:'Sharper opening',counts:{pending:1,accepted:0,rejected:0}},{...laterProposal,category:'clarity',alternativeGroup:'Opening',counts:{pending:1,accepted:0,rejected:0}}],totals:{pending:2,accepted:1,rejected:1},nextCursor:null}}:{}),
     context:args.documentId?{...scene,text:source}:null,pagination:{offset:0,count:1,total:1}};
 }
 const data=dashboard();
@@ -96,7 +97,7 @@ async function verify(){
   button('Preview selected').click();
   await until(()=>!button('Apply selected').disabled);
   exact(calls.find(call=>call.action==='preview'),{name:'review_changes',action:'preview',proposalId,editIds:[editId]},'Preview selected');
-  check(doc.querySelectorAll('.pair pre').length===2,'preview needs before and after text');
+  check(doc.querySelectorAll('.pair pre').length===4,'preview needs before and after text');
   button('Apply selected').click();
   await until(()=>doc.getElementById('error').textContent.includes('Acknowledge'));
   check(!calls.some(call=>call.action==='apply'),'lossy edit must require acknowledgment');
@@ -124,7 +125,30 @@ async function verify(){
   check(calls.filter(call=>call.action==='apply').length===1,'application must occur once');
   check(calls.filter(call=>call.action==='undo').length===1,'undo must occur once');
   check(calls.filter(call=>call.name==='continuity_findings').length===1,'finding confirmation must occur once');
-  result.textContent='PASS: Apps handshake, accessible navigation, escaped context, 100+ evidence, independent history cursors/reset, lazy proposal loading, preview, formatting acknowledgment, apply, undo, finding review';
+  button('Check removal impact').click();
+  await until(()=>doc.getElementById('impact-results').textContent.includes('Review Mara reference'));
+  exact(calls.find(call=>call.name==='analyze_change_impact'),{name:'analyze_change_impact',kind:'remove',documentId:scene.documentId,expectedRevision:scene.revision},'Removal impact');
+  doc.getElementById('review-category').value='clarity';
+  doc.getElementById('review-query').value='opening';
+  doc.getElementById('review-scene').checked=true;
+  doc.getElementById('review-filters').dispatchEvent(new Event('submit',{cancelable:true}));
+  await until(()=>doc.getElementById('review-progress').textContent.includes('2 of 4 edits reviewed'));
+  exact(lastDashboard(),{name:'manuscript_dashboard',offset:0,limit:50,documentId:scene.documentId,reviewCategory:'clarity',reviewQuery:'opening',reviewStatus:'pending',reviewDocumentId:scene.documentId},'Revision filters');
+  check(doc.getElementById('reviews').textContent.includes('Alternatives: Opening'),'alternatives need a shared heading');
+  check(doc.querySelectorAll('#reviews section').length===1,'related alternatives must share a group');
+  const loads=[...doc.querySelectorAll('#reviews button')].filter(node=>node.textContent==='Load changes');
+  for(const load of loads){load.closest('details').open=true;load.click();}
+  await until(()=>[...doc.querySelectorAll('#reviews button')].filter(node=>node.textContent==='Preview selected').length===2);
+  button('Check story impact').click();
+  await until(()=>doc.getElementById('reviews').textContent.includes('Review Mara reference'));
+  exact(calls.filter(call=>call.name==='analyze_change_impact').at(-1),{name:'analyze_change_impact',kind:'replace',documentId:scene.documentId,expectedRevision:scene.revision,proposalId,editIds:[editId]},'Proposal impact');
+  const previews=[...doc.querySelectorAll('#reviews button')].filter(node=>node.textContent==='Preview selected');
+  for(const preview of previews)preview.click();
+  await until(()=>[...doc.querySelectorAll('#reviews button')].filter(node=>node.textContent==='Apply selected'&&!node.disabled).length===2);
+  const selection=doc.querySelector('#reviews fieldset input');selection.checked=false;selection.dispatchEvent(new Event('change',{bubbles:true}));
+  check(button('Apply selected').disabled,'changing selection must invalidate its preview');
+  check(calls.filter(call=>call.action==='apply').length===1,'comparing alternatives and checking impact must not write');
+  result.textContent='PASS: revision filters, grouped alternatives, progress, selection invalidation, proposal/removal impact, Apps handshake, accessible navigation, escaped context, 100+ evidence, independent history cursors/reset, lazy proposal loading, preview, formatting acknowledgment, apply, undo, finding review';
 }
 window.addEventListener('message',event=>{
   if(event.source!==frame.contentWindow)return;
@@ -144,10 +168,12 @@ window.addEventListener('message',event=>{
         for(const [kind,cursor]of Object.entries(cursors))check(args[kind+'After']===undefined||args[kind+'After']===cursor,'unexpected '+kind+' cursor');
         content=dashboard(args);
       }else if(name==='review_changes'&&args.action==='get'){
-        check(args.proposalId===proposalId,'unexpected full proposal identity');
-        content={result:fullProposal};
+        check([proposalId,laterProposalId].includes(args.proposalId),'unexpected full proposal identity');
+        content={result:{...fullProposal,id:args.proposalId,title:args.proposalId===proposalId?'Sample proposal':'Later proposal'}};
       }else if(name==='review_changes'&&args.action==='preview'){
         content={result:{before:source,after:source.slice(0,prefix.length)+'Maria'+source.slice(prefix.length+4),fidelity:{atRisk:['sample annotation relocation']}}};
+      }else if(name==='analyze_change_impact'){
+        content={result:{total:1,truncated:false,coverage:'Only recorded dependencies and candidate references.',impacts:[{certainty:'candidate',description:'Review Mara reference',stale:false,evidence:[finding.evidence[0]]}]}};
       }else if(name==='review_changes'&&args.action==='apply'){
         content={result:{id:applicationId,state:'committed'}};
       }else if((name==='review_changes'&&args.action==='undo')||(name==='continuity_findings'&&args.action==='confirm')){
