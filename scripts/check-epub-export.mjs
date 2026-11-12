@@ -107,9 +107,23 @@ try {
 		SCRIVENER_C2PA_KEY_PASSWORD: signer.password,
 		SCRIVENER_C2PA_TRUST_ANCHORS_PATH: signer.trustAnchorsPath,
 	});
-	for (const [name, selected] of [
+	for (const [name, selected, language] of [
 		['unicode-notes', sections],
 		['empty', []],
+		[
+			'french',
+			[{ title: 'Chapitre', text: '  Bonjour.\n\n', depth: 0, isFolder: false }],
+			'fr',
+		],
+		['japanese', [{ title: '章', text: 'こんにちは。\n', depth: 0, isFolder: false }], 'ja'],
+		[
+			'multilingual',
+			[
+				{ title: 'Chapitre', text: 'Bonjour.', depth: 0, isFolder: false, language: 'fr' },
+				{ title: '章', text: 'こんにちは。', depth: 0, isFolder: false, language: 'ja' },
+			],
+			'fr',
+		],
 		[
 			'literal-markup',
 			[
@@ -126,6 +140,7 @@ try {
 			title: `Original CC0 ${name} fixture`,
 			author: 'Scrivener MCP contributors',
 			preset: 'ebook',
+			language,
 		});
 		await validateExport(buffer, 'epub');
 		const file = join(root, `${name}.epub`);

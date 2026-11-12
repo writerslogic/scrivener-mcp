@@ -42,7 +42,7 @@ export async function createNovelProject(entry: NovelCorpus, directory: string) 
 		for (const [index, text] of scenes.entries()) {
 			await mkdir(dirname(file(ids[index])), { recursive: true });
 			const encoded = rtf.convertToRTF(text);
-			assert.equal(hash((await rtf.parseRTF(encoded)).plainText), hash(text.trim()));
+			assert.equal(hash((await rtf.parseRTF(encoded)).plainText), hash(text));
 			await writeFile(file(ids[index]), encoded);
 		}
 		await writeFile(

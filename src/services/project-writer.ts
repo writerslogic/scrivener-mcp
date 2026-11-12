@@ -1,5 +1,4 @@
 import { DOCUMENT_TYPES } from '../core/constants.js';
-import { getLogger } from '../core/logger.js';
 import { createError, ErrorCode } from '../core/errors.js';
 import type { WriteFidelityReport } from '../project-types.js';
 import type { DocumentManager } from './document-manager.js';
@@ -21,7 +20,6 @@ import {
 	type MutationRecord,
 } from './editorial/mutation-coordinator.js';
 
-const logger = getLogger('scrivener-project');
 const MAX_TEXT_LENGTH = 10_000_000;
 
 export interface WriteOptions extends CommitOptions {
@@ -42,9 +40,9 @@ export class ProjectWriter {
 	constructor(
 		private readonly projectPath: string,
 		private readonly documentManager: DocumentManager,
-		private readonly hhmSystem: HolographicMemorySystem | undefined,
+		_legacyHhmSystem: HolographicMemorySystem | undefined,
 		private readonly markDocumentChanged: (documentId: string) => void,
-		private readonly getDocumentInfo: ScrivenerProject['getDocumentInfo'],
+		_legacyGetDocumentInfo: ScrivenerProject['getDocumentInfo'],
 		private readonly readOnly = false,
 		private readonly commitCreation?: (
 			structure: ProjectStructure,
@@ -166,18 +164,6 @@ export class ProjectWriter {
 		);
 		this.documentManager.clearCache(prepared.documentId);
 		this.markDocumentChanged(prepared.documentId);
-		if (this.hhmSystem) {
-			try {
-				const info = await this.getDocumentInfo(prepared.documentId);
-				if (info.document)
-					await this.hhmSystem.memorizeDocument({
-						...info.document,
-						content: prepared.afterText,
-					});
-			} catch {
-				logger.warn('Document committed but optional manuscript memory refresh failed');
-			}
-		}
 		return { mutation, fidelity: { ...prepared.fidelity, snapshotId: mutation.snapshotId } };
 	}
 
@@ -262,15 +248,6 @@ export class ProjectWriter {
 			},
 		};
 		const result = await createDocumentUtil({ title, content, parentId, type }, context);
-		if (this.hhmSystem && result.id) {
-			try {
-				const info = await this.getDocumentInfo(result.id);
-				if (info.document)
-					await this.hhmSystem.memorizeDocument({ ...info.document, content });
-			} catch {
-				logger.warn('Document created but optional manuscript memory refresh failed');
-			}
-		}
 		return result.id;
 	}
 }

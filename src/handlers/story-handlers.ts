@@ -571,7 +571,8 @@ export const continuityFindingsHandler: ToolDefinition = {
 		},
 		required: ['findings'],
 	},
-	handler: async (args, context) => {
+	handler: async (args, context, options) => {
+		options?.signal?.throwIfAborted();
 		const { continuity } = requireProject(context).getEditorialServices();
 		const action = getStringArg(args, 'action');
 		if (action === 'list') {
@@ -586,11 +587,15 @@ export const continuityFindingsHandler: ToolDefinition = {
 		}
 		if (action === 'recheck')
 			return result({
-				findings: await continuity.recheck(getOptionalStringArg(args, 'findingId')),
+				findings: await continuity.recheck(
+					getOptionalStringArg(args, 'findingId'),
+					options?.signal
+				),
 			});
 		if (action === 'confirm' || action === 'dismiss' || action === 'resolve') {
 			const id = getStringArg(args, 'findingId');
-			if (action === 'confirm') await continuity.recheck(id);
+			if (action === 'confirm') await continuity.recheck(id, options?.signal);
+			options?.signal?.throwIfAborted();
 			return result({
 				findings: [continuity.transition(id, action, getOptionalStringArg(args, 'note'))],
 			});

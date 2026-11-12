@@ -126,11 +126,40 @@ export class PersistentStore {
 		return row.count;
 	}
 
+	pageEntries(
+		namespace: string,
+		options: StorePageOptions = {}
+	): StorePage<{ id: string; bytes: number }> {
+		const limit = options.limit ?? 20;
+		if (
+			!Number.isInteger(limit) ||
+			limit < 1 ||
+			limit > 100 ||
+			(options.after !== undefined &&
+				(typeof options.after !== 'string' || options.after.length > 160))
+		)
+			throw new Error('State entry pages require a 1–100 item limit and a valid cursor');
+		const rows = this.db
+			.prepare(
+				`SELECT id, length(CAST(value AS BLOB)) AS bytes FROM editorial_state WHERE namespace = ?${options.after === undefined ? '' : ' AND id > ?'} ORDER BY id LIMIT ?`
+			)
+			.all(
+				namespace,
+				...(options.after === undefined ? [] : [options.after]),
+				limit + 1
+			) as Array<{ id: string; bytes: number }>;
+		return {
+			items: rows.slice(0, limit),
+			nextCursor: rows.length > limit ? rows[limit - 1].id : null,
+		};
+	}
+
 	page<T>(
 		namespace: string,
 		options: StorePageOptions = {},
 		fields?: readonly string[],
-		filter?: { field: string; values: readonly string[] }
+		filter?: { field: string; values: readonly string[] },
+		arrayCounts?: { field: string; property: string; values: readonly string[] }
 	): StorePage<T> {
 		const limit = options.limit ?? 20;
 		if (
@@ -156,8 +185,21 @@ export class PersistentStore {
 				filter.values.some((value) => typeof value !== 'string' || value.length > 256))
 		)
 			throw new Error('Invalid history filter');
+		if (
+			arrayCounts &&
+			(!fields ||
+				!validField(arrayCounts.field) ||
+				!validField(arrayCounts.property) ||
+				!arrayCounts.values.length ||
+				arrayCounts.values.length > 10 ||
+				arrayCounts.values.some((value) => !validField(value)))
+		)
+			throw new Error('Invalid array count projection');
+		const counts = arrayCounts
+			? `,'counts',json_object(${arrayCounts.values.map((value) => `'${value}',(SELECT COUNT(*) FROM json_each(editorial_state.value, '$.${arrayCounts.field}') WHERE json_extract(json_each.value, '$.${arrayCounts.property}') = '${value}')`).join(',')})`
+			: '';
 		const projection = fields
-			? `json_object(${fields.map((field) => `'${field}', value -> '$.${field}'`).join(',')})`
+			? `json_object(${fields.map((field) => `'${field}', value -> '$.${field}'`).join(',')}${counts})`
 			: 'value';
 		const predicate = filter
 			? ` AND json_extract(value, '$.${filter.field}') IN (${filter.values.map(() => '?').join(',')})`

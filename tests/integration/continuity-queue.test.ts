@@ -1,3 +1,5 @@
+import { asyncHandlerDefinitions } from '../../src/handlers/async-handler-definitions.js';
+import type { HandlerContext } from '../../src/handlers/types.js';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,6 +17,7 @@ import {
 	initializeAsyncServices,
 	shutdownAsyncServices,
 	getJobStatus,
+	cancelJob,
 } from '../../src/handlers/async-handlers.js';
 import { CachedSQLiteManager } from '../../src/handlers/database/keydb-cache.js';
 import { JobType } from '../../src/services/queue/job-queue.js';
@@ -53,7 +56,7 @@ test('queued continuity shares canonical quoted findings and rejects changed sav
 	const wait = async (jobId: string) => {
 		for (let attempt = 0; attempt < 200; attempt++) {
 			const status = await getJobStatus({ jobType: JobType.CHECK_CONSISTENCY, jobId });
-			if (status.state === 'completed' || status.state === 'failed') return status;
+			if (['completed', 'failed', 'cancelled'].includes(status.state)) return status;
 			await new Promise<void>((resolve) => setImmediate(resolve));
 		}
 		throw new Error('Continuity fixture job did not finish');
@@ -73,6 +76,31 @@ test('queued continuity shares canonical quoted findings and rejects changed sav
 			continuity,
 		})) as ContinuityReport;
 		expect(synchronous.issues).toHaveLength(1);
+		const beforeCancelledRequest = continuity.list({ includeResolved: true });
+		const controller = new AbortController();
+		const currentFacts = bible.listFacts.bind(bible);
+		const cancelledLookup = jest
+			.spyOn(bible, 'listFacts')
+			.mockImplementationOnce(async (...args) => {
+				const facts = await currentFacts(...args);
+				controller.abort(new Error('Cancelled legacy continuity'));
+				return facts;
+			});
+		try {
+			const handler = asyncHandlerDefinitions.find(
+				(definition) => definition.name === 'check_plot_consistency'
+			)!;
+			const context = {
+				project: { getEditorialServices: () => ({ source, continuity }) },
+			} as unknown as HandlerContext;
+			await expect(
+				handler.handler(request, context, { signal: controller.signal })
+			).rejects.toThrow('Cancelled legacy continuity');
+			expect(continuity.list({ includeResolved: true })).toEqual(beforeCancelledRequest);
+		} finally {
+			cancelledLookup.mockRestore();
+		}
+
 		const queued = await checkPlotConsistency(
 			{ ...request, async: true },
 			{ source, continuity }
@@ -97,6 +125,40 @@ test('queued continuity shares canonical quoted findings and rejects changed sav
 				basis,
 			}))
 		);
+		const priorFindings = continuity.list({ includeResolved: true });
+		let entered!: () => void;
+		let release!: () => void;
+		const waiting = new Promise<void>((resolve) => {
+			entered = resolve;
+		});
+		const released = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const listFacts = bible.listFacts.bind(bible);
+		const lookup = jest.spyOn(bible, 'listFacts').mockImplementationOnce(async (...args) => {
+			const facts = await listFacts(...args);
+			entered();
+			await released;
+			return facts;
+		});
+		try {
+			const pending = await checkPlotConsistency(
+				{ ...request, async: true },
+				{ source, continuity }
+			);
+			if (!('jobId' in pending)) throw new Error('Expected an asynchronous job');
+			await waiting;
+			await cancelJob({ jobType: JobType.CHECK_CONSISTENCY, jobId: pending.jobId });
+			release();
+			expect(await wait(pending.jobId)).toMatchObject({
+				state: 'cancelled',
+				cancellation: 'stopped',
+			});
+			expect(continuity.list({ includeResolved: true })).toEqual(priorFindings);
+		} finally {
+			release();
+			lookup.mockRestore();
+		}
 		const stale = await checkPlotConsistency(
 			{ ...request, async: true },
 			{ source, continuity }

@@ -25,7 +25,7 @@ export const checkConsistencyHandler: ToolDefinition = {
 					enum: ['characters', 'timeline', 'locations', 'plotThreads', 'all'],
 				},
 				description:
-					'Continuity dimensions to inspect; defaults to all. Categories without quoted curated facts do not produce speculative contradictions.',
+					'Continuity dimensions to inspect; defaults to all supported checks. plotThreads is retained for compatibility but is unavailable and returns an error. Categories without quoted curated facts do not produce speculative contradictions.',
 			},
 			documentIds: {
 				type: 'array',
@@ -92,13 +92,15 @@ export const checkConsistencyHandler: ToolDefinition = {
 			'coverage',
 		],
 	},
-	handler: async (args, context): Promise<HandlerResult> => {
+	handler: async (args, context, options): Promise<HandlerResult> => {
+		options?.signal?.throwIfAborted();
 		const { continuity } = requireProject(context).getEditorialServices();
 		if (args.checkTypes !== undefined && !Array.isArray(args.checkTypes))
 			throw new Error('checkTypes must be an array');
 		if (args.documentIds !== undefined && !Array.isArray(args.documentIds))
 			throw new Error('documentIds must be an array');
 		const report = await continuity.analyze({
+			signal: options?.signal,
 			checkTypes: args.checkTypes as ContinuityCheck[] | undefined,
 			documentIds: args.documentIds as string[] | undefined,
 			seriesId: getOptionalStringArg(args, 'seriesId'),

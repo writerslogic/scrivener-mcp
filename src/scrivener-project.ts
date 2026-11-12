@@ -46,8 +46,6 @@ import type {
 	ScrivenerMetadata,
 } from './types/index.js';
 
-import type { HolographicMemorySystem } from './services/memory/hhm/holographic-memory-system.js';
-
 import { getLogger } from './core/logger.js';
 import { ProjectLoader } from './services/project-loader.js';
 import { ProjectSnapshots } from './services/project-snapshots.js';
@@ -69,6 +67,7 @@ import {
 	registerProject,
 	resolveRegisteredProject,
 } from './services/editorial/project-registry.js';
+import { ChangeImpactService } from './services/editorial/change-impact.js';
 import { ReviewService } from './services/editorial/review-service.js';
 import { SeriesBible } from './services/editorial/series-bible.js';
 import { ContinuityService } from './services/editorial/continuity-service.js';
@@ -83,6 +82,7 @@ export interface EditorialServices {
 	store: PersistentStore;
 	seriesStore: PersistentStore;
 	review: ReviewService;
+	impact: ChangeImpactService;
 	bible: SeriesBible;
 	continuity: ContinuityService;
 	search: PassageSearch;
@@ -139,17 +139,16 @@ export class ScrivenerProject {
 	private cleanupManager: CleanupManager;
 	private options: ScrivenerProjectOptions;
 	private indexInitialized = false;
-	private hhmSystem?: HolographicMemorySystem;
 	constructor(projectPath: string, options: ScrivenerProjectOptions = {}) {
 		this.projectPath = path.resolve(projectPath);
+		const { hhmSystem: _legacyMemory, ...projectOptions } = options;
 		this.options = {
 			autoSave: false,
 			autoBackup: false,
 			cacheSize: 50,
 			syncInterval: 30000,
-			...options,
+			...projectOptions,
 		};
-		this.hhmSystem = options.hhmSystem;
 
 		this.documentManager = new DocumentManager(this.projectPath, this.options.readOnly);
 		this.projectLoader = new ProjectLoader(this.projectPath, {
@@ -235,7 +234,7 @@ export class ScrivenerProject {
 		this.writer = new ProjectWriter(
 			this.projectPath,
 			this.documentManager,
-			this.hhmSystem,
+			undefined,
 			(documentId) => this.markDocumentChanged(documentId),
 			(documentId) => this.getDocumentInfo(documentId),
 			this.options.readOnly ?? false,
@@ -419,6 +418,7 @@ export class ScrivenerProject {
 					: resolveRegisteredProject(seriesStore, id)
 			);
 			const continuity = new ContinuityService(source, store, bible);
+			const impact = new ChangeImpactService(source, store, bible, continuity, review);
 			const search = new PassageSearch(source, store);
 			const narrative = new NarrativeAnalysis(source, store);
 			const relationships = new RelationshipEngine(source, store, () =>
@@ -436,6 +436,7 @@ export class ScrivenerProject {
 				store,
 				seriesStore,
 				review,
+				impact,
 				bible,
 				continuity,
 				search,

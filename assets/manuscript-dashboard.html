@@ -336,13 +336,45 @@
 						Select a scene, character mention or finding passage.
 					</p>
 					<pre id="context" tabindex="0"></pre>
+					<div id="scene-impact"></div>
+					<div id="impact-results" aria-live="polite"></div>
 				</section>
 				<section aria-labelledby="findings-heading">
 					<h2 id="findings-heading">Unresolved findings</h2>
 					<div id="findings"></div>
 				</section>
 				<section aria-labelledby="review-heading">
-					<h2 id="review-heading">Proposed changes</h2>
+					<h2 id="review-heading">Revision workspace</h2>
+					<form id="review-filters" class="controls">
+						<label
+							>Category
+							<select id="review-category">
+								<option value="">All categories</option>
+								<option>general</option>
+								<option>continuity</option>
+								<option>structure</option>
+								<option>voice</option>
+								<option>clarity</option>
+								<option>mechanics</option>
+							</select></label
+						>
+						<label
+							>Decisions
+							<select id="review-status">
+								<option value="pending">Pending</option>
+								<option value="reviewed">Reviewed</option>
+								<option value="all">All</option>
+							</select></label
+						>
+						<label
+							>Search <input id="review-query" maxlength="200" type="search"
+						/></label>
+						<label
+							><input id="review-scene" type="checkbox" />Selected scene only</label
+						>
+						<button type="submit">Filter revisions</button>
+					</form>
+					<p id="review-progress" role="status"></p>
 					<p class="subtle">
 						Preview selected edits before applying. Applications create native
 						snapshots. Close this project in Scrivener before writing.
@@ -391,7 +423,13 @@
 			}
 			async function call(name, args) {
 				if (!connected) throw new Error('Your client has not enabled interactive tools.');
-				const result = await request('tools/call', { name, arguments: args });
+				const result = await request('tools/call', {
+					name,
+					arguments: {
+						...args,
+						...(state?.projectHandle ? { projectHandle: state.projectHandle } : {}),
+					},
+				});
 				if (result.isError)
 					throw new Error(
 						result.content?.find((item) => item.type === 'text')?.text ||
@@ -417,14 +455,22 @@
 				}
 			}
 			const historyCursors = {};
+			const reviewFilters = {};
+			let inboxAfter;
+			let refreshSequence = 0;
 			async function refresh(documentId) {
 				status('Reading saved manuscript…');
+				const sequence = ++refreshSequence;
+				documentId ||= state?.context?.documentId;
 				const result = await call('manuscript_dashboard', {
 					offset,
 					limit: 50,
 					...historyCursors,
+					...reviewFilters,
+					...(inboxAfter ? { inboxAfter } : {}),
 					...(documentId ? { documentId } : {}),
 				});
+				if (sequence !== refreshSequence) return;
 				render(result);
 				status(
 					`${result.pagination.total} manuscript scene${result.pagination.total === 1 ? '' : 's'}. Saved sources refreshed.`
@@ -515,13 +561,33 @@
 					document.getElementById('context').textContent = data.context.text;
 				}
 				renderFindings(data.findings || []);
-				renderReviews(data.proposals || [], data.applications || []);
+				renderReviews(data.inbox?.items || data.proposals || [], data.applications || []);
+				const totals = data.inbox?.totals;
+				document.getElementById('review-progress').textContent = totals
+					? `${totals.accepted + totals.rejected} of ${totals.pending + totals.accepted + totals.rejected} edits reviewed · ${totals.pending} pending · ${totals.accepted} accepted · ${totals.rejected} rejected (current filters)`
+					: '';
+				if (data.inbox?.nextCursor)
+					document.getElementById('reviews').append(
+						button('More revisions', async () => {
+							inboxAfter = data.inbox.nextCursor;
+							await refresh();
+						})
+					);
+				if (inboxAfter)
+					document.getElementById('reviews').append(
+						button('First revision page', async () => {
+							inboxAfter = undefined;
+							await refresh();
+						})
+					);
+				renderSceneImpact();
 				for (const [kind, target] of [
 					['proposals', 'reviews'],
 					['applications', 'reviews'],
 					['findings', 'findings'],
 				]) {
-					const next = data.historyPagination?.[kind];
+					const next =
+						kind === 'proposals' && data.inbox ? null : data.historyPagination?.[kind];
 					if (next)
 						document.getElementById(target).append(
 							button(`More ${kind}`, async () => {
@@ -609,13 +675,39 @@
 						)
 					);
 				}
-				for (const proposal of proposals) root.append(reviewCard(proposal));
+				const groups = new Map();
+				for (const proposal of proposals) {
+					const label = `${proposal.category || 'general'}${proposal.alternativeGroup ? ` · Alternatives: ${proposal.alternativeGroup}` : ''}`;
+					if (!groups.has(label)) {
+						const section = element('section');
+						section.append(element('h3', label));
+						groups.set(label, section);
+						root.append(section);
+					}
+					groups.get(label).append(reviewCard(proposal));
+				}
 			}
 			function reviewCard(proposal) {
 				const card = element('details');
 				card.append(
 					element('summary', proposal.title || `Changes for ${proposal.documentId}`)
 				);
+				card.append(button('View scene', () => reveal(proposal.documentId)));
+				if (proposal.rationale) card.append(element('p', proposal.rationale));
+				if (proposal.alternativeGroup)
+					card.append(
+						element(
+							'p',
+							'Compare alternatives by loading and previewing each. Applying one makes competing proposals for the same saved revision stale.'
+						)
+					);
+				if (proposal.counts)
+					card.append(
+						element(
+							'p',
+							`${proposal.counts.pending} pending · ${proposal.counts.accepted} accepted · ${proposal.counts.rejected} rejected`
+						)
+					);
 				if (!Array.isArray(proposal.edits)) {
 					card.append(
 						button('Load changes', async () => {
@@ -647,7 +739,17 @@
 							`${edit.state || edit.status || 'pending'} · ${edit.start}–${edit.end}: ${edit.text || '(delete)'}`
 						)
 					);
-					group.append(label);
+					const comparison = element('div');
+					comparison.className = 'pair';
+					for (const [heading, text] of [
+						['Original', edit.before ?? proposal.before.slice(edit.start, edit.end)],
+						['Proposed', edit.text],
+					]) {
+						const side = element('div');
+						side.append(element('strong', heading), element('pre', text || '(empty)'));
+						comparison.append(side);
+					}
+					group.append(label, comparison);
 				}
 				card.append(group);
 				const selected = () =>
@@ -656,6 +758,7 @@
 					);
 				const preview = element('div');
 				let lastPreview = null;
+				let selectionVersion = 0;
 				const warning = element('p');
 				warning.setAttribute('role', 'status');
 				const acknowledge = element('label'),
@@ -702,6 +805,8 @@
 				apply.dataset.primary = 'true';
 				apply.disabled = true;
 				group.addEventListener('change', () => {
+					selectionVersion++;
+					preview.replaceChildren();
 					lastPreview = null;
 					apply.disabled = true;
 					ack.checked = false;
@@ -709,6 +814,7 @@
 				controls.append(
 					button('Preview selected', async () => {
 						const selection = selected();
+						const version = selectionVersion;
 						if (!selection.length) throw new Error('Select at least one pending edit.');
 						const response = await call('review_changes', {
 							action: 'preview',
@@ -716,6 +822,7 @@
 							editIds: selection,
 						});
 						const result = response.result;
+						if (version !== selectionVersion || !card.isConnected) return;
 						lastPreview = { selection };
 						const pair = element('div');
 						pair.className = 'pair';
@@ -743,6 +850,20 @@
 						apply.disabled = false;
 						status('Preview ready. Manuscript unchanged.');
 					}),
+					button('Check story impact', async () => {
+						const editIds = selected();
+						if (!editIds.length) throw new Error('Select at least one pending edit.');
+						const version = selectionVersion;
+						const response = await call('analyze_change_impact', {
+							kind: 'replace',
+							documentId: proposal.documentId,
+							expectedRevision: proposal.currentRevision,
+							proposalId: proposal.id,
+							editIds,
+						});
+						if (version === selectionVersion && card.isConnected)
+							showImpact(response.result, preview);
+					}),
 					apply,
 					button('Reject selected', async () => {
 						if (!selected().length)
@@ -758,6 +879,96 @@
 				card.append(controls, warning, acknowledge, preview);
 				return card;
 			}
+			function showImpact(report, root) {
+				root.replaceChildren(
+					element(
+						'h3',
+						`Story impact: ${report.total} tracked references${report.truncated ? ' (truncated)' : ''}`
+					),
+					element('p', report.coverage)
+				);
+				for (const item of report.impacts) {
+					const section = element('section');
+					section.append(
+						element(
+							'p',
+							`${item.certainty}${item.stale ? ' · stale evidence' : ''}: ${item.description}`
+						)
+					);
+					for (const passage of item.evidence)
+						section.append(
+							button(`${passage.title}: ${passage.quote}`, () =>
+								reveal(passage.documentId, passage)
+							)
+						);
+					root.append(section);
+				}
+			}
+			function renderSceneImpact() {
+				const root = document.getElementById('scene-impact');
+				root.replaceChildren();
+				document.getElementById('impact-results').replaceChildren();
+				const scene = state.context;
+				if (!scene) return;
+				const destination = element('select');
+				destination.setAttribute('aria-label', 'Hypothetical move destination');
+				const end = element('option', 'End of manuscript');
+				end.value = '';
+				destination.append(end);
+				const add = (items) => {
+					for (const item of items || []) {
+						if (item.type === 'Text' && item.id !== scene.documentId) {
+							const option = element('option', `Before ${item.title}`);
+							option.value = item.id;
+							destination.append(option);
+						}
+						add(item.children);
+					}
+				};
+				add(state.binder);
+				const check = async (kind) => {
+					const response = await call('analyze_change_impact', {
+						kind,
+						documentId: scene.documentId,
+						expectedRevision: scene.revision,
+						...(kind === 'move' ? { beforeDocumentId: destination.value || null } : {}),
+					});
+					if (
+						state.context?.documentId === scene.documentId &&
+						state.context?.revision === scene.revision
+					)
+						showImpact(response.result, document.getElementById('impact-results'));
+				};
+				root.append(
+					element(
+						'p',
+						'Explore a hypothetical removal or move; these checks do not edit your manuscript.'
+					),
+					button('Check removal impact', () => check('remove')),
+					destination,
+					button('Check move impact', () => check('move'))
+				);
+			}
+			document.getElementById('review-filters').addEventListener('submit', (event) => {
+				event.preventDefault();
+				run(async () => {
+					if (document.getElementById('review-scene').checked && !state?.context)
+						throw new Error('Select a scene first.');
+					for (const key of Object.keys(reviewFilters)) delete reviewFilters[key];
+					for (const [key, id] of [
+						['reviewCategory', 'review-category'],
+						['reviewStatus', 'review-status'],
+						['reviewQuery', 'review-query'],
+					]) {
+						const value = document.getElementById(id).value;
+						if (value) reviewFilters[key] = value;
+					}
+					if (document.getElementById('review-scene').checked)
+						reviewFilters.reviewDocumentId = state.context.documentId;
+					inboxAfter = undefined;
+					await refresh();
+				});
+			});
 			function hostContext(context) {
 				if (context?.theme === 'light' || context?.theme === 'dark')
 					document.documentElement.style.colorScheme = context.theme;

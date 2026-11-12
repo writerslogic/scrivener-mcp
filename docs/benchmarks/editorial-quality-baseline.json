@@ -1,0 +1,1003 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": 1,
+  "implementation": {
+    "commit": "ce85659e3fd02ca8daeca993dee6211d91fc1dbb",
+    "workingTreeDirty": true,
+    "builtModules": {
+      "editorial/continuity-service": "6faf95cbc244f47a04dfc3b131b53c99e3ec27e6eb752715fe01af3d3fb5736e",
+      "editorial/change-impact": "cb19fa1a972ad441c811b1707912407a8550b88a74c6fae2936713d7ea25fbf1",
+      "editorial/review-service": "30cc81e9ddeaff8626eea0960f22b81e506abe7c42d4ad7ffdda51cae884e9ca",
+      "editorial/persistent-store": "3e3507ee375cf0a33c58fed1dffef8602f696b07b3c2c2fc5a76e337be13eccc",
+      "editorial/series-bible": "3e5da2af95936e346fd6e45c905dfce923ff1183f58c580d68b910299d12bd21",
+      "parsers/rtf-handler": "bdf26e75ba420ccf9d17438ced4904993d6919f41b90ab0052eb45eb3f177f03",
+      "project-writer": "3bed4b785fa15d6cc89b8d183c3d08321bec51592e8e0c9a2ed5f72fefc6c1eb",
+      "document-manager": "f77056ff41769d6272c1ec3c5bae7a8ea7fa30ce6317fa75db2a9223548e992d"
+    },
+    "runnerSha256": "6a5abf8b0f803775396bb50d29e347dfeb07c43502f2297be6fdd00516a9688d",
+    "node": "v24.22.1",
+    "platform": "darwin-arm64"
+  },
+  "corpus": {
+    "excerptsSha256": "d47914f16173accbb8cf078674dfcbff28bb0508ac96413457bc1c985aa2c13f",
+    "casesSha256": "b3822bf5e17d49f683f324938da28e4e3508070cb032fe9467226051a72fa5d6",
+    "excerpts": 6,
+    "books": 3,
+    "provenance": [
+      {
+        "id": "84-1",
+        "book": "Frankenstein",
+        "author": "Mary Wollstonecraft Shelley",
+        "catalogue": "https://www.gutenberg.org/ebooks/84",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+        "sourceSha256": "2b97b7f8aad508649481d8dd4f6b54f9b965ddb3ba634e9151c815f537b49e42",
+        "sourceCharacterStart": 33231,
+        "sourceCharacterEnd": 35629,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "7d6fad5c56594f38b9b925fe681564cd30d63ffcb4b311b5e4d00d57c2884b63",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "84-2",
+        "book": "Frankenstein",
+        "author": "Mary Wollstonecraft Shelley",
+        "catalogue": "https://www.gutenberg.org/ebooks/84",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+        "sourceSha256": "2b97b7f8aad508649481d8dd4f6b54f9b965ddb3ba634e9151c815f537b49e42",
+        "sourceCharacterStart": 86678,
+        "sourceCharacterEnd": 90051,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "3e3849fcfed287f4b264d44d030b72bbb782d302e4a09cb73f39db11411327e3",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "1342-1",
+        "book": "Pride and Prejudice",
+        "author": "Jane Austen",
+        "catalogue": "https://www.gutenberg.org/ebooks/1342",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/1342/pg1342.txt",
+        "sourceSha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75",
+        "sourceCharacterStart": 35962,
+        "sourceCharacterEnd": 37669,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "534668050ec4b3c4780ddc5cbe0f2b6e4712bf1c95cbf8dfc811cb639c477bcd",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "1342-2",
+        "book": "Pride and Prejudice",
+        "author": "Jane Austen",
+        "catalogue": "https://www.gutenberg.org/ebooks/1342",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/1342/pg1342.txt",
+        "sourceSha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75",
+        "sourceCharacterStart": 216459,
+        "sourceCharacterEnd": 219245,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "ba9dde397001874ee3d235ecc7bd3734226ced2fbc8e42b4c3f8d7924de54ff9",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "2701-1",
+        "book": "Moby Dick; Or, The Whale",
+        "author": "Herman Melville",
+        "catalogue": "https://www.gutenberg.org/ebooks/2701",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/2701/pg2701.txt",
+        "sourceSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+        "sourceCharacterStart": 28935,
+        "sourceCharacterEnd": 31129,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "5dfd4fddf329c5bdb83626ab72d1c391cf7e4cd3c85ae12c9c133d7f28185873",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      },
+      {
+        "id": "2701-2",
+        "book": "Moby Dick; Or, The Whale",
+        "author": "Herman Melville",
+        "catalogue": "https://www.gutenberg.org/ebooks/2701",
+        "sourceUrl": "https://www.gutenberg.org/cache/epub/2701/pg2701.txt",
+        "sourceSha256": "b5e88b71a1cda068e9ab1d94344c9d932338ba6da1a66def97a1aecd9cfcc87d",
+        "sourceCharacterStart": 411089,
+        "sourceCharacterEnd": 415260,
+        "normalization": "CRLF to LF; character offsets refer to decoded UTF-8 source before normalization",
+        "sha256": "3d1fb53dfb3287392e0b4a0979d99958c89c55bb98cc01dea21d99218fb1252e",
+        "annotation": {
+          "expectedConflicts": 0,
+          "scope": "No contradictory explicit eye-color, hair-color or birth-year assertions within this excerpt. Other narrative issues are not annotated."
+        }
+      }
+    ]
+  },
+  "overall": {
+    "tp": 10,
+    "fp": 0,
+    "fn": 14,
+    "tn": 30,
+    "cases": 54,
+    "precision": 1,
+    "recall": 0.4166666666666667,
+    "falsePositiveCaseRate": 0
+  },
+  "splits": {
+    "natural": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 6,
+      "cases": 6,
+      "precision": null,
+      "recall": null,
+      "falsePositiveCaseRate": 0
+    },
+    "explicit": {
+      "tp": 10,
+      "fp": 0,
+      "fn": 2,
+      "tn": 0,
+      "cases": 12,
+      "precision": 1,
+      "recall": 0.8333333333333334,
+      "falsePositiveCaseRate": null
+    },
+    "negative": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 24,
+      "cases": 24,
+      "precision": null,
+      "recall": null,
+      "falsePositiveCaseRate": 0
+    },
+    "challenge": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 12,
+      "tn": 0,
+      "cases": 12,
+      "precision": null,
+      "recall": 0,
+      "falsePositiveCaseRate": null
+    }
+  },
+  "evidenceChecked": 20,
+  "integrity": [
+    {
+      "id": "84-1/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "84-2/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "1342-1/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "1342-2/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "2701-1/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "2701-2/impact",
+      "removal": true,
+      "move": true,
+      "unchanged": true
+    },
+    {
+      "id": "84-1/revision",
+      "previewUnchanged": true,
+      "formattingPreserved": true,
+      "selectiveDecision": true,
+      "staleRejected": true,
+      "exactUndo": true
+    },
+    {
+      "id": "1342-1/revision",
+      "previewUnchanged": true,
+      "formattingPreserved": true,
+      "selectiveDecision": true,
+      "staleRejected": true,
+      "exactUndo": true
+    },
+    {
+      "id": "2701-1/revision",
+      "previewUnchanged": true,
+      "formattingPreserved": true,
+      "selectiveDecision": true,
+      "staleRejected": true,
+      "exactUndo": true
+    }
+  ],
+  "humanPreference": {
+    "status": "unmeasured",
+    "judgments": 0
+  },
+  "thresholds": {
+    "naturalFalsePositives": 0,
+    "negativeFalsePositives": 0,
+    "explicitMinimumRecall": 0.8
+  },
+  "passed": true,
+  "limitations": "Small public development corpus; annotations are not independently human validated. Natural prose and injected mutations are reported separately. Challenge misses count toward overall recall. Integrity checks are not editorial preference judgments. No network or model calls.",
+  "predictions": [
+    {
+      "id": "84-1/natural",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/eyes-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2382,
+              "quote": "Mara has blue eyes",
+              "revision": "3e9802f50d688dca446a3cea53fcd13bcc78e73c0836710f5654bde4b550ff53"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2383,
+              "quote": "Mara has green eyes",
+              "revision": "25fc34ae04bc7d60d66bdd4950518824b472c87976c9bd74f3e53a0f12ba98b0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-1/birth-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2364,
+              "end": 2385,
+              "quote": "Mara was born in 1800",
+              "revision": "843040c1c14ce9001d78146a3d7b03d13e687c2ce88cdd22becf19080377365a"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2364,
+              "end": 2385,
+              "quote": "Mara was born in 1801",
+              "revision": "12cf52b96e95fae32f95ba4e94453818375438a80e307083983cda9d52790708"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-1/consistent",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/rumor",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/flashback",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/intentional",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-1/paraphrase",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "84-1/pronoun",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "84-2/natural",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/eyes-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3343,
+              "quote": "Mara has blue eyes",
+              "revision": "843bb8d5ff352ef2402fa9fe454db8ee104a57506a14b09dc80e81004c2d6c56"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3344,
+              "quote": "Mara has green eyes",
+              "revision": "122df685ed2d209dc7270d56ecc18238f30704298e0332ad384d01122187ad43"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/birth-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 3325,
+              "end": 3346,
+              "quote": "Mara was born in 1800",
+              "revision": "909c237993c26dcbc6c4acc7e39628f766b760ce13cfdb77cc3672b77fb003aa"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 3325,
+              "end": 3346,
+              "quote": "Mara was born in 1801",
+              "revision": "b8ef07b8ef46052218284ddc2df90a1567df3afb0f5e8bfb693b0de10f78c342"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84-2/consistent",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/rumor",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/flashback",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/intentional",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "84-2/paraphrase",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "84-2/pronoun",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "1342-1/natural",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/eyes-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "1342-1/birth-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "1342-1/consistent",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/rumor",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/flashback",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/intentional",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-1/paraphrase",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "1342-1/pronoun",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "1342-2/natural",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/eyes-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2764,
+              "quote": "Mara has blue eyes",
+              "revision": "b0e820ac66ca5bd373d26087bc5789ae5ee0fc165919e68fe2c7b07ffa902673"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2765,
+              "quote": "Mara has green eyes",
+              "revision": "111533541f11c45bc04220090335302cbf4077cac5e9345f8b505141c844a232"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/birth-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2746,
+              "end": 2767,
+              "quote": "Mara was born in 1800",
+              "revision": "e42060e56e7bf86a161769ef7e80ffe7e4e8481089c51ebabe3b24082f590667"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2746,
+              "end": 2767,
+              "quote": "Mara was born in 1801",
+              "revision": "3510d4b0664931c8ad91d7548dda2eca5f81f00e5c722c2c2760e2d91f7b5e2a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1342-2/consistent",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/rumor",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/flashback",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/intentional",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "1342-2/paraphrase",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "1342-2/pronoun",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "2701-1/natural",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/eyes-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2181,
+              "quote": "Mara has blue eyes",
+              "revision": "8c20e4506b7ec4ff077c1522a242b13e0bb94440485c8de5f0e44a1d3cb91196"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2182,
+              "quote": "Mara has green eyes",
+              "revision": "cf3c4c8f2ef050510c25513b3852f6a648f2810c5acb61683aeed2e13ef96610"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/birth-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 2163,
+              "end": 2184,
+              "quote": "Mara was born in 1800",
+              "revision": "4bd9bc37ef87175f9b848ba75b7e0b341bca5ab4bb6d322182e8ececfebefd4b"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 2163,
+              "end": 2184,
+              "quote": "Mara was born in 1801",
+              "revision": "45c68c1a5a8f2df1d9ab004998c1a11d3386417c4565875bf383002e5068936f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-1/consistent",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/rumor",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/flashback",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/intentional",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-1/paraphrase",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "2701-1/pronoun",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "2701-2/natural",
+      "split": "natural",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/eyes-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: eye-color has competing values \"blue\" and \"green\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4131,
+              "quote": "Mara has blue eyes",
+              "revision": "3d9a35162ead51fe850901d845c302c058f83407ed7ded6dcdf26e4126a59f55"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4132,
+              "quote": "Mara has green eyes",
+              "revision": "87a354d62e4407b0882798b855495c18ace31615f231c0ee81257eec4f456219"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/birth-conflict",
+      "split": "explicit",
+      "expected": 1,
+      "actual": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "findings": [
+        {
+          "description": "Potential continuity mismatch for Mara: birth-year has competing values \"1800\" and \"1801\".",
+          "confidence": "inferred",
+          "evidence": [
+            {
+              "documentId": "00000000-0000-4000-8000-000000000001",
+              "start": 4113,
+              "end": 4134,
+              "quote": "Mara was born in 1800",
+              "revision": "1772acd5621d23bb216a5e0636080171307bd3eb66393e08db6b7039263eaa61"
+            },
+            {
+              "documentId": "00000000-0000-4000-8000-000000000002",
+              "start": 4113,
+              "end": 4134,
+              "quote": "Mara was born in 1801",
+              "revision": "658afc897d064a2c0b952216e51b76626060f5bd33a3c98b3452744a81c844ef"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2701-2/consistent",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/rumor",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/flashback",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/intentional",
+      "split": "negative",
+      "expected": 0,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "findings": []
+    },
+    {
+      "id": "2701-2/paraphrase",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    },
+    {
+      "id": "2701-2/pronoun",
+      "split": "challenge",
+      "expected": 1,
+      "actual": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "findings": []
+    }
+  ]
+}

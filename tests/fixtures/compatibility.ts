@@ -99,7 +99,8 @@ export async function createCompatibilityProject(
 	];
 	const handler = new RTFHandler();
 	const body = handler.convertToRTF({
-		plainText: '',
+		plainText:
+			'A quiet arrival at the harbor. Bold lantern beside italic water. Café 東京 🌙 — Żółć.\nMira counted the boats.\n',
 		formattedText: [
 			{ text: 'A quiet arrival at the harbor. ' },
 			{ text: 'Bold lantern', style: { bold: true } },

@@ -1,0 +1,942 @@
+{
+  "version": 1,
+  "annotationStatus": "Agent-authored before predictions; not independently human validated",
+  "license": "CC0-1.0",
+  "cases": [
+    {
+      "id": "narrated-color",
+      "split": "development",
+      "category": "explicit",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Leila has amber eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Same person and attribute, no time change or qualification."
+    },
+    {
+      "id": "same-color",
+      "split": "development",
+      "category": "explicit",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Consistent repeated description."
+    },
+    {
+      "id": "named-object",
+      "split": "development",
+      "category": "multiple-characters",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila greeted Tomas. Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Leila greeted Tomas. Leila has amber eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Repeated explicit name resolves ownership despite another character."
+    },
+    {
+      "id": "two-antecedents",
+      "split": "development",
+      "category": "multiple-characters",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila greeted Nessa. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Either woman could own the eyes; abstain."
+    },
+    {
+      "id": "different-owner",
+      "split": "development",
+      "category": "multiple-characters",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Nessa has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Different named owners do not conflict."
+    },
+    {
+      "id": "short-dialogue",
+      "split": "development",
+      "category": "dialogue",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "“Leila has amber eyes,” Tomas said.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Attributed speech alone does not establish narrator-level fact."
+    },
+    {
+      "id": "dialogue-then-fact",
+      "split": "development",
+      "category": "dialogue",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "“Look closely,” Tomas said. Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "“Look closely,” Tomas said. Leila has amber eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "The narrator asserts the fact outside closed quotation."
+    },
+    {
+      "id": "reported-doubt",
+      "split": "development",
+      "category": "uncertainty",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Tomas doubted that Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Doubt is not an assertion of the embedded claim."
+    },
+    {
+      "id": "negative-claim",
+      "split": "development",
+      "category": "uncertainty",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "It was never true that Leila has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Explicit denial negates the embedded claim."
+    },
+    {
+      "id": "temporal-hair",
+      "split": "development",
+      "category": "flashback",
+      "documents": [
+        {
+          "text": "Leila’s hair was brown.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila’s hair was silver.",
+          "metadata": {
+            "flashback": "true"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Untimed flashback does not establish simultaneous appearance."
+    },
+    {
+      "id": "timed-hair",
+      "split": "development",
+      "category": "flashback",
+      "documents": [
+        {
+          "text": "Leila’s hair was brown.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila’s hair was silver.",
+          "metadata": {
+            "storyTime": "forty years later"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Explicit different time permits changing appearance."
+    },
+    {
+      "id": "birth-invariant",
+      "split": "development",
+      "category": "flashback",
+      "documents": [
+        {
+          "text": "Leila was born in 1901.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila was born in 1902.",
+          "metadata": {
+            "storyTime": "forty years later"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "birth-year",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila was born in 1901."
+            },
+            {
+              "document": 1,
+              "quote": "Leila was born in 1902."
+            }
+          ]
+        }
+      ],
+      "reason": "Birth year is immutable even when recounted at another time."
+    },
+    {
+      "id": "confirmed-alias",
+      "split": "development",
+      "category": "aliases",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Lark has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [
+        {
+          "subject": "Leila",
+          "value": "Lark",
+          "confidence": "confirmed"
+        }
+      ],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Lark has amber eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Author-confirmed alias establishes the same person."
+    },
+    {
+      "id": "unconfirmed-alias",
+      "split": "development",
+      "category": "aliases",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Lark has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [
+        {
+          "subject": "Leila",
+          "value": "Lark",
+          "confidence": "uncertain"
+        }
+      ],
+      "expected": [],
+      "reason": "Uncertain alias does not establish identity."
+    },
+    {
+      "id": "adjacent-reference",
+      "split": "development",
+      "category": "coreference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila paused. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Leila paused. Her eyes were amber."
+            }
+          ]
+        }
+      ],
+      "reason": "Single named subject followed immediately by possessive reference."
+    },
+    {
+      "id": "line-wrap-reference",
+      "split": "development",
+      "category": "coreference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila paused.\nHer eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Leila paused.\nHer eyes were amber."
+            }
+          ]
+        }
+      ],
+      "reason": "Single line wrap does not change the sentence antecedent."
+    },
+    {
+      "id": "paragraph-reference",
+      "split": "development",
+      "category": "ambiguity",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila paused.\n\nHer eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Paragraph boundary resets this conservative attribution policy."
+    },
+    {
+      "id": "unknown-reference",
+      "split": "development",
+      "category": "ambiguity",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "No local named antecedent."
+    },
+    {
+      "id": "complex-reference",
+      "split": "development",
+      "category": "coreference",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila folded the empty map. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Leila folded the empty map. Her eyes were amber."
+            }
+          ]
+        }
+      ],
+      "reason": "The only person is the subject; the inanimate object is not a plausible owner."
+    },
+    {
+      "id": "indirect-color",
+      "split": "development",
+      "category": "paraphrase",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Amber was the color of Leila’s eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Amber was the color of Leila’s eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Same explicitly named attribute expressed with inverse syntax."
+    },
+    {
+      "id": "hair-paraphrase",
+      "split": "development",
+      "category": "paraphrase",
+      "documents": [
+        {
+          "text": "Leila’s hair was brown.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila wore her silver hair in a braid.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Leila",
+          "predicate": "hair-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Leila’s hair was brown."
+            },
+            {
+              "document": 1,
+              "quote": "Leila wore her silver hair in a braid."
+            }
+          ]
+        }
+      ],
+      "reason": "The hairstyle sentence explicitly attributes silver hair to Leila."
+    },
+    {
+      "id": "intentional-variation",
+      "split": "development",
+      "category": "intentional",
+      "documents": [
+        {
+          "text": "Leila has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila has amber eyes.",
+          "metadata": {
+            "intentionalContradiction": "true"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Author explicitly marks variation intentional."
+    },
+    {
+      "id": "unicode-owner",
+      "split": "development",
+      "category": "unicode",
+      "documents": [
+        {
+          "text": "Zoë has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Zoë has amber eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Zoë",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Zoë has blue eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Zoë has amber eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Unicode name remains the same owner."
+    },
+    {
+      "id": "collective-subject",
+      "split": "development",
+      "category": "multiple-characters",
+      "documents": [
+        {
+          "text": "Nessa has blue eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Leila and Nessa arrived. Her eyes were amber.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Collective antecedent is ambiguous; do not select the last name."
+    },
+    {
+      "id": "transfer-quoted-birth",
+      "split": "holdout",
+      "category": "dialogue",
+      "documents": [
+        {
+          "text": "Idris was born in 1870.",
+          "metadata": {}
+        },
+        {
+          "text": "“Idris was born in 1871,” the clerk insisted.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "An attributed quotation is not a factual correction."
+    },
+    {
+      "id": "transfer-narrated-birth",
+      "split": "holdout",
+      "category": "dialogue",
+      "documents": [
+        {
+          "text": "Idris was born in 1870.",
+          "metadata": {}
+        },
+        {
+          "text": "“Read the ledger.” Idris was born in 1871.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Idris",
+          "predicate": "birth-year",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Idris was born in 1870."
+            },
+            {
+              "document": 1,
+              "quote": "“Read the ledger.” Idris was born in 1871."
+            }
+          ]
+        }
+      ],
+      "reason": "Narration after the quote explicitly conflicts."
+    },
+    {
+      "id": "transfer-ambiguous",
+      "split": "holdout",
+      "category": "multiple-characters",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Sofia and Anya waited. Her eyes were brown.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Two possible possessors require abstention."
+    },
+    {
+      "id": "transfer-alias",
+      "split": "holdout",
+      "category": "aliases",
+      "documents": [
+        {
+          "text": "Idris has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Ash has brown eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [
+        {
+          "subject": "Idris",
+          "value": "Ash",
+          "confidence": "confirmed"
+        }
+      ],
+      "expected": [
+        {
+          "subject": "Idris",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Idris has green eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Ash has brown eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Confirmed alias establishes identity."
+    },
+    {
+      "id": "transfer-unknown-alias",
+      "split": "holdout",
+      "category": "aliases",
+      "documents": [
+        {
+          "text": "Idris has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Ash has brown eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "No author-confirmed identity link."
+    },
+    {
+      "id": "transfer-flashback",
+      "split": "holdout",
+      "category": "flashback",
+      "documents": [
+        {
+          "text": "Sofia’s hair was black.",
+          "metadata": {}
+        },
+        {
+          "text": "Sofia’s hair was white.",
+          "metadata": {
+            "flashback": "true"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Untimed flashback makes changed appearance inconclusive."
+    },
+    {
+      "id": "transfer-immutable",
+      "split": "holdout",
+      "category": "flashback",
+      "documents": [
+        {
+          "text": "Idris was born in 1870.",
+          "metadata": {}
+        },
+        {
+          "text": "Idris was born in 1871.",
+          "metadata": {
+            "storyTime": "childhood"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Idris",
+          "predicate": "birth-year",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Idris was born in 1870."
+            },
+            {
+              "document": 1,
+              "quote": "Idris was born in 1871."
+            }
+          ]
+        }
+      ],
+      "reason": "Explicit time metadata cannot change a birth year."
+    },
+    {
+      "id": "transfer-single-line",
+      "split": "holdout",
+      "category": "coreference",
+      "documents": [
+        {
+          "text": "Idris’s hair was black.",
+          "metadata": {}
+        },
+        {
+          "text": "Idris waited.\nHis hair was white.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Idris",
+          "predicate": "hair-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Idris’s hair was black."
+            },
+            {
+              "document": 1,
+              "quote": "Idris waited.\nHis hair was white."
+            }
+          ]
+        }
+      ],
+      "reason": "A line wrap does not introduce a competing owner."
+    },
+    {
+      "id": "transfer-inanimate-object",
+      "split": "holdout",
+      "category": "coreference",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Sofia closed the wooden chest. Her eyes were brown.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Sofia",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Sofia has green eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Sofia closed the wooden chest. Her eyes were brown."
+            }
+          ]
+        }
+      ],
+      "reason": "Single person acts on an inanimate object."
+    },
+    {
+      "id": "transfer-admitted-uncertainty",
+      "split": "holdout",
+      "category": "uncertainty",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "The witness questioned whether Sofia has brown eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Questioned proposition is not a factual assertion."
+    },
+    {
+      "id": "transfer-indirect-color",
+      "split": "holdout",
+      "category": "paraphrase",
+      "documents": [
+        {
+          "text": "Sofia has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Brown was the color of Sofia’s eyes.",
+          "metadata": {}
+        }
+      ],
+      "aliases": [],
+      "expected": [
+        {
+          "subject": "Sofia",
+          "predicate": "eye-color",
+          "evidence": [
+            {
+              "document": 0,
+              "quote": "Sofia has green eyes."
+            },
+            {
+              "document": 1,
+              "quote": "Brown was the color of Sofia’s eyes."
+            }
+          ]
+        }
+      ],
+      "reason": "Inverse attribute syntax still refers explicitly to Sofia."
+    },
+    {
+      "id": "transfer-intentional",
+      "split": "holdout",
+      "category": "intentional",
+      "documents": [
+        {
+          "text": "Idris has green eyes.",
+          "metadata": {}
+        },
+        {
+          "text": "Idris has brown eyes.",
+          "metadata": {
+            "intentionalContradiction": "true"
+          }
+        }
+      ],
+      "aliases": [],
+      "expected": [],
+      "reason": "Author-declared intentional variation."
+    }
+  ]
+}

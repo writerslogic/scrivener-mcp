@@ -1,0 +1,72 @@
+[
+	{
+		"id": "eyes-conflict",
+		"split": "explicit",
+		"left": "Mara has blue eyes.",
+		"right": "Mara has green eyes.",
+		"expectedConflicts": 1,
+		"reason": "Same named character and attribute, incompatible values; candidate mismatch requires author review."
+	},
+	{
+		"id": "birth-conflict",
+		"split": "explicit",
+		"left": "Mara was born in 1800.",
+		"right": "Mara was born in 1801.",
+		"expectedConflicts": 1,
+		"reason": "A single birth year cannot take two values for the same character."
+	},
+	{
+		"id": "consistent",
+		"split": "negative",
+		"left": "Mara has blue eyes.",
+		"right": "Mara has blue eyes.",
+		"expectedConflicts": 0,
+		"reason": "Repeated consistent detail is not a contradiction."
+	},
+	{
+		"id": "rumor",
+		"split": "negative",
+		"left": "Mara has blue eyes.",
+		"right": "A rumor claimed Mara has green eyes.",
+		"expectedConflicts": 0,
+		"reason": "A reported rumor does not establish a conflicting fact."
+	},
+	{
+		"id": "flashback",
+		"split": "negative",
+		"left": "Mara’s hair was brown.",
+		"right": "Mara’s hair was silver.",
+		"rightMetadata": {
+			"flashback": "true"
+		},
+		"expectedConflicts": 0,
+		"reason": "Different or unknown story times do not establish an appearance contradiction."
+	},
+	{
+		"id": "intentional",
+		"split": "negative",
+		"left": "Mara has blue eyes.",
+		"right": "Mara has green eyes.",
+		"rightMetadata": {
+			"intentionalContradiction": "true"
+		},
+		"expectedConflicts": 0,
+		"reason": "Author-declared intentional variation must not be flagged."
+	},
+	{
+		"id": "paraphrase",
+		"split": "challenge",
+		"left": "The irises of Mara were blue.",
+		"right": "The irises of Mara were green.",
+		"expectedConflicts": 1,
+		"reason": "A real semantic contradiction outside the current explicit-pattern extractor; retain false negatives in reports."
+	},
+	{
+		"id": "pronoun",
+		"split": "challenge",
+		"left": "Mara has blue eyes.",
+		"right": "Mara stepped forward. Her eyes were green.",
+		"expectedConflicts": 1,
+		"reason": "Requires coreference; current extractor may miss it. Do not relabel misses as negatives."
+	}
+]

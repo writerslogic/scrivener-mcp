@@ -175,6 +175,28 @@ it('preflights unsupported constructs before requiring explicit warning acknowle
 	expect((await readFile(accepted.path as string)).subarray(0, 2).toString()).toBe('PK');
 });
 
+it('requires acknowledgment before exporting generated lists without their labels', async () => {
+	raw.set(FIRST, rtf(String.raw`{\listtext\tab 777.\tab}Listed scene.`));
+	const before = raw.get(FIRST);
+	const preflight = await exporter.preflight({ preset: 'beta-reader' });
+	expect(preflight.findings).toContainEqual(
+		expect.objectContaining({
+			code: 'generated-list-formatting',
+			severity: 'warning',
+			documentId: FIRST,
+		})
+	);
+	await expect(exporter.exportPreset({ preset: 'beta-reader' })).rejects.toThrow(/preflight/);
+	expect(raw.get(FIRST)).toBe(before);
+	const result = await exporter.exportPreset({ preset: 'beta-reader', allowWarnings: true });
+	const document = await xml(
+		await JSZip.loadAsync(await readFile(result.path as string)),
+		'word/document.xml'
+	);
+	expect(document).toContain('Listed scene.');
+	expect(document).not.toContain('777.');
+});
+
 it('places supported note markers after their scene and excludes editorial annotations unless requested', async () => {
 	raw.set(
 		FIRST,
@@ -365,4 +387,66 @@ test('ordinary binary exports require explicit acknowledgment of the same source
 	);
 	expect(result.metadata.sourceRevisions).toHaveLength(2);
 	expect(await readFile(destination)).not.toHaveLength(0);
+});
+
+it('preserves boundary whitespace, terminal paragraphs and nested styles through DOCX and EPUB', async () => {
+	raw.set(FIRST, String.raw`{\rtf1\ansi\b  Bold {\i both} bold\par\par}`);
+	const options = { preset: 'beta-reader' as const, documentIds: [FIRST], language: 'fr' };
+	expect((await exporter.preflight(options)).findings).not.toEqual(
+		expect.arrayContaining([expect.objectContaining({ code: 'style-alignment' })])
+	);
+	const docx = await exporter.exportPreset(options);
+	const document = await xml(
+		await JSZip.loadAsync(await readFile(docx.path as string)),
+		'word/document.xml'
+	);
+	expect(document).toMatch(/<w:b\b[^]*?<w:t[^>]*> Bold <\/w:t>/);
+	expect(document).toMatch(/<w:b\b[^]*?<w:i\b[^]*?<w:t[^>]*>both<\/w:t>/);
+	expect(document).toMatch(/<w:b\b[^]*?<w:t[^>]*> bold<\/w:t>/);
+	expect(document).toContain('w:val="fr"');
+	const epub = await exporter.exportPreset({ ...options, preset: 'ebook' });
+	const archive = await JSZip.loadAsync(await readFile(epub.path as string));
+	const pages = (
+		await Promise.all(archive.file(/chapter-.*\.xhtml$/).map((file) => file.async('string')))
+	).join('');
+	expect(pages).toContain(
+		'<strong> Bold </strong><em><strong>both</strong></em><strong> bold</strong></p>\n<p></p>\n<p></p>'
+	);
+	expect(pages).toContain('xml:lang="fr"');
+	expect(await xml(archive, 'OEBPS/style.css')).toContain('white-space: pre-wrap');
+});
+
+it('publishes truthful per-resource language and multiple publication languages', async () => {
+	raw.set(FIRST, new RTFHandler().convertToRTF('Bonjour.'));
+	raw.set(SECOND, new RTFHandler().convertToRTF('こんにちは。'));
+	const result = await exporter.exportPreset({
+		preset: 'ebook',
+		language: 'fr-CA',
+		documentLanguages: { [SECOND]: 'ja' },
+	});
+	const archive = await JSZip.loadAsync(await readFile(result.path as string));
+	const opf = await xml(archive, 'OEBPS/content.opf');
+	expect(opf).toContain('<dc:language>fr-CA</dc:language>');
+	expect(opf).toContain('<dc:language>ja</dc:language>');
+	const pages = await Promise.all(
+		archive.file(/chapter-.*\.xhtml$/).map((file) => file.async('string'))
+	);
+	expect(pages.find((page) => page.includes('こんにちは。'))).toContain('xml:lang="ja"');
+	expect(pages.find((page) => page.includes('Bonjour.'))).toContain('xml:lang="fr-CA"');
+	expect(await xml(archive, 'OEBPS/toc.xhtml')).toContain(
+		'lang="en" xml:lang="en">Table of Contents'
+	);
+});
+
+it('uses undetermined language when none was supplied and validates overrides before publishing', async () => {
+	const result = await exporter.exportPreset({ preset: 'ebook' });
+	const archive = await JSZip.loadAsync(await readFile(result.path as string));
+	expect(await xml(archive, 'OEBPS/content.opf')).toContain('<dc:language>und</dc:language>');
+	for (const language of ['', 'en_US', 'fr" onload="bad', 'en--US', 'a'.repeat(256)])
+		await expect(exporter.exportPreset({ preset: 'ebook', language })).rejects.toThrow(
+			/language/i
+		);
+	await expect(
+		exporter.preflight({ preset: 'ebook', documentLanguages: { [RESEARCH]: 'ja' } })
+	).rejects.toThrow(/outside.*scope/);
 });

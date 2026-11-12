@@ -8,7 +8,6 @@ import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getLogger } from '../../core/logger.js';
-import { AutoSetup } from './auto-setup.js';
 import { readJSON, safeWriteFile } from '../../utils/common.js';
 
 const logger = getLogger('first-run');
@@ -122,6 +121,7 @@ export class FirstRunManager {
 			rl.close();
 
 			if (answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y') {
+				const { AutoSetup } = await import('./auto-setup.js');
 				const autoSetup = new AutoSetup();
 				await autoSetup.run({
 					interactive: true,

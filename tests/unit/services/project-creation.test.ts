@@ -140,10 +140,25 @@ test('creation retains its admitted binder revision across a paused backup and i
 	await expect(fs.lstat(path.join(root, 'Files'))).rejects.toMatchObject({ code: 'ENOENT' });
 });
 
+test.each([' leading space', 'trailing space ', ' \tboundary whitespace\n'])(
+	'new document creation preserves boundary whitespace: %j',
+	async (text) => {
+		const id = await writer.createDocument('Whitespace', text, DRAFT);
+		expect(await documents.readDocument(id)).toBe(text);
+		const reloaded = new DocumentManager(root);
+		try {
+			reloaded.setProjectStructure(await loader.reloadProject());
+			expect(await reloaded.readDocument(id)).toBe(text);
+		} finally {
+			await reloaded.close();
+		}
+	}
+);
+
 test('unrepresentable new text fails before the compound operation acquires persistent state', async () => {
 	const original = JSON.stringify(documents.getProjectStructureData());
-	await expect(writer.createDocument('Whitespace', ' leading space', DRAFT)).rejects.toThrow(
-		/round-trip exactly/
+	await expect(writer.createDocument('Invalid Unicode', '\ud800', DRAFT)).rejects.toThrow(
+		/unpaired Unicode surrogate/
 	);
 	expect(await fs.readdir(root)).toEqual([path.basename(file)]);
 	expect(JSON.stringify(documents.getProjectStructureData())).toBe(original);

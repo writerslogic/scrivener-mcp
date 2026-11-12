@@ -207,3 +207,41 @@ A published `.scrivx` schema, a description of the `Files/Data` naming and the
 change, and a few edge-case test projects (annotations, footnotes, inline
 images, revisions) would let this and every other integration drop the
 guesswork. We're happy to collaborate on such a spec.
+
+### Canonical text and supported RTF encodings
+
+Decoded text and formatting runs now share exact UTF-16 offsets. Leading and trailing
+spaces, tabs, nonbreaking spaces and explicit paragraph endings are retained. Physical
+RTF source line wrapping is ignored; escaped Cocoa line breaks become newlines.
+Straight quotes remain straight, RTF quote controls produce their curly code points,
+and hexadecimal bytes use Windows-1252 rather than Unicode control-code positions.
+Saved review offsets produced with the previous trimmed decoder must be refreshed;
+apply still verifies the proposal's saved text and revision.
+
+The reader supports ASCII, escaped Windows-1252 and Unicode escapes, including signed
+UTF-16 surrogate pairs. Other byte code pages, Symbol-font text and ambiguous unescaped
+non-ASCII source are refused with conversion guidance. This is deliberately a bounded
+codec, not full RTF or native Scrivener compile compatibility. Metadata/annotation
+conventions and unsupported layouts still require their documented fidelity warnings.
+New serialization preserves requested text; unsupported requested font/color properties
+are rejected rather than silently discarded. Font sizes support half-point increments.
+The independent Cocoa oracle runs on macOS; other platforms run the captured expected
+text fixtures and explicitly skip the live native checks.
+
+Structured RTF writes require nonempty formatted spans to concatenate to the exact
+`plainText`, including whitespace. A mismatch now refuses the write; older versions
+silently preferred spans even when a preview used different text. Empty span arrays
+still serialize `plainText`. The serializer supports title, author, subject and keywords
+metadata; it refuses supplied synopsis, notes and timestamp metadata rather than
+silently dropping them. Use project metadata operations for those fields. Unpaired
+Unicode surrogates are refused before writing. These intentional refusals preserve
+saved bytes and require correcting the input before retrying.
+
+The canonical string follows Cocoa's distinction between paragraph breaks (`\par`,
+U+000A), soft line breaks (`\line`, U+2028), and page breaks (`\page`, U+000C).
+Generated `listtext`/`pntext` labels are formatting, excluded from body-text offsets;
+literal authored bullets remain text. Simple table cells end with U+000A in the flat
+text view; table layout is not reconstructed by export. Preserving edits retain raw
+list/table controls outside the edited span, and edits crossing them report formatting
+risk. Section breaks and nested tables currently refuse explicitly because their
+canonical text/layout behavior is unsupported.

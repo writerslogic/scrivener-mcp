@@ -210,9 +210,7 @@ exports.compareManuscriptReports = (...args) => {
 						corpusId: entry.id,
 						corpusSha256: entry.sha256,
 						bodySha256: hash(body!),
-						baselineProjectedScenesSha256: hash(
-							JSON.stringify(scenes.map((text) => text.trim()))
-						),
+						baselineProjectedScenesSha256: hash(JSON.stringify(scenes)),
 						utf8Bytes: Buffer.byteLength(body!),
 						utf16Characters: body!.length,
 						whitespaceTokens: body!.trim().split(/\s+/).length,

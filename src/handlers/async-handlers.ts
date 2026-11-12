@@ -380,8 +380,10 @@ export async function checkPlotConsistency(
 		documents: Array<{ id: string; content?: string }>;
 		async?: boolean;
 	},
-	editorial: { source: ManuscriptSource; continuity: ContinuityService }
+	editorial: { source: ManuscriptSource; continuity: ContinuityService },
+	options: { signal?: AbortSignal } = {}
 ): Promise<ContinuityReport | { jobId: string; message: string }> {
+	options.signal?.throwIfAborted();
 	if (
 		!Array.isArray(params.documents) ||
 		!params.documents.length ||
@@ -400,6 +402,7 @@ export async function checkPlotConsistency(
 	if (selected.size !== params.documents.length)
 		throw new Error('Duplicate continuity document identities');
 	const documents = (await editorial.source.list()).filter((doc) => selected.has(doc.documentId));
+	options.signal?.throwIfAborted();
 	if (documents.length !== selected.size)
 		throw new Error('Continuity scope contains a document outside the selected manuscript');
 	const supplied = new Map(params.documents.map((doc) => [doc.id, doc.content]));
@@ -419,6 +422,7 @@ export async function checkPlotConsistency(
 	}));
 	if (params.async)
 		return withAsyncServices(async (queue) => {
+			options.signal?.throwIfAborted();
 			if (!queue) throw new Error('Job queue service is unavailable');
 			const jobId = await queue.addJob(JobType.CHECK_CONSISTENCY, {
 				projectId: editorial.source.projectId,
@@ -430,6 +434,7 @@ export async function checkPlotConsistency(
 			};
 		});
 	return editorial.continuity.analyze({
+		signal: options.signal,
 		documentIds: documents.map((doc) => doc.documentId),
 		expectedRevisions,
 	});

@@ -1,3 +1,4 @@
+import { publicationLanguage } from './language.js';
 import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
 import { parseStringPromise } from 'xml2js';
@@ -7,6 +8,8 @@ import type { ExportSection } from './manuscript-exporters.js';
 export type ExportPreset = 'submission-manuscript' | 'beta-reader' | 'ebook';
 
 export interface PresetOptions {
+	language?: string;
+	documentLanguages?: Record<string, string>;
 	preset: ExportPreset;
 	documentIds?: string[];
 	frontMatterIds?: string[];
@@ -51,6 +54,23 @@ export const EXPORT_PRESETS = {
 export function validatePresetOptions(options: PresetOptions): void {
 	if (!options || !Object.prototype.hasOwnProperty.call(EXPORT_PRESETS, options.preset))
 		throw new Error('Unknown manuscript export preset');
+	publicationLanguage(options.language);
+	if (options.documentLanguages !== undefined) {
+		if (
+			!options.documentLanguages ||
+			typeof options.documentLanguages !== 'object' ||
+			Array.isArray(options.documentLanguages)
+		)
+			throw new Error('Document languages must map document UUIDs to language tags');
+		const entries = Object.entries(options.documentLanguages);
+		if (entries.length > 10000)
+			throw new Error('Document languages exceeds the 10000 document limit');
+		for (const [id, language] of entries) {
+			if (!/^[0-9a-f-]{36}$/i.test(id))
+				throw new Error('Document language keys must be document UUIDs');
+			publicationLanguage(language);
+		}
+	}
 	for (const ids of [options.documentIds, options.frontMatterIds]) {
 		if (
 			ids !== undefined &&

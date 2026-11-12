@@ -13,6 +13,7 @@ import { documentGraphHandlers } from './document-graph-handlers.js';
 import { integrityHandlers } from './integrity-handlers.js';
 import { goalsHandlers } from './goals-handlers.js';
 import { personalizationHandlers } from './personalization-handlers.js';
+import { changeImpactHandlers } from './change-impact-handlers.js';
 import { reviewChangesHandler } from './review-handlers.js';
 import { dashboardHandler } from './dashboard-handlers.js';
 import { exportManuscriptHandler } from './export-preset-handlers.js';
@@ -41,7 +42,7 @@ const skills: Skill[] = [
 	{
 		name: 'documents',
 		description: 'Read, write, create, delete, move, and rename documents',
-		tools: [...documentHandlers, reviewChangesHandler],
+		tools: [...documentHandlers, reviewChangesHandler, ...changeImpactHandlers],
 	},
 	{
 		name: 'search',
@@ -132,11 +133,40 @@ function validatorFor(tool: ToolDefinition): JsonSchemaValidator<Record<string, 
 	return validator;
 }
 
+const unscopedTools = new Set([
+	'open_project',
+	'discover_projects',
+	'list_skills',
+	'use_skill',
+	'read_result',
+]);
+
+export function isProjectScopedTool(name: string): boolean {
+	return !unscopedTools.has(name);
+}
+
 function callableTool(tool: ToolDefinition, uiSupported = false) {
 	return {
 		name: tool.name,
-		description: tool.description,
-		inputSchema: tool.inputSchema,
+		description:
+			tool.description +
+			(tool.name === 'open_project'
+				? ' Returns projectHandle for subsequent project calls; it expires on close, reopening any project, or server restart.'
+				: ''),
+		inputSchema: isProjectScopedTool(tool.name)
+			? {
+					...tool.inputSchema,
+					properties: {
+						...tool.inputSchema.properties,
+						projectHandle: {
+							type: 'string',
+							format: 'uuid',
+							description:
+								'Handle from open_project. Required for modern project calls; optional for legacy session calls.',
+						},
+					},
+				}
+			: tool.inputSchema,
 		...(tool.title ? { title: tool.title } : {}),
 		...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
 		...(tool.annotations ? { annotations: tool.annotations } : {}),

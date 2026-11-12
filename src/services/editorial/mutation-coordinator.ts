@@ -12,6 +12,12 @@ import {
 } from '../../utils/scrivener-utils.js';
 import { planSnapshot, writePlannedSnapshot, type SnapshotEntry } from '../snapshots.js';
 import { PersistentStore, type StorePage, type StorePageOptions } from './persistent-store.js';
+import {
+	MutationRetention,
+	mutationRetentionLimits,
+	MUTATION_METADATA_RESERVE,
+	type MutationRetentionLimits,
+} from './mutation-retention.js';
 
 const MAX_RAW_BYTES = 64 * 1024 * 1024;
 const MAX_CHECKSUM_BYTES = 4 * 1024 * 1024;
@@ -220,6 +226,7 @@ function isExportPublication(value: unknown): value is ExportPublicationRecord {
 export class MutationCoordinator {
 	private store?: PersistentStore;
 	private indexInitialized = false;
+	private retention?: MutationRetention;
 	private ownsStore: boolean;
 	private readonly activeMutations = new Set<Promise<unknown>>();
 	private closePromise?: Promise<void>;
@@ -228,7 +235,8 @@ export class MutationCoordinator {
 	constructor(
 		projectPath: string,
 		store?: PersistentStore,
-		private readonly readOnly = false
+		private readonly readOnly = false,
+		private readonly retentionLimits: MutationRetentionLimits = mutationRetentionLimits()
 	) {
 		this.projectPath = path.resolve(projectPath);
 		this.store = store;
@@ -256,25 +264,84 @@ export class MutationCoordinator {
 				if (version === 1) return;
 				if (version !== undefined)
 					throw new Error('Unsupported mutation pending-index version');
-				for (const value of store.list<MutationRecord | ExportPublicationRecord>(JOURNAL)) {
-					if (
-						!value ||
-						typeof value !== 'object' ||
-						!['prepared', 'committed', 'conflicted'].includes(value.state)
-					)
-						throw new Error('Malformed mutation journal record');
-					if (value.state === 'prepared') {
-						const record = isExportPublication(value)
-							? this.exportPublication(value)
-							: this.mutation(value);
-						store.put(PENDING, record.id, { id: record.id });
+				let after: string | undefined;
+				do {
+					const page = store.pageEntries(JOURNAL, { after, limit: 100 });
+					for (const entry of page.items) {
+						const value = store.get<MutationRecord | ExportPublicationRecord>(
+							JOURNAL,
+							entry.id
+						);
+						if (
+							!value ||
+							typeof value !== 'object' ||
+							value.id !== entry.id ||
+							!['prepared', 'committed', 'conflicted'].includes(value.state)
+						)
+							throw new Error('Malformed mutation journal record');
+						if (value.state === 'prepared') {
+							const record = isExportPublication(value)
+								? this.exportPublication(value)
+								: this.mutation(value);
+							store.put(PENDING, record.id, { id: record.id });
+						}
 					}
-				}
+					after = page.nextCursor ?? undefined;
+				} while (after !== undefined);
 				store.put('mutation-meta', 'pending-index-version', 1);
 			});
 			this.indexInitialized = true;
 		}
+		if (!this.retention) {
+			const retention = new MutationRetention(
+				this.store,
+				this.retentionLimits,
+				(id, bytes) => {
+					const value = this.store!.get<unknown>(JOURNAL, id);
+					const record = isExportPublication(value)
+						? this.exportPublication(value)
+						: this.mutation(value);
+					if (record.id !== id)
+						throw new Error('Mutation journal identity does not match its key');
+					return this.retentionSize(record, bytes);
+				}
+			);
+			retention.initialize();
+			this.retention = retention;
+		}
 		return this.store;
+	}
+
+	private retentionSize(
+		record: MutationRecord | ExportPublicationRecord,
+		serializedBytes = Buffer.byteLength(JSON.stringify(record))
+	): { bytes: number; undoBytes?: number } {
+		const bytes =
+			(isExportPublication(record) && !record.artifact
+				? Math.ceil(MAX_EXPORT_BYTES / 3) * 4 + MAX_EXPORT_RESULT_BYTES + serializedBytes
+				: serializedBytes) + MUTATION_METADATA_RESERVE;
+		const undoBytes =
+			!isExportPublication(record) &&
+			(record.targetKind ?? 'document') === 'document' &&
+			record.beforeExists
+				? bytes + MUTATION_METADATA_RESERVE
+				: undefined;
+		return { bytes, undoBytes };
+	}
+
+	private reserveMutation(record: MutationRecord): void {
+		const { bytes, undoBytes } = this.retentionSize(record);
+		const original = record.undoes ? this.get(record.undoes) : undefined;
+		const inverse =
+			original?.state === 'committed' &&
+			original.beforeExists &&
+			(original.targetKind ?? 'document') === 'document' &&
+			record.targetKind === 'document' &&
+			original.documentId === record.documentId &&
+			record.beforeExists &&
+			original.beforeRevision === record.afterRevision &&
+			original.afterRevision === record.beforeRevision;
+		this.retention!.reserve(record.id, bytes, undoBytes, inverse ? original.id : undefined);
 	}
 
 	assertProjectPath(target: string): void {
@@ -968,6 +1035,7 @@ export class MutationCoordinator {
 				state: 'prepared',
 				createdAt: new Date().toISOString(),
 			};
+			if (!prior) this.retention!.reserve(next.id, this.retentionSize(next).bytes);
 			store.put(JOURNAL, next.id, next);
 			store.put(PENDING, next.id, { id: next.id });
 			store.put<MutationClaim>(CLAIMS, 'project', {
@@ -1026,6 +1094,7 @@ export class MutationCoordinator {
 				store.transaction(() => {
 					if (this.claim()?.token !== token)
 						throw new Error('Export publication ownership changed during abort');
+					this.retention!.release(record.id);
 					store.delete(JOURNAL, record.id);
 					store.delete(PENDING, record.id);
 					store.delete(CLAIMS, 'project');
@@ -1294,6 +1363,16 @@ export class MutationCoordinator {
 		if (typeof afterRaw !== 'string' || Buffer.byteLength(afterRaw) > MAX_RAW_BYTES)
 			throw new Error('Invalid saved content size');
 		if (
+			options.snapshotTitle !== undefined &&
+			(typeof options.snapshotTitle !== 'string' || options.snapshotTitle.length > 512)
+		)
+			throw new Error('Snapshot title must contain at most 512 characters');
+		if (
+			options.undoes !== undefined &&
+			(typeof options.undoes !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(options.undoes))
+		)
+			throw new Error('Invalid undo operation ID');
+		if (
 			options.expectedRevision !== undefined &&
 			!/^[a-f0-9]{64}$/.test(options.expectedRevision)
 		)
@@ -1404,6 +1483,7 @@ export class MutationCoordinator {
 							}
 						: undefined,
 			};
+			if (!prior) this.reserveMutation(record);
 			store.put(JOURNAL, id, record);
 			store.put(PENDING, id, { id });
 			store.put<MutationClaim>(CLAIMS, 'project', {
@@ -1585,5 +1665,6 @@ export class MutationCoordinator {
 		if (this.store && this.ownsStore) this.store.close();
 		this.store = undefined;
 		this.indexInitialized = false;
+		this.retention = undefined;
 	}
 }

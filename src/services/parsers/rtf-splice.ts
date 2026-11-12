@@ -1,17 +1,5 @@
-import { RTF_TEXT_CONTROLS } from './rtf-handler.js';
+import { RTF_TEXT_CONTROLS, assertRtfText, rtfTextTokens } from './rtf-text.js';
 import { isStructurallyValidRtf, readRtfControl, rtfGroupEnd } from './rtf-validation.js';
-
-/** Header/table destinations that contribute no body text (mirrors the reader's strip). */
-const SKIP_GROUP_KEYWORDS = [
-	'\\fonttbl',
-	'\\colortbl',
-	'\\stylesheet',
-	'\\listtable',
-	'\\listoverridetable',
-	'\\info',
-	'\\*\\shppict',
-	'\\pict',
-];
 
 /** Result of scanning raw RTF: the body plain text and, per character, its raw byte offset. */
 interface ScanResult {
@@ -21,124 +9,18 @@ interface ScanResult {
 	ends: number[];
 }
 
-/** Does rawRtf, at index i, begin one of the skip-group destinations? Returns the keyword length matched. */
-function matchSkipGroup(raw: string, i: number): number {
-	if (raw[i] !== '{') return 0;
-	for (const kw of SKIP_GROUP_KEYWORDS) {
-		if (raw.startsWith(kw, i + 1)) return kw.length;
-	}
-	return 0;
-}
-
-/** Skip a brace-balanced group starting at `i` (which is `{`). Returns index past the `}`. */
-function skipGroup(raw: string, i: number): number {
-	const end = rtfGroupEnd(raw, i);
-	if (end === undefined) throw new Error('RTF contains an invalid opaque group');
-	return end;
-}
-
-/**
- * Scan raw RTF into body plain text plus a per-character raw-offset map, mirroring
- * the reader's decoding (control words, `\uc`/`\u`, `\'hh`, escaped chars, group
- * skipping). Deliberately best-effort: the caller checks it against the canonical
- * parser and bails on any mismatch.
- */
 export function scanRawText(raw: string): ScanResult {
 	const text: string[] = [];
 	const offsets: number[] = [];
 	const ends: number[] = [];
-	let uc = 1;
-	const ucStack: number[] = [];
-	let i = 0;
-
-	// Skip the leading "{\rtf1..." declaration up to the first control-word boundary,
-	// matching the reader, without consuming body braces.
-	const decl = raw.match(/^\{\\rtf\d+ ?/);
-	if (decl) i = decl[0].length;
-
-	const push = (ch: string, at: number, end: number) => {
-		for (let index = 0; index < ch.length; index++) {
-			text.push(ch[index]);
-			offsets.push(at);
-			ends.push(end);
-		}
-	};
-
-	while (i < raw.length) {
-		const ch = raw[i];
-
-		// Drop ignorable destinations ({\*\...}), Scrivener control groups, and
-		// header/table/image destinations entirely — matching the reader's strip.
-		if (ch === '{') {
-			if (
-				raw.startsWith('{\\*', i) ||
-				raw.startsWith('{\\Scrv_', i) ||
-				matchSkipGroup(raw, i) > 0
-			) {
-				i = skipGroup(raw, i);
-				continue;
-			}
-			ucStack.push(uc);
-			i++; // ordinary group-start: inherits style, contributes no text itself
-			continue;
-		}
-		if (ch === '}') {
-			uc = ucStack.pop() ?? 1;
-			i++;
-			continue;
-		}
-
-		if (ch === '\\') {
-			const start = i;
-			const control = raw.slice(i).match(/^\\([a-z]+)(-?\d*)\s?/i);
-			if (control) {
-				const word = control[1].toLowerCase();
-				const param = control[2];
-				if (word === 'par' || word === 'line' || word === 'sect') {
-					i += control[0].length;
-					push('\n', start, i);
-				} else if (RTF_TEXT_CONTROLS.has(`\\${word}`)) {
-					i += control[0].length;
-					push(RTF_TEXT_CONTROLS.get(`\\${word}`)!, start, i);
-				} else if (word === 'bin') {
-					const binary = readRtfControl(raw, i);
-					if (!binary) throw new Error('Invalid RTF binary data');
-					i = binary.end;
-				} else if (word === 'uc') {
-					const n = parseInt(param, 10);
-					uc = Number.isNaN(n) ? 1 : Math.max(0, n);
-					i += control[0].length;
-				} else if (word === 'u' && param) {
-					let code = parseInt(param, 10);
-					if (code < 0) code += 65536;
-					i += control[0].length;
-					for (let skipped = 0; skipped < uc && i < raw.length; skipped++) {
-						if (raw[i] === '{' || raw[i] === '}') break;
-						if (raw[i] === '\\' && raw[i + 1] === "'") i += 4;
-						else if (raw[i] === '\\') break;
-						else i++;
-					}
-					push(String.fromCodePoint(code), start, i);
-				} else {
-					i += control[0].length; // formatting/other control word: no text
-				}
-			} else if (raw[i + 1] === "'") {
-				push(String.fromCharCode(parseInt(raw.slice(i + 2, i + 4), 16)), i, i + 4);
-				i += 4;
-			} else if (raw[i + 1] === '\\' || raw[i + 1] === '{' || raw[i + 1] === '}') {
-				push(raw[i + 1], i, i + 2);
-				i += 2;
-			} else {
-				// Lone backslash (Cocoa line-wrap): the reader skips it and keeps the
-				// following newline as text, which we mirror.
-				i++;
-			}
-		} else {
-			push(ch, i, i + 1);
-			i++;
+	for (const token of rtfTextTokens(raw)) {
+		if (token.type !== 'text') continue;
+		text.push(token.value);
+		for (let i = 0; i < token.value.length; i++) {
+			offsets.push(token.start);
+			ends.push(token.end);
 		}
 	}
-
 	offsets.push(raw.length);
 	return { text: text.join(''), offsets, ends };
 }
@@ -154,6 +36,10 @@ export function describeReplacedConstructs(replacedRaw: string): string[] {
 	if (/\\Scrv_(annot|comm|inl)\b/.test(replacedRaw)) risks.push('annotation/comment');
 	if (/\\pict\b|\\shppict\b|\\NeXTGraphic\b/.test(replacedRaw)) risks.push('inline image');
 	if (/\\field\b/.test(replacedRaw)) risks.push('linked field');
+	if (/\\(?:listtext|pntext|ls|ilvl)\b/.test(replacedRaw))
+		risks.push('generated list formatting');
+	if (/\\(?:cell|row|trowd|intbl|nestcell|nestrow)\b/.test(replacedRaw))
+		risks.push('table structure');
 	if (/\\bin-?\d+\b/i.test(replacedRaw)) risks.push('embedded binary data');
 	if (/\{\\\*|\\Scrv_/.test(replacedRaw))
 		risks.push('opaque RTF metadata within the edited text');
@@ -175,6 +61,8 @@ function escapeInline(text: string): string {
 		else if (ch === '}') out += '\\}';
 		else if (ch === '\n') out += '\\par\n';
 		else if (ch === '\t') out += '\\tab ';
+		else if (ch === '\f') out += '\\page ';
+		else if (ch === '\r') out += '\\u13 ';
 		else if (code < 128) out += ch;
 		else out += `\\u${code > 32767 ? code - 65536 : code} `;
 	}
@@ -199,8 +87,7 @@ function safeReplacementSpan(raw: string, start: number, end: number): boolean {
 				control.end > end ||
 				(control.word !== undefined &&
 					control.word !== 'u' &&
-					!RTF_TEXT_CONTROLS.has(`\\${control.word}`) &&
-					control.word !== 'sect')
+					!RTF_TEXT_CONTROLS.has(`\\${control.word}`))
 			)
 				return false;
 			offset = control.end;
@@ -314,21 +201,18 @@ export function spliceRtfText(
 	canonicalPlainText: string,
 	newText: string
 ): { rtf: string; replacedRaw: string } | null {
+	assertRtfText(newText);
 	if (!isStructurallyValidRtf(originalRaw)) return null;
 	const scan = scanRawText(originalRaw);
 
-	// Align the trimmed canonical text within the (untrimmed) scan so offsets map
-	// canonical positions to raw bytes. Bail unless the scan reproduces canonical
-	// exactly — that equivalence is what makes the offset map trustworthy.
-	const lead = scan.text.length - scan.text.trimStart().length;
-	if (scan.text.trim() !== canonicalPlainText) return null;
+	if (scan.text !== canonicalPlainText) return null;
 	if (canonicalPlainText === newText) return { rtf: originalRaw, replacedRaw: '' };
 	if (canonicalPlainText.length === 0) return null;
 
 	const rawStartOf = (canonicalIndex: number): number =>
 		canonicalIndex === canonicalPlainText.length
-			? scan.ends[lead + canonicalIndex - 1]
-			: scan.offsets[lead + canonicalIndex];
+			? scan.ends[canonicalIndex - 1]
+			: scan.offsets[canonicalIndex];
 
 	const oldTokens = tokenize(canonicalPlainText);
 	const newTokens = tokenize(newText);
@@ -359,7 +243,7 @@ export function spliceRtfText(
 
 		if (blockOldChar > prevOldChar || blockNewChar > prevNewChar) {
 			const start = rawStartOf(prevOldChar);
-			const end = blockOldChar > prevOldChar ? scan.ends[lead + blockOldChar - 1] : start;
+			const end = blockOldChar > prevOldChar ? scan.ends[blockOldChar - 1] : start;
 			if (!safeReplacementSpan(originalRaw, start, end)) return null;
 			out.push(
 				originalRaw.slice(rawCursor, start),

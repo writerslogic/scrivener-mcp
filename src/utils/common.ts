@@ -757,23 +757,35 @@ export async function measureExecution<T>(
 	return { result, ms: Date.now() - start };
 }
 
-/** Simple token-bucket rate limiter */
+/** Token bucket with integer millisecond credits and a monotonic clock. */
 export class RateLimiter {
-	private tokens: number;
-	private last = Date.now();
+	private credits: number;
+	private readonly capacity: number;
+	private last = Math.floor(performance.now());
 	constructor(
-		private rate: number,
-		private perMs: number
+		private readonly rate: number,
+		private readonly perMs: number
 	) {
-		this.tokens = rate;
+		if (
+			!Number.isSafeInteger(rate) ||
+			rate < 1 ||
+			!Number.isSafeInteger(perMs) ||
+			perMs < 1 ||
+			!Number.isSafeInteger(rate * perMs)
+		)
+			throw new RangeError(
+				'Rate and period must be positive safe integers with a safe product'
+			);
+		this.capacity = rate * perMs;
+		this.credits = this.capacity;
 	}
 	tryRemove(): boolean {
-		const now = Date.now();
-		const delta = ((now - this.last) / this.perMs) * this.rate;
-		this.tokens = Math.min(this.rate, this.tokens + delta);
+		const now = Math.floor(performance.now());
+		const elapsed = Math.min(this.perMs, Math.max(0, now - this.last));
+		this.credits += Math.min(this.capacity - this.credits, elapsed * this.rate);
 		this.last = now;
-		if (this.tokens >= 1) {
-			this.tokens--;
+		if (this.credits >= this.perMs) {
+			this.credits -= this.perMs;
 			return true;
 		}
 		return false;

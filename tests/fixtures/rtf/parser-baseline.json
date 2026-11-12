@@ -1,50 +1,87 @@
 [
 	{
 		"file": "tests/sample-project.scriv/Files/Data/0BFBFA71-F1E9-401C-8A78-97B10BC12399/content.rtf",
-		"sha256": "f7891aff14d066b20e067b8f6892aba28eff15a0b70e888c778d5f1cef9b3621"
+		"sha256": "f7891aff14d066b20e067b8f6892aba28eff15a0b70e888c778d5f1cef9b3621",
+		"sourceSha256": "78efcdaf1294faa1ac2240976d9cd76947643cb7a95b7044a4f5943d1368a635",
+		"originalSourceSha256": "64492fdfc95a21b9085b93a4ca38b38ca545860e2083879056527940a10d08a6",
+		"text": "Test List:\n• Item one with some text\n• Item two with more information\n• Item three for completeness\n\nAdditional notes after the list.",
+		"oracle": "macOS Cocoa textutil -convert txt -stdout; exact expected code points independently confirmed after replacing malformed literal UTF-8 bullets with Unicode escapes"
 	},
 	{
 		"file": "tests/sample-project.scriv/Files/Data/684ADA52-4D45-48D2-B03D-5ECB784963EE/content.rtf",
-		"sha256": "2ea05b6ca15b881d4907be4a3a915675eea7584db67d5734d5f6c8dcc446f46d"
+		"sha256": "2ea05b6ca15b881d4907be4a3a915675eea7584db67d5734d5f6c8dcc446f46d",
+		"sourceSha256": "40f7138180af7d62775202961685915ab680721b356f96563144be1bebd32005",
+		"text": "",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "tests/sample-project.scriv/Files/Data/684ADA52-4D45-48D2-B03D-5ECB784963EE/notes.rtf",
-		"sha256": "63b43a223a4e680ac871e41985b04981a50f7a52c115cd2e1c82e1b1627d6fd3"
+		"sha256": "63b43a223a4e680ac871e41985b04981a50f7a52c115cd2e1c82e1b1627d6fd3",
+		"sourceSha256": "844dbb7a5b6f671532b08f6744bce213dc86d3bcf946c3b6a9c2bb46f015048b",
+		"text": "This is the title page of the manuscript.\nFixture “Section Type” metadata verifies native quote decoding.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "tests/sample-project.scriv/Files/Data/95A0E87E-0497-4ADA-8A51-8855420732BC/content.rtf",
-		"sha256": "2535471750d643a3ebb165e6ebf01433cc97f06d91b360ed8931424fde24573e"
+		"sha256": "2535471750d643a3ebb165e6ebf01433cc97f06d91b360ed8931424fde24573e",
+		"sourceSha256": "a9c13d613ea91ba79832993b18da0ffa23a31ebc21d350f0a52d9dcdc739a819",
+		"text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nSed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "tests/sample-project.scriv/Files/Data/EC77D680-CDD2-449C-8D91-AEB249C14C89/content.rtf",
-		"sha256": "fae6f6801ce5b0fe71460754032be4856e9cfd60e17cea09e379eb75d794b2dd"
+		"sha256": "fae6f6801ce5b0fe71460754032be4856e9cfd60e17cea09e379eb75d794b2dd",
+		"sourceSha256": "3af15c6e5b0b35a1233ee2a56d9cd104df40b4a5dbc350108e91e47c29d28c2c",
+		"text": "This is a simple test document with plain text content. It contains some basic information for testing purposes.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "tests/sample-project.scriv/Files/Data/F8F9FDEF-FD9F-4A8C-B33D-3434A1220ADC/content.rtf",
-		"sha256": "f7891aff14d066b20e067b8f6892aba28eff15a0b70e888c778d5f1cef9b3621"
+		"sha256": "f7891aff14d066b20e067b8f6892aba28eff15a0b70e888c778d5f1cef9b3621",
+		"sourceSha256": "78efcdaf1294faa1ac2240976d9cd76947643cb7a95b7044a4f5943d1368a635",
+		"originalSourceSha256": "64492fdfc95a21b9085b93a4ca38b38ca545860e2083879056527940a10d08a6",
+		"text": "Test List:\n• Item one with some text\n• Item two with more information\n• Item three for completeness\n\nAdditional notes after the list.",
+		"oracle": "macOS Cocoa textutil -convert txt -stdout; exact expected code points independently confirmed after replacing malformed literal UTF-8 bullets with Unicode escapes"
 	},
 	{
 		"file": "tests/sample-project.scriv/Snapshots/684ADA52-4D45-48D2-B03D-5ECB784963EE.snapshots/2025-10-27-02-20-40-0700.rtf",
-		"sha256": "2cdf46e8c00c02e741a65b0cbb1c3ad3f1e906914c170f052e7188c8915464ae"
+		"sha256": "2cdf46e8c00c02e741a65b0cbb1c3ad3f1e906914c170f052e7188c8915464ae",
+		"sourceSha256": "f060fdab5a4d7be5ac30fde6269d441bfd0cbe1e81a05a4071f5054f683c01a8",
+		"text": "The first draft of this scene had five sentences.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "tests/sample-project.scriv/Snapshots/684ADA52-4D45-48D2-B03D-5ECB784963EE.snapshots/2025-10-27-09-15-12-0700.rtf",
-		"sha256": "560d2a97c5dad58162d19198d40b6fa8d8f8b839169e4285af1595d3a659b1e0"
+		"sha256": "560d2a97c5dad58162d19198d40b6fa8d8f8b839169e4285af1595d3a659b1e0",
+		"sourceSha256": "d93df87eb29b8a5383805789783e41bc14cbb8473c3aebd4fbac9c31750c3d52",
+		"text": "A later revision before the big rewrite.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000003/content.rtf",
-		"sha256": "f3e82fa2648cbb140c466210c5b2d1f4a5d70004b170e2d6ddf2eb73d342258b"
+		"sha256": "f3e82fa2648cbb140c466210c5b2d1f4a5d70004b170e2d6ddf2eb73d342258b",
+		"sourceSha256": "3d7a5dd5d657927ca9902e270e014c9d41bad0365721fd5d4124c8a2c90bf1ce",
+		"text": "Mara's eyes were green.\nShe waited at the harbor café while the rain fell. The lantern was a promise, not a warning.\nHer hands trembled. Every creak behind the locked door made her flinch.\n\"Come inside,\" Ivo said. \"You are safe here.\"\nMara took a step toward the light.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000003/notes.rtf",
-		"sha256": "9052e82b2ee3c24767ed0518ac8d16cc8798d60b7d80e74b9b2ca2cf4a6008fc"
+		"sha256": "9052e82b2ee3c24767ed0518ac8d16cc8798d60b7d80e74b9b2ca2cf4a6008fc",
+		"sourceSha256": "7f62959cf1533e9554c5d9e6367d79a250d682ccc7187175fb7672167bc4185f",
+		"text": "Fictional sample; safe to edit a copy.",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000004/content.rtf",
-		"sha256": "a3c8d74c9526024660a3dfe3acc82a9e845c08c28d3b4971436c801dafa23cca"
+		"sha256": "a3c8d74c9526024660a3dfe3acc82a9e845c08c28d3b4971436c801dafa23cca",
+		"sourceSha256": "082a27b968db85357e8f99ae21ebf6b941502b2fbd226384784ee1a3794f3b06",
+		"text": "Mara's eyes were blue.\nIvo crossed the empty square, carrying bread for the travelers.\n\"We can rebuild the pier,\" Mara said. The neighbors brought wood and tools. Together they worked until dawn.\nThe lantern shone over the water.\n東京 😀",
+		"oracle": "macOS Cocoa textutil (Darwin 27.0.0), 2026-11-11, -convert txt -stdin -stdout"
 	},
 	{
 		"file": "assets/sample-project/Welcome.scriv/Files/Data/10000000-0000-4000-8000-000000000006/content.rtf",
-		"sha256": "3b322a47c71446952b7e6d2fb604215dd85963a84bf51c553122d171d1835fac"
+		"sha256": "3b322a47c71446952b7e6d2fb604215dd85963a84bf51c553122d171d1835fac",
+		"sourceSha256": "ca61956b83c1e82896749f47ebf2df2191fc95ed37d3f60bce886328225a6798",
+		"oracle": "Historical application-specific annotation convention; not native reader agreement"
 	}
 ]

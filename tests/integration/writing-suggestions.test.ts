@@ -207,7 +207,8 @@ test.each([15999, 16000, 16001])(
 );
 
 test('preserves Unicode pairs at the excerpt boundary', async () => {
-	await save('x'.repeat(15999) + '🌙 tail');
+	await save('x'.repeat(15999) + '\\uc1\\u-10180?\\u-8423? tail');
+	expect((await source.read(documentId)).text).toBe('x'.repeat(15999) + '🌙 tail');
 	const result = (await generateSuggestions(request)) as SuggestionResult;
 	expect(result.context).toEqual({
 		mode: 'saved-document',

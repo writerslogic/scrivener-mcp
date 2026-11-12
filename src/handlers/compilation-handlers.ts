@@ -627,6 +627,18 @@ export const exportProjectHandler: ToolDefinition = {
 					'Export options. Binary exports require allowWarnings: true to acknowledge reported unsupported constructs.',
 				properties: {
 					allowWarnings: { type: 'boolean', default: false },
+					language: {
+						type: 'string',
+						maxLength: 255,
+						description:
+							'Unicode BCP47 publication language; defaults to und (undetermined).',
+					},
+					documentLanguages: {
+						type: 'object',
+						maxProperties: 10000,
+						additionalProperties: { type: 'string', maxLength: 255 },
+						description: 'Document UUID to language overrides.',
+					},
 					includeAnnotations: { type: 'boolean', default: false },
 				},
 			},

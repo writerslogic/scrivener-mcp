@@ -2,8 +2,6 @@
 import { generateKeyPair, createHash, createPublicKey } from 'node:crypto';
 import { isAbsolute, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
-import { validateCredentialAsset } from '../services/content-credentials/service.js';
-import { createCrjsonAssessmentExport } from '../services/content-credentials/crjson-assessment.js';
 import { prepareCrjsonAssessmentFiles } from '../services/content-credentials/crjson-assessment-files.js';
 import {
 	readStableCredentialFile,
@@ -13,11 +11,6 @@ import {
 	CREDENTIAL_LIMITS,
 	MAX_CONFIGURATION_BYTES,
 } from '../services/content-credentials/limits.js';
-import {
-	encryptCredentialSigningKey,
-	inspectEncryptedCredentialKey,
-	reencryptCredentialSigningKey,
-} from '../services/content-credentials/key-policy.js';
 import { ApplicationError, createError, ErrorCode } from '../core/errors.js';
 
 const generate = promisify(generateKeyPair);
@@ -80,6 +73,8 @@ async function main(): Promise<void> {
 			version === '2.4'
 				? await prepareCrjsonAssessmentFiles(outputPath!, local(nativeOut))
 				: undefined;
+		const { validateCredentialAsset } =
+			await import('../services/content-credentials/service.js');
 		const result = await validateCredentialAsset(
 			{
 				assetPath: local(values.asset),
@@ -94,6 +89,8 @@ async function main(): Promise<void> {
 			}
 		);
 		if (writeAssessment) {
+			const { createCrjsonAssessmentExport } =
+				await import('../services/content-credentials/crjson-assessment.js');
 			await writeAssessment(createCrjsonAssessmentExport(result, '2.4'));
 			return;
 		}
@@ -106,6 +103,8 @@ async function main(): Promise<void> {
 		return;
 	}
 	if (command === 'inspect-key') {
+		const { inspectEncryptedCredentialKey } =
+			await import('../services/content-credentials/key-policy.js');
 		if (Object.keys(values).some((key) => key !== 'key'))
 			throw new Error('inspect-key accepts only --key.');
 		const { bytes } = await readStableCredentialFile(
@@ -124,6 +123,8 @@ async function main(): Promise<void> {
 		return;
 	}
 	if (command === 'keygen') {
+		const { encryptCredentialSigningKey, inspectEncryptedCredentialKey } =
+			await import('../services/content-credentials/key-policy.js');
 		if (Object.keys(values).some((key) => key !== 'out'))
 			throw new Error('keygen accepts only --out.');
 		const out = local(values.out);
@@ -149,6 +150,8 @@ async function main(): Promise<void> {
 		return;
 	}
 	if (command === 'reencrypt-key') {
+		const { reencryptCredentialSigningKey, inspectEncryptedCredentialKey } =
+			await import('../services/content-credentials/key-policy.js');
 		if (Object.keys(values).some((key) => !['key', 'out'].includes(key)))
 			throw new Error('reencrypt-key accepts only --key and --out.');
 		const oldPassword = process.env.SCRIVENER_C2PA_OLD_KEY_PASSWORD;

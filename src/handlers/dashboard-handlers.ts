@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { REVIEW_CATEGORIES } from '../services/editorial/review-service.js';
 import { PacingAnalyzer } from '../analysis/analyzers/pacing-analyzer.js';
 import { findSubtree } from '../utils/binder-tree.js';
 import type { ToolDefinition } from './types.js';
@@ -9,6 +10,22 @@ export const APP_MIME_TYPE = 'text/html;profile=mcp-app';
 const MAX_MENTIONS = 100;
 const input = z
 	.object({
+		inboxAfter: z.string().min(1).max(160).optional().describe('Revision inbox cursor.'),
+		reviewCategory: z.enum(REVIEW_CATEGORIES).optional().describe('Revision category filter.'),
+		reviewStatus: z
+			.enum(['pending', 'reviewed', 'all'])
+			.optional()
+			.describe('Revision decision filter, default pending.'),
+		reviewQuery: z
+			.string()
+			.max(200)
+			.optional()
+			.describe('Search revision titles and rationale.'),
+		reviewDocumentId: z
+			.string()
+			.uuid()
+			.optional()
+			.describe('Limit the revision inbox to this scene.'),
 		proposalsAfter: z
 			.string()
 			.min(1)
@@ -165,6 +182,11 @@ export const dashboardHandler: ToolDefinition = {
 				description:
 					'Unresolved continuity findings with supporting revision-bound source passages.',
 			},
+			inbox: {
+				type: 'object',
+				description:
+					'Filtered revision summaries, edit decision totals and next-page cursor.',
+			},
 			proposals: {
 				type: 'array',
 				items: { type: 'object' },
@@ -309,6 +331,13 @@ export const dashboardHandler: ToolDefinition = {
 			binder,
 			scenes,
 			findings: findingPage.items,
+			inbox: review.inbox({
+				after: request.inboxAfter,
+				category: request.reviewCategory,
+				status: request.reviewStatus,
+				query: request.reviewQuery,
+				documentId: request.reviewDocumentId,
+			}),
 			proposals: history.proposals,
 			applications: history.applications,
 			historyPagination: {

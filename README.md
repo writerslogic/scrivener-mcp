@@ -238,7 +238,7 @@ limits.
 
 ## All Tools
 
-82 tools organized by workflow. MCP 2026-07-28 connections list all of them at once. On earlier
+84 tools organized by workflow. MCP 2026-07-28 connections list all of them at once. On earlier
 protocol versions, tools load progressively to keep token usage low — project tools at startup,
 document and search tools once a project is open, the rest on demand. Set
 `SCRIVENER_MCP_EAGER_TOOLS=1` to load everything up front.
@@ -483,8 +483,10 @@ hash the original supplied UTF-8 text. Large profiles also use `read_result` ref
 - **[Writing with AI](./docs/writing-with-ai.md)** -- Analysis workflows, enhancement strategies,
   memory management
 - **[Troubleshooting](./docs/troubleshooting.md)** -- Common issues and fixes
-- **[Token Optimization](./docs/token-optimization.md)** -- How the server minimizes context window
-  usage
+- **[Token Optimization](./docs/token-optimization.md)** -- Response limits and measured context
+  costs
+- **[0.14 Validation](./docs/release-validation-0.14.md)** -- Candidate evidence, supported scope
+  and remaining qualification limits
 - **[Architecture](./docs/architecture.md)** -- How the server works, module structure, data flow
 - **[Scrivener Compatibility](./docs/SCRIVENER_COMPATIBILITY.md)** -- Supported Scrivener versions,
   platforms, and format coverage
@@ -540,7 +542,7 @@ necessarily impossible through the connected AI client.
 
 | Feature | **scrivener-mcp** | [jiayun](https://github.com/jiayun/scrivener-mcp) | [TwelveTake](https://www.npmjs.com/package/@twelvetake/scrivener-mcp) | [Scrivener Assistant](https://github.com/elnino1/scrivener-assistant) | [ricopicone](https://github.com/ricopicone/scrivener-mcp) | [zaphodsdad](https://github.com/zaphodsdad/scrivener-mcp) |
 |---------|:-:|:-:|:-:|:-:|:-:|:-:|
-| Public MCP tools | 82 | 30 | 22 | 38 | 18 | 10 |
+| Public MCP tools | 84 | 30 | 22 | 38 | 18 | 10 |
 | Manuscript access | read/write | read/write | read/write | read-only; writes sidecar data/metadata | read-only by default; opt-in content/notes/synopsis writes | read-only |
 | RTF handling | formatted reads; fidelity-preserving span writes | reads/writes document content | reads/writes document content | converts RTF to text; manuscript read-only | RTF-to-text reads; snapshot-protected content writes | converts RTF to text; read-only |
 | Built-in writing analysis | readability, pacing, style, emotion, AI critique | readability, style, sentiment | continuity comparison | agent-driven five-point review workflow | no dedicated analysis tool | no dedicated analysis tool |
@@ -621,4 +623,6 @@ verifiable proof you wrote it yourself — AI accusations, settled with evidence
   <a href="./CHANGELOG.md">Changelog</a>
 </p>
 
-MCP 2026-07-28 uses `server/discover` and a stable full tool catalog. Each request supplies the protocol version and client capabilities in MCP `_meta`. `open_project` returns a `com.writerslogic/project` token in result `_meta`; include that token in subsequent project tool requests. Opening another project invalidates the previous token. Calls are serialized per stdio connection. Legacy MCP initialization and progressive skill discovery remain available.
+MCP 2026-07-28 uses `server/discover` and a stable full tool catalog. Each request supplies the protocol version and client capabilities in standard MCP `_meta`. `open_project` returns `projectHandle` in text and structured content; pass it as an ordinary argument on subsequent project tool calls. The legacy `com.writerslogic/project` request metadata token is also accepted. Handles expire on close, reopen or restart. Calls are serialized per modern stdio connection. Legacy MCP initialization, implicit project scope and progressive skill discovery remain available.
+
+Each connection admits at most 32 active or queued tool calls and 16 MiB of retained request parameters, with a burst of 120 attempts and refill of two attempts per second. Rejections are explicit and report retry guidance. Canceled queued work releases its slot; running work retains capacity until it settles. These limits do not bound total process memory, tool results or native worker allocations. Prefer the documented report page defaults and follow revision-bound continuation cursors when retrieving large reports.

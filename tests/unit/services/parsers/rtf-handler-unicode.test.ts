@@ -90,7 +90,7 @@ describe('RTFHandler plain text objects', () => {
 			await handler.writeRTF(file, { plainText: text, formattedText: [], metadata: {} });
 			expect((await handler.readRTF(file)).plainText.trim()).toBe(text);
 			await handler.writeRTF(file, {
-				plainText: 'fallback',
+				plainText: 'bold',
 				formattedText: [{ text: 'bold', style: { bold: true } }],
 			});
 			expect(await fs.promises.readFile(file, 'utf8')).toContain('\\b ');

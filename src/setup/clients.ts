@@ -1,15 +1,7 @@
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	readdirSync,
-	renameSync,
-	unlinkSync,
-	writeFileSync,
-	copyFileSync,
-} from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
-import { dirname, join, basename } from 'node:path';
+import { dirname, join } from 'node:path';
+import { publishConfigFile, readConfigFile } from './config-file.js';
 import type { ServerEntry } from './runtime.js';
 
 export const SERVER_NAME = 'scrivener';
@@ -151,8 +143,8 @@ function parseConfig(text: string | null): Parsed {
 			return { ok: false, reason: 'top level is not a JSON object' };
 		}
 		return { ok: true, value: value as Record<string, unknown> };
-	} catch (error) {
-		return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+	} catch {
+		return { ok: false, reason: 'invalid JSON syntax' };
 	}
 }
 
@@ -218,42 +210,6 @@ export function removeText(client: ClientSpec, text: string | null): ApplyResult
 	return { ok: true, text: `${JSON.stringify(parsed.value, null, 2)}\n`, changed: true };
 }
 
-function readIfExists(path: string): string | null {
-	try {
-		return readFileSync(path, 'utf8');
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-		throw error;
-	}
-}
-
-const BACKUP_MARK = '.scrivener-backup-';
-const BACKUPS_KEPT = 3;
-
-function stamp(): string {
-	return new Date().toISOString().replace(/\D/g, '').slice(0, 14);
-}
-
-function backup(path: string): string {
-	const target = `${path}${BACKUP_MARK}${stamp()}`;
-	copyFileSync(path, target);
-	const dir = dirname(path);
-	const old = readdirSync(dir)
-		.filter((f) => f.startsWith(basename(path) + BACKUP_MARK))
-		.sort();
-	for (const f of old.slice(0, Math.max(0, old.length - BACKUPS_KEPT))) {
-		unlinkSync(join(dir, f));
-	}
-	return target;
-}
-
-function atomicWrite(path: string, text: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	const tmp = `${path}.scrivener-tmp-${process.pid}`;
-	writeFileSync(tmp, text, { mode: 0o600 });
-	renameSync(tmp, path);
-}
-
 export interface ClientOutcome {
 	client: ClientSpec;
 	outcome: 'added' | 'repaired' | 'unchanged' | 'removed' | 'skipped' | 'failed';
@@ -265,15 +221,22 @@ export interface ClientOutcome {
 export function inspectClient(client: ClientSpec, entry: ServerEntry): Inspection {
 	const path = client.configPath();
 	if (!path) return { status: 'missing', detail: 'no config file; uses an install link' };
-	return inspectText(client, readIfExists(path), entry);
+	return inspectText(client, readConfigFile(path).text, entry);
 }
 
-export function configureClient(client: ClientSpec, entry: ServerEntry): ClientOutcome {
+export function configureClient(
+	client: ClientSpec,
+	entry: ServerEntry,
+	options: { repairExisting?: boolean } = {}
+): ClientOutcome {
 	const path = client.configPath();
 	if (!path) return { client, outcome: 'skipped', message: 'uses an install link' };
 	try {
-		const before = readIfExists(path);
+		const snapshot = readConfigFile(path);
+		const before = snapshot.text;
 		const wasPresent = inspectText(client, before, entry).status;
+		if (options.repairExisting === false && ['configured', 'outdated'].includes(wasPresent))
+			return { client, outcome: 'unchanged', path };
 		const result = applyText(client, before, entry);
 		if (!result.ok) {
 			return {
@@ -284,13 +247,12 @@ export function configureClient(client: ClientSpec, entry: ServerEntry): ClientO
 			};
 		}
 		if (!result.changed) return { client, outcome: 'unchanged', path };
-		const saved = before !== null ? backup(path) : undefined;
-		atomicWrite(path, result.text);
+		const publication = publishConfigFile(path, snapshot, result.text);
 		return {
 			client,
 			outcome: wasPresent === 'outdated' ? 'repaired' : 'added',
 			path,
-			backup: saved,
+			...publication,
 		};
 	} catch (error) {
 		return { client, outcome: 'failed', path, message: (error as Error).message };
@@ -301,7 +263,8 @@ export function removeFromClient(client: ClientSpec): ClientOutcome {
 	const path = client.configPath();
 	if (!path) return { client, outcome: 'skipped', message: 'remove it from the app settings' };
 	try {
-		const before = readIfExists(path);
+		const snapshot = readConfigFile(path);
+		const before = snapshot.text;
 		if (before === null) return { client, outcome: 'unchanged', path };
 		const result = removeText(client, before);
 		if (!result.ok) {
@@ -313,9 +276,8 @@ export function removeFromClient(client: ClientSpec): ClientOutcome {
 			};
 		}
 		if (!result.changed) return { client, outcome: 'unchanged', path };
-		const saved = backup(path);
-		atomicWrite(path, result.text);
-		return { client, outcome: 'removed', path, backup: saved };
+		const publication = publishConfigFile(path, snapshot, result.text);
+		return { client, outcome: 'removed', path, ...publication };
 	} catch (error) {
 		return { client, outcome: 'failed', path, message: (error as Error).message };
 	}

@@ -20,7 +20,7 @@ const RICH_RTF =
 	`Second {\\b bold} paragraph{\\Scrv_fn\\id1 a footnote\\Scrv_fn_end} here.}`;
 
 async function canonical(raw: string): Promise<string> {
-	return (await handler.parseRTF(raw)).plainText.trim();
+	return (await handler.parseRTF(raw)).plainText;
 }
 
 describe('scanRawText parity', () => {
@@ -32,7 +32,7 @@ describe('scanRawText parity', () => {
 describe('spliceRtfText', () => {
 	it('preserves a large repeated manuscript when only its final word changes', async () => {
 		const before = `${'word '.repeat(8191)}last`;
-		const raw = `{\\rtf1\\ansi{\\stylesheet{\\s1 Heading;}} ${before}}`;
+		const raw = `{\\rtf1\\ansi{\\stylesheet{\\s1 Heading;}}\\pard ${before}}`;
 		const after = before.slice(0, -4) + 'edited';
 		const result = spliceRtfText(raw, before, after);
 		expect(result).not.toBeNull();

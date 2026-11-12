@@ -1,0 +1,112 @@
+{
+	"rewrite": {
+		"documentId": "scene",
+		"original": "Mara waited.",
+		"enhanced": "Mara waited by the door.",
+		"changed": true,
+		"changes": null,
+		"suggestions": null,
+		"qualityValidation": null,
+		"metrics": {
+			"originalWordCount": 2,
+			"enhancedWordCount": 5,
+			"readabilityChange": null,
+			"changesApplied": null
+		},
+		"availability": {
+			"status": "partial",
+			"unavailableFields": [
+				"changes",
+				"suggestions",
+				"qualityValidation",
+				"metrics.changesApplied",
+				"metrics.readabilityChange"
+			]
+		},
+		"coverage": {
+			"start": 0,
+			"end": 12,
+			"sourceCharacters": 12,
+			"sourceRevision": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+			"truncated": false
+		},
+		"envelope": {
+			"requestId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"projectId": "fixture-project",
+			"createdAt": "2026-11-11T00:00:00Z",
+			"sourceFormat": "saved-rtf",
+			"scope": {
+				"kind": "document",
+				"documentIds": ["scene"]
+			},
+			"sourceRevisions": [
+				{
+					"documentId": "scene",
+					"revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+				}
+			],
+			"engine": {
+				"name": "provider",
+				"version": null,
+				"configurationHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+				"controlsHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+			},
+			"policy": {
+				"mode": "provider",
+				"usesSavedProjectControls": false,
+				"authorIntentionsApplied": false,
+				"suppressionsApplied": false,
+				"allowsRawNativeAnalysis": false,
+				"providerAccess": true,
+				"mutatesManuscript": false,
+				"revisionChecked": true
+			}
+		}
+	},
+	"unavailable": {
+		"documentId": "scene",
+		"enhanced": null,
+		"availability": {
+			"status": "unavailable",
+			"reason": "provider_failed"
+		},
+		"envelope": {
+			"requestId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"projectId": "fixture-project",
+			"createdAt": "2026-11-11T00:00:00Z",
+			"sourceFormat": "saved-rtf",
+			"scope": {
+				"kind": "document",
+				"documentIds": ["scene"]
+			},
+			"sourceRevisions": [
+				{
+					"documentId": "scene",
+					"revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+				}
+			],
+			"engine": {
+				"name": "provider",
+				"version": null,
+				"configurationHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+				"controlsHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+			},
+			"policy": {
+				"mode": "provider",
+				"usesSavedProjectControls": false,
+				"authorIntentionsApplied": false,
+				"suppressionsApplied": false,
+				"allowsRawNativeAnalysis": false,
+				"providerAccess": true,
+				"mutatesManuscript": false,
+				"revisionChecked": true
+			}
+		}
+	},
+	"spooled": {
+		"_ref": "fixture-result",
+		"_size": 10000,
+		"_preview": "{",
+		"_hint": "Use read_result for the complete retained result."
+	}
+}
