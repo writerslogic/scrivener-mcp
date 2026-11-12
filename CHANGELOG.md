@@ -28,6 +28,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Merge comparison statistics refresh
 - Correct tool counts, protocol-dependent loading and advisory exit paths
 - Remove retired Smithery installation
 - Point Draftbridge buyers to live checkout
@@ -38,6 +39,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Preserve snapshot acknowledgments and release checks
+- Harden manuscript fidelity and revision-safe review
 - Return plain-object SQLite rows and drop better-sqlite3 API from Redis check
 - Record CLI-only SQLite CVE as not present in the 3.54.1 driver
 - Ship SQLite 3.54.1 by replacing better-sqlite3 with @photostructure/sqlite
