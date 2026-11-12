@@ -71,14 +71,23 @@ ContinuityService.prototype.analyze = async function (...args) {
 			await expect(
 				run([
 					'--import',
-					preload,
+					pathToFileURL(preload).href,
 					runner,
 					'--baseline',
 					join(repository, 'docs/benchmarks/editorial-evaluation-baseline.json'),
 					'--output',
 					output,
 				])
-			).rejects.toMatchObject({ code: 1 });
+			).rejects.toMatchObject({
+				code: 1,
+				...(kind === 'evidence'
+					? {
+							stderr: expect.stringContaining(
+								'Source quotation does not match the manuscript range'
+							),
+						}
+					: {}),
+			});
 			if (kind !== 'evidence') {
 				const report = JSON.parse(await readFile(output, 'utf8'));
 				expect(report.comparison.regressions).toEqual(['narrated-color']);

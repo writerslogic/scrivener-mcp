@@ -92,7 +92,7 @@ ContinuityService.prototype.analyze = async function (...args) {
 				process.execPath,
 				[
 					'--import',
-					preload,
+					pathToFileURL(preload).href,
 					join(repository, 'scripts/benchmark-editorial.mjs'),
 					'--baseline',
 					baselinePath,
