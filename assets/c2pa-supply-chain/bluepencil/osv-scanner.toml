@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0486"
+ignoreUntil = 2027-02-01
+reason = "rustix 1.1.4 unsoundness in getxattr/lgetxattr/fgetxattr/listxattr with a zero-length buffer; fixed in 1.1.6. This Cargo.lock is the hash-pinned build record of the published bluepencil 0.2.0 (see ../upstream.json) and cannot be edited here. rustix is reached only through tempfile (create/remove) and terminal_size via clap_builder (terminal ioctl); neither calls the affected xattr functions. Refresh this record when bluepencil next publishes with rustix >= 1.1.6."

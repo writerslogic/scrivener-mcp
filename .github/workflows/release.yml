@@ -89,8 +89,13 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
-      - name: Install npm with trusted publishing support
-        run: npm install --global npm@11.21.2 --ignore-scripts
+      # Trusted publishing needs npm >= 11.5.1; Node 24's bundled npm already
+      # qualifies, so use it rather than installing an unpinned global npm.
+      - name: Require npm with trusted publishing support
+        run: |
+          npm_version="$(npm --version)"
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number);process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$npm_version" \
+            || { echo "::error::npm $npm_version lacks trusted publishing (need >= 11.5.1)"; exit 1; }
 
       - name: Verify the exact protected release source
         timeout-minutes: 3
