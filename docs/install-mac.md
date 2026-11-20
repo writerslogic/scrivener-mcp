@@ -28,7 +28,7 @@ and paste the key.
 ## What you need
 
 - A Mac with Scrivener 3
-- An AI app that supports MCP: Claude Desktop, BoltAI, Raycast, LM Studio, Cursor, or VS Code
+- An AI app that supports MCP: Claude Desktop, BoltAI, Raycast, LM Studio, Cursor, VS Code, or Grok Build
 - An account or key for that app's AI service. Draftbridge does not include one.
 
 ## Fastest: the Claude Desktop extension

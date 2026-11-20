@@ -80,6 +80,7 @@
 		"neo4j-driver": "^6.3.2",
 		"openai": "^7.61.0",
 		"pdf-lib": "^1.17.1",
+		"smol-toml": "^1.9.1",
 		"turndown": "^7.2.4",
 		"writerslogic-warm": "0.7.0",
 		"xml2js": "^0.6.2",

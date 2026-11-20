@@ -58,7 +58,7 @@ and any MCP-compatible client. Reads Scrivener 3 projects on the
 **Not a terminal person?**
 **[Draftbridge for Scrivener](https://buy.stripe.com/14A8wHbm64Y0dR8fFdc7u01)** is the ready-made
 Mac app. It finds your AI apps — Claude Desktop, BoltAI, Cursor, VS Code, LM Studio, Raycast, Claude
-Code — connects Scrivener MCP to each with one click, shows your projects, and repairs the
+Code, Grok Build — connects Scrivener MCP to each with one click, shows your projects, and repairs the
 connection after an app update. No Terminal, no Node.js, no settings files. One-time $4.99, up to 3
 Macs, signed and notarized by Apple.
 
@@ -90,8 +90,8 @@ Restart Claude Desktop and it's ready. Other clients need one more step:
 npx scrivener-setup
 ```
 
-This finds Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, and Raycast and
-configures them for you, then confirms the server starts. No Node.js on your Mac? See the
+This finds Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, Raycast, and Grok Build
+and configures them for you, then confirms the server starts. No Node.js on your Mac? See the
 [Mac install guide](./docs/install-mac.md). To set up Claude Code by hand instead:
 `claude mcp add -s user scrivener -- npx scrivener-mcp`, then restart it (or run `/mcp`).
 
