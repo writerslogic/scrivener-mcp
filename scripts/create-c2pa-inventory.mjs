@@ -672,7 +672,7 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 	const representative = components.find(
 		(component) =>
 			component.purl?.startsWith('pkg:cargo/') &&
-			!component.purl.startsWith('pkg:cargo/writerslogic-warm@')
+			!component.purl.startsWith('pkg:cargo/warm-rust@')
 	);
 	requireCondition(
 		representative && components.length <= 100_000,
@@ -686,7 +686,8 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 	);
 	await writeJSON(join(output, 'warm-native.cdx.json'), combined);
 	return [
-		{ name: 'writerslogic-warm', version: warmVersion },
+		{ name: 'warm', version: warmVersion },
+		{ name: 'warm-rust', version: warmVersion },
 		{ name: representative.name, version: representative.version },
 	];
 }

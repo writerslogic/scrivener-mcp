@@ -11,9 +11,8 @@ export function loadNativeBinding(): { module: typeof NativeModule; version: str
 	const manifest = JSON.parse(readFileSync(join(dirname(entry), 'package.json'), 'utf8')) as {
 		version?: unknown;
 	};
-	const match =
-		typeof manifest.version === 'string' ? /^0\.6\.(\d+)$/.exec(manifest.version) : null;
-	if (!match || !Number.isSafeInteger(Number(match[1])) || Number(match[1]) < 4)
+	// The adapter is verified against the pinned 0.7 line; another minor may change the store or API.
+	if (typeof manifest.version !== 'string' || !/^0\.7\.\d+$/.test(manifest.version))
 		throw new Error('Unsupported Warm package version');
 	const module = localRequire('writerslogic-warm') as typeof NativeModule;
 	if (typeof module.WarmMemorySystem !== 'function')
