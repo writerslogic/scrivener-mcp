@@ -48,7 +48,8 @@ in [Install on a Mac](./install-mac.md) instead.
 ## Which AI apps work?
 
 Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, Raycast, and Grok Build
-(xAI's terminal agent). The Grok app itself only connects to remote servers. ChatGPT's desktop app
+(xAI's terminal agent). The Grok app and other cloud clients can connect
+through [HTTP mode](./CLIENT_SETUP.md#remote-clients-over-http). ChatGPT's desktop app
 does not run local connectors like this one.
 
 ## The AI app does not show any Scrivener tools

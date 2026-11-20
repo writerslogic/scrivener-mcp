@@ -355,8 +355,8 @@ Grok Build, xAI's terminal agent, keeps its servers in `~/.grok/config.toml` (or
 the table. Start a
 new `grok` session, then run `grok mcp doctor scrivener` to confirm it connects. Grok Build also reads
 the servers in `~/.claude.json` and a project's `.mcp.json`, so a Claude Code setup may already show
-up there. The Grok app on the web and phone, and the xAI API, connect only to remote MCP servers,
-so they cannot use this local server.
+up there. The Grok app and the xAI API need a remote server: see
+[Remote clients over HTTP](#remote-clients-over-http).
 
 ## LM Studio
 
@@ -377,6 +377,32 @@ VS Code uses a different file format from the other apps: a top-level `servers` 
 `"type": "stdio"`. The setup tool handles this and writes to
 `~/Library/Application Support/Code/User/mcp.json` on a Mac. By hand, run `code --add-mcp` with the
 JSON from `npx --package scrivener-mcp scrivener-setup --links`.
+
+## Remote clients over HTTP
+
+Clients that run in the cloud, such as the Grok app and the xAI API, cannot start a program on your
+Mac. For them, run the server in HTTP mode and give the client an HTTPS address that reaches it:
+
+```bash
+npx scrivener-mcp --http            # listens on http://127.0.0.1:3917/mcp
+```
+
+- **Access token.** Every request must carry a token. The first start creates one in
+  `~/.scrivener-mcp/http-token` (owner-only), or set `SCRIVENER_MCP_TOKEN` (32 to 256 letters,
+  digits, `-` or `_`). Send it as `Authorization: Bearer <token>`. A client that cannot set headers
+  can use `/mcp/<token>` as the URL instead; that puts the token in the address, so treat the whole
+  URL as a password.
+- **Reaching it from the internet.** The server listens only on this Mac. Put an HTTPS tunnel in
+  front of it, for example `cloudflared tunnel --url http://127.0.0.1:3917`, and allow the tunnel's
+  hostname, which the server otherwise rejects to block DNS rebinding:
+  `npx scrivener-mcp --http --allowed-host your-name.trycloudflare.com`. The client URL is then
+  `https://your-name.trycloudflare.com/mcp`. If a request is refused with `Invalid Host: <name>`,
+  allow exactly that name.
+- **Options.** `--port N` (or `SCRIVENER_MCP_PORT`), `--host ADDR` to listen on another interface,
+  `--allowed-origin NAME` for a browser client on another site.
+
+Anyone with the URL and token can read and edit the projects this server can reach while it runs.
+Stop the server when you are done, and delete `~/.scrivener-mcp/http-token` to revoke the token.
 
 ## One-click install links
 
