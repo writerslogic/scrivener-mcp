@@ -351,7 +351,8 @@ there.
 
 Grok Build, xAI's terminal agent, keeps its servers in `~/.grok/config.toml` (or
 `$GROK_HOME/config.toml`). `npx --package scrivener-mcp scrivener-setup --client grok` adds a
-`[mcp_servers.scrivener]` table and leaves the rest of the file, comments included, as it was. Start a
+`[mcp_servers.scrivener]` table and leaves the rest of the file, comments included, as it was. To paste it yourself, `--print --client grok` prints
+the table. Start a
 new `grok` session, then run `grok mcp doctor scrivener` to confirm it connects. Grok Build also reads
 the servers in `~/.claude.json` and a project's `.mcp.json`, so a Claude Code setup may already show
 up there. The Grok app on the web and phone, and the xAI API, connect only to remote MCP servers,

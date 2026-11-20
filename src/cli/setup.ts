@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline/promises';
 import { homedir, platform } from 'node:os';
 import {
 	CLIENTS,
+	applyText,
 	clientById,
 	configureClient,
 	detectClients,
@@ -113,7 +114,7 @@ Usage: scrivener-setup [options]
   --client <id>    Only this app (repeatable): ${CLIENTS.map((c) => c.id).join(', ')}
   --yes, -y        Do not ask for confirmation
   --links          Print one-click install links
-  --print          Print the JSON entry for manual setup
+  --print          Print the entry for manual setup (TOML with --client grok)
   --no-verify      Skip the start-up test
   --json           Machine-readable output (schemaVersion 1)
   --node <path> --script <path>
@@ -232,7 +233,13 @@ async function main(): Promise<number> {
 	}
 
 	if (opts.print) {
-		process.stdout.write(`${JSON.stringify({ mcpServers: { scrivener: entry } }, null, 2)}\n`);
+		const toml = opts.clients.length === 1 ? clientById(opts.clients[0]) : undefined;
+		const block = toml?.format === 'toml' ? applyText(toml, null, entry) : undefined;
+		process.stdout.write(
+			block?.ok
+				? block.text
+				: `${JSON.stringify({ mcpServers: { scrivener: entry } }, null, 2)}\n`
+		);
 		return 0;
 	}
 	if (opts.links) {
