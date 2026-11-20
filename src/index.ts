@@ -53,6 +53,14 @@ import { APP_MIME_TYPE, DASHBOARD_URI, supportsApps } from './handlers/dashboard
 import { PersonalizationService } from './services/personalization/personalization-service.js';
 import { applyDiscoveredAIKeys } from './utils/env-config.js';
 import { registerSamplingServer } from './services/ai/sampling-bridge.js';
+import {
+	HttpUsageError,
+	parseHttpArgs,
+	resolveToken,
+	serveHttp,
+	tokenFile,
+	type HttpHandle,
+} from './http-server.js';
 
 // SDK 2.4 validates the opening revision but not subsequent pinned stdio requests.
 class RevisionCheckedTransport extends StdioServerTransport {
@@ -84,6 +92,17 @@ class RevisionCheckedTransport extends StdioServerTransport {
 
 const logger = getLogger('main');
 
+let httpArgs: ReturnType<typeof parseHttpArgs>;
+try {
+	httpArgs = parseHttpArgs(process.argv.slice(2));
+} catch (error) {
+	if (!(error instanceof HttpUsageError)) throw error;
+	process.stderr.write(
+		`scrivener-mcp: ${error.message}\nUsage: scrivener-mcp [--http [--port N] [--host ADDR] [--allowed-host NAME]... [--allowed-origin NAME]...]\n`
+	);
+	process.exit(2);
+}
+
 // Fill in AI provider keys (Anthropic, OpenAI, OpenRouter) from dotfiles or the
 // macOS Keychain before any AIClient is constructed; explicit env vars always win.
 applyDiscoveredAIKeys();
@@ -102,12 +121,29 @@ let context: HandlerContext;
 
 initializeSkillRegistry();
 let stdioHandle: StdioServerHandle | undefined;
-function buildServer(modern: boolean): Server {
-	let projectToken: string | undefined;
-	const admission = new ToolInvocationAdmission({
-		...TOOL_ADMISSION_LIMITS,
-		maxConcurrent: modern ? 1 : TOOL_ADMISSION_LIMITS.maxConcurrent,
-	});
+let httpHandle: HttpHandle | undefined;
+
+/** State that outlives one server instance: a stdio connection, or every HTTP request. */
+interface ServingState {
+	projectToken?: string;
+	admission: ToolInvocationAdmission;
+	/** HTTP serves each request from a fresh instance, so there is no client back-channel. */
+	stateless: boolean;
+	toolsChanged?: () => void;
+}
+
+function connectionState(modern: boolean): ServingState {
+	return {
+		admission: new ToolInvocationAdmission({
+			...TOOL_ADMISSION_LIMITS,
+			maxConcurrent: modern ? 1 : TOOL_ADMISSION_LIMITS.maxConcurrent,
+		}),
+		stateless: false,
+	};
+}
+
+function buildServer(modern: boolean, state: ServingState = connectionState(modern)): Server {
+	const { admission } = state;
 	const server = new Server(
 		{
 			name: 'scrivener-mcp',
@@ -130,7 +166,7 @@ function buildServer(modern: boolean): Server {
 	// Let AIClient reach the client's own model via sampling/createMessage when
 	// the connected MCP client supports it (checked per call, post-handshake).
 	registerSamplingServer(
-		modern
+		modern || state.stateless
 			? null
 			: {
 					getClientCapabilities: () => server.getClientCapabilities(),
@@ -233,9 +269,12 @@ function buildServer(modern: boolean): Server {
 					if ((modern && context.project) || suppliedHandle !== undefined) {
 						if (
 							!context.project ||
-							!projectToken ||
+							!state.projectToken ||
 							typeof suppliedHandle !== 'string' ||
-							!timingSafeEqual(Buffer.from(suppliedHandle), Buffer.from(projectToken))
+							!timingSafeEqual(
+								Buffer.from(suppliedHandle),
+								Buffer.from(state.projectToken)
+							)
 						)
 							throw new HandlerError(
 								'Supply projectHandle returned by open_project; the handle is missing, stale, or belongs to another project scope.',
@@ -248,10 +287,10 @@ function buildServer(modern: boolean): Server {
 					signal: extra.mcpReq.signal,
 				});
 				if (name === 'open_project' && context.project && !result.isError) {
-					projectToken = randomUUID();
+					state.projectToken = randomUUID();
 					if (!modern) activateSkills('documents', 'search', 'memory');
 				}
-				if (name === 'close_project' && !result.isError) projectToken = undefined;
+				if (name === 'close_project' && !result.isError) state.projectToken = undefined;
 
 				// Preserve isError so the client can tell a failed tool call (e.g. a
 				// handler reporting an unavailable database) from a successful one;
@@ -266,26 +305,28 @@ function buildServer(modern: boolean): Server {
 					response.structuredContent = result.structuredContent;
 				}
 				if (
-					projectToken &&
+					state.projectToken &&
 					!result.isError &&
 					(name === 'open_project' || name === 'manuscript_dashboard')
 				) {
 					response.structuredContent = {
 						...result.structuredContent,
-						projectHandle: projectToken,
+						projectHandle: state.projectToken,
 					};
 					if (name === 'open_project')
 						response.content = [
 							...result.content,
 							{
 								type: 'text',
-								text: `Project handle: ${projectToken}. Supply it as projectHandle on subsequent project calls.`,
+								text: `Project handle: ${state.projectToken}. Supply it as projectHandle on subsequent project calls.`,
 							},
 						];
 				}
 				response._meta = {
 					...result._meta,
-					...(modern && projectToken ? { 'com.writerslogic/project': projectToken } : {}),
+					...(modern && state.projectToken
+						? { 'com.writerslogic/project': state.projectToken }
+						: {}),
 					'com.writerslogic/operation': {
 						id: operationId,
 						durationMs: Math.round(performance.now() - started),
@@ -340,7 +381,10 @@ function buildServer(modern: boolean): Server {
 				};
 			} finally {
 				const revision = getToolCatalogRevision();
-				if (!modern && revision !== advertisedToolRevision) {
+				if (state.toolsChanged && revision !== advertisedToolRevision) {
+					advertisedToolRevision = revision;
+					state.toolsChanged();
+				} else if (!modern && revision !== advertisedToolRevision) {
 					advertisedToolRevision = revision;
 					try {
 						await server.sendToolListChanged();
@@ -406,6 +450,28 @@ async function main() {
 
 	cleanupAbandonedSpoolDirs();
 	cleanupSpool();
+	if (httpArgs) {
+		const shared: ServingState = {
+			admission: new ToolInvocationAdmission(TOOL_ADMISSION_LIMITS),
+			stateless: true,
+			toolsChanged: () => httpHandle?.toolsChanged(),
+		};
+		const token = resolveToken();
+		httpHandle = await serveHttp(
+			({ era }) => buildServer(era === 'modern', shared),
+			{ ...httpArgs, token },
+			(error) => logger.warn('MCP HTTP request rejected', { reason: error.message })
+		);
+		logger.info('Scrivener MCP Server started', { transport: 'http', url: httpHandle.url });
+		// The token is a secret: show it only to a person at a terminal, never to a log file.
+		if (process.stderr.isTTY && !process.env.SCRIVENER_MCP_TOKEN)
+			process.stderr.write(
+				`\nScrivener MCP is listening on ${httpHandle.url}\n` +
+					`Send "Authorization: Bearer <token>", or use ${httpHandle.url}/<token> where a\n` +
+					`client cannot set headers. The token is in ${tokenFile()}.\n\n`
+			);
+		return;
+	}
 	stdioHandle = serveStdio(({ era }) => buildServer(era === 'modern'), {
 		transport: new RevisionCheckedTransport(),
 		onerror: () => logger.warn('MCP transport rejected a message'),
@@ -421,6 +487,9 @@ async function shutdown(): Promise<void> {
 	const operations = [
 		async () => {
 			await stdioHandle?.close();
+		},
+		async () => {
+			await httpHandle?.close();
 		},
 		async () => {
 			if (context) await cleanupPendingProjects(context);
@@ -453,7 +522,8 @@ async function shutdown(): Promise<void> {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
-process.stdin.once('end', shutdown);
+// A stdio client ends the session by closing stdin; an HTTP server may run with no stdin at all.
+if (!httpArgs) process.stdin.once('end', shutdown);
 
 // Error handling
 process.on('uncaughtException', (error) => {
