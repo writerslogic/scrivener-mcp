@@ -18,8 +18,8 @@ server once to prove it works:
 npx --package scrivener-mcp scrivener-setup
 ```
 
-It supports Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, and BoltAI, and opens an
-install dialog for Raycast. What it does for you:
+It supports Claude Desktop, Claude Code, Cursor, VS Code, LM Studio, BoltAI, and Grok Build, and opens
+an install dialog for Raycast. What it does for you:
 
 - **Fixes PATH problems.** Apps on macOS do not see your shell's PATH, which is the usual reason a
   server "fails to start". The tool writes the full path to `npx` and the matching PATH into each
@@ -346,6 +346,17 @@ BoltAI keeps its servers in `~/.boltai/mcp.json`.
 **Settings > Plugins**, click the **...** menu, and choose **Reload Config**. You can also choose
 **Import from Claude** or **Import from Cursor** in the same menu to copy servers you already set up
 there.
+
+## Grok Build
+
+Grok Build, xAI's terminal agent, keeps its servers in `~/.grok/config.toml` (or
+`$GROK_HOME/config.toml`). `npx --package scrivener-mcp scrivener-setup --client grok` adds a
+`[mcp_servers.scrivener]` table and leaves the rest of the file, comments included, as it was. To paste it yourself, `--print --client grok` prints
+the table. Start a
+new `grok` session, then run `grok mcp doctor scrivener` to confirm it connects. Grok Build also reads
+the servers in `~/.claude.json` and a project's `.mcp.json`, so a Claude Code setup may already show
+up there. The Grok app on the web and phone, and the xAI API, connect only to remote MCP servers,
+so they cannot use this local server.
 
 ## LM Studio
 

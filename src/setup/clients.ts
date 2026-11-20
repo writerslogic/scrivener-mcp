@@ -3,17 +3,27 @@ import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { publishConfigFile, readConfigFile } from './config-file.js';
 import type { ServerEntry } from './runtime.js';
+import { applyToml, inspectToml, removeToml, sameValue, withUserSettings } from './toml-config.js';
 
 export const SERVER_NAME = 'scrivener';
 
 export type ClientId =
-	'claude-desktop' | 'claude-code' | 'cursor' | 'vscode' | 'lm-studio' | 'boltai' | 'raycast';
+	| 'claude-desktop'
+	| 'claude-code'
+	| 'cursor'
+	| 'vscode'
+	| 'lm-studio'
+	| 'boltai'
+	| 'raycast'
+	| 'grok';
 
 export interface ClientSpec {
 	id: ClientId;
 	name: string;
 	/** Top-level key that holds the server map. */
-	rootKey: 'mcpServers' | 'servers';
+	rootKey: 'mcpServers' | 'servers' | 'mcp_servers';
+	/** Config file syntax; JSON unless stated. */
+	format?: 'json' | 'toml';
 	/** Absolute config path, or null when the client has no file (Raycast) or this OS. */
 	configPath: () => string | null;
 	/** Paths whose existence shows the client is installed. */
@@ -32,6 +42,11 @@ function appSupport(...parts: string[]): string {
 
 function appData(...parts: string[]): string {
 	return join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), ...parts);
+}
+
+function grokHome(): string {
+	const configured = process.env.GROK_HOME;
+	return configured && configured.trim() ? configured : join(home, '.grok');
 }
 
 function apps(...names: string[]): string[] {
@@ -106,6 +121,15 @@ export const CLIENTS: ClientSpec[] = [
 		markers: () => (os === 'darwin' ? apps('Raycast.app') : []),
 		restartHint: 'Confirm the Install Server dialog that Raycast opens.',
 	},
+	{
+		id: 'grok',
+		name: 'Grok Build',
+		rootKey: 'mcp_servers',
+		format: 'toml',
+		configPath: () => join(grokHome(), 'config.toml'),
+		markers: () => [grokHome(), join(grokHome(), 'bin', 'grok')],
+		restartHint: 'Start a new grok session; `grok mcp list` should show scrivener.',
+	},
 ];
 
 export function clientById(id: string): ClientSpec | undefined {
@@ -166,6 +190,17 @@ export function inspectText(
 	text: string | null,
 	entry: ServerEntry
 ): Inspection {
+	if (client.format === 'toml') {
+		const found = inspectToml(text, SERVER_NAME);
+		if (!found.ok) return { status: 'unreadable', detail: found.reason };
+		if (!found.present) return { status: 'missing' };
+		return sameValue(
+			found.current,
+			withUserSettings(found.current, desiredEntry(client, entry))
+		)
+			? { status: 'configured' }
+			: { status: 'outdated' };
+	}
 	const parsed = parseConfig(text);
 	if (!parsed.ok) return { status: 'unreadable', detail: parsed.reason };
 	const map = serverMap(parsed.value, client.rootKey);
@@ -186,6 +221,7 @@ export function applyText(
 	text: string | null,
 	entry: ServerEntry
 ): ApplyResult {
+	if (client.format === 'toml') return applyToml(text, SERVER_NAME, desiredEntry(client, entry));
 	const parsed = parseConfig(text);
 	if (!parsed.ok) return { ok: false, reason: parsed.reason };
 	const map = serverMap(parsed.value, client.rootKey);
@@ -200,6 +236,7 @@ export function applyText(
 
 /** Pure: return the config text with the scrivener entry removed. */
 export function removeText(client: ClientSpec, text: string | null): ApplyResult {
+	if (client.format === 'toml') return removeToml(text, SERVER_NAME);
 	const parsed = parseConfig(text);
 	if (!parsed.ok) return { ok: false, reason: parsed.reason };
 	const map = serverMap(parsed.value, client.rootKey);
@@ -216,6 +253,12 @@ export interface ClientOutcome {
 	path?: string;
 	backup?: string;
 	message?: string;
+}
+
+function untouched(client: ClientSpec, path: string, reason: string): string {
+	return client.format === 'toml'
+		? `Left ${path} untouched: ${reason}. Fix or move it, then run setup again.`
+		: `Left ${path} untouched because it is not valid JSON (${reason}). Fix or move it, then run setup again.`;
 }
 
 export function inspectClient(client: ClientSpec, entry: ServerEntry): Inspection {
@@ -243,7 +286,7 @@ export function configureClient(
 				client,
 				outcome: 'failed',
 				path,
-				message: `Left ${path} untouched because it is not valid JSON (${result.reason}). Fix or move it, then run setup again.`,
+				message: untouched(client, path, result.reason),
 			};
 		}
 		if (!result.changed) return { client, outcome: 'unchanged', path };
@@ -272,7 +315,7 @@ export function removeFromClient(client: ClientSpec): ClientOutcome {
 				client,
 				outcome: 'failed',
 				path,
-				message: `Left ${path} untouched because it is not valid JSON (${result.reason}). Fix or move it, then run setup again.`,
+				message: untouched(client, path, result.reason),
 			};
 		}
 		if (!result.changed) return { client, outcome: 'unchanged', path };

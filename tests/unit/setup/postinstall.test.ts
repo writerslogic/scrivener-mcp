@@ -8,6 +8,7 @@ import {
 	readFileSync,
 	readdirSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -38,11 +39,17 @@ beforeEach(() => {
 		join(sourceRoot, 'scripts/postinstall.cjs'),
 		join(directory, 'scripts/postinstall.cjs')
 	);
-	for (const name of ['clients', 'config-file'])
+	for (const name of ['clients', 'config-file', 'toml-config'])
 		copyFileSync(
 			join(sourceRoot, `src/setup/${name}.ts`),
 			join(directory, `dist/setup/${name}.ts`)
 		);
+	mkdirSync(join(directory, 'node_modules'));
+	symlinkSync(
+		join(sourceRoot, 'node_modules', 'smol-toml'),
+		join(directory, 'node_modules', 'smol-toml'),
+		'junction'
+	);
 });
 afterEach(() => rmSync(directory, { recursive: true, force: true }));
 
