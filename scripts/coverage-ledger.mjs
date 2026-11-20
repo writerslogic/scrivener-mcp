@@ -401,7 +401,10 @@ export async function captureReceiptInputs(repository) {
 	// Entries are classified from their directory listing and files are read
 	// through a no-follow descriptor, so no path is checked and then reopened.
 	async function readRegular(absolute, path) {
-		const handle = await open(absolute, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+		const handle = await open(
+			absolute,
+			constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
+		);
 		try {
 			if (!(await handle.stat()).isFile()) throw notRegular(path);
 			return await handle.readFile();

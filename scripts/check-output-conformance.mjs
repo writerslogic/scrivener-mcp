@@ -1093,7 +1093,10 @@ function manifest(repository, locations) {
 	// Entries are classified from their directory listing and files are read
 	// through a no-follow descriptor, so no path is checked and then reopened.
 	function readRegular(absolute, relative) {
-		const fd = fs.openSync(absolute, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+		const fd = fs.openSync(
+			absolute,
+			fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0)
+		);
 		try {
 			if (!fs.fstatSync(fd).isFile())
 				throw new Error(`Evidence input must be a regular file: ${relative}`);

@@ -43,10 +43,13 @@ export function readConfigFile(path: string): ConfigSnapshot {
 	const notRegular = 'Client configuration must be a regular file, not a symlink.';
 	// Open before inspecting so every check applies to the descriptor that is read;
 	// the path is re-inspected afterwards only to reject a symlink where
-	// O_NOFOLLOW is unavailable (Windows).
+	// O_NOFOLLOW is unavailable (Windows). O_NONBLOCK keeps a FIFO from blocking open.
 	let fd: number;
 	try {
-		fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+		fd = openSync(
+			path,
+			constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
+		);
 	} catch (error) {
 		const code = (error as NodeJS.ErrnoException).code;
 		if (code === 'ENOENT') return { text: null, bytes: null, stat: null };
