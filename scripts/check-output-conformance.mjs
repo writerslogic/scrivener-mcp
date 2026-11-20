@@ -1090,17 +1090,41 @@ export function assessThrown(error, expectedError) {
 
 function manifest(repository, locations) {
 	const files = [];
-	function walk(relative) {
-		const absolute = path.join(repository, relative);
-		const stat = fs.lstatSync(absolute);
-		if (stat.isSymbolicLink())
-			throw new Error(`Evidence input must not be a symlink: ${relative}`);
-		if (stat.isDirectory()) {
-			for (const entry of fs.readdirSync(absolute).sort()) walk(path.join(relative, entry));
-		} else if (stat.isFile())
-			files.push({ path: relative, sha256: digest(fs.readFileSync(absolute)) });
+	// Entries are classified from their directory listing and files are read
+	// through a no-follow descriptor, so no path is checked and then reopened.
+	function readRegular(absolute, relative) {
+		const fd = fs.openSync(
+			absolute,
+			fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0)
+		);
+		try {
+			if (!fs.fstatSync(fd).isFile())
+				throw new Error(`Evidence input must be a regular file: ${relative}`);
+			return fs.readFileSync(fd);
+		} finally {
+			fs.closeSync(fd);
+		}
 	}
-	for (const location of locations) walk(location);
+	function walk(relative, entry) {
+		const absolute = path.join(repository, relative);
+		if (entry.isSymbolicLink())
+			throw new Error(`Evidence input must not be a symlink: ${relative}`);
+		if (entry.isDirectory()) {
+			const children = fs
+				.readdirSync(absolute, { withFileTypes: true })
+				.sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+			for (const child of children) walk(path.join(relative, child.name), child);
+		} else if (entry.isFile())
+			files.push({ path: relative, sha256: digest(readRegular(absolute, relative)) });
+	}
+	for (const location of locations) {
+		const absolute = path.join(repository, location);
+		const entry = fs
+			.readdirSync(path.dirname(absolute), { withFileTypes: true })
+			.find((candidate) => candidate.name === path.basename(absolute));
+		if (!entry) throw new Error(`Evidence input is missing: ${location}`);
+		walk(location, entry);
+	}
 	files.sort((a, b) => a.path.localeCompare(b.path));
 	return { sha256: jsonDigest(files), files };
 }

@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-11-03/dependencies",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-11-09T02:27:23.000Z",
-  "version": 7,
+  "timestamp": "2026-11-20T06:21:36.000Z",
+  "version": 8,
   "statements": [
     {
       "vulnerability": {
@@ -153,6 +153,62 @@
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "The only remaining SQLite 3.53.4 copy is the one compiled into Node 24.22.2 (process.versions.sqlite), reachable solely through node:sqlite, which neither src/ nor any production dependency imports. The server's SQLite driver is @photostructure/sqlite, which bundles its own SQLite 3.54.1 that already contains this fix; it does not load Node's copy. fts5MergeRowidLists() additionally requires a prefix MATCH over a detail=none FTS5 table. https://github.com/sqlite/sqlite/commit/e1c9934f9f11a499029abb020ea715a08970da80 . Remove this statement once every supported Node release bundles SQLite 3.54.0 or newer. Exact sqlite 3.53.4 product only; reassess any node:sqlite or dependency change."
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-95692",
+        "name": "CVE-2026-95692"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "AES-GCM-SIV IV-length out-of-bounds read. AES-GCM-SIV is reachable from Node only through crypto.createCipheriv/createDecipheriv with an \"aes-*-gcm-siv\" cipher name. The only cipher scrivener-mcp creates is aes-256-cbc (src/services/content-credentials/key-policy.ts), and no installed package references gcm-siv; the c2pa binding is WebAssembly and does not link Node OpenSSL. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261110.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-88823",
+        "name": "CVE-2026-88823"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "AES-GCM-SIV zero-length AAD reset. AES-GCM-SIV is reachable from Node only through crypto.createCipheriv/createDecipheriv with an \"aes-*-gcm-siv\" cipher name. The only cipher scrivener-mcp creates is aes-256-cbc (src/services/content-credentials/key-policy.ts), and no installed package references gcm-siv; the c2pa binding is WebAssembly and does not link Node OpenSSL. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261110.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-95691",
+        "name": "CVE-2026-95691"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Use-after-free in the OpenSSL QUIC client. Node does not use the OpenSSL QUIC stack: its experimental node:quic is built on ngtcp2 (nodejs/node src/quic) and node src references no OSSL_QUIC method. scrivener-mcp never imports node:quic or passes --experimental-quic. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261110.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-107496",
+        "name": "CVE-2026-107496"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CMS_encrypt()/CMS_encrypt_ex() infinite loop. Node exposes no CMS API (nodejs/node src contains no CMS_ calls), and the advisory states the OpenSSL TLS and QUIC implementations do not use this path. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261110.txt"
     }
   ]
 }

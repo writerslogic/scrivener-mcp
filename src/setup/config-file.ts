@@ -40,22 +40,31 @@ function sameRevision(a: Stats, b: Stats): boolean {
 }
 
 export function readConfigFile(path: string): ConfigSnapshot {
-	let stat: Stats;
+	const notRegular = 'Client configuration must be a regular file, not a symlink.';
+	// Open before inspecting so every check applies to the descriptor that is read;
+	// the path is re-inspected afterwards only to reject a symlink where
+	// O_NOFOLLOW is unavailable (Windows). O_NONBLOCK keeps a FIFO from blocking open.
+	let fd: number;
 	try {
-		stat = lstatSync(path);
+		fd = openSync(
+			path,
+			constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
+		);
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === 'ENOENT')
-			return { text: null, bytes: null, stat: null };
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === 'ENOENT') return { text: null, bytes: null, stat: null };
+		if (code === 'ELOOP' || code === 'EISDIR') throw new Error(notRegular, { cause: error });
 		throw error;
 	}
-	if (!stat.isFile())
-		throw new Error('Client configuration must be a regular file, not a symlink.');
-	if (stat.size > MAX_CONFIG_BYTES)
-		throw new Error(`Client configuration exceeds the ${MAX_CONFIG_BYTES}-byte limit.`);
-	const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
 	try {
-		if (!sameRevision(stat, fstatSync(fd)))
+		const stat = fstatSync(fd);
+		if (!stat.isFile()) throw new Error(notRegular);
+		const link = lstatSync(path);
+		if (link.isSymbolicLink()) throw new Error(notRegular);
+		if (!sameRevision(stat, link))
 			throw new Error('Client configuration changed while reading. Run setup again.');
+		if (stat.size > MAX_CONFIG_BYTES)
+			throw new Error(`Client configuration exceeds the ${MAX_CONFIG_BYTES}-byte limit.`);
 		const buffer = Buffer.alloc(stat.size + 1);
 		let length = 0;
 		while (length < buffer.length) {

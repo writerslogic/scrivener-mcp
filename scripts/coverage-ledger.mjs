@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { constants } from 'node:fs';
+import { mkdir, open, readFile, readdir, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import ts from 'typescript';
@@ -396,16 +397,40 @@ const EXTRA_CASES = new Map([
 
 export async function captureReceiptInputs(repository) {
 	const inputs = {};
-	async function walk(path) {
-		const absolute = join(repository, path);
-		const stat = await lstat(absolute);
-		if (stat.isSymbolicLink()) throw new Error(`Receipt input must not be a symlink: ${path}`);
-		if (stat.isDirectory()) {
-			for (const name of (await readdir(absolute)).sort()) await walk(`${path}/${name}`);
-		} else if (stat.isFile()) inputs[path] = sha256(await readFile(absolute));
-		else throw new Error(`Receipt input must be a regular file: ${path}`);
+	const notRegular = (path) => new Error(`Receipt input must be a regular file: ${path}`);
+	// Entries are classified from their directory listing and files are read
+	// through a no-follow descriptor, so no path is checked and then reopened.
+	async function readRegular(absolute, path) {
+		const handle = await open(
+			absolute,
+			constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
+		);
+		try {
+			if (!(await handle.stat()).isFile()) throw notRegular(path);
+			return await handle.readFile();
+		} finally {
+			await handle.close();
+		}
 	}
-	for (const path of RECEIPT_INPUTS) await walk(path);
+	async function walk(path, entry) {
+		const absolute = join(repository, path);
+		if (entry.isSymbolicLink()) throw new Error(`Receipt input must not be a symlink: ${path}`);
+		if (entry.isDirectory()) {
+			const children = (await readdir(absolute, { withFileTypes: true })).sort((x, y) =>
+				x.name < y.name ? -1 : x.name > y.name ? 1 : 0
+			);
+			for (const child of children) await walk(`${path}/${child.name}`, child);
+		} else if (entry.isFile()) inputs[path] = sha256(await readRegular(absolute, path));
+		else throw notRegular(path);
+	}
+	for (const path of RECEIPT_INPUTS) {
+		const absolute = join(repository, path);
+		const entry = (await readdir(dirname(absolute), { withFileTypes: true })).find(
+			(candidate) => candidate.name === basename(absolute)
+		);
+		if (!entry) throw new Error(`Receipt input is missing: ${path}`);
+		await walk(path, entry);
+	}
 	return Object.fromEntries(Object.entries(inputs).sort(([a], [b]) => a.localeCompare(b)));
 }
 
