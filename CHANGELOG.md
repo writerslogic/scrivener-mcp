@@ -6,12 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 ## [Unreleased]
 
 ### Fixed
+- Accept the Warm 0.7 line and its renamed native SBOM component
 - Disposition remaining Scorecard Rust advisories
 - Open config and evidence inputs non-blocking so a FIFO cannot hang
 - Record OpenSSL 3.5.9 advisories as outside the Node runtime execute path
 - Clear CI advisory gate and open code scanning alerts
 
 ### Deps
+- Bump writerslogic-warm to 0.7.0 and repin its release evidence
 - Hold typescript-eslint at 8.72.2 so npm 10 can install the lockfile
 - Bump minor and patch dependencies except writerslogic-warm
 ## [0.14.0] - 2026-11-12
