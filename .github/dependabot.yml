@@ -16,6 +16,13 @@ updates:
     commit-message:
       prefix: "deps(javascript)"
       include: "scope"
+    ignore:
+      # typescript-eslint 8.73 adds a TypeScript 7.1-dev optional peer that npm 10
+      # (Node 22) cannot reconcile with the lockfile, failing npm ci. Re-check 8.74+.
+      - dependency-name: "typescript-eslint"
+        versions: [">=8.73.0 <8.74.0"]
+      - dependency-name: "@typescript-eslint/*"
+        versions: [">=8.73.0 <8.74.0"]
     groups:
       all-minor-patch:
         patterns:
