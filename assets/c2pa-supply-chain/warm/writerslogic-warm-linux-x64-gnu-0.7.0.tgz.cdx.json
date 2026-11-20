@@ -2,9 +2,9 @@
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
   "version": 1,
-  "serialNumber": "urn:uuid:23e024d3-1b2c-42cc-ab70-886a3b67e7ec",
+  "serialNumber": "urn:uuid:b932717b-3848-487e-ae5e-eee4b9211cd8",
   "metadata": {
-    "timestamp": "2026-10-31T03:19:45.415783533Z",
+    "timestamp": "2026-11-19T07:03:06.166186270Z",
     "tools": [
       {
         "vendor": "CycloneDX",
@@ -20,22 +20,22 @@
     ],
     "component": {
       "type": "application",
-      "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4",
+      "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0",
       "author": "WritersLogic, Inc. <david@writerslogic.com>",
-      "name": "writerslogic-warm",
-      "version": "0.6.4",
-      "description": "Local-first search engine and agent memory: fast approximate nearest-neighbor and BM25 full-text search, encrypted stores, provable deletion, built on vector-symbolic architectures.",
+      "name": "warm-rust",
+      "version": "0.7.0",
+      "description": "Local-first search engine and agent memory: graph ANN and BM25 full-text search, optional encrypted stores, deletion with verified compaction (not secure erasure), and a vector-symbolic fact layer.",
       "scope": "required",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
-      "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.",
+      "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.",
       "externalReferences": [
         {
           "type": "documentation",
-          "url": "https://docs.rs/writerslogic-warm"
+          "url": "https://docs.rs/warm-rust"
         },
         {
           "type": "website",
@@ -49,374 +49,395 @@
       "components": [
         {
           "type": "library",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-0",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-0",
           "name": "writerslogic_warm",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/lib.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/lib.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-1",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-1",
           "name": "algebraic-codebook-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/algebraic-codebook-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/algebraic-codebook-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-2",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-2",
           "name": "amp-decode",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/amp-decode.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/amp-decode.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-3",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-3",
           "name": "ann-failure-map",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/ann-failure-map.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/ann-failure-map.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-4",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-4",
           "name": "base-residual",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/base-residual.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/base-residual.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-5",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-5",
           "name": "bilinear-readout",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/bilinear-readout.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/bilinear-readout.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-6",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-6",
           "name": "binding-baselines",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/binding-baselines.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/binding-baselines.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-7",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-7",
           "name": "binding-discriminator",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/binding-discriminator.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/binding-discriminator.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-8",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-8",
           "name": "block-recovery-test",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/block-recovery-test.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/block-recovery-test.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-9",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-9",
           "name": "bloom-wall",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/bloom-wall.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/bloom-wall.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-10",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-10",
           "name": "bundle-subset-sweep",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/bundle-subset-sweep.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/bundle-subset-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-11",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-11",
           "name": "capacity-campaign",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/capacity-campaign.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/capacity-campaign.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-12",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-12",
           "name": "conversation-eval",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/conversation-eval.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/conversation-eval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-13",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-13",
           "name": "document-search-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/document-search-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/document-search-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-14",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-14",
           "name": "durability-driver",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/durability-driver.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/durability-driver.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-15",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-15",
           "name": "embed-store-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#benchmarks/embedding/embed_store_bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#benchmarks/embedding/embed_store_bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-16",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-16",
           "name": "encoder-eval",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/encoder-eval.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/encoder-eval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-17",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-17",
           "name": "fixed-point-holographic",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/fixed-point-holographic.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/fixed-point-holographic.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-18",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-18",
           "name": "forget-experiment",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/forget-experiment.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/forget-experiment.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-19",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-19",
+          "name": "fpe-timestamps-eval",
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/fpe-timestamps-eval.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-20",
           "name": "kernel-capacity-sweep",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/kernel-capacity-sweep.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/kernel-capacity-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-20",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-21",
           "name": "kernel-load-curve",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/kernel-load-curve.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/kernel-load-curve.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-21",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-22",
+          "name": "kmer-eval",
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/kmer-eval.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-23",
           "name": "memory-api-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/memory-api-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/memory-api-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-22",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-24",
           "name": "memory-api-lme",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/memory-api-lme.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/memory-api-lme.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-23",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-25",
           "name": "noisy-retrieval",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/noisy-retrieval.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/noisy-retrieval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-24",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-26",
           "name": "operand-retriever",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/operand-retriever.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/operand-retriever.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-25",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-27",
           "name": "pinv-memory",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/pinv-memory.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/pinv-memory.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-26",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-28",
           "name": "private-query-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/private-query-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/private-query-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-27",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-29",
           "name": "private-rank-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/private-rank-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/private-rank-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-28",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-30",
           "name": "public-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/public-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/public-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-29",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-31",
           "name": "qag-diagnose",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/qag-diagnose.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/qag-diagnose.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-30",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-32",
+          "name": "qgraph-repair-bench",
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/qgraph-repair-bench.rs"
+        },
+        {
+          "type": "application",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-33",
           "name": "resonator-bundle",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-bundle.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/resonator-bundle.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-31",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-34",
           "name": "resonator-cleanup",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-cleanup.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/resonator-cleanup.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-32",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-35",
           "name": "resonator-factorize",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-factorize.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/resonator-factorize.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-33",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-36",
           "name": "resonator-sweep",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/resonator-sweep.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/resonator-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-34",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-37",
           "name": "ridge-memory",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/ridge-memory.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/ridge-memory.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-35",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-38",
           "name": "route-sweep",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/route-sweep.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/route-sweep.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-36",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-39",
           "name": "security-probe",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/security-probe.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/security-probe.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-37",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-40",
           "name": "sparse-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/sparse-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/sparse-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-38",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-41",
           "name": "vector-glove-development",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#benchmarks/public/vector_glove_development.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#benchmarks/public/vector_glove_development.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-39",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-42",
           "name": "vector-glove-diagnosis",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#benchmarks/public/vector_glove_diagnosis.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#benchmarks/public/vector_glove_diagnosis.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-40",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-43",
           "name": "vibe-rotation",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/vibe-rotation.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/vibe-rotation.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-41",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-44",
           "name": "warm-admin",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-admin.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/warm-admin.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-42",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-45",
           "name": "warm-benchmark-suite",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-benchmark-suite.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/warm-benchmark-suite.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-43",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-46",
           "name": "warm-embed",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-embed.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/warm-embed.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-44",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-47",
           "name": "warm-eval",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-eval.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/warm-eval.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-45",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-48",
           "name": "warm-format",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-format.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/warm-format.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-46",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-49",
           "name": "warm-mcp",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-mcp.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/warm-mcp.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-47",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-50",
           "name": "warm-research-bench",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-research-bench.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/warm-research-bench.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-48",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-51",
           "name": "warm-scaling",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-scaling.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/warm-scaling.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-49",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-52",
           "name": "warm-server",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/warm-server/main.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/warm-server/main.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-50",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-53",
           "name": "warm-stress",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-stress.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/warm-stress.rs"
         },
         {
           "type": "application",
-          "bom-ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4 bin-target-51",
+          "bom-ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0 bin-target-54",
           "name": "warm-workload",
-          "version": "0.6.4",
-          "purl": "pkg:cargo/writerslogic-warm@0.6.4?download_url=file://.#src/bin/research/warm-workload.rs"
+          "version": "0.7.0",
+          "purl": "pkg:cargo/warm-rust@0.7.0?download_url=file://.#src/bin/research/warm-workload.rs"
         }
       ]
     },
     "properties": [
       {
         "name": "cdx:rustc:sbom:target:triple",
-        "value": "aarch64-unknown-linux-gnu"
+        "value": "x86_64-unknown-linux-gnu"
       }
     ]
   },
@@ -648,6 +669,37 @@
     },
     {
       "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#base64@0.23.1",
+      "author": "Marshall Pierce <marshall@mpierce.org>",
+      "name": "base64",
+      "version": "0.23.1",
+      "description": "encodes and decodes base64 as bytes or utf8",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/base64@0.23.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/base64"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/marshallpierce/rust-base64"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#base64ct@1.8.3",
       "author": "RustCrypto Developers",
       "name": "base64ct",
@@ -678,68 +730,6 @@
         {
           "type": "vcs",
           "url": "https://github.com/RustCrypto/formats"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#bincode@2.0.1",
-      "author": "Ty Overby <ty@pre-alpha.com>, Zoey Riordan <zoey@dos.cafe>, Victor Koenders <bincode@trangar.com>",
-      "name": "bincode",
-      "version": "2.0.1",
-      "description": "A binary serialization / deserialization strategy for transforming structs into bytes and vice versa!",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
-        }
-      ],
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ],
-      "purl": "pkg:cargo/bincode@2.0.1",
-      "externalReferences": [
-        {
-          "type": "documentation",
-          "url": "https://docs.rs/bincode"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/bincode-org/bincode"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#bincode_derive@2.0.1",
-      "author": "Zoey Riordan <zoey@dos.cafe>, Victor Koenders <bincode@trangar.com>",
-      "name": "bincode_derive",
-      "version": "2.0.1",
-      "description": "Implementation of #[derive(Encode, Decode)] for bincode",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
-        }
-      ],
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ],
-      "purl": "pkg:cargo/bincode_derive@2.0.1",
-      "externalReferences": [
-        {
-          "type": "documentation",
-          "url": "https://docs.rs/bincode_derive"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/bincode-org/bincode"
         }
       ]
     },
@@ -922,6 +912,99 @@
         {
           "type": "vcs",
           "url": "https://github.com/RustCrypto/stream-ciphers"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ciborium-io@0.2.2",
+      "author": "Nathaniel McCallum <npmccallum@profian.com>",
+      "name": "ciborium-io",
+      "version": "0.2.2",
+      "description": "Simplified Read/Write traits for no_std usage",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "05afea1e0a06c9be33d539b876f1ce3692f4afea2cb41f740e7743225ed1c757"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/ciborium-io@0.2.2",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/enarx/ciborium"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/enarx/ciborium"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ciborium-ll@0.2.2",
+      "author": "Nathaniel McCallum <npmccallum@profian.com>",
+      "name": "ciborium-ll",
+      "version": "0.2.2",
+      "description": "Low-level CBOR codec primitives",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "57663b653d948a338bfb3eeba9bb2fd5fcfaecb9e199e87e1eda4d9e8b240fd9"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/ciborium-ll@0.2.2",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/enarx/ciborium"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/enarx/ciborium"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ciborium@0.2.2",
+      "author": "Nathaniel McCallum <npmccallum@profian.com>",
+      "name": "ciborium",
+      "version": "0.2.2",
+      "description": "serde implementation of CBOR using ciborium-basic",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "42e69ffd6f0917f5c029256a24d0161db17cea3997d185db0d35926308770f0e"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/ciborium@0.2.2",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/enarx/ciborium"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/enarx/ciborium"
         }
       ]
     },
@@ -1113,16 +1196,16 @@
     },
     {
       "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.3",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.5",
       "author": "Sam Rijs <srijs@airpost.net>, Alex Crichton <alex@alexcrichton.com>",
       "name": "crc32fast",
-      "version": "1.5.3",
+      "version": "1.5.5",
       "description": "Fast, SIMD-accelerated CRC32 (IEEE) checksum computation",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "0ba106e844045ddc02c20768ac4b0b7cb45f2cc2ecbd833ac9f5dacb183c2055"
+          "content": "2b929dd2a135771f40afabd1073f85eed59c800b7c61901e5c254270497dad64"
         }
       ],
       "licenses": [
@@ -1130,7 +1213,7 @@
           "expression": "MIT OR Apache-2.0"
         }
       ],
-      "purl": "pkg:cargo/crc32fast@1.5.3",
+      "purl": "pkg:cargo/crc32fast@1.5.5",
       "externalReferences": [
         {
           "type": "vcs",
@@ -1345,6 +1428,40 @@
         {
           "type": "vcs",
           "url": "https://github.com/RustCrypto/utils"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek-derive@0.1.1",
+      "name": "curve25519-dalek-derive",
+      "version": "0.1.1",
+      "description": "curve25519-dalek Derives",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/curve25519-dalek-derive@0.1.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/curve25519-dalek-derive"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek"
         }
       ]
     },
@@ -2044,6 +2161,33 @@
     },
     {
       "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#half@2.7.1",
+      "author": "Kathryn Long <squeeself@gmail.com>",
+      "name": "half",
+      "version": "2.7.1",
+      "description": "Half-precision floating point f16 and bf16 types for Rust implementing the IEEE 754-2008 standard binary16 and bfloat16 types.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6ea2d84b969582b4b1864a92dc5d27cd2b77b622a8d79306834f1be5ba20d84b"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/half@2.7.1",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/VoidStarKat/half-rs"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#hybrid-array@0.4.15",
       "author": "RustCrypto Developers",
       "name": "hybrid-array",
@@ -2450,15 +2594,15 @@
     },
     {
       "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive-backend@6.1.6",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive-backend@7.0.1",
       "name": "napi-derive-backend",
-      "version": "6.1.6",
+      "version": "7.0.1",
       "description": "Codegen backend for napi procedural macro",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f2639052c5aff9956a21d7b6202fc61d5e89c5f19c72d289b7a0641ea94e8159"
+          "content": "314cd6ca42bd978fd8bae84b4137e1322bbf3e83552fca8dbd7d18034188ff3a"
         }
       ],
       "licenses": [
@@ -2466,7 +2610,7 @@
           "expression": "MIT"
         }
       ],
-      "purl": "pkg:cargo/napi-derive-backend@6.1.6",
+      "purl": "pkg:cargo/napi-derive-backend@7.0.1",
       "externalReferences": [
         {
           "type": "website",
@@ -2480,16 +2624,16 @@
     },
     {
       "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive@3.6.13",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive@3.7.1",
       "author": "LongYinan <lynweklm@gmail.com>, Forehalo <forehalo@gmail.com>",
       "name": "napi-derive",
-      "version": "3.6.13",
+      "version": "3.7.1",
       "description": "N-API procedural macros",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "3ff48271a0f61abb83f3e2d1989fa71169143db95f6f948c3a8903961f2855dc"
+          "content": "94c8098ed9d61a1bbd019519c637817531b0e24023ef4b5678f2f0cbe24bed9c"
         }
       ],
       "licenses": [
@@ -2497,7 +2641,7 @@
           "expression": "MIT"
         }
       ],
-      "purl": "pkg:cargo/napi-derive@3.6.13",
+      "purl": "pkg:cargo/napi-derive@3.7.1",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2534,16 +2678,16 @@
     },
     {
       "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#napi@3.15.0",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#napi@3.16.2",
       "author": "Nathan Sobo <nathan@github.com>, Yinan Long <lynweklm@gmail.com>",
       "name": "napi",
-      "version": "3.15.0",
+      "version": "3.16.2",
       "description": "N-API bindings",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "6a746ad50efbfb632ade1de4025519a477decbbd798cea1a6ac41d7c44f80083"
+          "content": "567c62b9c2d0fae123713f766686ad66a2c75b45ba3ee01ed8b06a7e99bc435b"
         }
       ],
       "licenses": [
@@ -2551,7 +2695,7 @@
           "expression": "MIT"
         }
       ],
-      "purl": "pkg:cargo/napi@3.15.0",
+      "purl": "pkg:cargo/napi@3.16.2",
       "externalReferences": [
         {
           "type": "vcs",
@@ -3251,6 +3395,33 @@
     },
     {
       "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#safe_arch@1.2.0",
+      "author": "Lokathor <zefria@gmail.com>",
+      "name": "safe_arch",
+      "version": "1.2.0",
+      "description": "Crate that exposes `core::arch` safely via `#[cfg()]`.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "42c6efa15875e6ecb39ca61fb0b0c1a40b84fac5a5ffe71eef7d1000c8eb3f5f"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Zlib OR Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/safe_arch@1.2.0",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/Lokathor/safe_arch"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#semver@1.0.28",
       "author": "David Tolnay <dtolnay@gmail.com>",
       "name": "semver",
@@ -3762,6 +3933,33 @@
     },
     {
       "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#tinyvec@1.13.3",
+      "author": "Lokathor <zefria@gmail.com>",
+      "name": "tinyvec",
+      "version": "1.13.3",
+      "description": "`tinyvec` provides 100% safe vec-like data structures.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Zlib OR Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/tinyvec@1.13.3",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/Lokathor/tinyvec"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#tokio@1.54.1",
       "author": "Tokio Contributors <team@tokio.rs>",
       "name": "tokio",
@@ -4040,6 +4238,41 @@
     },
     {
       "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-normalization@0.1.26",
+      "author": "kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>",
+      "name": "unicode-normalization",
+      "version": "0.1.26",
+      "description": "This crate provides functions for normalization of Unicode strings, including Canonical and Compatible Decomposition and Recomposition, as described in Unicode Standard Annex #15. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "(MIT OR Apache-2.0) AND Unicode-3.0"
+        }
+      ],
+      "purl": "pkg:cargo/unicode-normalization@0.1.26",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/unicode-normalization/"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/unicode-rs/unicode-normalization"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/unicode-rs/unicode-normalization"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-segmentation@1.13.3",
       "author": "kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>",
       "name": "unicode-segmentation",
@@ -4102,63 +4335,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#unty@0.0.4",
-      "author": "Victor Koenders <bincode@trang.ar>",
-      "name": "unty",
-      "version": "0.0.4",
-      "description": "Explicitly types your generics",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
-        }
-      ],
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "purl": "pkg:cargo/unty@0.0.4",
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "https://github.com/bincode-org/unty"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#virtue@0.0.18",
-      "name": "virtue",
-      "version": "0.0.18",
-      "description": "A sinless derive macro helper",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
-        }
-      ],
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ],
-      "purl": "pkg:cargo/virtue@0.0.18",
-      "externalReferences": [
-        {
-          "type": "documentation",
-          "url": "https://docs.rs/virtue"
-        },
-        {
-          "type": "vcs",
-          "url": "https://github.com/bincode-org/virtue"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#wide@1.7.1",
       "author": "Lokathor <zefria@gmail.com>",
       "name": "wide",
@@ -4181,6 +4357,58 @@
         {
           "type": "vcs",
           "url": "https://github.com/Lokathor/wide"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy-derive@0.8.63",
+      "name": "zerocopy-derive",
+      "version": "0.8.63",
+      "description": "Custom derive for traits from the zerocopy crate",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "863ad3ac83293fb4d740aedbfdc9240dd8d1a50c1099acd76ce80ce7c7230c7f"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-2-Clause OR Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/zerocopy-derive@0.8.63",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/google/zerocopy"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.63",
+      "name": "zerocopy",
+      "version": "0.8.63",
+      "description": "Zerocopy makes zero-cost memory manipulation effortless. We write \"unsafe\" so you don't have to.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e5fe1f8f1b06191a00962174c61aa5005e0bb391a6d80d07e24d115c01a92ed8"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-2-Clause OR Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/zerocopy@0.8.63",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/google/zerocopy"
         }
       ]
     },
@@ -4280,34 +4508,38 @@
   ],
   "dependencies": [
     {
-      "ref": "path+file:///home/runner/work/warm/warm#writerslogic-warm@0.6.4",
+      "ref": "path+file:///home/runner/work/warm/warm#warm-rust@0.7.0",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#aes-gcm@0.11.1",
         "registry+https://github.com/rust-lang/crates.io-index#anyhow@1.0.104",
         "registry+https://github.com/rust-lang/crates.io-index#argon2@0.6.0",
-        "registry+https://github.com/rust-lang/crates.io-index#bincode@2.0.1",
+        "registry+https://github.com/rust-lang/crates.io-index#base64@0.23.1",
         "registry+https://github.com/rust-lang/crates.io-index#bytemuck@1.25.2",
-        "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.3",
+        "registry+https://github.com/rust-lang/crates.io-index#ciborium@0.2.2",
+        "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.5",
         "registry+https://github.com/rust-lang/crates.io-index#ed25519-dalek@3.0.0",
         "registry+https://github.com/rust-lang/crates.io-index#foldhash@0.2.0",
         "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.191",
         "registry+https://github.com/rust-lang/crates.io-index#lz4_flex@0.14.0",
+        "registry+https://github.com/rust-lang/crates.io-index#matrixmultiply@0.3.11",
         "registry+https://github.com/rust-lang/crates.io-index#memmap2@0.9.12",
         "registry+https://github.com/rust-lang/crates.io-index#nalgebra@0.35.0",
-        "registry+https://github.com/rust-lang/crates.io-index#napi@3.15.0",
+        "registry+https://github.com/rust-lang/crates.io-index#napi@3.16.2",
         "registry+https://github.com/rust-lang/crates.io-index#napi-build@2.6.0",
-        "registry+https://github.com/rust-lang/crates.io-index#napi-derive@3.6.13",
+        "registry+https://github.com/rust-lang/crates.io-index#napi-derive@3.7.1",
         "registry+https://github.com/rust-lang/crates.io-index#rand@0.10.3",
         "registry+https://github.com/rust-lang/crates.io-index#rayon@1.12.0",
         "registry+https://github.com/rust-lang/crates.io-index#rust-stemmers@1.2.0",
         "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
         "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154",
         "registry+https://github.com/rust-lang/crates.io-index#sha2@0.11.1",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
         "registry+https://github.com/rust-lang/crates.io-index#tempfile@3.27.0",
         "registry+https://github.com/rust-lang/crates.io-index#thiserror@2.0.21",
         "registry+https://github.com/rust-lang/crates.io-index#tokio@1.54.1",
         "registry+https://github.com/rust-lang/crates.io-index#tracing@0.1.44",
         "registry+https://github.com/rust-lang/crates.io-index#ts-rs@12.0.1",
+        "registry+https://github.com/rust-lang/crates.io-index#unicode-normalization@0.1.26",
         "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.1"
       ]
     },
@@ -4353,6 +4585,7 @@
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#base64ct@1.8.3",
         "registry+https://github.com/rust-lang/crates.io-index#blake2@0.11.0",
+        "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1",
         "registry+https://github.com/rust-lang/crates.io-index#password-hash@0.6.1"
       ]
     },
@@ -4360,21 +4593,10 @@
       "ref": "registry+https://github.com/rust-lang/crates.io-index#autocfg@1.5.1"
     },
     {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#base64@0.23.1"
+    },
+    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#base64ct@1.8.3"
-    },
-    {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#bincode@2.0.1",
-      "dependsOn": [
-        "registry+https://github.com/rust-lang/crates.io-index#bincode_derive@2.0.1",
-        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
-        "registry+https://github.com/rust-lang/crates.io-index#unty@0.0.4"
-      ]
-    },
-    {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#bincode_derive@2.0.1",
-      "dependsOn": [
-        "registry+https://github.com/rust-lang/crates.io-index#virtue@0.0.18"
-      ]
     },
     {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#bitflags@2.13.2"
@@ -4401,7 +4623,26 @@
       "ref": "registry+https://github.com/rust-lang/crates.io-index#chacha20@0.10.2",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5",
+        "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1",
         "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.10.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ciborium-io@0.2.2"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ciborium-ll@0.2.2",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#ciborium-io@0.2.2",
+        "registry+https://github.com/rust-lang/crates.io-index#half@2.7.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ciborium@0.2.2",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#ciborium-io@0.2.2",
+        "registry+https://github.com/rust-lang/crates.io-index#ciborium-ll@0.2.2",
+        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229"
       ]
     },
     {
@@ -4428,13 +4669,10 @@
       "ref": "registry+https://github.com/rust-lang/crates.io-index#cpubits@0.1.1"
     },
     {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1",
-      "dependsOn": [
-        "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.191"
-      ]
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1"
     },
     {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.3",
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.5",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5"
       ]
@@ -4479,9 +4717,19 @@
       ]
     },
     {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek-derive@0.1.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119"
+      ]
+    },
+    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek@5.0.0",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5",
+        "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1",
+        "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek-derive@0.1.1",
         "registry+https://github.com/rust-lang/crates.io-index#digest@0.11.3",
         "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.10.1",
         "registry+https://github.com/rust-lang/crates.io-index#rustc_version@0.4.1",
@@ -4620,6 +4868,13 @@
       "ref": "registry+https://github.com/rust-lang/crates.io-index#glam@0.33.12"
     },
     {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#half@2.7.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5",
+        "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.63"
+      ]
+    },
+    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#hybrid-array@0.4.15",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1"
@@ -4698,7 +4953,7 @@
       "ref": "registry+https://github.com/rust-lang/crates.io-index#napi-build@2.6.0"
     },
     {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive-backend@6.1.6",
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive-backend@7.0.1",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#convert_case@0.12.0",
         "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
@@ -4708,11 +4963,11 @@
       ]
     },
     {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive@3.6.13",
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#napi-derive@3.7.1",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#convert_case@0.12.0",
         "registry+https://github.com/rust-lang/crates.io-index#ctor@1.0.13",
-        "registry+https://github.com/rust-lang/crates.io-index#napi-derive-backend@6.1.6",
+        "registry+https://github.com/rust-lang/crates.io-index#napi-derive-backend@7.0.1",
         "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
         "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
         "registry+https://github.com/rust-lang/crates.io-index#syn@3.0.9"
@@ -4725,7 +4980,7 @@
       ]
     },
     {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#napi@3.15.0",
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#napi@3.16.2",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#bitflags@2.13.2",
         "registry+https://github.com/rust-lang/crates.io-index#ctor@1.0.13",
@@ -4873,6 +5128,12 @@
       ]
     },
     {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#safe_arch@1.2.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#bytemuck@1.25.2"
+      ]
+    },
+    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#semver@1.0.28"
     },
     {
@@ -4974,6 +5235,9 @@
       ]
     },
     {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#tinyvec@1.13.3"
+    },
+    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#tokio@1.54.1",
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#pin-project-lite@0.2.17"
@@ -5027,6 +5291,12 @@
       "ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-ident@1.0.27"
     },
     {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-normalization@0.1.26",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#tinyvec@1.13.3"
+      ]
+    },
+    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-segmentation@1.13.3"
     },
     {
@@ -5037,15 +5307,24 @@
       ]
     },
     {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#unty@0.0.4"
-    },
-    {
-      "ref": "registry+https://github.com/rust-lang/crates.io-index#virtue@0.0.18"
-    },
-    {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#wide@1.7.1",
       "dependsOn": [
-        "registry+https://github.com/rust-lang/crates.io-index#bytemuck@1.25.2"
+        "registry+https://github.com/rust-lang/crates.io-index#bytemuck@1.25.2",
+        "registry+https://github.com/rust-lang/crates.io-index#safe_arch@1.2.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy-derive@0.8.63",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.63",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#zerocopy-derive@0.8.63"
       ]
     },
     {

@@ -1,9 +1,4 @@
 [[IgnoredVulns]]
-id = "RUSTSEC-2025-0141"
-ignoreUntil = 2027-02-01
-reason = "Unmaintained-crate notice, no vulnerability. These CycloneDX inventories are hash-pinned records of the published writerslogic-warm 0.6.4 (see ../upstream.json) and cannot be edited here. bincode 2.0.1 is a runtime dependency of the Warm native binary. writerslogic/warm main removes bincode (92a544f9, version 0.6.5); bump writerslogic-warm and regenerate these inventories once 0.6.5 is published."
-
-[[IgnoredVulns]]
 id = "RUSTSEC-2026-0486"
 ignoreUntil = 2027-02-01
-reason = "rustix 1.1.5 unsoundness in getxattr/lgetxattr/fgetxattr/listxattr with a zero-length buffer; fixed in 1.1.6. These CycloneDX inventories are hash-pinned records of the published writerslogic-warm 0.6.4 (see ../upstream.json) and cannot be edited here. In the Warm native binary rustix is reached only through tempfile 3.27.0, which calls rustix open/rename/renameat/unlink/fstat and no xattr function. Drop this entry when writerslogic-warm is bumped and these inventories are regenerated."
+reason = "rustix 1.1.5 unsoundness in getxattr/lgetxattr/fgetxattr/listxattr with a zero-length buffer; fixed in 1.1.6. These CycloneDX inventories are hash-pinned records of the published writerslogic-warm 0.7.0 (see ../upstream.json) and cannot be edited here. In the Warm native binary rustix is reached only through tempfile 3.27.0, which calls rustix open/rename/renameat/unlink/fstat and no xattr function. Drop this entry when a writerslogic-warm release ships rustix >= 1.1.6 and these inventories are regenerated."

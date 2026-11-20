@@ -227,7 +227,7 @@ not discard generated prose.
 
 ### Warm memory integration (`src/services/memory/hhm/`)
 
-The pinned `writerslogic-warm` 0.6.4 dependency supplies platform binaries and its own types. A
+The pinned `writerslogic-warm` 0.7.0 dependency supplies platform binaries and its own types. A
 small CommonJS bridge resolves it relative to the installed server, independently of the client's
 working directory. It does not load an arbitrary module from the manuscript directory.
 
@@ -249,7 +249,7 @@ accompany results after a rename.
 
 The concept cache lives under `.scrivener-mcp/cache/passage-hms-v2`; configured models use
 `passage-warm-<configuration SHA-256>` alongside it. Compatible wrappers share a native owner;
-release drains work and flushes before dropping the reference. Warm 0.6.4 exposes no close method:
+release drains work and flushes before dropping the reference. Warm 0.7.0 exposes no close method:
 native OS locks can remain until garbage collection or process exit. Weak idle references allow
 same-process reuse without retaining every closed store indefinitely. Another server's native lock
 selects a process-local fallback; corruption and incompatible configurations fail explicitly.

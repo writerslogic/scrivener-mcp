@@ -205,7 +205,7 @@ You can also set custom metadata fields:
 
 ## Semantic Search
 
-Holographic Memory 0.6.4 is installed with the server and selects the published native binary for
+Holographic Memory 0.7.0 is installed with the server and selects the published native binary for
 your platform. Passage search combines BM25 with local story-concept vectors and returns exact
 quotations, source locations and saved revisions. `search_passages` and `semantic_search` work
 without an API key; provider-assisted interpretation and explanations are optional.
