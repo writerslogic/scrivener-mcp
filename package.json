@@ -81,7 +81,7 @@
 		"openai": "^7.61.0",
 		"pdf-lib": "^1.17.1",
 		"turndown": "^7.2.4",
-		"writerslogic-warm": "0.6.4",
+		"writerslogic-warm": "0.6.8",
 		"xml2js": "^0.6.2",
 		"zod": "^4.4.3"
 	},
@@ -96,7 +96,7 @@
 		"@typescript/native": "npm:typescript@^7.0.2",
 		"deepmerge": "file:vendor/deepmerge",
 		"domhandler": "^6.0.1",
-		"eslint": "^10.5.0",
+		"eslint": "^10.15.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-prettier": "^5.5.6",
 		"jest": "^30.4.2",
@@ -105,7 +105,7 @@
 		"ts-jest": "^29.4.14",
 		"tsx": "^4.22.4",
 		"typescript": "npm:@typescript/typescript6@^6.0.2",
-		"typescript-eslint": "~8.72.2"
+		"typescript-eslint": "~8.73.0"
 	},
 	"overrides": {
 		"js-yaml": "3.15.2",
