@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Fixed
+- Disposition remaining Scorecard Rust advisories
+- Open config and evidence inputs non-blocking so a FIFO cannot hang
+- Record OpenSSL 3.5.9 advisories as outside the Node runtime execute path
+- Clear CI advisory gate and open code scanning alerts
+
+### Deps
+- Hold typescript-eslint at 8.72.2 so npm 10 can install the lockfile
+- Bump minor and patch dependencies except writerslogic-warm
+## [0.14.0] - 2026-11-12
+
 ### Added
 - Integrate published Warm with offline model retrieval
 - Integrate C2PA readiness remediation
@@ -28,6 +39,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Consolidate result spooling and remove repository noise
 
 ### Documentation
+- Merge comparison statistics refresh
 - Correct tool counts, protocol-dependent loading and advisory exit paths
 - Remove retired Smithery installation
 - Point Draftbridge buyers to live checkout
@@ -38,6 +50,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Point Draftbridge buyers to live checkout (#180)
 
 ### Fixed
+- Preserve snapshot acknowledgments and release checks
+- Harden manuscript fidelity and revision-safe review
 - Return plain-object SQLite rows and drop better-sqlite3 API from Redis check
 - Record CLI-only SQLite CVE as not present in the 3.54.1 driver
 - Ship SQLite 3.54.1 by replacing better-sqlite3 with @photostructure/sqlite
