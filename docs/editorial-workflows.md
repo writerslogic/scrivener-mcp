@@ -168,7 +168,7 @@ search_passages({ query: 'betrayal', mode: 'semantic', limit: 5 });
 search_passages({ query: 'Mara', mode: 'keyword', contextChars: 400 });
 ```
 
-`search_passages` needs no provider key. Warm 0.6.4 combines document BM25 with supplied local
+`search_passages` needs no provider key. Warm 0.7.0 combines document BM25 with supplied local
 vectors. Without model configuration, those vectors cover 30 English story concepts; semantic mode
 can retrieve supported paraphrases with no shared query words. Keyword mode works for names and
 terms outside that vocabulary. Each response discloses its method and limitations.

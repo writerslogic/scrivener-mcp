@@ -34,7 +34,8 @@ entry beside the affected file that states its reason and exit path. Candidate u
 | ----------------- | ------------------------ | ---------------------------------------------- | ----------------------------------------------- |
 | RUSTSEC-2024-0370 | `proc-macro-error` 1.0.4 | build-time, via `c2pa` → `iref` 3              | removal from `static-regular-grammar`           |
 | RUSTSEC-2024-0436 | `paste` 1.0.15           | build-time, via `tokenizers` in narrative-lens | `pastey` alias, or `tokenizers` 1.0             |
-| RUSTSEC-2025-0141 | `bincode` 2.0.1          | runtime, in the Warm 0.6.4 native binary       | Warm 0.6.5 (bincode removed)                    |
+| RUSTSEC-2026-0486 | `rustix` 1.1.4/1.1.5     | runtime, via `tempfile` in the pinned editorial and Warm records; affected xattr reads unreachable | next bluepencil, narrative-lens and Warm releases with rustix ≥ 1.1.6 |
+| RUSTSEC-2026-0543 | `chrono` 0.4.45          | runtime, via `c2pa`, `lopdf`, `rasn`, `serde_with` in the c2pa binding | upstream migration off chrono |
 
 Exact-version vulnerability assessments are recorded in
 [VEX](assets/c2pa-supply-chain/vex.openvex.json); an exclusion does not establish that a dependency

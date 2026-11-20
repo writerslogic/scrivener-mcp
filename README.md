@@ -154,7 +154,7 @@ or `AI_PROVIDER=openrouter` (OpenRouter defaults to `anthropic/claude-sonnet-4.6
 outage — the server retries on the next one you've configured. If your MCP client supports
 [sampling](https://modelcontextprotocol.io/docs/concepts/sampling), chat-based features can run
 through the client's own model on legacy MCP connections, no separate key needed. MCP 2026-07-28 connections currently use configured providers for AI features; modern multi-round sampling is not implemented. Passage retrieval runs locally
-through Holographic Memory 0.6.4; interpretation and explanations are optional provider features.
+through Holographic Memory 0.7.0; interpretation and explanations are optional provider features.
 
 Keys are picked up automatically from:
 
@@ -215,7 +215,7 @@ project across sessions. Save a profile for a character once; a consistency chec
 catches contradictions — dialogue that doesn't sound like them, a limp that disappears for a
 chapter.
 
-**Search by meaning.** [Warm 0.6.4](https://www.npmjs.com/package/writerslogic-warm) combines native
+**Search by meaning.** [Warm 0.7.0](https://www.npmjs.com/package/writerslogic-warm) combines native
 BM25 with local embeddings and optional cross-encoder reranking. Configure local ONNX models for
 general semantic search; the default encoder covers a disclosed English story-concept vocabulary.
 Results include exact passages, locations and saved revisions; changed passages update incrementally.

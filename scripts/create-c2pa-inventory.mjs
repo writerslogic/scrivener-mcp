@@ -492,7 +492,8 @@ export function validateWarmProvenance(evidence, association, lock) {
 					`https://registry.npmjs.org/-/npm/v1/attestations/${item.package}@${item.version}` &&
 				SHA256.test(item.attestationSHA256) &&
 				item.workflow?.repository === 'https://github.com/writerslogic/warm' &&
-				item.workflow?.path === '.github/workflows/npm-packages.yml' &&
+				item.workflow?.path === '.github/workflows/release.yml' &&
+				item.workflow?.ref === `refs/tags/v${item.version}` &&
 				/^https:\/\/github\.com\/writerslogic\/warm\/actions\/runs\/[0-9]+\/attempts\/[0-9]+$/u.test(
 					item.run
 				),
@@ -602,7 +603,7 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 		requireCondition(
 			packageEvidence &&
 				evidence.file === `${packageName}-${association.version}.tgz.cdx.json` &&
-				evidence.artifact === 'npm-release-assets' &&
+				evidence.artifact === 'release-assets' &&
 				evidence.url === packageEvidence.run.replace(/\/attempts\/[0-9]+$/u, ''),
 			'INVALID_UPSTREAM_METADATA',
 			'Warm inventories must come from the locked tarball publishing run.'
@@ -618,7 +619,7 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 			document.bomFormat === 'CycloneDX' &&
 				Array.isArray(document.components) &&
 				document.metadata?.component?.name ===
-					(packageName === 'writerslogic-warm' ? 'warm' : 'writerslogic-warm') &&
+					(packageName === 'writerslogic-warm' ? 'warm' : 'warm-rust') &&
 				document.metadata.component.version === warmVersion,
 			'UPSTREAM_VERSION_MISMATCH',
 			'Warm inventory metadata must match the pinned npm version.'
@@ -671,7 +672,7 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 	const representative = components.find(
 		(component) =>
 			component.purl?.startsWith('pkg:cargo/') &&
-			!component.purl.startsWith('pkg:cargo/writerslogic-warm@')
+			!component.purl.startsWith('pkg:cargo/warm-rust@')
 	);
 	requireCondition(
 		representative && components.length <= 100_000,
@@ -685,7 +686,8 @@ async function supplementalInventories(root, stage, output, pkg, lock, provenanc
 	);
 	await writeJSON(join(output, 'warm-native.cdx.json'), combined);
 	return [
-		{ name: 'writerslogic-warm', version: warmVersion },
+		{ name: 'warm', version: warmVersion },
+		{ name: 'warm-rust', version: warmVersion },
 		{ name: representative.name, version: representative.version },
 	];
 }

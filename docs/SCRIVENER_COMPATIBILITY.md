@@ -37,7 +37,7 @@ verify Unicode and WAL recovery, and exercise rollback, reopen and competing-pro
 
 ## Format and fidelity coverage
 
-Warm 0.6.4 is a declared dependency. The release gate exercises its installed native binding and the
+Warm 0.7.0 is a declared dependency. The release gate exercises its installed native binding and the
 forced JavaScript fallback on every CI job. Local checks also verified native cross-process
 ownership and restart recovery, exact Unicode passage byte ranges, metadata/version retention and
 vector-store scope isolation. Published native packages cover eight OS/architecture tuples;

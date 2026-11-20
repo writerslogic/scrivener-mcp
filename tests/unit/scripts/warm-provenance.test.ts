@@ -21,7 +21,7 @@ function check(value: typeof evidence): string {
 it('binds every published Warm package to its locked tarball integrity and source commit', () => {
 	expect(check(evidence)).toBe('valid');
 });
-it.each(['missing', 'duplicate', 'integrity', 'commit', 'subject', 'workflow'])(
+it.each(['missing', 'duplicate', 'integrity', 'commit', 'subject', 'workflow', 'ref'])(
 	'rejects %s provenance',
 	(fault) => {
 		const changed = structuredClone(evidence);
@@ -33,6 +33,7 @@ it.each(['missing', 'duplicate', 'integrity', 'commit', 'subject', 'workflow'])(
 		if (fault === 'subject') changed.packages[0].subject.digest.sha512 = '0'.repeat(128);
 		if (fault === 'workflow')
 			changed.packages[0].workflow.repository = 'https://github.com/other/warm';
+		if (fault === 'ref') changed.packages[0].workflow.ref = 'refs/heads/main';
 		expect(check(changed)).toMatch(/INVALID_UPSTREAM_METADATA|UPSTREAM_VERSION_MISMATCH/);
 	}
 );

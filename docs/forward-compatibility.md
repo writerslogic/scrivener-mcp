@@ -102,7 +102,7 @@ compile alone does not establish protocol compatibility.
 
 ## Persistent state and desktop integration
 
-HMS uses the published 0.6.4 document contracts and validates native/fallback behavior through
+HMS uses the published 0.7.0 document contracts and validates native/fallback behavior through
 `node scripts/check-hms-compatibility.mjs`; no separate native-package checkout is required. The
 gate tests an unrelated launch directory, process restart, metadata and UTF-8 ranges, supplied
 embedding vectors, replacement/deletion and cross-process ownership. The package's feature-gated

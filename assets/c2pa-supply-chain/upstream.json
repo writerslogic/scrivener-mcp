@@ -16,67 +16,67 @@
       "sha256": "ecc6d03b039f7e563fcae5c58a388f8ff697254f48c5db773578e8ff0c9fd0b8"
     },
     "warm": {
-      "version": "0.6.4",
-      "commit": "3596f63e9442b51545fc0d1ad07c542e09a49719",
+      "version": "0.7.0",
+      "commit": "51a240ee20e7b8cc0f86825150287a95bb10b835",
       "basis": "npm SLSA provenance for all nine locked tarballs; matching tarballs and paired CycloneDX inventories from the publishing workflow artifact",
       "provenanceFile": "warm/npm-provenance.json",
-      "provenanceSHA256": "99247911784ae261917491f3239786ea5947868cbc422c3489716acbedc379f3"
+      "provenanceSHA256": "9242da5d4a0f1b1b4edf436da94f0f3bef863d40453458098c25a2645da13916"
     }
   },
   "warmInventories": [
     {
-      "file": "writerslogic-warm-0.6.4.tgz.cdx.json",
-      "sha256": "37bee4e3be8ee1873ffa7a88c11438fd8187cea449d270f07a60ab0d572d43ab",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-0.7.0.tgz.cdx.json",
+      "sha256": "63bead3eeb3af02f4397eb3092069e8993cc67e9c5d72dd3450e97e232c7700e",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-darwin-arm64-0.6.4.tgz.cdx.json",
-      "sha256": "0db93406ea7ca819ae11343295504dea0058a7b587a8de4db6b5f691b8ab5ae9",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-darwin-arm64-0.7.0.tgz.cdx.json",
+      "sha256": "078051bfb4b963b76a920860a27b8becd2b5e3dbe425c3c8224f5cff7ed909b4",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-darwin-x64-0.6.4.tgz.cdx.json",
-      "sha256": "849782c36ebf643560bc2b092c955ccfab0d7e6a8fcef4379ecfad67f7e05839",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-darwin-x64-0.7.0.tgz.cdx.json",
+      "sha256": "b66ef151a6c6c20d14ef43820a0f22cd0e1658e1731c2d91cb0f22364a7719b5",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-linux-arm64-gnu-0.6.4.tgz.cdx.json",
-      "sha256": "48eafc7da959d945da7866dee6fc7fec7944ab21109bb922a3d329501899a4ea",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-linux-arm64-gnu-0.7.0.tgz.cdx.json",
+      "sha256": "03f4e7dad89c15ab99817dd8a9ea90c4ebe89b3deaa17ea08d65a1d0e1d08440",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-linux-arm64-musl-0.6.4.tgz.cdx.json",
-      "sha256": "b35d79a6234134f36a224f1de7131d747734784495c576de1e50c8bb826e35ce",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-linux-arm64-musl-0.7.0.tgz.cdx.json",
+      "sha256": "1d53684c606d417ad01e21536b410494536e35b1b100ea1bc3fc125ad91ebb59",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-linux-x64-gnu-0.6.4.tgz.cdx.json",
-      "sha256": "26bbe32003308bd8ae78628b5a2ba127ae136b306acca22b7ae29b838befd033",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-linux-x64-gnu-0.7.0.tgz.cdx.json",
+      "sha256": "042ad081d797b73abd973b6f7f7b5384130aeb8938cabc44c6038a701cc88c5c",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-linux-x64-musl-0.6.4.tgz.cdx.json",
-      "sha256": "eea1f521d7f18cc5fec551f878683303f9373e04b4cc83a1fe8ce09c812c4b9c",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-linux-x64-musl-0.7.0.tgz.cdx.json",
+      "sha256": "13cecf5ae7d83546f2b73a22e984bcabee8cbb4b98c72ef6d4f13c060c362320",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-win32-arm64-msvc-0.6.4.tgz.cdx.json",
-      "sha256": "3eada90e5f986c0a65c8ab71518747360a1997db44bdd3de6910c90b7704a81a",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-win32-arm64-msvc-0.7.0.tgz.cdx.json",
+      "sha256": "94b1e04b1d238a4e4197406c1fd3c4a2954c463bdd9a34436c00966089b82a43",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     },
     {
-      "file": "writerslogic-warm-win32-x64-msvc-0.6.4.tgz.cdx.json",
-      "sha256": "70beb3a1190c285444976859aee1a88245c069e5e1f4e2a28663f6c72cc98c7b",
-      "url": "https://github.com/writerslogic/warm/actions/runs/41163657706",
-      "artifact": "npm-release-assets"
+      "file": "writerslogic-warm-win32-x64-msvc-0.7.0.tgz.cdx.json",
+      "sha256": "43f4baeab84a71b780105da8d490d10bf83b7a4f5e9587890d43e8e14d36ab8f",
+      "url": "https://github.com/writerslogic/warm/actions/runs/44476258540",
+      "artifact": "release-assets"
     }
   ]
 }
