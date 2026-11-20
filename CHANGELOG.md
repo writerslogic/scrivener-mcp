@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Clear CI advisory gate and open code scanning alerts
 
 ### Deps
+- Bump eslint to 10.15 and hold typescript-eslint 8.73 in Dependabot
 - Bump writerslogic-warm to 0.7.0 and repin its release evidence
 - Hold typescript-eslint at 8.72.2 so npm 10 can install the lockfile
 - Bump minor and patch dependencies except writerslogic-warm
