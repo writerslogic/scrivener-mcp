@@ -48,7 +48,7 @@ beforeEach(() => {
 	symlinkSync(
 		join(sourceRoot, 'node_modules', 'smol-toml'),
 		join(directory, 'node_modules', 'smol-toml'),
-		'dir'
+		'junction'
 	);
 });
 afterEach(() => rmSync(directory, { recursive: true, force: true }));

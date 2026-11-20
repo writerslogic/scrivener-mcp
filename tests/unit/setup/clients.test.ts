@@ -1,4 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
+import { homedir, tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parse } from 'smol-toml';
 import {
 	CLIENTS,
@@ -197,10 +199,10 @@ describe('Grok Build TOML config', () => {
 	it('honours GROK_HOME', () => {
 		const saved = process.env.GROK_HOME;
 		try {
-			process.env.GROK_HOME = '/custom/grok';
-			expect(grok.configPath()).toBe('/custom/grok/config.toml');
+			process.env.GROK_HOME = join(tmpdir(), 'custom-grok');
+			expect(grok.configPath()).toBe(join(tmpdir(), 'custom-grok', 'config.toml'));
 			process.env.GROK_HOME = '  ';
-			expect(grok.configPath()).toMatch(/\.grok\/config\.toml$/);
+			expect(grok.configPath()).toBe(join(homedir(), '.grok', 'config.toml'));
 		} finally {
 			if (saved === undefined) delete process.env.GROK_HOME;
 			else process.env.GROK_HOME = saved;
