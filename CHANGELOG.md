@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Add OAuth sign-in with on-Mac approval to HTTP mode
+- Add an authenticated HTTP mode for remote MCP clients
+- Print a TOML entry for Grok Build
+- Add Grok Build as a setup client
+
+### Documentation
+- Describe OAuth sign-in for HTTP mode
+
 ### Fixed
 - Accept the Warm 0.7 line and its renamed native SBOM component
 - Disposition remaining Scorecard Rust advisories
