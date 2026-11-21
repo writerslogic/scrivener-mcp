@@ -400,6 +400,13 @@ npx scrivener-mcp --http            # listens on http://127.0.0.1:3917/mcp
   allow exactly that name.
 - **Options.** `--port N` (or `SCRIVENER_MCP_PORT`), `--host ADDR` to listen on another interface,
   `--allowed-origin NAME` for a browser client on another site.
+- **Sign-in for connector apps.** Apps such as the Grok app add a server by URL and sign in with
+  OAuth instead of a token. Start the server with its public address,
+  `npx scrivener-mcp --http --public-url https://your-name.trycloudflare.com`, and add
+  `https://your-name.trycloudflare.com/mcp` as a custom connector. When the app opens its sign-in
+  page, the terminal asks you to allow it; check that the code it shows matches the page. With
+  `--public-url` the `/mcp/<token>` form is turned off. Draftbridge runs this for you with
+  `--control stdio`, answering sign-in requests in its own window.
 
 Anyone with the URL and token can read and edit the projects this server can reach while it runs.
 Stop the server when you are done, and delete `~/.scrivener-mcp/http-token` to revoke the token.

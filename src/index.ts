@@ -5,6 +5,7 @@
 
 import { createRequire } from 'module';
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 const _require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = _require('../package.json') as { version: string };
@@ -59,8 +60,11 @@ import {
 	resolveToken,
 	serveHttp,
 	tokenFile,
+	dataDirectory,
 	type HttpHandle,
 } from './http-server.js';
+import { OAuthServer } from './http-auth.js';
+import { jsonLineChannel, terminalChannel, type ControlChannel } from './http-approval.js';
 
 // SDK 2.4 validates the opening revision but not subsequent pinned stdio requests.
 class RevisionCheckedTransport extends StdioServerTransport {
@@ -457,14 +461,38 @@ async function main() {
 			toolsChanged: () => httpHandle?.toolsChanged(),
 		};
 		const token = resolveToken();
+		let oauth: OAuthServer | undefined;
+		let control: ControlChannel | undefined;
+		if (httpArgs.control === 'stdio') control = jsonLineChannel();
+		else if (httpArgs.publicUrl && process.stdin.isTTY) control = terminalChannel();
+		if (httpArgs.publicUrl) {
+			if (!control)
+				throw new HttpUsageError(
+					'Sign-in approval needs a terminal, or --control stdio from a supervising app.'
+				);
+			oauth = new OAuthServer({
+				issuer: httpArgs.publicUrl,
+				storePath: join(dataDirectory(), 'http-oauth.json'),
+				channel: control,
+			});
+			control.attach(oauth);
+		}
 		httpHandle = await serveHttp(
 			({ era }) => buildServer(era === 'modern', shared),
-			{ ...httpArgs, token },
+			{ ...httpArgs, token, oauth },
 			(error) => logger.warn('MCP HTTP request rejected', { reason: error.message })
 		);
 		logger.info('Scrivener MCP Server started', { transport: 'http', url: httpHandle.url });
+		control?.ready(
+			httpArgs.publicUrl ? new URL('/mcp', httpArgs.publicUrl).href : httpHandle.url
+		);
 		// The token is a secret: show it only to a person at a terminal, never to a log file.
-		if (process.stderr.isTTY && !process.env.SCRIVENER_MCP_TOKEN)
+		if (process.stderr.isTTY && httpArgs.publicUrl)
+			process.stderr.write(
+				`\nScrivener MCP is ready at ${new URL('/mcp', httpArgs.publicUrl).href}\n` +
+					'Add that URL as a custom connector in your AI app, then approve its sign-in here.\n\n'
+			);
+		else if (process.stderr.isTTY && !process.env.SCRIVENER_MCP_TOKEN)
 			process.stderr.write(
 				`\nScrivener MCP is listening on ${httpHandle.url}\n` +
 					`Send "Authorization: Bearer <token>", or use ${httpHandle.url}/<token> where a\n` +
@@ -523,7 +551,7 @@ async function shutdown(): Promise<void> {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 // A stdio client ends the session by closing stdin; an HTTP server may run with no stdin at all.
-if (!httpArgs) process.stdin.once('end', shutdown);
+if (!httpArgs || httpArgs.control === 'stdio') process.stdin.once('end', shutdown);
 
 // Error handling
 process.on('uncaughtException', (error) => {
