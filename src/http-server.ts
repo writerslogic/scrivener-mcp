@@ -10,9 +10,13 @@ import {
 	hostHeaderValidationResponse,
 	localhostAllowedHostnames,
 	localhostAllowedOrigins,
+	bearerAuthChallengeResponse,
 	originValidationResponse,
+	verifyBearerToken,
+	type AuthInfo,
 	type McpServerFactory,
 } from '@modelcontextprotocol/server';
+import type { OAuthServer } from './http-auth.js';
 
 export const DEFAULT_HTTP_PORT = 3917;
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
@@ -26,16 +30,21 @@ export interface HttpOptions {
 	allowedHosts: string[];
 	/** Extra browser Origin hostnames to accept. */
 	allowedOrigins: string[];
+	/** Public HTTPS origin (a tunnel). Enables OAuth sign-in and retires the token-in-path form. */
+	publicUrl?: URL;
+	/** `stdio`: a supervising app approves sign-ins over JSON lines and stops the server by closing stdin. */
+	control?: 'stdio';
+	oauth?: OAuthServer;
 }
 
 export class HttpUsageError extends Error {}
 
-function dataDir(): string {
+export function dataDirectory(): string {
 	return process.env.SCRIVENER_DATA_DIR || join(homedir(), '.scrivener-mcp');
 }
 
 export function tokenFile(): string {
-	return join(dataDir(), 'http-token');
+	return join(dataDirectory(), 'http-token');
 }
 
 /** SCRIVENER_MCP_TOKEN, else the persisted token, else a new one stored with owner-only access. */
@@ -60,7 +69,7 @@ export function resolveToken(env: NodeJS.ProcessEnv = process.env): string {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 	}
 	const token = randomBytes(32).toString('base64url');
-	mkdirSync(dataDir(), { recursive: true, mode: 0o700 });
+	mkdirSync(dataDirectory(), { recursive: true, mode: 0o700 });
 	const fd = openSync(file, 'wx', 0o600);
 	try {
 		writeFileSync(fd, `${token}\n`);
@@ -104,7 +113,29 @@ export function parseHttpArgs(
 		else if (arg === '--host') options.host = value();
 		else if (arg === '--allowed-host') options.allowedHosts.push(hostname(value(), arg));
 		else if (arg === '--allowed-origin') options.allowedOrigins.push(hostname(value(), arg));
-		else throw new HttpUsageError(`Unknown option ${arg}.`);
+		else if (arg === '--control') {
+			if (value() !== 'stdio') throw new HttpUsageError('--control supports only "stdio".');
+			options.control = 'stdio';
+		} else if (arg === '--public-url') {
+			const raw = value();
+			let url: URL;
+			try {
+				url = new URL(raw);
+			} catch {
+				throw new HttpUsageError(`--public-url expects an https URL, got "${raw}".`);
+			}
+			const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+			if (
+				(url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) ||
+				url.username ||
+				url.password ||
+				(url.pathname !== '/' && url.pathname !== '') ||
+				url.search
+			)
+				throw new HttpUsageError(`--public-url expects a bare https origin, got "${raw}".`);
+			options.publicUrl = new URL(url.origin);
+			options.allowedHosts.push(url.hostname);
+		} else throw new HttpUsageError(`Unknown option ${arg}.`);
 	}
 	if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535)
 		throw new HttpUsageError(
@@ -116,13 +147,18 @@ export function parseHttpArgs(
 const digest = (value: string): Buffer => createHash('sha256').update(value).digest();
 
 /** Accepts `Authorization: Bearer <token>` on /mcp, or the token as the last path segment. */
-function authorized(url: URL, header: string | null, expected: Buffer): boolean | null {
+function authorized(
+	url: URL,
+	header: string | null,
+	expected: Buffer,
+	allowPathToken: boolean
+): boolean | null {
 	const path = url.pathname.replace(/\/+$/, '');
 	let presented: string | undefined;
 	if (path === '/mcp') {
 		const match = header?.match(/^Bearer\s+(\S+)$/i);
 		presented = match?.[1];
-	} else if (path.startsWith('/mcp/') && !path.slice(5).includes('/')) {
+	} else if (allowPathToken && path.startsWith('/mcp/') && !path.slice(5).includes('/')) {
 		try {
 			presented = decodeURIComponent(path.slice(5));
 		} catch {
@@ -203,22 +239,40 @@ export async function serveHttp(
 	const hosts = [...localhostAllowedHostnames(), ...options.allowedHosts];
 	const origins = [...localhostAllowedOrigins(), ...options.allowedOrigins];
 
+	const { oauth } = options;
 	const route = async (request: Request): Promise<Response> => {
-		const rejected =
-			hostHeaderValidationResponse(request, hosts) ??
-			originValidationResponse(request, origins);
-		if (rejected) return rejected;
-		const verdict = authorized(
-			new URL(request.url),
-			request.headers.get('authorization'),
-			expected
-		);
+		const hostRejected = hostHeaderValidationResponse(request, hosts);
+		if (hostRejected) return hostRejected;
+		// The OAuth endpoints are public by design and are called from the AI app's servers or
+		// its web page, so they answer any Origin; the MCP endpoint itself does not.
+		if (oauth) {
+			const answer = await oauth.handle(request);
+			if (answer) return answer;
+		}
+		const originRejected = originValidationResponse(request, origins);
+		if (originRejected) return originRejected;
+		const url = new URL(request.url);
+		const header = request.headers.get('authorization');
+		const verdict = authorized(url, header, expected, !options.publicUrl);
 		if (verdict === null) return jsonError(404, 'Not found. The MCP endpoint is /mcp.');
-		if (!verdict)
+		if (verdict) return handler.fetch(request);
+		if (!oauth)
 			return jsonError(401, 'Missing or invalid access token.', {
 				'WWW-Authenticate': 'Bearer realm="scrivener-mcp"',
 			});
-		return handler.fetch(request);
+		let authInfo: AuthInfo;
+		try {
+			authInfo = await verifyBearerToken(header, {
+				verifier: oauth,
+				expectedResource: oauth.resource,
+				resourceMetadataUrl: oauth.resourceMetadataUrl,
+			});
+		} catch (error) {
+			return bearerAuthChallengeResponse(error, {
+				resourceMetadataUrl: oauth.resourceMetadataUrl,
+			});
+		}
+		return handler.fetch(request, { authInfo });
 	};
 
 	const server = createServer((req, res) => {
