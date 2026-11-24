@@ -15,6 +15,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 - Describe OAuth sign-in for HTTP mode
 
 ### Fixed
+- Record the Ubuntu reference build of the C2PA binding
+- Build the C2PA binding with url 2.5.9
 - Pin the C2PA inventory to asn1js 4.1.0
 - Record OpenSSL 3.5.9 and Rust url/cookie advisories as unreachable
 - Drop the binder entry when removing a folder's only child
