@@ -12,3 +12,8 @@ reason = "Unmaintained-crate notice, no vulnerability. proc-macro-error 1.0.4 is
 id = "RUSTSEC-2026-0543"
 ignoreUntil = 2027-02-01
 reason = "Unmaintained-crate notice, no vulnerability. chrono 0.4.45 is required by c2pa 0.91.7, lopdf, rasn and serde_with as well as this binding, so replacing the binding's own use with jiff or time would not remove it. Reassess on any c2pa upgrade or if a vulnerability advisory is filed against chrono."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0592"
+ignoreUntil = 2027-02-01
+reason = "url 2.5.8 stack overflow in Url::origin() on nested blob: URLs; fixed in 2.5.9. c2pa 0.91.7 is the only crate in this lock that depends on url, and neither it (vendored c2pa-0.91.7.crate) nor src/lib.rs calls Url::origin(); c2pa only parses and serializes URLs. Moving to 2.5.9 changes the reproducible binding build record, so take it with the next binding rebuild or c2pa upgrade, before expiry."

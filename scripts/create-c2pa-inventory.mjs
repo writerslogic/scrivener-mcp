@@ -755,9 +755,9 @@ export async function createC2paInventory(options) {
 				validVersion(pkg.version) &&
 				object(lock.packages) &&
 				lock.packages['']?.version === pkg.version &&
-				lock.packages['node_modules/asn1js']?.version === '4.0.0',
+				lock.packages['node_modules/asn1js']?.version === '4.1.0',
 			'PACKAGE_LOCK_MISMATCH',
-			'Package metadata and npm lock must agree and include asn1js 4.0.0.'
+			'Package metadata and npm lock must agree and include asn1js 4.1.0.'
 		);
 		try {
 			await checkC2paBinding(root);
