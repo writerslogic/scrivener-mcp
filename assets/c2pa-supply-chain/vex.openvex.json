@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/writerslogic/scrivener-mcp/security/vex/2026-11-03/dependencies",
   "author": "WritersLogic, Inc.",
-  "timestamp": "2026-11-20T06:21:36.000Z",
-  "version": 8,
+  "timestamp": "2026-11-24T05:58:12.000Z",
+  "version": 9,
   "statements": [
     {
       "vulnerability": {
@@ -209,6 +209,118 @@
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "CMS_encrypt()/CMS_encrypt_ex() infinite loop. Node exposes no CMS API (nodejs/node src contains no CMS_ calls), and the advisory states the OpenSSL TLS and QUIC implementations do not use this path. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261110.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-107493",
+        "name": "CVE-2026-107493"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "PEM_X509_INFO_read_bio_ex() use-after-free when the caller passes an existing stack and the read fails. Node src contains no PEM_X509_INFO_* call (it loads certificates with PEM_read_bio_X509), and the advisory states OpenSSL's own callers always pass NULL. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261117.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-107494",
+        "name": "CVE-2026-107494"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Unbounded RETIRE_CONNECTION_ID queueing in the OpenSSL QUIC stack. Node does not use the OpenSSL QUIC stack: its experimental node:quic is built on ngtcp2 (src/quic) and node src references no OSSL_QUIC method. scrivener-mcp never imports node:quic or passes --experimental-quic. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://github.com/openssl/openssl/pull/33544"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-121482",
+        "name": "CVE-2026-121482"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Quadratic CPU when verifying CMS/PKCS#7 SignedData with CRL checking. Node exposes no CMS or PKCS#7 verification API (no CMS_ or PKCS7_ calls in node src); content credentials are verified by the c2pa WebAssembly binding, which does not link Node OpenSSL. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://github.com/openssl/openssl/pull/33546"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-124709",
+        "name": "CVE-2026-124709"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Stream-state leak in an OpenSSL QUIC server. Node does not use the OpenSSL QUIC stack: its experimental node:quic is built on ngtcp2 (src/quic) and node src references no OSSL_QUIC method. scrivener-mcp never imports node:quic or passes --experimental-quic. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261117.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-35190",
+        "name": "CVE-2026-35190"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Out-of-bounds read only when a server sets SSL_CERT_FLAG_SUITEB_* through SSL_CTX_set_cert_flags() with TLS 1.3 enabled. Node src never calls SSL_CTX_set_cert_flags or SSL_set_cert_flags, and the advisory states default configurations do not reach this code. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261117.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-84786",
+        "name": "CVE-2026-84786"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "NULL dereference in a DANE-enabled TLS client. Node src makes no SSL_dane_* call, so DANE is never enabled on Node TLS connections. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://github.com/openssl/openssl/pull/33634"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-88822",
+        "name": "CVE-2026-88822"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "Uninitialized peer address from OpenSSL QUIC automatic peer detection. Node does not use the OpenSSL QUIC stack: its experimental node:quic is built on ngtcp2 (src/quic) and node src references no OSSL_QUIC method. scrivener-mcp never imports node:quic or passes --experimental-quic. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://openssl-library.org/news/secadv/20261110.txt"
+    },
+    {
+      "vulnerability": {
+        "@id": "https://nvd.nist.gov/vuln/detail/CVE-2026-95690",
+        "name": "CVE-2026-95690"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.5.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "DTLS out-of-sequence fragment buffering memory growth; the advisory states TLS and QUIC are unaffected. Node 22 and 24 contain no DTLS code. Node 26 adds node:dtls (src/dtls) only behind --experimental-dtls; scrivener-mcp and its dependencies never import node:dtls or pass that flag. Checked against nodejs/node src and deps/ncrypto at v22.23.4, v24.22.3 and v26.13.1. Applies to the OpenSSL 3.5.9 bundled in the supported Node runtime until a Node release ships OpenSSL >= 3.5.10; remove this statement then. https://github.com/openssl/openssl/pull/33620"
     }
   ]
 }
