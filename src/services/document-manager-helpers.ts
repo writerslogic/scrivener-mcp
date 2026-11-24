@@ -157,10 +157,12 @@ export function removeBinderItem(container: BinderContainer, id: string): Binder
 	if (index >= 0) {
 		const [removed] = items.splice(index, 1);
 
+		// xml2js parses a lone child as an object; a null left in its place serializes as
+		// an empty <BinderItem/>, which Scrivener rejects as a corrupt project.
 		if (Array.isArray(container.BinderItem)) {
 			container.BinderItem = items;
 		} else {
-			container.BinderItem = items[0] || null;
+			delete container.BinderItem;
 		}
 
 		return removed;
