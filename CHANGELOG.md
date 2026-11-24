@@ -5,7 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) +
 [Conventional Commits](https://www.conventionalcommits.org/).
 ## [Unreleased]
 
+### Added
+- Add OAuth sign-in with on-Mac approval to HTTP mode
+- Add an authenticated HTTP mode for remote MCP clients
+- Print a TOML entry for Grok Build
+- Add Grok Build as a setup client
+
+### Documentation
+- Describe OAuth sign-in for HTTP mode
+
 ### Fixed
+- Pin the C2PA inventory to asn1js 4.1.0
+- Record OpenSSL 3.5.9 and Rust url/cookie advisories as unreachable
+- Drop the binder entry when removing a folder's only child
 - Accept the Warm 0.7 line and its renamed native SBOM component
 - Disposition remaining Scorecard Rust advisories
 - Open config and evidence inputs non-blocking so a FIFO cannot hang
