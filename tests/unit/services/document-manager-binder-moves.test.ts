@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { Builder } from 'xml2js';
 import { DocumentManager } from '../../../src/services/document-manager.js';
 
 const DOC = '11111111-1111-4111-8111-111111111111';
@@ -106,9 +107,35 @@ describe('DocumentManager binder moves', () => {
 		await manager.moveDocument(DOC, null, 0);
 		expect(singleton.ScrivenerProject.Binder.BinderItem).toEqual([
 			{ UUID: DOC, Type: 'Text' },
-			{ UUID: FOLDER, Type: 'Folder', Children: { BinderItem: null } },
+			{ UUID: FOLDER, Type: 'Folder', Children: {} },
 		]);
 	});
+
+	it.each(['move', 'delete'] as const)(
+		'serializes a folder emptied by %s of its only child without an empty BinderItem',
+		async (operation) => {
+			const project = {
+				ScrivenerProject: {
+					Binder: {
+						BinderItem: [
+							{
+								UUID: FOLDER,
+								Type: 'Folder',
+								Children: { BinderItem: { UUID: DOC, Type: 'Text' } },
+							},
+							{ UUID: OTHER_DOC, Type: 'Folder', Children: { BinderItem: [] } },
+						],
+					},
+				},
+			};
+			manager.setProjectStructure(project);
+			if (operation === 'move') await manager.moveDocument(DOC, OTHER_DOC);
+			else await manager.deleteDocument(DOC);
+
+			const xml = new Builder().buildObject(project);
+			expect(xml).not.toMatch(/<BinderItem\s*\/>/);
+		}
+	);
 
 	it('leaves the document in place when the target parent is unknown or not a folder', async () => {
 		await expect(manager.moveDocument(DOC, MISSING)).rejects.toThrow();
