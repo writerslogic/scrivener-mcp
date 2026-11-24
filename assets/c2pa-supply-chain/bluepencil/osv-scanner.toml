@@ -2,3 +2,13 @@
 id = "RUSTSEC-2026-0486"
 ignoreUntil = 2027-02-01
 reason = "rustix 1.1.4 unsoundness in getxattr/lgetxattr/fgetxattr/listxattr with a zero-length buffer; fixed in 1.1.6. This Cargo.lock is the hash-pinned build record of the published bluepencil 0.2.0 (see ../upstream.json) and cannot be edited here. rustix is reached only through tempfile (create/remove) and terminal_size via clap_builder (terminal ioctl); neither calls the affected xattr functions. Refresh this record when bluepencil next publishes with rustix >= 1.1.6."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0594"
+ignoreUntil = 2027-02-01
+reason = "cookie 0.18.2 private-cookie nonce reuse after fork; fixed in 0.18.3. This Cargo.lock is the hash-pinned build record of the published bluepencil 0.2.0 (see ../upstream.json) and cannot be edited here. cookie is reached only through ureq -> cookie_store, and its locked dependencies (percent-encoding, time, version_check) show the private/signed features, which need aes-gcm and hmac, are not compiled. Refresh this record when bluepencil next publishes with cookie >= 0.18.3."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0592"
+ignoreUntil = 2027-02-01
+reason = "url 2.5.8 stack overflow in Url::origin() on nested blob: URLs; fixed in 2.5.9. This Cargo.lock is the hash-pinned build record of the published bluepencil 0.2.0 (see ../upstream.json) and cannot be edited here. url is used by bluepencil, cookie_store 0.22.1 and lsp-types 0.94.1; none calls Url::origin() (checked at bluepencil commit 5638bf2 and in both published crates). Refresh this record when bluepencil next publishes with url >= 2.5.9."
