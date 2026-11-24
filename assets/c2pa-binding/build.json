@@ -12,8 +12,8 @@
   "artifacts": [
     {
       "file": "binding_bg.wasm",
-      "bytes": 8816178,
-      "sha256": "84f7bb85c031172f90b4139061f036b9ac5476383f79f6fe09f5741760cd7ca6"
+      "bytes": 8816903,
+      "sha256": "341e48069b2be588a5ab81c7a90c06af23a936a843adceaf6b527b4ab57618d3"
     },
     {
       "file": "binding_bg.wasm.d.ts",
@@ -45,7 +45,7 @@
     {
       "file": "native/c2pa-binding/Cargo.lock",
       "bytes": 86465,
-      "sha256": "f2007802edb8f19c79407a4ca0aa0a074078abd1325597aa004feeb22b698a19"
+      "sha256": "fe8a96ee2fda4a6ce09febc5f0fba068a5994cc9de16c9e770b41f3d9b3d87a2"
     },
     {
       "file": "native/c2pa-binding/src/lib.rs",
